@@ -1,7 +1,7 @@
 # Job config.
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster phi3-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

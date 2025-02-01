@@ -1,7 +1,7 @@
 # Job config to eval Qwen2 VL 2B Instruct on GCP.
 #
 # Usage:
-#   oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/gcp_job.yaml --cluster qwen2-vl-eval
+#   oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/gcp_job.yaml --cluster qwen2-vl-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

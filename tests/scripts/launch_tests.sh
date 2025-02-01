@@ -10,7 +10,6 @@ export E2E_USE_SPOT_VM=0 # Whether to use Spot VMs.
 
 declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
 
-
 for CURR_GPU_NAME in "${accelerators_arr[@]}"
 do
    echo "Testing with accelerator: ${CURR_GPU_NAME} ..."
