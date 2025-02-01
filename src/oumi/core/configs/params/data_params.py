@@ -1,5 +1,19 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Literal, Optional, Union
 
@@ -149,6 +163,17 @@ class DatasetParams(BaseParams):
                 raise ValueError(
                     "Non-positive value of transform_num_workers: "
                     f"{self.transform_num_workers}."
+                )
+
+        if len(self.dataset_kwargs) > 0:
+            conflicting_keys = {f.name for f in fields(self)}.intersection(
+                self.dataset_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "dataset_kwargs attempts to override the following "
+                    f"reserved fields: {conflicting_keys}. "
+                    "Use properties of DatasetParams instead."
                 )
 
 

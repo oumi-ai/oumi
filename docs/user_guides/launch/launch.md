@@ -57,7 +57,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 500 # Disk size in GBs
 
@@ -70,7 +70,7 @@ working_dir: .
 #   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
-# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
 # storage_mounts:
 #   /gcs_dir:
 #     source: gs://<your-bucket>
@@ -108,7 +108,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 500 # Disk size in GBs
 
@@ -121,7 +121,7 @@ working_dir: .
 #   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
-# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
 # storage_mounts:
 #   /gcs_dir:
 #     source: gs://<your-bucket>
@@ -159,7 +159,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 500 # Disk size in GBs
 
@@ -172,7 +172,7 @@ working_dir: .
 #   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
-# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
 # storage_mounts:
 #   /gcs_dir:
 #     source: gs://<your-bucket>
@@ -210,7 +210,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 500 # Disk size in GBs
 
@@ -223,7 +223,7 @@ working_dir: .
 #   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
-# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
 # storage_mounts:
 #   /gcs_dir:
 #     source: gs://<your-bucket>
@@ -261,7 +261,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 500 # Disk size in GBs
 
@@ -274,7 +274,7 @@ working_dir: .
 #   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
-# For more details, see https://oumi.ai/docs/latest/user_guides/launch/launch.html.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
 # storage_mounts:
 #   /gcs_dir:
 #     source: gs://<your-bucket>
@@ -375,9 +375,6 @@ To find out more about the GPUs available on your cloud provider, you can use sk
 sky show-gpus
 ```
 
-If you made any code changes to the oumi codebase (not including configs), you need to run
-`pip install '.'` in the `run` section of the job config to install the
-changes on the cluster.
 :::
 
 :::{tab-item} Python
@@ -410,11 +407,12 @@ To find out more about the GPUs available on your cloud provider, you can use sk
 sky show-gpus
 ```
 
-If you made any code changes to the oumi codebase (not including configs), you need to run
-`pip install '.'` in the `run` section of the job config to install the
-changes on the cluster.
 :::
 ::::
+
+### Code Development
+
+You can use the Oumi job launcher as part of your development process using Oumi if your code changes need to be tested outside your local machine. First, make sure to follow the {doc}`/development/dev_setup` guide to install Oumi from source. Then, make sure your job config uses `pip install -e .` instead of `pip install oumi` in the setup section. This lets the job pick up on your local changes by installing Oumi from source, in addition to automatically applying your code changes on the remote machine with the editable installation.
 
 #### Spot instances
 

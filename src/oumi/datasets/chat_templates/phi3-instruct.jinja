@@ -1,5 +1,4 @@
-{% set image_token = '<|image_1|>' %}
-
+{%- set vars = namespace(next_image_id=1) -%}
 {%- for message in messages -%}
     {{ '<|' + message['role'] + '|>' + '\n' }}
 
@@ -10,7 +9,8 @@
             {%- if content['type'] == 'text' -%}
                 {{ content['content'] }}
             {%- elif content['type'].startswith('image') -%}
-                {{ image_token }}
+                {{ '<|image_{i:d}|>'.format(i=vars.next_image_id) }}
+                {%- set vars.next_image_id = vars.next_image_id + 1 -%}
             {%- endif -%}
         {%- endfor -%}
     {%- endif -%}

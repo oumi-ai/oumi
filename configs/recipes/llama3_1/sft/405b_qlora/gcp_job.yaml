@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to FSDP QLoRA tune Llama 3.1 405B Instruct.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to FSDP QLoRA tune Llama 3.1 405B Instruct.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
 name: llama405b-qlora-fsdp
 
 resources:
@@ -12,7 +17,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 4000 # Disk size in GBs
 
@@ -35,7 +40,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Download the model from HF.
   # We exclude original/* because it contains two redundant copies of the model weights.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*

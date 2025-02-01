@@ -1,10 +1,15 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to full fine-tune Deepseek R1 Distill Llama 3.1 8B.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_8b/full_gcp_job.yaml --cluster deepseek-r1-llama8b-fft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to full fine-tune Deepseek R1 Distill Llama 3.1 8B.
-# Example command:
-# oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_8b/full_gcp_job.yaml --cluster deepseek-r1-llama8b-sft
-name: deepseek-r1-distill-llama8b-sft
+name: deepseek-r1-distill-llama8b-fft
 
 resources:
   cloud: gcp
@@ -16,7 +21,6 @@ working_dir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -24,7 +28,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Llama-8B

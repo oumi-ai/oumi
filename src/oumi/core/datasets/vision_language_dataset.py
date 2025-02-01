@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import copy
 from abc import ABC, abstractmethod
 from typing import NamedTuple, Optional
@@ -334,17 +348,18 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
         # Generates the prompt using the chat template
         # including image placeholders for each image in the conversation
-        texts = []
+        messages = []
         for turn in conversation.messages:
             if turn.contains_text() or turn.contains_images():
-                texts.append(turn)
+                messages.append(turn)
             else:
                 raise ValueError(
-                    f"Unsupported message: {turn.id}. "
-                    "Contains no text and no images."
+                    f"Unsupported message: {turn.id}. Contains no text and no images."
                 )
 
-        text = self._processor.apply_chat_template(texts, add_generation_prompt=False)
+        text_prompt = self._processor.apply_chat_template(
+            messages, add_generation_prompt=False
+        )
 
         # Loads the images from the conversation
         image_items = [
@@ -352,7 +367,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         ]
         images = [self._load_image(item) for item in image_items]
 
-        return images, text
+        return images, text_prompt
 
     def _load_image(self, image_item: ContentItem) -> Image.Image:
         """Loads an image from a message.

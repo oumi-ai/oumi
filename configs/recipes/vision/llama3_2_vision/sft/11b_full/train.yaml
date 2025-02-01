@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# Training config.
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/llama3_2_vision/sft/11b_full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
@@ -22,7 +30,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-          limit: 4096
+          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
@@ -31,14 +39,6 @@ data:
       #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-      #     limit: 4096
-      #     return_tensors: True
-      # - dataset_name: "coco_captions"
-      #   split: "train"
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "meta-llama/Llama-3.2-11B-Vision-Instruct"
-      #     limit: 100
       #     return_tensors: True
       # - dataset_name: vision_language_jsonl
       #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file

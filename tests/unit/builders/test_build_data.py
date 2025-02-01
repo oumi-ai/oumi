@@ -1,10 +1,16 @@
 import tempfile
 from pathlib import Path
+from typing import Optional, Union
 
 import datasets
 import pytest
+from typing_extensions import override
 
-from oumi.builders.data import build_dataset, build_dataset_mixture
+from oumi.builders.data import (
+    build_dataset,
+    build_dataset_from_params,
+    build_dataset_mixture,
+)
 from oumi.builders.models import build_tokenizer
 from oumi.core.configs import (
     DataParams,
@@ -14,6 +20,101 @@ from oumi.core.configs import (
     TrainingConfig,
 )
 from oumi.core.configs.params.model_params import ModelParams
+from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
+from oumi.core.registry import register_dataset
+from oumi.core.tokenizers import BaseTokenizer
+
+
+#
+# Toy datasets
+#
+def create_small_dataset(size=10):
+    return [{"text": f"Sample text {i}", "label": i % 2} for i in range(size)]
+
+
+@register_dataset("small_map_dataset_for_build_data_testing")
+class SmallMapDataset(BaseMapDataset):
+    def __init__(
+        self,
+        size: int = 11,
+        split=None,
+        subset=None,
+        tokenizer=None,
+        dataset_name=None,
+        dataset_path=None,
+        trust_remote_code: bool = False,
+    ):
+        self._data = create_small_dataset(size)  # type: ignore
+
+    @override
+    def __getitem__(self, index):
+        return self.data[index]
+
+    @override
+    def transform(self, x):
+        return x
+
+
+@register_dataset("small_iterable_dataset_for_build_data_testing")
+class SmallIterableDataset(BaseIterableDataset):
+    def __init__(
+        self,
+        size: int = 9,  # Use a different default size (vs SmallMapDataset)
+        split=None,
+        subset=None,
+        tokenizer=None,
+        dataset_name=None,
+        dataset_path=None,
+        trust_remote_code: bool = False,
+    ):
+        self._data = create_small_dataset(size)
+
+    @override
+    def transform(self, x):
+        return x
+
+
+@register_dataset("custom_proxy_dataset_for_build_data_testing")
+class CustomProxyIterableDataset(BaseIterableDataset):
+    def __init__(
+        self,
+        *,
+        dataset_name: Optional[str],
+        dataset_path: Optional[str] = None,
+        subset: Optional[str] = None,
+        split: Optional[str] = None,
+        trust_remote_code: bool = False,
+        transform_num_workers: Optional[Union[str, int]] = None,
+        tokenizer: Optional[BaseTokenizer] = None,
+        **kwargs,
+    ):
+        if dataset_name is None:
+            raise ValueError("`dataset_name` must be provided")
+        elif split is None:
+            raise ValueError("`split` must be provided")
+        elif len(kwargs) > 0:
+            raise ValueError(f"`kwargs` must be empty. Actual: {kwargs}")
+
+        self._inner_dataset = build_dataset_from_params(
+            DatasetParams(
+                dataset_name=dataset_name,
+                dataset_path=dataset_path,
+                subset=subset,
+                split=split,
+                trust_remote_code=trust_remote_code,
+                transform_num_workers=transform_num_workers,
+            ),
+            stream=True,
+            tokenizer=tokenizer,
+        )
+
+    @override
+    def __iter__(self):
+        return self._inner_dataset.__iter__()
+
+    @override
+    def transform(self, x):
+        raise NotImplementedError("Not implemented!")
 
 
 @pytest.fixture
@@ -80,6 +181,62 @@ def test_build_dataset_conversations(
     # Check first conversation
     assert isinstance(items[0], dict)
     assert isinstance(items[1], dict)
+
+
+def test_load_dataset_map(gpt2_tokenizer):
+    result = build_dataset_from_params(
+        DatasetParams(
+            dataset_name="small_map_dataset_for_build_data_testing", split="train"
+        ),
+        stream=False,
+        tokenizer=gpt2_tokenizer,
+    )
+    assert isinstance(result, datasets.Dataset), f"Type: {type(result)}"
+    assert len(list(result)) == 11
+
+
+def test_load_dataset_iterable(gpt2_tokenizer):
+    result = build_dataset_from_params(
+        DatasetParams(
+            dataset_name="small_iterable_dataset_for_build_data_testing", split="train"
+        ),
+        stream=True,
+        tokenizer=gpt2_tokenizer,
+    )
+    assert isinstance(result, datasets.IterableDataset), f"Type: {type(result)}"
+    assert len(list(result)) == 9
+
+
+def test_load_custom_proxy_map_dataset_using_name_override(gpt2_tokenizer):
+    result = build_dataset_from_params(
+        DatasetParams(
+            dataset_name="custom_proxy_dataset_for_build_data_testing",
+            split="train",
+            dataset_kwargs={
+                "dataset_name_override": "small_map_dataset_for_build_data_testing"
+            },
+        ),
+        stream=True,
+        tokenizer=gpt2_tokenizer,
+    )
+    assert isinstance(result, datasets.IterableDataset), f"Type: {type(result)}"
+    assert len(list(result)) == 11
+
+
+def test_load_custom_proxy_iterable_dataset_using_name_override(gpt2_tokenizer):
+    result = build_dataset_from_params(
+        DatasetParams(
+            dataset_name="custom_proxy_dataset_for_build_data_testing",
+            split="train",
+            dataset_kwargs={
+                "dataset_name_override": "small_iterable_dataset_for_build_data_testing"
+            },
+        ),
+        stream=True,
+        tokenizer=gpt2_tokenizer,
+    )
+    assert isinstance(result, datasets.IterableDataset), f"Type: {type(result)}"
+    assert len(list(result)) == 9
 
 
 def test_build_dataset_invalid_path():
