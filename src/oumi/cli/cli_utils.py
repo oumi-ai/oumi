@@ -143,8 +143,10 @@ LOG_LEVEL_TYPE = Annotated[
 @contextmanager
 def cli_command_context():
     """Context manager for Typer CLI commands."""
-    yield
-    # Lazy import to make startup faster.
-    from oumi.utils.torch_utils import device_cleanup
+    try:
+        yield
+    finally:
+        # Lazy import to make startup faster.
+        from oumi.utils.torch_utils import device_cleanup
 
-    device_cleanup()
+        device_cleanup()
