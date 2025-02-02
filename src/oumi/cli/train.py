@@ -20,6 +20,7 @@ import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 
+@cli_utils.cli_command_context()
 def train(
     ctx: typer.Context,
     config: Annotated[
@@ -61,5 +62,3 @@ def train(
 
     # Run training
     oumi_train(parsed_config)
-
-    device_cleanup()

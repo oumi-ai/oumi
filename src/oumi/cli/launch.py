@@ -243,6 +243,7 @@ def _poll_job(
 # ----------------------------
 
 
+@cli_utils.cli_command_context()
 def cancel(
     cloud: Annotated[str, typer.Option(help="Filter results by this cloud.")],
     cluster: Annotated[
@@ -267,6 +268,7 @@ def cancel(
     )
 
 
+@cli_utils.cli_command_context()
 def down(
     cluster: Annotated[str, typer.Option(help="The cluster to turn down.")],
     cloud: Annotated[
@@ -292,6 +294,7 @@ def down(
     )
 
 
+@cli_utils.cli_command_context()
 def run(
     ctx: typer.Context,
     config: Annotated[
@@ -344,6 +347,7 @@ def run(
     _poll_job(job_status=job_status, detach=detach, cloud=parsed_config.resources.cloud)
 
 
+@cli_utils.cli_command_context()
 def status(
     cloud: Annotated[
         Optional[str], typer.Option(help="Filter results by this cloud.")
@@ -403,6 +407,7 @@ def status(
                 print(f"Job: {job.id} Status: {job.status}")
 
 
+@cli_utils.cli_command_context()
 def stop(
     cluster: Annotated[str, typer.Option(help="The cluster to stop.")],
     cloud: Annotated[
@@ -428,6 +433,7 @@ def stop(
     )
 
 
+@cli_utils.cli_command_context()
 def up(
     ctx: typer.Context,
     config: Annotated[
@@ -490,6 +496,7 @@ def up(
     )
 
 
+@cli_utils.cli_command_context()
 def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
     """Prints the available clouds."""
     # Delayed imports

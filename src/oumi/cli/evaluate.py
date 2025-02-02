@@ -20,6 +20,7 @@ import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 
+@cli_utils.cli_command_context()
 def evaluate(
     ctx: typer.Context,
     config: Annotated[

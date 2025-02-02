@@ -149,6 +149,7 @@ class _ProcessRunInfo:
 #
 # Comamnds
 #
+@cli_utils.cli_command_context()
 def torchrun(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,
@@ -182,6 +183,7 @@ def torchrun(
         raise
 
 
+@cli_utils.cli_command_context()
 def accelerate(
     ctx: typer.Context,
     level: cli_utils.LOG_LEVEL_TYPE = None,

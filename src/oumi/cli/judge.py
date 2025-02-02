@@ -49,6 +49,7 @@ def _load_judge_config(config: str, extra_args: list[str]) -> "JudgeConfig":
     return JudgeConfig.from_yaml_and_arg_list(config, extra_args)
 
 
+@cli_utils.cli_command_context()
 def dataset(
     ctx: typer.Context,
     config: Annotated[
@@ -108,6 +109,7 @@ def dataset(
             print(json.dumps(result))
 
 
+@cli_utils.cli_command_context()
 def conversations(
     ctx: typer.Context,
     config: Annotated[
@@ -153,6 +155,7 @@ def conversations(
             print(json.dumps(result))
 
 
+@cli_utils.cli_command_context()
 def model(
     ctx: typer.Context,
     config: Annotated[

@@ -14,6 +14,7 @@
 
 import logging
 import os
+from contextlib import contextmanager
 from enum import Enum
 from typing import Annotated, Optional
 
@@ -137,3 +138,13 @@ LOG_LEVEL_TYPE = Annotated[
         callback=set_log_level,
     ),
 ]
+
+
+@contextmanager
+def cli_command_context():
+    """Context manager for Typer CLI commands."""
+    yield
+    # Lazy import to make startup faster.
+    from oumi.utils.torch_utils import device_cleanup
+
+    device_cleanup()

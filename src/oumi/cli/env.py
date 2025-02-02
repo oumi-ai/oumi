@@ -17,6 +17,8 @@ import importlib.util
 import os
 import platform
 
+import oumi.cli.cli_utils as cli_utils
+
 
 def _get_package_version(package_name: str, version_fallback: str) -> str:
     """Gets the version of the specified package.
@@ -60,6 +62,7 @@ def _get_padded_table(
     return title_row + "\n".join(formatted_kv)
 
 
+@cli_utils.cli_command_context()
 def env():
     """Prints information about the current environment."""
     # Delayed imports
