@@ -24,6 +24,7 @@ from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
 from oumi.datasets.sft.prompt_response import PromptResponseDataset
 from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
+from oumi.datasets.sft.wildchat import WildChatDataset
 
 __all__ = [
     "AlpacaDataset",
@@ -38,4 +39,5 @@ __all__ = [
     "PromptResponseDataset",
     "TextSftJsonLinesDataset",
     "UltrachatH4Dataset",
+    "WildChatDataset",
 ]
