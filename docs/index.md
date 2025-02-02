@@ -92,6 +92,10 @@ about/license
 about/citations
 ```
 
+<p align="center">
+    <img alt="Github trend" src="https://trendshift.io/api/badge/repositories/12865" />
+</p>
+
 Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
 
 With Oumi, you can:
