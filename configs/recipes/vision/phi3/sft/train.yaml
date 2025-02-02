@@ -33,6 +33,14 @@ data:
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct"
           return_tensors: True
+      - dataset_name: "HuggingFaceM4/Docmatix"
+        split: "train"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "microsoft/Phi-3-vision-128k-instruct"
+          return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True
