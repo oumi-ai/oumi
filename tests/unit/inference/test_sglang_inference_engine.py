@@ -139,16 +139,16 @@ def test_convert_conversation_to_api_input(
                     engine._tokenizer.bos_token
                     + "<|start_header_id|>system<|end_header_id|>"
                 ),
-                "System message<|eot_id|>\n<|start_header_id|>user<|end_header_id|>",
+                "System message<|eot_id|><|start_header_id|>user<|end_header_id|>",
             ]
             + [
                 (
                     ("<|image|>" if is_vision_language else "")
-                    + "User message<|eot_id|>\n"
+                    + "User message<|eot_id|>"
                     + "<|start_header_id|>assistant<|end_header_id|>"
                 ),
                 (
-                    "Assistant message<|eot_id|>\n<|start_header_id|>assistant"
+                    "Assistant message<|eot_id|><|start_header_id|>assistant"
                     "<|end_header_id|>"
                 ),
             ]

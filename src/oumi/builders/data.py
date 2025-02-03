@@ -33,7 +33,7 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
@@ -297,9 +297,14 @@ def _load_dataset(
             dataset_kwargs["transform_num_workers"] = (
                 dataset_params.transform_num_workers
             )
+        # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
+        dataset_name = (
+            dataset_kwargs.pop("dataset_name_override", None)
+            or dataset_params.dataset_name
+        )
 
         dataset = dataset_class(
-            dataset_name=dataset_params.dataset_name,
+            dataset_name=dataset_name,
             dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,
