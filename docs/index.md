@@ -101,7 +101,7 @@ Oumi is a fully open-source platform that streamlines the entire lifecycle of fo
 With Oumi, you can:
 
 - 🚀 Train and fine-tune models from 10M to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, DPO, and more)
-- 🤖 Work with both text and multimodal models (Llama, Qwen, Phi, and others)
+- 🤖 Work with both text and multimodal models (Llama, DeepSeek, Qwen, Phi, and others)
 - 🔄 Synthesize and curate training data with LLM judges
 - ⚡️ Deploy models efficiently with popular inference engines (vLLM, SGLang)
 - 📊 Evaluate models comprehensively across standard benchmarks
