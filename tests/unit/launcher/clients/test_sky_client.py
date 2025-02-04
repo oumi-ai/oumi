@@ -1,10 +1,12 @@
+import os
+from typing import Optional
 from unittest.mock import ANY, Mock, patch
 
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
 from oumi.core.launcher import JobStatus
-from oumi.launcher.clients.sky_client import SkyClient
+from oumi.launcher.clients.sky_client import SkyClient, _get_use_spot_vm_override
 
 
 #
@@ -75,7 +77,32 @@ def test_sky_client_azure_name():
     assert client.SupportedClouds.AZURE.value == "azure"
 
 
-def test_sky_client_launch(mock_sky_data_storage):
+@pytest.mark.parametrize(
+    "env_var_use_spot_vm,expected_use_spot_vm",
+    [
+        (None, None),
+        ("spot", True),
+        ("preemptable", True),
+        ("nonspot", False),
+        ("non-preemptible", False),
+    ],
+)
+def test_get_use_spot_vm_override(
+    env_var_use_spot_vm: Optional[str], expected_use_spot_vm: bool
+):
+    if env_var_use_spot_vm is not None:
+        with patch.dict(
+            os.environ, {"OUMI_USE_SPOT_VM": env_var_use_spot_vm}, clear=True
+        ):
+            assert _get_use_spot_vm_override() == expected_use_spot_vm
+    else:
+        with patch.dict(os.environ, {}, clear=True):
+            assert _get_use_spot_vm_override() is None
+
+
+def test_sky_client_launch(
+    mock_sky_data_storage,
+):
     with patch("sky.launch") as mock_launch:
         job = _get_default_job("gcp")
         mock_resource_handle = Mock()
