@@ -119,7 +119,7 @@ pip install vllm
 ```python
 engine = VLLMInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
     )
 )
 ```
@@ -221,7 +221,7 @@ model_params = ModelParams(
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --model meta-llama/Llama-3.1-8B-Instruct \
     --port 6864
 ```
 
@@ -229,7 +229,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Meta-Llama-3.1-70B-Instruct \
+    --model meta-llama/Llama-3.1-70B-Instruct \
     --port 6864 \
     --tensor-parallel-size 4
 
@@ -243,7 +243,7 @@ The client can be configured with different reliability and performance options 
 # Basic client with timeout and retry settings
 engine = RemoteVLLMInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:6864",
@@ -261,7 +261,7 @@ engine = RemoteVLLMInferenceEngine(
 
 ```bash
 python -m sglang.launch_server \
-    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --model-path meta-llama/Llama-3.1-8B-Instruct \
     --port 6864 \
     --disable-cuda-graph \
     --mem-fraction-static=0.99
@@ -276,7 +276,7 @@ The client can be configured with different reliability and performance options 
 ```{testcode}
 engine = SGLangInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:6864"

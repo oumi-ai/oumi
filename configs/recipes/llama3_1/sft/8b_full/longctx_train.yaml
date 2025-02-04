@@ -17,7 +17,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   model_max_length: 32_768
   torch_dtype_str: "bfloat16" # Train in BF16 to save memory
   attn_implementation: "sdpa" # pytorch native flash-attention, helps reduce vram

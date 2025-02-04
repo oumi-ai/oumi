@@ -23,7 +23,7 @@ A typical configuration file has this structure:
 
 ```yaml
 model:  # Model settings
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   trust_remote_code: true
   model_kwargs:
     device_map: "auto"

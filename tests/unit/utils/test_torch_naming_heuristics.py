@@ -84,17 +84,17 @@ MODEL_CONFIGS = [
         AutoModelForCausalLM,
     ),
     (
-        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "meta-llama/Llama-3.1-8B-Instruct",
         "LlamaDecoderLayer",
         AutoModelForCausalLM,
     ),
     (
-        "meta-llama/Meta-Llama-3.1-70B-Instruct",
+        "meta-llama/Llama-3.1-70B-Instruct",
         "LlamaDecoderLayer",
         AutoModelForCausalLM,
     ),
-    ("meta-llama/Meta-Llama-3-8B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
-    ("meta-llama/Meta-Llama-3-70B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
+    ("meta-llama/Llama-3-8B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
+    ("meta-llama/Llama-3-70B-Instruct", "LlamaDecoderLayer", AutoModelForCausalLM),
     ("microsoft/Phi-3-mini-4k-instruct", "Phi3DecoderLayer", AutoModelForCausalLM),
     # Only available on nightly build
     # ("Qwen/Qwen2-VL-2B-Instruct", "QwenDecoderLayer", AutoModelForVision2Seq),
