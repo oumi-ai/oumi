@@ -23,7 +23,7 @@ envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
-  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
+  MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.1-8B-Instruct
   WANDB_PROJECT: oumi-eval
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS
