@@ -113,7 +113,7 @@ For more advanced SFT dataset implementations, explore the `oumi.datasets` modul
 
 ### Using an Unregistered Dataset Whose Format is Identical to a Registered Dataset
 
-Many datasets on HuggingFace share the same format as Oumi registered datasets. It is not necessary to register each dataset explicitly to use it. Instead, you can override the `dataset_name` parameter.
+Many datasets on HuggingFace share the same format as Oumi registered datasets. It is not necessary to register each dataset explicitly to use it. Instead, you can override the `dataset_name` parameter using a keyword argument; see the code snippet below for an example of how to do this.
 
 ```
 - dataset_name: registered_hf_dataset_with_compatible_class
