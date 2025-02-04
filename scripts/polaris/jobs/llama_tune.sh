@@ -156,11 +156,11 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
     # Copy 8B weights from Eagle to local scratch.
     if [ "$TRAINING_MODE" == "pretrain" ]; then
     copyModelToLocalScratch \
-        "models--meta-llama--Meta-Llama-3.1-8B" \
+        "models--meta-llama--Llama-3.1-8B" \
         "8d10549bcf802355f2d6203a33ed27e81b15b9e5"
     else
     copyModelToLocalScratch \
-        "models--meta-llama--Meta-Llama-3.1-8B-Instruct" \
+        "models--meta-llama--Llama-3.1-8B-Instruct" \
         "0e9e39f249a16976918f6564b8830bc894c89659"
     fi
     if [ "$DISTRIBUTION_MODE" == "ddp" ]; then
@@ -188,7 +188,7 @@ elif [ "$MODEL_SIZE" == "8b" ]; then
 elif [ "$MODEL_SIZE" == "70b" ]; then
     # Copy 70B weights from Eagle to local scratch.
     copyModelToLocalScratch \
-        "models--meta-llama--Meta-Llama-3.1-70B-Instruct" \
+        "models--meta-llama--Llama-3.1-70B-Instruct" \
         "945c8663693130f8be2ee66210e062158b2a9693"
 
     if [ "$TRAINING_MODE" == "pretrain" ]; then
@@ -210,7 +210,7 @@ else # 405B
     # Copy 405B weights from Eagle to local scratch. This reduces the total time
     # needed to load the model from 3 hours to 15 min copy + 10 min loading.
     copyModelToLocalScratch \
-        "models--meta-llama--Meta-Llama-3.1-405B-Instruct" \
+        "models--meta-llama--Llama-3.1-405B-Instruct" \
         "be673f326cab4cd22ccfef76109faf68e41aa5f1"
 
     # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
