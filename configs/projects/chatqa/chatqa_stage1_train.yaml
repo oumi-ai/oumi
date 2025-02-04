@@ -14,7 +14,7 @@ model:
   # torch_dtype_str: "float16"
   # model_max_length: 1024
 
-  # model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  # model_name: "meta-llama/Llama-3.1-8B-Instruct"
   # torch_dtype_str: "bfloat16"
   # model_max_length: 4096
 
@@ -22,7 +22,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
 
-  trust_remote_code: True
   attn_implementation: "sdpa"
 
 data:
@@ -50,7 +49,6 @@ training:
     use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
 
   optimizer: "adamw_torch_fused"
-  # optimizer: "adamw_torch"
   learning_rate: 0.000005
   lr_scheduler_type: "cosine_with_min_lr"
   lr_scheduler_kwargs:

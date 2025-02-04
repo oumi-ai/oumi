@@ -43,7 +43,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Download the model from HF.
   # We exclude original/* because it contains two redundant copies of the model weights.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-405B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.

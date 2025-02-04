@@ -123,7 +123,7 @@ The simplest workflow is to fine-tune a pre-trained model on a dataset. The foll
 
 ```yaml
 model:
-  model_name: "meta-llama/Meta-Llama-3.2-3B-Instruct"  # Replace with your model
+  model_name: "meta-llama/Llama-3.2-3B-Instruct"  # Replace with your model
   trust_remote_code: true
   dtype: "bfloat16"
 
@@ -148,7 +148,7 @@ Excellent results can be achieved at a fraction of the computational cost by fin
 
 ```yaml
 model:
-  model_name: "meta-llama/Meta-Llama-3.2-3B-Instruct"  # Replace with your model
+  model_name: "meta-llama/Llama-3.2-3B-Instruct"  # Replace with your model
   trust_remote_code: true
   dtype: "bfloat16"
 

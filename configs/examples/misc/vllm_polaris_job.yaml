@@ -23,7 +23,7 @@ working_dir: .
 # NOTE: Replace with your input/output paths, and adjust other parameters as needed.
 envs:
   REPO: meta-llama  # HF model repo.
-  MODEL: Meta-Llama-3.1-70B-Instruct  # HF model name.
+  MODEL: Llama-3.3-70B-Instruct  # HF model name.
   OUMI_VLLM_INPUT_FILEPATH: your_input_filepath  # Path to input data file.
   OUMI_VLLM_OUTPUT_DIR: your_output_dir  # Output dir.
   OUMI_VLLM_NUM_WORKERS: 100  # Samples will be divided amongst workers

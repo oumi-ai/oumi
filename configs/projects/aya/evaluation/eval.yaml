@@ -10,7 +10,7 @@
 #   - Other eval configs: configs/**/evaluation/
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   model_max_length: 4096
   torch_dtype_str: "bfloat16"
   trust_remote_code: True
