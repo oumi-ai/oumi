@@ -5,7 +5,7 @@
 #
 # Sample command to start SGLang server:
 # CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
-#     --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+#     --model-path meta-llama/Llama-3.1-8B-Instruct \
 #     --port 6864 --disable-cuda-graph --mem-fraction-static=0.9
 # For GPU-s with less than 40GB of VRAM, try --mem-fraction-static=0.99
 #
@@ -16,7 +16,7 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 2048
   torch_dtype_str: "bfloat16"

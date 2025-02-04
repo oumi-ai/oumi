@@ -12,7 +12,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-405B-Instruct"
+  model_name: "meta-llama/Llama-3.1-405B-Instruct"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
