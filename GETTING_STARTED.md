@@ -1,23 +1,3 @@
-![# Oumi: Open Universal Machine Intelligence](docs/_static/logo/header_logo.png)
-
-[![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
-[![Blog](https://img.shields.io/badge/Blog-oumi-blue.svg)](https://oumi.ai/blog)
-[![Discord](https://img.shields.io/discord/1286348126797430814?label=Discord)](https://discord.gg/oumi)
-[![PyPI version](https://badge.fury.io/py/oumi.svg)](https://badge.fury.io/py/oumi)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Tests](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml/badge.svg?branch=main)](https://github.com/oumi-ai/oumi/actions/workflows/pretest.yaml)
-[![GPU Tests](https://github.com/oumi-ai/oumi/actions/workflows/gpu_tests.yaml/badge.svg)](https://github.com/oumi-ai/oumi/actions/workflows/gpu_tests.yaml)
-[![GitHub Repo stars](https://img.shields.io/github/stars/oumi-ai/oumi)](https://github.com/oumi-ai/oumi)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
-[![About](https://img.shields.io/badge/About-oumi-blue.svg)](https://oumi.ai)
-
-### Everything you need to build state-of-the-art foundation models, end-to-end.
-
-<p align="center">
-  <img alt="GitHub trending" src="https://trendshift.io/api/badge/repositories/12865" />
-</p>
-
 # 🚀 Oumi: Open-Source Platform for Foundation Models
 
 Everything you need to build state-of-the-art foundation models—end-to-end.
@@ -28,13 +8,13 @@ Oumi is a **fully open-source platform** that simplifies the entire lifecycle of
 
 ## 🔥 Why Use Oumi?
 
-✅ **Train & Fine-Tune** models from **10M to 405B parameters** (LoRA, QLoRA, DPO, SFT)  
-🤖 **Work with Multimodal Models** (Llama, DeepSeek, Qwen, Phi, and more)  
-📊 **Evaluate Models** using comprehensive benchmarks  
-🔄 **Synthesize & Curate Data** with LLM-powered judges  
-⚡ **Deploy Models Efficiently** with optimized inference engines (vLLM, SGLang)  
-🌎 **Run Anywhere**: Laptops, Clusters, or Cloud (AWS, Azure, GCP, Lambda)  
-🔌 **Integrate Seamlessly** with OpenAI, Anthropic, Vertex AI, Together, Parasail, and more  
+✅ **Train & Fine-Tune** models from **10M to 405B parameters** (LoRA, QLoRA, DPO, SFT)
+🤖 **Work with Multimodal Models** (Llama, DeepSeek, Qwen, Phi, and more)
+📊 **Evaluate Models** using comprehensive benchmarks
+🔄 **Synthesize & Curate Data** with LLM-powered judges
+⚡ **Deploy Models Efficiently** with optimized inference engines (vLLM, SGLang)
+🌎 **Run Anywhere**: Laptops, Clusters, or Cloud (AWS, Azure, GCP, Lambda)
+🔌 **Integrate Seamlessly** with OpenAI, Anthropic, Vertex AI, Together, Parasail, and more
 
 All with **one consistent API**, production-grade reliability, and research flexibility.
 
@@ -43,7 +23,6 @@ All with **one consistent API**, production-grade reliability, and research flex
 ## 📖 Getting Started
 
 ### 🚀 Quickstart
-
 ```bash
 # Install Oumi (CPU & NPU only)
 pip install oumi  
@@ -58,19 +37,16 @@ pip install .
 ```
 
 ### 🏃 Run Your First Training Job
-
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 ```
 
 ### 📊 Evaluate a Model
-
 ```bash
 oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_eval.yaml
 ```
 
 ### 🔍 Perform Inference
-
 ```bash
 oumi infer -c configs/recipes/smollm/inference/135m_infer.yaml --interactive
 ```
@@ -171,7 +147,6 @@ Oumi is licensed under the **Apache License 2.0**. See the [LICENSE](https://git
 ## 📝 Citation
 
 If you use Oumi in your research, please cite it:
-
 ```bibtex
 @software{oumi2025,
   author = {Oumi Community},
