@@ -82,6 +82,7 @@ def test_sky_client_azure_name():
     [
         (None, None),
         ("spot", True),
+        ("preemptable", True),
         ("nonspot", False),
         ("non-preemptible", False),
     ],
