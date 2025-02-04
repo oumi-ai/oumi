@@ -81,6 +81,10 @@ def _convert_job_to_task(job: JobConfig) -> sky.Task:
     use_spot_vm = _get_use_spot_vm_override()
     if use_spot_vm is None:
         use_spot_vm = job.resources.use_spot
+    elif use_spot_vm != job.resources.use_spot:
+        logger.info(
+            f"Set use_spot={use_spot_vm} based on " "'OUMI_USE_SPOT_VM' override."
+        )
 
     resources = sky.Resources(
         cloud=sky_cloud,
