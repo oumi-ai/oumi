@@ -80,7 +80,6 @@ training:
     use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
 
   optimizer: "adamw_torch_fused"
-  # optimizer: "adamw_torch"
   learning_rate: 0.000005
   lr_scheduler_type: "cosine_with_min_lr"
   lr_scheduler_kwargs:
