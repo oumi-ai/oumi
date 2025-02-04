@@ -93,7 +93,7 @@ about/citations
 ```
 
 <p align="center">
-    <a href="https://github.com/trending">
+    <a href="https://trendshift.io/repositories/12865">
         <img alt="GitHub trending" src="https://trendshift.io/api/badge/repositories/12865" />
     </a>
 </p>
