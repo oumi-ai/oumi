@@ -58,8 +58,8 @@ dependencies = [
     "tqdm",
     # NOTE: Liger kernel will soon deprecate support for versions < 4.46.1.
     # https://github.com/linkedin/Liger-Kernel/blob/5c5a7b4f67772f2196efd69d0821b28c0e4ac45e/src/liger_kernel/transformers/monkey_patch.py#L40
-    "transformers>=4.45.2,<4.46",
-    "trl>=0.11.4,<0.12",
+    "transformers>=4.48.0,<4.49",
+    "trl>=0.13.0,<0.14",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
