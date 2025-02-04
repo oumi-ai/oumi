@@ -18,7 +18,7 @@ from oumi.core.types.conversation import Conversation, Message, Role
 # Initialize engine
 engine = VLLMInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
         torch_dtype="bfloat16"
     )
 )
