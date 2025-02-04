@@ -72,6 +72,7 @@ To add a new SFT dataset:
 
 1. Subclass {py:class}`~oumi.core.datasets.BaseSftDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.BaseSftDataset.transform_conversation` method to define the dataset-specific transformation logic.
+3. Register your new dataset to the dataset class by adding it to {py:mod}`~oumi.core.datasets.__init__.py` and {py:mod}`~oumi.datasets.sft.__init__.py`.
 
 For example:
 
@@ -109,6 +110,18 @@ class CustomSftDataset(BaseSftDataset):
 ```{tip}
 For more advanced SFT dataset implementations, explore the `oumi.datasets` module, which contains implementations of several [open source datasets](https://github.com/oumi-ai/oumi/tree/main/src/oumi/datasets).
 ```
+
+### Using an Unregistered Dataset Whose Format is Identical to a Registered Dataset
+
+Many datasets on HuggingFace share the same format as Oumi registered datasets. It is not necessary to register each dataset explicitly to use it. Instead, you can override the `dataset_name` parameter using a keyword argument; see the code snippet below for an example of how to do this.
+
+```
+- dataset_name: registered_hf_dataset_with_compatible_class
+  dataset_kwargs:
+  - dataset_name_override: hf_dataset_with_data_to_use
+```
+
+NOTE: This feature is experimental, and we expect it to change in a future release.
 
 ### Using Custom Datasets via the CLI
 
