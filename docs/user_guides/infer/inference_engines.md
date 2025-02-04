@@ -229,7 +229,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Llama-3.1-70B-Instruct \
+    --model meta-llama/Llama-3.3-70B-Instruct \
     --port 6864 \
     --tensor-parallel-size 4
 

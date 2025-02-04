@@ -104,7 +104,7 @@ Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. Whi
 Llama models are gated on HF Hub. To gain access, sign the agreement on your desired Llama model's Hub page. It usually takes a few hours to get access to the model after signing the agreement. There is a separate agreement for each version of Llama:
 
 - [Llama 2](https://huggingface.co/meta-llama/Llama-2-70b-hf)
-- [Llama 3](https://huggingface.co/meta-llama/Llama-3-70B-Instruct)
+- [Llama 3](https://huggingface.co/meta-llama/Meta-Llama-3-70B-Instruct)
 - [Llama 3.1](https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct)
 - [Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-90B-Vision-Instruct)
 - [Llama 3.3](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
