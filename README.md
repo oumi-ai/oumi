@@ -116,7 +116,7 @@ Here are some of the key features that make Oumi stand out:
 - 🎯 **Research Ready**: Perfect for ML research with easily reproducible experiments, and flexible interfaces for customizing each component.
 - 🌐 **Broad Model Support**: Works with most popular model architectures - from tiny models to the largest ones, text-only to multimodal.
 - 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
-- 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
+- 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached to file.
 
 ## 📚 Examples &  Recipes
 
