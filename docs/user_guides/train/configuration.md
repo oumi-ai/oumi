@@ -58,7 +58,7 @@ Configure the model architecture and loading using the {py:obj}`~oumi.core.confi
 ```yaml
 model:
   # Required
-  model_name: "meta-llama/Llama-3.3-70B-Instruct"    # Model ID or path (REQUIRED)
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"    # Model ID or path (REQUIRED)
 
   # Model loading
   adapter_model: null                                # Path to adapter model (auto-detected if model_name is adapter)
