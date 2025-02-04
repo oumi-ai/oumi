@@ -48,6 +48,40 @@ def sanitize_run_name(run_name: Optional[str]) -> Optional[str]:
     return result
 
 
+def try_str_to_bool(s: str) -> Optional[bool]:
+    """Attempts to convert a string representation to a boolean value.
+
+    This function interprets various string inputs as boolean values.
+    It is case-insensitive and recognizes common boolean representations.
+
+    Args:
+        s: The string to convert to a boolean.
+
+    Returns:
+        bool: The boolean interpretation of the input string, or `None`
+            for unrecognized string values.
+
+    Examples:
+        >>> str_to_bool("true") # doctest: +SKIP
+        True
+        >>> str_to_bool("FALSE") # doctest: +SKIP
+        False
+        >>> str_to_bool("1") # doctest: +SKIP
+        True
+        >>> str_to_bool("no") # doctest: +SKIP
+        False
+        >>> str_to_bool("peach") # doctest: +SKIP
+        None
+    """
+    s = s.strip().lower()
+
+    if s in ("true", "yes", "1", "on", "t", "y"):
+        return True
+    elif s in ("false", "no", "0", "off", "f", "n"):
+        return False
+    return None
+
+
 def str_to_bool(s: str) -> bool:
     """Convert a string representation to a boolean value.
 
@@ -73,14 +107,11 @@ def str_to_bool(s: str) -> bool:
         >>> str_to_bool("no") # doctest: +SKIP
         False
     """
-    s = s.strip().lower()
+    result = try_str_to_bool(s)
 
-    if s in ("true", "yes", "1", "on", "t", "y"):
-        return True
-    elif s in ("false", "no", "0", "off", "f", "n"):
-        return False
-    else:
+    if result is None:
         raise ValueError(f"Cannot convert '{s}' to boolean.")
+    return result
 
 
 def compute_utf8_len(s: str) -> int:

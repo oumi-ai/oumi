@@ -1,6 +1,11 @@
 import pytest
 
-from oumi.utils.str_utils import compute_utf8_len, sanitize_run_name, str_to_bool
+from oumi.utils.str_utils import (
+    compute_utf8_len,
+    sanitize_run_name,
+    str_to_bool,
+    try_str_to_bool,
+)
 
 
 def test_sanitize_run_name_empty():
@@ -42,6 +47,7 @@ def test_sanitize_run_name_too_long():
 )
 def test_true_values(value):
     assert str_to_bool(value) is True
+    assert try_str_to_bool(value) is True
 
 
 @pytest.mark.parametrize(
@@ -63,10 +69,12 @@ def test_true_values(value):
 )
 def test_false_values(value):
     assert str_to_bool(value) is False
+    assert try_str_to_bool(value) is False
 
 
 @pytest.mark.parametrize("value", ["maybe", "unknown", "tru", "ye", "2", "nope"])
 def test_invalid_inputs(value):
+    assert try_str_to_bool(value) is None
     with pytest.raises(ValueError):
         str_to_bool(value)
 
