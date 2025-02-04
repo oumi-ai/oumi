@@ -72,7 +72,7 @@ To add a new SFT dataset:
 
 1. Subclass {py:class}`~oumi.core.datasets.BaseSftDataset`
 2. Implement the {py:meth}`~oumi.core.datasets.BaseSftDataset.transform_conversation` method to define the dataset-specific transformation logic.
-3. Register your new dataset to the dataset class by adding it to {py:class}`~oumi.core.datasets.__init__.py` and {py:class}`~oumi.datasets.sft.__init__.py`.
+3. Register your new dataset to the dataset class by adding it to {py:mod}`~oumi.core.datasets.__init__.py` and {py:mod}`~oumi.datasets.sft.__init__.py`.
 
 For example:
 
