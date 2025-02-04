@@ -1,5 +1,9 @@
 # Quickstart Alpaca v2 eval config for SmolLM 135M Instruct.
 #
+# Requirements:
+#   - Run `pip install oumi[evaluation]` or `pip install alpaca_eval`
+#   - Set the env var `OPENAI_API_KEY` to your OpenAI API key.
+#
 # Usage:
 #   oumi evaluate -c configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml
 #
@@ -24,3 +28,5 @@ tasks:
   - evaluation_platform: alpaca_eval
     eval_kwargs:
       version: 2.0
+
+# engine: VLLM # Uncomment if you're running on a CUDA GPU.
