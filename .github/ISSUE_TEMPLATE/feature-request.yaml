@@ -1,6 +1,6 @@
 name: Feature Request
 description: Request a new feature for Oumi
-title: "[Feature]: "
+title: "[Feature]"
 labels: ["Enhancement"]
 body:
   - type: markdown
