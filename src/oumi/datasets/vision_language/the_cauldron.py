@@ -38,14 +38,6 @@ class TheCauldronDataset(VisionLanguageSftDataset):
 
     def transform_conversation(self, example: dict[str, Any]) -> Conversation:
         """Transform raw data into a conversation with images."""
-        # Transform the raw example into a Conversation object
-        # 'example' represents one row of the raw dataset
-        # Structure of 'example':
-        # {
-        #     'image_bytes': bytes,  # PNG bytes of the image
-        #     'question': str,       # The user's question about the image
-        #     'answer': str          # The assistant's response
-        # }
         for required_key in ("images", "texts"):
             if required_key not in example:
                 raise ValueError(
