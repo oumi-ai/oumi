@@ -36,6 +36,7 @@ def _get_all_sft_vision_dataset_names() -> list[str]:
 class LoadDatasetInfo(NamedTuple):
     dataset_name: str
     model_name: str
+    stream: bool = False
     max_rows: int = 32
     expected_rows: Optional[int] = 32
     extra_dataset_features: Optional[list[str]] = None
@@ -75,6 +76,17 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             trust_remote_code=True,
             max_rows=32,
             expected_rows=32,
+        ),
+        LoadDatasetInfo(
+            dataset_name="huggingfacem4/docmatix",
+            model_name=_DEFAULT_MODEL_NAME,
+            stream=True,  # Have to stream the giant dataset.
+            dataset_subset="images",
+            dataset_split="train",
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=64,
+            expected_rows=64,
         ),
         LoadDatasetInfo(
             dataset_name="huggingfacem4/the_cauldron",
@@ -132,6 +144,7 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
     tokenizer = build_tokenizer(model_params)
     train_split = DatasetSplitParams(
         collator_name=info.collator_name,
+        stream=info.stream,
         datasets=[
             DatasetParams(
                 dataset_name=info.dataset_name,
