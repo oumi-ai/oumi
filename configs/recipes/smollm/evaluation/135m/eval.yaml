@@ -28,4 +28,5 @@ tasks:
     eval_kwargs:
       num_fewshot: 5
 
-enable_wandb: True
+inference_engine: NATIVE
+enable_wandb: False

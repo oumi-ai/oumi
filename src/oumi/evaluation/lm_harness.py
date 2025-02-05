@@ -26,6 +26,7 @@ from lm_eval.loggers import WandbLogger
 from oumi.builders import build_processor, build_tokenizer, is_image_text_llm
 from oumi.core.configs import (
     GenerationParams,
+    InferenceEngineType,
     LMHarnessTaskParams,
     ModelParams,
 )
@@ -62,6 +63,7 @@ def evaluate(
     output_dir: str,
     model_params: ModelParams,
     generation_params: GenerationParams,
+    inference_engine_type: InferenceEngineType,
     enable_wandb: bool,
     run_name: Optional[str] = None,
 ) -> dict[str, Any]:
@@ -74,6 +76,7 @@ def evaluate(
         model_params: The parameters of the model to evaluate.
         task_params: The LM Harness parameters to use for evaluation.
         generation_params: The generation parameters to use for evaluation.
+        inference_engine_type: The inference engine to use (`VLLM` or `NATIVE`).
         output_dir: The directory where the evaluation results will be saved.
         enable_wandb: Whether to enable Weights & Biases (wandb) logging.
         run_name: Unique identifier for wandb for the current training run.
@@ -91,6 +94,25 @@ def evaluate(
         device = "cpu"
         logger.warning("No GPU available.")
 
+    # Ensure the requested inference engine type is applicable.
+    if inference_engine_type == InferenceEngineType.NATIVE:
+        vllm_engine = False
+        if device == "cuda:0":
+            logger.warning(
+                "Since you have GPU support, it is highly recommended that you set "
+                "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
+                "evaluation."
+            )
+    elif inference_engine_type == InferenceEngineType.VLLM:
+        vllm_engine = True
+        if device != "cuda:0":
+            raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
+    else:
+        raise ValueError(
+            "Our integration with the `lm_harness` evaluation platform only supports "
+            "the `VLLM` and `NATIVE` inference_engine types at the moment."
+        )
+
     if model_params.adapter_model:
         logger.info(f"Loading adapter for eval: {model_params.adapter_model}")
     assert task_params is not None
@@ -105,7 +127,7 @@ def evaluate(
     start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     start_time = time.time()
 
-    lm_harness_model_params = model_params.to_lm_harness()
+    lm_harness_model_params = model_params.to_lm_harness(vllm_engine=vllm_engine)
 
     if is_image_text_llm(model_params):
         # Multimodal support is currently restricted to
@@ -116,7 +138,7 @@ def evaluate(
             _create_extra_lm_harness_model_params_for_vlm(model_params)
         )
     else:
-        lm_harness_model = "hf"
+        lm_harness_model = "vllm" if vllm_engine else "hf"
         # False is the default value for `simple_evaluate()`
         # TODO Should it be set to True?
         apply_chat_template = False
