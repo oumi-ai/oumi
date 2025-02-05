@@ -10,8 +10,8 @@ Still can't find a solution? Let us know by filing a new [GitHub Issue](https://
 
 ### Installing on Windows
 
-If you'd like to use Oumi on Windows, we strongly suggest using Windows Subsystem for
-Linux (WSL).
+If you'd like to use Oumi on Windows, we strongly suggest using
+[Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 Installing natively on Windows outside of a WSL environment can lead to installation errors such as:
 ```shell
