@@ -40,6 +40,7 @@ class LoadDatasetInfo(NamedTuple):
     expected_rows: Optional[int] = 32
     extra_dataset_features: Optional[list[str]] = None
     chat_template: str = _DEFAULT_CHAT_TEMPLATE
+    dataset_subset: Optional[str] = None
     dataset_split: str = _DEFALT_DATASET_SPLIT
     collator_name: str = "vision_language_with_padding"
     trust_remote_code: bool = False
@@ -74,6 +75,16 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             trust_remote_code=True,
             max_rows=32,
             expected_rows=32,
+        ),
+        LoadDatasetInfo(
+            dataset_name="huggingfacem4/the_cauldron",
+            model_name=_DEFAULT_MODEL_NAME,
+            dataset_subset="vqarad",
+            dataset_split="train",
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=64,
+            expected_rows=64,
         ),
     ]
 
@@ -124,6 +135,7 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
         datasets=[
             DatasetParams(
                 dataset_name=info.dataset_name,
+                subset=info.dataset_subset,
                 split=info.dataset_split,
                 shuffle=False,
                 seed=42,
