@@ -97,7 +97,7 @@ def evaluate(
     # Ensure the requested inference engine type is applicable.
     if inference_engine_type == InferenceEngineType.NATIVE:
         vllm_engine = False
-        if device == "cuda:0":
+        if device.startswith("cuda"):
             logger.warning(
                 "Since you have GPU support, it is highly recommended that you set "
                 "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
@@ -105,7 +105,7 @@ def evaluate(
             )
     elif inference_engine_type == InferenceEngineType.VLLM:
         vllm_engine = True
-        if device != "cuda:0":
+        if not device.startswith("cuda"):
             raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
     else:
         raise ValueError(
@@ -127,7 +127,7 @@ def evaluate(
     start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     start_time = time.time()
 
-    lm_harness_model_params = model_params.to_lm_harness(vllm_engine=vllm_engine)
+    lm_harness_model_params = model_params.to_lm_harness(inference_engine_type)
 
     if is_image_text_llm(model_params):
         # Multimodal support is currently restricted to
