@@ -21,7 +21,10 @@ from oumi.core.types.conversation import Conversation, ContentItem, Message, Rol
 
 @register_dataset("the_cauldron")
 class TheCauldronDataset(VisionLanguageSftDataset):
-    """Dataset class for the `HuggingFaceM4/the_cauldron` dataset."""
+    """Dataset class for the `HuggingFaceM4/the_cauldron` dataset.
+
+    The `HuggingFaceM4/the_cauldron` dataset is a comprehensive collection of 50 vision-language datasets, primarily training sets, used for fine-tuning the Idefics2 vision-language model. The datasets cover various domains such as general visual question answering, captioning, OCR, document understanding, chart/figure understanding, table understanding, reasoning, logic, maths, textbook/academic questions, differences between images, and screenshot to code.
+    """
 
     default_dataset = "HuggingFaceM4/the_cauldron"
 
