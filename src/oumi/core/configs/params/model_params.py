@@ -186,18 +186,19 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def to_lm_harness(self) -> dict[str, Any]:
+    def to_lm_harness(self, vllm_engine=False) -> dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
-            "parallelize": self.shard_for_eval,
             "dtype": self.torch_dtype,
-            "device_map": self.device_map,
         }
+        if not vllm_engine:
+            model_args_dict["parallelize"] = self.shard_for_eval
+            model_args_dict["device_map"] = self.device_map
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
-        if self.attn_implementation:
+        if self.attn_implementation and not vllm_engine:
             model_args_dict["attn_implementation"] = self.attn_implementation
 
         # Handle extra model_kwargs (construction arguments).
