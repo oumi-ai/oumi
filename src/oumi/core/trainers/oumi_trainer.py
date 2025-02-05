@@ -77,7 +77,7 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        tokenizer: Optional[BaseTokenizer],
+        processing_class: Optional[BaseTokenizer],
         args: TrainingParams,
         train_dataset: Dataset,
         processor: Optional[BaseProcessor] = None,
@@ -96,7 +96,7 @@ class Trainer(BaseTrainer):
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator
 
-        self.tokenizer = tokenizer
+        self.processing_class = processing_class
         self._processor = processor
         self.params = copy.deepcopy(args)
         self.train_dataset = train_dataset
@@ -317,10 +317,10 @@ class Trainer(BaseTrainer):
 
                 # Count tokens on CPU.
                 with self._telemetry_block("computing tokens"):
-                    if self.tokenizer is not None and "input_ids" in batch:
+                    if self.processing_class is not None and "input_ids" in batch:
                         num_tokens = (
                             batch["input_ids"]
-                            .ne(self.tokenizer.pad_token_id)
+                            .ne(self.processing_class.pad_token_id)
                             .sum()
                             .item()
                         )

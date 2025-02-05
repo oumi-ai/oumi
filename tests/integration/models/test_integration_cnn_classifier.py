@@ -302,7 +302,7 @@ def test_basic_training_and_prediction():
 
         trainer = Trainer(
             model=model,
-            tokenizer=None,  # No tokenizer! The custom model is non-textual
+            processing_class=None,  # No tokenizer! The custom model is non-textual
             args=training_params,
             train_dataset=test_data.train_dataset,
             dataloader_num_workers=2,
