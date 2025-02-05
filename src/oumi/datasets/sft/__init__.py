@@ -23,6 +23,7 @@ from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
 from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
 from oumi.datasets.sft.prompt_response import PromptResponseDataset
 from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
+from oumi.datasets.sft.tulu3_sft_mixture import Tulu3MixtureDataset
 from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     "OpenO1SFTDataset",
     "PromptResponseDataset",
     "TextSftJsonLinesDataset",
+    "Tulu3MixtureDataset",
     "UltrachatH4Dataset",
 ]
