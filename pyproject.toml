@@ -41,7 +41,10 @@ dependencies = [
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
     "numpy>=1.26.4,<2.0",
-    "omegaconf>=2.3.0,<2.4",
+    # The latest stable version, 2.3.0, is two years old and is causing dependency
+    # conflicts. We'll use the dev version until a new stable version is released.
+    # See https://github.com/oumi-ai/oumi/issues/1377
+    "omegaconf==2.4.0dev3",
     "packaging",
     "pandas>=2.0.3,<3",
     "peft>=0.14.0,<0.15",
