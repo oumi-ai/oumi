@@ -36,6 +36,8 @@ data:
 training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
+  # TODO: OPE-875 - Re-enable. Currently broken at `transformers==4.48.2`.
+  # GitHub issue: https://github.com/huggingface/transformers/issues/36040.
   enable_gradient_checkpointing: False
   per_device_train_batch_size: 2
   max_steps: 5 # Train for a few steps only (demonstration purposes)
