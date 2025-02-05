@@ -13,7 +13,7 @@ Still can't find a solution? Let us know by filing a new [GitHub Issue](https://
 If you'd like to use Oumi on Windows, we strongly suggest using Windows Subsystem for
 Linux (WSL).
 
-Installing natively on Windows outside of a WSL environment can lead to installation errors such as
+Installing natively on Windows outside of a WSL environment can lead to installation errors such as:
 ```shell
 ERROR: Could not find a version that satisfies the requirement ... (from versions: none)
 ```
