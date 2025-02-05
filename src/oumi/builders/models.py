@@ -164,6 +164,15 @@ def build_oumi_model(
     return model
 
 
+def _disable_cache_in_model_config(model: nn.Module):
+    # Required for FSDP.
+    # Context: https://github.com/huggingface/transformers/issues/28499
+    model.config.use_cache = False
+    if hasattr(model.config, "text_config"):
+        # This may be needed for VLM-s.
+        model.config.text_config.use_cache = False
+
+
 def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -239,9 +248,7 @@ def build_huggingface_model(
             **kwargs,
         )
 
-    # Required for FSDP.
-    # Context: https://github.com/huggingface/transformers/issues/28499
-    model.config.use_cache = False
+    _disable_cache_in_model_config(model)
 
     # TODO Find a better way to handle it
 
@@ -347,9 +354,7 @@ def build_cambrian_model(
         model_path, None, model_name, device_map=(device_map or "auto")
     )
 
-    # Required for FSDP.
-    # Context: https://github.com/huggingface/transformers/issues/28499
-    model.config.use_cache = False
+    _disable_cache_in_model_config(model)
 
     # TODO Find a better way to handle it
 
