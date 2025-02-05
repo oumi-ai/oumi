@@ -80,6 +80,7 @@ def env():
             "LOCAL_RANK",
             "LOCAL_WORLD_SIZE",
             "OUMI_EXTRA_DEPS_FILE",
+            "OUMI_USE_SPOT_VM",
             "RANK",
             "WORLD_SIZE",
         ]
