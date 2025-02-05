@@ -19,11 +19,8 @@ import subprocess
 import time
 from dataclasses import dataclass
 from enum import Enum
-from getpass import getpass
 from pathlib import Path
 from typing import Optional
-
-import pexpect
 
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
@@ -47,9 +44,9 @@ def _get_slurm_target() -> str:
     return target
 
 
-def _check_connection(user: str):
+def _check_connection(user: str, slurm_host: str) -> None:
     """Checks if the connection is still open."""
-    ssh_cmd = f"ssh {_CTRL_PATH} -O check {user}@{_get_slurm_target()}"
+    ssh_cmd = f"ssh {_CTRL_PATH} -O check {user}@{slurm_host}"
     try:
         child = subprocess.run(
             ssh_cmd,
@@ -65,8 +62,8 @@ def _check_connection(user: str):
 
 
 @dataclass
-class PolarisResponse:
-    """A response from Polaris."""
+class SlurmResponse:
+    """A response from Slurm."""
 
     stdout: str
     stderr: str
@@ -113,30 +110,53 @@ class SlurmClient:
         "backfill-large",
     }
 
-    def __init__(self, user: str):
+    def __init__(self, user: str, slurm_host: str):
         """Initializes a new instance of the SlurmClient class.
 
         Args:
             user: The user to act as.
+            slurm_host: The Slurm Head Node to connect to.
         """
         self._user = user
+        self._slurm_host = slurm_host
         self._refresh_creds()
+
+    def _is_job_done(self, job_state: str) -> bool:
+        """Determines if a job is done based on its state.
+
+        See https://slurm.schedmd.com/job_state_codes.html for more details.
+
+        Args:
+            job_state: The state of the job.
+
+        Returns:
+            True if the job is done, False otherwise.
+        """
+        terminal_states = {
+            "BOOT_FAIL",
+            "CANCELLED",
+            "COMPLETED",
+            "DEADLINE",
+            "FAILED",
+            "LAUNCH_FAILED",
+            "NODE_FAIL",
+            "OUT_OF_MEMORY",
+            "PREEMPTED",
+            "TIMEOUT",
+            "SUSPENDED",
+            "STOPPED",
+        }
+        return job_state in terminal_states
 
     def _split_status_line(self, line: str, metadata: str) -> JobStatus:
         """Splits a status line into a JobStatus object.
 
         The expected order of job fields is:
         0. Job ID
-        1. User
-        2. Queue
-        3. Job Name
-        4. Session ID
-        5. Node Count
-        6. Tasks
-        7. Required Memory
-        8. Required Time
-        9. Status
-        10. Ellapsed Time
+        1. Job Name
+        2. User
+        3. Job State
+        4. Job State Reason
 
         Args:
             line: The line to split.
@@ -146,18 +166,18 @@ class SlurmClient:
             A JobStatus object.
         """
         fields = re.sub(" +", " ", line.strip()).split(" ")
-        if len(fields) != 11:
+        if len(fields) != 5:
             raise ValueError(
                 f"Invalid status line: {line}. "
-                f"Expected 11 fields, but found {len(fields)}."
+                f"Expected 5 fields, but found {len(fields)}."
             )
         return JobStatus(
             id=self._get_short_job_id(fields[0]),
-            name=fields[3],
-            status=fields[9],
+            name=fields[1],
+            status=fields[3],
             cluster=fields[2],
             metadata=metadata,
-            done=fields[9] == self._FINISHED_STATUS,
+            done=fields[9] == self._is_job_done(fields[3]),
         )
 
     def _get_short_job_id(self, job_id: str) -> str:
@@ -180,39 +200,47 @@ class SlurmClient:
     def _refresh_creds(self):
         """Refreshes the credentials for the client."""
         try:
-            _check_connection(self._user)
+            _check_connection(self._user, self._slurm_host)
             # We have fresh credentials, so we return early.
             return
         except _SlurmAuthException:
             logger.warning("No connection found. Establishing a new SSH tunnel...")
         ssh_cmd = (
             f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" '
-            f"{self._user}@polaris.alcf.anl.gov"
+            f"{self._user}@{self._slurm_host}"
         )
-        child = pexpect.spawn(ssh_cmd)
-        child.expect("Password:")
-        child.sendline(getpass(prompt=f"Polaris passcode for {self._user}: "))
-        child.expect([pexpect.EOF, pexpect.TIMEOUT], timeout=10)
-        output = child.before
-        child.close()
-        exit_code = child.exitstatus
-        if exit_code != 0:
+        child = subprocess.run(
+            ssh_cmd,
+            shell=True,
+            capture_output=True,
+            timeout=180,  # time in seconds
+        )
+        if child.returncode != 0:
+            output = child.stderr.decode("utf-8")
             logger.error(f"Credential error: {output}")
-            raise RuntimeError("Failed to refresh Polaris credentials.")
+            raise RuntimeError(
+                "Failed to refresh Slurm credentials "
+                f"for {self._user}@{self._slurm_host}."
+            )
+        return SlurmResponse(
+            stdout=child.stdout.decode("utf-8"),
+            stderr=child.stderr.decode("utf-8"),
+            exit_code=child.returncode,
+        )
 
     @staticmethod
-    def get_active_users() -> list[str]:
-        """Gets the list of users with an open SSH tunnel to Polaris.
+    def get_active_users(slurm_host: str) -> list[str]:
+        """Gets the list of users with an open SSH tunnel to a Slurm cluster.
 
         Returns:
             A list of users.
         """
         # List all active users with an open SSH tunnel to Polaris.
-        command = "ls ~/.ssh/ | egrep 'control-polaris.alcf.anl.gov-.*-.*'"
+        command = f"ls ~/.ssh/ | egrep 'control-{slurm_host}-.*-.*'"
         result = subprocess.run(command, shell=True, capture_output=True)
         if result.returncode != 0:
             return []
-        ssh_tunnel_pattern = r"control-polaris.alcf.anl.gov-[^-]*-(.*)"
+        ssh_tunnel_pattern = rf"control-{slurm_host}-[^-]*-(.*)"
         lines = result.stdout.decode("utf-8").strip().split("\n")
         users = set()
         for line in lines:
@@ -226,13 +254,13 @@ class SlurmClient:
         return f"Duration: {duration_sec:.2f} sec"
 
     @retry_auth
-    def run_commands(self, commands: list[str]) -> PolarisResponse:
+    def run_commands(self, commands: list[str]) -> SlurmResponse:
         """Runs the provided commands in a single SSH command.
 
         Args:
             commands: The commands to run.
         """
-        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov " " << 'EOF'"
+        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@{self._slurm_host} " " << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
@@ -251,7 +279,7 @@ class SlurmClient:
                 logger.error(
                     f"Commands failed with code: {child.returncode}! {duration_str}"
                 )
-            return PolarisResponse(
+            return SlurmResponse(
                 stdout=child.stdout.decode("utf-8"),
                 stderr=child.stderr.decode("utf-8"),
                 exit_code=child.returncode,
@@ -259,7 +287,7 @@ class SlurmClient:
         except subprocess.TimeoutExpired:
             duration_str = self._compute_duration_debug_str(start_time)
             logger.exception(f"Commands timed out ({duration_str})! {new_cmd}")
-            return PolarisResponse(
+            return SlurmResponse(
                 stdout="",
                 stderr=f"Timeout while running command: {new_cmd}",
                 exit_code=1,
@@ -274,16 +302,14 @@ class SlurmClient:
         job_path: str,
         working_dir: str,
         node_count: int,
-        queue: SupportedQueues,
         name: Optional[str],
     ) -> str:
-        """Submits the specified job script to Polaris.
+        """Submits the specified job script to Slurm.
 
         Args:
             job_path: The path to the job script to submit.
             working_dir: The working directory to submit the job from.
             node_count: The number of nodes to use for the job.
-            queue: The name of the queue to submit the job to.
             name: The name of the job (optional).
 
         Returns:
@@ -291,75 +317,55 @@ class SlurmClient:
         """
         optional_name_args = ""
         if name:
-            optional_name_args = f"-N {name}"
-        qsub_cmd = (
-            f"qsub -l select={node_count}:system=polaris -q {queue.value}"
-            f" {optional_name_args} {job_path}"
-        )
-        result = self.run_commands([f"cd {working_dir}", qsub_cmd])
+            optional_name_args = f"--job-name {name}"
+        sbatch_cmd = f"sbatch --nodes={node_count}" f" {optional_name_args} {job_path}"
+        result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
         return self._get_short_job_id(result.stdout.strip())
 
-    def list_jobs(self, queue: SupportedQueues) -> list[JobStatus]:
-        """Lists a list of job statuses for the given queue.
+    def list_jobs(self) -> list[JobStatus]:
+        """Lists all jobs for the current user.
 
         Returns:
             A list of dictionaries, each containing the status of a cluster.
         """
-        command = f"qstat -s -x -w -u {self._user}"
+        response_format = "JobId,JobName,User,State,Reason"
+        command = f"sacct --user={self._user} --format='{response_format}'"
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
+        metadata_header = lines[0].strip()
+        job_lines = lines[1:]
         jobs = []
-        # Non-empty responses should have at least 4 lines.
-        if len(lines) < 4:
-            return jobs
-        metadata_header = lines[1:4]
-        job_lines = lines[4:]
-        line_number = 0
-        while line_number < len(job_lines) - 1:
-            line = job_lines[line_number]
-            # Every second line is metadata.
-            metadata_line = job_lines[line_number + 1]
-            job_metadata = "\n".join(metadata_header + [line, metadata_line])
+        for line in job_lines:
+            job_metadata = "\n".join([metadata_header, line])
             status = self._split_status_line(line, job_metadata)
-            if status.cluster == queue.value:
-                jobs.append(status)
-            elif (
-                queue == self.SupportedQueues.PROD
-                and status.cluster in self._PROD_QUEUES
-            ):
-                jobs.append(status)
-            line_number += 2
-        if line_number != len(job_lines):
-            raise RuntimeError("At least one job status was not parsed.")
+            jobs.append(status)
         return jobs
 
-    def get_job(self, job_id: str, queue: SupportedQueues) -> Optional[JobStatus]:
+    def get_job(self, job_id: str) -> Optional[JobStatus]:
         """Gets the specified job's status.
 
         Args:
             job_id: The ID of the job to get.
-            queue: The name of the queue to search.
 
         Returns:
             The job status if found, None otherwise.
         """
-        job_list = self.list_jobs(queue)
+        job_list = self.list_jobs()
         for job in job_list:
             if job.id == job_id:
                 return job
         return None
 
-    def cancel(self, job_id, queue: SupportedQueues) -> Optional[JobStatus]:
+    def cancel(self, job_id) -> Optional[JobStatus]:
         """Cancels the specified job.
 
         Args:
             job_id: The ID of the job to cancel.
-            queue: The name of the queue to search.
 
         Returns:
             The job status if found, None otherwise.
@@ -368,7 +374,7 @@ class SlurmClient:
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
-        return self.get_job(job_id, queue)
+        return self.get_job(job_id)
 
     @retry_auth
     def put_recursive(self, source: str, destination: str) -> None:
