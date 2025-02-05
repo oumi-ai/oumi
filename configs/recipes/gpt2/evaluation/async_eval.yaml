@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.EvaluationConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+# Async eval config for GPT2.
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/gpt2/evaluation/async_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
 
 evaluation:
   output_dir: "output/gpt2.pt" # NOTE: Update to your output directory.

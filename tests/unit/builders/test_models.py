@@ -12,6 +12,7 @@ from oumi.builders.models import (
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
+from oumi.utils.logging import logger
 
 
 @pytest.fixture
@@ -172,6 +173,11 @@ def test_default_chat_template_in_build_tokenizer(
     debug_tag = f"template_name: {template_name} model_name: {model_name}"
     if template_name:
         expected = build_chat_template(template_name=template_name)
+        if tokenizer.chat_template != expected:
+            logger.info(
+                f"Tokenizer chat template:\n\n{tokenizer.chat_template}\n\n"
+                f"Expected chat template:\n\n{expected}\n\n"
+            )
         assert tokenizer.chat_template == expected, debug_tag
     else:
         # Using the model's built-in config.

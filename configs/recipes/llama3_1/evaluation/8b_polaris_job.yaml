@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to eval Llama 3.1 8B Instruct on Polaris.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/evaluation/8b_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to eval Llama 3.1 8B Instruct on Polaris.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/evaluation/8b_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 name: llama8b-eval
 # NOTE: Replace with your username.
 user: your_username
@@ -18,7 +23,7 @@ envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
-  MODEL_CHECKPOINT_DIR: meta-llama/Meta-Llama-3.1-8B-Instruct
+  MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.1-8B-Instruct
   WANDB_PROJECT: oumi-eval
 
 # `setup` will always be executed before `run`. It's strongly suggested to set any PBS

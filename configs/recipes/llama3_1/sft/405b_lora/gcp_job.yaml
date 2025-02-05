@@ -1,9 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to FSDP LoRA tune Llama 3.1 405B Instruct.
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/405b_lora/gcp_job.yaml --cluster llama405b-lora-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to FSDP LoRA tune Llama 3.1 405B Instruct.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/405b_lora/gcp_job.yaml --cluster llama405b-lora-fsdp
 name: llama405b-lora-fsdp
 
 num_nodes: 2
@@ -37,7 +42,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-405B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.

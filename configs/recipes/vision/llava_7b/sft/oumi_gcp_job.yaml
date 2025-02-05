@@ -1,8 +1,14 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config.
+#
+# Usage:
+#   oumi launch up --config configs/recipes/vision/llava_7b/sft/oumi_gcp_job.yaml --cluster llava-7b-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Sample command:
-# oumi launch up --config configs/recipes/vision/llava_7b/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
 name: llava-7b-sft-oumi-train
 
 resources:
