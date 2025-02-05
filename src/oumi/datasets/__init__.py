@@ -68,6 +68,7 @@ from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
 from oumi.datasets.sft.prompt_response import PromptResponseDataset
 from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
+from oumi.datasets.vision_language.cauldron import CauldronDataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
 from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
@@ -81,6 +82,7 @@ __all__ = [
     "ArgillaDollyDataset",
     "ArgillaMagpieUltraDataset",
     "AyaDataset",
+    "CauldronDataset",
     "C4Dataset",
     "ChatqaDataset",
     "ChatqaTatqaDataset",

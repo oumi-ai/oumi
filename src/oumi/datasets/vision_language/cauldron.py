@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import warnings
+from typing import Optional
 
 from typing_extensions import override
 
@@ -27,12 +28,25 @@ from oumi.core.types.conversation import (
 )
 
 
-@register_dataset("the_cauldron")
+@register_dataset(registry_name="HuggingFaceM4/the_cauldron")
 class CauldronDataset(VisionLanguageSftDataset):
     """Dataset class for the `HuggingFaceM4/the_cauldron` dataset."""
 
     default_dataset = "HuggingFaceM4/the_cauldron"
     default_subset = "geomverse"
+
+    def __init__(self, *, subset: Optional[str] = None, **kwargs):
+        """Initializes a new instance of the CauldronDataset class."""
+        if subset in ["multihiertt", "mimic_cgd", "nlvr2", "raven", "spot_the_diff"]:
+            raise ValueError(
+                f"The {subset} subset of Cauldron includes examples with more than a"
+                " single image and is currently not supported by Oumi."
+            )
+
+        super().__init__(
+            subset=subset if subset else self.default_subset,
+            **kwargs,
+        )
 
     @override
     def transform_conversation(self, example: dict) -> Conversation:
