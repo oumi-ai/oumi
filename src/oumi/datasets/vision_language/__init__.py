@@ -22,6 +22,7 @@ from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
 from oumi.datasets.vision_language.mnist_sft import MnistSftDataset
 from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 from oumi.datasets.vision_language.vqav2_small import Vqav2SmallDataset
+from oumi.datasets.vision_language.the_cauldron import TheCauldronDataset
 
 __all__ = [
     "COCOCaptionsDataset",
@@ -30,4 +31,5 @@ __all__ = [
     "MnistSftDataset",
     "VLJsonlinesDataset",
     "Vqav2SmallDataset",
+    "TheCauldronDataset",
 ]
