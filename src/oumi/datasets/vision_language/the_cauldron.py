@@ -19,7 +19,7 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 
 
-@register_dataset("the_cauldron")
+@register_dataset("HuggingFaceM4/the_cauldron")
 class TheCauldronDataset(VisionLanguageSftDataset):
     """Dataset class for the `HuggingFaceM4/the_cauldron` dataset.
 

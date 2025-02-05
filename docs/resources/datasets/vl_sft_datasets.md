@@ -162,7 +162,7 @@ training:
     train:
       collator_name: vision_language_with_padding
       datasets:
-        - dataset_name: "the_cauldron"
+        - dataset_name: "HuggingFaceM4/the_cauldron"
           split: "train"
           trust_remote_code: False
           transform_num_workers: "auto"
@@ -173,7 +173,7 @@ training:
 
 In this configuration:
 
-- `dataset_name`: "the_cauldron"
+- `dataset_name`: "HuggingFaceM4/the_cauldron"
 - `trust_remote_code`: Enable for model-specific processors that use downloaded scripts
 - `transform_num_workers`: Number of workers for image processing
 - `processor_name`: Vision model processor to use
@@ -197,7 +197,7 @@ processor: BaseProcessor = build_processor(
 
 # Build the dataset
 dataset = build_dataset(
-    dataset_name="the_cauldron",
+    dataset_name="HuggingFaceM4/the_cauldron",
     tokenizer=tokenizer,
     split=DatasetSplit.TRAIN,
     dataset_kwargs=dict(processor=processor),
