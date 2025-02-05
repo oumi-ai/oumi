@@ -18,7 +18,6 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -84,41 +83,17 @@ def retry_auth(user_function):
 class SlurmClient:
     """A client for communicating with a Slurm cluster."""
 
-    class SupportedQueues(Enum):
-        """Enum representing the supported queues on Polaris.
-
-        For more details, see:
-        https://docs.alcf.anl.gov/polaris/running-jobs/#queues
-        """
-
-        # The demand queue can only be used with explicit permission from ALCF.
-        # Do not use this queue unless you have been granted permission.
-        DEMAND = "demand"
-        DEBUG = "debug"
-        DEBUG_SCALING = "debug-scaling"
-        PREEMPTABLE = "preemptable"
-        PROD = "prod"
-
-    _FINISHED_STATUS = "F"
-
-    _PROD_QUEUES = {
-        "small",
-        "medium",
-        "large",
-        "backfill-small",
-        "backfill-medium",
-        "backfill-large",
-    }
-
-    def __init__(self, user: str, slurm_host: str):
+    def __init__(self, user: str, slurm_host: str, cluster_name: str):
         """Initializes a new instance of the SlurmClient class.
 
         Args:
             user: The user to act as.
             slurm_host: The Slurm Head Node to connect to.
+            cluster_name: The name of the cluster this client communicates with.
         """
         self._user = user
         self._slurm_host = slurm_host
+        self._cluster_name = cluster_name
         self._refresh_creds()
 
     def _is_job_done(self, job_state: str) -> bool:
@@ -172,30 +147,13 @@ class SlurmClient:
                 f"Expected 5 fields, but found {len(fields)}."
             )
         return JobStatus(
-            id=self._get_short_job_id(fields[0]),
+            id=fields[0],
             name=fields[1],
             status=fields[3],
-            cluster=fields[2],
+            cluster=self._cluster_name,
             metadata=metadata,
             done=fields[9] == self._is_job_done(fields[3]),
         )
-
-    def _get_short_job_id(self, job_id: str) -> str:
-        """Gets the short form of the job ID.
-
-        Polaris Job IDs should be of the form:
-        `2037042.polaris-pbs-01.hsn.cm.polaris.alcf.anl.gov`
-        where the shortened ID is `2037042`.
-
-        Args:
-            job_id: The job ID to shorten.
-
-        Returns:
-            The short form of the job ID.
-        """
-        if "." not in job_id:
-            return job_id
-        return job_id.split(".")[0]
 
     def _refresh_creds(self):
         """Refreshes the credentials for the client."""
@@ -252,6 +210,21 @@ class SlurmClient:
     def _compute_duration_debug_str(self, start_time: float) -> str:
         duration_sec = time.perf_counter() - start_time
         return f"Duration: {duration_sec:.2f} sec"
+
+    def _parse_job_id(self, sbatch_output: str) -> str:
+        """Parses the job ID from the result of sbatch.
+
+        From the Slurm MAN page:
+        Outputs only the job id number and the cluster name if present.
+        The values are separated by a semicolon. Errors will still be displayed.
+
+        Args:
+            sbatch_output: The result of sbatch
+
+        Returns:
+            The job ID.
+        """
+        return sbatch_output.split(";")[0]
 
     @retry_auth
     def run_commands(self, commands: list[str]) -> SlurmResponse:
@@ -318,17 +291,20 @@ class SlurmClient:
         optional_name_args = ""
         if name:
             optional_name_args = f"--job-name {name}"
-        sbatch_cmd = f"sbatch --nodes={node_count}" f" {optional_name_args} {job_path}"
+        sbatch_cmd = (
+            f"sbatch --nodes={node_count}"
+            f" {optional_name_args} --parsable {job_path}"
+        )
         result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
-        return self._get_short_job_id(result.stdout.strip())
+        return self._parse_job_id(result.stdout.strip())
 
     def list_jobs(self) -> list[JobStatus]:
         """Lists all jobs for the current user.
 
         Returns:
-            A list of dictionaries, each containing the status of a cluster.
+            A list of JobStatus.
         """
         response_format = "JobId,JobName,User,State,Reason"
         command = f"sacct --user={self._user} --format='{response_format}'"
@@ -370,7 +346,7 @@ class SlurmClient:
         Returns:
             The job status if found, None otherwise.
         """
-        command = f"qdel {job_id}"
+        command = f"scancel {job_id}"
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to cancel job. stderr: {result.stderr}")
@@ -394,7 +370,7 @@ class SlurmClient:
         if tests_dir.is_dir():
             rsync_cmd_list.append(f"--exclude {str(tests_dir)} ")
         rsync_cmd_list.append(f"{source} ")
-        rsync_cmd_list.append(f"{self._user}@polaris.alcf.anl.gov:{destination}")
+        rsync_cmd_list.append(f"{self._user}@{self._slurm_host}:{destination}")
         rsync_cmd = "".join(rsync_cmd_list)
         logger.info(f"Running rsync command: {rsync_cmd} ...")
         try:
