@@ -123,7 +123,9 @@ class SlurmClient:
         }
         return job_state in terminal_states
 
-    def _split_status_line(self, line: str, metadata: str) -> JobStatus:
+    def _split_status_line(
+        self, line: str, column_lengths: list[int], metadata: str
+    ) -> JobStatus:
         """Splits a status line into a JobStatus object.
 
         The expected order of job fields is:
@@ -135,24 +137,26 @@ class SlurmClient:
 
         Args:
             line: The line to split.
+            column_lengths: The lengths in chars of each column in the line.
             metadata: Additional metadata to attach to the job status.
 
         Returns:
             A JobStatus object.
         """
-        fields = re.sub(" +", " ", line.strip()).split(" ")
-        if len(fields) != 5:
-            raise ValueError(
-                f"Invalid status line: {line}. "
-                f"Expected 5 fields, but found {len(fields)}."
-            )
+        if len(column_lengths) != 5:
+            raise ValueError(f"Expected 5 fields, but found {len(column_lengths)}.")
+        fields = []
+        for i in range(len(column_lengths)):
+            start = sum(column_lengths[:i]) + i
+            end = start + column_lengths[i]
+            fields.append(line[start:end].strip())
         return JobStatus(
             id=fields[0],
             name=fields[1],
             status=fields[3],
             cluster=self._cluster_name,
             metadata=metadata,
-            done=fields[9] == self._is_job_done(fields[3]),
+            done=self._is_job_done(fields[3]),
         )
 
     def _refresh_creds(self):
@@ -314,11 +318,12 @@ class SlurmClient:
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
         metadata_header = lines[0].strip()
-        job_lines = lines[1:]
+        column_lengths = [len(col) for col in lines[1].strip().split(" ")]
+        job_lines = lines[2:]
         jobs = []
         for line in job_lines:
             job_metadata = "\n".join([metadata_header, line])
-            status = self._split_status_line(line, job_metadata)
+            status = self._split_status_line(line, column_lengths, job_metadata)
             jobs.append(status)
         return jobs
 
