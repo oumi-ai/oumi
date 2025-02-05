@@ -36,8 +36,8 @@ data:
 training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
-  enable_gradient_checkpointing: True
-  per_device_train_batch_size: 1
+  enable_gradient_checkpointing: False
+  per_device_train_batch_size: 2
   max_steps: 5 # Train for a few steps only (demonstration purposes)
 
   gradient_checkpointing_kwargs:
