@@ -9,6 +9,9 @@ from oumi.core.launcher import JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
+_SACCT_CMD = (
+    "sacct --user=user --format='JobId%-30,JobName%30,User%30,State%30,Reason%30'"
+)
 
 
 #
@@ -227,9 +230,7 @@ def test_slurm_client_list_jobs_success(mock_subprocess):
     client = SlurmClient("user", "host", "cluster_name")
     job_list = client.list_jobs()
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(
-            ["sacct --user=user --format='JobId,JobName,User,State,Reason'"]
-        ),
+        _run_commands_template([_SACCT_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
@@ -244,7 +245,7 @@ def test_slurm_client_list_jobs_success(mock_subprocess):
     assert job_ids == expected_ids
 
 
-def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess, mock_auth):
+def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b""
@@ -254,7 +255,7 @@ def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess, mock_auth)
     client = SlurmClient("user", "host", "cluster_name")
     job_list = client.list_jobs()
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(["qstat -s -x -w -u user"]),
+        _run_commands_template([_SACCT_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
@@ -264,7 +265,7 @@ def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess, mock_auth)
     assert job_ids == expected_ids
 
 
-def test_slurm_client_list_jobs_failure(mock_subprocess, mock_auth):
+def test_slurm_client_list_jobs_failure(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"
@@ -285,51 +286,48 @@ def test_slurm_client_list_jobs_failure(mock_subprocess, mock_auth):
         client = SlurmClient("user", "host", "cluster_name")
         _ = client.list_jobs()
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(["qstat -s -x -w -u user"]),
+        _run_commands_template([_SACCT_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
     )
 
 
-def test_slurm_client_get_job_success(mock_subprocess, mock_auth):
+def test_slurm_client_get_job_success(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = _get_test_data("qstat.txt").replace("F", "Q").encode("utf-8")
+    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run.stderr = b"foo"
     mock_run.returncode = 0
 
     client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.get_job("2017652")
+    job_status = client.get_job("6")
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(["qstat -s -x -w -u user"]),
+        _run_commands_template(
+            [
+                _SACCT_CMD,
+            ]
+        ),
         shell=True,
         capture_output=True,
         timeout=180,
     )
     expected_status = JobStatus(
-        id="2017652",
-        name="example_job.sh",
-        status="Q",
-        cluster="debug",
+        id="6",
+        name="test",
+        status="COMPLETED",
+        cluster="cluster_name",
         metadata=(
-            "                                                                      "
-            "                             Req'd  Req'd   Elap\n"
-            "Job ID                         Username        Queue           Jobname"
-            "         SessID   NDS  TSK   Memory Time  S Time\n"
-            "------------------------------ --------------- --------------- "
-            "--------------- -------- ---- ----- ------ ----- - -----\n"
-            "2017652.polaris-pbs-01.hsn.cm* matthew         debug           "
-            "example_job.sh   2354947    1    64    --  00:10 Q 00:00:43\n"
-            "   Job run at Wed Jul 10 at 23:28 on (x3006c0s19b1n0:ncpus=64) and "
-            "failed"
+            "JobID                                                 JobName                           User                          State                         Reason \n"  # noqa: E501
+            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ \n"  # noqa: E501
+            "                             6                           test                         taenin                      COMPLETED                           None "  # noqa: E501
         ),
-        done=False,
+        done=True,
     )
     assert job_status == expected_status
 
 
-def test_slurm_client_get_job_not_found(mock_subprocess, mock_auth):
+def test_slurm_client_get_job_not_found(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
@@ -338,7 +336,7 @@ def test_slurm_client_get_job_not_found(mock_subprocess, mock_auth):
     client = SlurmClient("user", "host", "cluster_name")
     job_status = client.get_job("2017652")
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(["qstat -s -x -w -u user"]),
+        _run_commands_template([_SACCT_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
@@ -346,7 +344,7 @@ def test_slurm_client_get_job_not_found(mock_subprocess, mock_auth):
     assert job_status is None
 
 
-def test_slurm_client_get_job_failure(mock_subprocess, mock_auth):
+def test_slurm_client_get_job_failure(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"
@@ -364,14 +362,14 @@ def test_slurm_client_get_job_failure(mock_subprocess, mock_auth):
     with pytest.raises(RuntimeError, match="Failed to list jobs. stderr: foo"):
         _ = client.get_job("2017652")
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(["qstat -s -x -w -u user"]),
+        _run_commands_template([_SACCT_CMD]),
         shell=True,
         capture_output=True,
         timeout=180,
     )
 
 
-def test_slurm_client_cancel_success(mock_subprocess, mock_auth):
+def test_slurm_client_cancel_success(mock_subprocess):
     mock_run2 = Mock()
     mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
     mock_run2.stderr = b"foo"
@@ -407,7 +405,7 @@ def test_slurm_client_cancel_success(mock_subprocess, mock_auth):
                 timeout=10,
             ),
             call(
-                _run_commands_template(["qstat -s -x -w -u user"]),
+                _run_commands_template([_SACCT_CMD]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
@@ -436,7 +434,7 @@ def test_slurm_client_cancel_success(mock_subprocess, mock_auth):
     assert job_status == expected_status
 
 
-def test_slurm_client_cancel_scancel_failure(mock_subprocess, mock_auth):
+def test_slurm_client_cancel_scancel_failure(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"
@@ -465,7 +463,7 @@ def test_slurm_client_cancel_scancel_failure(mock_subprocess, mock_auth):
     )
 
 
-def test_slurm_client_cancel_sacct_failure(mock_subprocess, mock_auth):
+def test_slurm_client_cancel_sacct_failure(mock_subprocess):
     mock_run1 = Mock()
     mock_run1.stdout = b""
     mock_run1.stderr = b""
@@ -511,7 +509,7 @@ def test_slurm_client_cancel_sacct_failure(mock_subprocess, mock_auth):
                 timeout=10,
             ),
             call(
-                _run_commands_template(["qstat -s -x -w -u user"]),
+                _run_commands_template([_SACCT_CMD]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
@@ -520,7 +518,7 @@ def test_slurm_client_cancel_sacct_failure(mock_subprocess, mock_auth):
     )
 
 
-def test_slurm_client_cancel_job_not_found_success(mock_subprocess, mock_auth):
+def test_slurm_client_cancel_job_not_found_success(mock_subprocess):
     mock_run2 = Mock()
     mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
     mock_run2.stderr = b"foo"
@@ -555,7 +553,7 @@ def test_slurm_client_cancel_job_not_found_success(mock_subprocess, mock_auth):
                 timeout=10,
             ),
             call(
-                _run_commands_template(["qstat -s -x -w -u user"]),
+                _run_commands_template([_SACCT_CMD]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
@@ -565,7 +563,7 @@ def test_slurm_client_cancel_job_not_found_success(mock_subprocess, mock_auth):
     assert job_status is None
 
 
-def test_slurm_client_run_commands_success(mock_subprocess, mock_auth):
+def test_slurm_client_run_commands_success(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b"out"
@@ -592,7 +590,7 @@ def test_slurm_client_run_commands_success(mock_subprocess, mock_auth):
     assert result.stderr == "err"
 
 
-def test_slurm_client_run_commands_success_empty(mock_subprocess, mock_auth):
+def test_slurm_client_run_commands_success_empty(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b"out"
@@ -615,7 +613,7 @@ def test_slurm_client_run_commands_success_empty(mock_subprocess, mock_auth):
     assert result.stderr == "err"
 
 
-def test_slurm_client_run_commands_fails(mock_subprocess, mock_auth):
+def test_slurm_client_run_commands_fails(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"
@@ -642,7 +640,7 @@ def test_slurm_client_run_commands_fails(mock_subprocess, mock_auth):
     assert result.stderr == "err"
 
 
-def test_slurm_client_put_recursive_success(mock_subprocess, mock_auth):
+def test_slurm_client_put_recursive_success(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b"out"
@@ -666,7 +664,7 @@ def test_slurm_client_put_recursive_success(mock_subprocess, mock_auth):
     )
 
 
-def test_slurm_client_put_recursive_success_gitignore(mock_subprocess, mock_auth):
+def test_slurm_client_put_recursive_success_gitignore(mock_subprocess):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         with open(Path(output_temp_dir) / ".gitignore", "w") as f:
             f.write("*.txt")
@@ -694,7 +692,7 @@ def test_slurm_client_put_recursive_success_gitignore(mock_subprocess, mock_auth
         )
 
 
-def test_slurm_client_put_recursive_success_tests(mock_subprocess, mock_auth):
+def test_slurm_client_put_recursive_success_tests(mock_subprocess):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         tests = Path(output_temp_dir) / "tests"
         tests.mkdir()
@@ -724,7 +722,7 @@ def test_slurm_client_put_recursive_success_tests(mock_subprocess, mock_auth):
         )
 
 
-def test_slurm_client_put_recursive_success_tests_gitignore(mock_subprocess, mock_auth):
+def test_slurm_client_put_recursive_success_tests_gitignore(mock_subprocess):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         tests = Path(output_temp_dir) / "tests"
         tests.mkdir()
@@ -757,7 +755,7 @@ def test_slurm_client_put_recursive_success_tests_gitignore(mock_subprocess, moc
         )
 
 
-def test_slurm_client_put_recursive_failure(mock_subprocess_no_init, mock_auth):
+def test_slurm_client_put_recursive_failure(mock_subprocess_no_init):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
         mock_success_run = Mock()
@@ -794,7 +792,7 @@ def test_slurm_client_put_recursive_failure(mock_subprocess_no_init, mock_auth):
         )
 
 
-def test_slurm_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth):
+def test_slurm_client_put_recursive_timeout(mock_subprocess_no_init):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
         mock_success_run = Mock()
@@ -831,7 +829,7 @@ def test_slurm_client_put_recursive_timeout(mock_subprocess_no_init, mock_auth):
         )
 
 
-def test_slurm_client_put_recursive_memory_error(mock_subprocess_no_init, mock_auth):
+def test_slurm_client_put_recursive_memory_error(mock_subprocess_no_init):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         mock_subprocess_no_init.TimeoutExpired = subprocess.TimeoutExpired
         mock_success_run = Mock()
@@ -868,7 +866,7 @@ def test_slurm_client_put_recursive_memory_error(mock_subprocess_no_init, mock_a
         )
 
 
-def test_slurm_client_put_success(mock_subprocess, mock_auth):
+def test_slurm_client_put_success(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b"out"
@@ -899,7 +897,7 @@ def test_slurm_client_put_success(mock_subprocess, mock_auth):
     )
 
 
-def test_slurm_client_put_failure(mock_subprocess, mock_auth):
+def test_slurm_client_put_failure(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"
@@ -939,7 +937,7 @@ def test_slurm_client_put_failure(mock_subprocess, mock_auth):
     )
 
 
-def test_slurm_client_put_other_exception(mock_subprocess, mock_auth):
+def test_slurm_client_put_other_exception(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"

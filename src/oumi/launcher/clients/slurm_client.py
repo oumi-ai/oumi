@@ -153,7 +153,7 @@ class SlurmClient:
         return JobStatus(
             id=fields[0],
             name=fields[1],
-            status=fields[3],
+            status=fields[3].split(" ")[0],
             cluster=self._cluster_name,
             metadata=metadata,
             done=self._is_job_done(fields[3]),
@@ -310,19 +310,21 @@ class SlurmClient:
         Returns:
             A list of JobStatus.
         """
-        response_format = "JobId,JobName,User,State,Reason"
+        response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
         command = f"sacct --user={self._user} --format='{response_format}'"
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
-        metadata_header = lines[0].strip()
+        jobs = []
+        if len(lines) < 4:
+            return jobs
+        metadata_headers = lines[:2]
         column_lengths = [len(col) for col in lines[1].strip().split(" ")]
         job_lines = lines[2:]
-        jobs = []
         for line in job_lines:
-            job_metadata = "\n".join([metadata_header, line])
+            job_metadata = "\n".join(metadata_headers + [line])
             status = self._split_status_line(line, column_lengths, job_metadata)
             jobs.append(status)
         return jobs
