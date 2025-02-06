@@ -57,20 +57,27 @@ class TheCauldronDataset(VisionLanguageSftDataset):
             images_list = example["images"].tolist()
         else:
             images_list = example["images"]
-        if len(images_list) != 1:
-            raise ValueError(
-                f"Example must contain exactly 1 image. Got: {len(images_list)}"
-            )
-        elif not isinstance(images_list[0], dict):
-            actual_type = type(images_list[0])
-            raise ValueError(
-                f"Example image type is not `dict`. Actual type: {actual_type} "
-            )
-        image_bytes = images_list[0]["bytes"]
-        if not isinstance(image_bytes, bytes):
-            actual_type = type(image_bytes)
-            raise ValueError(
-                f"Example image type is not `bytes`. Actual type: {actual_type} "
+        num_images = len(images_list)
+        if num_images <= 0:
+            raise ValueError("Example contains no images.")
+
+        image_content_items: list[ContentItem] = []
+        for idx, image_item in enumerate(images_list):
+            if not isinstance(image_item, dict):
+                actual_type = type(image_item)
+                raise ValueError(
+                    f"Example image type is not `dict`. Actual type: {actual_type} "
+                    f"for image {idx + 1} of {num_images}"
+                )
+            image_bytes = image_item["bytes"]
+            if not isinstance(image_bytes, bytes):
+                actual_type = type(image_bytes)
+                raise ValueError(
+                    f"Example image type is not `bytes`. Actual type: {actual_type} "
+                    f"for image {idx + 1} of {num_images}"
+                )
+            image_content_items.append(
+                ContentItem(type=Type.IMAGE_BINARY, binary=image_bytes)
             )
 
         texts_list: list[dict] = []
@@ -97,17 +104,26 @@ class TheCauldronDataset(VisionLanguageSftDataset):
                     f"Got: {sorted(text_entry.keys())} "
                     f"for text entry {idx + 1} of {num_texts}"
                 )
-            messages_list.extend(
-                [
+            if idx == 0:
+                # Only include image(s) once for the first turn.
+                messages_list.append(
                     Message(
                         role=Role.USER,
-                        content=[
-                            ContentItem(type=Type.IMAGE_BINARY, binary=image_bytes),
-                            ContentItem(type=Type.TEXT, content=text_entry["user"]),
-                        ],
-                    ),
-                    Message(role=Role.ASSISTANT, content=text_entry["assistant"]),
-                ]
+                        content=(
+                            image_content_items
+                            + [
+                                ContentItem(type=Type.TEXT, content=text_entry["user"]),
+                            ]
+                        ),
+                    )
+                )
+            else:
+                messages_list.append(
+                    Message(role=Role.USER, content=text_entry["user"])
+                )
+
+            messages_list.append(
+                Message(role=Role.ASSISTANT, content=text_entry["assistant"]),
             )
 
         return Conversation(messages=messages_list)
