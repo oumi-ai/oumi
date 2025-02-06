@@ -34,15 +34,6 @@ data:
           # limit: 8192 # Uncomment to limit dataset size!
           return_tensors: True
 
-      # - dataset_name: "HuggingFaceM4/Docmatix"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "llava-hf/llava-1.5-7b-hf"
-      #     return_tensors: True
-
       # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
