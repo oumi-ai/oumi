@@ -131,7 +131,7 @@ remote_params:
 
 ### Engine Selection
 
-The `engine` parameter specifies which inference engine to use. Available options from {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`:
+The `engine` parameter specifies which inference engine to use. Available options from {py:obj}`~oumi.core.configs.inference_engine_type.InferenceEngineType`:
 
 - `ANTHROPIC`: Use Anthropic's API via {py:obj}`~oumi.inference.AnthropicInferenceEngine`
 - `DEEPSEEK`: Use DeepSeek Platform API via {py:obj}`~oumi.inference.DeepSeekInferenceEngine`
