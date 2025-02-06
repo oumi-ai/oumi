@@ -28,8 +28,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: smolvlm.fft.oumi
-  ACCELERATE_LOG_LEVEL: info
-  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e

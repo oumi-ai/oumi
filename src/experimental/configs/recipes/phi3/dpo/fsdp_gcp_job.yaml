@@ -24,7 +24,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: phi3.dpo.nvidia.24g.fsdp
-  ACCELERATE_LOG_LEVEL: info
 
 setup: |
   set -e
