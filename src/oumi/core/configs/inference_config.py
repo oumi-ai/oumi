@@ -13,56 +13,13 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
-
-
-class InferenceEngineType(str, Enum):
-    """The supported inference engines."""
-
-    NATIVE = "NATIVE"
-    """The native inference engine using a local forward pass."""
-
-    VLLM = "VLLM"
-    """The vLLM inference engine started locally by oumi using vLLM library."""
-
-    REMOTE_VLLM = "REMOTE_VLLM"
-    """The external vLLM inference engine."""
-
-    SGLANG = "SGLANG"
-    """The SGLang inference engine."""
-
-    LLAMACPP = "LLAMACPP"
-    """The LlamaCPP inference engine."""
-
-    REMOTE = "REMOTE"
-    """The inference engine for APIs that implement the OpenAI Chat API interface."""
-
-    ANTHROPIC = "ANTHROPIC"
-    """The inference engine for Anthropic's API."""
-
-    GOOGLE_VERTEX = "GOOGLE_VERTEX"
-    """The inference engine for Google Vertex AI."""
-
-    GOOGLE_GEMINI = "GEMINI"
-    """The inference engine for Gemini."""
-
-    DEEPSEEK = "DEEPSEEK"
-    """The inference engine for DeepSeek Platform API."""
-
-    PARASAIL = "PARASAIL"
-    """The inference engine for Parasail API."""
-
-    TOGETHER = "TOGETHER"
-    """The inference engine for Together API."""
-
-    OPENAI = "OPENAI"
-    """The inference engine for OpenAI API."""
 
 
 @dataclass
