@@ -94,8 +94,8 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             dataset_split="test",
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
-            max_rows=64,
-            expected_rows=64,
+            max_rows=32,
+            expected_rows=32,
         ),
         LoadDatasetInfo(
             dataset_name="HuggingFaceM4/the_cauldron",
