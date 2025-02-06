@@ -20,6 +20,7 @@ from typing import Any, Optional
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
 from oumi.utils.logging import logger
@@ -186,18 +187,24 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def to_lm_harness(self) -> dict[str, Any]:
+    def to_lm_harness(
+        self, inference_engine_type: InferenceEngineType
+    ) -> dict[str, Any]:
         """Converts Oumi's ModelParams to LM Harness model arguments."""
         model_args_dict = {
             "pretrained": self.model_name,
             "trust_remote_code": self.trust_remote_code,
-            "parallelize": self.shard_for_eval,
             "dtype": self.torch_dtype,
-            "device_map": self.device_map,
         }
+        if inference_engine_type == InferenceEngineType.NATIVE:
+            model_args_dict["parallelize"] = self.shard_for_eval
+            model_args_dict["device_map"] = self.device_map
         if self.adapter_model:
             model_args_dict["peft"] = self.adapter_model
-        if self.attn_implementation:
+        if (
+            self.attn_implementation
+            and inference_engine_type == InferenceEngineType.NATIVE
+        ):
             model_args_dict["attn_implementation"] = self.attn_implementation
 
         # Handle extra model_kwargs (construction arguments).
