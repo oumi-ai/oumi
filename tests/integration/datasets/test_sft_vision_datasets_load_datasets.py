@@ -52,9 +52,20 @@ def get_dataset_test_id_fn(info):
     return f"{info.dataset_name} {info.model_name}"
 
 
+def _normalize_dataset_name_for_matching(s: str) -> str:
+    return s.lower().strip()
+
+
 def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     # Special case datasets that should be excluded from default testing.
-    _EXCLUDED_DATASETS = set({"coco_captions", "vision_language_jsonl", "vl_sft"})
+    _EXCLUDED_DATASETS = set(
+        {
+            "coco_captions",
+            "vision_language_jsonl",
+            "vl_sft",
+            "HuggingFaceM4/Docmatix",
+        }
+    )
 
     all_dataset_names = set(_get_all_sft_vision_dataset_names())
     result = [
@@ -78,18 +89,17 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             expected_rows=32,
         ),
         LoadDatasetInfo(
-            dataset_name="huggingfacem4/docmatix",
+            dataset_name="HuggingFaceM4/Docmatix",
             model_name=_DEFAULT_MODEL_NAME,
-            stream=True,  # Have to stream the giant dataset.
-            dataset_subset="images",
-            dataset_split="train",
+            dataset_subset="zero-shot-exp",
+            dataset_split="test",
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
             max_rows=64,
             expected_rows=64,
         ),
         LoadDatasetInfo(
-            dataset_name="huggingfacem4/the_cauldron",
+            dataset_name="HuggingFaceM4/the_cauldron",
             model_name=_DEFAULT_MODEL_NAME,
             dataset_subset="vqarad",
             dataset_split="train",
@@ -100,10 +110,19 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
         ),
     ]
 
-    manually_configured_dataset_names = set({info.dataset_name for info in result})
+    all_excluded_dataset_names_normalized = set(
+        {
+            _normalize_dataset_name_for_matching(name)
+            for name in (
+                _EXCLUDED_DATASETS.union({info.dataset_name for info in result})
+            )
+        }
+    )
+
     for dataset_name in all_dataset_names:
-        if (dataset_name in manually_configured_dataset_names) or (
-            dataset_name in _EXCLUDED_DATASETS
+        if (
+            _normalize_dataset_name_for_matching(dataset_name)
+            in all_excluded_dataset_names_normalized
         ):
             continue
         result.append(
@@ -119,7 +138,9 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
     assert len(result) > 1
     for idx, info in enumerate(result):
         assert info.dataset_name, f"Index: {idx}"
-        assert info.dataset_name in all_dataset_names, f"Index: {idx}"
+        assert (
+            _normalize_dataset_name_for_matching(info.dataset_name) in all_dataset_names
+        ), f"Index: {idx}"
         assert info.model_name, f"Index: {idx}"
         assert info.chat_template, f"Index: {idx}"
         assert info.dataset_split, f"Index: {idx}"

@@ -12,59 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing_extensions import override
 
-from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import register_dataset
-from oumi.core.types.conversation import (
-    ContentItem,
-    Conversation,
-    Message,
-    Role,
-    Type,
-)
+from oumi.datasets.vision_language.the_cauldron import TheCauldronDataset
 
 
 @register_dataset("HuggingFaceM4/Docmatix")
-class DocmatixDataset(VisionLanguageSftDataset):
-    """Dataset class for the `HuggingFaceM4/Docmatix` dataset."""
+class DocmatixDataset(TheCauldronDataset):
+    """Dataset class for the `HuggingFaceM4/Docmatix` dataset.
+
+    The dataset has the same data layout and format as `HuggingFaceM4/the_cauldron`
+    (hence it's defined as a sub-class) but the underlying data is different.
+    Unlike `HuggingFaceM4/the_cauldron`, the dataset contains many multi-image examples,
+    and fewer subsets.
+
+    Be aware that 'HuggingFaceM4/Docmatix' is a very large dataset (~0.5TB) that
+    requires a lot of Internet bandwidth to download, and a lot of disk space to store,
+    so only use it if you know what you're doing.
+
+    Using the 'Docmatix' dataset in Oumi should become easier after streaming support
+    is supported for custom Oumi datasets (OPE-1021).
+    """
 
     default_dataset = "HuggingFaceM4/Docmatix"
-
-    @override
-    def transform_conversation(self, example: dict) -> Conversation:
-        """Transform a single conversation example into a Conversation object."""
-        input_text = example["question"]
-        output_text = example["answer"]
-
-        user_items: list[ContentItem] = []
-
-        if "image_bytes" in example:
-            user_items.append(
-                ContentItem(
-                    binary=example["image_bytes"],
-                    type=Type.IMAGE_BINARY,
-                )
-            )
-        elif "image_path" in example:
-            user_items.append(
-                ContentItem(
-                    content=example["image_path"],
-                    type=Type.IMAGE_PATH,
-                )
-            )
-        else:
-            raise ValueError(
-                "Training example contains none of required keys: "
-                "'image_bytes', 'image_path'. "
-                f"Available keys: {example.keys()}."
-            )
-
-        user_items.append(ContentItem(type=Type.TEXT, content=input_text))
-
-        return Conversation(
-            messages=[
-                Message(role=Role.USER, content=user_items),
-                Message(role=Role.ASSISTANT, content=output_text),
-            ]
-        )
