@@ -37,24 +37,28 @@ from oumi.utils.logging import logger
 
 def _create_extra_lm_harness_model_params_for_vlm(
     model_params: ModelParams,
+    vllm_engine: bool,
 ) -> dict[str, Any]:
     # For details, see:
     # https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
     # FIXME OPE-355 To remove `max_images=1` limit
-    result = {"max_images": 1, "interleave": True, "convert_img_format": True}
+    result = {"max_images": 1, "interleave": True}
 
-    tokenizer = build_tokenizer(model_params)
-    processor = build_processor(
-        model_params.model_name,
-        tokenizer,
-        trust_remote_code=model_params.trust_remote_code,
-    )
-    image_token = processor.image_token
-    if image_token:
-        result["image_string"] = image_token
-    image_token_id = processor.image_token_id
-    if image_token_id:
-        result["image_token_id"] = image_token_id
+    # Only applicable to hf-multimodal (NOT vllm-vlm).
+    if not vllm_engine:
+        result["convert_img_format"] = True
+
+        tokenizer = build_tokenizer(model_params)
+        processor = build_processor(
+            model_params.model_name,
+            tokenizer,
+            trust_remote_code=model_params.trust_remote_code,
+        )
+        if image_token := processor.image_token:
+            result["image_string"] = image_token
+        if image_token_id := processor.image_token_id:
+            result["image_token_id"] = image_token_id
+
     return result
 
 
@@ -132,10 +136,10 @@ def evaluate(
     if is_image_text_llm(model_params):
         # Multimodal support is currently restricted to
         # the ['hf-multimodal', 'vllm-vlm'] model types.
-        lm_harness_model = "hf-multimodal"
+        lm_harness_model = "vllm-vlm" if vllm_engine else "hf-multimodal"
         apply_chat_template = True
         lm_harness_model_params.update(
-            _create_extra_lm_harness_model_params_for_vlm(model_params)
+            _create_extra_lm_harness_model_params_for_vlm(model_params, vllm_engine)
         )
     else:
         lm_harness_model = "vllm" if vllm_engine else "hf"
