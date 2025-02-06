@@ -3,4 +3,4 @@ JobID                                                 JobName                   
                              6                           test                         taenin                      COMPLETED                           None
                        6.batch                          batch                                                     COMPLETED
                              7                   cluster_test                         taenin         CANCELLED by 243050679                           None
-                       7.batch                          batch                                                     CANCELLED
+                       7.batch                          batch                                                       RUNNING

@@ -318,9 +318,9 @@ def test_slurm_client_get_job_success(mock_subprocess):
         status="COMPLETED",
         cluster="cluster_name",
         metadata=(
-            "JobID                                                 JobName                           User                          State                         Reason \n"  # noqa: E501
-            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------ \n"  # noqa: E501
-            "                             6                           test                         taenin                      COMPLETED                           None "  # noqa: E501
+            "JobID                                                 JobName                           User                          State                         Reason\n"  # noqa: E501
+            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------\n"  # noqa: E501
+            "                             6                           test                         taenin                      COMPLETED                           None"  # noqa: E501
         ),
         done=True,
     )
@@ -330,7 +330,7 @@ def test_slurm_client_get_job_success(mock_subprocess):
 def test_slurm_client_get_job_not_found(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run.stderr = b"foo"
     mock_run.returncode = 0
     client = SlurmClient("user", "host", "cluster_name")
@@ -355,7 +355,7 @@ def test_slurm_client_get_job_failure(mock_subprocess):
         mock_success_run,
         mock_run,
     ]
-    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run.stderr = b"foo"
     mock_run.returncode = 1
     client = SlurmClient("user", "host", "cluster_name")
@@ -371,13 +371,13 @@ def test_slurm_client_get_job_failure(mock_subprocess):
 
 def test_slurm_client_cancel_success(mock_subprocess):
     mock_run2 = Mock()
-    mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run2.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run2.stderr = b"foo"
     mock_run2.returncode = 0
     mock_subprocess.run.return_value = mock_run2
 
     client = SlurmClient("user", "host", "cluster_name")
-    job_status = client.cancel("2017652")
+    job_status = client.cancel("7.batch")
     mock_subprocess.run.assert_has_calls(
         [
             call(
@@ -393,7 +393,7 @@ def test_slurm_client_cancel_success(mock_subprocess):
                 timeout=10,
             ),
             call(
-                _run_commands_template(["qdel 2017652"]),
+                _run_commands_template(["scancel 7.batch"]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
@@ -413,23 +413,16 @@ def test_slurm_client_cancel_success(mock_subprocess):
         ]
     )
     expected_status = JobStatus(
-        id="2017652",
-        name="example_job.sh",
-        status="F",
-        cluster="debug",
+        id="7.batch",
+        name="batch",
+        status="RUNNING",
+        cluster="cluster_name",
         metadata=(
-            "                                                                      "
-            "                             Req'd  Req'd   Elap\n"
-            "Job ID                         Username        Queue           Jobname"
-            "         SessID   NDS  TSK   Memory Time  S Time\n"
-            "------------------------------ --------------- --------------- "
-            "--------------- -------- ---- ----- ------ ----- - -----\n"
-            "2017652.polaris-pbs-01.hsn.cm* matthew         debug           "
-            "example_job.sh   2354947    1    64    --  00:10 F 00:00:43\n"
-            "   Job run at Wed Jul 10 at 23:28 on (x3006c0s19b1n0:ncpus=64) and "
-            "failed"
+            "JobID                                                 JobName                           User                          State                         Reason\n"  # noqa: E501
+            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------\n"  # noqa: E501
+            "                       7.batch                          batch                                                       RUNNING"  # noqa: E501
         ),
-        done=True,
+        done=False,
     )
     assert job_status == expected_status
 
@@ -454,7 +447,7 @@ def test_slurm_client_cancel_scancel_failure(mock_subprocess):
     mock_subprocess.run.assert_has_calls(
         [
             call(
-                _run_commands_template(["qdel 2017652"]),
+                _run_commands_template(["scancel 2017652"]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
@@ -469,7 +462,7 @@ def test_slurm_client_cancel_sacct_failure(mock_subprocess):
     mock_run1.stderr = b""
     mock_run1.returncode = 0
     mock_run2 = Mock()
-    mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run2.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run2.stderr = b"foo"
     mock_run2.returncode = 1
     mock_subprocess.run.side_effect = [
@@ -497,7 +490,7 @@ def test_slurm_client_cancel_sacct_failure(mock_subprocess):
                 timeout=10,
             ),
             call(
-                _run_commands_template(["qdel 2017652"]),
+                _run_commands_template(["scancel 2017652"]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
@@ -520,7 +513,7 @@ def test_slurm_client_cancel_sacct_failure(mock_subprocess):
 
 def test_slurm_client_cancel_job_not_found_success(mock_subprocess):
     mock_run2 = Mock()
-    mock_run2.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run2.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run2.stderr = b"foo"
     mock_run2.returncode = 0
     mock_subprocess.run.return_value = mock_run2
@@ -541,7 +534,7 @@ def test_slurm_client_cancel_job_not_found_success(mock_subprocess):
                 timeout=10,
             ),
             call(
-                _run_commands_template(["qdel 2017652"]),
+                _run_commands_template(["scancel 2017652"]),
                 shell=True,
                 capture_output=True,
                 timeout=180,
