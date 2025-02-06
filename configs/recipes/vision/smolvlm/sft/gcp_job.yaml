@@ -33,8 +33,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: smolvlm.fft.oumi
-  ACCELERATE_LOG_LEVEL: info
-  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
@@ -43,7 +41,6 @@ setup: |
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceTB/SmolVLM-Instruct --exclude "onnx/*" "runs/*"
 
-  pip install -U "transformers>=4.46,<4.47"
   pip install -U flash-attn --no-build-isolation
 
 run: |

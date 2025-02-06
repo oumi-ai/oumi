@@ -4,7 +4,7 @@ Oumi allows users to define their evaluation configurations through a `YAML` fil
 
 # Configuration Structure
 
-The configuration `YAML` file is loaded into {py:class}`~oumi.core.configs.EvaluationConfig` class, and consists of {py:class}`~oumi.core.configs.params.model_params.ModelParams`, {py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`, and {py:class}`~oumi.core.configs.params.generation_params.GenerationParams`. If the evaluation benchmark is generative, meaning that the model responses need to be first generated (inferred) and then evaluated by a judge, you can also set the `inference_engine` ({py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`) for local inference or the `inference_remote_params` ({py:obj}`~oumi.core.configs.params.remote_params.RemoteParams`) for remote inference.
+The configuration `YAML` file is loaded into {py:class}`~oumi.core.configs.EvaluationConfig` class, and consists of {py:class}`~oumi.core.configs.params.model_params.ModelParams`, {py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`, and {py:class}`~oumi.core.configs.params.generation_params.GenerationParams`. If the evaluation benchmark is generative, meaning that the model responses need to be first generated (inferred) and then evaluated by a judge, you can also set the `inference_engine` ({py:obj}`~oumi.core.configs.inference_engine_type.InferenceEngineType`) for local inference or the `inference_remote_params` ({py:obj}`~oumi.core.configs.params.remote_params.RemoteParams`) for remote inference.
 
 Here's an advanced configuration example, showing many of the available parameters:
 
@@ -75,7 +75,7 @@ run_name: "phi3-evaluation"
   - `max_new_tokens`: Maximum number of tokens to generate
   - `temperature`: Sampling temperature
 
-- `inference_engine`: Inference engine for local inference ({py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`)
+- `inference_engine`: Inference engine for local inference ({py:obj}`~oumi.core.configs.inference_engine_type.InferenceEngineType`)
 - `inference_remote_params`: Inference parameters for remote inference ({py:obj}`~oumi.core.configs.params.remote_params.RemoteParams`)
 
 - `enable_wandb`: Enable Weights & Biases logging
