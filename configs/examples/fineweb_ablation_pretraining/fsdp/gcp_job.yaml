@@ -26,7 +26,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: fineweb.pt.fsdp
-  ACCELERATE_LOG_LEVEL: info
 
 setup: |
   set -e
