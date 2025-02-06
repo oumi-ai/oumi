@@ -17,10 +17,8 @@ resources:
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials

@@ -25,7 +25,6 @@ resources:
 
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials

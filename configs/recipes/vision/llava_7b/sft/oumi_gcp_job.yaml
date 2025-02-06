@@ -23,10 +23,8 @@ resources:
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 

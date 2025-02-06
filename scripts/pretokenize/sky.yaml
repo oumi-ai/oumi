@@ -12,10 +12,8 @@ resources:
   any_of:
     - use_spot: false
 
-# Upload working directory to remote ~/sky_workdir.
 workdir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 

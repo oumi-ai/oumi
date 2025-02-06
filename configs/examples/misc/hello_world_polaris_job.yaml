@@ -18,7 +18,6 @@ resources:
 # Upload working directory to /home/$ALCF_USER/oumi_launcher/hello-world.
 working_dir: .
 
-# Mount local files.
 #file_mounts:
   # Generally speaking, file mounts are not needed for Polaris jobs.
   # Use this parameter if you'd like to upload individual files to /home/$ALFC_USER/
