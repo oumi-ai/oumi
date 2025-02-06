@@ -15,7 +15,6 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$ALCF_USER/oumi_launcher/hello-world.
 working_dir: .
 
 #file_mounts:

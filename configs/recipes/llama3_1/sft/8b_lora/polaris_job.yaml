@@ -17,12 +17,8 @@ num_nodes: 1  # Set it to N for multi-node training.
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/oumi_launcher/llama8b_lora.
 working_dir: .
 
-# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
-# directives in the `setup` section. Additional commands can also be run here after the
-# PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=02:00:00

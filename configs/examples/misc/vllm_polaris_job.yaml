@@ -17,7 +17,6 @@ num_nodes: 1
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/oumi_launcher/vllm.
 working_dir: .
 
 # NOTE: Replace with your input/output paths, and adjust other parameters as needed.
@@ -29,9 +28,6 @@ envs:
   OUMI_VLLM_NUM_WORKERS: 100  # Samples will be divided amongst workers
   OUMI_VLLM_WORKERS_SPAWNED_PER_SECOND: 10
 
-# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
-# directives in the `setup` section. Additional commands can also be run here after the
-# PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=00:40:00

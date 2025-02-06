@@ -16,7 +16,6 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/oumi_launcher/llama8b_eval.
 working_dir: .
 
 envs:
@@ -26,9 +25,6 @@ envs:
   MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.1-8B-Instruct
   WANDB_PROJECT: oumi-eval
 
-# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
-# directives in the `setup` section. Additional commands can also be run here after the
-# PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=01:00:00
