@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import functools
-import os
 import re
 import subprocess
 import time
@@ -25,22 +24,10 @@ from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
-_OUMI_SLURM_VAR = "OUMI_SLURM_TARGET"
 
 
 class _SlurmAuthException(Exception):
     pass
-
-
-def _get_slurm_target() -> str:
-    """Gets the target for the Slurm client."""
-    target = os.getenv(_OUMI_SLURM_VAR)
-    if target is None:
-        raise ValueError(
-            f"Please set the environment variable {_OUMI_SLURM_VAR} to the SSH target"
-            " for your slurm cluster."
-        )
-    return target
 
 
 def _check_connection(user: str, slurm_host: str) -> None:
@@ -197,7 +184,7 @@ class SlurmClient:
         Returns:
             A list of users.
         """
-        # List all active users with an open SSH tunnel to Polaris.
+        # List all active users with an open SSH tunnel to the Slurm head node.
         command = f"ls ~/.ssh/ | egrep 'control-{slurm_host}-.*-.*'"
         result = subprocess.run(command, shell=True, capture_output=True)
         if result.returncode != 0:
