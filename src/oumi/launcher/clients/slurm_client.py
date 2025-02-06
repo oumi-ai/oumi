@@ -18,7 +18,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
@@ -33,6 +33,7 @@ class _SlurmAuthException(Exception):
 def _check_connection(user: str, slurm_host: str) -> None:
     """Checks if the connection is still open."""
     ssh_cmd = f"ssh {_CTRL_PATH} -O check {user}@{slurm_host}"
+    error_msg = ""
     try:
         child = subprocess.run(
             ssh_cmd,
@@ -40,11 +41,94 @@ def _check_connection(user: str, slurm_host: str) -> None:
             capture_output=True,
             timeout=10,
         )
+        error_msg = child.stderr.decode("utf-8")
     except subprocess.TimeoutExpired:
         raise _SlurmAuthException("Timeout while checking connection.")
     if child.returncode == 0:
         return
-    raise _SlurmAuthException("Connection to Slurm host is closed.")
+    if error_msg:
+        logger.error(f"Error checking connection: {error_msg}")
+        error_msg = f" Error: {error_msg}"
+    raise _SlurmAuthException("Connection to Slurm host is closed." + error_msg)
+
+
+def _is_job_done(job_state: str) -> bool:
+    """Determines if a job is done based on its state.
+
+    See https://slurm.schedmd.com/job_state_codes.html for more details.
+
+    Args:
+        job_state: The state of the job.
+
+    Returns:
+        True if the job is done, False otherwise.
+    """
+    terminal_states = {
+        "BOOT_FAIL",
+        "CANCELLED",
+        "COMPLETED",
+        "DEADLINE",
+        "FAILED",
+        "LAUNCH_FAILED",
+        "NODE_FAIL",
+        "OUT_OF_MEMORY",
+        "PREEMPTED",
+        "TIMEOUT",
+        "SUSPENDED",
+        "STOPPED",
+    }
+    return job_state in terminal_states
+
+
+def _split_status_line(
+    line: str, column_lengths: list[int], cluster_name: str, metadata: str
+) -> JobStatus:
+    """Splits a status line into a JobStatus object.
+
+    The expected order of job fields is:
+    0. Job ID
+    1. Job Name
+    2. User
+    3. Job State
+    4. Job State Reason
+
+    Sample status report:
+    ID      NAME   USER     STATE REASON
+    ----- ------ ------ --------- ------
+    1     my_job   user COMPLETED    0:0
+    2       job2          RUNNING
+
+    Args:
+        line: The line to split.
+        column_lengths: The lengths in chars of each column in the line.
+        cluster_name: The name of the cluster the job is running on.
+        metadata: Additional metadata to attach to the job status.
+
+    Returns:
+        A JobStatus object.
+    """
+    if len(column_lengths) != 5:
+        raise ValueError(f"Expected 5 fields, but found {len(column_lengths)}.")
+    fields = []
+    # Note: We can't use a simple split() here because empty fields are allowed.
+    for i in range(len(column_lengths)):
+        start = sum(column_lengths[:i]) + i
+        end = start + column_lengths[i]
+        fields.append(line[start:end].strip())
+    return JobStatus(
+        id=fields[0],
+        name=fields[1],
+        # JobState can have additional information. The primary state is the first word.
+        status=fields[3].split(" ")[0],
+        cluster=cluster_name,
+        metadata=metadata,
+        done=_is_job_done(fields[3]),
+    )
+
+
+def _compute_duration_debug_str(start_time: float) -> str:
+    duration_sec = time.perf_counter() - start_time
+    return f"Duration: {duration_sec:.2f} sec"
 
 
 @dataclass
@@ -56,7 +140,7 @@ class SlurmResponse:
     exit_code: int
 
 
-def retry_auth(user_function):
+def retry_auth(user_function: Callable) -> Callable:
     """Decorator to ensure auth is fresh before calling a function."""
 
     @functools.wraps(user_function)
@@ -82,69 +166,6 @@ class SlurmClient:
         self._slurm_host = slurm_host
         self._cluster_name = cluster_name
         self._refresh_creds()
-
-    def _is_job_done(self, job_state: str) -> bool:
-        """Determines if a job is done based on its state.
-
-        See https://slurm.schedmd.com/job_state_codes.html for more details.
-
-        Args:
-            job_state: The state of the job.
-
-        Returns:
-            True if the job is done, False otherwise.
-        """
-        terminal_states = {
-            "BOOT_FAIL",
-            "CANCELLED",
-            "COMPLETED",
-            "DEADLINE",
-            "FAILED",
-            "LAUNCH_FAILED",
-            "NODE_FAIL",
-            "OUT_OF_MEMORY",
-            "PREEMPTED",
-            "TIMEOUT",
-            "SUSPENDED",
-            "STOPPED",
-        }
-        return job_state in terminal_states
-
-    def _split_status_line(
-        self, line: str, column_lengths: list[int], metadata: str
-    ) -> JobStatus:
-        """Splits a status line into a JobStatus object.
-
-        The expected order of job fields is:
-        0. Job ID
-        1. Job Name
-        2. User
-        3. Job State
-        4. Job State Reason
-
-        Args:
-            line: The line to split.
-            column_lengths: The lengths in chars of each column in the line.
-            metadata: Additional metadata to attach to the job status.
-
-        Returns:
-            A JobStatus object.
-        """
-        if len(column_lengths) != 5:
-            raise ValueError(f"Expected 5 fields, but found {len(column_lengths)}.")
-        fields = []
-        for i in range(len(column_lengths)):
-            start = sum(column_lengths[:i]) + i
-            end = start + column_lengths[i]
-            fields.append(line[start:end].strip())
-        return JobStatus(
-            id=fields[0],
-            name=fields[1],
-            status=fields[3].split(" ")[0],
-            cluster=self._cluster_name,
-            metadata=metadata,
-            done=self._is_job_done(fields[3]),
-        )
 
     def _refresh_creds(self):
         """Refreshes the credentials for the client."""
@@ -189,6 +210,8 @@ class SlurmClient:
         result = subprocess.run(command, shell=True, capture_output=True)
         if result.returncode != 0:
             return []
+        # Sample Pattern:
+        # control-HOSTNAME-22-taenin
         ssh_tunnel_pattern = rf"control-{slurm_host}-[^-]*-(.*)"
         lines = result.stdout.decode("utf-8").strip().split("\n")
         users = set()
@@ -197,10 +220,6 @@ class SlurmClient:
             if match:
                 users.add(match.group(1))
         return list(users)
-
-    def _compute_duration_debug_str(self, start_time: float) -> str:
-        duration_sec = time.perf_counter() - start_time
-        return f"Duration: {duration_sec:.2f} sec"
 
     def _parse_job_id(self, sbatch_output: str) -> str:
         """Parses the job ID from the result of sbatch.
@@ -215,7 +234,10 @@ class SlurmClient:
         Returns:
             The job ID.
         """
-        return sbatch_output.split(";")[0]
+        split_job = sbatch_output.strip().split(";")
+        if len(split_job) > 2:
+            raise ValueError(f"Unexpected output from sbatch: {sbatch_output}")
+        return split_job[0]
 
     @retry_auth
     def run_commands(self, commands: list[str]) -> SlurmResponse:
@@ -236,7 +258,7 @@ class SlurmClient:
                 capture_output=True,
                 timeout=180,  # time in seconds
             )
-            duration_str = self._compute_duration_debug_str(start_time)
+            duration_str = _compute_duration_debug_str(start_time)
             if child.returncode == 0:
                 logger.debug(f"Commands successfully finished! {duration_str}")
             else:
@@ -249,7 +271,7 @@ class SlurmClient:
                 exit_code=child.returncode,
             )
         except subprocess.TimeoutExpired:
-            duration_str = self._compute_duration_debug_str(start_time)
+            duration_str = _compute_duration_debug_str(start_time)
             logger.exception(f"Commands timed out ({duration_str})! {new_cmd}")
             return SlurmResponse(
                 stdout="",
@@ -257,7 +279,7 @@ class SlurmClient:
                 exit_code=1,
             )
         except Exception:
-            duration_str = self._compute_duration_debug_str(start_time)
+            duration_str = _compute_duration_debug_str(start_time)
             logger.exception(f"Command failed ({duration_str})! {new_cmd}")
             raise
 
@@ -312,7 +334,9 @@ class SlurmClient:
         job_lines = lines[2:]
         for line in job_lines:
             job_metadata = "\n".join(metadata_headers + [line])
-            status = self._split_status_line(line, column_lengths, job_metadata)
+            status = _split_status_line(
+                line, column_lengths, self._cluster_name, job_metadata
+            )
             jobs.append(status)
         return jobs
 
