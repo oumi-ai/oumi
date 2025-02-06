@@ -294,7 +294,7 @@ class SlurmClient:
         """
         optional_name_args = ""
         if name:
-            optional_name_args = f"--job-name {name}"
+            optional_name_args = f"--job-name={name}"
         sbatch_cmd = (
             f"sbatch --nodes={node_count}"
             f" {optional_name_args} --parsable {job_path}"

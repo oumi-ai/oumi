@@ -83,7 +83,7 @@ def test_slurm_client_submit_job(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "qsub -l select=2:system=polaris -q debug  ./job.sh",
+                        "sbatch --nodes=2  --parsable ./job.sh",
                     ]
                 ),
                 shell=True,
@@ -95,7 +95,7 @@ def test_slurm_client_submit_job(mock_subprocess):
     assert result == "2032"
 
 
-def test_slurm_client_submit_job_name(mock_subprocess, mock_auth):
+def test_slurm_client_submit_job_name(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.host"
@@ -121,7 +121,7 @@ def test_slurm_client_submit_job_name(mock_subprocess, mock_auth):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "qsub -l select=2:system=polaris -q debug -N somename ./job.sh",
+                        "sbatch --nodes=2 --job-name=cluster_name --parsable ./job.sh",
                     ]
                 ),
                 shell=True,
@@ -205,7 +205,7 @@ def test_slurm_client_submit_job_retry_auth(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+                        "sbatch --nodes=2  --parsable ./job.sh",
                     ]
                 ),
                 shell=True,
