@@ -27,7 +27,7 @@ The configurations are organized into different categories:
 - Generation and Inference:
     - :class:`~oumi.core.configs.params.generation_params.GenerationParams`
     - :class:`~oumi.core.configs.inference_config.InferenceConfig`
-    - :class:`~oumi.core.configs.inference_config.InferenceEngineType`
+    - :class:`~oumi.core.configs.inference_engine_type.InferenceEngineType`
 - Job Management:
     - :class:`~oumi.core.configs.job_config.JobConfig`
     - :class:`~oumi.core.configs.job_config.JobResources`
@@ -78,7 +78,8 @@ Note:
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
-from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import (
     JudgeAttribute,

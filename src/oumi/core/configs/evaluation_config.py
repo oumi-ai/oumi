@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.inference_config import InferenceEngineType
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
