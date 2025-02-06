@@ -30,7 +30,7 @@ class Tulu3MixtureDataset(BaseSftDataset):
         """Convert the example into a Conversation.
 
         Args:
-            example (dict or Pandas Series): An example containtn a `messages`
+            example (dict or Pandas Series): An example containing a `messages`
                field which is a list of dicts with `content` and `role` string
                fields
         """
