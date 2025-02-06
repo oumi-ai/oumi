@@ -25,6 +25,7 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
     InternalModelConfig,
+    InternalPaddingSide,
     InternalVisualModelConfig,
 )
 from oumi.core.registry import REGISTRY, RegistryType
@@ -143,6 +144,31 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
         {
             "min_pixels": 256 * 28 * 28,
             "max_pixels": 1280 * 28 * 28,
+        }
+    )
+    return config
+
+
+def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config.chat_template = "qwen2.5-vl-instruct"
+    config.padding_side = InternalPaddingSide.PAD_RIGHT
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+            )
+            for feature_name in ("image_grid_thw",)
+        }
+    )
+    config.processor_kwargs.update(
+        # Defaults per Qwen2.5-VL:
+        # https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py # noqa: E501
+        {
+            "min_pixels": 4 * 28 * 28,
+            "max_pixels": 16384 * 28 * 28,
         }
     )
     return config
@@ -268,6 +294,12 @@ def get_all_models_map() -> (
             model_class=default_vlm_class,
             tested=True,
             config=_create_qwen2_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen2_5_vl",
+            model_class=default_vlm_class,
+            tested=True,
+            config=_create_qwen2_5_vl_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="vipllava",

@@ -162,6 +162,12 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
     ),
     ChatTemplateTestSpec(
+        chat_template_name="qwen2.5-vl-instruct",
+        model_name="Qwen/Qwen2.5-VL-3B-Instruct",
+        test_image=True,
+        image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
+    ),
+    ChatTemplateTestSpec(
         chat_template_name="zephyr",
         model_name="openai-community/gpt2",
     ),
