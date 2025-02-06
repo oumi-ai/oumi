@@ -34,14 +34,6 @@ data:
           processor_name: "HuggingFaceTB/SmolVLM-Instruct"
           # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
-      # - dataset_name: "HuggingFaceM4/Docmatix"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "HuggingFaceTB/SmolVLM-Instruct"
-      #     return_tensors: True
 
 training:
   output_dir: "output/vlm_finetuned"
