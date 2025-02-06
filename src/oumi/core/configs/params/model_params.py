@@ -20,7 +20,7 @@ from typing import Any, Optional
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
-from oumi.core.configs import InferenceEngineType
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
 from oumi.utils.logging import logger
