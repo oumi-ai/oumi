@@ -175,7 +175,7 @@ def test_multimodal_trainer(
     else:
         print("Not initializing distributed process group")
 
-    if model_name in [ModelName.QWEN2_VL, ModelName.QWEN2_5_3B_VL] and batch_size != 1:
+    if model_name in (ModelName.QWEN2_VL, ModelName.QWEN2_5_3B_VL) and batch_size != 1:
         print(
             f"Using batch size 1 for {model_name.value} (original: bs={batch_size}). "
             "The model only supports bs=1 because of variable-size image encodings."

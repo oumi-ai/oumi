@@ -33,14 +33,6 @@ data:
           processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
           # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
-      # - dataset_name: "HuggingFaceM4/Docmatix"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-      #     return_tensors: True
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True
