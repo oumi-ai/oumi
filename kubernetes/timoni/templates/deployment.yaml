@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oumi
+  labels:
+    app: oumi
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: oumi
+  template:
+    metadata:
+      labels:
+        app: oumi
+    spec:
+      containers:
+        - name: oumi
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              cpu: "{{ .Values.resources.limits.cpu }}"
+              memory: "{{ .Values.resources.limits.memory }}"
+            requests:
+              cpu: "{{ .Values.resources.requests.cpu }}"
+              memory: "{{ .Values.resources.requests.memory }}"
+      nodeSelector: {{ toYaml .Values.nodeSelector | indent 8 }}
+      tolerations: {{ toYaml .Values.tolerations | indent 8 }}
+      affinity: {{ toYaml .Values.affinity | indent 8 }}

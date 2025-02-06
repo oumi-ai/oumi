@@ -13,7 +13,6 @@ Try using our sample helloworld job for this tutorial:
 ```{literalinclude} ../../../configs/examples/misc/hello_world_gcp_job.yaml
 :language: yaml
 ```
-````
 `````
 
 Let's get started with launching a job! Don't worry about the nitty-gritty&mdash;we'll
@@ -199,3 +198,85 @@ job_config.setup = "pip install oumi"
 ```
 :::
 ::::
+
+## Deploying on Kubernetes
+
+You can also deploy your job on a Kubernetes cluster using Helm or Timoni. Follow the instructions below to get started.
+
+### Using Helm
+
+1. Install Helm if you haven't already. Follow the instructions [here](https://helm.sh/docs/intro/install/).
+
+2. Create a `values.yaml` file with the following content:
+
+```yaml
+replicaCount: 1
+
+image:
+  repository: oumi/launcher
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+```
+
+3. Deploy the Helm chart:
+
+```shell
+helm install oumi kubernetes/helm -f values.yaml
+```
+
+### Using Timoni
+
+1. Install Timoni if you haven't already. Follow the instructions [here](https://timoni.sh/docs/installation/).
+
+2. Create a `values.yaml` file with the following content:
+
+```yaml
+replicaCount: 1
+
+image:
+  repository: oumi/launcher
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+```
+
+3. Deploy the Timoni module:
+
+```shell
+timoni apply -f kubernetes/timoni/module.yaml -f values.yaml
+```

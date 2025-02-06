@@ -37,6 +37,8 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
         return sky.clouds.AWS()
     elif job.resources.cloud == SkyClient.SupportedClouds.AZURE.value:
         return sky.clouds.Azure()
+    elif job.resources.cloud == SkyClient.SupportedClouds.KUBERNETES.value:
+        return sky.clouds.Kubernetes()
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
@@ -121,6 +123,7 @@ class SkyClient:
         GCP = "gcp"
         RUNPOD = "runpod"
         LAMBDA = "lambda"
+        KUBERNETES = "kubernetes"
 
     def launch(
         self, job: JobConfig, cluster_name: Optional[str] = None, **kwargs

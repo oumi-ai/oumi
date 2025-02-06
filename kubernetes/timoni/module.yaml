@@ -1,0 +1,80 @@
+apiVersion: timoni.sh/v1alpha1
+kind: Module
+metadata:
+  name: oumi
+  version: 0.1.0
+  description: A Timoni module for deploying Oumi on Kubernetes
+  maintainers:
+    - name: Oumi Team
+      email: support@oumi.ai
+spec:
+  values:
+    - name: replicaCount
+      type: int
+      default: 1
+      description: Number of replicas for the deployment
+    - name: image
+      type: object
+      properties:
+        repository:
+          type: string
+          default: oumi/launcher
+          description: Docker image repository
+        tag:
+          type: string
+          default: latest
+          description: Docker image tag
+        pullPolicy:
+          type: string
+          default: IfNotPresent
+          description: Image pull policy
+    - name: service
+      type: object
+      properties:
+        type:
+          type: string
+          default: ClusterIP
+          description: Service type
+        port:
+          type: int
+          default: 80
+          description: Service port
+    - name: resources
+      type: object
+      properties:
+        limits:
+          type: object
+          properties:
+            cpu:
+              type: string
+              default: 100m
+              description: CPU limit
+            memory:
+              type: string
+              default: 128Mi
+              description: Memory limit
+        requests:
+          type: object
+          properties:
+            cpu:
+              type: string
+              default: 100m
+              description: CPU request
+            memory:
+              type: string
+              default: 128Mi
+              description: Memory request
+    - name: nodeSelector
+      type: object
+      default: {}
+      description: Node selector for pod scheduling
+    - name: tolerations
+      type: array
+      items:
+        type: object
+      default: []
+      description: Tolerations for pod scheduling
+    - name: affinity
+      type: object
+      default: {}
+      description: Affinity rules for pod scheduling
