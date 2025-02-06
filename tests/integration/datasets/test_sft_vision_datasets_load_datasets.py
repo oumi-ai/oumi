@@ -63,7 +63,6 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             "coco_captions",
             "vision_language_jsonl",
             "vl_sft",
-            "HuggingFaceM4/Docmatix",
         }
     )
 
