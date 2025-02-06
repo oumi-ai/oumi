@@ -98,7 +98,7 @@ def test_slurm_client_submit_job(mock_subprocess):
 def test_slurm_client_submit_job_name(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = b"2032.polaris-pbs-01.hsn.cm.host"
+    mock_run.stdout = b"2032"
     mock_run.stderr = b"err"
     mock_run.returncode = 0
     client = SlurmClient("user", "host", "cluster_name")
@@ -121,7 +121,7 @@ def test_slurm_client_submit_job_name(mock_subprocess):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "sbatch --nodes=2 --job-name=cluster_name --parsable ./job.sh",
+                        "sbatch --nodes=2 --job-name=somename --parsable ./job.sh",
                     ]
                 ),
                 shell=True,
@@ -133,7 +133,7 @@ def test_slurm_client_submit_job_name(mock_subprocess):
     assert result == "2032"
 
 
-def test_slurm_client_submit_job_error(mock_subprocess, mock_auth):
+def test_slurm_client_submit_job_error(mock_subprocess):
     mock_success_run = Mock()
     mock_success_run.stdout = b"out"
     mock_success_run.stderr = b"err"
@@ -168,7 +168,7 @@ def test_slurm_client_submit_job_error(mock_subprocess, mock_auth):
                 _run_commands_template(
                     [
                         "cd work_dir",
-                        "qsub -l select=2:system=polaris -q prod  ./job.sh",
+                        "sbatch --nodes=2  --parsable ./job.sh",
                     ]
                 ),
                 shell=True,
@@ -217,38 +217,29 @@ def test_slurm_client_submit_job_retry_auth(mock_subprocess):
     assert result == "3141592653polaris-pbs-01"
 
 
-def test_slurm_client_list_jobs_success(mock_subprocess, mock_auth):
+def test_slurm_client_list_jobs_success(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
-    mock_run.stdout = _get_test_data("qstat.txt").encode("utf-8")
+    mock_run.stdout = _get_test_data("sacct.txt").encode("utf-8")
     mock_run.stderr = b"foo"
     mock_run.returncode = 0
 
     client = SlurmClient("user", "host", "cluster_name")
     job_list = client.list_jobs()
     mock_subprocess.run.assert_called_with(
-        _run_commands_template(["qstat -s -x -w -u user"]),
+        _run_commands_template(
+            ["sacct --user=user --format='JobId,JobName,User,State,Reason'"]
+        ),
         shell=True,
         capture_output=True,
         timeout=180,
     )
     job_ids = [job.id for job in job_list]
     expected_ids = [
-        "2017611",
-        "2017643",
-        "2017652",
-        "2017654",
-        "2018469",
-        "2019593",
-        "2019726",
-        "2019730",
-        "2019731",
-        "2019743",
-        "2019765",
-        "2019769",
-        "2021153",
-        "2037042",
-        "2037048",
+        "6",
+        "6.batch",
+        "7",
+        "7.batch",
     ]
     assert job_ids == expected_ids
 

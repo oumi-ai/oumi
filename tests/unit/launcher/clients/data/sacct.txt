@@ -1,6 +1,6 @@
-JobID           JobName  Partition    Account  AllocCPUS      State ExitCode
------------- ---------- ---------- ---------- ---------- ---------- --------
-6                  test      batch                     1  RUNNING        0:0
-6.batch           batch                                1  COMPLETED      0:0
-7            cluster_t+      batch                     1 CANCELLED+      0:0
-7.batch           batch                                1  CANCELLED     0:15
+JobID           JobName      User      State                 Reason
+------------ ---------- --------- ---------- ----------------------
+6                  test    taenin  COMPLETED                   None
+6.batch           batch            COMPLETED
+7            cluster_t+    taenin CANCELLED+                   None
+7.batch           batch            CANCELLED
