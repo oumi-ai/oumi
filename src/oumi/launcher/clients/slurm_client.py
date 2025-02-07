@@ -320,7 +320,11 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        command = f"sacct --user={self._user} --format='{response_format}'"
+        # Forcibly list all jobs since Jan 1, 2025.
+        command = (
+            f"sacct --user={self._user} --format='{response_format}' -X "
+            "--starttime 2025-01-01"
+        )
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")

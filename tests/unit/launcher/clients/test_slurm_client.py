@@ -10,7 +10,8 @@ from oumi.launcher.clients.slurm_client import SlurmClient
 
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
 _SACCT_CMD = (
-    "sacct --user=user --format='JobId%-30,JobName%30,User%30,State%30,Reason%30'"
+    "sacct --user=user --format='JobId%-30,JobName%30,User%30,State%30,Reason%30' "
+    "-X --starttime 2025-01-01"
 )
 
 

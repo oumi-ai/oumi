@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 import uuid
 from datetime import datetime
 from functools import reduce
@@ -213,6 +214,14 @@ class SlurmCluster(BaseCluster):
             job.num_nodes,
             job_name,
         )
+        max_retries = 3
+        wait_time = 5
+        for _ in range(max_retries):
+            job_status = self.get_job(job_id)
+            if job_status is not None:
+                return job_status
+            logger.info(f"Job {job_id} not found. Retrying in {wait_time} seconds.")
+            time.sleep(wait_time)
         job_status = self.get_job(job_id)
         if job_status is None:
             raise RuntimeError(f"Job {job_id} not found after submission.")

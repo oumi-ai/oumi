@@ -18,6 +18,12 @@ def mock_slurm_client():
 
 
 @pytest.fixture
+def mock_time():
+    with patch("oumi.launcher.clusters.slurm_cluster.time") as mock_t:
+        yield mock_t
+
+
+@pytest.fixture
 def mock_datetime():
     with patch("oumi.launcher.clusters.slurm_cluster.datetime") as mock_dt:
         mock_dt.now.return_value = datetime(2024, 10, 9, 13, 4, 24, 513094)
@@ -348,7 +354,10 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
-def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client):
+def test_slurm_cluster_run_job_with_polling_succeeds(
+    mock_time, mock_datetime, mock_slurm_client
+):
+    mock_time.sleep.side_effect = [None, None, None, None, None]
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_failed_cmd = Mock()
@@ -361,15 +370,28 @@ def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client
     ]
     cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
-    mock_slurm_client.list_jobs.return_value = [
-        JobStatus(
-            id="1234",
-            name="some name",
-            status="RUNNING",
-            metadata="",
-            cluster="mycluster",
-            done=False,
-        )
+    mock_slurm_client.list_jobs.side_effect = [
+        [],
+        [
+            JobStatus(
+                id="1",
+                name="some name",
+                status="RUNNING",
+                metadata="",
+                cluster="mycluster",
+                done=False,
+            )
+        ],
+        [
+            JobStatus(
+                id="1234",
+                name="some name",
+                status="RUNNING",
+                metadata="",
+                cluster="mycluster",
+                done=False,
+            )
+        ],
     ]
     expected_status = JobStatus(
         id="1234",
@@ -415,7 +437,8 @@ def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client
         2,
         "myjob",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with()
+    mock_slurm_client.list_jobs.assert_has_calls([call(), call(), call()])
+    mock_time.sleep.assert_has_calls([call(5), call(5)])
     assert job_status == expected_status
 
 
@@ -661,7 +684,7 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
-def test_slurm_cluster_run_job_fails(mock_datetime, mock_slurm_client):
+def test_slurm_cluster_run_job_fails(mock_time, mock_datetime, mock_slurm_client):
     cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "234"
     mock_slurm_client.list_jobs.return_value = [
@@ -676,6 +699,7 @@ def test_slurm_cluster_run_job_fails(mock_datetime, mock_slurm_client):
     ]
     with pytest.raises(RuntimeError):
         _ = cluster.run_job(_get_default_job("slurm"))
+    mock_time.sleep.assert_has_calls([call(5), call(5), call(5)])
 
 
 def test_slurm_cluster_down(mock_datetime, mock_slurm_client):
