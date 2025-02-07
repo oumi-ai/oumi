@@ -54,7 +54,7 @@ def _get_default_job(cloud: str) -> JobConfig:
             )
         },
         setup=(
-            "#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n"
+            "#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n"
             "pip install -r requirements.txt"
         ),
         run="./hello_world.sh",
@@ -81,18 +81,8 @@ def test_slurm_cluster_name(mock_datetime, mock_slurm_client):
     assert cluster.name() == "prod.einstein"
 
 
-def test_slurm_cluster_invalid_name(mock_datetime, mock_slurm_client):
-    with pytest.raises(ValueError):
-        SlurmCluster("einstein", mock_slurm_client)
-
-
-def test_slurm_cluster_invalid_queue(mock_datetime, mock_slurm_client):
-    with pytest.raises(ValueError):
-        SlurmCluster("albert.einstein", mock_slurm_client)
-
-
 def test_slurm_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
@@ -123,11 +113,11 @@ def test_slurm_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job is not None
     assert job.id == "myjob"
-    assert job.cluster == "debug.name"
+    assert job.cluster == "debug@host"
 
 
 def test_slurm_cluster_get_job_invalid_id_empty(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = []
     job = cluster.get_job("myjob")
     mock_slurm_client.list_jobs.assert_called_once_with()
@@ -135,7 +125,7 @@ def test_slurm_cluster_get_job_invalid_id_empty(mock_datetime, mock_slurm_client
 
 
 def test_slurm_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
@@ -168,7 +158,7 @@ def test_slurm_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_cli
 
 
 def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
@@ -203,7 +193,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             name="some name",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
         JobStatus(
@@ -211,7 +201,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             name="some",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
         JobStatus(
@@ -219,7 +209,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             name="name3",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
     ]
@@ -227,7 +217,7 @@ def test_slurm_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
 
 
 def test_slurm_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = []
     jobs = cluster.get_jobs()
     mock_slurm_client.list_jobs.assert_called_once_with()
@@ -236,14 +226,14 @@ def test_slurm_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
 
 
 def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("prod.name", mock_slurm_client)
+    cluster = SlurmCluster("prod@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
             name="some name",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
         JobStatus(
@@ -251,7 +241,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
             name="some",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
         JobStatus(
@@ -259,7 +249,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
             name="name3",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
     ]
@@ -269,7 +259,7 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
         name="some",
         status="running",
         metadata="",
-        cluster="prod.name",
+        cluster="prod@host",
         done=False,
     )
     mock_slurm_client.cancel.assert_called_once_with(
@@ -279,14 +269,14 @@ def test_slurm_cluster_cancel_job(mock_datetime, mock_slurm_client):
 
 
 def test_slurm_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("prod.name", mock_slurm_client)
+    cluster = SlurmCluster("prod@host", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="job2",
             name="some",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="debug@host",
             done=False,
         ),
     ]
@@ -295,7 +285,7 @@ def test_slurm_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
 
 
 def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
@@ -304,7 +294,7 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -313,9 +303,9 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
     expected_status = JobStatus(
         id="1234",
         name="some name",
-        status="queued",
+        status="RUNNING",
         metadata="",
-        cluster="debug.name",
+        cluster="debug@host",
         done=False,
     )
     job_status = cluster.run_job(_get_default_job("slurm"))
@@ -323,7 +313,7 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -337,48 +327,20 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
-            call(
-                [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]' vllm",
-                ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
-                [
-                    "mkdir -p some/log",
-                    "mkdir -p run/log",
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         2,
         "myjob",
     )
@@ -397,13 +359,13 @@ def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client
         mock_successful_cmd,
         mock_successful_cmd,
     ]
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -412,9 +374,9 @@ def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client
     expected_status = JobStatus(
         id="1234",
         name="some name",
-        status="queued",
+        status="RUNNING",
         metadata="",
-        cluster="debug.name",
+        cluster="debug@host",
         done=False,
     )
     job_status = cluster.run_job(_get_default_job("slurm"))
@@ -422,7 +384,7 @@ def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -436,48 +398,20 @@ def test_slurm_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
-            call(
-                [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]' vllm",
-                ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
-                [
-                    "mkdir -p some/log",
-                    "mkdir -p run/log",
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         2,
         "myjob",
     )
@@ -489,13 +423,13 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -504,9 +438,9 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     expected_status = JobStatus(
         id="1234",
         name="some name",
-        status="queued",
+        status="RUNNING",
         metadata="",
-        cluster="debug.name",
+        cluster="debug@host",
         done=False,
     )
     job = _get_default_job("slurm")
@@ -520,7 +454,7 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -534,48 +468,20 @@ def test_slurm_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
-            call(
-                [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]' vllm",
-                ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
-                [
-                    "mkdir -p some/log",
-                    "mkdir -p run/log",
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         2,
         "1-2-3",
     )
@@ -587,13 +493,13 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -602,9 +508,9 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     expected_status = JobStatus(
         id="1234",
         name="some name",
-        status="queued",
+        status="RUNNING",
         metadata="",
-        cluster="debug.name",
+        cluster="debug@host",
         done=False,
     )
     job = _get_default_job("slurm")
@@ -614,54 +520,26 @@ def test_slurm_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
-            call(
-                [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]' vllm",
-                ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
-                [
-                    "mkdir -p some/log",
-                    "mkdir -p run/log",
-                ]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         2,
         "myjob",
     )
@@ -673,13 +551,13 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -688,9 +566,9 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
     expected_status = JobStatus(
         id="1234",
         name="some name",
-        status="queued",
+        status="RUNNING",
         metadata="",
-        cluster="debug.name",
+        cluster="debug@host",
         done=False,
     )
     job = _get_default_job("slurm")
@@ -702,46 +580,24 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
-            call(
-                [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]' vllm",
-                ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = (
         "#!/bin/bash\n\n" "export var1=val1\n\n" "small setup\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         2,
         "myjob",
     )
@@ -753,13 +609,13 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_slurm_client.run_commands.return_value = mock_successful_cmd
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "1234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -768,9 +624,9 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     expected_status = JobStatus(
         id="1234",
         name="some name",
-        status="queued",
+        status="RUNNING",
         metadata="",
-        cluster="debug.name",
+        cluster="debug@host",
         done=False,
     )
     job = _get_default_job("slurm")
@@ -782,44 +638,22 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "~/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
-            call(
-                [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]' vllm",
-                ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
     job_script = "#!/bin/bash\n\n" "export var1=val1\n\n" "./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
         2,
         "myjob",
     )
@@ -828,13 +662,13 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
 
 
 def test_slurm_cluster_run_job_fails(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug.name", mock_slurm_client)
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
     mock_slurm_client.submit_job.return_value = "234"
     mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
-            status="queued",
+            status="RUNNING",
             metadata="",
             cluster="mycluster",
             done=False,
@@ -845,12 +679,12 @@ def test_slurm_cluster_run_job_fails(mock_datetime, mock_slurm_client):
 
 
 def test_slurm_cluster_down(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug-scaling.name", mock_slurm_client)
+    cluster = SlurmCluster("debug-scaling@host", mock_slurm_client)
     cluster.down()
     # Nothing to assert, this method is a no-op.
 
 
 def test_slurm_cluster_stop(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("debug-scaling.name", mock_slurm_client)
+    cluster = SlurmCluster("debug-scaling@host", mock_slurm_client)
     cluster.stop()
     # Nothing to assert, this method is a no-op.

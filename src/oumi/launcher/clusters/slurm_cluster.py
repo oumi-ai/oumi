@@ -63,10 +63,10 @@ def _create_job_script(job: JobConfig) -> str:
     """
     setup_lines = [] if not job.setup else job.setup.strip().split("\n")
     run_lines = job.run.strip().split("\n")
-    # Find the last PBS instruction line.
+    # Find the last SBATCH instruction line.
     last_run_sbatch = _last_sbatch_line(run_lines) + 1
     last_setup_sbatch = _last_sbatch_line(setup_lines) + 1
-    # Inject environment variables into the script after PBS instructions.
+    # Inject environment variables into the script after SBATCH instructions.
     env_lines = [f"export {key}={value}" for key, value in job.envs.items()]
     # Pad the environment variables with newlines.
     env_lines = [""] + env_lines + [""] if env_lines else []
