@@ -150,19 +150,10 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
 
 
 def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config = _create_qwen2_vl_vlm_config()
+    # Update default parameters that differ from Qwen2:
     config.chat_template = "qwen2.5-vl-instruct"
     config.padding_side = InternalPaddingSide.PAD_RIGHT
-    config.model_input_features.update(
-        {
-            feature_name: InternalFeatureSpec(
-                name=feature_name,
-                required=True,
-                variable_shape=False,
-            )
-            for feature_name in ("image_grid_thw",)
-        }
-    )
     config.processor_kwargs.update(
         # Defaults per Qwen2.5-VL:
         # https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py # noqa: E501

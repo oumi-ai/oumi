@@ -161,12 +161,15 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         test_image=True,
         image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
     ),
-    ChatTemplateTestSpec(
-        chat_template_name="qwen2.5-vl-instruct",
-        model_name="Qwen/Qwen2.5-VL-3B-Instruct",
-        test_image=True,
-        image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
-    ),
+    # TODO: To be added back once we update Oumi to the latest (>=4.49.0) version of
+    # transformers, which is required for this model. The test passes locally with
+    # 4.49.0.dev0
+    # ChatTemplateTestSpec(
+    #     chat_template_name="qwen2.5-vl-instruct",
+    #     model_name="Qwen/Qwen2.5-VL-3B-Instruct",
+    #     test_image=True,
+    #     image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
+    # ),
     ChatTemplateTestSpec(
         chat_template_name="zephyr",
         model_name="openai-community/gpt2",
