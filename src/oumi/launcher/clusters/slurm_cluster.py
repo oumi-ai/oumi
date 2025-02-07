@@ -195,7 +195,7 @@ class SlurmCluster(BaseCluster):
         job_name = job.name or uuid.uuid1().hex
         submission_time = _format_date(datetime.now())
         remote_working_dir = Path(f"~/oumi_launcher/{submission_time}")
-        # Copy the working directory to Slurm /home/ system.
+        # Copy the working directory to ~/oumi_launcher/...
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
