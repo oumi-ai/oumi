@@ -108,7 +108,10 @@ def _split_status_line(
         A JobStatus object.
     """
     if len(column_lengths) != 5:
-        raise ValueError(f"Expected 5 fields, but found {len(column_lengths)}.")
+        raise ValueError(
+            f"Expected 5 fields, but found {len(column_lengths)}."
+            f" Invalid line: {line}."
+        )
     fields = []
     # Note: We can't use a simple split() here because empty fields are allowed.
     for i in range(len(column_lengths)):
@@ -320,7 +323,12 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        command = f"sacct --user={self._user} --format='{response_format}'"
+        # Forcibly list all jobs since Jan 1, 2025.
+        # Otherwise completed jobs older than ~24 hours may not be listed.
+        command = (
+            f"sacct --user={self._user} --format='{response_format}' -X "
+            "--starttime 2025-01-01"
+        )
         result = self.run_commands([command])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to list jobs. stderr: {result.stderr}")
@@ -329,6 +337,17 @@ class SlurmClient:
         jobs = []
         if len(lines) < 2:
             return jobs
+        # Look for a line starting in JobID followed by a line starting with "--".
+        start_idx = -1
+        for idx in range(len(lines) - 1):
+            if lines[idx].startswith("JobID") and lines[idx + 1].startswith("--"):
+                start_idx = idx
+                break
+        if start_idx == -1:
+            raise RuntimeError(
+                f"Failed to parse job list. Unexpected format: {result.stdout}"
+            )
+        lines = lines[start_idx:]
         # The first two lines are metadata headers.
         # The top line is composed of column titles.
         # The second line is composed of ---- characters, each the length of a column.
