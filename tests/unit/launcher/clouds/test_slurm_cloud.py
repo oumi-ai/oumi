@@ -22,14 +22,26 @@ def mock_slurm_client():
 @pytest.fixture
 def mock_slurm_cluster():
     with patch("oumi.launcher.clouds.slurm_cloud.SlurmCluster") as cluster:
+        cluster.get_slurm_connections.return_value = []
+        cluster.parse_cluster_name = SlurmCluster.parse_cluster_name
         yield cluster
 
 
 @pytest.fixture
-def mock_os():
-    with patch("oumi.launcher.clouds.slurm_cloud.os") as os_mock:
-        os_mock.getenv.return_value = ""
-        yield os_mock
+def mock_get_slurm_connections():
+    with patch(
+        "oumi.launcher.clouds.slurm_cloud.SlurmCluster.get_slurm_connections"
+    ) as get_conns:
+        get_conns.return_value = []
+        yield get_conns
+
+
+@pytest.fixture
+def mock_parse_cluster_name():
+    with patch(
+        "oumi.launcher.clouds.slurm_cloud.SlurmCluster.parse_cluster_name"
+    ) as parse_name:
+        yield parse_name
 
 
 def _get_default_job(cloud: str) -> JobConfig:
@@ -66,7 +78,7 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
-def test_slurm_cloud_up_cluster(mock_slurm_client, mock_os, mock_slurm_cluster):
+def test_slurm_cloud_up_cluster(mock_slurm_client, mock_slurm_cluster):
     cloud = SlurmCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
@@ -91,7 +103,7 @@ def test_slurm_cloud_up_cluster(mock_slurm_client, mock_os, mock_slurm_cluster):
 
 
 def test_slurm_cloud_up_cluster_fails_mismatched_user(
-    mock_slurm_client, mock_os, mock_slurm_cluster
+    mock_slurm_client, mock_slurm_cluster
 ):
     cloud = SlurmCloud()
     with pytest.raises(
@@ -104,9 +116,14 @@ def test_slurm_cloud_up_cluster_fails_mismatched_user(
         _ = cloud.up_cluster(_get_default_job("slurm"), "user1@somehost")
 
 
-def test_slurm_cloud_init_with_connections(mock_os, mock_slurm_client):
+def test_slurm_cloud_init_with_connections(
+    mock_slurm_client, mock_get_slurm_connections
+):
     mock_client = Mock(spec=SlurmClient)
-    mock_os.getenv.return_value = "user1@host1,user2@host2"
+    mock_get_slurm_connections.return_value = [
+        SlurmCluster.ConnectionInfo(user="user1", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+    ]
     mock_slurm_client.side_effect = [mock_client, mock_client]
     cloud = SlurmCloud()
     cluster_names = [cluster.name() for cluster in cloud.list_clusters()]
@@ -123,9 +140,15 @@ def test_slurm_cloud_init_with_connections(mock_os, mock_slurm_client):
     )
 
 
-def test_slurm_cloud_init_skips_malformed_connections(mock_os, mock_slurm_client):
+def test_slurm_cloud_init_skips_malformed_connections(
+    mock_slurm_client, mock_get_slurm_connections
+):
     mock_client = Mock(spec=SlurmClient)
-    mock_os.getenv.return_value = "user1@host1,foob@@@ar, user2@host2 , user3@host3"
+    mock_get_slurm_connections.return_value = [
+        SlurmCluster.ConnectionInfo(user="user1", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+        SlurmCluster.ConnectionInfo(user="user3", hostname="host3"),
+    ]
     mock_slurm_client.side_effect = [mock_client, mock_client, mock_client]
     cloud = SlurmCloud()
     cluster_names = [cluster.name() for cluster in cloud.list_clusters()]
@@ -144,10 +167,14 @@ def test_slurm_cloud_init_skips_malformed_connections(mock_os, mock_slurm_client
     )
 
 
-def test_slurm_cloud_initialize_cluster(mock_os, mock_slurm_client):
+def test_slurm_cloud_initialize_cluster(mock_slurm_client, mock_get_slurm_connections):
     cloud = SlurmCloud()
+    mock_get_slurm_connections.return_value = [
+        SlurmCluster.ConnectionInfo(user="user1", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+        SlurmCluster.ConnectionInfo(user="user3", hostname="host3"),
+    ]
     mock_client = Mock(spec=SlurmClient)
-    mock_os.getenv.return_value = "user1@host1,user2@host2,user3@host3"
     mock_slurm_client.side_effect = [mock_client, mock_client, mock_client]
     clusters = cloud.initialize_clusters()
     clusters2 = cloud.initialize_clusters()
@@ -169,10 +196,14 @@ def test_slurm_cloud_initialize_cluster(mock_os, mock_slurm_client):
     assert clusters == clusters2
 
 
-def test_slurm_cloud_list_clusters(mock_os, mock_slurm_client):
+def test_slurm_cloud_list_clusters(mock_slurm_client, mock_get_slurm_connections):
     cloud = SlurmCloud()
+    mock_get_slurm_connections.return_value = [
+        SlurmCluster.ConnectionInfo(user="user1", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+        SlurmCluster.ConnectionInfo(user="user3", hostname="host3"),
+    ]
     mock_client = Mock(spec=SlurmClient)
-    mock_os.getenv.return_value = "user1@host1,user2@host2,user3@host3"
     mock_slurm_client.side_effect = [mock_client, mock_client, mock_client]
     assert [] == cloud.list_clusters()
     clusters = cloud.initialize_clusters()
@@ -194,17 +225,24 @@ def test_slurm_cloud_list_clusters(mock_os, mock_slurm_client):
     assert cluster_names == expected_clusters
 
 
-def test_slurm_cloud_get_cluster_empty(mock_os, mock_slurm_client):
+def test_slurm_cloud_get_cluster_empty(mock_slurm_client):
     cloud = SlurmCloud()
     # Check that there are no initial clusters.
     assert cloud.get_cluster("debug.user") is None
 
 
-def test_slurm_cloud_get_cluster_success(mock_os, mock_slurm_client):
-    cloud = SlurmCloud()
+def test_slurm_cloud_get_cluster_success(mock_slurm_client, mock_get_slurm_connections):
     mock_client = Mock(spec=SlurmClient)
-    mock_os.getenv.return_value = "user1@host1,user2@host2,user3@host3"
+    mock_get_slurm_connections.side_effect = [
+        [],
+        [
+            SlurmCluster.ConnectionInfo(user="user1", hostname="host1"),
+            SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+            SlurmCluster.ConnectionInfo(user="user3", hostname="host3"),
+        ],
+    ]
     mock_slurm_client.side_effect = [mock_client, mock_client, mock_client]
+    cloud = SlurmCloud()
     assert [] == cloud.list_clusters()
     _ = cloud.initialize_clusters()
     mock_slurm_client.assert_has_calls(
@@ -225,7 +263,7 @@ def test_slurm_cloud_get_cluster_success(mock_os, mock_slurm_client):
         assert cluster.name() == name
 
 
-def test_slurm_cloud_get_cluster_fails(mock_os, mock_slurm_client):
+def test_slurm_cloud_get_cluster_fails(mock_slurm_client):
     cloud = SlurmCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client, mock_client]

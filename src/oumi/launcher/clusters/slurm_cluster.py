@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import re
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
@@ -23,6 +26,8 @@ from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.utils.logging import logger
+
+_OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
 
 
 def _format_date(date: datetime) -> str:
@@ -137,10 +142,22 @@ def _validate_job_config(job: JobConfig) -> None:
 class SlurmCluster(BaseCluster):
     """A cluster implementation backed by a Slurm scheduler."""
 
+    @dataclass
+    class ConnectionInfo:
+        """Dataclass to hold information about a connection."""
+
+        hostname: str
+        user: str
+
+        @property
+        def name(self):
+            """Gets the name of the connection in the form user@hostname."""
+            return f"{self.user}@{self.hostname}"
+
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
-        self._name = name
         self._client = client
+        self._connection = self.parse_cluster_name(name)
 
     def __eq__(self, other: Any) -> bool:
         """Checks if two SlurmClusters are equal."""
@@ -148,9 +165,45 @@ class SlurmCluster(BaseCluster):
             return False
         return self.name() == other.name()
 
+    @staticmethod
+    def parse_cluster_name(name: str) -> ConnectionInfo:
+        """Parses the cluster name into queue and user components.
+
+        Args:
+            name: The name of the cluster.
+
+        Returns:
+            _ConnectionInfo: The parsed cluster information.
+        """
+        # Expected format: <user>@<hostname>
+        connection_regex = r"^([a-zA-Z0-9\.\-\_]+)\@([a-zA-Z0-9\.\-\_]+)"
+        match = re.match(connection_regex, name)
+        if not match:
+            raise ValueError(
+                f"Invalid cluster name: {name}. Must be in the format 'user@hostname'."
+            )
+        return SlurmCluster.ConnectionInfo(hostname=match.group(2), user=match.group(1))
+
+    @staticmethod
+    def get_slurm_connections() -> list[ConnectionInfo]:
+        """Gets Slurm connections from the OUMI_SLURM_CONNECTIONS env variable."""
+        connections_str = os.getenv(_OUMI_SLURM_CONNECTIONS, "")
+        if not connections_str:
+            return []
+        valid_connections = []
+
+        for connection in [h.strip() for h in connections_str.split(",")]:
+            try:
+                valid_connections.append(SlurmCluster.parse_cluster_name(connection))
+            except ValueError:
+                logger.warning(
+                    f"Invalid Slurm connection string: {connection}. Skipping."
+                )
+        return valid_connections
+
     def name(self) -> str:
         """Gets the name of the cluster."""
-        return self._name
+        return self._connection.name
 
     def get_job(self, job_id: str) -> Optional[JobStatus]:
         """Gets the jobs on this cluster if it exists, else returns None."""
@@ -163,7 +216,7 @@ class SlurmCluster(BaseCluster):
         """Lists the jobs on this cluster."""
         jobs = self._client.list_jobs()
         for job in jobs:
-            job.cluster = self._name
+            job.cluster = self._connection.name
         return jobs
 
     def cancel_job(self, job_id: str) -> JobStatus:

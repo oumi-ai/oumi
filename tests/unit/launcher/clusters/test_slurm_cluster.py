@@ -71,20 +71,17 @@ def _get_default_job(cloud: str) -> JobConfig:
 # Tests
 #
 def test_slurm_cluster_name(mock_datetime, mock_slurm_client):
-    cluster = SlurmCluster("demand.einstein", mock_slurm_client)
-    assert cluster.name() == "demand.einstein"
+    cluster = SlurmCluster("demand@einstein", mock_slurm_client)
+    assert cluster.name() == "demand@einstein"
 
-    cluster = SlurmCluster("debug.einstein", mock_slurm_client)
-    assert cluster.name() == "debug.einstein"
+    cluster = SlurmCluster("user@192.168.0.1", mock_slurm_client)
+    assert cluster.name() == "user@192.168.0.1"
 
-    cluster = SlurmCluster("debug-scaling.einstein", mock_slurm_client)
-    assert cluster.name() == "debug-scaling.einstein"
+    cluster = SlurmCluster("debug-scaling@a", mock_slurm_client)
+    assert cluster.name() == "debug-scaling@a"
 
-    cluster = SlurmCluster("preemptable.einstein", mock_slurm_client)
-    assert cluster.name() == "preemptable.einstein"
-
-    cluster = SlurmCluster("prod.einstein", mock_slurm_client)
-    assert cluster.name() == "prod.einstein"
+    cluster = SlurmCluster("1-.foo@2-.foobar", mock_slurm_client)
+    assert cluster.name() == "1-.foo@2-.foobar"
 
 
 def test_slurm_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):

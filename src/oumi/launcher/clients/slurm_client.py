@@ -321,6 +321,7 @@ class SlurmClient:
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
         # Forcibly list all jobs since Jan 1, 2025.
+        # Otherwise completed jobs older than ~24 hours may not be listed.
         command = (
             f"sacct --user={self._user} --format='{response_format}' -X "
             "--starttime 2025-01-01"
