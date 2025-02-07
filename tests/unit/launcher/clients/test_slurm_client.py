@@ -327,6 +327,42 @@ def test_slurm_client_get_job_success(mock_subprocess):
     assert job_status == expected_status
 
 
+def test_slurm_client_get_job_success_one_job(mock_subprocess):
+    data = _get_test_data("sacct.txt").encode("utf-8")
+    data = b"\n".join(data.split(b"\n")[:3])
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = data
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_status = client.get_job("6")
+    mock_subprocess.run.assert_called_with(
+        _run_commands_template(
+            [
+                _SACCT_CMD,
+            ]
+        ),
+        shell=True,
+        capture_output=True,
+        timeout=180,
+    )
+    expected_status = JobStatus(
+        id="6",
+        name="test",
+        status="COMPLETED",
+        cluster="cluster_name",
+        metadata=(
+            "JobID                                                 JobName                           User                          State                         Reason\n"  # noqa: E501
+            "------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------\n"  # noqa: E501
+            "                             6                           test                         taenin                      COMPLETED                           None"  # noqa: E501
+        ),
+        done=True,
+    )
+    assert job_status == expected_status
+
+
 def test_slurm_client_get_job_not_found(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
@@ -335,6 +371,26 @@ def test_slurm_client_get_job_not_found(mock_subprocess):
     mock_run.returncode = 0
     client = SlurmClient("user", "host", "cluster_name")
     job_status = client.get_job("2017652")
+    mock_subprocess.run.assert_called_with(
+        _run_commands_template([_SACCT_CMD]),
+        shell=True,
+        capture_output=True,
+        timeout=180,
+    )
+    assert job_status is None
+
+
+def test_slurm_client_get_job_not_found_empty(mock_subprocess):
+    data = _get_test_data("sacct.txt").encode("utf-8")
+    data = b"\n".join(data.split(b"\n")[:2])
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = data
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_status = client.get_job("6")
     mock_subprocess.run.assert_called_with(
         _run_commands_template([_SACCT_CMD]),
         shell=True,

@@ -327,8 +327,11 @@ class SlurmClient:
         # Parse STDOUT to retrieve job statuses.
         lines = result.stdout.strip().split("\n")
         jobs = []
-        if len(lines) < 4:
+        if len(lines) < 2:
             return jobs
+        # The first two lines are metadata headers.
+        # The top line is composed of column titles.
+        # The second line is composed of ---- characters, each the length of a column.
         metadata_headers = lines[:2]
         column_lengths = [len(col) for col in lines[1].strip().split(" ")]
         job_lines = lines[2:]
