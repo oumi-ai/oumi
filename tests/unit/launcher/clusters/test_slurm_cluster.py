@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from unittest.mock import Mock, call, patch
 
@@ -28,6 +29,13 @@ def mock_datetime():
     with patch("oumi.launcher.clusters.slurm_cluster.datetime") as mock_dt:
         mock_dt.now.return_value = datetime(2024, 10, 9, 13, 4, 24, 513094)
         yield mock_dt
+
+
+@pytest.fixture
+def mock_os():
+    with patch("oumi.launcher.clusters.slurm_cluster.os") as os_mock:
+        os_mock.getenv.return_value = ""
+        yield os_mock
 
 
 def _get_default_job(cloud: str) -> JobConfig:
@@ -70,6 +78,75 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
+
+
+def test_slurm_cluster_parse_cluster_name():
+    assert SlurmCluster.parse_cluster_name("user@host") == SlurmCluster.ConnectionInfo(
+        user="user", hostname="host"
+    )
+    assert SlurmCluster.parse_cluster_name(
+        "user.-dotdash@192.168.0.1"
+    ) == SlurmCluster.ConnectionInfo(user="user.-dotdash", hostname="192.168.0.1")
+
+
+@pytest.mark.parametrize(
+    "invalid_name",
+    [
+        "multiple@at@signs",
+        "white space@hostname",
+        "extra$!characters@hostname",
+        "@nouser",
+        "nohost@",
+        "",
+    ],
+)
+def test_slurm_cluster_parse_cluster_name_invalid(invalid_name):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"Invalid cluster name: {invalid_name}. "
+            "Must be in the format 'user@hostname'."
+        ),
+    ):
+        SlurmCluster.parse_cluster_name(invalid_name)
+
+
+def test_slurm_cluster_get_slurm_connections(mock_os):
+    mock_os.getenv.return_value = "user@host1,user@host2"
+    connections = SlurmCluster.get_slurm_connections()
+    assert connections == [
+        SlurmCluster.ConnectionInfo(user="user", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user", hostname="host2"),
+    ]
+
+
+def test_slurm_cluster_get_slurm_connections_whitespace(mock_os):
+    mock_os.getenv.return_value = "user@host1 , user2@host2"
+    connections = SlurmCluster.get_slurm_connections()
+    assert connections == [
+        SlurmCluster.ConnectionInfo(user="user", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+    ]
+
+
+def test_slurm_cluster_get_slurm_connections_empty(mock_os):
+    mock_os.getenv.return_value = ""
+    connections = SlurmCluster.get_slurm_connections()
+    assert connections == []
+
+
+def test_slurm_cluster_get_slurm_connections_skips_malformed(mock_os):
+    mock_os.getenv.return_value = (
+        "user1@host1,foob@@@ar, user2@host2 , \", ', user3@host3"
+    )
+    connections = SlurmCluster.get_slurm_connections()
+    assert connections == [
+        SlurmCluster.ConnectionInfo(user="user1", hostname="host1"),
+        SlurmCluster.ConnectionInfo(user="user2", hostname="host2"),
+        SlurmCluster.ConnectionInfo(user="user3", hostname="host3"),
+    ]
+
+
 def test_slurm_cluster_name(mock_datetime, mock_slurm_client):
     cluster = SlurmCluster("demand@einstein", mock_slurm_client)
     assert cluster.name() == "demand@einstein"

@@ -176,7 +176,7 @@ class SlurmCluster(BaseCluster):
             _ConnectionInfo: The parsed cluster information.
         """
         # Expected format: <user>@<hostname>
-        connection_regex = r"^([a-zA-Z0-9\.\-\_]+)\@([a-zA-Z0-9\.\-\_]+)"
+        connection_regex = r"^([a-zA-Z0-9\.\-\_]+)\@([a-zA-Z0-9\.\-\_]+$)"
         match = re.match(connection_regex, name)
         if not match:
             raise ValueError(
