@@ -44,7 +44,7 @@ class EvaluationConfig(BaseConfig):
     text generation process.
     """
 
-    inference_engine: Optional[InferenceEngineType] = InferenceEngineType.NATIVE
+    inference_engine: InferenceEngineType = InferenceEngineType.NATIVE
     """For evaluation tasks that require an inference step, such as AlpacaEval tasks, an
     inference engine is required to generate model responses. This parameter specifies
     the inference engine to use for generation. If not defined, the default is the
