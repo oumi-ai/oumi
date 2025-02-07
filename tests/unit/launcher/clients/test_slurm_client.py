@@ -246,6 +246,55 @@ def test_slurm_client_list_jobs_success(mock_subprocess):
     assert job_ids == expected_ids
 
 
+def test_slurm_client_list_jobs_first_login_success(mock_subprocess):
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    mock_run.stdout = _get_test_data("sacct_full.txt").encode("utf-8")
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
+
+    client = SlurmClient("user", "host", "cluster_name")
+    job_list = client.list_jobs()
+    mock_subprocess.run.assert_called_with(
+        _run_commands_template([_SACCT_CMD]),
+        shell=True,
+        capture_output=True,
+        timeout=180,
+    )
+    job_ids = [job.id for job in job_list]
+    expected_ids = [
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+    ]
+    assert job_ids == expected_ids
+
+
+def test_slurm_client_list_jobs_fails_missing_header(mock_subprocess):
+    mock_run = Mock()
+    mock_subprocess.run.return_value = mock_run
+    data = _get_test_data("sacct_full.txt").encode("utf-8")
+    data = b"\n".join(data.split(b"\n")[:-6])
+    mock_run.stdout = data
+    mock_run.stderr = b"foo"
+    mock_run.returncode = 0
+    client = SlurmClient("user", "host", "cluster_name")
+
+    with pytest.raises(
+        RuntimeError, match="Failed to parse job list. Unexpected format:"
+    ):
+        client = SlurmClient("user", "host", "cluster_name")
+        _ = client.list_jobs()
+        mock_subprocess.run.assert_called_with(
+            _run_commands_template([_SACCT_CMD]),
+            shell=True,
+            capture_output=True,
+            timeout=180,
+        )
+
+
 def test_slurm_client_list_jobs_handles_empty_string(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run

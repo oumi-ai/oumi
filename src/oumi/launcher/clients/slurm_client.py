@@ -108,7 +108,10 @@ def _split_status_line(
         A JobStatus object.
     """
     if len(column_lengths) != 5:
-        raise ValueError(f"Expected 5 fields, but found {len(column_lengths)}.")
+        raise ValueError(
+            f"Expected 5 fields, but found {len(column_lengths)}."
+            f" Invalid line: {line}."
+        )
     fields = []
     # Note: We can't use a simple split() here because empty fields are allowed.
     for i in range(len(column_lengths)):
@@ -334,6 +337,17 @@ class SlurmClient:
         jobs = []
         if len(lines) < 2:
             return jobs
+        # Look for a line starting in JobID followed by a line starting with "--".
+        start_idx = -1
+        for idx in range(len(lines) - 1):
+            if lines[idx].startswith("JobID") and lines[idx + 1].startswith("--"):
+                start_idx = idx
+                break
+        if start_idx == -1:
+            raise RuntimeError(
+                f"Failed to parse job list. Unexpected format: {result.stdout}"
+            )
+        lines = lines[start_idx:]
         # The first two lines are metadata headers.
         # The top line is composed of column titles.
         # The second line is composed of ---- characters, each the length of a column.
