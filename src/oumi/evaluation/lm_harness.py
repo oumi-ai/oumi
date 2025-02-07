@@ -26,6 +26,7 @@ from lm_eval.loggers import WandbLogger
 from oumi.builders import build_processor, build_tokenizer, is_image_text_llm
 from oumi.core.configs import (
     GenerationParams,
+    InferenceEngineType,
     LMHarnessTaskParams,
     ModelParams,
 )
@@ -36,24 +37,28 @@ from oumi.utils.logging import logger
 
 def _create_extra_lm_harness_model_params_for_vlm(
     model_params: ModelParams,
+    vllm_engine: bool,
 ) -> dict[str, Any]:
     # For details, see:
     # https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
     # FIXME OPE-355 To remove `max_images=1` limit
-    result = {"max_images": 1, "interleave": True, "convert_img_format": True}
+    result = {"max_images": 1, "interleave": True}
 
-    tokenizer = build_tokenizer(model_params)
-    processor = build_processor(
-        model_params.model_name,
-        tokenizer,
-        trust_remote_code=model_params.trust_remote_code,
-    )
-    image_token = processor.image_token
-    if image_token:
-        result["image_string"] = image_token
-    image_token_id = processor.image_token_id
-    if image_token_id:
-        result["image_token_id"] = image_token_id
+    # Only applicable to hf-multimodal (NOT vllm-vlm).
+    if not vllm_engine:
+        result["convert_img_format"] = True
+
+        tokenizer = build_tokenizer(model_params)
+        processor = build_processor(
+            model_params.model_name,
+            tokenizer,
+            trust_remote_code=model_params.trust_remote_code,
+        )
+        if image_token := processor.image_token:
+            result["image_string"] = image_token
+        if image_token_id := processor.image_token_id:
+            result["image_token_id"] = image_token_id
+
     return result
 
 
@@ -62,6 +67,7 @@ def evaluate(
     output_dir: str,
     model_params: ModelParams,
     generation_params: GenerationParams,
+    inference_engine_type: InferenceEngineType,
     enable_wandb: bool,
     run_name: Optional[str] = None,
 ) -> dict[str, Any]:
@@ -74,6 +80,7 @@ def evaluate(
         model_params: The parameters of the model to evaluate.
         task_params: The LM Harness parameters to use for evaluation.
         generation_params: The generation parameters to use for evaluation.
+        inference_engine_type: The inference engine to use (`VLLM` or `NATIVE`).
         output_dir: The directory where the evaluation results will be saved.
         enable_wandb: Whether to enable Weights & Biases (wandb) logging.
         run_name: Unique identifier for wandb for the current training run.
@@ -91,6 +98,25 @@ def evaluate(
         device = "cpu"
         logger.warning("No GPU available.")
 
+    # Ensure the requested inference engine type is applicable.
+    if inference_engine_type == InferenceEngineType.NATIVE:
+        vllm_engine = False
+        if device.startswith("cuda"):
+            logger.warning(
+                "Since you have GPU support, it is highly recommended that you set "
+                "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
+                "evaluation."
+            )
+    elif inference_engine_type == InferenceEngineType.VLLM:
+        vllm_engine = True
+        if not device.startswith("cuda"):
+            raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
+    else:
+        raise ValueError(
+            "Our integration with the `lm_harness` evaluation platform only supports "
+            "the `VLLM` and `NATIVE` inference_engine types at the moment."
+        )
+
     if model_params.adapter_model:
         logger.info(f"Loading adapter for eval: {model_params.adapter_model}")
     assert task_params is not None
@@ -105,18 +131,18 @@ def evaluate(
     start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     start_time = time.time()
 
-    lm_harness_model_params = model_params.to_lm_harness()
+    lm_harness_model_params = model_params.to_lm_harness(inference_engine_type)
 
     if is_image_text_llm(model_params):
         # Multimodal support is currently restricted to
         # the ['hf-multimodal', 'vllm-vlm'] model types.
-        lm_harness_model = "hf-multimodal"
+        lm_harness_model = "vllm-vlm" if vllm_engine else "hf-multimodal"
         apply_chat_template = True
         lm_harness_model_params.update(
-            _create_extra_lm_harness_model_params_for_vlm(model_params)
+            _create_extra_lm_harness_model_params_for_vlm(model_params, vllm_engine)
         )
     else:
-        lm_harness_model = "hf"
+        lm_harness_model = "vllm" if vllm_engine else "hf"
         # False is the default value for `simple_evaluate()`
         # TODO Should it be set to True?
         apply_chat_template = False
