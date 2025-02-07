@@ -276,7 +276,7 @@ def test_slurm_client_list_jobs_fails_missing_header(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     data = _get_test_data("sacct_full.txt").encode("utf-8")
-    data = b"\n".join(data.split(b"\n")[:-6])
+    data = b"\n".join(data.split(b"\n")[:-7])
     mock_run.stdout = data
     mock_run.stderr = b"foo"
     mock_run.returncode = 0
