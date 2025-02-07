@@ -93,8 +93,14 @@ You can run jobs remotely on cloud platforms (AWS, Azure, GCP, Lambda, etc.) usi
 # GCP
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml
 
-# Modify the job config to run on another cluster like AWS
+# AWS
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud aws
+
+# Azure
+oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud azure
+
+# Lambda
+oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud lambda
 ```
 
 **Note:** Oumi is in <ins>beta</ins> and under active development. The core features are stable, but some advanced features might change as the platform improves.
