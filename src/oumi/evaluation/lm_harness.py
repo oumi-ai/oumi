@@ -52,11 +52,12 @@ from oumi.utils.logging import logger
 # trust_remote_code   |                | Υ  | Υ    | Υ             | Υ        | TBD    #
 # pretrained          | model_name     | Υ  | Υ    | Υ             | Υ        | TBD    #
 # dtype               | torch_dtype    | Υ  | Υ    | Υ             | Υ        | TBD    #
-# tokenizer (N)       | tokenizer_name | Υ  | Υ    | Υ             | Υ        | TBD    #
+# max_length          |model_max_length| Υ  | Υ    | Υ             | Υ        | TBD    #
+# tokenizer           | tokenizer_name | Υ  | Υ    | Υ             | Υ        | TBD    #
 # peft                | adapter_model  | Υ  |      | Υ             |          | TBD    #
-# device_map          |                | Υ  |      | Υ             |          | TBD    #
 # parallelize         | shard_for_eval | Υ  |      | Υ             |          | TBD    #
-# attn_implementation |                | ?  |      | ?             |          | TBD    #
+# device_map          |                | ?? |      | ??            |          | TBD    #
+# attn_implementation |                | ?? |      | ??            |          | TBD    #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
 # max_images          |                | NA | NA   | Υ             | Υ        | TBD    #
 # interleave          |                | NA | NA   | Υ             | Υ        | TBD    #
@@ -77,6 +78,7 @@ def _generate_lm_harness_model_args(
         "trust_remote_code": model_params.trust_remote_code,
         "pretrained": model_params.model_name,
         "dtype": model_params.torch_dtype,
+        "max_length": model_params.model_max_length,
     }
     if model_params.tokenizer_name:
         model_args_dict["tokenizer"] = model_params.tokenizer_name
