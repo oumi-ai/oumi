@@ -145,7 +145,7 @@ if __name__ == "__main__":
         "--output-file",
         type=str,
         required=True,
-        default="output.jsonl",
+        default="conversations.jsonl",
         help="Output JSONL file",
     )
     parser.add_argument(
