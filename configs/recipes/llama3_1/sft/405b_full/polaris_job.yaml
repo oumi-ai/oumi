@@ -1,5 +1,10 @@
 # Llama 3.1 405B Instruct FFT config
 #
+# Requirements:
+#   - Log into WandB: `wandb login`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/405b_full/polaris_job.yaml --cluster prod.$ALCF_USER --user $ALCF_USER
 #

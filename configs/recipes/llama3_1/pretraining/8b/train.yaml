@@ -1,5 +1,10 @@
 # Training config.
 #
+# Requirements:
+#   - Log into WandB: `wandb login`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B
+#
 # Usage:
 #   oumi train -c configs/recipes/llama3_1/pretraining/8b/train.yaml
 #

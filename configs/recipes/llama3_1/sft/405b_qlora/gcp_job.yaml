@@ -1,5 +1,10 @@
 # Job config to FSDP QLoRA tune Llama 3.1 405B Instruct.
 #
+# Requirements:
+#   - Log into WandB: `wandb login`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
 #

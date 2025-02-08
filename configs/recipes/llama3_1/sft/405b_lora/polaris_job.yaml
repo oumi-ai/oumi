@@ -1,5 +1,10 @@
 # LoRA tune Llama 3.1 405B Instruct config
 #
+# Requirements:
+#   - Log into WandB: `wandb login`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/405b_lora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 #
