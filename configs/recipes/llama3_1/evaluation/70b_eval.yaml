@@ -3,7 +3,7 @@
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
 #
 # Usage:
 #   oumi evaluate -c configs/recipes/llama3_1/evaluation/70b_eval.yaml

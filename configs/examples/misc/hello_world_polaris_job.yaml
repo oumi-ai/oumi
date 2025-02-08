@@ -1,7 +1,7 @@
-# Job config.
+# Polaris Hello World job config.
 #
 # Usage:
-#   oumi launch up -c configs/examples/misc/hello_world_polaris_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c configs/examples/misc/hello_world_polaris_job.yaml --cluster my-oumi-cluster --user $ALCF_USER
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -20,7 +20,7 @@ working_dir: .
 
 #file_mounts:
   # Generally speaking, file mounts are not needed for Polaris jobs.
-  # Use this parameter if you'd like to upload individual files to /home/$ALFC_USER/
+  # Use this parameter if you'd like to upload individual files to /home/$ALCF_USER/
   # or /eagle/.
 
 envs:

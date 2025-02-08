@@ -1,4 +1,4 @@
-# Job config.
+# GCP Hello World job config.
 #
 # Usage:
 #   oumi launch up -c configs/examples/misc/hello_world_gcp_job.yaml --cluster my-oumi-cluster

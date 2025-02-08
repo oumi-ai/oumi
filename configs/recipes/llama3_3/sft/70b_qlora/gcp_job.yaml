@@ -3,7 +3,7 @@
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B
+#   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_3/sft/70b_qlora/gcp_job.yaml --cluster llama70b-qlora-fsdp

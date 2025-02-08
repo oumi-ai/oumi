@@ -3,7 +3,7 @@
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/evaluation/8b_gcp_job.yaml --cluster llama8b-eval

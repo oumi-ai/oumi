@@ -1,4 +1,4 @@
-# Job config.
+# Polaris job config for vLLM inference.
 #
 # Usage:
 #   oumi launch up -c configs/examples/misc/vllm_polaris_job.yaml --cluster my-oumi-cluster

@@ -1,4 +1,7 @@
-# Job config.
+# Job config to FSDP pretrain the FineWeb ablation model on GCP.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/gcp_job.yaml --cluster fineweb-fsdp

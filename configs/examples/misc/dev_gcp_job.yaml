@@ -1,5 +1,11 @@
 # Job config used by our Makefile to launch a bare-bones GCP VM for development.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - (optional) Mount a storage bucket below
+#   - (optional) Modify `resources.cloud` to run on a different cloud provider
+#
 # Usage:
 #   oumi launch up -c configs/examples/misc/dev_gcp_job.yaml --cluster my-oumi-cluster
 #

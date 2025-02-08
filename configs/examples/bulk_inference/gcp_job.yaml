@@ -1,4 +1,9 @@
-# Job config.
+# Bulk inference job config.
+#
+# Requirements:
+#   - Replace <your-input-bucket> and <your-output-bucket> with your GCS buckets.
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
 #   oumi launch up -c configs/examples/bulk_inference/gcp_job.yaml --cluster my-oumi-cluster

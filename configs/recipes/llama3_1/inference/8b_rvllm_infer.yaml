@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/llama3_1/inference/8b_rvllm_infer.yaml
