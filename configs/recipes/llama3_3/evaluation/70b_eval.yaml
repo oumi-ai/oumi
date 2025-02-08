@@ -1,5 +1,10 @@
 # Eval config for Llama 3.3 70B Instruct.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B
+#
 # Usage:
 #   oumi evaluate -c configs/recipes/llama3_3/evaluation/70b_eval.yaml
 #
