@@ -7,7 +7,7 @@
 #   - (optional) Modify `resources.cloud` to run on a different cloud provider
 #
 # Usage:
-#   oumi launch up -c configs/examples/misc/dev_gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c configs/examples/misc/dev_gcp_job.yaml --cluster ${USERNAME}-dev
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

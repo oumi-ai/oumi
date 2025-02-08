@@ -1,7 +1,7 @@
 # Job config.
 #
 # Usage:
-#   oumi launch up -c src/experimental/configs/recipes/phi3/dpo/fsdp_gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c src/experimental/configs/recipes/phi3/dpo/fsdp_gcp_job.yaml --cluster fsdp-phi3-dpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

@@ -35,7 +35,7 @@ working_dir: .
 # https://huggingface.co/datasets/Idavidrein/gpqa, and authenticate with the HuggingFace
 # token when launching the evaluation job.
 file_mounts:
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
   ~/.netrc: ~/.netrc # WandB credentials
 
 # If the remote machine is not accessible after evaluation completes, which is the

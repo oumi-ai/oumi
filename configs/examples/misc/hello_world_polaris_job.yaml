@@ -1,7 +1,7 @@
 # Polaris Hello World job config.
 #
 # Usage:
-#   oumi launch up -c configs/examples/misc/hello_world_polaris_job.yaml --cluster my-oumi-cluster --user $ALCF_USER
+#   oumi launch up -c configs/examples/misc/hello_world_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

@@ -6,7 +6,7 @@
 #   - (optional) Request access to Llama 3.1 if you want to use it: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
-#   oumi launch up -c configs/projects/chatqa/gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c configs/projects/chatqa/gcp_job.yaml --cluster chatqa-stage2
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
