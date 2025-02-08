@@ -20,7 +20,6 @@
 
 model:
   model_name: "meta-llama/Llama-3.2-3B-Instruct"
-  adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
