@@ -1,4 +1,7 @@
-# Job config.
+# GPT2 pretraining GCP job config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up -c configs/recipes/gpt2/pretraining/gcp_job.yaml --cluster my-oumi-cluster

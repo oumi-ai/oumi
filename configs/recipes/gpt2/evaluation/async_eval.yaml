@@ -1,5 +1,8 @@
 # Async eval config for GPT2.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi evaluate -c configs/recipes/gpt2/evaluation/async_eval.yaml
 #

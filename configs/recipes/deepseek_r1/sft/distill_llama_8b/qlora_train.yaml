@@ -1,5 +1,8 @@
 # QLoRA config for Deepseek R1 Distill Llama 3.1 8B.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi train -c configs/recipes/deepseek_r1/sft/distill_llama_8b/qlora_train.yaml
 #

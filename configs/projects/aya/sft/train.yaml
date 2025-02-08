@@ -1,4 +1,4 @@
-# Training config.
+# Train config for Aya.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
@@ -71,6 +71,5 @@ training:
     dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
     packing: True
-  enable_wandb: True
   # Use for debugging purposes
   #max_steps: 10

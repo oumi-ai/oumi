@@ -1,4 +1,4 @@
-# Job config.
+# Train GCP job config for Aya.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
