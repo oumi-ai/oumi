@@ -1,5 +1,10 @@
 # Job config to FSDP full fine-tune Llama 3.2 3B Instruct on 1 GCP node.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_2/sft/3b_full/fsdp_gcp_job.yaml --cluster llama3b-sft-fsdp
 #
