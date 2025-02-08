@@ -20,7 +20,6 @@ from typing import Any, Optional
 from omegaconf import MISSING
 from transformers.utils import find_adapter_config_file, is_flash_attn_2_available
 
-from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
 from oumi.utils.logging import logger
@@ -186,37 +185,6 @@ class ModelParams(BaseParams):
     This is useful for fine-tuning specific parts of a model while keeping
     other parts fixed.
     """
-
-    def to_lm_harness(
-        self, inference_engine_type: InferenceEngineType
-    ) -> dict[str, Any]:
-        """Converts Oumi's ModelParams to LM Harness model arguments."""
-        model_args_dict = {
-            "pretrained": self.model_name,
-            "trust_remote_code": self.trust_remote_code,
-            "dtype": self.torch_dtype,
-        }
-        if inference_engine_type == InferenceEngineType.NATIVE:
-            model_args_dict["parallelize"] = self.shard_for_eval
-            model_args_dict["device_map"] = self.device_map
-        if self.adapter_model:
-            model_args_dict["peft"] = self.adapter_model
-        if (
-            self.attn_implementation
-            and inference_engine_type == InferenceEngineType.NATIVE
-        ):
-            model_args_dict["attn_implementation"] = self.attn_implementation
-
-        # Handle extra model_kwargs (construction arguments).
-        # Towards OPE-564.
-        if self.model_kwargs:
-            relevant_for_lm = ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]
-            for key in relevant_for_lm:
-                if key in self.model_kwargs:
-                    model_args_dict[key] = self.model_kwargs[key]
-            # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
-            # future versions of HF. Integrate via PeftConfig.
-        return model_args_dict
 
     def __post_init__(self):
         """Populate additional params."""
