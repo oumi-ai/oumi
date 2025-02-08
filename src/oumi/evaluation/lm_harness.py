@@ -38,32 +38,40 @@ from oumi.utils.logging import logger
 
 
 ######################### LM Harness: model and model arguments ########################
-# LM Harness `model` types  | Class          | File location in their repo is under:   #
-# (= inference engine)      | name           | lm-evaluation-harness/lm_eval/models/...#
-# --------------------------|----------------|---------------------------------------- #
-# hf                        | HFLM           | huggingface.py                          #
-# vllm                      | VLLM           | vllm_causallms.py                       #
-# hf-multimodal             | HFMultimodalLM | hf_vlms.py                              #
-# vllm-vlm                  | VLLM_VLM       | vllm_vlms.py                            #
+# LM Harness `model` types  | Class               | File in lm-evaluation-harness repo #
+# (= inference engine)      | name                | located under lm_eval/models/...   #
+# --------------------------|---------------------|----------------------------------- #
+# hf                        | HFLM                | huggingface.py                     #
+# vllm                      | VLLM                | vllm_causallms.py                  #
+# hf-multimodal             | HFMultimodalLM      | hf_vlms.py                         #
+# vllm-vlm                  | VLLM_VLM            | vllm_vlms.py                       #
+# local-completions         | LocalCompletionsAPI | openai_completions.py              #
 ########################################################################################
 # LM Harness          | Oumi           | text engs | multimodal engs          | remote #
 # `model_args`        | `model_params` | hf | vllm | hf-multimodal | vllm-vlm |        #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
-# trust_remote_code   |                | Υ  | Υ    | Υ             | Υ        | TBD    #
-# pretrained          | model_name     | Υ  | Υ    | Υ             | Υ        | TBD    #
-# dtype               | torch_dtype    | Υ  | Υ    | Υ             | Υ        | TBD    #
-# max_length          |model_max_length| Υ  | Υ    | Υ             | Υ        | TBD    #
-# tokenizer           | tokenizer_name | Υ  | Υ    | Υ             | Υ        | TBD    #
-# peft                | adapter_model  | Υ  |      | Υ             |          | TBD    #
-# parallelize         | shard_for_eval | Υ  |      | Υ             |          | TBD    #
-# device_map          |                | ?? |      | ??            |          | TBD    #
-# attn_implementation |                | ?? |      | ??            |          | TBD    #
+# trust_remote_code   |                | Υ  | Υ    | Υ             | Υ        | Y      #
+# pretrained          | model_name     | Υ  | Υ    | Υ             | Υ        | Y      #
+# dtype               | torch_dtype    | Υ  | Υ    | Υ             | Υ        | Y      #
+# max_length          |model_max_length| Υ  | Υ    | Υ             | Υ        | Y      #
+# tokenizer           | tokenizer_name | Υ  | Υ    | Υ             | Υ        | Y      #
+# peft                | adapter_model  | Υ  |      | Υ             |          |        #
+# parallelize         | shard_for_eval | Υ  |      | Υ             |          |        #
+# device_map          |                | ?? |      | ??            |          |        #
+# attn_implementation |                | ?? |      | ??            |          |        #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
-# max_images          |                | NA | NA   | Υ             | Υ        | TBD    #
-# interleave          |                | NA | NA   | Υ             | Υ        | TBD    #
-# convert_img_format  |                | NA | NA   | Υ             |          | TBD    #
-# image_token_id      |                | NA | NA   | Υ             |          | TBD    #
-# image_string        |                | NA | NA   | Υ             |          | TBD    #
+# max_images          |                | NA | NA   | Υ             | Υ        | NA     #
+# interleave          |                | NA | NA   | Υ             | Υ        | NA     #
+# convert_img_format  |                | NA | NA   | Υ             |          | NA     #
+# image_token_id      |                | NA | NA   | Υ             |          | NA     #
+# image_string        |                | NA | NA   | Υ             |          | NA     #
+########################################################################################
+# LM Harness `model_args` | Oumi `remote_params`                                       #
+# ----------------------- | ---------------------------------------------------------- #
+# base_url                |  api_url                                                   #
+# num_concurrent          |  num_workers                                               #
+# max_retries             |  max_retries                                               #
+# timeout                 |  connection_timeout                                        #
 ########################################################################################
 def _generate_lm_harness_model_args(
     lm_harness_model: str,
@@ -98,9 +106,13 @@ def _generate_lm_harness_model_args(
             raise ValueError(
                 "The `REMOTE` inference engine requires `inference_remote_params`."
             )
-        raise NotImplementedError(
-            "The REMOTE inference engine is not yet supported with LM Harness."
-        )
+        model_args_dict["base_url"] = inference_remote_params.api_url
+        if inference_remote_params.num_workers:
+            model_args_dict["num_concurrent"] = inference_remote_params.num_workers
+        if inference_remote_params.max_retries:
+            model_args_dict["max_retries"] = inference_remote_params.max_retries
+        if inference_remote_params.connection_timeout:
+            model_args_dict["timeout"] = int(inference_remote_params.connection_timeout)
 
     # Add multi-modal related parameters.
     # details at https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
