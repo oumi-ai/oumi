@@ -1,4 +1,4 @@
-# Train config for Aya.
+# Full fine-tune config for Aya.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`

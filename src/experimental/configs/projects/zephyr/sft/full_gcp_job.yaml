@@ -1,4 +1,9 @@
-# Job config.
+# Zephyr full fine-tune job config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
 #
 # Usage:
 #   oumi launch up -c src/experimental/configs/projects/zephyr/sft/full_gcp_job.yaml --cluster zephyr-7b-fft
