@@ -1,6 +1,8 @@
 # Job config to FSDP pretrain the FineWeb ablation model on Polaris.
 #
 # Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
 #   - Log into WandB (`wandb login`) on Polaris or disable `enable_wandb`
 #
 # Usage:

@@ -2,6 +2,7 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
 #   oumi evaluate -c configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml

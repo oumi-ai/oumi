@@ -1,5 +1,8 @@
 # Qwen 2.5 VL 3B vLLM inference config.
 #
+# Requirements:
+#   - Run `pip install vllm`
+#
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml
 #

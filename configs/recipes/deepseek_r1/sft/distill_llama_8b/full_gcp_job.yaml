@@ -1,6 +1,7 @@
 # Job config to full fine-tune Deepseek R1 Distill Llama 3.1 8B.
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:

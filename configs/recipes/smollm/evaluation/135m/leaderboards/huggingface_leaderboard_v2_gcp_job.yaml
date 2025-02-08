@@ -1,6 +1,7 @@
 # Job config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to the GPQA dataset: https://huggingface.co/datasets/Idavidrein/gpqa

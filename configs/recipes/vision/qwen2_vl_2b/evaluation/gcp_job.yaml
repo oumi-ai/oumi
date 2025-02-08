@@ -1,6 +1,7 @@
 # Job config to eval Qwen2 VL 2B Instruct on GCP.
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:

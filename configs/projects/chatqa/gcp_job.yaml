@@ -1,6 +1,7 @@
 # ChatQA Stage 2 GCP job config.
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - (optional) Request access to Llama 3.1 if you want to use it: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct

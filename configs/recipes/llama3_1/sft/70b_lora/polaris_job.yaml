@@ -1,6 +1,8 @@
 # Job config to LoRA tune Llama 3.1 70B Instruct on 2 Polaris nodes.
 #
 # Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct

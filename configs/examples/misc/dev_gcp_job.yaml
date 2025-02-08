@@ -1,6 +1,7 @@
 # Job config used by our Makefile to launch a bare-bones GCP VM for development.
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - (optional) Mount a storage bucket below

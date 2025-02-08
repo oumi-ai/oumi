@@ -1,6 +1,7 @@
 # Async eval GCP job config for GPT2.
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - (optional) Mount a cloud bucket to evaluate checkpoints saved to it.
 #

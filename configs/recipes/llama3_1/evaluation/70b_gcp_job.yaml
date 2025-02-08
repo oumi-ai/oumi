@@ -1,6 +1,7 @@
 # Job config to eval Llama 3.1 70B Instruct on GCP.
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
