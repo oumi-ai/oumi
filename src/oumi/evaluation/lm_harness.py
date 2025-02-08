@@ -49,20 +49,20 @@ from oumi.utils.logging import logger
 # LM Harness          | Oumi           | text engs | multimodal engs          | remote #
 # `model_args`        | `model_params` | hf | vllm | hf-multimodal | vllm-vlm |        #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
-# trust_remote_code   |                | ✔️  | ✔️    | ✔️             | ✔️        | TBD    #
-# pretrained          | model_name     | ✔️  | ✔️    | ✔️             | ✔️        | TBD    #
-# dtype               | torch_dtype    | ✔️  | ✔️    | ✔️             | ✔️        | TBD    #
-# tokenizer (N)       | tokenizer_name | ✔️  | ✔️    | ✔️             | ✔️        | TBD    #
-# peft                | adapter_model  | ✔️  |      | ✔️             |          | TBD    #
-# device_map          |                | ✔️  |      | ✔️             |          | TBD    #
-# parallelize         | shard_for_eval | ✔️  |      | ✔️             |          | TBD    #
+# trust_remote_code   |                | Υ  | Υ    | Υ             | Υ        | TBD    #
+# pretrained          | model_name     | Υ  | Υ    | Υ             | Υ        | TBD    #
+# dtype               | torch_dtype    | Υ  | Υ    | Υ             | Υ        | TBD    #
+# tokenizer (N)       | tokenizer_name | Υ  | Υ    | Υ             | Υ        | TBD    #
+# peft                | adapter_model  | Υ  |      | Υ             |          | TBD    #
+# device_map          |                | Υ  |      | Υ             |          | TBD    #
+# parallelize         | shard_for_eval | Υ  |      | Υ             |          | TBD    #
 # attn_implementation |                | ?  |      | ?             |          | TBD    #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
-# max_images          |                | NA | NA   | ✔️             | ✔️        | TBD    #
-# interleave          |                | NA | NA   | ✔️             | ✔️        | TBD    #
-# convert_img_format  |                | NA | NA   | ✔️             |          | TBD    #
-# image_token_id      |                | NA | NA   | ✔️             |          | TBD    #
-# image_string        |                | NA | NA   | ✔️             |          | TBD    #
+# max_images          |                | NA | NA   | Υ             | Υ        | TBD    #
+# interleave          |                | NA | NA   | Υ             | Υ        | TBD    #
+# convert_img_format  |                | NA | NA   | Υ             |          | TBD    #
+# image_token_id      |                | NA | NA   | Υ             |          | TBD    #
+# image_string        |                | NA | NA   | Υ             |          | TBD    #
 ########################################################################################
 def _generate_lm_harness_model_args(
     lm_harness_model: str,
@@ -124,8 +124,7 @@ def _generate_lm_harness_model_args(
     # Handle extra model_kwargs (construction arguments).
     # Towards OPE-564.
     if model_params.model_kwargs:
-        relevant_for_lm = ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]
-        for key in relevant_for_lm:
+        for key in ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]:
             if key in model_params.model_kwargs:
                 model_args_dict[key] = model_params.model_kwargs[key]
         # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
