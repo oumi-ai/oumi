@@ -1,4 +1,7 @@
-# Training config.
+# Llava 7B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/llava_7b/sft/train.yaml

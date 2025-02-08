@@ -1,4 +1,8 @@
-# Job config.
+# Job config to full fine-tune Qwen2 VL 2B Instruct on GCP.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/qwen2_vl_2b/sft/gcp_job.yaml --cluster qwen2-vl-vision

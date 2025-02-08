@@ -1,4 +1,8 @@
-# Job config.
+# Phi3 vision full fine-tune training job config, with the Oumi trainer.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster phi3-vision

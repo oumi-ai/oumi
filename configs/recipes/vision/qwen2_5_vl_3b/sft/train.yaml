@@ -1,4 +1,7 @@
-# Training config.
+# Qwen 2.5 VL 3B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/sft/train.yaml

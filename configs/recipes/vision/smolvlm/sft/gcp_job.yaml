@@ -1,4 +1,8 @@
-# Job config.
+# Job config to full fine-tune SmolVLM Instruct, with the Oumi trainer.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/smolvlm/sft/gcp_job.yaml --cluster smolvlm-vision

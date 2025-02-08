@@ -1,4 +1,4 @@
-# Inference config.
+# Llava 7B vLLM inference config.
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/llava_7b/inference/vllm_infer.yaml
