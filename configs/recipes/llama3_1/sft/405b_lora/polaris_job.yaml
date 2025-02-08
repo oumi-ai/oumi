@@ -22,6 +22,7 @@ num_nodes: 10
 resources:
   cloud: polaris
 
+# Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
 
 setup: |

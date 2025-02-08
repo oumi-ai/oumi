@@ -15,6 +15,7 @@ user: your_username
 resources:
   cloud: polaris
 
+# Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
 
 #file_mounts:
