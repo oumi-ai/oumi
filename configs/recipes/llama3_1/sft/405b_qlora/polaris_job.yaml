@@ -1,7 +1,7 @@
 # QLoRA tune Llama 3.1 405B Instruct config
 #
 # Requirements:
-#   - Log into WandB: `wandb login`
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B
 #

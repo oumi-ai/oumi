@@ -1,7 +1,7 @@
 # Job config for Llama 3.1 70B Instruct SFT on 4 Polaris nodes.
 #
 # Requirements:
-#   - Log into WandB: `wandb login`
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B
 #

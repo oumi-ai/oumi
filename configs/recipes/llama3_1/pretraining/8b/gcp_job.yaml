@@ -1,7 +1,7 @@
 # Job config to HSDP (FSDP HYBRID_SHARD) pre-training of Llama 3.1 8B on 1 GCP node.
 #
 # Requirements:
-#   - Log into WandB: `wandb login`
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B
 #
