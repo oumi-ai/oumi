@@ -1,4 +1,7 @@
-# Job config.
+# Phi3 DPO GCP job config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up -c configs/recipes/phi3/dpo/gcp_job.yaml --cluster my-oumi-cluster
