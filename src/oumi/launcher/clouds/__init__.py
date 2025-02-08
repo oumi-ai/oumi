@@ -35,6 +35,7 @@ Note:
 from oumi.launcher.clouds.local_cloud import LocalCloud
 from oumi.launcher.clouds.polaris_cloud import PolarisCloud
 from oumi.launcher.clouds.sky_cloud import SkyCloud
+from oumi.launcher.clouds.slurm_cloud import SlurmCloud
 from oumi.utils import logging
 
 logging.configure_dependency_warnings()
@@ -44,4 +45,5 @@ __all__ = [
     "LocalCloud",
     "PolarisCloud",
     "SkyCloud",
+    "SlurmCloud",
 ]
