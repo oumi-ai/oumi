@@ -50,8 +50,9 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
                 output_dir=config.output_dir,
                 model_params=config.model,
                 generation_params=config.generation,
-                inference_engine_type=config.inference_engine,
                 enable_wandb=config.enable_wandb,
+                inference_engine_type=config.inference_engine,
+                inference_remote_params=config.inference_remote_params,
                 run_name=config.run_name,
             )
             results.append(result)
