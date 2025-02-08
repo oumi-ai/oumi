@@ -20,7 +20,7 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
-from oumi.core.configs.inference_config import InferenceEngineType
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.judge_config import JudgeAttribute
 from oumi.core.registry import register_judge
 from oumi.judges.oumi_judge import OumiJudgeInput, OumiJudgeOutput
