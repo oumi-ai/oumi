@@ -19,7 +19,7 @@ from typing_extensions import override
 from oumi.core.configs import GenerationParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-from oumi.utils.logging import logger
+
 
 class SambanovaInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against the SambaNova API.
@@ -64,8 +64,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         body = {
             "model": self._model,
             "messages": self._get_list_of_message_json_dicts(
-                conversation.messages,
-                group_adjacent_same_role_turns=False
+                conversation.messages, group_adjacent_same_role_turns=False
             ),
             "max_tokens": generation_params.max_new_tokens,
             "temperature": generation_params.temperature,
@@ -126,7 +125,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
 
         api_key = self._get_api_key(remote_params)
         if api_key:
-            headers["X-API-Key"] = api_key
+            headers["Authorization"] = f"Bearer {api_key}"
 
         return headers
 
@@ -134,8 +133,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "max_new_tokens",
-            "stop_strings",
+            "max_tokens",
             "temperature",
             "top_p",
-        } 
+        }

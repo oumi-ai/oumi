@@ -31,7 +31,6 @@ from oumi.inference.sambanova_inference_engine import SambanovaInferenceEngine
 from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 from oumi.inference.together_inference_engine import TogetherInferenceEngine
 from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
-from oumi.inference.sambanova_inference_engine import SambanovaInferenceEngine
 
 __all__ = [
     "AnthropicInferenceEngine",

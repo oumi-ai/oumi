@@ -61,14 +61,7 @@ def test_convert_api_output_to_conversation(sambanova_engine):
         conversation_id="test_id",
     )
     api_response = {
-        "choices": [
-            {
-                "message": {
-                    "content": "Assistant response",
-                    "role": "assistant"
-                }
-            }
-        ]
+        "choices": [{"message": {"content": "Assistant response", "role": "assistant"}}]
     }
 
     result = sambanova_engine._convert_api_output_to_conversation(
@@ -120,10 +113,10 @@ def test_get_request_headers(sambanova_engine):
 def test_get_supported_params(sambanova_engine):
     """Test supported generation parameters."""
     supported_params = sambanova_engine.get_supported_params()
-    
+
     assert supported_params == {
         "max_new_tokens",
         "stop_strings",
         "temperature",
         "top_p",
-    } 
+    }
