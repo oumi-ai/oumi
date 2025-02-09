@@ -508,6 +508,30 @@ The DeepSeek models available via this API as of late Jan'2025 are listed below.
 | DeepSeek-V3                           | deepseek-chat             |
 | DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
 
+### SambaNova
+
+[SambaNova](https://www.sambanova.ai/) offers an extreme-speed inference platform on cloud infrastructure with wide variety of models.
+
+This service is particularly useful when you need to run open source models in a managed environment.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import SambanovaInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = SambanovaInferenceEngine(
+    model_params=ModelParams(
+        model_name="Meta-Llama-3.1-405B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_key_env_varname="SAMBANOVA_API_KEY",
+    )
+)
+```
+
+** Reference **
+- [SambaNova's Documentation](https://docs.sambanova.ai/cloud/docs/get-started/overview)
 
 ### Parasail.io
 
