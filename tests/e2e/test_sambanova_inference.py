@@ -1,4 +1,7 @@
 import os
+from pathlib import Path
+
+import pytest
 
 from oumi.core.configs import (
     GenerationParams,
@@ -58,11 +61,14 @@ def perform_inference(engine, conversations, config):
         return None
 
 
-def main():
-    # Set the path to the configuration file
-    config_path = os.path.join(
-        os.path.dirname(__file__), "sambanova_infer_tutorial.yaml"
-    )
+@pytest.mark.e2e
+def test_sambanova_inference():
+    if "SAMBANOVA_API_KEY" not in os.environ:
+        pytest.skip("SAMBANOVA_API_KEY is not set")
+
+    # Set the path to the configuration file using pathlib
+    config_path = Path(__file__).parent / "sambanova_infer_tutorial.yaml"
+    print(config_path)
 
     # Load the configuration
     config = load_config(config_path)
@@ -81,7 +87,3 @@ def main():
     # Print the results
     if generations:
         print(generations)
-
-
-if __name__ == "__main__":
-    main()
