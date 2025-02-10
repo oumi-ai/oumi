@@ -152,7 +152,6 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
 def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
     config = _create_qwen2_vl_vlm_config()
     # Update default parameters that differ from Qwen2:
-    config.chat_template = "qwen2.5-vl-instruct"
     config.padding_side = InternalPaddingSide.PAD_RIGHT
     config.processor_kwargs.update(
         # Defaults per Qwen2.5-VL:
