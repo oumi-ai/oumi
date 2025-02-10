@@ -14,6 +14,7 @@
 
 import hashlib
 import logging
+import os
 import re
 from typing import Optional
 
@@ -119,3 +120,47 @@ def compute_utf8_len(s: str) -> int:
     # This is inefficient: allocates a temporary copy of string content.
     # FIXME Can we do better?
     return len(s.encode("utf-8"))
+
+
+def get_editable_install_override() -> bool:
+    """Returns whether OUMI_TRY_EDITABLE_INSTALL env var is set to a truthy value."""
+    s = os.environ.get("OUMI_TRY_EDITABLE_INSTALL", "")
+    mode = s.lower().strip()
+    bool_result = try_str_to_bool(mode)
+    if bool_result is not None:
+        return bool_result
+    return False
+
+
+def set_oumi_install_editable(setup: str) -> str:
+    """Try to replace oumi PyPi install with installation from source.
+
+    Args:
+        setup (str): The setup script to modify.
+
+    Returns:
+        The modified setup script.
+    """
+    setup_lines = setup.split("\n")
+    for i, line in enumerate(setup_lines):
+        if line.strip().startswith("#"):
+            continue
+        pip_idx = line.find("pip")
+        install_idx = line.find("install", pip_idx)
+        oumi_idx = line.find("oumi", install_idx)
+        if not (pip_idx != -1 and install_idx != -1 and oumi_idx != -1):
+            continue
+        oumi_end_idx = oumi_idx + 4
+        while oumi_end_idx < len(line) and not line[oumi_end_idx].isspace():
+            oumi_end_idx += 1
+        oumi_install = line[oumi_idx:oumi_end_idx]
+
+        setup_lines[i] = line[: oumi_idx - 1] + line[oumi_end_idx:]
+        len_whitespace_prefix = len(line) - len(line.lstrip())
+        prefix = " " * len_whitespace_prefix
+        setup_lines.insert(
+            i + 1,
+            f"{prefix}pip install uv && uv pip install -e '.{oumi_install[4:]}'",
+        )
+        break
+    return "\n".join(setup_lines)

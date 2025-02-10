@@ -18,6 +18,10 @@ from typing import Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.utils.str_utils import (
+    get_editable_install_override,
+    set_oumi_install_editable,
+)
 
 
 @dataclass
@@ -160,3 +164,12 @@ class JobConfig(BaseConfig):
 
     run: str = MISSING
     """The script to run on every node. Required. Runs after `setup`."""
+
+
+def __finalize_and_validate__(self):
+    """Finalizes and validates the configuration."""
+    # (experimental) If the OUMI_TRY_EDITABLE_INSTALL env var is set to a truthy value,
+    # attempt to modify the setup script in the job config to install Oumi in editable
+    # mode from source, as opposed to installing from PyPI.
+    if get_editable_install_override() and self.setup:
+        self.setup = set_oumi_install_editable(self.setup)
