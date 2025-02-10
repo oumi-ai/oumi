@@ -155,7 +155,7 @@ def set_oumi_install_editable(setup: str) -> str:
 
         # Only consider lines with the words "pip" "install" "oumi" in that order.
         # This is to try to handle cases where those words may appear multiple times
-        # in the line for some reason, but it may not be perfect.
+        # in the line for some reason, but this logic may not be perfect.
         pip_idx = line.find("pip")
         install_idx = line.find("install", pip_idx)
         oumi_idx = line.find("oumi", install_idx)
@@ -181,14 +181,14 @@ def set_oumi_install_editable(setup: str) -> str:
         # If already present, the flag should be after "install" and before the packages
         # to install, i.e. oumi in this case.
         edit_flag_idx = line.find("-e", install_idx)
-        print("edit")
-        print(edit_flag_idx)
         # If the editable flag is not present or is after the oumi install, add it.
         if edit_flag_idx == -1 or edit_flag_idx > oumi_idx:
             line = line[:install_idx] + line[install_idx:].replace(
                 "install", "install -e"
             )
-            print(line)
         # Replace the line in the setup script.
+        logger = logging.getLogger("oumi")
+        logger.info(f"Detected the following oumi installation: {setup_lines[i]}")
+        logger.info(f"Replaced with: {line}")
         setup_lines[i] = line
     return "\n".join(setup_lines)

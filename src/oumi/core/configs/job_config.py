@@ -18,6 +18,7 @@ from typing import Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.utils.logging import logger
 from oumi.utils.str_utils import (
     get_editable_install_override,
     set_oumi_install_editable,
@@ -172,4 +173,7 @@ def __finalize_and_validate__(self):
     # attempt to modify the setup script in the job config to install Oumi in editable
     # mode from source, as opposed to installing from PyPI.
     if get_editable_install_override() and self.setup:
+        logger.info(
+            "Attempting to modify setup to install Oumi in editable mode from source."
+        )
         self.setup = set_oumi_install_editable(self.setup)
