@@ -41,8 +41,9 @@ class Tulu3MixtureDataset(BaseSftDataset):
     def _transform_message(cls, message: dict) -> Message:
         roles = {"system": Role.SYSTEM, "assistant": Role.ASSISTANT, "user": Role.USER}
         content = message["content"]
+        role_str = message["role"].lower().strip()
         try:
-            role = roles[message["role"]]
+            role = roles[role_str]
             return Message(role=role, content=content)
         except KeyError as e:
             raise ValueError(
