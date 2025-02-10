@@ -118,10 +118,19 @@ def test_get_editable_install_override(env_var_val: Optional[str], expected_val:
     "setup,output_setup",
     [
         (
-            "pip -q install oumi[gpu]",
-            """pip -q install vllm
-            pip install uv && uv pip install -e '.'
-            print("All done")
+            "pip install oumi[gpu]",
+            "pip install -e '.[gpu]'",
+        ),
+        (
+            """
+            #A comment
+            pip install -e uv && uv pip -q install oumi[gpu,dev] vllm # comment
+            pip install -e oumi
+            """,
+            """
+            #A comment
+            pip install -e uv && uv pip -q install -e '.[gpu,dev]' vllm # comment
+            pip install -e '.'
             """,
         ),
         (
@@ -132,8 +141,7 @@ def test_get_editable_install_override(env_var_val: Optional[str], expected_val:
             """,
             """
             #A comment
-            pip -q install vllm
-            pip install uv && uv pip install -e '.'
+            pip -q install -e '.' vllm
             print("All done")
             """,
         ),
