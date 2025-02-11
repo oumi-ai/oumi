@@ -4,14 +4,17 @@ from pathlib import Path
 
 import PIL.Image
 import pytest
+import responses
 
 from oumi.utils.image_utils import (
     convert_pil_image_mode,
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
-    create_png_bytes_from_images,
+    create_png_bytes_from_image_list,
     load_image_png_bytes_from_path,
+    load_image_png_bytes_from_url,
     load_pdf_pil_image_pages_from_path,
+    load_pdf_pil_image_pages_from_url,
     load_pil_image_from_bytes,
 )
 
@@ -35,13 +38,13 @@ def test_create_png_bytes_from_images():
     png_bytes = create_png_bytes_from_image(pil_image)
     assert len(png_bytes) > 50
 
-    png_bytes_list = create_png_bytes_from_images([pil_image, pil_image, pil_image])
+    png_bytes_list = create_png_bytes_from_image_list([pil_image, pil_image, pil_image])
     assert len(png_bytes_list) == 3
     assert png_bytes_list[0] == png_bytes
     assert png_bytes_list[1] == png_bytes
     assert png_bytes_list[2] == png_bytes
 
-    assert len(create_png_bytes_from_images([])) == 0
+    assert len(create_png_bytes_from_image_list([])) == 0
 
 
 def test_load_image_from_bytes():
@@ -118,6 +121,23 @@ def test_load_image_png_bytes_from_path():
         assert loaded_png_bytes1 == loaded_png_bytes2
 
 
+def test_load_image_png_bytes_from_url():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+    assert len(png_bytes) > 50
+
+    with responses.RequestsMock() as m:
+        m.add(
+            responses.GET,
+            "http://oumi.ai/test.png",
+            body=png_bytes,
+            stream=True,
+        )
+
+        loaded_png_bytes = load_image_png_bytes_from_url("http://oumi.ai/test.png")
+        assert len(loaded_png_bytes) > 0
+
+
 def test_load_pil_image_pages_from_pdf_path(root_testdata_dir: Path):
     pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
 
@@ -136,3 +156,21 @@ def test_load_pil_image_pages_from_pdf_path(root_testdata_dir: Path):
     assert ratio == pytest.approx(3.0, 0.1)
     ratio = float(image_size[1]) / float(smaller_image_size[1])
     assert ratio == pytest.approx(3.0, 0.1)
+
+
+def test_load_image_bytes_to_message_image_url(root_testdata_dir):
+    pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
+    pdf_bytes = pdf_filename.read_bytes()
+
+    with responses.RequestsMock() as m:
+        m.add(
+            responses.GET,
+            "http://oumi.ai/oumi_getting_started.pdf",
+            body=pdf_bytes,
+            stream=True,
+        )
+
+        pil_pages = load_pdf_pil_image_pages_from_url(
+            "http://oumi.ai/oumi_getting_started.pdf"
+        )
+        assert len(pil_pages) == 4

@@ -47,7 +47,7 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
         raise
 
 
-def create_png_bytes_from_images(pil_images: list[PIL.Image.Image]) -> list[bytes]:
+def create_png_bytes_from_image_list(pil_images: list[PIL.Image.Image]) -> list[bytes]:
     """Encodes PIL images into PNG format, and returns PNG image bytes.
 
     Args:
