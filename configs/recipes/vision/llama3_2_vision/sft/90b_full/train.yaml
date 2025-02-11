@@ -1,4 +1,9 @@
-# FFT config for Llama- 90B Vision with the vqav2-small dataset.
+# FFT config for Llama 3.2 90B Vision with the vqav2-small dataset.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-90B-Vision-Instruct
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/llama3_2_vision/sft/90b_full/train.yaml

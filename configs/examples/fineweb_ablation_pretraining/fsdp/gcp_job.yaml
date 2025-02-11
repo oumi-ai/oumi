@@ -1,4 +1,8 @@
-# Job config.
+# Job config to FSDP pretrain the FineWeb ablation model on GCP.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up -c configs/examples/fineweb_ablation_pretraining/fsdp/gcp_job.yaml --cluster fineweb-fsdp
@@ -16,10 +20,8 @@ resources:
   accelerators: "A100:4"
   use_spot: false
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
 

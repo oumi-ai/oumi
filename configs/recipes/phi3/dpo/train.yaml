@@ -1,4 +1,4 @@
-# Training config.
+# Phi3 DPO train config.
 #
 # Usage:
 #   oumi train -c configs/recipes/phi3/dpo/train.yaml

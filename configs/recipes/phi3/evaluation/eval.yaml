@@ -1,5 +1,8 @@
 # Eval config for Phi3.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi evaluate -c configs/recipes/phi3/evaluation/eval.yaml
 #
