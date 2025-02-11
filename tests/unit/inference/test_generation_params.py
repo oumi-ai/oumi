@@ -20,6 +20,7 @@ from oumi.inference import (
     NativeTextInferenceEngine,
     RemoteInferenceEngine,
     RemoteVLLMInferenceEngine,
+    SambanovaInferenceEngine,
     SGLangInferenceEngine,
     VLLMInferenceEngine,
 )
@@ -32,6 +33,7 @@ SUPPORTED_INFERENCE_ENGINES = [
     AnthropicInferenceEngine,
     LlamaCppInferenceEngine,
     NativeTextInferenceEngine,
+    SambanovaInferenceEngine,
     SGLangInferenceEngine,
     VLLMInferenceEngine,
     RemoteVLLMInferenceEngine,
