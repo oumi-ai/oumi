@@ -401,8 +401,9 @@ class Conversation(pydantic.BaseModel):
         """Gets all messages in the conversation, optionally filtered by role.
 
         Args:
-            role: The role to filter messages by. If None, has no effect.
-            filter_fn: A optional predicate to filter messages by. If the predicate
+            role: The role to filter messages by.
+                If None, no filtering by role is applied.
+            filter_fn: An optional predicate to filter messages by. If the predicate
                 returns True for a message, then the message is returned.
                 Otherwise, the message is excluded.
 
