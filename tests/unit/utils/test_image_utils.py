@@ -9,9 +9,10 @@ from oumi.utils.image_utils import (
     convert_pil_image_mode,
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
+    create_png_bytes_from_images,
     load_image_png_bytes_from_path,
+    load_pdf_pil_image_pages_from_path,
     load_pil_image_from_bytes,
-    load_pil_image_pages_from_pdf_path,
 )
 
 
@@ -27,6 +28,20 @@ def test_load_image_from_empty_bytes():
 
     with pytest.raises(ValueError, match="No image bytes"):
         load_pil_image_from_bytes(b"")
+
+
+def test_create_png_bytes_from_images():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+    assert len(png_bytes) > 50
+
+    png_bytes_list = create_png_bytes_from_images([pil_image, pil_image, pil_image])
+    assert len(png_bytes_list) == 3
+    assert png_bytes_list[0] == png_bytes
+    assert png_bytes_list[1] == png_bytes
+    assert png_bytes_list[2] == png_bytes
+
+    assert len(create_png_bytes_from_images([])) == 0
 
 
 def test_load_image_from_bytes():
@@ -106,14 +121,14 @@ def test_load_image_png_bytes_from_path():
 def test_load_pil_image_pages_from_pdf_path(root_testdata_dir: Path):
     pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
 
-    pil_pages = load_pil_image_pages_from_pdf_path(pdf_filename)
+    pil_pages = load_pdf_pil_image_pages_from_path(pdf_filename)
     assert len(pil_pages) == 4
 
-    pil_pages = load_pil_image_pages_from_pdf_path(f"file://{pdf_filename}", dpi=300)
+    pil_pages = load_pdf_pil_image_pages_from_path(f"file://{pdf_filename}", dpi=300)
     assert len(pil_pages) == 4
     image_size = pil_pages[0].size
 
-    smaller_pil_pages = load_pil_image_pages_from_pdf_path(pdf_filename, dpi=100)
+    smaller_pil_pages = load_pdf_pil_image_pages_from_path(pdf_filename, dpi=100)
     assert len(smaller_pil_pages) == 4
     smaller_image_size = smaller_pil_pages[0].size
 

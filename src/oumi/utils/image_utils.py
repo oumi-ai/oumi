@@ -47,6 +47,18 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
         raise
 
 
+def create_png_bytes_from_images(pil_images: list[PIL.Image.Image]) -> list[bytes]:
+    """Encodes PIL images into PNG format, and returns PNG image bytes.
+
+    Args:
+        pil_images: A list of input images.
+
+    Returns:
+        A list of PNG-encoded images.
+    """
+    return [create_png_bytes_from_image(image) for image in pil_images]
+
+
 def convert_pil_image_mode(
     image: PIL.Image.Image, *, mode: Optional[str]
 ) -> PIL.Image.Image:
@@ -172,8 +184,16 @@ def load_pil_image_from_bytes(
     return pil_image
 
 
-def load_pil_image_pages_from_pdf_path(
-    input_pdf_filepath: Union[str, Path], dpi: int = 300, mode: str = DEFAULT_IMAGE_MODE
+def _check_pdf2image_dependency():
+    if not find_spec("pdf2image"):
+        raise RuntimeError(
+            "Failed to find the required dependency package: 'pdf2image'. "
+            "Run `pip install oumi[file_formats]`, and try again."
+        )
+
+
+def load_pdf_pil_image_pages_from_path(
+    input_pdf_filepath: Union[str, Path], dpi: int = 200, mode: str = DEFAULT_IMAGE_MODE
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from a path.
 
@@ -203,11 +223,7 @@ def load_pil_image_pages_from_pdf_path(
             else f"PDF path doesn't exist: {input_filepath}"
         )
 
-    if not find_spec("pdf2image"):
-        raise RuntimeError(
-            "Failed to find the required dependency package: 'pdf2image'. "
-            "Run `pip install oumi[file_formats]`, and try again."
-        )
+    _check_pdf2image_dependency()
     import pdf2image
 
     page_images = pdf2image.convert_from_path(input_filepath, dpi=dpi)
@@ -224,6 +240,69 @@ def load_pil_image_pages_from_pdf_path(
             )
             raise
     return page_images
+
+
+def load_pdf_pil_image_pages_from_bytes(
+    pdf_bytes: Optional[bytes], dpi: int = 300, mode: str = DEFAULT_IMAGE_MODE
+) -> list[PIL.Image.Image]:
+    """Loads PDF pages as PIL images from raw PDF file bytes.
+
+    Args:
+        pdf_bytes: PDF file content.
+        dpi: Resolution to use for PDF page images (dots per inch).
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        PDF pages as PIL images (PIL.Image.Image).
+    """
+    if pdf_bytes is None or len(pdf_bytes) == 0:
+        raise ValueError("No PDF bytes.")
+
+    _check_pdf2image_dependency()
+    import pdf2image
+
+    page_images = pdf2image.convert_from_bytes(pdf_bytes, dpi=dpi)
+    num_pages = len(page_images)
+    for page_idx in range(num_pages):
+        try:
+            page_images[page_idx] = convert_pil_image_mode(
+                page_images[page_idx], mode=mode
+            )
+        except Exception:
+            logger.error(
+                "Failed to convert image mode for PDF page "
+                f"{page_idx + 1} or {num_pages}"
+            )
+            raise
+    return page_images
+
+
+def load_pdf_pil_image_pages_from_url(
+    pdf_url: str, mode: str = DEFAULT_IMAGE_MODE
+) -> list[PIL.Image.Image]:
+    """Loads PDF pages as PIL images from from PDF URL.
+
+    Args:
+        pdf_url: A PDF URL.
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        PDF pages as PIL images (PIL.Image.Image).
+    """
+    if not pdf_url:
+        raise ValueError("Empty PDF URL!")
+
+    try:
+        response = requests.get(pdf_url, stream=True)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        logger.exception(f"Failed to download PDF: '{pdf_url}'")
+        raise
+    return load_pdf_pil_image_pages_from_bytes(response.content, mode=mode)
 
 
 def create_png_bytes_from_image_bytes(
