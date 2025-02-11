@@ -193,9 +193,9 @@ def load_pil_image_pages_from_pdf_path(
     if isinstance(input_pdf_filepath, str) and input_pdf_filepath.lower().startswith(
         _FILE_URL_PREFIX
     ):
-        input_image_filepath = input_pdf_filepath[len(_FILE_URL_PREFIX) :]
+        input_pdf_filepath = input_pdf_filepath[len(_FILE_URL_PREFIX) :]
 
-    input_filepath = Path(input_image_filepath)
+    input_filepath = Path(input_pdf_filepath)
     if not input_filepath.is_file():
         raise ValueError(
             f"PDF path is not a file: {input_filepath}"
