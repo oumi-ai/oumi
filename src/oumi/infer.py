@@ -75,9 +75,9 @@ def infer(
     config: InferenceConfig,
     inputs: Optional[list[str]] = None,
     inference_engine: Optional[BaseInferenceEngine] = None,
-    system_prompt: Optional[str] = None,
     *,
     input_image_bytes: Optional[bytes] = None,
+    system_prompt: Optional[str] = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
