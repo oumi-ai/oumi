@@ -142,7 +142,7 @@ def set_oumi_install_editable(setup: str) -> str:
         `pip install uv && uv pip -q install -e '.[gpu,dev]' vllm`
 
     Args:
-        setup (str): The setup script to modify.
+        setup (str): The bash setup script to modify. May be multi-line.
 
     Returns:
         The modified setup script.
