@@ -188,7 +188,7 @@ def set_oumi_install_editable(setup: str) -> str:
             )
         # Replace the line in the setup script.
         logger = logging.getLogger("oumi")
-        logger.info(f"Detected the following oumi installation: {setup_lines[i]}")
-        logger.info(f"Replaced with: {line}")
+        logger.info(f"Detected the following oumi installation: `{setup_lines[i]}`")
+        logger.info(f"Replaced with: `{line}`")
         setup_lines[i] = line
     return "\n".join(setup_lines)
