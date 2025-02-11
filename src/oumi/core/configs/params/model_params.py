@@ -186,31 +186,6 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def to_lm_harness(self) -> dict[str, Any]:
-        """Converts Oumi's ModelParams to LM Harness model arguments."""
-        model_args_dict = {
-            "pretrained": self.model_name,
-            "trust_remote_code": self.trust_remote_code,
-            "parallelize": self.shard_for_eval,
-            "dtype": self.torch_dtype,
-            "device_map": self.device_map,
-        }
-        if self.adapter_model:
-            model_args_dict["peft"] = self.adapter_model
-        if self.attn_implementation:
-            model_args_dict["attn_implementation"] = self.attn_implementation
-
-        # Handle extra model_kwargs (construction arguments).
-        # Towards OPE-564.
-        if self.model_kwargs:
-            relevant_for_lm = ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]
-            for key in relevant_for_lm:
-                if key in self.model_kwargs:
-                    model_args_dict[key] = self.model_kwargs[key]
-            # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
-            # future versions of HF. Integrate via PeftConfig.
-        return model_args_dict
-
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)

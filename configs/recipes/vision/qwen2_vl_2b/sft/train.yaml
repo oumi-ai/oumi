@@ -1,4 +1,7 @@
-# Training config.
+# Full fine-tune config for Qwen2 VL 2B Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/qwen2_vl_2b/sft/train.yaml
@@ -33,14 +36,8 @@ data:
           processor_name: "Qwen/Qwen2-VL-2B-Instruct"
           # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
-      # - dataset_name: "HuggingFaceM4/Docmatix"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "Qwen/Qwen2-VL-2B-Instruct"
-      #     return_tensors: True
+
+      # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True

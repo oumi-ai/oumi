@@ -1,5 +1,8 @@
 # Eval config for Deepseek R1 Distill Llama 3.3 70B.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi evaluate -c configs/recipes/deepseek_r1/evaluation/distill_llama_70b/eval.yaml
 #

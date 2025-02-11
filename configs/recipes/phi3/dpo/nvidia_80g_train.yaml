@@ -1,4 +1,4 @@
-# Training config.
+# Phi3 DPO train config for an Nvidia GPU with >=80GB memory.
 #
 # Usage:
 #   oumi train -c configs/recipes/phi3/dpo/nvidia_80g_train.yaml

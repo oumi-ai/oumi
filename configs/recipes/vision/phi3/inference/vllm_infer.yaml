@@ -1,4 +1,7 @@
-# Inference config.
+# Phi3 vision vLLM inference config.
+#
+# Requirements:
+#   - Run `pip install vllm`
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/phi3/inference/vllm_infer.yaml

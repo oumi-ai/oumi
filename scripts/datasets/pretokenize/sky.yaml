@@ -12,10 +12,8 @@ resources:
   any_of:
     - use_spot: false
 
-# Upload working directory to remote ~/sky_workdir.
 workdir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
@@ -53,7 +51,7 @@ run: |
 
   set -x
   mkdir -p "${OUTPUT_DATA}/${DATASET_SPLIT}"
-  python3 ./src/experimental/pretokenize/process_dataset.py \
+  python3 ./scripts/datasets/pretokenize/process_dataset.py \
     --verbose \
     --input_dataset "${INPUT_DATASET}" \
     --dataset_split "${DATASET_SPLIT}" \

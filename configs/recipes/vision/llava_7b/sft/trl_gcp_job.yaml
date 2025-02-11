@@ -1,4 +1,8 @@
-# Job config.
+# Llava 7B full fine-tune training job config, with the TRL trainer.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/llava_7b/sft/trl_gcp_job.yaml --cluster llava-7b-vision
@@ -33,8 +37,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llava.7b.fft.trl
-  ACCELERATE_LOG_LEVEL: info
-  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e

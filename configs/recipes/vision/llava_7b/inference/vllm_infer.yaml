@@ -1,4 +1,7 @@
-# Inference config.
+# Llava 7B vLLM inference config.
+#
+# Requirements:
+#   - Run `pip install vllm`
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/llava_7b/inference/vllm_infer.yaml

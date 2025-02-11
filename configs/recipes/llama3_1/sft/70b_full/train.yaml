@@ -5,6 +5,11 @@
 # Strongly recommend downloading the model first:
 # HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-70B-Instruct --exclude original/*
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
+#
 # Usage:
 #   oumi train -c configs/recipes/llama3_1/sft/70b_full/train.yaml
 #
