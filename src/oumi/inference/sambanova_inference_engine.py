@@ -134,7 +134,8 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "max_tokens",
+            "max_new_tokens",
+            "stop_strings",
             "temperature",
             "top_p",
         }

@@ -115,7 +115,8 @@ def test_get_supported_params(sambanova_engine):
     supported_params = sambanova_engine.get_supported_params()
 
     assert supported_params == {
-        "max_tokens",
+        "max_new_tokens",
+        "stop_strings",
         "temperature",
         "top_p",
     }
