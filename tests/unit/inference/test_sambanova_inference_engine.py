@@ -107,7 +107,7 @@ def test_get_request_headers(sambanova_engine):
         result = sambanova_engine._get_request_headers(remote_params)
 
     assert result["Content-Type"] == "application/json"
-    assert result["X-API-Key"] == "test_api_key"
+    assert result["Authorization"] == "Bearer test_api_key"
 
 
 def test_get_supported_params(sambanova_engine):
@@ -115,8 +115,7 @@ def test_get_supported_params(sambanova_engine):
     supported_params = sambanova_engine.get_supported_params()
 
     assert supported_params == {
-        "max_new_tokens",
-        "stop_strings",
+        "max_tokens",
         "temperature",
         "top_p",
     }
