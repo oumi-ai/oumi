@@ -99,31 +99,35 @@ def infer(
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
-        base_message = []
+        system_messages = []
         if system_prompt:
-            base_message.append(Message(role=Role.SYSTEM, content=system_prompt))
+            system_messages.append(Message(role=Role.SYSTEM, content=system_prompt))
         if input_image_bytes is None:
             conversations = [
                 Conversation(
-                    messages=base_message + [Message(role=Role.USER, content=content)]
+                    messages=(
+                        system_messages + [Message(role=Role.USER, content=content)]
+                    )
                 )
                 for content in inputs
             ]
         else:
             conversations = [
                 Conversation(
-                    messages=base_message
-                    + [
-                        Message(
-                            role=Role.USER,
-                            content=[
-                                ContentItem(
-                                    type=Type.IMAGE_BINARY, binary=input_image_bytes
-                                ),
-                                ContentItem(type=Type.TEXT, content=content),
-                            ],
-                        ),
-                    ]
+                    messages=(
+                        system_messages
+                        + [
+                            Message(
+                                role=Role.USER,
+                                content=[
+                                    ContentItem(
+                                        type=Type.IMAGE_BINARY, binary=input_image_bytes
+                                    ),
+                                    ContentItem(type=Type.TEXT, content=content),
+                                ],
+                            ),
+                        ]
+                    )
                 )
                 for content in inputs
             ]

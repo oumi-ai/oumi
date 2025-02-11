@@ -64,7 +64,9 @@ def test_infer_runs(app, mock_infer, mock_infer_interactive):
         config: InferenceConfig = _create_inference_config()
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["-i", "--config", yaml_path])
-        mock_infer_interactive.assert_has_calls([call(config, input_image_bytes=None)])
+        mock_infer_interactive.assert_has_calls(
+            [call(config, input_image_bytes=None, system_prompt=None)]
+        )
 
 
 def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
@@ -91,7 +93,7 @@ def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
         expected_config.generation.max_new_tokens = 5
         expected_config.engine = InferenceEngineType.VLLM
         mock_infer_interactive.assert_has_calls(
-            [call(expected_config, input_image_bytes=None)]
+            [call(expected_config, input_image_bytes=None, system_prompt=None)]
         )
 
 
@@ -114,7 +116,7 @@ def test_infer_runs_with_image(app, mock_infer, mock_infer_interactive):
             app, ["-i", "--config", yaml_path, "--image", str(image_path)]
         )
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=image_bytes)]
+            [call(config, input_image_bytes=image_bytes, system_prompt=None)]
         )
 
 
