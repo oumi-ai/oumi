@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import io
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Final, Optional, Union
 
@@ -169,6 +170,60 @@ def load_pil_image_from_bytes(
         )
         raise
     return pil_image
+
+
+def load_pil_image_pages_from_pdf_path(
+    input_pdf_filepath: Union[str, Path], dpi: int = 300, mode: str = DEFAULT_IMAGE_MODE
+) -> list[PIL.Image.Image]:
+    """Loads PDF pages as PIL images from a path.
+
+    Args:
+        input_pdf_filepath: A file path of an PDF document.
+        dpi: Resolution to use for PDF page images (dots per inch).
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        PDF pages as PIL images (PIL.Image.Image).
+    """
+    if not input_pdf_filepath:
+        raise ValueError("Empty PDF file path.")
+
+    if isinstance(input_pdf_filepath, str) and input_pdf_filepath.lower().startswith(
+        _FILE_URL_PREFIX
+    ):
+        input_image_filepath = input_pdf_filepath[len(_FILE_URL_PREFIX) :]
+
+    input_filepath = Path(input_image_filepath)
+    if not input_filepath.is_file():
+        raise ValueError(
+            f"PDF path is not a file: {input_filepath}"
+            if input_filepath.exists()
+            else f"PDF path doesn't exist: {input_filepath}"
+        )
+
+    if not find_spec("pdf2image"):
+        raise RuntimeError(
+            "Failed to find the required dependency package: 'pdf2image'. "
+            "Run `pip install oumi[file_formats]`, and try again."
+        )
+    import pdf2image
+
+    page_images = pdf2image.convert_from_path(input_filepath, dpi=dpi)
+    num_pages = len(page_images)
+    for page_idx in range(num_pages):
+        try:
+            page_images[page_idx] = convert_pil_image_mode(
+                page_images[page_idx], mode=mode
+            )
+        except Exception:
+            logger.error(
+                "Failed to convert image mode for PDF page "
+                f"{page_idx + 1} or {num_pages}: {input_filepath}"
+            )
+            raise
+    return page_images
 
 
 def create_png_bytes_from_image_bytes(
