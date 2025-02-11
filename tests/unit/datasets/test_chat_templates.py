@@ -524,8 +524,6 @@ def test_qwen2_chat_template(model_name: str, is_vision: bool):
             + [""]
         )
         expected = "\n".join(expected_lines)
-        print(expected)
-        print(oumi_result)
         assert oumi_result == expected, debug_tag
         assert hf_result.startswith(
             expected
@@ -542,7 +540,6 @@ def test_qwen2_chat_template(model_name: str, is_vision: bool):
         )
         unique_text_pieces = test_convo_tuple.unique_text_pieces
         assert len(unique_text_pieces) == 3
-        print(oumi_result)
         expected_lines = (
             [
                 "<|im_start|>system",
