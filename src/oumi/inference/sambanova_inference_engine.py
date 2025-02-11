@@ -93,6 +93,7 @@ class SambanovaInferenceEngine(RemoteInferenceEngine):
         choices = response.get("choices", [])
         if not choices:
             raise RuntimeError("No choices found in API response")
+        assert len(choices) == 1, "Sambanova API only supports one choice per response"
 
         message = choices[0].get("message", {})
         if not message:
