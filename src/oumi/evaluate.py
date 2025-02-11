@@ -51,16 +51,14 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
                 model_params=config.model,
                 generation_params=config.generation,
                 enable_wandb=config.enable_wandb,
+                inference_engine_type=config.inference_engine,
+                inference_remote_params=config.inference_remote_params,
                 run_name=config.run_name,
             )
             results.append(result)
         elif task.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
             alpaca_eval_task_params = task.get_evaluation_platform_task_params()
             assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
-            if not config.inference_engine:
-                raise ValueError(
-                    "Inference engine must be specified for Alpaca Eval evaluation."
-                )
             result = evaluate_alpaca_eval(
                 task_params=alpaca_eval_task_params,
                 output_dir=config.output_dir,

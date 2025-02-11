@@ -20,7 +20,7 @@ from typing import Generic, Optional, TypeVar
 import pydantic
 
 from oumi.core.configs import BaseConfig
-from oumi.core.configs.inference_config import InferenceEngineType
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
