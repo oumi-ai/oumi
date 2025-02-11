@@ -113,12 +113,12 @@ def _not_assistant_fn(m: Message):
 
 def _process_conversation(
     input_conversation: Conversation,
-    convert_multi_turn_to_single_turn: bool,
+    split_multi_turn_to_single_turn: bool,
     drop_assistant_messages: bool,
 ) -> list[Conversation]:
     result: list[Conversation] = []
-    if convert_multi_turn_to_single_turn:
-        proto_conversation = input_conversation
+    if split_multi_turn_to_single_turn:
+        proto_conversation = copy.copy(input_conversation)
         proto_conversation.messages = []
         for turn_messages in _split_message_list_on_user(input_conversation.messages):
             new_conversation = copy.copy(proto_conversation)
@@ -141,7 +141,7 @@ def main(args):
     dataset_subset: Optional[str] = args.subset
     dataset_split: Optional[str] = args.split
     trust_remote_code: bool = args.trust_remote_code
-    convert_multi_turn_to_single_turn: bool = args.convert_multi_turn_to_single_turn
+    split_multi_turn_to_single_turn: bool = args.split_multi_turn_to_single_turn
     drop_assistant_messages: bool = args.drop_assistant_messages
     model_name: str = args.model_name
     max_conversations: int = args.max_conversations
@@ -181,17 +181,26 @@ def main(args):
         f"to '{output_file}'..."
     )
 
+    num_conversations_written = 0
+    num_messages_written = 0
     with jsonlines.open(output_file, mode="w") as writer:
         for idx in tqdm(range(max_conversations)):
             for conversation in _process_conversation(
                 dataset.conversation(idx),
-                convert_multi_turn_to_single_turn,
+                split_multi_turn_to_single_turn,
                 drop_assistant_messages,
             ):
+                num_conversations_written += 1
+                num_messages_written += len(conversation.messages)
+
                 json_obj = conversation.to_dict()
                 writer.write(json_obj)
 
-    logger.info("Finished writing!")
+    logger.info(
+        f"Finished processing {max_conversations} input conversations, and "
+        f"wrote {num_conversations_written} output conversations with "
+        f"{num_messages_written} messages!"
+    )
 
 
 if __name__ == "__main__":
@@ -215,9 +224,8 @@ if __name__ == "__main__":
         help="Tokenizer name.",
     )
     parser.add_argument(
-        "--convert-multi-turn-to-single-turn",
-        type=bool,
-        default=False,
+        "--split-multi-turn-to-single-turn",
+        action="store_true",
         required=False,
         help=(
             "Whether to split multi-turn conversations "
@@ -226,8 +234,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--drop-assistant-messages",
-        type=bool,
-        default=False,
+        action="store_true",
         required=False,
         help=("Whether to remove all assistant responses."),
     )
