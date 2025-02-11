@@ -161,3 +161,64 @@ def test_infer_logging_levels(app, mock_infer, mock_infer_interactive):
         assert logger.level == logging.WARNING
         _ = runner.invoke(app, ["-i", "--config", yaml_path, "-log", "CRITICAL"])
         assert logger.level == logging.CRITICAL
+
+
+def test_infer_with_system_prompt(app, mock_infer_interactive):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+
+        config: InferenceConfig = _create_inference_config()
+        config.to_yaml(yaml_path)
+
+        # Test with interactive mode and system prompt
+        result = runner.invoke(
+            app,
+            [
+                "-i",
+                "--config",
+                yaml_path,
+                "--system-prompt",
+                "You are a helpful assistant",
+            ],
+        )
+        assert result.exit_code == 0
+        mock_infer_interactive.assert_called_once_with(
+            config, system_prompt="You are a helpful assistant", input_image_bytes=None
+        )
+        mock_infer_interactive.reset_mock()
+
+
+def test_infer_with_system_prompt_and_image(app, mock_infer_interactive):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+
+        config: InferenceConfig = _create_inference_config()
+        config.to_yaml(yaml_path)
+
+        test_image = PIL.Image.new(mode="RGB", size=(32, 16))
+        temp_io_output = io.BytesIO()
+        test_image.save(temp_io_output, format="PNG")
+        image_bytes = temp_io_output.getvalue()
+
+        image_path = Path(output_temp_dir) / "test_image.png"
+        with image_path.open(mode="wb") as f:
+            f.write(image_bytes)
+
+        result = runner.invoke(
+            app,
+            [
+                "-i",
+                "--config",
+                yaml_path,
+                "--system-prompt",
+                "You are a helpful assistant",
+                "--image",
+                str(image_path),
+            ],
+        )
+        assert result.exit_code == 0
+        mock_infer_interactive.assert_called_once_with(
+            config,
+            system_prompt="You are a helpful assistant",
+            input_image_bytes=image_bytes,
+        )
