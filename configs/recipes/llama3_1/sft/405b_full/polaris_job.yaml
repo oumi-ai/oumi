@@ -1,5 +1,12 @@
 # Llama 3.1 405B Instruct FFT config
 #
+# Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B-Instruct
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/405b_full/polaris_job.yaml --cluster prod.$ALCF_USER --user $ALCF_USER
 #
@@ -17,6 +24,7 @@ num_nodes: 20
 resources:
   cloud: polaris
 
+# Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
 
 setup: |

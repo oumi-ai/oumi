@@ -1,4 +1,8 @@
-# Training config.
+# Llava 7B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/phi3/sft/train.yaml

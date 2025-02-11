@@ -1,4 +1,4 @@
-# Training config.
+# ChatQA Stage 1 training config.
 #
 # Usage:
 #   oumi train -c configs/projects/chatqa/chatqa_stage1_train.yaml

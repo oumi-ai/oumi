@@ -1,4 +1,8 @@
-# Training config.
+# Qwen 2.5 VL 3B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - (optional) If you want to use flash attention, run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/sft/train.yaml

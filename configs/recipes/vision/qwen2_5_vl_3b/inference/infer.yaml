@@ -1,4 +1,4 @@
-# Inference config.
+# Qwen 2.5 VL 3B inference config.
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml
