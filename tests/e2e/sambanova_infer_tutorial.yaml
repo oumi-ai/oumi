@@ -1,0 +1,10 @@
+
+model:
+  model_name: "Meta-Llama-3.1-405B-Instruct"
+  model_max_length: 512
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 128
+  batch_size: 1
