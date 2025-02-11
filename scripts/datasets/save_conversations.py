@@ -67,6 +67,8 @@ def _load_sft_dataset(
 
 
 def _split_message_list_on_user(messages: list[Message]) -> list[list[Message]]:
+    if len(messages) == 0:
+        return []
     turn_start_indices: list[int] = []
     for idx, m in enumerate(messages):
         if m.role == Role.USER:
