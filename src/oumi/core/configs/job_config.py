@@ -175,7 +175,7 @@ class JobConfig(BaseConfig):
         # editable mode from source, as opposed to installing from PyPI.
         if get_editable_install_override() and self.setup:
             logger.info(
-                "Attempting to modify setup to install Oumi in editable mode from "
-                "source..."
+                "OUMI_TRY_EDITABLE_INSTALL detected! Attempting to modify job config's "
+                "`setup` to install Oumi in editable mode from source..."
             )
             self.setup = set_oumi_install_editable(self.setup)
