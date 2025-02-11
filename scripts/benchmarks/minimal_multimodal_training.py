@@ -90,7 +90,7 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["visual"],
     ),
     ModelName.QWEN2_5_3B_VL: ModelInfo(
-        chat_template="qwen2.5-vl-instruct",
+        chat_template="qwen2-vl-instruct",
         freeze_layers=["visual"],
     ),
     ModelName.CHAMELEON: ModelInfo(
