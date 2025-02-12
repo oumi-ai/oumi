@@ -82,7 +82,7 @@ def infer(
         inference_engine: The engine to use for inference. If unspecified, the engine
             will be inferred from `config`.
         input_image_bytes: A list of input PNG image bytes to be used with `image+text`
-            VLLMs. Only used in interactive mode.
+            VLMs. Only used in interactive mode.
 
     Returns:
         object: A list of model responses.
