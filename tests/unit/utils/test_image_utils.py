@@ -17,6 +17,7 @@ from oumi.utils.image_utils import (
     load_pdf_pages_from_url,
     load_pil_image_from_bytes,
 )
+from tests.markers import requires_pdf_support
 
 
 def _create_jpg_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
@@ -138,7 +139,8 @@ def test_load_image_png_bytes_from_url():
         assert len(loaded_png_bytes) > 0
 
 
-def test_load_pil_image_pages_from_pdf_path(root_testdata_dir: Path):
+@requires_pdf_support()
+def test_load_pdf_pages_from_path(root_testdata_dir: Path):
     pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
 
     pil_pages = load_pdf_pages_from_path(pdf_filename)
@@ -158,7 +160,8 @@ def test_load_pil_image_pages_from_pdf_path(root_testdata_dir: Path):
     assert ratio == pytest.approx(3.0, 0.1)
 
 
-def test_load_image_bytes_to_message_image_url(root_testdata_dir):
+@requires_pdf_support()
+def test_load_pdf_pages_from_url(root_testdata_dir):
     pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
     pdf_bytes = pdf_filename.read_bytes()
 

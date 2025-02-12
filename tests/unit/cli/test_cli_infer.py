@@ -116,7 +116,7 @@ def test_infer_runs_with_image(app, mock_infer, mock_infer_interactive):
             app, ["-i", "--config", yaml_path, "--image", str(image_path)]
         )
         mock_infer_interactive.assert_has_calls(
-            [call(config, input_image_bytes=image_bytes, system_prompt=None)]
+            [call(config, input_image_bytes=[image_bytes], system_prompt=None)]
         )
 
 
@@ -180,12 +180,12 @@ def test_infer_with_system_prompt(app, mock_infer_interactive):
                 "--config",
                 yaml_path,
                 "--system-prompt",
-                "You are a helpful assistant",
+                "You are a mighty assistant",
             ],
         )
         assert result.exit_code == 0
         mock_infer_interactive.assert_called_once_with(
-            config, system_prompt="You are a helpful assistant", input_image_bytes=None
+            config, system_prompt="You are a mighty assistant", input_image_bytes=None
         )
         mock_infer_interactive.reset_mock()
 
@@ -213,7 +213,7 @@ def test_infer_with_system_prompt_and_image(app, mock_infer_interactive):
                 "--config",
                 yaml_path,
                 "--system-prompt",
-                "You are a helpful assistant",
+                "You are not an average assistant",
                 "--image",
                 str(image_path),
             ],
@@ -221,6 +221,6 @@ def test_infer_with_system_prompt_and_image(app, mock_infer_interactive):
         assert result.exit_code == 0
         mock_infer_interactive.assert_called_once_with(
             config,
-            system_prompt="You are a helpful assistant",
-            input_image_bytes=image_bytes,
+            system_prompt="You are not an average assistant",
+            input_image_bytes=[image_bytes],
         )
