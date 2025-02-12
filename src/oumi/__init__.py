@@ -124,12 +124,17 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
 
 
 def infer_interactive(
-    config: InferenceConfig, *, input_image_bytes: list[bytes] | None = None
+    config: InferenceConfig,
+    *,
+    input_image_bytes: list[bytes] | None = None,
+    system_prompt: str | None = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
     import oumi.infer
 
-    return oumi.infer.infer_interactive(config, input_image_bytes=input_image_bytes)
+    return oumi.infer.infer_interactive(
+        config, input_image_bytes=input_image_bytes, system_prompt=system_prompt
+    )
 
 
 def infer(
