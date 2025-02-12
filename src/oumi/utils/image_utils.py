@@ -27,6 +27,7 @@ from oumi.utils.logging import logger
 DEFAULT_IMAGE_MODE: Final[str] = "RGB"
 
 _FILE_URL_PREFIX: Final[str] = "file://"
+_DEFAULT_PDF_DPI: Final[int] = 200
 
 
 def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
@@ -193,7 +194,9 @@ def _check_pdf2image_dependency():
 
 
 def load_pdf_pages_from_path(
-    input_pdf_filepath: Union[str, Path], dpi: int = 200, mode: str = DEFAULT_IMAGE_MODE
+    input_pdf_filepath: Union[str, Path],
+    dpi: int = _DEFAULT_PDF_DPI,
+    mode: str = DEFAULT_IMAGE_MODE,
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from a path.
 
@@ -230,6 +233,7 @@ def load_pdf_pages_from_path(
     num_pages = len(page_images)
     for page_idx in range(num_pages):
         try:
+            print(f"page_idx: {page_idx} {page_images[page_idx]}")
             page_images[page_idx] = convert_pil_image_mode(
                 page_images[page_idx], mode=mode
             )
@@ -243,7 +247,9 @@ def load_pdf_pages_from_path(
 
 
 def load_pdf_pages_from_bytes(
-    pdf_bytes: Optional[bytes], dpi: int = 300, mode: str = DEFAULT_IMAGE_MODE
+    pdf_bytes: Optional[bytes],
+    dpi: int = _DEFAULT_PDF_DPI,
+    mode: str = DEFAULT_IMAGE_MODE,
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from raw PDF file bytes.
 
@@ -280,12 +286,13 @@ def load_pdf_pages_from_bytes(
 
 
 def load_pdf_pages_from_url(
-    pdf_url: str, mode: str = DEFAULT_IMAGE_MODE
+    pdf_url: str, dpi: int = _DEFAULT_PDF_DPI, mode: str = DEFAULT_IMAGE_MODE
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from from PDF URL.
 
     Args:
         pdf_url: A PDF URL.
+        dpi: Resolution to use for PDF page images (dots per inch).
         mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
             "P" (8-bit pixels, using a color palette).
             For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
@@ -302,7 +309,7 @@ def load_pdf_pages_from_url(
     except requests.exceptions.RequestException:
         logger.exception(f"Failed to download PDF: '{pdf_url}'")
         raise
-    return load_pdf_pages_from_bytes(response.content, mode=mode)
+    return load_pdf_pages_from_bytes(response.content, dpi=dpi, mode=mode)
 
 
 def create_png_bytes_from_image_bytes(
