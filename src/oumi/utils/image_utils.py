@@ -224,7 +224,7 @@ def load_pdf_pil_image_pages_from_path(
         )
 
     _check_pdf2image_dependency()
-    import pdf2image
+    import pdf2image  # pyright: ignore[reportMissingImports]
 
     page_images = pdf2image.convert_from_path(input_filepath, dpi=dpi)
     num_pages = len(page_images)
@@ -261,7 +261,7 @@ def load_pdf_pil_image_pages_from_bytes(
         raise ValueError("No PDF bytes.")
 
     _check_pdf2image_dependency()
-    import pdf2image
+    import pdf2image  # pyright: ignore[reportMissingImports]
 
     page_images = pdf2image.convert_from_bytes(pdf_bytes, dpi=dpi)
     num_pages = len(page_images)
