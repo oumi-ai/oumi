@@ -1,7 +1,7 @@
 # Inference config for CALM-70B.
 #
 # Usage:
-#   oumi infer -i -c ./oumi_infer.yaml
+#   oumi infer -i -c ./70b_infer.yaml
 #
 
 model:
