@@ -197,8 +197,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     raise ValueError(
                         conversation.append_id_to_string(
                             f"A conversation contains too many images ({num_images}). "
-                            f"Max {max_images} image is allowed. "
-                            f"Using the last {max_images} image(s)."
+                            f"Max {max_images} image is allowed."
                         )
                     )
 
