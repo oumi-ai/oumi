@@ -36,19 +36,12 @@ from oumi.core.distributed import is_world_process_zero
 from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
-
-######################### LM Harness: model and model arguments ########################
-# LM Harness `model` types  | Class               | File in lm-evaluation-harness repo #
-# (= inference engine)      | name                | located under lm_eval/models/...   #
-# --------------------------|---------------------|----------------------------------- #
-# hf                        | HFLM                | huggingface.py                     #
-# vllm                      | VLLM                | vllm_causallms.py                  #
-# hf-multimodal             | HFMultimodalLM      | hf_vlms.py                         #
-# vllm-vlm                  | VLLM_VLM            | vllm_vlms.py                       #
-# local-completions         | LocalCompletionsAPI | openai_completions.py              #
 ########################################################################################
-# LM Harness          | Oumi           | text engs | multimodal engs          | remote #
-# `model_args`        | `model_params` | hf | vllm | hf-multimodal | vllm-vlm |        #
+# How to map LM Harness `model_args` to Oumi's `ModelParams` for evaluation?           #
+# Which LM Harness `model` types (hf, vllm, etc) support each parameter?               #
+# ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
+# LM Harness          | Oumi           | LM Harness `model`                            #
+# `model_args`        | `model_params` | hf | vllm | hf-multimodal | vllm-vlm | remote #
 # ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
 # trust_remote_code   |                | Υ  | Υ    | Υ             | Υ        | Y      #
 # pretrained          | model_name     | Υ  | Υ    | Υ             | Υ        | Y      #
@@ -66,6 +59,11 @@ from oumi.utils.logging import logger
 # image_token_id      |                | NA | NA   | Υ             |          | NA     #
 # image_string        |                | NA | NA   | Υ             |          | NA     #
 ########################################################################################
+
+########################################################################################
+# How to map LM Harness `model_args` (specifically the ones related to a remote        #
+# inference engine) to Oumi's `remote_params`?                                         #
+# ----------------------- | ---------------------------------------------------------- #
 # LM Harness `model_args` | Oumi `remote_params`                                       #
 # ----------------------- | ---------------------------------------------------------- #
 # base_url                |  api_url                                                   #
@@ -73,6 +71,21 @@ from oumi.utils.logging import logger
 # max_retries             |  max_retries                                               #
 # timeout                 |  connection_timeout                                        #
 ########################################################################################
+
+########################################################################################
+# Mapping of LM Harness `model` types to the corresponding class and file              #
+# --------------------------|---------------------|----------------------------------- #
+# LM Harness `model`        | Class               | File in lm-evaluation-harness repo #
+# (= inference engine)      | name                | located under lm_eval/models/...   #
+# --------------------------|---------------------|----------------------------------- #
+# hf                        | HFLM                | huggingface.py                     #
+# vllm                      | VLLM                | vllm_causallms.py                  #
+# hf-multimodal             | HFMultimodalLM      | hf_vlms.py                         #
+# vllm-vlm                  | VLLM_VLM            | vllm_vlms.py                       #
+# local-completions         | LocalCompletionsAPI | openai_completions.py              #
+########################################################################################
+
+
 def _generate_lm_harness_model_args(
     lm_harness_model: str,
     is_multimodal: bool,
@@ -107,11 +120,11 @@ def _generate_lm_harness_model_args(
                 "The `REMOTE` inference engine requires `inference_remote_params`."
             )
         model_args_dict["base_url"] = inference_remote_params.api_url
-        if inference_remote_params.num_workers:
+        if inference_remote_params.num_workers > 0:
             model_args_dict["num_concurrent"] = inference_remote_params.num_workers
-        if inference_remote_params.max_retries:
+        if inference_remote_params.max_retries > 0:
             model_args_dict["max_retries"] = inference_remote_params.max_retries
-        if inference_remote_params.connection_timeout:
+        if inference_remote_params.connection_timeout > 0:
             model_args_dict["timeout"] = int(inference_remote_params.connection_timeout)
 
     # Add multi-modal related parameters.
