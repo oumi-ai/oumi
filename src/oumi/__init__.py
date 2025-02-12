@@ -126,7 +126,7 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
 def infer_interactive(
     config: InferenceConfig,
     *,
-    input_image_bytes: bytes | None = None,
+    input_image_bytes: list[bytes] | None = None,
     system_prompt: str | None = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
@@ -142,7 +142,7 @@ def infer(
     inputs: list[str] | None = None,
     inference_engine: BaseInferenceEngine | None = None,
     *,
-    input_image_bytes: bytes | None = None,
+    input_image_bytes: list[bytes] | None = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
@@ -151,8 +151,8 @@ def infer(
         inputs: A list of inputs for inference.
         inference_engine: The engine to use for inference. If unspecified, the engine
             will be inferred from `config`.
-        input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
-            Only used in interactive mode.
+        input_image_bytes: A list of input PNG image bytes to be used with `image+text`
+            VLMs. Only used in interactive mode.
 
     Returns:
         object: A list of model responses.

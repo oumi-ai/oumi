@@ -55,6 +55,8 @@ class _ModelTypeInfo(NamedTuple):
 
 
 def _create_default_vlm_config(
+    *,
+    supports_multiple_images: bool = False,
     pixel_values_variable_shape: bool = False,
 ) -> InternalModelConfig:
     config = InternalModelConfig()
@@ -70,6 +72,7 @@ def _create_default_vlm_config(
         }
     )
     visual_config = InternalVisualModelConfig()
+    visual_config.supports_multiple_images = supports_multiple_images
     visual_config.variable_shape_image_features = pixel_values_variable_shape
     config.visual_config = visual_config
     return config
@@ -106,7 +109,7 @@ def _create_blip2_vlm_config() -> InternalModelConfig:
 
 
 def _create_mllama_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config()
+    config = _create_default_vlm_config(supports_multiple_images=True)
     config.chat_template = "llama3-instruct"
     config.model_input_features.update(
         {

@@ -48,12 +48,12 @@ dependencies = [
     "packaging",
     "pandas>=2.0.3,<3",
     "peft>=0.14.0,<0.15",
-    "pexpect>=4.8.0,<4.9",          # Used by Polaris client
-    "pillow>=10.3.0,<10.4",         # Used by image datasets
+    "pexpect>=4.8.0,<4.9",       # Used by Polaris client
+    "pillow>=10.3.0,<10.4",      # Used by image datasets
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
-    "skypilot>=0.7.0,<0.8",         # Used by launcher
-    "tensorboard>=2.18.0,<2.19",    # Optional, for monitoring training
+    "skypilot>=0.7.0,<0.8",      # Used by launcher
+    "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
     "torch>=2.5.0,<2.6.0",
     # torchdata 0.10 drops support for datapipes which we currently use
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
@@ -139,6 +139,8 @@ cambrian = [
     "diffusers[torch]",
     "einops==0.6.1",
 ]
+
+file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 
 # CI targets
 ci_cpu = [

@@ -208,11 +208,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         else:
             inputs["labels"] = copy.deepcopy(input_ids)
 
-        # Processors by default return a list of tensors for each key
-        # We need to squeeze the first dimension so that it works with the data-loader
-        # Images will be of shape (C, H, W) and texts will be of shape (T)
-        # However, this is going to break models that support multiple images
-        # TODO: OPE-355 add support for multiple images
+        # Post-process input features according to internal config.
         for (
             feature_name,
             feature_spec,
