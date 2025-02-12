@@ -44,6 +44,16 @@ def infer(
             ),
         ),
     ] = None,
+    system_prompt: Annotated[
+        Optional[str],
+        typer.Option(
+            "--system-prompt",
+            help=(
+                "System prompt for task-specific instructions. "
+                "Only used in interactive mode."
+            ),
+        ),
+    ] = None,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Run inference on a model.
@@ -57,6 +67,7 @@ def infer(
         config: Path to the configuration file for inference.
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
+        system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
@@ -93,9 +104,10 @@ def infer(
                 "`input_path`."
             )
         return oumi_infer_interactive(
-            parsed_config, input_image_bytes=input_image_png_bytes
+            parsed_config,
+            input_image_bytes=input_image_png_bytes,
+            system_prompt=system_prompt,
         )
-
     if parsed_config.input_path is None:
         raise ValueError("One of `--interactive` or `input_path` must be provided.")
     generations = oumi_infer(parsed_config)
