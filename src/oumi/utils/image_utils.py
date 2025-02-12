@@ -192,7 +192,7 @@ def _check_pdf2image_dependency():
         )
 
 
-def load_pdf_pil_image_pages_from_path(
+def load_pdf_pages_from_path(
     input_pdf_filepath: Union[str, Path], dpi: int = 200, mode: str = DEFAULT_IMAGE_MODE
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from a path.
@@ -242,7 +242,7 @@ def load_pdf_pil_image_pages_from_path(
     return page_images
 
 
-def load_pdf_pil_image_pages_from_bytes(
+def load_pdf_pages_from_bytes(
     pdf_bytes: Optional[bytes], dpi: int = 300, mode: str = DEFAULT_IMAGE_MODE
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from raw PDF file bytes.
@@ -279,7 +279,7 @@ def load_pdf_pil_image_pages_from_bytes(
     return page_images
 
 
-def load_pdf_pil_image_pages_from_url(
+def load_pdf_pages_from_url(
     pdf_url: str, mode: str = DEFAULT_IMAGE_MODE
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from from PDF URL.
@@ -302,7 +302,7 @@ def load_pdf_pil_image_pages_from_url(
     except requests.exceptions.RequestException:
         logger.exception(f"Failed to download PDF: '{pdf_url}'")
         raise
-    return load_pdf_pil_image_pages_from_bytes(response.content, mode=mode)
+    return load_pdf_pages_from_bytes(response.content, mode=mode)
 
 
 def create_png_bytes_from_image_bytes(

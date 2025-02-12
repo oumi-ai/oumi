@@ -13,8 +13,8 @@ from oumi.utils.image_utils import (
     create_png_bytes_from_image_list,
     load_image_png_bytes_from_path,
     load_image_png_bytes_from_url,
-    load_pdf_pil_image_pages_from_path,
-    load_pdf_pil_image_pages_from_url,
+    load_pdf_pages_from_path,
+    load_pdf_pages_from_url,
     load_pil_image_from_bytes,
 )
 
@@ -141,14 +141,14 @@ def test_load_image_png_bytes_from_url():
 def test_load_pil_image_pages_from_pdf_path(root_testdata_dir: Path):
     pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
 
-    pil_pages = load_pdf_pil_image_pages_from_path(pdf_filename)
+    pil_pages = load_pdf_pages_from_path(pdf_filename)
     assert len(pil_pages) == 4
 
-    pil_pages = load_pdf_pil_image_pages_from_path(f"file://{pdf_filename}", dpi=300)
+    pil_pages = load_pdf_pages_from_path(f"file://{pdf_filename}", dpi=300)
     assert len(pil_pages) == 4
     image_size = pil_pages[0].size
 
-    smaller_pil_pages = load_pdf_pil_image_pages_from_path(pdf_filename, dpi=100)
+    smaller_pil_pages = load_pdf_pages_from_path(pdf_filename, dpi=100)
     assert len(smaller_pil_pages) == 4
     smaller_image_size = smaller_pil_pages[0].size
 
@@ -170,7 +170,5 @@ def test_load_image_bytes_to_message_image_url(root_testdata_dir):
             stream=True,
         )
 
-        pil_pages = load_pdf_pil_image_pages_from_url(
-            "http://oumi.ai/oumi_getting_started.pdf"
-        )
+        pil_pages = load_pdf_pages_from_url("http://oumi.ai/oumi_getting_started.pdf")
         assert len(pil_pages) == 4
