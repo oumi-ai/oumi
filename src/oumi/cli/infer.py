@@ -81,6 +81,7 @@ def infer(
         load_image_png_bytes_from_path,
         load_image_png_bytes_from_url,
         load_pdf_pages_from_path,
+        load_pdf_pages_from_url,
     )
     # End imports
 
@@ -97,7 +98,7 @@ def infer(
         if image_lower.startswith("http://") or image_lower.startswith("https://"):
             if image_lower.endswith(".pdf"):
                 input_image_png_bytes = create_png_bytes_from_image_list(
-                    load_pdf_pages_from_path(image)
+                    load_pdf_pages_from_url(image)
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_url(image)]
