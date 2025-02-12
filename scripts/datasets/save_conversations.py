@@ -268,18 +268,4 @@ if __name__ == "__main__":
 
     update_logger_level("oumi", level=args.log_level)
 
-    if False:
-        import datasets
-
-        # "HuggingFaceM4/Docmatix", name="zero-shot-exp", split="test", streaming=False
-        ds = datasets.load_dataset(
-            "HuggingFaceM4/Docmatix", name="images", split="train", streaming=True
-        )
-        for idx, item in enumerate(ds):
-            print(f"idx={idx} {item}")
-            if idx >= 100:
-                break
-
-        print("Finished reading!")
-    else:
-        main(args)
+    main(args)
