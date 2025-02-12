@@ -233,7 +233,6 @@ def load_pdf_pages_from_path(
     num_pages = len(page_images)
     for page_idx in range(num_pages):
         try:
-            print(f"page_idx: {page_idx} {page_images[page_idx]}")
             page_images[page_idx] = convert_pil_image_mode(
                 page_images[page_idx], mode=mode
             )
