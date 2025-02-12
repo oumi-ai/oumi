@@ -236,7 +236,7 @@ def load_pdf_pages_from_path(
         except Exception:
             logger.error(
                 "Failed to convert image mode for PDF page "
-                f"{page_idx + 1} or {num_pages}: {input_filepath}"
+                f"{page_idx + 1} of {num_pages}: {input_filepath}"
             )
             raise
     return page_images
