@@ -192,7 +192,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 if num_images > max_images:
                     # If a conversation contains too many images, raise an error.
                     # We can't silently discard extra images at this point
-                    # as many models varify the actual number of images matches
+                    # as many models verify that the actual number of images matches
                     # the number of image tokens in text prompt.
                     raise ValueError(
                         conversation.append_id_to_string(
