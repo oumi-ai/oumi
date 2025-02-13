@@ -195,6 +195,7 @@ def _check_pdf2image_dependency():
 
 def load_pdf_pages_from_path(
     input_pdf_filepath: Union[str, Path],
+    *,
     dpi: int = _DEFAULT_PDF_DPI,
     mode: str = DEFAULT_IMAGE_MODE,
 ) -> list[PIL.Image.Image]:
@@ -247,6 +248,7 @@ def load_pdf_pages_from_path(
 
 def load_pdf_pages_from_bytes(
     pdf_bytes: Optional[bytes],
+    *,
     dpi: int = _DEFAULT_PDF_DPI,
     mode: str = DEFAULT_IMAGE_MODE,
 ) -> list[PIL.Image.Image]:
@@ -285,7 +287,7 @@ def load_pdf_pages_from_bytes(
 
 
 def load_pdf_pages_from_url(
-    pdf_url: str, dpi: int = _DEFAULT_PDF_DPI, mode: str = DEFAULT_IMAGE_MODE
+    pdf_url: str, *, dpi: int = _DEFAULT_PDF_DPI, mode: str = DEFAULT_IMAGE_MODE
 ) -> list[PIL.Image.Image]:
     """Loads PDF pages as PIL images from from PDF URL.
 
