@@ -78,7 +78,7 @@ training:
     use_reentrant: False
   ddp_find_unused_parameters: False
   empty_device_cache_steps: 1
-  compile: True # False
+  compile: False
 
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5

@@ -354,9 +354,16 @@ def convert_to_list_of_tensors(values: list[T]) -> list[torch.Tensor]:
 def _pad_sequences_impl(
     sequences: list[torch.Tensor], *, padding_value: float = 0
 ) -> torch.Tensor:
-    return torch.nn.utils.rnn.pad_sequence(
-        sequences, batch_first=True, padding_value=padding_value
-    )
+    try:
+        return torch.nn.utils.rnn.pad_sequence(
+            sequences, batch_first=True, padding_value=padding_value
+        )
+    except RuntimeError:
+        logger.error(
+            "Failed to collate sequences with the shapes: "
+            + ", ".join([f"{t.shape}" for t in sequences])
+        )
+        raise
 
 
 def pad_sequences_right_side(
