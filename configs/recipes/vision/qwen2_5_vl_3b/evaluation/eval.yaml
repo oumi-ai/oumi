@@ -1,0 +1,98 @@
+# Eval config for Qwen2.5 VL 3B Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Qwen2.5 VL requires you have installed the latest transformers version.
+#   - That is 4.49.0.dev0, as of 02/05/25:
+#       Run `pip install git+https://github.com/huggingface/transformers.git`
+# Usage:
+#   oumi evaluate -c configs/recipes/vision/qwen2_5_vl_3b/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2" # For this eval "sdpa" leads to CUDA OOM
+  trust_remote_code: True
+
+generation:
+  batch_size: 1
+
+tasks:
+  - evaluation_platform: lm_harness
+    task_name: mmmu_val
+    num_samples: 100  # Limit the number of eval samples.
+    eval_kwargs:
+      num_fewshot: 5
+
+  # To cherry pick individual sub-tasks, uncomment the entries of interest below
+  # while commenting out the previous ones.
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_accounting"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_agriculture" # This task requires more GPU memory!
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_architecture_and_engineering"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_art"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_art_theory"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_basic_medical_science"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_biology"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_chemistry"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_clinical_medicine"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_computer_science"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_design"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_diagnostics_and_laboratory_medicine"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_economics"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_electronics"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_energy_and_power"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_finance"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_geography"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_history"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_literature"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_manage"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_marketing"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_materials"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_math"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_mechanical_engineering"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_music"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_pharmacy"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_physics"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_psychology"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_public_health"
+  # - evaluation_platform: lm_harness
+  #   task_name: "mmmu_val_sociology"
+
+enable_wandb: True
+inference_engine: NATIVE
