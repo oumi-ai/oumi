@@ -69,6 +69,17 @@ def _get_all_source_file_paths(exclude_dirs: list[str] = []) -> list[str]:
     _get_all_source_file_paths(exclude_dirs=["src/oumi/models/experimental/cambrian"]),
 )
 def test_python_source_files_start_with_apache_header(py_source_path: str):
+    """Test that all Python source files start with the Apache license header.
+
+This test checks whether each Python source file in the specified paths
+begins with the expected Apache license header. Files in the 
+"src/oumi/models/experimental/cambrian" directory are excluded from this check.
+
+Args:
+    py_source_path (str): The path to a Python source file to be checked.
+
+Raises:
+    AssertionError: If a file does not start with the Apache license header."""
     with open(py_source_path) as f:
         file_contents = f.read()
     assert file_contents.startswith(

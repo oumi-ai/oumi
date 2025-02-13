@@ -23,11 +23,33 @@ from oumi.launcher.launcher import (
 #
 @pytest.fixture
 def mock_registry():
+    """Mock the REGISTRY object for testing purposes.
+
+    This fixture provides a mock version of the REGISTRY object, allowing 
+    tests to control and verify interactions with it. The mock is reset 
+    automatically after each test.
+
+    Yields:
+        MagicMock: A mock instance of the REGISTRY object."""
     with patch("oumi.launcher.launcher.REGISTRY") as registry:
         yield registry
 
 
 def _get_default_job(cloud: str) -> JobConfig:
+    """Creates a default job configuration for a specified cloud provider.
+
+    This function generates a job configuration with predefined settings,
+    including resource allocation and environment setup, tailored for a
+    specific cloud provider. The job is configured to run on two nodes with
+    specific hardware and environment settings.
+
+    Args:
+        cloud (str): The cloud provider for which the job configuration is
+            being created. This affects the cloud-specific resource settings.
+
+    Returns:
+        JobConfig: A job configuration object with default settings, including
+        resource specifications, environment variables, and job setup commands."""
     resources = JobResources(
         cloud=cloud,
         region="us-central1",
@@ -62,13 +84,34 @@ def _get_default_job(cloud: str) -> JobConfig:
 # Tests
 #
 def test_launcher_get_cloud(mock_registry):
+    """Tests the get_cloud method of the Launcher class.
+
+    This test verifies that the get_cloud method correctly retrieves the 
+    cloud instance associated with a given job. It checks that the method 
+    returns the correct cloud instance and not an incorrect one from the 
+    mock registry.
+
+    Args:
+        mock_registry: A mock object simulating a registry of cloud builders.
+
+    Asserts:
+        The returned cloud instance is the expected mock cloud object.
+        The returned cloud instance is not a different mock cloud object."""
     sky_mock = Mock(spec=BaseCloud)
     polaris_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     mock_registry.get_all.return_value = {
@@ -87,9 +130,17 @@ def test_launcher_get_cloud_missing_value(mock_registry):
         polaris_mock = Mock(spec=BaseCloud)
 
         def _sky_builder():
+            """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
             return sky_mock
 
         def _polaris_builder():
+            """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
             return polaris_mock
 
         mock_registry.get.return_value = None
@@ -117,9 +168,17 @@ def test_launcher_get_cloud_by_name_missing_value(mock_registry):
         polaris_mock = Mock(spec=BaseCloud)
 
         def _sky_builder():
+            """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
             return sky_mock
 
         def _polaris_builder():
+            """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
             return polaris_mock
 
         mock_registry.get_all.return_value = {
@@ -378,9 +437,17 @@ def test_launcher_status_multiple_clouds(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
@@ -509,9 +576,17 @@ def test_launcher_status_filters_clusters(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
@@ -620,9 +695,17 @@ def test_launcher_status_filters_jobs(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
@@ -743,9 +826,17 @@ def test_launcher_status_filters_clouds(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
@@ -855,9 +946,17 @@ def test_launcher_status_all_filters(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
@@ -956,9 +1055,17 @@ def test_launcher_status_inits_new_clouds(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
@@ -1128,9 +1235,17 @@ def test_launcher_which_clouds_updates_over_time(mock_registry):
     custom_mock = Mock(spec=BaseCloud)
 
     def _sky_builder():
+        """Creates and returns a mock object for sky operations.
+
+    Returns:
+        sky_mock: A mock object used for simulating sky-related functionalities."""
         return sky_mock
 
     def _polaris_builder():
+        """Retrieves a mock object for Polaris operations.
+
+    Returns:
+        polaris_mock: A mock object used for simulating Polaris operations in tests."""
         return polaris_mock
 
     def _custom_builder():
