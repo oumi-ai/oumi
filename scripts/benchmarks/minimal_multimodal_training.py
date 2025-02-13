@@ -14,7 +14,9 @@ Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name merve/vqav2-small
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name nlphuji/flickr30k
-    --model-name Qwen/Qwen2.5-VL-3B-Instruct --dataset-name merve/vqav2-small
+    --model-name Qwen/Qwen2.5-VL-3B-Instruct --dataset-name nlphuji/flickr30k
+    --model-name meta-llama/Llama-3.2-11B-Vision-Instruct
+                                                --dataset-name HuggingFaceM4/Docmatix
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 
@@ -145,6 +147,7 @@ class DatasetName(str, Enum):
     FLICKR = "nlphuji/flickr30k"
     COCO = "coco_captions"
     MNIST_SFT = "mnist_sft"
+    DOCMATIX = "HuggingFaceM4/Docmatix"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -156,6 +159,13 @@ def _get_default_dataset_split(dataset_name: DatasetName) -> str:
     return "train"
 
 
+def _get_default_dataset_subset(dataset_name: DatasetName) -> Optional[str]:
+    if dataset_name in (DatasetName.DOCMATIX,):
+        # The only non-giant subset in the dataset
+        return "zero-shot-exp"
+    return None
+
+
 def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
@@ -164,6 +174,7 @@ def test_multimodal_trainer(
     optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
+    subset: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,
@@ -184,6 +195,8 @@ def test_multimodal_trainer(
 
     if not split:
         split = _get_default_dataset_split(dataset_name)
+    if not subset:
+        subset = _get_default_dataset_subset(dataset_name)
 
     #
     # Init model, processor, and dataset
@@ -207,6 +220,7 @@ def test_multimodal_trainer(
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
         tokenizer=tokenizer,
+        subset=subset,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,

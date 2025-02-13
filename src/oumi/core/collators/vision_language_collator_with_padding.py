@@ -20,9 +20,74 @@ import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils.logging import logger
 from oumi.utils.torch_utils import convert_to_list_of_tensors
 
 _PIXEL_VALUES_KEY = "pixel_values"
+
+
+def _pad_1d_and_stack(tensors_list: list[torch.Tensor]) -> torch.Tensor:
+    num_tensors = len(tensors_list)
+    if num_tensors <= 0:
+        raise ValueError("No tensors")
+    elif num_tensors == 1:
+        return torch.stack(tensors_list)
+
+    first_shape = tensors_list[0].shape
+    num_dims = len(first_shape)
+
+    variable_dim_idx: int = -1
+    variable_dim_max_size: int = 0
+
+    for tensor_idx in range(num_tensors - 1):
+        curr_shape = tensors_list[tensor_idx + 1].shape
+        if num_dims != len(curr_shape):
+            raise ValueError(
+                "Tensors have different number of dimensions: "
+                f"{num_dims} vs {len(curr_shape)}! "
+                f"Shapes: {first_shape}, {curr_shape}"
+            )
+
+        if curr_shape != first_shape:
+            for idx in range(num_dims):
+                if first_shape[idx] != curr_shape[idx]:
+                    if variable_dim_idx < 0:
+                        variable_dim_idx = idx
+                        variable_dim_max_size = max(curr_shape[idx], first_shape[idx])
+                    elif variable_dim_idx == idx:
+                        variable_dim_max_size = max(
+                            curr_shape[idx], variable_dim_max_size
+                        )
+                    else:
+                        raise ValueError(
+                            "Multiple variable dimensions detected: "
+                            f"{variable_dim_idx} and {idx}! "
+                            f"Shapes: {first_shape}, {curr_shape}"
+                        )
+
+    if variable_dim_idx >= 0:  # Found 1 variable dimension.
+        for tensor_idx in range(num_tensors):
+            curr_tensor = tensors_list[tensor_idx]
+            curr_shape = curr_tensor.shape
+            curr_dim_size = curr_shape[variable_dim_idx]
+            padding_len = variable_dim_max_size - curr_dim_size
+            if padding_len > 0:
+                padding_shape = list(curr_shape)
+                padding_shape[variable_dim_idx] = padding_len
+                zero_pad_tensor = torch.zeros(
+                    padding_shape, dtype=curr_tensor.dtype, device=curr_tensor.device
+                )
+                tensors_list[tensor_idx] = torch.cat(
+                    (curr_tensor, zero_pad_tensor), dim=variable_dim_idx
+                )
+                new_shape = tensors_list[tensor_idx].shape
+                logger.warning(
+                    f"Padded dimension {variable_dim_idx} from {curr_dim_size} "
+                    f"to {variable_dim_max_size} elements. "
+                    f"Shapes: from {curr_shape} to {new_shape}"
+                )
+
+    return torch.stack(tensors_list)
 
 
 class VisionLanguageCollatorWithPadding:
@@ -88,9 +153,15 @@ class VisionLanguageCollatorWithPadding:
                 ):
                     other_input_names.add(key)
 
+        logger.info("===========================")
+
         # Collate images.
         pixel_values = self.collate_images(images)
 
+        logger.info(
+            f"Collated '{_PIXEL_VALUES_KEY}': {pixel_values.shape} from: "
+            + ", ".join(f"{t.shape}" for t in images)
+        )
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
 
@@ -108,8 +179,13 @@ class VisionLanguageCollatorWithPadding:
 
             for input_name, values_list in other_inputs.items():
                 tensors_list = convert_to_list_of_tensors(values_list)
-                collated_value = torch.stack(tensors_list)
+                collated_value = _pad_1d_and_stack(tensors_list)
                 collated_batch[input_name] = collated_value
+
+                logger.info(
+                    f"Collated '{input_name}': {collated_value.shape} from: "
+                    + ", ".join(f"{t.shape}" for t in tensors_list)
+                )
 
         return collated_batch
 
@@ -125,10 +201,11 @@ class VisionLanguageCollatorWithPadding:
         if len(images) == 0:
             raise ValueError("No images found in the batch")
 
+        if isinstance(images[0], np.ndarray):
+            images = [torch.from_numpy(img) for img in images]
+
         if isinstance(images[0], torch.Tensor):
-            return torch.stack(images)
-        elif isinstance(images[0], np.ndarray):
-            return torch.stack([torch.from_numpy(img) for img in images])
+            return _pad_1d_and_stack(images)
         elif isinstance(images[0], list):
             return torch.tensor(images)
         else:
