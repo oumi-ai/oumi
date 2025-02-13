@@ -4,7 +4,8 @@
 #   - Install SGLang: https://docs.sglang.ai/start/install.html
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml
+#   oumi infer -i -c configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml \
+#     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
 #
 # Sample command to start SGLang server using Docker
 # (the recommended method, avoids Python dependencies conflicts):
