@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from enum import Enum
 from typing import Any, Optional
 
@@ -21,6 +22,7 @@ import sky.data
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import try_str_to_bool
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
@@ -49,16 +51,46 @@ def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, sky.data.Stora
     return sky_mounts
 
 
+def _get_use_spot_vm_override() -> Optional[bool]:
+    """Determines whether to override `use_spot_vm` setting based on OUMI_USE_SPOT_VM.
+
+    Fetches the override value from the OUMI_USE_SPOT_VM environment variable
+    if specified.
+
+    Returns:
+        The override value if specified, or `None`.
+    """
+    _ENV_VAR_NAME = "OUMI_USE_SPOT_VM"
+    s = os.environ.get(_ENV_VAR_NAME, "")
+    mode = s.lower().replace("-", "").replace("_", "").strip()
+    if not mode or mode in ("config",):
+        return None
+    bool_result = try_str_to_bool(mode)
+    if bool_result is not None:
+        return bool_result
+    if mode in ("spot", "preemptible", "preemptable"):
+        return True
+    elif mode in ("nonspot", "nonpreemptible", "nonpreemptable"):
+        return False
+    raise ValueError(f"{_ENV_VAR_NAME} has unsupported value: '{s}'.")
+
+
 def _convert_job_to_task(job: JobConfig) -> sky.Task:
     """Converts a JobConfig to a sky.Task."""
     sky_cloud = _get_sky_cloud_from_job(job)
+    use_spot_vm = _get_use_spot_vm_override()
+    if use_spot_vm is None:
+        use_spot_vm = job.resources.use_spot
+    elif use_spot_vm != job.resources.use_spot:
+        logger.info(f"Set use_spot={use_spot_vm} based on 'OUMI_USE_SPOT_VM' override.")
+
     resources = sky.Resources(
         cloud=sky_cloud,
         instance_type=job.resources.instance_type,
         cpus=job.resources.cpus,
         memory=job.resources.memory,
         accelerators=job.resources.accelerators,
-        use_spot=job.resources.use_spot,
+        use_spot=use_spot_vm,
         region=job.resources.region,
         zone=job.resources.zone,
         disk_size=job.resources.disk_size,

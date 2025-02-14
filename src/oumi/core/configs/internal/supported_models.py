@@ -25,6 +25,7 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
     InternalModelConfig,
+    InternalPaddingSide,
     InternalVisualModelConfig,
 )
 from oumi.core.registry import REGISTRY, RegistryType
@@ -54,6 +55,8 @@ class _ModelTypeInfo(NamedTuple):
 
 
 def _create_default_vlm_config(
+    *,
+    supports_multiple_images: bool = False,
     pixel_values_variable_shape: bool = False,
 ) -> InternalModelConfig:
     config = InternalModelConfig()
@@ -69,6 +72,7 @@ def _create_default_vlm_config(
         }
     )
     visual_config = InternalVisualModelConfig()
+    visual_config.supports_multiple_images = supports_multiple_images
     visual_config.variable_shape_image_features = pixel_values_variable_shape
     config.visual_config = visual_config
     return config
@@ -105,7 +109,7 @@ def _create_blip2_vlm_config() -> InternalModelConfig:
 
 
 def _create_mllama_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config()
+    config = _create_default_vlm_config(supports_multiple_images=True)
     config.chat_template = "llama3-instruct"
     config.model_input_features.update(
         {
@@ -143,6 +147,21 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
         {
             "min_pixels": 256 * 28 * 28,
             "max_pixels": 1280 * 28 * 28,
+        }
+    )
+    return config
+
+
+def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
+    config = _create_qwen2_vl_vlm_config()
+    # Update default parameters that differ from Qwen2:
+    config.padding_side = InternalPaddingSide.PAD_RIGHT
+    config.processor_kwargs.update(
+        # Defaults per Qwen2.5-VL:
+        # https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py # noqa: E501
+        {
+            "min_pixels": 4 * 28 * 28,
+            "max_pixels": 16384 * 28 * 28,
         }
     )
     return config
@@ -268,6 +287,12 @@ def get_all_models_map() -> (
             model_class=default_vlm_class,
             tested=True,
             config=_create_qwen2_vl_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="qwen2_5_vl",
+            model_class=default_vlm_class,
+            tested=True,
+            config=_create_qwen2_5_vl_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="vipllava",

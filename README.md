@@ -15,7 +15,9 @@
 ### Everything you need to build state-of-the-art foundation models, end-to-end.
 
 <p align="center">
-  <img alt="GitHub trending" src="https://trendshift.io/api/badge/repositories/12865" />
+  <a href="https://trendshift.io/repositories/12865">
+    <img alt="GitHub trending" src="https://trendshift.io/api/badge/repositories/12865" />
+  </a>
 </p>
 
 Oumi is a fully open-source platform that streamlines the entire lifecycle of foundation models - from data preparation and training to evaluation and deployment. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
@@ -45,7 +47,6 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 | **☁️ Remote Training** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Running Jobs Remotely.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Launch and monitor training jobs on cloud (AWS, Azure, GCP, Lambda, etc.) platforms |
 | **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Oumi Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
 | **🔄 vLLM Inference Engine** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Using vLLM Engine for Inference.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Fast inference at scale with the vLLM engine |
-
 
 ## 🔧 Usage
 
@@ -93,13 +94,13 @@ You can run jobs remotely on cloud platforms (AWS, Azure, GCP, Lambda, etc.) usi
 oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml
 
 # AWS
-oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_aws_job.yaml
+oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud aws
 
 # Azure
-oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_azure_job.yaml
+oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud azure
 
 # Lambda
-oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_lambda_job.yaml
+oumi launch up -c configs/recipes/smollm/sft/135m/quickstart_gcp_job.yaml --resources.cloud lambda
 ```
 
 **Note:** Oumi is in <ins>beta</ins> and under active development. The core features are stable, but some advanced features might change as the platform improves.

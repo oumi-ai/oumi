@@ -1,5 +1,9 @@
 # Job config to eval Phi3 Instruct on GCP.
 #
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi launch up -c configs/recipes/phi3/evaluation/gcp_job.yaml --cluster phi3-eval
 #

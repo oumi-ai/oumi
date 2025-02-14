@@ -1,4 +1,7 @@
-# Training config.
+# FSDP Phi3 DPO config, on an Nvidia GPU with >=24GB memory.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi train -c src/experimental/configs/recipes/phi3/dpo/fsdp_nvidia_24g_train.yaml

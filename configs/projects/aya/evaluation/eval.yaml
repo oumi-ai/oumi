@@ -1,5 +1,10 @@
 # Eval config for Aya.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
 # Usage:
 #   oumi evaluate -c configs/projects/aya/evaluation/eval.yaml
 #
@@ -10,7 +15,7 @@
 #   - Other eval configs: configs/**/evaluation/
 
 model:
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   model_max_length: 4096
   torch_dtype_str: "bfloat16"
   trust_remote_code: True
