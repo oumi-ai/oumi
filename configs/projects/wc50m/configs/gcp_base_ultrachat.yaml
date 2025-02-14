@@ -1,16 +1,12 @@
 # Class: oumi.core.configs.JobConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# GCP Config for WC50M reproduction of UltraChat baseline.
 
-# Config to full fine-tune Llama 3.1 8B on 1 GCP node.
-# Example command:
-#training.output_dir=/output_dir_gcs/my_username/my_model/
-# oumi launch up -c configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml --cluster llama8b-sft
 name: llama8b-ultrachat-sft
 
 num_nodes: 1
 resources:
   cloud: gcp
-  #accelerators: {L4, A10g, A10, L40, A40, A100, A100-80GB}
   accelerators: "A100-80GB:4"
   use_spot: false
   disk_size: 2000 # Disk size in GBs

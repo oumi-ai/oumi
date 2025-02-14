@@ -1,9 +1,6 @@
 # Class: oumi.core.configs.TrainingConfig
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-
-# SFT config for Llama 8B.
-# Borrows param values from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_1/8B_full.yaml
+# SFT Config for WC50M reproduction of UltraChat baseline.
 
 model:
   model_name: "meta-llama/Meta-Llama-3.1-8B"
@@ -13,7 +10,6 @@ model:
   load_pretrained_weights: True
   trust_remote_code: True
   chat_template: "llama3-instruct"
-  # Improves training speed by 20% with default config.
   enable_liger_kernel: True
 
 data:
@@ -21,10 +17,7 @@ data:
     datasets:
       - dataset_name: "HuggingFaceH4/ultrachat_200k"
         split: "train_sft"
-        #sample_count: 100000
-        #mixture_proportion
         trust_remote_code: True
-    use_async_dataset: False #This parameter is deprecated and will be removed in the future.
 
 training:
   trainer_type: "TRL_SFT"
