@@ -90,22 +90,22 @@ class TextCollatorWithPadding:
         padding_value_overrides: dict[str, int],
     ) -> dict[str, Any]:
         result: dict[str, Any] = {}
-        try:
-            for key, sequences_list in inputs_dict.items():
+        for key, sequences_list in inputs_dict.items():
+            try:
                 padding_value = padding_value_overrides.get(key, 0)
                 result[key] = pad_sequences(
                     sequences_list,
                     padding_side=self._padding_side,
                     padding_value=padding_value,
                 )
-        except Exception:
-            logger.error(
-                "Failed to collate using pad_sequences! "
-                f"Batch maximum length: {batch_max_length}. "
-                f"Maximum allowed length: {self._max_length}. "
-                f"Truncation: {self._truncation}."
-            )
-            raise
+            except Exception:
+                logger.error(
+                    f"Failed to collate '{key}' using pad_sequences! "
+                    f"Batch maximum length: {batch_max_length}. "
+                    f"Maximum allowed length: {self._max_length}. "
+                    f"Truncation: {self._truncation}."
+                )
+                raise
         return result
 
     def __call__(self, batch) -> dict[str, Any]:
