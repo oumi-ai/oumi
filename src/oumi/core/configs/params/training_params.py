@@ -255,7 +255,7 @@ class TrainingParams(BaseParams):
     use_deterministic: bool = False
     """Whether to use deterministic algorithms for reproducibility.
     If set to True, this will only allow those CuDNN algorithms
-    that are (believed to be) deterministic. Please refer to 
+    that are (believed to be) deterministic. Please refer to
     https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
     for more details.
     """
