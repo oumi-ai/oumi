@@ -20,6 +20,7 @@ from oumi.core.datasets import BaseSftDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message
 
+
 @register_dataset("allenai/WildChat-1M")
 class WildChatDataset(BaseSftDataset):
     """Dataset class for the allenai/WildChat-1M dataset."""
