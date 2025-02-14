@@ -17,7 +17,11 @@ from typing import Any, NamedTuple, Optional
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import create_ones_like, pad_sequences
+from oumi.utils.torch_utils import (
+    create_ones_like,
+    pad_sequences,
+    stack_and_pad_to_max_dim,
+)
 
 _INPUT_IDS_KEY = "input_ids"
 _ATTENTION_MASK_KEY = "attention_mask"
@@ -93,11 +97,18 @@ class TextCollatorWithPadding:
         for key, sequences_list in inputs_dict.items():
             try:
                 padding_value = padding_value_overrides.get(key, 0)
-                result[key] = pad_sequences(
-                    sequences_list,
-                    padding_side=self._padding_side,
-                    padding_value=padding_value,
-                )
+                if key == "cross_attention_mask":
+                    result[key] = stack_and_pad_to_max_dim(
+                        sequences_list,
+                        padding_side=self._padding_side,
+                        padding_value=padding_value,
+                    )
+                else:
+                    result[key] = pad_sequences(
+                        sequences_list,
+                        padding_side=self._padding_side,
+                        padding_value=padding_value,
+                    )
             except Exception:
                 logger.error(
                     f"Failed to collate '{key}' using pad_sequences! "
