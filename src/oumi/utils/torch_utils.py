@@ -354,9 +354,16 @@ def convert_to_list_of_tensors(values: list[T]) -> list[torch.Tensor]:
 def _pad_sequences_impl(
     sequences: list[torch.Tensor], *, padding_value: float = 0
 ) -> torch.Tensor:
-    return torch.nn.utils.rnn.pad_sequence(
-        sequences, batch_first=True, padding_value=padding_value
-    )
+    try:
+        return torch.nn.utils.rnn.pad_sequence(
+            sequences, batch_first=True, padding_value=padding_value
+        )
+    except RuntimeError:
+        logger.error(
+            "Failed to collate sequences with the shapes: "
+            + ", ".join([f"{t.shape}" for t in sequences])
+        )
+        raise
 
 
 def pad_sequences_right_side(
@@ -438,6 +445,146 @@ def pad_sequences(
 
     raise ValueError(
         f"Unsupported padding side: '{padding_side}'. Valid values: 'right', 'left'."
+    )
+
+
+class _DimMinMaxSizes(NamedTuple):
+    dim_index: int
+
+    min_size: int
+    max_size: int
+
+    @property
+    def has_variable_sizes(self) -> bool:
+        return self.min_size != self.max_size
+
+
+def _get_dims_min_max_size(tensors_list: list[torch.Tensor]) -> list[_DimMinMaxSizes]:
+    num_tensors = len(tensors_list)
+    if num_tensors <= 0:
+        return []
+
+    first_shape = tensors_list[0].shape
+
+    min_dim_sizes = list(first_shape)
+    max_dim_sizes = list(first_shape)
+    num_dims = len(min_dim_sizes)
+
+    for tensor_idx in range(num_tensors - 1):
+        curr_shape = tensors_list[tensor_idx + 1].shape
+        if num_dims != len(curr_shape):
+            raise ValueError(
+                "Tensors have different number of dimensions: "
+                f"{num_dims} vs {len(curr_shape)}! "
+                f"Shapes: {first_shape}, {curr_shape}"
+            )
+        for idx in range(num_dims):
+            min_dim_sizes[idx] = min(min_dim_sizes[idx], curr_shape[idx])
+            max_dim_sizes[idx] = max(max_dim_sizes[idx], curr_shape[idx])
+
+    return [
+        _DimMinMaxSizes(
+            dim_index=idx, min_size=min_dim_sizes[idx], max_size=max_dim_sizes[idx]
+        )
+        for idx in range(num_dims)
+    ]
+
+
+def _stack_and_pad_to_max_dim(
+    tensors_list: list[torch.Tensor],
+    *,
+    padding_value: float = 0,
+    pad_on_left_side: bool = False,
+) -> torch.Tensor:
+    num_tensors = len(tensors_list)
+    if num_tensors == 0:
+        raise ValueError("Empty list of tensors is not allowed.")
+    dim_sizes: list[_DimMinMaxSizes] = _get_dims_min_max_size(tensors_list)
+    all_same_size = all((not item.has_variable_sizes) for item in dim_sizes)
+    if all_same_size:
+        # No need to pad anything, just `stack()`.
+        return torch.stack(tensors_list)
+
+    max_dim_sizes = [item.max_size for item in dim_sizes]
+    result_shape = torch.Size([num_tensors] + max_dim_sizes)
+
+    result = torch.full(
+        result_shape,
+        padding_value,
+        dtype=tensors_list[0].dtype,
+        device=tensors_list[0].device,
+    )
+
+    max_dim_sizes = torch.Size(max_dim_sizes)
+    for i, input_tensor in enumerate(tensors_list):
+        target = result.select(0, i)
+        if max_dim_sizes == input_tensor.shape:
+            target[...] = input_tensor
+            continue
+
+        target_view = target[...]
+
+        if pad_on_left_side:
+            for dim_idx, curr_size in enumerate(input_tensor.shape):
+                max_size = max_dim_sizes[dim_idx]
+                if curr_size < max_size:
+                    target_view = target_view.narrow(
+                        dim_idx, start=(max_size - curr_size), length=curr_size
+                    )
+        else:
+            for dim_idx, curr_size in enumerate(input_tensor.shape):
+                max_size = max_dim_sizes[dim_idx]
+                if curr_size < max_size:
+                    target_view = target_view.narrow(dim_idx, start=0, length=curr_size)
+
+        assert target_view.shape == input_tensor.shape
+        target_view[...] = input_tensor
+
+    return result
+
+
+def stack_and_pad_to_max_dim(
+    tensors_list: list[T],
+    *,
+    padding_value: float = 0,
+    padding_side: Optional[str] = None,
+) -> torch.Tensor:
+    """Stacks variable-length tensors to a single tensor with dimension expansion.
+
+    Some examples:
+    1) Two tensors with shapes [24,8], [32,8] are combined to [2,32,8].
+    2) Two tensors with shapes [24,1,8], [32,4,8] are combined to [2,32,4,8].
+    3) Three tensors with shapes [7,3,5],[8,2,6],[9,1,7] are combined to [3,9,3,7].
+
+    For 1D input tensors, the function is equivalent to `pad_sequences()`.
+
+    If all tensors have the same shape and no padding is required, then the function
+    is equivalent to `torch.stack()`.
+
+    Args:
+        tensors_list: list of tensors with potentially .
+        padding_value: value for padded elements. Default: 0.
+        padding_side: side to apply padding to. Valid values:  'right', 'left'.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(len(sequences[i]))`)
+    """
+    pad_on_left_side: bool = False
+    if not padding_side or padding_side == "right":
+        pad_on_left_side = False
+    elif padding_side == "left":
+        pad_on_left_side = True
+    else:
+        raise ValueError(
+            f"Unsupported padding side: '{padding_side}'. "
+            "Valid values: 'right', 'left'."
+        )
+
+    input_tensors = convert_to_list_of_tensors(tensors_list)
+
+    return _stack_and_pad_to_max_dim(
+        input_tensors, padding_value=padding_value, pad_on_left_side=pad_on_left_side
     )
 
 
