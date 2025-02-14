@@ -7,7 +7,7 @@
 [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm-dark.svg)](https://huggingface.co/datasets/uiuc-convai/CALM-IT)
 
 
-**[Can a Single Model Master Both Multi-turn Conversations and Tool Use? CALM: A Unified Conversational Agentic Language Model](https://emrecanacikgoz.github.io/CALM/)**  
+**[Can a Single Model Master Both Multi-turn Conversations and Tool Use? CALM: A Unified Conversational Agentic Language Model](https://emrecanacikgoz.github.io/CALM/)**
 [Emre Can Acikgoz](https://emrecanacikgoz.github.io/), [Jeremiah Greer](https://www.linkedin.com/in/jeremiah-greer-b09294109/), [Akul Datta](https://www.linkedin.com/in/akuldatta), [Ze Yang](https://github.com/zemple), [William Zeng](https://www.linkedin.com/in/williamfzeng), [Oussama Elachqar](https://www.elachqar.com/), [Emmanouil Koukoumidis](http://www.koukoumidis.com/), [Dilek Hakkani-Tür](https://siebelschool.illinois.edu/about/people/faculty/dilek), [Gokhan Tur](https://siebelschool.illinois.edu/about/people/faculty/gokhan)
 
 Large Language Models (LLMs) with API-calling capabilities enabled building effective Language Agents (LA), while also revolutionizing the conventional task-oriented dialogue (TOD) paradigm. However, current approaches face a critical dilemma: TOD systems are often trained on a limited set of target APIs, requiring new data to maintain their quality when interfacing with new services, while LAs are not trained to maintain user intent over multi-turn conversations. Because both robust multi-turn management and advanced function calling are crucial for effective conversational agents, we evaluate these skills on three popular benchmarks: MultiWOZ 2.4 (TOD), BFCL V3 (LA), and API-Bank (LA), and our analyses reveal that specialized approaches excel in one domain but underperform in the other. To bridge this chasm, we introduce **CALM** (**C**onversational **A**gentic **L**anguage **M**odel), a unified approach that integrates both conversational and agentic capabilities. We created **CALM-IT**, a carefully constructed multi-task dataset that interleave multi-turn ReAct reasoning with complex API usage. Using CALM-IT, we train three models **CALM 8B**, **CALM 70B**, and **CALM 405B**, which outperform top domain-specific models, including GPT-4o, across all three benchmarks.
@@ -64,13 +64,13 @@ This model is licensed under [Creative Commons NonCommercial (CC BY-NC 4.0)](htt
 If you use **CALM-405B** in your research, please cite:
 ```
 @misc{acikgoz2025singlemodelmastermultiturn,
-      title={Can a Single Model Master Both Multi-turn Conversations and Tool Use? CALM: A Unified Conversational Agentic Language Model}, 
+      title={Can a Single Model Master Both Multi-turn Conversations and Tool Use? CALM: A Unified Conversational Agentic Language Model},
       author={Emre Can Acikgoz and Jeremiah Greer and Akul Datta and Ze Yang and William Zeng and Oussama Elachqar and Emmanouil Koukoumidis and Dilek Hakkani-Tür and Gokhan Tur},
       year={2025},
       eprint={2502.08820},
       archivePrefix={arXiv},
       primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2502.08820}, 
+      url={https://arxiv.org/abs/2502.08820},
 }
 ```
 
@@ -79,4 +79,3 @@ We'd like to thank the [Oumi AI Team](https://github.com/oumi-ai/oumi) for colla
 
 ---
 For more details contact **acikgoz2@illinois.edu**.
-
