@@ -57,10 +57,6 @@ oumi infer -i -c 70b_infer.yaml
 ## Results
 <img src="images/results.png" alt="CALM-IT Dataset Statistics" width="700"/>
 
-
-## 🙏 Acknowledgements
-We'd like to thank the [Oumi AI Team](https://github.com/oumi-ai/oumi) for collaborating on training the models, as well as [Together AI](https://www.together.ai/) for providing the compute resources necessary to train CALM 405B.
-
 ## ❗️ License
 This model is licensed under [Creative Commons NonCommercial (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/legalcode).
 
@@ -77,6 +73,10 @@ If you use **CALM-405B** in your research, please cite:
       url={https://arxiv.org/abs/2502.08820}, 
 }
 ```
+
+## 🙏 Acknowledgements
+We'd like to thank the [Oumi AI Team](https://github.com/oumi-ai/oumi) for collaborating on training the models, as well as [Together AI](https://www.together.ai/) for providing the compute resources necessary to train CALM 405B. This project also has benefited from the Microsoft Accelerate Foundation Models Research (AFMR) grant program, through which leading foundation models hosted by Microsoft Azure and access to Azure credits were provided to conduct the research..
+
 ---
 For more details contact **acikgoz2@illinois.edu**.
 
