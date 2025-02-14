@@ -490,7 +490,7 @@ def _get_dims_min_max_size(tensors_list: list[torch.Tensor]) -> list[_DimMinMaxS
     ]
 
 
-def _pad_to_max_dim_and_stack(
+def _pad_to_max_dim_and_stack_impl(
     tensors_list: list[torch.Tensor],
     *,
     padding_value: float = 0,
@@ -579,7 +579,7 @@ def pad_to_max_dim_and_stack(
     input_tensors = convert_to_list_of_tensors(tensors_list)
 
     try:
-        return _pad_to_max_dim_and_stack(
+        return _pad_to_max_dim_and_stack_impl(
             input_tensors,
             padding_value=padding_value,
             pad_on_left_side=pad_on_left_side,
