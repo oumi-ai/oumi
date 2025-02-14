@@ -360,7 +360,7 @@ def _pad_sequences_impl(
         )
     except RuntimeError:
         logger.error(
-            "Failed to collate sequences with the shapes: "
+            "Failed to pad and stack sequences with the shapes: "
             + ", ".join([f"{t.shape}" for t in sequences])
         )
         raise
@@ -583,9 +583,18 @@ def pad_to_max_dim_and_stack(
 
     input_tensors = convert_to_list_of_tensors(tensors_list)
 
-    return _pad_to_max_dim_and_stack(
-        input_tensors, padding_value=padding_value, pad_on_left_side=pad_on_left_side
-    )
+    try:
+        return _pad_to_max_dim_and_stack(
+            input_tensors,
+            padding_value=padding_value,
+            pad_on_left_side=pad_on_left_side,
+        )
+    except RuntimeError:
+        logger.error(
+            "Failed to pad and stack tensors with the shapes: "
+            + ", ".join([f"{t.shape}" for t in input_tensors])
+        )
+        raise
 
 
 def create_ones_like(
