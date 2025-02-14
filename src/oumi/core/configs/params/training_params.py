@@ -252,6 +252,12 @@ class TrainingParams(BaseParams):
     weight initialization, and any stochastic operations.
     """
 
+    use_deterministic: bool = False
+    """Whether to use deterministic algorithms for reproducibility.
+    If set to True, this will only allow those CuDNN algorithms
+    that are (believed to be) deterministic.
+    """
+
     run_name: Optional[str] = None
     """A unique identifier for the current training run.
 
