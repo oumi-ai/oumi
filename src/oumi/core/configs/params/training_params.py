@@ -252,6 +252,14 @@ class TrainingParams(BaseParams):
     weight initialization, and any stochastic operations.
     """
 
+    use_deterministic: bool = False
+    """Whether to use deterministic algorithms for reproducibility.
+    If set to True, this will only allow those CuDNN algorithms
+    that are (believed to be) deterministic. Please refer to
+    https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
+    for more details.
+    """
+
     run_name: Optional[str] = None
     """A unique identifier for the current training run.
 
