@@ -69,8 +69,8 @@ training:
   # TODO: OPE-875 - Re-enable. Currently broken at `transformers==4.48.2`.
   # GitHub issue: https://github.com/huggingface/transformers/issues/36040.
   enable_gradient_checkpointing: False
-  per_device_train_batch_size: 2 # 2
-  gradient_accumulation_steps: 1 #
+  per_device_train_batch_size: 1 # 2
+  gradient_accumulation_steps: 2 #
   max_steps: 20
 
   gradient_checkpointing_kwargs:
@@ -97,6 +97,7 @@ training:
 
 fsdp:
   enable_fsdp: True
+  cpu_offload: True
   sharding_strategy: "HYBRID_SHARD"
   forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
