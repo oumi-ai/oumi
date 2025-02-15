@@ -265,11 +265,17 @@ class TrainingParams(BaseParams):
     If set to True, this will only allow those CuDNN algorithms
     that are (believed to be) deterministic. Please refer to
     https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
-    for more details. If using a HF compatible trainer,
-    this will also set full_determinism to True. If using distributed training,
+    for more details. If using distributed training,
     this will override ddp_find_unused_parameters to False and will
     also use ddp_broadcast_buffers. Note that this will not guarantee
     reproducibility, but will help to reduce the variance between runs.
+    """
+
+    full_determinism: bool = False
+    """If True, enable_full_determinism() is called instead of set_seed()
+    to ensure reproducible results in distributed training. This will only
+    affect HF trainers. Important: this will negatively impact performance,
+    so only use it for debugging.
     """
 
     run_name: Optional[str] = None
@@ -618,12 +624,10 @@ class TrainingParams(BaseParams):
         dispatch_batches = self.dataloader_main_process_only
 
         if self.use_deterministic:
-            full_determinism = True
             dispatch_batches = False  # Prevents dynamic batch redistribution
             self.ddp_find_unused_parameters = False  # Helps with determinism in DDP
             ddp_broadcast_buffers = True  # Ensures consistent buffer states
         else:
-            full_determinism = False
             ddp_broadcast_buffers = None
 
         if self.trainer_type == TrainerType.TRL_SFT:
@@ -675,7 +679,7 @@ class TrainingParams(BaseParams):
             dataloader_prefetch_factor=(
                 self.dataloader_prefetch_factor if dataloader_num_workers > 0 else None
             ),
-            full_determinism=full_determinism,
+            full_determinism=self.full_determinism,
             ddp_broadcast_buffers=ddp_broadcast_buffers,
             dataloader_persistent_workers=self.dataloader_persistent_workers,
             dataloader_pin_memory=True,  # Set it to True to be explicit.
