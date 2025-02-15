@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import os
-from typing import Annotated, Optional
+from typing import Annotated, Final, Optional
 
 import typer
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
+
+_DEFAULT_CLI_PDF_DPI: Final[int] = 200
 
 
 def infer(
@@ -98,14 +100,14 @@ def infer(
         if image_lower.startswith("http://") or image_lower.startswith("https://"):
             if image_lower.endswith(".pdf"):
                 input_image_png_bytes = create_png_bytes_from_image_list(
-                    load_pdf_pages_from_url(image)
+                    load_pdf_pages_from_url(image, dpi=_DEFAULT_CLI_PDF_DPI)
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_url(image)]
         else:
             if image_lower.endswith(".pdf"):
                 input_image_png_bytes = create_png_bytes_from_image_list(
-                    load_pdf_pages_from_path(image)
+                    load_pdf_pages_from_path(image, dpi=_DEFAULT_CLI_PDF_DPI)
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_path(image)]

@@ -145,6 +145,7 @@ training:
   output_dir: "output"                    # Directory for saving outputs
   run_name: null                          # Unique identifier for the run
   seed: 42                                # Random seed for reproducibility
+  use_deterministic: false                # Use deterministic CuDNN algorithms
 
   # Training duration
   num_train_epochs: 3                     # Number of training epochs

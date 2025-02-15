@@ -57,7 +57,9 @@ def train(
 
     limit_per_process_memory()
     device_cleanup()
-    set_random_seeds(parsed_config.training.seed)
+    set_random_seeds(
+        parsed_config.training.seed, parsed_config.training.use_deterministic
+    )
 
     # Run training
     oumi_train(parsed_config)
