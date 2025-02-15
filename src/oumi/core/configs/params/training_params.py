@@ -267,8 +267,9 @@ class TrainingParams(BaseParams):
     https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
     for more details. If using distributed training,
     this will override ddp_find_unused_parameters to False and will
-    also use ddp_broadcast_buffers. Note that this will not guarantee
-    reproducibility, but will help to reduce the variance between runs.
+    also use ddp_broadcast_buffers, and disable gradient checkpointing.
+    Note that this will not guarantee full reproducibility,
+    but will help to reduce the variance between runs.
     """
 
     full_determinism: bool = False
@@ -624,6 +625,9 @@ class TrainingParams(BaseParams):
         dispatch_batches = self.dataloader_main_process_only
 
         if self.use_deterministic:
+            self.enable_gradient_checkpointing = (
+                False  # Fails ddp_broadcast_buffers=True
+            )
             dispatch_batches = False  # Prevents dynamic batch redistribution
             self.ddp_find_unused_parameters = False  # Helps with determinism in DDP
             ddp_broadcast_buffers = True  # Ensures consistent buffer states
