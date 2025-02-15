@@ -21,7 +21,7 @@ import torch
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import convert_to_list_of_tensors
+from oumi.utils.torch_utils import convert_to_list_of_tensors, pad_to_max_dim_and_stack
 
 _PIXEL_VALUES_KEY = "pixel_values"
 
@@ -32,6 +32,8 @@ def _pad_1d_and_stack(tensors_list: list[torch.Tensor]) -> torch.Tensor:
         raise ValueError("No tensors")
     elif num_tensors == 1:
         return torch.stack(tensors_list)
+    elif False:
+        return pad_to_max_dim_and_stack(tensors_list)
 
     first_shape = tensors_list[0].shape
     num_dims = len(first_shape)
@@ -179,7 +181,7 @@ class VisionLanguageCollatorWithPadding:
 
             for input_name, values_list in other_inputs.items():
                 tensors_list = convert_to_list_of_tensors(values_list)
-                collated_value = _pad_1d_and_stack(tensors_list)
+                collated_value = pad_to_max_dim_and_stack(tensors_list)
                 collated_batch[input_name] = collated_value
 
                 logger.info(
