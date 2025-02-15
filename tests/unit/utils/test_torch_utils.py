@@ -15,7 +15,7 @@ from oumi.utils.torch_utils import (
     pad_sequences,
     pad_sequences_left_side,
     pad_sequences_right_side,
-    stack_and_pad_to_max_dim,
+    pad_to_max_dim_and_stack,
 )
 
 
@@ -122,13 +122,13 @@ def test_pad_sequences_right_side(padding_value: int):
     # Verify `stack_and_pad_to_max_dim()` returns exact same result for 1D sequences.
     assert np.all(
         result.numpy()
-        == stack_and_pad_to_max_dim(
+        == pad_to_max_dim_and_stack(
             test_sequences, padding_side="right", padding_value=padding_value
         ).numpy()
     )
     assert np.all(
         result.numpy()
-        == stack_and_pad_to_max_dim(test_sequences, padding_value=padding_value).numpy()
+        == pad_to_max_dim_and_stack(test_sequences, padding_value=padding_value).numpy()
     )
 
 
@@ -158,7 +158,7 @@ def test_pad_sequences_left_side(padding_value: int):
     # Verify `stack_and_pad_to_max_dim()` returns exact same result for 1D sequences.
     assert np.all(
         result.numpy()
-        == stack_and_pad_to_max_dim(
+        == pad_to_max_dim_and_stack(
             test_sequences, padding_side="left", padding_value=padding_value
         ).numpy()
     )
@@ -167,7 +167,7 @@ def test_pad_sequences_left_side(padding_value: int):
 def test_stack_and_pad_to_max_dim_invalid_side():
     test_sequences = [[1, 2, 3, 4], [5], [6, 7]]
     with pytest.raises(ValueError, match="Unsupported padding side: 'top'"):
-        stack_and_pad_to_max_dim(test_sequences, padding_side="top", padding_value=1)
+        pad_to_max_dim_and_stack(test_sequences, padding_side="top", padding_value=1)
 
 
 def test_stack_and_pad_to_max_dim_incompatible_dimensionality():
@@ -179,7 +179,7 @@ def test_stack_and_pad_to_max_dim_incompatible_dimensionality():
             "Shapes: torch.Size([4]), torch.Size([2, 2])"
         ),
     ):
-        stack_and_pad_to_max_dim(test_sequences, padding_value=1)
+        pad_to_max_dim_and_stack(test_sequences, padding_value=1)
 
 
 @pytest.mark.parametrize(
@@ -188,7 +188,7 @@ def test_stack_and_pad_to_max_dim_incompatible_dimensionality():
 )
 def test_stack_and_pad_to_max_dim_right_side(padding_value):
     test_sequences = [torch.ones([5, 1, 2]), torch.full([3, 2, 1], 2)]
-    result = stack_and_pad_to_max_dim(test_sequences, padding_value=padding_value)
+    result = pad_to_max_dim_and_stack(test_sequences, padding_value=padding_value)
     assert result.shape == (2, 5, 2, 2)
 
     expected = torch.full((2, 5, 2, 2), padding_value)
@@ -209,7 +209,7 @@ def test_stack_and_pad_to_max_dim_left_side(padding_value):
         torch.full([3, 2, 1, 1], 2),
         torch.full([1, 1, 1, 1], -3),
     ]
-    result = stack_and_pad_to_max_dim(
+    result = pad_to_max_dim_and_stack(
         test_sequences, padding_side="left", padding_value=padding_value
     )
     assert result.shape == (3, 5, 2, 2, 1)

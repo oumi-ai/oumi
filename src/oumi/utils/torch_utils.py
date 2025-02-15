@@ -360,7 +360,7 @@ def _pad_sequences_impl(
         )
     except RuntimeError:
         logger.error(
-            "Failed to collate sequences with the shapes: "
+            "Failed to pad and stack sequences with the shapes: "
             + ", ".join([f"{t.shape}" for t in sequences])
         )
         raise
@@ -490,7 +490,7 @@ def _get_dims_min_max_size(tensors_list: list[torch.Tensor]) -> list[_DimMinMaxS
     ]
 
 
-def _stack_and_pad_to_max_dim(
+def _pad_to_max_dim_and_stack_impl(
     tensors_list: list[torch.Tensor],
     *,
     padding_value: float = 0,
@@ -524,18 +524,13 @@ def _stack_and_pad_to_max_dim(
 
         target_view = target[...]
 
-        if pad_on_left_side:
-            for dim_idx, curr_size in enumerate(input_tensor.shape):
-                max_size = max_dim_sizes[dim_idx]
-                if curr_size < max_size:
-                    target_view = target_view.narrow(
-                        dim_idx, start=(max_size - curr_size), length=curr_size
-                    )
-        else:
-            for dim_idx, curr_size in enumerate(input_tensor.shape):
-                max_size = max_dim_sizes[dim_idx]
-                if curr_size < max_size:
-                    target_view = target_view.narrow(dim_idx, start=0, length=curr_size)
+        for dim_idx, curr_size in enumerate(input_tensor.shape):
+            max_size = max_dim_sizes[dim_idx]
+            if curr_size < max_size:
+                start_idx = (max_size - curr_size) if pad_on_left_side else 0
+                target_view = target_view.narrow(
+                    dim_idx, start=start_idx, length=curr_size
+                )
 
         assert target_view.shape == input_tensor.shape
         target_view[...] = input_tensor
@@ -543,7 +538,7 @@ def _stack_and_pad_to_max_dim(
     return result
 
 
-def stack_and_pad_to_max_dim(
+def pad_to_max_dim_and_stack(
     tensors_list: list[T],
     *,
     padding_value: float = 0,
@@ -583,9 +578,18 @@ def stack_and_pad_to_max_dim(
 
     input_tensors = convert_to_list_of_tensors(tensors_list)
 
-    return _stack_and_pad_to_max_dim(
-        input_tensors, padding_value=padding_value, pad_on_left_side=pad_on_left_side
-    )
+    try:
+        return _pad_to_max_dim_and_stack_impl(
+            input_tensors,
+            padding_value=padding_value,
+            pad_on_left_side=pad_on_left_side,
+        )
+    except RuntimeError:
+        logger.error(
+            "Failed to pad and stack tensors with the shapes: "
+            + ", ".join([f"{t.shape}" for t in input_tensors])
+        )
+        raise
 
 
 def create_ones_like(

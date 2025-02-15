@@ -20,7 +20,7 @@ from oumi.utils.logging import logger
 from oumi.utils.torch_utils import (
     create_ones_like,
     pad_sequences,
-    stack_and_pad_to_max_dim,
+    pad_to_max_dim_and_stack,
 )
 
 _INPUT_IDS_KEY = "input_ids"
@@ -98,7 +98,7 @@ class TextCollatorWithPadding:
             try:
                 padding_value = padding_value_overrides.get(key, 0)
                 if key == "cross_attention_mask":
-                    result[key] = stack_and_pad_to_max_dim(
+                    result[key] = pad_to_max_dim_and_stack(
                         sequences_list,
                         padding_side=self._padding_side,
                         padding_value=padding_value,
