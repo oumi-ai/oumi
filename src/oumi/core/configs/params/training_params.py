@@ -254,8 +254,8 @@ class TrainingParams(BaseParams):
 
     data_seed: int = 42
     """Random data_seed used for initialization.
-    The seed to use for the underlying generator when using 
-    use_seedable_sampler. If None, the generator will use 
+    The seed to use for the underlying generator when using
+    use_seedable_sampler. If None, the generator will use
     the current default seed from torch.
     Used only by the HuggingFace trainers.
     """
@@ -267,7 +267,7 @@ class TrainingParams(BaseParams):
     https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
     for more details. If using a HF compatible trainer,
     this will also set full_determinism to True. If using distributed training,
-    this will override ddp_find_unused_parameters to False and will 
+    this will override ddp_find_unused_parameters to False and will
     also use ddp_broadcast_buffers. Note that this will not guarantee
     reproducibility, but will help to reduce the variance between runs.
     """
@@ -509,9 +509,9 @@ class TrainingParams(BaseParams):
 
     dataloader_persistent_workers: bool = False
     """Whether to use persistent workers for data loading (HF Trainers only).
-    If True, the data loader will not shut down the worker processes after 
-    a dataset has been consumed once. This allows to maintain the workers 
-    Dataset instances alive. Can potentially speed up training, but will 
+    If True, the data loader will not shut down the worker processes after
+    a dataset has been consumed once. This allows to maintain the workers
+    Dataset instances alive. Can potentially speed up training, but will
     increase RAM usage. Will default to False.
     """
 
@@ -620,8 +620,8 @@ class TrainingParams(BaseParams):
         if self.use_deterministic:
             full_determinism = True
             dispatch_batches = False  # Prevents dynamic batch redistribution
-            self.ddp_find_unused_parameters = False # Helps with determinism in DDP
-            ddp_broadcast_buffers = True      # Ensures consistent buffer states
+            self.ddp_find_unused_parameters = False  # Helps with determinism in DDP
+            ddp_broadcast_buffers = True  # Ensures consistent buffer states
         else:
             full_determinism = False
             ddp_broadcast_buffers = None
