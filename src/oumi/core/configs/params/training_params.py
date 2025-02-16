@@ -252,12 +252,31 @@ class TrainingParams(BaseParams):
     weight initialization, and any stochastic operations.
     """
 
+    data_seed: int = 42
+    """Random data_seed used for initialization.
+    The seed to use for the underlying generator when using
+    use_seedable_sampler. If None, the generator will use
+    the current default seed from torch.
+    Used only by the HuggingFace trainers.
+    """
+
     use_deterministic: bool = False
     """Whether to use deterministic algorithms for reproducibility.
     If set to True, this will only allow those CuDNN algorithms
     that are (believed to be) deterministic. Please refer to
     https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
-    for more details.
+    for more details. If using distributed training,
+    this will override ddp_find_unused_parameters to False and will
+    also use ddp_broadcast_buffers, and disable gradient checkpointing.
+    Note that this will not guarantee full reproducibility,
+    but will help to reduce the variance between runs.
+    """
+
+    full_determinism: bool = False
+    """If True, enable_full_determinism() is called instead of set_seed()
+    to ensure reproducible results in distributed training. This will only
+    affect HF trainers. Important: this will negatively impact performance,
+    so only use it for debugging.
     """
 
     run_name: Optional[str] = None
@@ -495,6 +514,14 @@ class TrainingParams(BaseParams):
     then at minimum 1 worker is guaranteed to be assigned.
     """
 
+    dataloader_persistent_workers: bool = False
+    """Whether to use persistent workers for data loading (HF Trainers only).
+    If True, the data loader will not shut down the worker processes after
+    a dataset has been consumed once. This allows to maintain the workers
+    Dataset instances alive. Can potentially speed up training, but will
+    increase RAM usage. Will default to False.
+    """
+
     dataloader_prefetch_factor: Optional[int] = None
     """Number of batches loaded in advance by each worker.
 
@@ -597,6 +624,16 @@ class TrainingParams(BaseParams):
 
         dispatch_batches = self.dataloader_main_process_only
 
+        if self.use_deterministic:
+            self.enable_gradient_checkpointing = (
+                False  # Fails ddp_broadcast_buffers=True
+            )
+            dispatch_batches = False  # Prevents dynamic batch redistribution
+            self.ddp_find_unused_parameters = False  # Helps with determinism in DDP
+            ddp_broadcast_buffers = True  # Ensures consistent buffer states
+        else:
+            ddp_broadcast_buffers = None
+
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
@@ -646,6 +683,9 @@ class TrainingParams(BaseParams):
             dataloader_prefetch_factor=(
                 self.dataloader_prefetch_factor if dataloader_num_workers > 0 else None
             ),
+            full_determinism=self.full_determinism,
+            ddp_broadcast_buffers=ddp_broadcast_buffers,
+            dataloader_persistent_workers=self.dataloader_persistent_workers,
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,  # type: ignore
@@ -658,8 +698,7 @@ class TrainingParams(BaseParams):
             #    "use_seedable_sampler": True,
             # },
             seed=self.seed,
-            # TODO: OPE-891 - Support setting a data seed.
-            # By default, HF will use the global seed for data loading.
+            data_seed=self.data_seed,
             **self.trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
