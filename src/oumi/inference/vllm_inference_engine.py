@@ -70,8 +70,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             quantization: The quantization method to use for inference.
             enable_prefix_caching: Whether to enable prefix caching.
             gpu_memory_utilization: The fraction of available GPU memory the model's
-                executor will use. It can range from 0 to 1. Defaults to 1.0, i.e.,
-                full (100%) memory utilization.
+                executor will use. It can range from 0 to 1. Defaults to 0.9, i.e.,
+                full (90%) memory utilization.
             enforce_eager: Whether to enforce eager execution. Defaults to True.
                 If False, will use eager mode and CUDA graph in hybrid mode.
             max_num_seqs: Maximum number of sequences per iteration.
