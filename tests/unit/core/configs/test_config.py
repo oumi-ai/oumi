@@ -6,8 +6,10 @@ from omegaconf import OmegaConf
 
 from oumi.core.configs import (
     DatasetParams,
+    EvaluationConfig,
     TrainingConfig,
 )
+from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 
 
 def test_config_serialization():
@@ -52,3 +54,66 @@ def test_config_override():
     assert merged_config.model.model_name == "model_high_priority"
     assert merged_config == high_priority_config
     assert merged_config != low_priority_config
+
+
+def test_config_from_yaml_and_arg_list(tmp_path):
+    task = EvaluationTaskParams(
+        evaluation_platform="lm_harness",
+        task_name="mmlu",
+        num_samples=5,
+        eval_kwargs={"num_fewshot": 5},
+    )
+    config = EvaluationConfig(tasks=[task])
+    config.model.model_name = "foo"
+    config_path = tmp_path / "eval.yaml"
+    config.to_yaml(config_path)
+
+    new_config_override_vals = EvaluationConfig.from_yaml_and_arg_list(
+        config_path,
+        [
+            "tasks[0].num_samples=1",  # override field
+            "tasks[0].eval_kwargs.num_fewshot=1",  # override nested dict field
+            "tasks[0].eval_kwargs.foo=bar",  # add new field
+        ],
+    )
+    assert new_config_override_vals.tasks == [
+        EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="mmlu",
+            num_samples=1,
+            eval_kwargs={"num_fewshot": 1, "foo": "bar"},
+        )
+    ]
+
+    # By default, Omegaconf merges dicts together
+    new_config_merge_dict = EvaluationConfig.from_yaml_and_arg_list(
+        config_path,
+        [
+            "tasks.0.eval_kwargs={'foo': 'bar'}",
+        ],
+    )
+    assert new_config_merge_dict.tasks == [
+        EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="mmlu",
+            num_samples=5,
+            eval_kwargs={"num_fewshot": 5, "foo": "bar"},
+        )
+    ]
+
+    # By default, Omegaconf replaces lists
+    new_config_override_list = EvaluationConfig.from_yaml_and_arg_list(
+        config_path,
+        [
+            "tasks=[{'evaluation_platform': 'lm_harness', 'task_name': 'mmlu', "
+            "'num_samples': 1, 'eval_kwargs': {'foo': 'bar'}}]",
+        ],
+    )
+    assert new_config_override_list.tasks == [
+        EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="mmlu",
+            num_samples=1,
+            eval_kwargs={"foo": "bar"},
+        )
+    ]
