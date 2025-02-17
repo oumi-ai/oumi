@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
 from typing import Annotated, Final, Optional
 
 import typer
@@ -21,6 +22,8 @@ import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 _DEFAULT_CLI_PDF_DPI: Final[int] = 200
+OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main/configs/recipes"
+OUMI_DIR = "~/.oumi/configs"
 
 
 def infer(
@@ -30,6 +33,16 @@ def infer(
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
+        ),
+    ] = None,
+    output_dir: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output-dir",
+            help=(
+                "Directory to save configs "
+                "(defaults to OUMI_DIR env var or ~/.oumi/configs)"
+            ),
         ),
     ] = None,
     interactive: Annotated[
@@ -67,12 +80,20 @@ def infer(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
+        output_dir: Directory to save configs
+        (defaults to OUMI_DIR env var or ~/.oumi/configs).
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    if config:
+        if config.startswith("oumi://"):
+            _ = cli_utils.resolve_and_fetch_config(config, output_dir)
+            cleaned_path, config_dir = cli_utils.resolve_oumi_prefix(config, output_dir)
+            config = str(config_dir / cleaned_path)
 
     # Delayed imports
     from oumi import infer as oumi_infer
