@@ -1,0 +1,48 @@
+# Class: oumi.core.configs.TrainingConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# SFT Config for WC50M reproduction of UltraChat baseline.
+
+model:
+  model_name: "meta-llama/Meta-Llama-3.1-8B"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  chat_template: "llama3-instruct"
+  enable_liger_kernel: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/ultrachat_200k"
+        split: "train_sft"
+        trust_remote_code: True
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 800
+  num_train_epochs: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "paged_adamw_8bit"
+  learning_rate: 2.0e-05
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 100
+  log_model_summary: False
+  empty_device_cache_steps: 50
+  output_dir: "output/llama8b-ultrachat"
+  include_performance_metrics: True
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: False
