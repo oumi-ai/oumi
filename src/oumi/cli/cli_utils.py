@@ -173,7 +173,7 @@ def resolve_and_fetch_config(
     Returns:
         Path: Local path to the config file
     """
-    if not config_path.startswith("oumi://"):
+    if not config_path.lower().startswith("oumi://"):
         return Path(config_path)
 
     from oumi.cli.fetch import fetch
