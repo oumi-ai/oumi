@@ -26,12 +26,12 @@ _DEFAULT_CLI_PDF_DPI: Final[int] = 200
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
         ),
-    ] = None,
+    ],
     interactive: Annotated[
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
