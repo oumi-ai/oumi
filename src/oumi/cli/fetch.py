@@ -57,7 +57,7 @@ def fetch(
 
     try:
         # Fetch from GitHub
-        github_url = f"{OUMI_GITHUB_RAW}/{config_path}"
+        github_url = f"{OUMI_GITHUB_RAW}/{config_path.lstrip('/')}"
         response = requests.get(github_url)
         response.raise_for_status()
         config_content = response.text
