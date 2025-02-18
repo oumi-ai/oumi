@@ -22,8 +22,6 @@ import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
 _DEFAULT_CLI_PDF_DPI: Final[int] = 200
-OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main/configs/recipes"
-OUMI_DIR = "~/.oumi/configs"
 
 
 def infer(
