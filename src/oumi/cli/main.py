@@ -111,7 +111,7 @@ def get_app() -> typer.Typer:
     )
 
     app.command(
-        help="Fetch configuration files from GitHub repository.",
+        help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
 
     return app
