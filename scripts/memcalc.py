@@ -1,4 +1,11 @@
+"""Calculates the memory usage of a model during training.
+
+Usage:
+    python scripts/memcalc.py -c path/to/train/config.yaml
+"""
+
 import argparse
+from dataclasses import dataclass
 from typing import Union
 
 import torch
@@ -15,16 +22,42 @@ from oumi.utils.torch_utils import count_model_parameters
 # The number of VRAM bytes used by CUDA.
 # See: https://discuss.pytorch.org/t/what-is-the-initial-1-3gb-allocated-vram-when-first-using-cuda/122079/2
 _CUDA_BYTES = 1.3e9
+# TODO: Confirm this number
+# Torch dtype for a token in the input batch.
+_TOKEN_DTYPE = torch.int32
 
 
-def get_bytes_per_unit(config: TrainingConfig) -> int:
-    """Gets the number of bytes used per number per the torch dtype."""
-    dtype = config.model.torch_dtype
-    if dtype == torch.float64:
+@dataclass
+class ModelConfig:
+    """Standardized model configuration, created from a HF model config."""
+
+    vocab_size: int
+    """The vocabulary size."""
+
+    seq_len: int
+    """The maximum sequence length."""
+
+    num_layers: int
+    """The number of attention layers."""
+
+    hidden_dim: int
+    """The hidden dimension aka embedding size."""
+
+    num_kv_heads: int
+    """The number of key value (KV) heads for the attention layer."""
+
+
+def get_bytes_per_unit(dtype: torch.dtype) -> int:
+    """Gets the number of bytes used per memory unit given the torch dtype.
+
+    A memory unit is essentially a number in memory, such as a parameter, gradient, or
+    activation.
+    """
+    if dtype == torch.float64 or dtype == torch.int64:
         return 8
-    elif dtype == torch.float32:
+    elif dtype == torch.float32 or dtype == torch.int32:
         return 4
-    elif dtype == torch.bfloat16 or dtype == torch.float16:
+    elif dtype == torch.bfloat16 or dtype == torch.float16 or dtype == torch.int16:
         return 2
     elif dtype == torch.uint8:
         return 1
@@ -44,20 +77,45 @@ def bytes_to_str(bytes: Union[int, float]) -> str:
         return f"{bytes / 1e9:.1f} GB"
 
 
-def get_seq_len(config: TrainingConfig, model_config) -> int:
+def get_seq_len(config: TrainingConfig, model_config: ModelConfig) -> int:
     """Gets the maximum sequence length supported by the model."""
-    # GPT2 specific
-    seq_len = model_config.n_positions
+    seq_len = model_config.seq_len
     if config.model.model_max_length is not None:
         seq_len = config.model.model_max_length
     return seq_len
 
 
-def get_data_bytes(config: TrainingConfig, model_config, bytes_per_unit: int) -> int:
+# TODO: Add support for LlamaConfig
+def get_standardized_model_config(hf_model_config) -> ModelConfig:
+    """Gets a standardized model config given a HF model config.
+
+    Each HF config may use different field names for the same property. This function
+    converts them to a standardized format for use throughout the script.
+    """
+    if isinstance(hf_model_config, GPT2Config):
+        return ModelConfig(
+            vocab_size=hf_model_config.vocab_size,
+            seq_len=hf_model_config.n_positions,
+            num_layers=hf_model_config.n_layer,
+            hidden_dim=hf_model_config.n_embd,
+            num_kv_heads=hf_model_config.n_head,
+        )
+    else:
+        raise ValueError(f"Unsupported HF model type: {type(hf_model_config)}")
+
+
+# --------------------------------------------------------------------------------------
+# Functions for calculating the memory usage of different parts of the training process.
+# --------------------------------------------------------------------------------------
+
+
+def get_data_bytes(
+    config: TrainingConfig, model_config: ModelConfig, bytes_per_unit: int
+) -> int:
     """Gets the total number of bytes used by the data batch."""
     batch_size = config.training.per_device_train_batch_size
     model_max_length = get_seq_len(config, model_config)
-    return batch_size * model_max_length * bytes_per_unit
+    return batch_size * model_max_length * get_bytes_per_unit(_TOKEN_DTYPE)
 
 
 # TODO: Find a static way to calculate this
@@ -67,9 +125,9 @@ def get_model_bytes(model: torch.nn.Module, bytes_per_unit: int) -> int:
     return num_total_params.all_params * bytes_per_unit
 
 
+# TODO: Support more optimizers
 def get_optim_bytes(config: TrainingConfig, model_bytes: int) -> int:
     """Gets the total number of bytes used by the optimizer."""
-    # TODO: Support more optimizer
     optim = config.training.optimizer
     if optim in ["adamw_torch", "adamw_torch_fused"]:
         multiplier = 2
@@ -91,13 +149,15 @@ def get_gradient_bytes(config: TrainingConfig, model_bytes: int) -> int:
     return model_bytes
 
 
-def get_activation_bytes(config: TrainingConfig, model_config, data_bytes: int) -> int:
+def get_activation_bytes(
+    config: TrainingConfig, model_config: ModelConfig, data_bytes: int
+) -> int:
     """Gets the total number of bytes used by activations."""
     vocab_size = model_config.vocab_size
-    num_layers = model_config.n_layer
-    hidden_dim = model_config.n_embd
+    num_layers = model_config.num_layers
+    hidden_dim = model_config.hidden_dim
     seq_len = get_seq_len(config, model_config)
-    num_kv_heads = model_config.n_head
+    num_kv_heads = model_config.num_kv_heads
     # TODO: Verify this formula
     embedding_bytes = vocab_size
     lm_head_bytes = vocab_size
@@ -122,44 +182,48 @@ def main() -> None:
 
     config = TrainingConfig.from_yaml(config_path)
     config.finalize_and_validate()
-    model_config = find_model_hf_config(
+    hf_model_config = find_model_hf_config(
         config.model.model_name, trust_remote_code=config.model.trust_remote_code
     )
+    print("HuggingFace model config:")
+    print(hf_model_config)
+    model_config = get_standardized_model_config(hf_model_config)
+    print("Standardized model config:")
     print(model_config)
     model = build_model(
         model_params=config.model,
         peft_params=config.peft if config.training.use_peft else None,
     )
-    if not isinstance(model_config, GPT2Config):
-        raise ValueError("Only GPT2 models are currently supported!")
 
-    bytes_per_unit = get_bytes_per_unit(config)
+    bytes_per_unit = get_bytes_per_unit(config.model.torch_dtype)
     print()
     print("-" * 80)
-    print(f"Bytes per unit (a number in memory, ex. param, gradient): {bytes_per_unit}")
-    print(f"CUDA bytes: {bytes_to_str(_CUDA_BYTES)}")
+    print(f"Bytes per memory unit: {bytes_per_unit}")
+    print("Bytes used by different parts of the training process:")
+    print(f"Base memory usage: {bytes_to_str(_CUDA_BYTES)}")
+    print("This includes loading CUDA, GPU kernels, cuDNN/cuBLAS, etc.")
     data_bytes = get_data_bytes(config, model_config, bytes_per_unit)
-    print(f"Data bytes: {bytes_to_str(data_bytes)}")
+    print(f"Data (input batches of token ids): {bytes_to_str(data_bytes)}")
     model_bytes = get_model_bytes(model, bytes_per_unit)
-    print(f"Model bytes: {bytes_to_str(model_bytes)}")
-    optim_bytes = get_optim_bytes(config, model_bytes)
-    print(f"Optimizer bytes: {bytes_to_str(optim_bytes)}")
-    gradient_bytes = get_gradient_bytes(config, model_bytes)
-    print(f"Gradient bytes: {bytes_to_str(gradient_bytes)}")
+    print(f"Model weights: {bytes_to_str(model_bytes)}")
     activation_bytes = get_activation_bytes(config, model_config, data_bytes)
-    print(f"Activation bytes: {bytes_to_str(activation_bytes)}")
+    print(f"Model activations: {bytes_to_str(activation_bytes)}")
+    gradient_bytes = get_gradient_bytes(config, model_bytes)
+    print(f"Model gradients: {bytes_to_str(gradient_bytes)}")
+    optim_bytes = get_optim_bytes(config, model_bytes)
+    print(f"Optimizer state: {bytes_to_str(optim_bytes)}")
 
     total_bytes = (
         _CUDA_BYTES
         + data_bytes
         + model_bytes
-        + optim_bytes
-        + gradient_bytes
         + activation_bytes
+        + gradient_bytes
+        + optim_bytes
     )
     print(f"Total bytes: {bytes_to_str(total_bytes)}")
 
-    # TODO: Print fields used
+    # TODO: Print config fields used
 
 
 if __name__ == "__main__":
