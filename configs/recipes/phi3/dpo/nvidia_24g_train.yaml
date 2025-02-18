@@ -1,4 +1,4 @@
-# Training config.
+# Phi3 DPO train config for an Nvidia GPU with >=24GB memory.
 #
 # Usage:
 #   oumi train -c configs/recipes/phi3/dpo/nvidia_24g_train.yaml

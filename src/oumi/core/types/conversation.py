@@ -15,7 +15,7 @@
 import base64
 from collections.abc import Generator
 from enum import Enum
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, Callable, NamedTuple, Optional, Union
 
 import pydantic
 from jinja2 import Template
@@ -162,8 +162,7 @@ class ContentItem(pydantic.BaseModel):
                 self.binary is None or len(self.binary) == 0
             ):
                 raise ValueError(
-                    "No image bytes in message content item "
-                    f"(Item type: {self.type})."
+                    f"No image bytes in message content item (Item type: {self.type})."
                 )
             if self.type in (Type.IMAGE_PATH, Type.IMAGE_URL) and (
                 self.content is None or len(self.content) == 0
@@ -172,8 +171,7 @@ class ContentItem(pydantic.BaseModel):
         else:
             if self.binary is not None:
                 raise ValueError(
-                    "Binary can only be provided for images "
-                    f"(Item type: {self.type})."
+                    f"Binary can only be provided for images (Item type: {self.type})."
                 )
 
     def __repr__(self) -> str:
@@ -377,7 +375,7 @@ class Conversation(pydantic.BaseModel):
             Optional[Message]: The first message matching the criteria,
                 or None if no messages are found.
         """
-        messages = self.filter_messages(role)
+        messages = self.filter_messages(role=role)
         return messages[0] if len(messages) > 0 else None
 
     def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
@@ -391,15 +389,23 @@ class Conversation(pydantic.BaseModel):
             Optional[Message]: The last message matching the criteria,
                 or None if no messages are found.
         """
-        messages = self.filter_messages(role)
+        messages = self.filter_messages(role=role)
         return messages[-1] if len(messages) > 0 else None
 
-    def filter_messages(self, role: Optional[Role] = None) -> list[Message]:
+    def filter_messages(
+        self,
+        *,
+        role: Optional[Role] = None,
+        filter_fn: Optional[Callable[[Message], bool]] = None,
+    ) -> list[Message]:
         """Gets all messages in the conversation, optionally filtered by role.
 
         Args:
-            role: The role to filter messages by.
-                If None, returns all messages.
+            role (Optional): The role to filter messages by. If None, no filtering
+                by role is applied.
+            filter_fn (Optional): A predicate to filter messages by. If the predicate
+                returns True for a message, then the message is returned.
+                Otherwise, the message is excluded.
 
         Returns:
             List[Message]: A list of all messages matching the criteria.
@@ -408,6 +414,10 @@ class Conversation(pydantic.BaseModel):
             messages = [message for message in self.messages if role == message.role]
         else:
             messages = self.messages
+
+        if filter_fn is not None:
+            messages = [message for message in messages if filter_fn(message)]
+
         return messages
 
     def to_dict(self):

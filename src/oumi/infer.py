@@ -41,7 +41,10 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
 
 
 def infer_interactive(
-    config: InferenceConfig, *, input_image_bytes: Optional[bytes] = None
+    config: InferenceConfig,
+    *,
+    input_image_bytes: Optional[list[bytes]] = None,
+    system_prompt: Optional[str] = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
     # Create engine up front to avoid reinitializing it for each input.
@@ -57,6 +60,7 @@ def infer_interactive(
             inputs=[
                 input_text,
             ],
+            system_prompt=system_prompt,
             input_image_bytes=input_image_bytes,
             inference_engine=inference_engine,
         )
@@ -72,7 +76,8 @@ def infer(
     inputs: Optional[list[str]] = None,
     inference_engine: Optional[BaseInferenceEngine] = None,
     *,
-    input_image_bytes: Optional[bytes] = None,
+    input_image_bytes: Optional[list[bytes]] = None,
+    system_prompt: Optional[str] = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
@@ -81,8 +86,9 @@ def infer(
         inputs: A list of inputs for inference.
         inference_engine: The engine to use for inference. If unspecified, the engine
             will be inferred from `config`.
-        input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
-            Only used in interactive mode.
+        input_image_bytes: A list of input PNG image bytes to be used with `image+text`
+            VLMs. Only used in interactive mode.
+        system_prompt: System prompt for task-specific instructions.
 
     Returns:
         object: A list of model responses.
@@ -93,25 +99,38 @@ def infer(
     # Pass None if no conversations are provided.
     conversations = None
     if inputs is not None and len(inputs) > 0:
-        if input_image_bytes is None:
+        system_messages = (
+            [Message(role=Role.SYSTEM, content=system_prompt)] if system_prompt else []
+        )
+        if input_image_bytes is None or len(input_image_bytes) == 0:
             conversations = [
-                Conversation(messages=[Message(role=Role.USER, content=content)])
+                Conversation(
+                    messages=(
+                        system_messages + [Message(role=Role.USER, content=content)]
+                    )
+                )
                 for content in inputs
             ]
         else:
             conversations = [
                 Conversation(
-                    messages=[
-                        Message(
-                            role=Role.USER,
-                            content=[
-                                ContentItem(
-                                    type=Type.IMAGE_BINARY, binary=input_image_bytes
+                    messages=(
+                        system_messages
+                        + [
+                            Message(
+                                role=Role.USER,
+                                content=(
+                                    [
+                                        ContentItem(
+                                            type=Type.IMAGE_BINARY, binary=image_bytes
+                                        )
+                                        for image_bytes in input_image_bytes
+                                    ]
+                                    + [ContentItem(type=Type.TEXT, content=content)]
                                 ),
-                                ContentItem(type=Type.TEXT, content=content),
-                            ],
-                        ),
-                    ]
+                            )
+                        ]
+                    )
                 )
                 for content in inputs
             ]

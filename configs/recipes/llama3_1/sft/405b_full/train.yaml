@@ -1,5 +1,10 @@
 # FFT config for Llama 405B.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B-Instruct
+#
 # Usage:
 #   oumi train -c configs/recipes/llama3_1/sft/405b_full/train.yaml
 #

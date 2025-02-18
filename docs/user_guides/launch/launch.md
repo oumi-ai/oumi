@@ -67,7 +67,7 @@ working_dir: .
 
 # NOTE: Uncomment the following lines to download locked-down models from HF Hub.
 # file_mounts:
-#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
 # For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
@@ -118,7 +118,7 @@ working_dir: .
 
 # NOTE: Uncomment the following lines to download locked-down models from HF Hub.
 # file_mounts:
-#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
 # For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
@@ -169,7 +169,7 @@ working_dir: .
 
 # NOTE: Uncomment the following lines to download locked-down models from HF Hub.
 # file_mounts:
-#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
 # For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
@@ -220,7 +220,7 @@ working_dir: .
 
 # NOTE: Uncomment the following lines to download locked-down models from HF Hub.
 # file_mounts:
-#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
 # For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
@@ -271,7 +271,7 @@ working_dir: .
 
 # NOTE: Uncomment the following lines to download locked-down models from HF Hub.
 # file_mounts:
-#   ~/.cache/huggingface/token: ~/.cache/huggingface/token
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 # NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
 # For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.

@@ -1,4 +1,7 @@
-# Training config.
+# DDP pretrain config for the FineWeb ablation model on GCP.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi train -c configs/examples/fineweb_ablation_pretraining/ddp/train.yaml
