@@ -103,6 +103,22 @@ def build_trainer(
 
         return _init_oumi_trainer
 
+    def _create_grpo_builder_fn() -> Callable[..., BaseTrainer]:
+        def _init_grpo_trainer(*args, **kwargs) -> BaseTrainer:
+            kwargs_processor = kwargs.get("processor", None)
+            if processor is not None:
+                if kwargs_processor is None:
+                    kwargs["processor"] = processor
+                elif id(kwargs_processor) != id(processor):
+                    raise ValueError(
+                        "Different processor instances passed to GRPO trainer, "
+                        "and build_trainer()."
+                    )
+
+            return OumiTrainer(*args, **kwargs)
+
+        return _init_grpo_trainer
+
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
@@ -115,5 +131,7 @@ def build_trainer(
             "Prefer to use HF trainer when possible."
         )
         return _create_oumi_builder_fn()
+    elif trainer_type == TrainerType.GRPO:
+        return _create_grpo_builder_fn()
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")
