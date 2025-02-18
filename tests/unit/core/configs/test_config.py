@@ -2,6 +2,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import omegaconf
+import pytest
 from omegaconf import OmegaConf
 
 from oumi.core.configs import (
@@ -56,7 +58,49 @@ def test_config_override():
     assert merged_config != low_priority_config
 
 
-def test_config_from_yaml_and_arg_list(tmp_path):
+def test_config_from_yaml_and_arg_list_override_values(tmp_path):
+    task1 = EvaluationTaskParams(
+        evaluation_platform="lm_harness",
+        task_name="mmlu",
+        num_samples=5,
+        eval_kwargs={"num_fewshot": 5},
+    )
+    task2 = EvaluationTaskParams(
+        evaluation_platform="lm_harness",
+        task_name="hellaswag",
+        num_samples=5,
+        eval_kwargs={"num_fewshot": 5},
+    )
+    config = EvaluationConfig(tasks=[task1, task2])
+    config.model.model_name = "foo"
+    config_path = tmp_path / "eval.yaml"
+    config.to_yaml(config_path)
+
+    new_config = EvaluationConfig.from_yaml_and_arg_list(
+        config_path,
+        [
+            "tasks[1].num_samples=1",  # override field
+            "tasks[1].eval_kwargs.num_fewshot=1",  # override nested dict field
+            "tasks[1].eval_kwargs.foo=bar",  # add new field
+        ],
+    )
+    assert new_config.tasks == [
+        EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="mmlu",
+            num_samples=5,
+            eval_kwargs={"num_fewshot": 5},
+        ),
+        EvaluationTaskParams(
+            evaluation_platform="lm_harness",
+            task_name="hellaswag",
+            num_samples=1,
+            eval_kwargs={"num_fewshot": 1, "foo": "bar"},
+        ),
+    ]
+
+
+def test_config_from_yaml_and_arg_list_merge_dict(tmp_path):
     task = EvaluationTaskParams(
         evaluation_platform="lm_harness",
         task_name="mmlu",
@@ -68,31 +112,14 @@ def test_config_from_yaml_and_arg_list(tmp_path):
     config_path = tmp_path / "eval.yaml"
     config.to_yaml(config_path)
 
-    new_config_override_vals = EvaluationConfig.from_yaml_and_arg_list(
-        config_path,
-        [
-            "tasks[0].num_samples=1",  # override field
-            "tasks[0].eval_kwargs.num_fewshot=1",  # override nested dict field
-            "tasks[0].eval_kwargs.foo=bar",  # add new field
-        ],
-    )
-    assert new_config_override_vals.tasks == [
-        EvaluationTaskParams(
-            evaluation_platform="lm_harness",
-            task_name="mmlu",
-            num_samples=1,
-            eval_kwargs={"num_fewshot": 1, "foo": "bar"},
-        )
-    ]
-
     # By default, Omegaconf merges dicts together
-    new_config_merge_dict = EvaluationConfig.from_yaml_and_arg_list(
+    new_config = EvaluationConfig.from_yaml_and_arg_list(
         config_path,
         [
             "tasks.0.eval_kwargs={'foo': 'bar'}",
         ],
     )
-    assert new_config_merge_dict.tasks == [
+    assert new_config.tasks == [
         EvaluationTaskParams(
             evaluation_platform="lm_harness",
             task_name="mmlu",
@@ -101,15 +128,28 @@ def test_config_from_yaml_and_arg_list(tmp_path):
         )
     ]
 
+
+def test_config_from_yaml_and_arg_list_override_list(tmp_path):
+    task = EvaluationTaskParams(
+        evaluation_platform="lm_harness",
+        task_name="mmlu",
+        num_samples=5,
+        eval_kwargs={"num_fewshot": 5},
+    )
+    config = EvaluationConfig(tasks=[task])
+    config.model.model_name = "foo"
+    config_path = tmp_path / "eval.yaml"
+    config.to_yaml(config_path)
+
     # By default, Omegaconf replaces lists
-    new_config_override_list = EvaluationConfig.from_yaml_and_arg_list(
+    new_config = EvaluationConfig.from_yaml_and_arg_list(
         config_path,
         [
             "tasks=[{'evaluation_platform': 'lm_harness', 'task_name': 'mmlu', "
             "'num_samples': 1, 'eval_kwargs': {'foo': 'bar'}}]",
         ],
     )
-    assert new_config_override_list.tasks == [
+    assert new_config.tasks == [
         EvaluationTaskParams(
             evaluation_platform="lm_harness",
             task_name="mmlu",
@@ -117,3 +157,39 @@ def test_config_from_yaml_and_arg_list(tmp_path):
             eval_kwargs={"foo": "bar"},
         )
     ]
+
+
+def test_config_from_yaml_and_arg_list_failure_nonexistent_index(tmp_path):
+    task = EvaluationTaskParams(
+        evaluation_platform="lm_harness",
+        task_name="mmlu",
+        num_samples=5,
+        eval_kwargs={"num_fewshot": 5},
+    )
+    config = EvaluationConfig(tasks=[task])
+    config.model.model_name = "foo"
+    config_path = tmp_path / "eval.yaml"
+    config.to_yaml(config_path)
+
+    with pytest.raises(omegaconf.errors.ValidationError):
+        EvaluationConfig.from_yaml_and_arg_list(
+            config_path,
+            [
+                "tasks[2].num_samples=1",  # index doesn't exist
+            ],
+        )
+
+
+def test_config_from_yaml_and_arg_list_failure_empty_list(tmp_path):
+    config = EvaluationConfig(tasks=[])
+    config.model.model_name = "foo"
+    config_path = tmp_path / "eval.yaml"
+    config.to_yaml(config_path)
+
+    with pytest.raises(omegaconf.errors.ValidationError):
+        EvaluationConfig.from_yaml_and_arg_list(
+            config_path,
+            [
+                "tasks[0].num_samples=1",  # index doesn't exist
+            ],
+        )
