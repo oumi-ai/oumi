@@ -47,13 +47,7 @@ def fetch(
 ) -> None:
     """Fetch configuration files from GitHub repository."""
     # Remove oumi:// prefix if present
-    if config_path.startswith("oumi://"):
-        config_path, config_dir = resolve_oumi_prefix(config_path, output_dir)
-
-    else:
-        # raise error
-        logger.error("Invalid config path")
-        raise typer.Exit(1)
+    config_path, config_dir = resolve_oumi_prefix(config_path, output_dir)
 
     try:
         # Fetch from GitHub
