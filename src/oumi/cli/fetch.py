@@ -22,7 +22,7 @@ import yaml
 from oumi.cli.cli_utils import resolve_oumi_prefix
 from oumi.utils.logging import logger
 
-OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main/configs/recipes"
+OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main"
 OUMI_DIR = "~/.oumi/configs"
 
 
