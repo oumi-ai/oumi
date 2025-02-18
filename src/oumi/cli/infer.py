@@ -88,7 +88,7 @@ def infer(
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     if config:
-        config = cli_utils.resolve_and_fetch_config(config, output_dir)
+        config = str(cli_utils.resolve_and_fetch_config(config, output_dir))
 
     # Delayed imports
     from oumi import infer as oumi_infer

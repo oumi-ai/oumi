@@ -18,6 +18,7 @@ from typing import Annotated, Optional
 import requests
 import typer
 import yaml
+from requests.exceptions import RequestException
 
 from oumi.cli.cli_utils import resolve_oumi_prefix
 from oumi.utils.logging import logger
@@ -44,12 +45,23 @@ def fetch(
             ),
         ),
     ] = None,
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Overwrite existing config if present")
+    ] = False,
 ) -> None:
     """Fetch configuration files from GitHub repository."""
     # Remove oumi:// prefix if present
     config_path, config_dir = resolve_oumi_prefix(config_path, output_dir)
 
     try:
+        # Check destination first
+        local_path = (config_dir or Path(OUMI_DIR).expanduser()) / config_path
+        if local_path.exists() and not force:
+            msg = f"Config already exists at {local_path}. Use --force to overwrite"
+            logger.error(msg)
+            typer.echo(msg, err=True)
+            raise typer.Exit(code=1)
+
         # Fetch from GitHub
         github_url = f"{OUMI_GITHUB_RAW}/{config_path.lstrip('/')}"
         response = requests.get(github_url)
@@ -60,15 +72,15 @@ def fetch(
         yaml.safe_load(config_content)
 
         # Save to destination
-        local_path = (config_dir or Path(OUMI_DIR).expanduser()) / config_path
+        if local_path.exists():
+            logger.warning(f"Overwriting existing config at {local_path}")
         local_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(local_path, "w") as f:
             f.write(config_content)
-
         logger.info(f"Successfully downloaded config to {local_path}")
 
-    except requests.RequestException as e:
+    except RequestException as e:
         logger.error(f"Failed to download config from GitHub: {e}")
         raise typer.Exit(1)
     except yaml.YAMLError:
