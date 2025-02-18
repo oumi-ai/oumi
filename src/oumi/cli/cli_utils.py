@@ -154,7 +154,7 @@ def resolve_oumi_prefix(
     """
     oumi_prefix = "oumi://"
     if config_path.lower().startswith(oumi_prefix):
-        config_path = config_path[len(oumi_prefix):]
+        config_path = config_path[len(oumi_prefix) :]
 
     config_dir = output_dir or os.environ.get("OUMI_DIR") or "~/.oumi/configs"
     config_dir = Path(config_dir).expanduser()
