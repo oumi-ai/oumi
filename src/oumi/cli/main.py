@@ -21,6 +21,7 @@ from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
+from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
@@ -108,6 +109,11 @@ def get_app() -> typer.Typer:
             "with reasonable default values for distributed training."
         ),
     )
+
+    app.command(
+        help="Fetch configuration files from the oumi GitHub repository.",
+    )(fetch)
+
     return app
 
 

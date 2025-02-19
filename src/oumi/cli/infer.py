@@ -13,21 +13,34 @@
 # limitations under the License.
 
 import os
-from typing import Annotated, Optional
+from pathlib import Path
+from typing import Annotated, Final, Optional
 
 import typer
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
+_DEFAULT_CLI_PDF_DPI: Final[int] = 200
+
 
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
+        ),
+    ],
+    output_dir: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output-dir",
+            help=(
+                "Directory to save configs "
+                "(defaults to OUMI_DIR env var or ~/.oumi/fetch)"
+            ),
         ),
     ] = None,
     interactive: Annotated[
@@ -65,12 +78,16 @@ def infer(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
+        output_dir: Directory to save configs
+        (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(cli_utils.resolve_and_fetch_config(config, output_dir))
 
     # Delayed imports
     from oumi import infer as oumi_infer
@@ -98,14 +115,14 @@ def infer(
         if image_lower.startswith("http://") or image_lower.startswith("https://"):
             if image_lower.endswith(".pdf"):
                 input_image_png_bytes = create_png_bytes_from_image_list(
-                    load_pdf_pages_from_url(image)
+                    load_pdf_pages_from_url(image, dpi=_DEFAULT_CLI_PDF_DPI)
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_url(image)]
         else:
             if image_lower.endswith(".pdf"):
                 input_image_png_bytes = create_png_bytes_from_image_list(
-                    load_pdf_pages_from_path(image)
+                    load_pdf_pages_from_path(image, dpi=_DEFAULT_CLI_PDF_DPI)
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_path(image)]

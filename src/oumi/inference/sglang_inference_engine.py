@@ -31,11 +31,16 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+)
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.types.conversation import Conversation, Message, Role, Type
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
-from oumi.utils.conversation_utils import base64encode_content_item_image_bytes
-from oumi.utils.logging import logger
+from oumi.utils.conversation_utils import (
+    base64encode_content_item_image_bytes,
+    load_image_bytes_to_content_item,
+)
 
 
 class _SamplingParams(NamedTuple):
@@ -95,12 +100,23 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: BaseProcessor | None = None
+        self._supports_multiple_images: bool = False
+
         if is_image_text_llm(self._model_params):
             # Only enable Processor for vision language models for now.
             self._processor = build_processor(
                 self._model_params.model_name,
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
+            )
+            internal_model_config = find_internal_model_config_using_model_name(
+                self._model_params.model_name,
+                trust_remote_code=self._model_params.trust_remote_code,
+            )
+            self._supports_multiple_images = (
+                (internal_model_config is not None)
+                and (internal_model_config.visual_config is not None)
+                and internal_model_config.visual_config.supports_multiple_images
             )
 
         # TODO Launch a local SGLLang server if requested.
@@ -170,44 +186,54 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             add_generation_prompt=True,
         )
 
-    def _create_image_data_as_str(self, conversation: Conversation) -> str | None:
+    def _create_image_data_as_str_list(self, conversation: Conversation) -> list[str]:
         image_items = [
             item for m in conversation.messages for item in m.image_content_items
         ]
         num_images = len(image_items)
         if num_images <= 0:
-            return None
-        elif num_images > 1:
-            # FIXME OPE-355 Support multiple images
-            logger.warning(
-                conversation.append_id_to_string(
-                    f"A conversation contains multiple images ({num_images}). "
-                    "Only 1 image is currently supported. Using the last image."
-                )
-            )
+            return []
 
-        image_item = image_items[-1]
-        if image_item.type == Type.IMAGE_BINARY:
-            if not image_item.binary:
-                raise ValueError(
-                    conversation.append_id_to_string(
-                        f"No image bytes in message: {image_item.type}"
-                    )
-                )
-            return base64encode_content_item_image_bytes(image_item)
+        max_images = num_images if self._supports_multiple_images else 1
 
-        assert image_item.type in (Type.IMAGE_PATH, Type.IMAGE_URL)
-        image_path_or_url = image_item.content
-        if not image_path_or_url:
-            friendly_type_name = (
-                "image path" if image_item.type == Type.IMAGE_PATH else "image URL"
-            )
+        if num_images > max_images:
+            # If a conversation contains too many images, raise an error.
+            # We can't silently discard extra images at this point
+            # as many models verify that the actual number of images matches
+            # the number of image tokens in text prompt.
             raise ValueError(
                 conversation.append_id_to_string(
-                    f"Empty {friendly_type_name} in message: {image_item.type}"
+                    f"A conversation contains too many images ({num_images}). "
+                    f"Max {max_images} image is allowed."
                 )
             )
-        return image_path_or_url
+
+        result: list[str] = []
+        for idx, image_item in enumerate(image_items):
+            if image_item.type == Type.IMAGE_URL:
+                # Preserve URL-s: leave them to SGLang server to download
+                # to keep message payload size under control.
+                # TODO Consider making this behaviour configurable.
+                image_url = image_item.content
+                if not image_url:
+                    raise ValueError(
+                        conversation.append_id_to_string(
+                            f"Empty image URL in message: {image_item.type} "
+                            f"in image item {idx + 1} of {num_images}!"
+                        )
+                    )
+                result.append(image_url)
+            else:
+                image_item = load_image_bytes_to_content_item(image_item)
+                if image_item.binary is None or len(image_item.binary) == 0:
+                    raise ValueError(
+                        conversation.append_id_to_string(
+                            f"No image bytes in image item {idx + 1} of {num_images}!"
+                        )
+                    )
+                result.append(base64encode_content_item_image_bytes(image_item))
+
+        return result
 
     @override
     def _convert_conversation_to_api_input(
@@ -225,8 +251,8 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             Dict[str, Any]: A dictionary containing the formatted input for the
             SGLang server native API, including the model, messages, generation params.
         """
-        # Chat templates loaded by SGLang server are generally different from oumi's
-        # chat template, hence, let's apply the template here ourselves.
+        # Chat templates loaded by SGLang server are generally different from Oumi's
+        # chat templates, hence, let's apply Oumi chat template here ourselves.
         prompt = self._apply_chat_template_impl(conversation)
 
         sampling_params_dict = self._create_sampling_params_as_dict(generation_params)
@@ -234,9 +260,9 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
             "text": prompt,
             "sampling_params": sampling_params_dict,
         }
-        image_data = self._create_image_data_as_str(conversation)
-        if image_data:
-            body["image_data"] = image_data
+        image_data: list[str] = self._create_image_data_as_str_list(conversation)
+        if len(image_data) > 0:
+            body["image_data"] = image_data if len(image_data) > 1 else image_data[0]
         return body
 
     @override

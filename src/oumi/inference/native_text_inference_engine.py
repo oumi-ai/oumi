@@ -206,7 +206,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     if image_item.binary is None or len(image_item.binary) == 0:
                         raise ValueError(
                             conversation.append_id_to_string(
-                                "No image bytes in an image item (`IMAGE_BINARY`)!"
+                                "No image bytes "
+                                f"in image item {idx + 1} of {num_images}!"
                             )
                         )
                     image = load_pil_image_from_bytes(image_item.binary)

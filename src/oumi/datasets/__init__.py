@@ -69,6 +69,7 @@ from oumi.datasets.sft.prompt_response import PromptResponseDataset
 from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.sft.tulu3_sft_mixture import Tulu3MixtureDataset
 from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
+from oumi.datasets.sft.wildchat import WildChatDataset
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
 from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
@@ -114,4 +115,5 @@ __all__ = [
     "WikipediaDataset",
     "WikiTextDataset",
     "YouTubeCommonsDataset",
+    "WildChatDataset",
 ]
