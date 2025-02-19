@@ -15,6 +15,7 @@
 import logging
 import os
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
@@ -137,3 +138,48 @@ LOG_LEVEL_TYPE = Annotated[
         callback=set_log_level,
     ),
 ]
+
+
+def resolve_oumi_prefix(
+    config_path: str, output_dir: Optional[Path] = None
+) -> tuple[str, Path]:
+    """Resolves oumi:// prefix and determines output directory.
+
+    Args:
+        config_path: Path that may contain oumi:// prefix
+        output_dir: Optional output directory override
+
+    Returns:
+        tuple[str, Path]: (cleaned path, output directory)
+    """
+    oumi_prefix = "oumi://"
+    if config_path.lower().startswith(oumi_prefix):
+        config_path = config_path[len(oumi_prefix) :]
+
+    config_dir = output_dir or os.environ.get("OUMI_DIR") or "~/.oumi/configs"
+    config_dir = Path(config_dir).expanduser()
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    return config_path, config_dir
+
+
+def resolve_and_fetch_config(
+    config_path: str, output_dir: Optional[Path] = None
+) -> Path:
+    """Resolve oumi:// prefix and fetch config if needed.
+
+    Args:
+        config_path: Original config path that may contain oumi:// prefix
+        output_dir: Optional override for output directory
+
+    Returns:
+        Path: Local path to the config file
+    """
+    if not config_path.lower().startswith("oumi://"):
+        return Path(config_path)
+
+    from oumi.cli.fetch import fetch
+
+    fetch(config_path, output_dir)
+
+    return Path(config_path)
