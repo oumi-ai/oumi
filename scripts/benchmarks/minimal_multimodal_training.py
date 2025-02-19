@@ -15,8 +15,6 @@ Working configs:
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name merve/vqav2-small
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name nlphuji/flickr30k
     --model-name Qwen/Qwen2.5-VL-3B-Instruct --dataset-name nlphuji/flickr30k
-    --model-name meta-llama/Llama-3.2-11B-Vision-Instruct
-                                                --dataset-name HuggingFaceM4/Docmatix
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 
