@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from pathlib import Path
 from typing import Annotated, Final, Optional
 
 import typer
@@ -26,10 +27,20 @@ _DEFAULT_CLI_PDF_DPI: Final[int] = 200
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
+        ),
+    ],
+    output_dir: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output-dir",
+            help=(
+                "Directory to save configs "
+                "(defaults to OUMI_DIR env var or ~/.oumi/fetch)"
+            ),
         ),
     ] = None,
     interactive: Annotated[
@@ -67,12 +78,16 @@ def infer(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
+        output_dir: Directory to save configs
+        (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(cli_utils.resolve_and_fetch_config(config, output_dir))
 
     # Delayed imports
     from oumi import infer as oumi_infer

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -11,6 +12,7 @@ from oumi.cli.cli_utils import (
     LogLevel,
     configure_common_env_vars,
     parse_extra_cli_args,
+    resolve_oumi_prefix,
 )
 
 
@@ -125,3 +127,27 @@ def test_configure_common_env_vars_fully_preconfigured():
         "ACCELERATE_LOG_LEVEL": "debug",
         "TOKENIZERS_PARALLELISM": "true",
     }
+
+
+def test_resolve_oumi_prefix():
+    # Test with oumi:// prefix
+    path, dir = resolve_oumi_prefix("oumi://configs/test.yaml")
+    assert path == "configs/test.yaml"
+    assert dir == Path("~/.oumi/fetch").expanduser()
+
+    # Test without prefix
+    path, dir = resolve_oumi_prefix("configs/test.yaml")
+    assert path == "configs/test.yaml"
+    assert dir == Path("~/.oumi/fetch").expanduser()
+
+    # Test with custom output dir
+    output_dir = Path("/tmp/custom")
+    path, dir = resolve_oumi_prefix("oumi://configs/test.yaml", output_dir)
+    assert path == "configs/test.yaml"
+    assert dir == output_dir
+
+    # Test with OUMI_DIR environment variable
+    with mock.patch.dict(os.environ, {"OUMI_DIR": "/tmp/env"}):
+        path, dir = resolve_oumi_prefix("configs/test.yaml")
+        assert path == "configs/test.yaml"
+        assert dir == Path("/tmp/env")
