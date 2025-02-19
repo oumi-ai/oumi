@@ -39,7 +39,7 @@ def infer(
             "--output-dir",
             help=(
                 "Directory to save configs "
-                "(defaults to OUMI_DIR env var or ~/.oumi/configs)"
+                "(defaults to OUMI_DIR env var or ~/.oumi/fetch)"
             ),
         ),
     ] = None,
@@ -79,7 +79,7 @@ def infer(
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
         output_dir: Directory to save configs
-        (defaults to OUMI_DIR env var or ~/.oumi/configs).
+        (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
@@ -87,8 +87,7 @@ def infer(
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-    if config:
-        config = str(cli_utils.resolve_and_fetch_config(config, output_dir))
+    config = str(cli_utils.resolve_and_fetch_config(config, output_dir))
 
     # Delayed imports
     from oumi import infer as oumi_infer
