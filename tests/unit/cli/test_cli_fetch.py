@@ -106,51 +106,43 @@ def test_fetch_without_prefix_and_env_dir(app, mock_requests, monkeypatch):
 
 
 def test_fetch_with_oumi_prefix_and_default_dir(app, mock_requests, monkeypatch):
-    # Given
-    config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
-    expected_path = (
-        Path.home() / ".oumi/configs/configs/recipes/smollm/inference/135m_infer.yaml"
-    )
-    monkeypatch.delenv("OUMI_DIR", raising=False)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with patch("oumi.cli.cli_utils.OUMI_FETCH_DIR", temp_dir):
+            # Given
+            config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
+            expected_path = (
+                Path(temp_dir) / "configs/recipes/smollm/inference/135m_infer.yaml"
+            )
+            monkeypatch.delenv("OUMI_DIR", raising=False)
 
-    # When
-    result = runner.invoke(app, [config_path])
+            # When
+            result = runner.invoke(app, [config_path])
 
-    # Then
-    assert result.exit_code == 0
-    mock_requests.get.assert_called_once()
-    assert expected_path.exists()
-
-    # Cleanup
-    if expected_path.exists():
-        expected_path.unlink()
-    if expected_path.parent.exists():
-        expected_path.parent.rmdir()
+            # Then
+            assert result.exit_code == 0
+            mock_requests.get.assert_called_once()
+            assert expected_path.exists()
 
 
 def test_fetch_without_prefix_and_default_dir(app, mock_requests, monkeypatch):
-    # Given
-    config_path = (
-        "configs/recipes/smollm/inference/135m_infer.yaml"  # No oumi:// prefix
-    )
-    expected_path = (
-        Path.home() / ".oumi/configs/configs/recipes/smollm/inference/135m_infer.yaml"
-    )
-    monkeypatch.delenv("OUMI_DIR", raising=False)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with patch("oumi.cli.cli_utils.OUMI_FETCH_DIR", temp_dir):
+            # Given
+            config_path = (
+                "configs/recipes/smollm/inference/135m_infer.yaml"  # No oumi:// prefix
+            )
+            expected_path = (
+                Path(temp_dir) / "configs/recipes/smollm/inference/135m_infer.yaml"
+            )
+            monkeypatch.delenv("OUMI_DIR", raising=False)
 
-    # When
-    result = runner.invoke(app, [config_path])
+            # When
+            result = runner.invoke(app, [config_path])
 
-    # Then
-    assert result.exit_code == 0
-    mock_requests.get.assert_called_once()
-    assert expected_path.exists()
-
-    # Cleanup
-    if expected_path.exists():
-        expected_path.unlink()
-    if expected_path.parent.exists():
-        expected_path.parent.rmdir()
+            # Then
+            assert result.exit_code == 0
+            mock_requests.get.assert_called_once()
+            assert expected_path.exists()
 
 
 def test_fetch_with_existing_file_no_force(app, mock_requests):

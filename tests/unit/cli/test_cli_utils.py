@@ -133,12 +133,12 @@ def test_resolve_oumi_prefix():
     # Test with oumi:// prefix
     path, dir = resolve_oumi_prefix("oumi://configs/test.yaml")
     assert path == "configs/test.yaml"
-    assert dir == Path("~/.oumi/configs").expanduser()
+    assert dir == Path("~/.oumi/fetch").expanduser()
 
     # Test without prefix
     path, dir = resolve_oumi_prefix("configs/test.yaml")
     assert path == "configs/test.yaml"
-    assert dir == Path("~/.oumi/configs").expanduser()
+    assert dir == Path("~/.oumi/fetch").expanduser()
 
     # Test with custom output dir
     output_dir = Path("/tmp/custom")

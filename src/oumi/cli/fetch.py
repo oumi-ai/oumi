@@ -20,11 +20,10 @@ import typer
 import yaml
 from requests.exceptions import RequestException
 
-from oumi.cli.cli_utils import resolve_oumi_prefix
+from oumi.cli.cli_utils import OUMI_FETCH_DIR, resolve_oumi_prefix
 from oumi.utils.logging import logger
 
 OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main"
-OUMI_DIR = "~/.oumi/configs"
 
 
 def fetch(
@@ -41,7 +40,7 @@ def fetch(
             "-o",
             help=(
                 "Directory to save configs "
-                "(defaults to OUMI_DIR env var or ~/.oumi/configs)"
+                "(defaults to OUMI_DIR env var or ~/.oumi/fetch)"
             ),
         ),
     ] = None,
@@ -55,7 +54,7 @@ def fetch(
 
     try:
         # Check destination first
-        local_path = (config_dir or Path(OUMI_DIR).expanduser()) / config_path
+        local_path = (config_dir or Path(OUMI_FETCH_DIR).expanduser()) / config_path
         if local_path.exists() and not force:
             msg = f"Config already exists at {local_path}. Use --force to overwrite"
             logger.error(msg)

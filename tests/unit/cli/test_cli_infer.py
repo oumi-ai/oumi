@@ -69,6 +69,16 @@ def test_infer_runs(app, mock_infer, mock_infer_interactive):
         )
 
 
+def test_infer_fails_no_args(app, mock_infer, mock_infer_interactive):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+        config: InferenceConfig = _create_inference_config()
+        config.to_yaml(yaml_path)
+        result = runner.invoke(app, [])
+        mock_infer_interactive.assert_not_called()
+        assert result.exit_code == 2
+
+
 def test_infer_with_overrides(app, mock_infer, mock_infer_interactive):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "infer.yaml")

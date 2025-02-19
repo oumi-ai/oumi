@@ -24,6 +24,7 @@ from oumi.utils.logging import logger
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
 CONFIG_FLAGS = ["--config", "-c"]
+OUMI_FETCH_DIR = "~/.oumi/fetch"
 
 
 def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
@@ -156,7 +157,7 @@ def resolve_oumi_prefix(
     if config_path.lower().startswith(oumi_prefix):
         config_path = config_path[len(oumi_prefix) :]
 
-    config_dir = output_dir or os.environ.get("OUMI_DIR") or "~/.oumi/configs"
+    config_dir = output_dir or os.environ.get("OUMI_DIR") or OUMI_FETCH_DIR
     config_dir = Path(config_dir).expanduser()
     config_dir.mkdir(parents=True, exist_ok=True)
 
