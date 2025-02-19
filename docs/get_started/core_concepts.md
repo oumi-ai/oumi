@@ -51,7 +51,6 @@ oumi <command> --help  # for command-specific help
 
 The available commands are:
 
-
 | Command      | Purpose                                                               |
 |--------------|-----------------------------------------------------------------------|
 `train`        | Train a model.
@@ -62,7 +61,17 @@ The available commands are:
 `env`          | Prints information about the current environment.
 `distributed`  | A wrapper for torchrun/accelerate with reasonable default values for distributed training.
 
-See {doc}`/cli/commands` for full CLI details.
+Any Oumi command which takes a config path as an argument (`train`, `evaluate`, `infer`, etc.) can override parameters from the command line. For example:
+
+```bash
+oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
+  --training.max_steps 20 \
+  --training.learning_rate 1e-4 \
+  --data.train.datasets[0].shuffle true \
+  --training.output_dir output/smollm-135m-sft
+```
+
+See {doc}`/cli/commands` for full CLI details, including more details about CLI overrides.
 
 ### Python API
 

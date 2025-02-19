@@ -1,4 +1,4 @@
-# Lora config for CALM 405B.
+# Lora config for CoALM 405B.
 
 model:
   model_name: "meta-llama/Llama-3.1-405B-Instruct"

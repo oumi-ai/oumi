@@ -145,6 +145,7 @@ class DatasetName(str, Enum):
     FLICKR = "nlphuji/flickr30k"
     COCO = "coco_captions"
     MNIST_SFT = "mnist_sft"
+    DOCMATIX = "HuggingFaceM4/Docmatix"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -156,6 +157,13 @@ def _get_default_dataset_split(dataset_name: DatasetName) -> str:
     return "train"
 
 
+def _get_default_dataset_subset(dataset_name: DatasetName) -> Optional[str]:
+    if dataset_name in (DatasetName.DOCMATIX,):
+        # The only non-giant subset in the dataset
+        return "zero-shot-exp"
+    return None
+
+
 def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
@@ -164,6 +172,7 @@ def test_multimodal_trainer(
     optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
+    subset: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,
@@ -184,6 +193,8 @@ def test_multimodal_trainer(
 
     if not split:
         split = _get_default_dataset_split(dataset_name)
+    if not subset:
+        subset = _get_default_dataset_subset(dataset_name)
 
     #
     # Init model, processor, and dataset
@@ -207,6 +218,7 @@ def test_multimodal_trainer(
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
         tokenizer=tokenizer,
+        subset=subset,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,
