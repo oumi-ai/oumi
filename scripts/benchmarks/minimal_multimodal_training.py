@@ -14,7 +14,7 @@ Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name merve/vqav2-small
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name nlphuji/flickr30k
-    --model-name Qwen/Qwen2.5-VL-3B-Instruct --dataset-name nlphuji/flickr30k
+    --model-name Qwen/Qwen2.5-VL-3B-Instruct --dataset-name merve/vqav2-small
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 
