@@ -25,6 +25,7 @@ from oumi.core.distributed import is_world_process_zero
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.trainers import BaseTrainer, HuggingFaceTrainer
 from oumi.core.trainers import Trainer as OumiTrainer
+from oumi.core.trainers.grpo_trainer import GRPOTrainer
 from oumi.utils.logging import logger
 
 
@@ -115,7 +116,7 @@ def build_trainer(
                         "and build_trainer()."
                     )
 
-            return OumiTrainer(*args, **kwargs)
+            return GRPOTrainer(*args, **kwargs)
 
         return _init_grpo_trainer
 
