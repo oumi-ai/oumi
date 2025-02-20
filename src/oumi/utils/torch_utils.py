@@ -194,7 +194,7 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
         model: The torch-implemented neural network.
 
     Returns:
-        A tuple of (total_parameters, trainable_parameters).
+        A tuple of (total_parameters, trainable_parameters, embedding_parameters).
     """
     trainable_params = 0
     all_params = 0
