@@ -241,7 +241,19 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
-    """Trains a model using the provided configuration."""
+    """Trains a model using the provided configuration.
+
+    Args:
+        config: The configuration to use for training.
+        kwargs: Additional keyword arguments to pass to the training function.
+
+    Supported Trainer Types:
+        - TRL_SFT: Supervised fine-tuning trainer from `trl` library.
+        - TRL_DPO: Direct Preference Optimization trainer from `trl` library.
+        - HF: Generic HuggingFace trainer from `transformers` library.
+        - OUMI: Custom generic trainer implementation.
+        - GRPO: Generalized Reinforcement Preference Optimization trainer.
+    """
     import oumi.train
 
     return oumi.train.train(config, *kwargs)

@@ -57,6 +57,13 @@ class TrainerType(Enum):
     designed to provide additional flexibility and features.
     """
 
+    GRPO = "grpo"
+    """Generalized Reinforcement Preference Optimization trainer.
+
+    This trainer implements the Generalized Reinforcement Preference Optimization
+    algorithm for fine-tuning language models based on human preferences.
+    """
+
 
 class SchedulerType(str, Enum):
     """Enum representing the supported learning rate schedulers.
