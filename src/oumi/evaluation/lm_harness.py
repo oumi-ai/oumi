@@ -43,6 +43,8 @@ from oumi.core.distributed import is_world_process_zero
 from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
+FEW_SHOT_SEED = 1234
+
 ########################################################################################
 # How to map LM Harness `model_args` to Oumi's `ModelParams` and `GenerationParams`?   #
 # Which LM Harness `model` types (hf, vllm, etc) support each parameter?               #
@@ -187,11 +189,11 @@ def _apply_to_all_tasks(
     fn_kwargs: Optional[dict[str, Any]] = None,
 ) -> None:
     """Apply the provided function `fn` to all tasks in the `task_dict`."""
+    fn_kwargs = fn_kwargs or {}
     for task_obj in task_dict.values():
         if isinstance(task_obj, dict):
             _apply_to_all_tasks(task_obj, fn, fn_kwargs)
         elif isinstance(task_obj, Task):
-            fn_kwargs = fn_kwargs or {}
             fn(task_obj, **fn_kwargs)
         else:
             raise ValueError(f"Expected `lm_eval.api.task.Task` but got: {task_obj}")
@@ -214,6 +216,7 @@ def _get_task_dict(
             f"while a single task ({task_params.task_name}) was requested: {task_dict}."
         )
     else:
+        assert len(task_dict) == 1
         task_name = next(iter(task_dict))
         if isinstance(task_name, ConfigurableGroup):
             task_name: str = task_name.group_name
@@ -227,22 +230,18 @@ def _get_task_dict(
     # the default parameters with the ones specified in `task_params`.
     def overwrite_task_params(task: Task) -> None:
         # Set the number of few shots to be added to the prompt.
-        getattr(task, "set_config")(key="num_fewshot", value=task_params.num_fewshot)
+        task.set_config(key="num_fewshot", value=task_params.num_fewshot)
 
         # Set the random seed (for reproducibility and consistency with LM Harness).
-        getattr(task, "set_fewshot_seed")(seed=1234)
+        task.set_fewshot_seed(seed=FEW_SHOT_SEED)
 
     _apply_to_all_tasks(task_dict, fn=overwrite_task_params)
 
     return task_dict
 
 
-def _set_random_seeds(
-    random_seed: Optional[int] = 0,
-    numpy_random_seed: Optional[int] = 1234,
-    torch_random_seed: Optional[int] = 1234,
-):
-    """Setting seeds consistently with LM Harness' simple_evaluate()."""
+def _set_random_seeds(random_seed, numpy_random_seed, torch_random_seed) -> None:
+    """Setting random seeds for reproducibility and consistency with LM Harness."""
     if random_seed is not None:
         random.seed(random_seed)
 
@@ -262,6 +261,9 @@ def evaluate(
     inference_engine_type: InferenceEngineType,
     inference_remote_params: Optional[RemoteParams] = None,
     run_name: Optional[str] = None,
+    random_seed: Optional[int] = 0,
+    numpy_random_seed: Optional[int] = 1234,
+    torch_random_seed: Optional[int] = 1234,
 ) -> dict[str, Any]:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
@@ -277,11 +279,22 @@ def evaluate(
         inference_engine_type: The inference engine to use (`VLLM`, `NATIVE`, `REMOTE`).
         inference_remote_params: The parameters for remote inference, if applicable.
         run_name: Unique identifier for wandb for the current training run.
+        random_seed: The random seed to use for reproducibility.
+        numpy_random_seed: The numpy random seed to use for reproducibility.
+        torch_random_seed: The torch random seed to use for reproducibility.
+
+    Note for random seeds (random_seed, numpy_random_seed, torch_random_seed):
+        These have been set to be consistent with LM Harness' simple_evaluate().
+        See: lm-evaluation-harness/blob/main/lm_eval/evaluator.py
 
     Returns:
         The evaluation results (dict of metric names and their corresponding values).
     """
-    _set_random_seeds()
+    _set_random_seeds(
+        random_seed=random_seed,
+        numpy_random_seed=numpy_random_seed,
+        torch_random_seed=torch_random_seed,
+    )
 
     if torch.cuda.is_available():
         # CUDA device may be overwritten if `accelerate launch`,
