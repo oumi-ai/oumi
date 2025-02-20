@@ -227,7 +227,7 @@ def test_multimodal_trainer(
         print(
             f"Using multi-image dataset {dataset_name} "
             f"with model {model_name} that doesn't support multiple images! "
-            "Training mail FAIL!"
+            "Training may FAIL!"
         )
 
     #
