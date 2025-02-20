@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy  # noqa: I001
+import copy
 import os
 import random
 import time
@@ -20,6 +20,7 @@ from datetime import datetime
 from pprint import pformat
 from typing import Any, Callable, Optional, Union
 
+import lm_eval.loggers.utils as lm_harness_log_utils
 import numpy as np
 import torch
 from lm_eval import evaluate as lm_harness_evaluate
@@ -27,11 +28,6 @@ from lm_eval.api.group import ConfigurableGroup
 from lm_eval.api.registry import get_model as lm_harness_get_model_class
 from lm_eval.api.task import Task
 from lm_eval.loggers import WandbLogger
-from lm_eval.loggers.utils import (
-    add_env_info as lm_harness_add_env_info,
-    add_tokenizer_info as lm_harness_add_tokenizer_info,
-    get_git_commit_hash as lm_harness_get_git_commit_hash,
-)
 from lm_eval.tasks import get_task_dict as lm_harness_get_task_dict
 
 from oumi.builders import build_processor, build_tokenizer
@@ -407,9 +403,9 @@ def evaluate(
         platform_task_config["config"]["task_dict"] = task_dict
 
         # Add other configuration settings.
-        platform_task_config["git_hash"] = lm_harness_get_git_commit_hash()
-        lm_harness_add_env_info(platform_task_config)
-        lm_harness_add_tokenizer_info(platform_task_config, lm)
+        platform_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
+        lm_harness_log_utils.add_env_info(platform_task_config)
+        lm_harness_log_utils.add_tokenizer_info(platform_task_config, lm)
 
         if output_dir:
             save_evaluation_output(
