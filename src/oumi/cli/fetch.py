@@ -15,12 +15,9 @@
 from pathlib import Path
 from typing import Annotated, Optional
 
-import requests
 import typer
-import yaml
-from requests.exceptions import RequestException
 
-from oumi.cli.cli_utils import OUMI_FETCH_DIR, resolve_oumi_prefix
+from oumi.cli.cli_utils import _OUMI_PREFIX, resolve_and_fetch_config
 from oumi.utils.logging import logger
 
 OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main"
@@ -49,39 +46,7 @@ def fetch(
     ] = False,
 ) -> None:
     """Fetch configuration files from GitHub repository."""
-    # Remove oumi:// prefix if present
-    config_path, config_dir = resolve_oumi_prefix(config_path, output_dir)
-
-    try:
-        # Check destination first
-        local_path = (config_dir or Path(OUMI_FETCH_DIR).expanduser()) / config_path
-        if local_path.exists() and not force:
-            msg = f"Config already exists at {local_path}. Use --force to overwrite"
-            logger.error(msg)
-            typer.echo(msg, err=True)
-            raise typer.Exit(code=1)
-
-        # Fetch from GitHub
-        github_url = f"{OUMI_GITHUB_RAW}/{config_path.lstrip('/')}"
-        response = requests.get(github_url)
-        response.raise_for_status()
-        config_content = response.text
-
-        # Validate YAML
-        yaml.safe_load(config_content)
-
-        # Save to destination
-        if local_path.exists():
-            logger.warning(f"Overwriting existing config at {local_path}")
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(local_path, "w") as f:
-            f.write(config_content)
-        logger.info(f"Successfully downloaded config to {local_path}")
-
-    except RequestException as e:
-        logger.error(f"Failed to download config from GitHub: {e}")
-        raise typer.Exit(1)
-    except yaml.YAMLError:
-        logger.error("Invalid YAML configuration")
-        raise typer.Exit(1)
+    if not config_path.lower().startswith(_OUMI_PREFIX):
+        logger.info(f"Prepending {_OUMI_PREFIX} to config path")
+        config_path = _OUMI_PREFIX + config_path
+    _ = resolve_and_fetch_config(config_path, output_dir, force)
