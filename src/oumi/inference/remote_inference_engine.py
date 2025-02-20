@@ -393,9 +393,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             output_path = inference_config.output_path
 
         if not remote_params.api_url:
-            remote_params.api_url = self.base_url
+            remote_params.api_url = self._remote_params.api_url or self.base_url
 
-        assert remote_params.api_url
+        # Validate API URL one final time.
+        if not remote_params.api_url:
+            raise ValueError("API URL is required for remote inference.")
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params
