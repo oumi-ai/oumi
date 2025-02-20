@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import collections
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional
 
 import torch
 
@@ -25,72 +25,6 @@ from oumi.utils.torch_utils import convert_to_list_of_tensors, pad_to_max_dim_an
 _PIXEL_VALUES_KEY = "pixel_values"
 
 
-def _pad_1d_and_stack(tensors_list: list[torch.Tensor]) -> torch.Tensor:
-    num_tensors = len(tensors_list)
-    if num_tensors <= 0:
-        raise ValueError("No tensors")
-    elif num_tensors == 1:
-        return torch.stack(tensors_list)
-    elif False:
-        return pad_to_max_dim_and_stack(tensors_list)
-
-    first_shape = tensors_list[0].shape
-    num_dims = len(first_shape)
-
-    variable_dim_idx: int = -1
-    variable_dim_max_size: int = 0
-
-    for tensor_idx in range(num_tensors - 1):
-        curr_shape = tensors_list[tensor_idx + 1].shape
-        if num_dims != len(curr_shape):
-            raise ValueError(
-                "Tensors have different number of dimensions: "
-                f"{num_dims} vs {len(curr_shape)}! "
-                f"Shapes: {first_shape}, {curr_shape}"
-            )
-
-        if curr_shape != first_shape:
-            for idx in range(num_dims):
-                if first_shape[idx] != curr_shape[idx]:
-                    if variable_dim_idx < 0:
-                        variable_dim_idx = idx
-                        variable_dim_max_size = max(curr_shape[idx], first_shape[idx])
-                    elif variable_dim_idx == idx:
-                        variable_dim_max_size = max(
-                            curr_shape[idx], variable_dim_max_size
-                        )
-                    else:
-                        raise ValueError(
-                            "Multiple variable dimensions detected: "
-                            f"{variable_dim_idx} and {idx}! "
-                            f"Shapes: {first_shape}, {curr_shape}"
-                        )
-
-    if variable_dim_idx >= 0:  # Found 1 variable dimension.
-        for tensor_idx in range(num_tensors):
-            curr_tensor = tensors_list[tensor_idx]
-            curr_shape = curr_tensor.shape
-            curr_dim_size = curr_shape[variable_dim_idx]
-            padding_len = variable_dim_max_size - curr_dim_size
-            if padding_len > 0:
-                padding_shape = list(curr_shape)
-                padding_shape[variable_dim_idx] = padding_len
-                zero_pad_tensor = torch.zeros(
-                    padding_shape, dtype=curr_tensor.dtype, device=curr_tensor.device
-                )
-                tensors_list[tensor_idx] = torch.cat(
-                    (curr_tensor, zero_pad_tensor), dim=variable_dim_idx
-                )
-                new_shape = tensors_list[tensor_idx].shape
-                logger.warning(
-                    f"Padded dimension {variable_dim_idx} from {curr_dim_size} "
-                    f"to {variable_dim_max_size} elements. "
-                    f"Shapes: from {curr_shape} to {new_shape}"
-                )
-
-    return torch.stack(tensors_list)
-
-
 class VisionLanguageCollatorWithPadding:
     def __init__(
         self,
@@ -99,6 +33,7 @@ class VisionLanguageCollatorWithPadding:
         max_length: Optional[int],
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
+        allow_multi_image_inputs: bool = True,
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -110,19 +45,15 @@ class VisionLanguageCollatorWithPadding:
             `max_length`. Only has effect if `max_length` is specified.
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
+        allow_multi_image_inputs: Whether to allow-multi-image inputs.
         """
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=truncation,
             label_ignore_index=label_ignore_index,
-            allow_multi_dim_padding=True,  # To support multi-image inputs.
+            max_variable_sized_dims=(2 if allow_multi_image_inputs else 1),
         )
-
-    T = TypeVar("T")
-
-    def _stack_tensors(self, tensors_list: list[T]) -> torch.Tensor:
-        return pad_to_max_dim_and_stack(tensors_list)
 
     def __call__(self, batch) -> dict[str, Any]:
         """Custom collator for multi-modal  vision-language training.
@@ -207,8 +138,5 @@ class VisionLanguageCollatorWithPadding:
         """
         if len(images) == 0:
             raise ValueError("No images found in the batch")
-
-        if isinstance(images[0], list):
-            return torch.tensor(images)
 
         return pad_to_max_dim_and_stack(images)

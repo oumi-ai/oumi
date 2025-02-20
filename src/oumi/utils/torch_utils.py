@@ -493,8 +493,9 @@ def _get_dims_min_max_size(tensors_list: list[torch.Tensor]) -> list[_DimMinMaxS
 def _pad_to_max_dim_and_stack_impl(
     tensors_list: list[torch.Tensor],
     *,
-    padding_value: float = 0,
-    pad_on_left_side: bool = False,
+    max_variable_sized_dims: int,
+    padding_value: float,
+    pad_on_left_side: bool,
 ) -> torch.Tensor:
     num_tensors = len(tensors_list)
     if num_tensors == 0:
@@ -503,6 +504,16 @@ def _pad_to_max_dim_and_stack_impl(
     num_variable_size_dims = sum(
         (1 if item.has_variable_sizes else 0) for item in dim_sizes
     )
+    if (
+        max_variable_sized_dims >= 0
+        and num_variable_size_dims > max_variable_sized_dims
+    ):
+        raise ValueError(
+            "Too many dimensions with variable size. "
+            f"Got: {num_variable_size_dims} variable size dimensions. "
+            f"Maximum allowed: {max_variable_sized_dims}."
+        )
+
     if num_variable_size_dims == 0:
         # No need to pad anything, just `stack()`.
         return torch.stack(tensors_list)
@@ -549,6 +560,7 @@ def _pad_to_max_dim_and_stack_impl(
 def pad_to_max_dim_and_stack(
     tensors_list: list[T],
     *,
+    max_variable_sized_dims: int = -1,
     padding_value: float = 0,
     padding_side: Optional[str] = None,
 ) -> torch.Tensor:
@@ -566,6 +578,8 @@ def pad_to_max_dim_and_stack(
 
     Args:
         tensors_list: list of tensors with potentially .
+        max_variable_sized_dims: Maximum number of variable-sized dimensions.
+            Negative values mean `Unlimited`.
         padding_value: value for padded elements. Default: 0.
         padding_side: side to apply padding to. Valid values:  'right', 'left'.
 
@@ -589,6 +603,7 @@ def pad_to_max_dim_and_stack(
     try:
         return _pad_to_max_dim_and_stack_impl(
             input_tensors,
+            max_variable_sized_dims=max_variable_sized_dims,
             padding_value=padding_value,
             pad_on_left_side=pad_on_left_side,
         )

@@ -49,7 +49,7 @@ class TextCollatorWithPadding:
         max_length: Optional[int],
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
-        allow_multi_dim_padding: bool = False,
+        max_variable_sized_dims: int = 1,
     ):
         """Custom collator for text LLM training.
 
@@ -61,9 +61,10 @@ class TextCollatorWithPadding:
             `max_length`. Only has effect if `max_length` is specified.
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
-        allow_multi_dim_padding: Allow feature padding in more than one dimension.
-            Thsi can be useful for VLMs e.g., for the `cross_attention_mask` feature
-            with multi-image inputs.
+        max_variable_sized_dims: Maximum number of variable-sized dimensions.
+            Normally, it's 1 (sequence length dimension), but can sometimes be higher
+            e.g., 2 for "cross_attention_mask" for VLM-s with multi-image inputs.
+            Negative value mean `Unlimited`.
         """
         self._max_length: Optional[int] = (
             int(max_length) if max_length is not None and max_length > 0 else None
@@ -89,7 +90,7 @@ class TextCollatorWithPadding:
 
         self._max_input_ids_length: int = 0
         self._max_previously_logged_input_ids_length: int = 0
-        self._allow_multi_dim_padding: bool = allow_multi_dim_padding
+        self._max_variable_sized_dims: int = max_variable_sized_dims
 
     def _collate_simple(
         self,
@@ -102,15 +103,16 @@ class TextCollatorWithPadding:
         for key, sequences_list in inputs_dict.items():
             try:
                 padding_value = padding_value_overrides.get(key, 0)
-                if self._allow_multi_dim_padding:
-                    collated_tensor = pad_to_max_dim_and_stack(
+                if self._max_variable_sized_dims == 1:
+                    collated_tensor = pad_sequences(
                         sequences_list,
                         padding_side=self._padding_side,
                         padding_value=padding_value,
                     )
                 else:
-                    collated_tensor = pad_sequences(
+                    collated_tensor = pad_to_max_dim_and_stack(
                         sequences_list,
+                        max_variable_sized_dims=self._max_variable_sized_dims,
                         padding_side=self._padding_side,
                         padding_value=padding_value,
                     )
@@ -118,7 +120,7 @@ class TextCollatorWithPadding:
             except Exception:
                 logger.error(
                     f"Failed to collate '{key}'!  "
-                    f"Multi-dimensional padding: {self._allow_multi_dim_padding}, "
+                    f"Max variable size dims: {self._max_variable_sized_dims}, "
                     f"Batch maximum length: {batch_max_length}, "
                     f"Maximum allowed length: {self._max_length}, "
                     f"Truncation: {self._truncation}."
