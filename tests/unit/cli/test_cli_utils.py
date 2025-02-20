@@ -5,6 +5,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 import typer
+import yaml
+from requests.exceptions import RequestException
 from typer.testing import CliRunner
 
 from oumi.cli.cli_utils import (
@@ -271,7 +273,6 @@ def test_resolve_and_fetch_config_with_existing_file_default_force(mock_requests
 
         # When
         result = resolve_and_fetch_config(config_path, output_dir)
-        print(result)
         # Then
         assert result == expected_path
         assert mock_requests.get.call_count == 1
@@ -308,7 +309,6 @@ def test_resolve_and_fetch_config_force_no_conflict(mock_requests):
 
         # When
         result = resolve_and_fetch_config(config_path, output_dir, force=True)
-        print(result)
         # Then
         assert result == expected_path
         assert mock_requests.get.call_count == 1
@@ -331,8 +331,30 @@ def test_resolve_and_fetch_config_conflict_no_force(mock_requests):
 
             # When
             result = resolve_and_fetch_config(config_path, output_dir, force=False)
-            print(result)
             # Then
             assert result == expected_path
             assert mock_requests.get.call_count == 1
             assert expected_path.read_text() == "key: value"
+
+
+def test_resolve_and_fetch_config_http_error(mock_requests):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Given
+        output_dir = Path(temp_dir)
+        config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
+        mock_requests.get.side_effect = RequestException("HTTP Error")
+
+        # When
+        with pytest.raises(RequestException):
+            _ = resolve_and_fetch_config(config_path, output_dir, force=False)
+
+
+def test_resolve_and_fetch_config_yaml_error(mock_requests):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Given
+        output_dir = Path(temp_dir)
+        config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
+        mock_requests.get.return_value.text = "foo: bar\nbye"
+        # When
+        with pytest.raises(yaml.YAMLError):
+            _ = resolve_and_fetch_config(config_path, output_dir, force=False)
