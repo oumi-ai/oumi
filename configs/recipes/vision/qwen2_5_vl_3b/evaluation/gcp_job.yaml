@@ -1,0 +1,78 @@
+# Job config to eval Qwen2.5 VL 3B Instruct on GCP.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - !Important! this model requires the latest (dev) version of transformers.
+#      Please read more at qwen2_5_vl_3b/README.md
+#
+# Usage:
+#   oumi launch up -c configs/recipes/vision/qwen2_5_vl_3b/evaluation/gcp_job.yaml --cluster qwen2_5-vl-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: qwen2_5-vl-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100" # A single GPU suffice.
+  use_spot: false
+  disk_size: 1000 # Disk size in GBs.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials.
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
+  MODEL_CHECKPOINT_DIR: Qwen/Qwen2.5-VL-3B-Instruct
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: qwen2.5.vl.eval
+
+setup: |
+  set -e
+  # pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install -e '.[gpu]' hf_transfer # TO-BE-REMOVED
+
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during eval.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2.5-VL-3B-Instruct
+
+  # Note: Qwen2.5 is integrated on the latest transformers dev version (as of 02/05/25):
+  # Specifically, Oumi has tested this model with transformers 4.49.0.dev0
+  # Updating to this version below can break other Oumi utilities.
+  # Please see more details on qwen2_5_vl_3b/README.md
+  set +e
+  pip install git+https://github.com/huggingface/transformers.git
+
+  set -e
+  # Install flash-attention:
+  pip install -U flash-attn --no-build-isolation
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+
+  set -x
+
+  oumi evaluate \
+    -c configs/recipes/vision/qwen2_5_vl_3b/evaluation/eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
