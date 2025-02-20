@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import collections
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
 
 import numpy as np
 import torch
@@ -118,6 +118,11 @@ class VisionLanguageCollatorWithPadding:
             truncation=truncation,
             label_ignore_index=label_ignore_index,
         )
+
+    T = TypeVar("T")
+
+    def _stack_tensors(self, tensors_list: list[T]) -> torch.Tensor:
+        return pad_to_max_dim_and_stack(tensors_list)
 
     def __call__(self, batch) -> dict[str, Any]:
         """Custom collator for multi-modal  vision-language training.

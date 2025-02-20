@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import collections
+import copy
 from typing import Any, NamedTuple, Optional
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -49,6 +50,7 @@ class TextCollatorWithPadding:
         max_length: Optional[int],
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
+        features_with_multi_dim_padding: Optional[set[str]] = None,
     ):
         """Custom collator for text LLM training.
 
@@ -60,6 +62,8 @@ class TextCollatorWithPadding:
             `max_length`. Only has effect if `max_length` is specified.
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
+        features_with_multi_dim_padding: Features that may require padding in more
+            than one dimension e.g., `cross_attention_mask` for multi-image inputs.
         """
         self._max_length: Optional[int] = (
             int(max_length) if max_length is not None and max_length > 0 else None
@@ -85,6 +89,11 @@ class TextCollatorWithPadding:
 
         self._max_input_ids_length: int = 0
         self._max_previously_logged_input_ids_length: int = 0
+        self._features_with_multi_dim_padding: set[str] = (
+            copy.deepcopy(features_with_multi_dim_padding)
+            if features_with_multi_dim_padding is not None
+            else set()
+        )
 
     def _collate_simple(
         self,
@@ -95,25 +104,28 @@ class TextCollatorWithPadding:
     ) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for key, sequences_list in inputs_dict.items():
+            multi_dim_padding = key in self._features_with_multi_dim_padding
             try:
                 padding_value = padding_value_overrides.get(key, 0)
-                if key == "cross_attention_mask":
-                    result[key] = pad_to_max_dim_and_stack(
+                if multi_dim_padding:
+                    collated_tensor = pad_to_max_dim_and_stack(
                         sequences_list,
                         padding_side=self._padding_side,
                         padding_value=padding_value,
                     )
                 else:
-                    result[key] = pad_sequences(
+                    collated_tensor = pad_sequences(
                         sequences_list,
                         padding_side=self._padding_side,
                         padding_value=padding_value,
                     )
+                result[key] = collated_tensor
             except Exception:
                 logger.error(
-                    f"Failed to collate '{key}' using pad_sequences! "
-                    f"Batch maximum length: {batch_max_length}. "
-                    f"Maximum allowed length: {self._max_length}. "
+                    f"Failed to collate '{key}'!  "
+                    f"Multi-dimensional padding: {multi_dim_padding}, "
+                    f"Batch maximum length: {batch_max_length}, "
+                    f"Maximum allowed length: {self._max_length}, "
                     f"Truncation: {self._truncation}."
                 )
                 raise

@@ -65,6 +65,12 @@ class InternalFeatureSpec(NamedTuple):
     )
     """Action to apply to the first feature dimension."""
 
+    image_dependent: bool = False
+    """Whether the feature depends on image data.
+
+    For example, `pixel_values`, `cross_attention_mask`.
+    """
+
 
 @dataclass
 class InternalVisualModelConfig(BaseConfig):
