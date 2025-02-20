@@ -14,6 +14,7 @@ Working configs:
     --model-name Salesforce/blip2-opt-2.7b --dataset-name nlphuji/flickr30k
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name merve/vqav2-small
     --model-name Qwen/Qwen2-VL-2B-Instruct --dataset-name nlphuji/flickr30k
+    --model-name Qwen/Qwen2.5-VL-3B-Instruct --dataset-name merve/vqav2-small
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name merve/vqav2-small --test-fsdp
     --model-name llava-hf/llava-1.5-7b-hf --dataset-name nlphuji/flickr30k --test-fsdp
 
@@ -60,6 +61,7 @@ class ModelName(str, Enum):
     BLIP2 = "Salesforce/blip2-opt-2.7b"
     LLAMA_11B_VISION_INSTRUCT = "meta-llama/Llama-3.2-11B-Vision-Instruct"
     QWEN2_VL = "Qwen/Qwen2-VL-2B-Instruct"
+    QWEN2_5_3B_VL = "Qwen/Qwen2.5-VL-3B-Instruct"
     CHAMELEON = "facebook/chameleon-7b"
     PALIGEMMA = "google/paligemma-3b-mix-224"
     PHI3_VISION = "microsoft/Phi-3-vision-128k-instruct"  # requires flash-attn
@@ -84,6 +86,10 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["vision_tower"],
     ),
     ModelName.QWEN2_VL: ModelInfo(
+        chat_template="qwen2-vl-instruct",
+        freeze_layers=["visual"],
+    ),
+    ModelName.QWEN2_5_3B_VL: ModelInfo(
         chat_template="qwen2-vl-instruct",
         freeze_layers=["visual"],
     ),
@@ -139,6 +145,7 @@ class DatasetName(str, Enum):
     FLICKR = "nlphuji/flickr30k"
     COCO = "coco_captions"
     MNIST_SFT = "mnist_sft"
+    DOCMATIX = "HuggingFaceM4/Docmatix"
 
 
 def _get_default_dataset_split(dataset_name: DatasetName) -> str:
@@ -150,6 +157,13 @@ def _get_default_dataset_split(dataset_name: DatasetName) -> str:
     return "train"
 
 
+def _get_default_dataset_subset(dataset_name: DatasetName) -> Optional[str]:
+    if dataset_name in (DatasetName.DOCMATIX,):
+        # The only non-giant subset in the dataset
+        return "zero-shot-exp"
+    return None
+
+
 def test_multimodal_trainer(
     model_name: ModelName = ModelName.BLIP2,
     dataset_name: DatasetName = DatasetName.COCO,
@@ -158,6 +172,7 @@ def test_multimodal_trainer(
     optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
+    subset: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,
@@ -169,7 +184,7 @@ def test_multimodal_trainer(
     else:
         print("Not initializing distributed process group")
 
-    if model_name == ModelName.QWEN2_VL and batch_size != 1:
+    if model_name in (ModelName.QWEN2_VL, ModelName.QWEN2_5_3B_VL) and batch_size != 1:
         print(
             f"Using batch size 1 for {model_name.value} (original: bs={batch_size}). "
             "The model only supports bs=1 because of variable-size image encodings."
@@ -178,6 +193,8 @@ def test_multimodal_trainer(
 
     if not split:
         split = _get_default_dataset_split(dataset_name)
+    if not subset:
+        subset = _get_default_dataset_subset(dataset_name)
 
     #
     # Init model, processor, and dataset
@@ -201,6 +218,7 @@ def test_multimodal_trainer(
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
         tokenizer=tokenizer,
+        subset=subset,
         split=split,
         dataset_kwargs=dict(processor=processor, limit=100),
         trust_remote_code=True,
@@ -249,7 +267,7 @@ def test_multimodal_trainer(
 
     trainer = Trainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         args=training_params,
         train_dataset=dataset,
         fsdp_params=fsdp_params,

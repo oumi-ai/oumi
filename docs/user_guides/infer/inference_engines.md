@@ -119,7 +119,7 @@ pip install vllm
 ```python
 engine = VLLMInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
     )
 )
 ```
@@ -221,7 +221,7 @@ model_params = ModelParams(
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --model meta-llama/Llama-3.1-8B-Instruct \
     --port 6864
 ```
 
@@ -229,7 +229,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Meta-Llama-3.1-70B-Instruct \
+    --model meta-llama/Llama-3.3-70B-Instruct \
     --port 6864 \
     --tensor-parallel-size 4
 
@@ -243,7 +243,7 @@ The client can be configured with different reliability and performance options 
 # Basic client with timeout and retry settings
 engine = RemoteVLLMInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:6864",
@@ -261,7 +261,7 @@ engine = RemoteVLLMInferenceEngine(
 
 ```bash
 python -m sglang.launch_server \
-    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --model-path meta-llama/Llama-3.1-8B-Instruct \
     --port 6864 \
     --disable-cuda-graph \
     --mem-fraction-static=0.99
@@ -276,7 +276,7 @@ The client can be configured with different reliability and performance options 
 ```{testcode}
 engine = SGLangInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:6864"
@@ -508,6 +508,30 @@ The DeepSeek models available via this API as of late Jan'2025 are listed below.
 | DeepSeek-V3                           | deepseek-chat             |
 | DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
 
+### SambaNova
+
+[SambaNova](https://www.sambanova.ai/) offers an extreme-speed inference platform on cloud infrastructure with wide variety of models.
+
+This service is particularly useful when you need to run open source models in a managed environment.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import SambanovaInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = SambanovaInferenceEngine(
+    model_params=ModelParams(
+        model_name="Meta-Llama-3.1-405B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_key_env_varname="SAMBANOVA_API_KEY",
+    )
+)
+```
+
+** Reference **
+- [SambaNova's Documentation](https://docs.sambanova.ai/cloud/docs/get-started/overview)
 
 ### Parasail.io
 

@@ -1,9 +1,21 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to LoRA tune Llama 3.1 8B Instruct on 1 Polaris node.
+#
+# Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to LoRA tune Llama 3.1 8B Instruct on 1 Polaris node.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/polaris_job.yaml --cluster preemptable.$ALCF_USER --user $ALCF_USER
 name: llama8b-lora
 # NOTE: Replace with your username.
 user: your_username
@@ -12,12 +24,9 @@ num_nodes: 1  # Set it to N for multi-node training.
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$USER/oumi_launcher/llama8b_lora.
+# Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
 
-# `setup` will always be executed before `run`. It's strongly suggested to set any PBS
-# directives in the `setup` section. Additional commands can also be run here after the
-# PBS directives.
 setup: |
   #PBS -l place=scatter
   #PBS -l walltime=02:00:00

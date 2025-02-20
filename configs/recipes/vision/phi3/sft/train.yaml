@@ -1,5 +1,17 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# Llava 7B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/phi3/sft/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "microsoft/Phi-3-vision-128k-instruct"
@@ -25,6 +37,8 @@ data:
         dataset_kwargs:
           processor_name: "microsoft/Phi-3-vision-128k-instruct"
           return_tensors: True
+
+      # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
       #   split: "train"
       #   shuffle: True

@@ -58,32 +58,32 @@ Configure the model architecture and loading using the {py:obj}`~oumi.core.confi
 ```yaml
 model:
   # Required
-  model_name: "meta-llama/Llama-2-7b-hf"    # Model ID or path (REQUIRED)
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"    # Model ID or path (REQUIRED)
 
   # Model loading
-  adapter_model: null                        # Path to adapter model (auto-detected if model_name is adapter)
-  tokenizer_name: null                       # Custom tokenizer name/path (defaults to model_name)
-  tokenizer_pad_token: null                  # Override pad token
-  tokenizer_kwargs: {}                       # Additional tokenizer args
-  model_max_length: null                     # Max sequence length (positive int or null)
-  load_pretrained_weights: true              # Load pretrained weights
-  trust_remote_code: false                   # Allow remote code execution (use with trusted models only)
+  adapter_model: null                                # Path to adapter model (auto-detected if model_name is adapter)
+  tokenizer_name: null                               # Custom tokenizer name/path (defaults to model_name)
+  tokenizer_pad_token: null                          # Override pad token
+  tokenizer_kwargs: {}                               # Additional tokenizer args
+  model_max_length: null                             # Max sequence length (positive int or null)
+  load_pretrained_weights: true                      # Load pretrained weights
+  trust_remote_code: false                           # Allow remote code execution (use with trusted models only)
 
   # Model precision and hardware
-  torch_dtype_str: "float32"                 # Model precision (float32/float16/bfloat16/float64)
-  device_map: "auto"                         # Device placement strategy (auto/null)
-  compile: false                             # JIT compile model (use TrainingParams.compile for training)
+  torch_dtype_str: "float32"                         # Model precision (float32/float16/bfloat16/float64)
+  device_map: "auto"                                 # Device placement strategy (auto/null)
+  compile: false                                     # JIT compile model (use TrainingParams.compile for training)
 
   # Attention and optimization
-  attn_implementation: null                  # Attention impl (null/sdpa/flash_attention_2/eager)
-  enable_liger_kernel: false                 # Enable Liger CUDA kernel for potential speedup
+  attn_implementation: null                          # Attention impl (null/sdpa/flash_attention_2/eager)
+  enable_liger_kernel: false                         # Enable Liger CUDA kernel for potential speedup
 
   # Model behavior
-  chat_template: null                        # Chat formatting template
-  freeze_layers: []                          # Layer names to freeze during training
+  chat_template: null                                # Chat formatting template
+  freeze_layers: []                                  # Layer names to freeze during training
 
   # Additional settings
-  model_kwargs: {}                           # Additional model constructor args
+  model_kwargs: {}                                   # Additional model constructor args
 ```
 
 ### Data Configuration
@@ -145,6 +145,7 @@ training:
   output_dir: "output"                    # Directory for saving outputs
   run_name: null                          # Unique identifier for the run
   seed: 42                                # Random seed for reproducibility
+  use_deterministic: false                # Use deterministic CuDNN algorithms
 
   # Training duration
   num_train_epochs: 3                     # Number of training epochs
@@ -157,7 +158,8 @@ training:
 
   # Optimization
   learning_rate: 5e-5                     # Initial learning rate
-  optimizer: "adamw_torch"                # Optimizer type
+  optimizer: "adamw_torch"                # Optimizer type ("adam", "adamw", "adamw_torch", "adamw_torch_fused", "sgd", "adafactor")
+                                          # "adamw_8bit", "paged_adamw_8bit", "paged_adamw", "paged_adamw_32bit" (requires bitsandbytes)
   weight_decay: 0.0                       # Weight decay for regularization
   max_grad_norm: 1.0                      # Max gradient norm for clipping
 

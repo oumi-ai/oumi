@@ -118,12 +118,14 @@ def new_decoder_forward(
     **kwargs,
 ) -> tuple[torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]]:
     """New decoder forward."""
+    # Was originally LlamaFlashAttention2, but this was deleted in transformers 4.48.0.
     assert isinstance(
         self.self_attn,
-        transformers_models.llama.modeling_llama.LlamaFlashAttention2,
+        transformers_models.llama.modeling_llama.LlamaAttention,
+        # Ditto but with MistralFlashAttention2.
     ) or isinstance(
         self.self_attn,
-        transformers_models.mistral.modeling_mistral.MistralFlashAttention2,
+        transformers_models.mistral.modeling_mistral.MistralAttention,
     ), (
         "Please toggle on the Flash Attention 2 implementation "
         "when using zigzag ring attention monkey patch."

@@ -81,13 +81,52 @@ def test_filter_messages_no_role(test_conversation):
 
 def test_filter_messages_with_role(test_conversation):
     conversation, role_user, _, message1, _, message3 = test_conversation
-    assert conversation.filter_messages(role_user) == [message1, message3]
+    assert conversation.filter_messages(role=role_user) == [message1, message3]
+    assert conversation.filter_messages(filter_fn=lambda m: m.role == role_user) == [
+        message1,
+        message3,
+    ]
+
+
+def test_filter_messages_with_filter_fn(test_conversation):
+    conversation, role_user, _, message1, message2, message3 = test_conversation
+    assert conversation.filter_messages(filter_fn=lambda m: m.role == role_user) == [
+        message1,
+        message3,
+    ]
+    assert conversation.filter_messages(filter_fn=lambda m: m.role != role_user) == [
+        message2,
+    ]
+
+
+def test_filter_messages_with_role_and_filter_fn(test_conversation):
+    conversation, role_user, _, message1, message2, message3 = test_conversation
+    assert conversation.filter_messages(
+        role=role_user, filter_fn=lambda m: m.role == role_user
+    ) == [
+        message1,
+        message3,
+    ]
+    assert (
+        conversation.filter_messages(
+            role=role_user, filter_fn=lambda m: m.role != role_user
+        )
+        == []
+    )
 
 
 def test_filter_messages_with_nonexistent_role(test_conversation):
     conversation, _, _, _, _, _ = test_conversation
     role_nonexistent = Role.TOOL
-    assert conversation.filter_messages(role_nonexistent) == []
+    assert conversation.filter_messages(role=role_nonexistent) == []
+    assert (
+        conversation.filter_messages(role=role_nonexistent, filter_fn=lambda m: True)
+        == []
+    )
+    assert (
+        conversation.filter_messages(filter_fn=lambda m: m.role == role_nonexistent)
+        == []
+    )
 
 
 def test_repr(test_conversation):

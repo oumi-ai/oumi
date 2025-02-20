@@ -1,5 +1,16 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# Full fine-tune config for Qwen2 VL 2B Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/qwen2_vl_2b/sft/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "Qwen/Qwen2-VL-2B-Instruct"
@@ -26,6 +37,16 @@ data:
           # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
 
+      # Below are examples of other vision SFT datasets
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+      #     return_tensors: True
+
 training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
@@ -38,7 +59,7 @@ training:
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  max_grad_norm: 0.5
+  max_grad_norm: 0.5 # For vqav2-small this results in more stable training.
   ddp_find_unused_parameters: False
   empty_device_cache_steps: 1
   compile: False
@@ -46,7 +67,7 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
   warmup_ratio: 0.03
-  weight_decay: 0.1
+  weight_decay: 0.1  # Safeguard overfitting to vqav2-small training set.
   lr_scheduler_type: "cosine"
 
   logging_steps: 5

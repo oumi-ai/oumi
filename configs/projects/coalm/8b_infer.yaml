@@ -1,0 +1,19 @@
+# Inference config for CoALM-8B.
+#
+# Usage:
+#   oumi infer -i -c ./8b_infer.yaml
+#
+
+model:
+  model_name: "uiuc-convai/CoALM-8B"
+  adapter_model: null  # Update for LoRA-tuned models.
+  model_max_length: 2048  # Update based on your hardware constraints
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+
+engine: NATIVE

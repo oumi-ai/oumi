@@ -120,11 +120,7 @@ class BaseConfig:
             else:
                 all_configs.append(cls.from_yaml(config_path))
 
-        # Filter out CLI arguments that should be ignored.
-        arg_list = _filter_ignored_args(arg_list)
-
-        # Override with CLI arguments.
-        all_configs.append(OmegaConf.from_cli(arg_list))
+        # Merge base config and config from yaml.
         try:
             # Merge and validate configs
             config = OmegaConf.merge(*all_configs)
@@ -133,6 +129,24 @@ class BaseConfig:
                 configs_str = "\n\n".join([f"{config}" for config in all_configs])
                 logger.exception(
                     f"Failed to merge {len(all_configs)} Omega configs:\n{configs_str}"
+                )
+            raise
+
+        # Override config with CLI arguments, in order. The arguments, aka flag names,
+        # are dot-separated arguments, ex. `model.model_name`. This also supports
+        # arguments indexing into lists, ex. `tasks[0].num_samples` or
+        # `tasks.0.num_samples`. This is because the config is already populated and
+        # typed, so the indexing is properly interpreted as a list index as opposed to
+        # a dictionary key.
+        try:
+            # Filter out CLI arguments that should be ignored.
+            arg_list = _filter_ignored_args(arg_list)
+            # Override with CLI arguments.
+            config.merge_with_dotlist(arg_list)
+        except Exception:
+            if logger:
+                logger.exception(
+                    f"Failed to merge arglist {arg_list} with Omega config:\n{config}"
                 )
             raise
 

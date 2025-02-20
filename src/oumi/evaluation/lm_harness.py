@@ -23,38 +23,140 @@ import lm_eval
 import torch
 from lm_eval.loggers import WandbLogger
 
-from oumi.builders import build_processor, build_tokenizer, is_image_text_llm
+from oumi.builders import build_processor, build_tokenizer
+from oumi.builders.models import is_image_text_llm_using_model_name
 from oumi.core.configs import (
     GenerationParams,
+    InferenceEngineType,
     LMHarnessTaskParams,
     ModelParams,
+    RemoteParams,
 )
 from oumi.core.distributed import is_world_process_zero
 from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
+########################################################################################
+# How to map LM Harness `model_args` to Oumi's `ModelParams` for evaluation?           #
+# Which LM Harness `model` types (hf, vllm, etc) support each parameter?               #
+# ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
+# LM Harness          | Oumi           | LM Harness `model`                            #
+# `model_args`        | `model_params` | hf | vllm | hf-multimodal | vllm-vlm | remote #
+# ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
+# trust_remote_code   |                | Υ  | Υ    | Υ             | Υ        | Y      #
+# pretrained          | model_name     | Υ  | Υ    | Υ             | Υ        | Y      #
+# dtype               | torch_dtype    | Υ  | Υ    | Υ             | Υ        | Y      #
+# max_length          |model_max_length| Υ  | Υ    | Υ             | Υ        | Y      #
+# tokenizer           | tokenizer_name | Υ  | Υ    | Υ             | Υ        | Y      #
+# peft                | adapter_model  | Υ  |      | Υ             |          |        #
+# parallelize         | shard_for_eval | Υ  |      | Υ             |          |        #
+# device_map          |                | ?? |      | ??            |          |        #
+# attn_implementation |                | ?? |      | ??            |          |        #
+# ------------------- | -------------- | -- | ---- | ------------- | -------- | ------ #
+# max_images          |                | NA | NA   | Υ             | Υ        | NA     #
+# interleave          |                | NA | NA   | Υ             | Υ        | NA     #
+# convert_img_format  |                | NA | NA   | Υ             |          | NA     #
+# image_token_id      |                | NA | NA   | Υ             |          | NA     #
+# image_string        |                | NA | NA   | Υ             |          | NA     #
+########################################################################################
 
-def _create_extra_lm_harness_model_params_for_vlm(
+########################################################################################
+# How to map LM Harness `model_args` (specifically the ones related to a remote        #
+# inference engine) to Oumi's `remote_params`?                                         #
+# ----------------------- | ---------------------------------------------------------- #
+# LM Harness `model_args` | Oumi `remote_params`                                       #
+# ----------------------- | ---------------------------------------------------------- #
+# base_url                |  api_url                                                   #
+# num_concurrent          |  num_workers                                               #
+# max_retries             |  max_retries                                               #
+# timeout                 |  connection_timeout                                        #
+########################################################################################
+
+########################################################################################
+# Mapping of LM Harness `model` types to the corresponding class and file              #
+# --------------------------|---------------------|----------------------------------- #
+# LM Harness `model`        | Class               | File in lm-evaluation-harness repo #
+# (= inference engine)      | name                | located under lm_eval/models/...   #
+# --------------------------|---------------------|----------------------------------- #
+# hf                        | HFLM                | huggingface.py                     #
+# vllm                      | VLLM                | vllm_causallms.py                  #
+# hf-multimodal             | HFMultimodalLM      | hf_vlms.py                         #
+# vllm-vlm                  | VLLM_VLM            | vllm_vlms.py                       #
+# local-completions         | LocalCompletionsAPI | openai_completions.py              #
+########################################################################################
+
+
+def _generate_lm_harness_model_args(
+    lm_harness_model: str,
+    is_multimodal: bool,
     model_params: ModelParams,
+    inference_engine_type: InferenceEngineType,
+    inference_remote_params: Optional[RemoteParams],
 ) -> dict[str, Any]:
-    # For details, see:
-    # https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
-    # FIXME OPE-355 To remove `max_images=1` limit
-    result = {"max_images": 1, "interleave": True, "convert_img_format": True}
+    """Converts Oumi's ModelParams to LM Harness model arguments."""
+    # Arguments used across all engines and modalities.
+    model_args_dict = {
+        "trust_remote_code": model_params.trust_remote_code,
+        "pretrained": model_params.model_name,
+        "dtype": model_params.torch_dtype,
+        "max_length": model_params.model_max_length,
+    }
+    if model_params.tokenizer_name:
+        model_args_dict["tokenizer"] = model_params.tokenizer_name
 
-    tokenizer = build_tokenizer(model_params)
-    processor = build_processor(
-        model_params.model_name,
-        tokenizer,
-        trust_remote_code=model_params.trust_remote_code,
-    )
-    image_token = processor.image_token
-    if image_token:
-        result["image_string"] = image_token
-    image_token_id = processor.image_token_id
-    if image_token_id:
-        result["image_token_id"] = image_token_id
-    return result
+    # Add NATIVE inference engine's additional parameters.
+    if inference_engine_type == InferenceEngineType.NATIVE:
+        model_args_dict["parallelize"] = model_params.shard_for_eval
+        model_args_dict["device_map"] = model_params.device_map
+        if model_params.adapter_model:
+            model_args_dict["peft"] = model_params.adapter_model
+        if model_params.attn_implementation:
+            model_args_dict["attn_implementation"] = model_params.attn_implementation
+
+    # Add REMOTE inference engine's additional parameters.
+    if inference_engine_type == InferenceEngineType.REMOTE:
+        if not inference_remote_params:
+            raise ValueError(
+                "The `REMOTE` inference engine requires `inference_remote_params`."
+            )
+        model_args_dict["base_url"] = inference_remote_params.api_url
+        if inference_remote_params.num_workers > 0:
+            model_args_dict["num_concurrent"] = inference_remote_params.num_workers
+        if inference_remote_params.max_retries > 0:
+            model_args_dict["max_retries"] = inference_remote_params.max_retries
+        if inference_remote_params.connection_timeout > 0:
+            model_args_dict["timeout"] = int(inference_remote_params.connection_timeout)
+
+    # Add multi-modal related parameters.
+    # details at https://github.com/EleutherAI/lm-evaluation-harness/releases/tag/v0.4.5
+    if is_multimodal:
+        # FIXME OPE-355 To remove `max_images=1` limit
+        model_args_dict |= {"max_images": 1, "interleave": True}
+
+        # Only applicable to hf-multimodal (NOT vllm-vlm).
+        if lm_harness_model == "hf-multimodal":
+            model_args_dict["convert_img_format"] = True
+
+            tokenizer = build_tokenizer(model_params)
+            processor = build_processor(
+                model_params.model_name,
+                tokenizer,
+                trust_remote_code=model_params.trust_remote_code,
+            )
+            if image_token := processor.image_token:
+                model_args_dict["image_string"] = image_token
+            if image_token_id := processor.image_token_id:
+                model_args_dict["image_token_id"] = image_token_id
+
+    # Handle extra model_kwargs (construction arguments).
+    # Towards OPE-564.
+    if model_params.model_kwargs:
+        for key in ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]:
+            if key in model_params.model_kwargs:
+                model_args_dict[key] = model_params.model_kwargs[key]
+        # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
+        # future versions of HF. Integrate via PeftConfig.
+    return model_args_dict
 
 
 def evaluate(
@@ -63,6 +165,8 @@ def evaluate(
     model_params: ModelParams,
     generation_params: GenerationParams,
     enable_wandb: bool,
+    inference_engine_type: InferenceEngineType,
+    inference_remote_params: Optional[RemoteParams] = None,
     run_name: Optional[str] = None,
 ) -> dict[str, Any]:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
@@ -71,11 +175,13 @@ def evaluate(
     https://github.com/EleutherAI/lm-evaluation-harness
 
     Args:
-        model_params: The parameters of the model to evaluate.
         task_params: The LM Harness parameters to use for evaluation.
-        generation_params: The generation parameters to use for evaluation.
         output_dir: The directory where the evaluation results will be saved.
+        model_params: The parameters of the model to evaluate.
+        generation_params: The generation parameters to use for evaluation.
         enable_wandb: Whether to enable Weights & Biases (wandb) logging.
+        inference_engine_type: The inference engine to use (`VLLM`, `NATIVE`, `REMOTE`).
+        inference_remote_params: The parameters for remote inference, if applicable.
         run_name: Unique identifier for wandb for the current training run.
 
     Returns:
@@ -91,6 +197,34 @@ def evaluate(
         device = "cpu"
         logger.warning("No GPU available.")
 
+    # Identify whether the model is multi-modal.
+    is_multimodal = is_image_text_llm_using_model_name(
+        model_name=model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
+    )
+
+    # Identify the proper LM Harness model (`lm_harness_model`) to use.
+    if inference_engine_type == InferenceEngineType.NATIVE:
+        lm_harness_model = "hf-multimodal" if is_multimodal else "hf"
+        if device.startswith("cuda"):
+            logger.warning(
+                "Since you have GPU support, it is highly recommended that you set "
+                "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
+                "evaluation."
+            )
+    elif inference_engine_type == InferenceEngineType.VLLM:
+        lm_harness_model = "vllm-vlm" if is_multimodal else "vllm"
+        if not device.startswith("cuda"):
+            raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
+    elif inference_engine_type == InferenceEngineType.REMOTE:
+        lm_harness_model = "local-completions"
+    else:
+        raise ValueError(
+            f"Unsupported inference engine type: {inference_engine_type}. "
+            "Our integration with the `lm_harness` evaluation platform supports "
+            "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types."
+        )
+
     if model_params.adapter_model:
         logger.info(f"Loading adapter for eval: {model_params.adapter_model}")
     assert task_params is not None
@@ -101,25 +235,17 @@ def evaluate(
         generation_params.batch_size if generation_params.batch_size else "auto"
     )
 
+    lm_harness_model_params = _generate_lm_harness_model_args(
+        lm_harness_model=lm_harness_model,
+        is_multimodal=is_multimodal,
+        model_params=model_params,
+        inference_engine_type=inference_engine_type,
+        inference_remote_params=inference_remote_params,
+    )
+
     # Get a timestamp for the current run.
     start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
     start_time = time.time()
-
-    lm_harness_model_params = model_params.to_lm_harness()
-
-    if is_image_text_llm(model_params):
-        # Multimodal support is currently restricted to
-        # the ['hf-multimodal', 'vllm-vlm'] model types.
-        lm_harness_model = "hf-multimodal"
-        apply_chat_template = True
-        lm_harness_model_params.update(
-            _create_extra_lm_harness_model_params_for_vlm(model_params)
-        )
-    else:
-        lm_harness_model = "hf"
-        # False is the default value for `simple_evaluate()`
-        # TODO Should it be set to True?
-        apply_chat_template = False
 
     logger.info("Starting evaluation...")
     logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
@@ -133,7 +259,7 @@ def evaluate(
         device=device,
         limit=task_params.num_samples,
         log_samples=False,
-        apply_chat_template=apply_chat_template,
+        apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )
     elapsed_time_sec = time.time() - start_time

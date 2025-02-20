@@ -1,6 +1,8 @@
 import pytest
 import torch
 
+from oumi.utils.hf_utils import find_hf_token
+
 
 def requires_gpus(count: int = 1, min_gb: float = 0.0) -> pytest.MarkDecorator:
     """Decorator to skip a test if the required number of GPUs is not available.
@@ -36,7 +38,7 @@ def requires_gpus(count: int = 1, min_gb: float = 0.0) -> pytest.MarkDecorator:
                     "Not enough GPU memory to run the test: "
                     f"requires {min_gb:.3f}GB, got {total_memory_gb:.3f}GB. "
                     f"GPU: {device_name}"
-                ) + (f" ({device_idx+1} of {gpu_count})" if gpu_count > 1 else "")
+                ) + (f" ({device_idx + 1} of {gpu_count})" if gpu_count > 1 else "")
 
     return pytest.mark.skipif(len(error_message) > 0, reason=error_message)
 
@@ -55,3 +57,15 @@ def requires_cuda_initialized() -> pytest.MarkDecorator:
 
 def requires_cuda_not_available() -> pytest.MarkDecorator:
     return pytest.mark.skipif(torch.cuda.is_available(), reason="CUDA is available")
+
+
+def requires_hf_token() -> pytest.MarkDecorator:
+    return pytest.mark.skipif(not find_hf_token(), reason="HF token is not available")
+
+
+def requires_pdf_support():
+    from importlib.util import find_spec
+
+    return pytest.mark.skipif(
+        not find_spec("pdf2image"), reason="PDF support is not available"
+    )

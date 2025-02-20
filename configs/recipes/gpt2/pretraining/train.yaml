@@ -1,7 +1,13 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-
 # GPT-2's implementation in nanoGPT: https://github.com/karpathy/build-nanogpt
+#
+# Usage:
+#   oumi train -c configs/recipes/gpt2/pretraining/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 # Model automatically uses weight tying
 model:
