@@ -17,7 +17,11 @@ from typing import Any, NamedTuple, Optional
 
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import create_ones_like, pad_sequences
+from oumi.utils.torch_utils import (
+    create_ones_like,
+    pad_sequences,
+    pad_to_max_dim_and_stack,
+)
 
 _INPUT_IDS_KEY = "input_ids"
 _ATTENTION_MASK_KEY = "attention_mask"
@@ -90,22 +94,29 @@ class TextCollatorWithPadding:
         padding_value_overrides: dict[str, int],
     ) -> dict[str, Any]:
         result: dict[str, Any] = {}
-        try:
-            for key, sequences_list in inputs_dict.items():
+        for key, sequences_list in inputs_dict.items():
+            try:
                 padding_value = padding_value_overrides.get(key, 0)
-                result[key] = pad_sequences(
-                    sequences_list,
-                    padding_side=self._padding_side,
-                    padding_value=padding_value,
+                if key == "cross_attention_mask":
+                    result[key] = pad_to_max_dim_and_stack(
+                        sequences_list,
+                        padding_side=self._padding_side,
+                        padding_value=padding_value,
+                    )
+                else:
+                    result[key] = pad_sequences(
+                        sequences_list,
+                        padding_side=self._padding_side,
+                        padding_value=padding_value,
+                    )
+            except Exception:
+                logger.error(
+                    f"Failed to collate '{key}' using pad_sequences! "
+                    f"Batch maximum length: {batch_max_length}. "
+                    f"Maximum allowed length: {self._max_length}. "
+                    f"Truncation: {self._truncation}."
                 )
-        except Exception:
-            logger.error(
-                "Failed to collate using pad_sequences! "
-                f"Batch maximum length: {batch_max_length}. "
-                f"Maximum allowed length: {self._max_length}. "
-                f"Truncation: {self._truncation}."
-            )
-            raise
+                raise
         return result
 
     def __call__(self, batch) -> dict[str, Any]:
