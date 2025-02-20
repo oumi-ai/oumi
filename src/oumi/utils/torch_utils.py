@@ -500,10 +500,18 @@ def _pad_to_max_dim_and_stack_impl(
     if num_tensors == 0:
         raise ValueError("Empty list of tensors is not allowed.")
     dim_sizes: list[_DimMinMaxSizes] = _get_dims_min_max_size(tensors_list)
-    all_same_size = all((not item.has_variable_sizes) for item in dim_sizes)
-    if all_same_size:
+    num_variable_size_dims = sum(
+        (1 if item.has_variable_sizes else 0) for item in dim_sizes
+    )
+    if num_variable_size_dims == 0:
         # No need to pad anything, just `stack()`.
         return torch.stack(tensors_list)
+    elif num_variable_size_dims == 1 and dim_sizes[0].has_variable_sizes:
+        # Use pad_sequences provided by PyTorch, which should be equivalent
+        # for the common case.
+        if pad_on_left_side:
+            return pad_sequences_left_side(tensors_list, padding_value=padding_value)
+        return pad_sequences_right_side(tensors_list, padding_value=padding_value)
 
     max_dim_sizes = [item.max_size for item in dim_sizes]
     result_shape = torch.Size([num_tensors] + max_dim_sizes)

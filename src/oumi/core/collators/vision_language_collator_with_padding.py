@@ -15,7 +15,6 @@
 import collections
 from typing import Any, Optional, TypeVar
 
-import numpy as np
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
@@ -117,6 +116,7 @@ class VisionLanguageCollatorWithPadding:
             max_length=max_length,
             truncation=truncation,
             label_ignore_index=label_ignore_index,
+            allow_multi_dim_padding=True,  # To support multi-image inputs.
         )
 
     T = TypeVar("T")
@@ -208,12 +208,7 @@ class VisionLanguageCollatorWithPadding:
         if len(images) == 0:
             raise ValueError("No images found in the batch")
 
-        if isinstance(images[0], np.ndarray):
-            images = [torch.from_numpy(img) for img in images]
-
-        if isinstance(images[0], torch.Tensor):
-            return _pad_1d_and_stack(images)
-        elif isinstance(images[0], list):
+        if isinstance(images[0], list):
             return torch.tensor(images)
-        else:
-            raise ValueError(f"Unsupported image type: {type(images[0])}")
+
+        return pad_to_max_dim_and_stack(images)
