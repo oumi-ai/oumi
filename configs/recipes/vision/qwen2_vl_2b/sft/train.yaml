@@ -53,11 +53,13 @@ training:
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features.
   gradient_accumulation_steps: 32
-  max_steps: 20
+  max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
+  # num_train_epochs: 1
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
+  max_grad_norm: 0.5 # For vqav2-small this results in more stable training.
   ddp_find_unused_parameters: False
   empty_device_cache_steps: 1
   compile: False
@@ -65,7 +67,7 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
   warmup_ratio: 0.03
-  weight_decay: 0.0
+  weight_decay: 0.1  # Safeguard overfitting to vqav2-small training set.
   lr_scheduler_type: "cosine"
 
   logging_steps: 5
