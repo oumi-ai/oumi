@@ -392,6 +392,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             generation_params = inference_config.generation or self._generation_params
             output_path = inference_config.output_path
 
+        if not remote_params.api_url:
+            remote_params.api_url = self.base_url
+
         assert remote_params.api_url
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
@@ -422,6 +425,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
+                        if isinstance(response_json, list):
+                            # If the response is a list, it is likely an error message.
+                            response_json = response_json[0]
                         failure_reason = (
                             response_json.get("error").get("message")
                             if response_json and response_json.get("error")
