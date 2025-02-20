@@ -27,7 +27,8 @@ def fetch(
     config_path: Annotated[
         str,
         typer.Argument(
-            help="Path to config (e.g. oumi://smollm/inference/135m_infer.yaml)"
+            help="Path to config "
+            "(e.g. oumi://configs/recipes/smollm/inference/135m_infer.yaml)"
         ),
     ],
     output_dir: Annotated[
