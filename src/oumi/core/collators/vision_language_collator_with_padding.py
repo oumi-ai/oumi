@@ -19,8 +19,7 @@ import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.utils.logging import logger
-from oumi.utils.torch_utils import convert_to_list_of_tensors, pad_to_max_dim_and_stack
+from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 _PIXEL_VALUES_KEY = "pixel_values"
 
@@ -47,6 +46,7 @@ class VisionLanguageCollatorWithPadding:
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow-multi-image inputs.
         """
+        self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
@@ -91,15 +91,9 @@ class VisionLanguageCollatorWithPadding:
                 ):
                     other_input_names.add(key)
 
-        logger.info("===========================")
-
         # Collate images.
         pixel_values = self.collate_images(images)
 
-        logger.info(
-            f"Collated '{_PIXEL_VALUES_KEY}': {pixel_values.shape} from: "
-            + ", ".join(f"{t.shape}" for t in images)
-        )
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
 
@@ -116,14 +110,13 @@ class VisionLanguageCollatorWithPadding:
                     other_inputs[input_name].append(item[input_name])
 
             for input_name, values_list in other_inputs.items():
-                tensors_list = convert_to_list_of_tensors(values_list)
-                collated_value = pad_to_max_dim_and_stack(tensors_list)
-                collated_batch[input_name] = collated_value
-
-                logger.info(
-                    f"Collated '{input_name}': {collated_value.shape} from: "
-                    + ", ".join(f"{t.shape}" for t in tensors_list)
+                collated_value = pad_to_max_dim_and_stack(
+                    values_list,
+                    max_variable_sized_dims=(
+                        1 if self._allow_multi_image_inputs else 0
+                    ),
                 )
+                collated_batch[input_name] = collated_value
 
         return collated_batch
 
@@ -139,4 +132,7 @@ class VisionLanguageCollatorWithPadding:
         if len(images) == 0:
             raise ValueError("No images found in the batch")
 
-        return pad_to_max_dim_and_stack(images)
+        return pad_to_max_dim_and_stack(
+            images,
+            max_variable_sized_dims=(1 if self._allow_multi_image_inputs else 0),
+        )
