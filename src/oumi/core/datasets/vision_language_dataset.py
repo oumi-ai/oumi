@@ -240,7 +240,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 if first_dim_len > 1 and drop_first_dim:
                     logger.warning(
                         "The first dimension is non-dummy for "
-                        f"the feature: '{feature_name}' (Length: {first_dim_len}). "
+                        f"the feature: '{feature_name}' (length: {first_dim_len}). "
                         "Only the first element is kept, others are dropped, "
                         "which may lead to data loss, and to tensor shape errors."
                     )
