@@ -47,7 +47,7 @@ help:
 # If we detect the system is an Intel Mac, print an error message and exit.
 setup:
 	@if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
-		echo "Cannot install oumi on Intel Macs because Pytorch has deprecated support for them!"; \
+		echo "Cannot install oumi on Intel Macs because PyTorch has deprecated support for them!"; \
 		exit 1; \
 	fi
 	@if command -v conda >/dev/null 2>&1; then \
