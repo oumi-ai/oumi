@@ -38,6 +38,13 @@ def train(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     # Delayed imports
     from oumi import train as oumi_train
     from oumi.core.configs import TrainingConfig
