@@ -68,6 +68,7 @@ def _create_default_vlm_config(
                 required=True,
                 variable_shape=pixel_values_variable_shape,
                 first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+                image_dependent=True,
             )
         }
     )
@@ -117,6 +118,7 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in (
                 "aspect_ratio_ids",
@@ -139,6 +141,7 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("image_grid_thw",)
         }
@@ -178,6 +181,7 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("image_sizes",)
         }
@@ -198,6 +202,7 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("pixel_attention_mask",)
         }
