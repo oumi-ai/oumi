@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Oumi dependencies
 COPY pyproject.toml /oumi_workdir
-RUN pip install uv && uv pip install --no-cache-dir -e ".[dev]"
+RUN pip install uv && uv pip install --prerelease=allow --no-cache-dir -e ".[dev]"
 
 # Copy application code
 COPY . /oumi_workdir
