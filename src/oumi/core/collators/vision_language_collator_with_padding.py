@@ -44,7 +44,7 @@ class VisionLanguageCollatorWithPadding:
             `max_length`. Only has effect if `max_length` is specified.
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
-        allow_multi_image_inputs: Whether to allow-multi-image inputs.
+        allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
