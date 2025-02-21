@@ -433,6 +433,7 @@ def pad_sequences(
         sequences: list of variable length sequences.
         padding_value: value for padded elements. Default: 0.
         padding_side: side to apply padding to. Valid values:  'right', 'left'.
+            If unspecified (`None`), defaults to `right`.
 
     Returns:
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
@@ -580,8 +581,13 @@ def pad_to_max_dim_and_stack(
         tensors_list: list of tensors with potentially .
         max_variable_sized_dims: Maximum number of variable-sized dimensions.
             Negative values mean `Unlimited`.
+            If you know that your tensors have a pre-defined number `N` of
+            variable-sized dimensions (e.g., 1 for `sequence_length`) then
+            it's a good idea to set this parameter to catch abnormal inputs
+            (`ValueError` will be raised in such cases).
         padding_value: value for padded elements. Default: 0.
         padding_side: side to apply padding to. Valid values:  'right', 'left'.
+            If unspecified (`None`), defaults to `right`.
 
     Returns:
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),

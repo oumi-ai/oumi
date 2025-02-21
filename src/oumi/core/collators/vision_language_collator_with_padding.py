@@ -52,7 +52,11 @@ class VisionLanguageCollatorWithPadding:
             max_length=max_length,
             truncation=truncation,
             label_ignore_index=label_ignore_index,
-            max_variable_sized_dims=(2 if allow_multi_image_inputs else 1),
+            max_variable_sized_dims=(
+                # if multi-image inputs are possible, then
+                # allow 2 variable-sized dimensions: `seq_len`, `num_images`.
+                2 if allow_multi_image_inputs else 1
+            ),
         )
 
     def __call__(self, batch) -> dict[str, Any]:
@@ -113,6 +117,8 @@ class VisionLanguageCollatorWithPadding:
                 collated_value = pad_to_max_dim_and_stack(
                     values_list,
                     max_variable_sized_dims=(
+                        # if multi-image inputs are possible, then
+                        # allow 1 variable-sized dimension (`num_images`).
                         1 if self._allow_multi_image_inputs else 0
                     ),
                 )
@@ -134,5 +140,9 @@ class VisionLanguageCollatorWithPadding:
 
         return pad_to_max_dim_and_stack(
             images,
-            max_variable_sized_dims=(1 if self._allow_multi_image_inputs else 0),
+            max_variable_sized_dims=(
+                # if multi-image inputs are possible, then
+                # allow 1 variable-sized dimension (`num_images`).
+                1 if self._allow_multi_image_inputs else 0
+            ),
         )
