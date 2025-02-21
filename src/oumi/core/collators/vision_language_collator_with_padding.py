@@ -15,12 +15,11 @@
 import collections
 from typing import Any, Optional
 
-import numpy as np
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.utils.torch_utils import convert_to_list_of_tensors
+from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 _PIXEL_VALUES_KEY = "pixel_values"
 
@@ -33,6 +32,7 @@ class VisionLanguageCollatorWithPadding:
         max_length: Optional[int],
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
+        allow_multi_image_inputs: bool = True,
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -44,12 +44,19 @@ class VisionLanguageCollatorWithPadding:
             `max_length`. Only has effect if `max_length` is specified.
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
+        allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
+        self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=truncation,
             label_ignore_index=label_ignore_index,
+            max_variable_sized_dims=(
+                # if multi-image inputs are possible, then
+                # allow 2 variable-sized dimensions: `seq_len`, `num_images`.
+                2 if allow_multi_image_inputs else 1
+            ),
         )
 
     def __call__(self, batch) -> dict[str, Any]:
@@ -107,8 +114,14 @@ class VisionLanguageCollatorWithPadding:
                     other_inputs[input_name].append(item[input_name])
 
             for input_name, values_list in other_inputs.items():
-                tensors_list = convert_to_list_of_tensors(values_list)
-                collated_value = torch.stack(tensors_list)
+                collated_value = pad_to_max_dim_and_stack(
+                    values_list,
+                    max_variable_sized_dims=(
+                        # if multi-image inputs are possible, then
+                        # allow 1 variable-sized dimension (`num_images`).
+                        1 if self._allow_multi_image_inputs else 0
+                    ),
+                )
                 collated_batch[input_name] = collated_value
 
         return collated_batch
@@ -125,11 +138,11 @@ class VisionLanguageCollatorWithPadding:
         if len(images) == 0:
             raise ValueError("No images found in the batch")
 
-        if isinstance(images[0], torch.Tensor):
-            return torch.stack(images)
-        elif isinstance(images[0], np.ndarray):
-            return torch.stack([torch.from_numpy(img) for img in images])
-        elif isinstance(images[0], list):
-            return torch.tensor(images)
-        else:
-            raise ValueError(f"Unsupported image type: {type(images[0])}")
+        return pad_to_max_dim_and_stack(
+            images,
+            max_variable_sized_dims=(
+                # if multi-image inputs are possible, then
+                # allow 1 variable-sized dimension (`num_images`).
+                1 if self._allow_multi_image_inputs else 0
+            ),
+        )

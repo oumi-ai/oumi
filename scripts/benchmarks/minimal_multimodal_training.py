@@ -72,6 +72,7 @@ class ModelName(str, Enum):
 class ModelInfo(NamedTuple):
     chat_template: str
     freeze_layers: list[str]
+    supports_multiple_images: bool = False
 
 
 _DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
@@ -106,7 +107,9 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["model.vision_embed_tokens"],
     ),
     ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
-        chat_template="llama3-instruct", freeze_layers=["vision_model"]
+        chat_template="llama3-instruct",
+        freeze_layers=["vision_model"],
+        supports_multiple_images=True,
     ),
     ModelName.MOLMOE_1B: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
@@ -139,6 +142,13 @@ def _get_chat_template(model_name: ModelName) -> str:
     return result or _DEFAULT_MLLM_CHAT_TEMPLATE
 
 
+def _supports_multiple_images(model_name: ModelName) -> bool:
+    result = False
+    if model_name in _MODELS_MAP:
+        result = _MODELS_MAP[model_name].supports_multiple_images
+    return result
+
+
 class DatasetName(str, Enum):
     MERVE_VQAV2_SMALL = "merve/vqav2-small"
     LLAVA_INSTRUCT_MIX_VSFT = "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -148,20 +158,33 @@ class DatasetName(str, Enum):
     DOCMATIX = "HuggingFaceM4/Docmatix"
 
 
-def _get_default_dataset_split(dataset_name: DatasetName) -> str:
+class _DatasetInfo(NamedTuple):
+    default_split: str
+    default_subset: Optional[str]
+    contains_multiple_images: bool
+
+
+def _get_dataset_info(dataset_name: DatasetName) -> _DatasetInfo:
+    default_split = "train"
     if dataset_name in (DatasetName.FLICKR,):
         # The dataset only has "test" split.
-        return "test"
+        default_split = "test"
     elif dataset_name in (DatasetName.MERVE_VQAV2_SMALL,):
-        return "validation"
-    return "train"
+        default_split = "validation"
 
+    contains_multiple_images: bool = False
 
-def _get_default_dataset_subset(dataset_name: DatasetName) -> Optional[str]:
+    default_subset: Optional[str] = None
     if dataset_name in (DatasetName.DOCMATIX,):
         # The only non-giant subset in the dataset
-        return "zero-shot-exp"
-    return None
+        default_subset = "zero-shot-exp"
+        contains_multiple_images = True
+
+    return _DatasetInfo(
+        default_split=default_split,
+        default_subset=default_subset,
+        contains_multiple_images=contains_multiple_images,
+    )
 
 
 def test_multimodal_trainer(
@@ -191,10 +214,21 @@ def test_multimodal_trainer(
         )
         batch_size = 1
 
+    dataset_info = _get_dataset_info(dataset_name)
+
     if not split:
-        split = _get_default_dataset_split(dataset_name)
+        split = dataset_info.default_split
     if not subset:
-        subset = _get_default_dataset_subset(dataset_name)
+        subset = dataset_info.default_subset
+
+    if dataset_info.contains_multiple_images and not _supports_multiple_images(
+        model_name
+    ):
+        print(
+            f"Using multi-image dataset {dataset_name} "
+            f"with model {model_name} that doesn't support multiple images! "
+            "Training may FAIL!"
+        )
 
     #
     # Init model, processor, and dataset
