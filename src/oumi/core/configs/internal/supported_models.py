@@ -135,8 +135,9 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
 
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
-        supports_multiple_images=True,
         pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
     )
     config.chat_template = "qwen2-vl-instruct"
     # FIXME OPE-946 Consider updating to "right":
@@ -178,9 +179,9 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
 
 def _create_phi3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
-        supports_multiple_images=True,
         pixel_values_variable_shape=True,
-        pixel_values_first_dim_action=InternalFeatureFirstDimAction.KEEP,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
     )
     config.chat_template = "phi3-instruct"
     config.label_ignore_index = None
@@ -190,7 +191,6 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
             feature_name: InternalFeatureSpec(
                 name=feature_name,
                 required=True,
-                first_dim_action=InternalFeatureFirstDimAction.KEEP,
                 variable_shape=False,
                 image_dependent=True,
             )
