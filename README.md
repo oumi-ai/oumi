@@ -65,8 +65,6 @@ pip install oumi[gpu]  # For GPU training
 pip install git+https://github.com/oumi-ai/oumi.git
 ```
 
-❗NOTE: Since PyTorch dropped support for Intel Macs, you cannot install Oumi there. Consider running Oumi on free Colab GPU instances, using our notebooks above!
-
 For more advanced installation options, see the [installation guide](https://oumi.ai/docs/en/latest/get_started/installation.html).
 
 
