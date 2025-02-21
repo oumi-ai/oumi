@@ -22,6 +22,31 @@ or runtime errors like:
 ModuleNotFoundError: No module named 'resource'
 ```
 
+### Installing on Mac
+
+Oumi only supports Apple Silicon Macs, not Intel Macs. This is because PyTorch dropped support for the latter. Installing on Intel Macs can lead to errors like:
+
+```
+Using Python 3.11.11 environment at: /Users/moonshine/miniconda3/envs/oumi
+  × No solution found when resolving dependencies:
+  ╰─▶ Because only the following versions of torch are available:
+          torch<=2.5.0
+          torch==2.5.1
+          torch>2.6.0
+      and torch>=2.5.0,<=2.5.1 has no wheels with a matching platform tag
+      (e.g., `macosx_10_16_x86_64`), we can conclude that torch>=2.5.0,<=2.5.1
+      cannot be used.
+      And because oumi==0.1.dev1313+g33c1fa9 depends on torch>=2.5.0,<2.6.0,
+      we can conclude that oumi==0.1.dev1313+g33c1fa9 cannot be used.
+      And because only oumi[dev]==0.1.dev1313+g33c1fa9 is available and
+      you require oumi[dev], we can conclude that your requirements are
+      unsatisfiable.
+
+      hint: Wheels are available for `torch` (v2.5.1) on the following
+      platforms: `manylinux1_x86_64`, `manylinux2014_aarch64`,
+      `macosx_11_0_arm64`, `win_amd64`
+```
+
 ### Pre-commit hook errors with VS Code
 
 - When committing changes, you may encounter an error with pre-commit hooks related to missing imports.
