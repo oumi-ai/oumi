@@ -44,7 +44,12 @@ help:
 	@echo "  doctest           - Run doctests on documentation files"
 	@echo "  doctest-file      - Run doctests on a specific documentation file"
 
+# If we detect the system is an Intel Mac, print an error message and exit.
 setup:
+	@if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then
+		echo "Cannot install oumi on Intel Macs because Pytorch has deprecated support for them!"; \
+		exit 1; \
+	fi
 	@if command -v conda >/dev/null 2>&1; then \
 		if conda env list | grep -q "^$(CONDA_ENV) "; then \
 			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
