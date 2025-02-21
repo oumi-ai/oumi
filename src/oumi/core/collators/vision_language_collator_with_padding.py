@@ -138,7 +138,7 @@ class VisionLanguageCollatorWithPadding:
         if len(images) == 0:
             raise ValueError("No images found in the batch")
 
-        collated_value = pad_to_max_dim_and_stack(
+        return pad_to_max_dim_and_stack(
             images,
             max_variable_sized_dims=(
                 # if multi-image inputs are possible, then
@@ -146,4 +146,3 @@ class VisionLanguageCollatorWithPadding:
                 1 if self._allow_multi_image_inputs else 0
             ),
         )
-        return collated_value
