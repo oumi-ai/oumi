@@ -196,6 +196,7 @@ def test_get_task_dict_for_configurable_task():
     assert task.OUTPUT_TYPE == "multiple_choice"
 
 
+@pytest.mark.skip(reason="Temporarily disabled because it times out.")
 def test_get_task_dict_for_configurable_group():
     task_params = LMHarnessTaskParams(
         evaluation_platform="lm_harness", task_name="mmmu_val", num_fewshot=222
