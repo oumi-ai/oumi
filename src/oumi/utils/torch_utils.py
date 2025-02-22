@@ -474,6 +474,17 @@ def _get_dims_min_max_size(tensors_list: list[torch.Tensor]) -> list[_DimMinMaxS
     ]
 
 
+def _format_dims_min_max_sizes(dim_sizes: list[_DimMinMaxSizes]) -> str:
+    result: list[str] = [""] * len(dim_sizes)
+    for idx, item in enumerate(dim_sizes):
+        result[idx] = (
+            f"{item.min_size}...{item.max_size}"
+            if item.has_variable_sizes
+            else f"{item.min_size}"
+        )
+    return "[" + ", ".join(result) + "]"
+
+
 def _pad_to_max_dim_and_stack_impl(
     tensors_list: list[torch.Tensor],
     *,
@@ -495,7 +506,8 @@ def _pad_to_max_dim_and_stack_impl(
         raise ValueError(
             "Too many dimensions with variable size. "
             f"Got: {num_variable_size_dims} variable size dimensions. "
-            f"Maximum allowed: {max_variable_sized_dims}."
+            f"Maximum allowed: {max_variable_sized_dims}. "
+            f"Dimension sizes: {_format_dims_min_max_sizes(dim_sizes)}."
         )
 
     if num_variable_size_dims == 0:
