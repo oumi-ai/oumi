@@ -10,6 +10,9 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
 #   - Other inference configs: configs/**/inference/
 
+# Note, if you are running on a multi-GPU machine, constraint the execution
+# to a single GPU, e.g., `export CUDA_VISIBLE_DEVICES=0`
+
 model:
   model_name: "Qwen/Qwen2-VL-2B-Instruct"
   torch_dtype_str: "bfloat16"
