@@ -334,9 +334,6 @@ def evaluate(
             "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types."
         )
 
-    if model_params.adapter_model:
-        logger.info(f"Loading adapter for eval: {model_params.adapter_model}")
-
     # Instantiate an LM Harness task dictionary.
     task_dict = _get_task_dict(task_params)
     logger.info(f"\tLM Harness `task_params`:\n{pformat(task_params)}")
