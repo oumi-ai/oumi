@@ -100,11 +100,12 @@ class JobResources:
     Ignored by Polaris.
     """
 
-    disk_tier: Optional[str] = "medium"
+    disk_tier: Optional[str] = None
     """Disk tier to use for OS (optional).
 
-    For sky-based clouds this Could be one of 'low', 'medium', 'high' or 'best'
-    (default: 'medium').
+    For sky-based clouds this Could be one of 'low', 'medium', 'high', 'ultra', or
+    'best' (default: None). As of Feb '25, only AWS, Azure, GCP, and OCI support
+    disk tiers.
     """
 
 
