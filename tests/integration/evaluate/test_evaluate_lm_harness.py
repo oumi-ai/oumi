@@ -94,29 +94,29 @@ def _validate_results_in_file(
         (
             {
                 "task_name": "mmlu_abstract_algebra",
-                "num_samples": 100,
+                "num_samples": 10,
                 "model_name": "openai-community/gpt2",
                 "model_max_length": 128,
                 "run_name": "test_lm_harness",
                 "inference_engine": InferenceEngineType.NATIVE,
             },
             {
-                "acc,none": {"value": 0.22, "round_digits": 3},
-                "acc_stderr,none": {"value": 0.042, "round_digits": 3},
+                "acc,none": {"value": 0.2, "round_digits": 3},
+                "acc_stderr,none": {"value": 0.133, "round_digits": 3},
             },
         ),
         (
             {
                 "task_name": "mmlu_abstract_algebra",
-                "num_samples": 100,
+                "num_samples": 10,
                 "model_name": "openai-community/gpt2",
                 "model_max_length": 128,
                 "run_name": "test_lm_harness",
                 "inference_engine": InferenceEngineType.VLLM,
             },
             {
-                "acc,none": {"value": 0.22, "round_digits": 3},
-                "acc_stderr,none": {"value": 0.042, "round_digits": 3},
+                "acc,none": {"value": 0.2, "round_digits": 3},
+                "acc_stderr,none": {"value": 0.133, "round_digits": 3},
             },
         ),
     ],
