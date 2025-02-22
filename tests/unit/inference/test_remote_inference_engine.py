@@ -1475,7 +1475,7 @@ async def test_upload_batch_file():
     """Test uploading a batch file."""
     with aioresponses() as m:
         m.post(
-            f"{_TARGET_SERVER}/files",
+            f"{_TARGET_SERVER}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
@@ -1506,13 +1506,13 @@ async def test_create_batch():
     with aioresponses() as m:
         # Mock file upload
         m.post(
-            f"{_TARGET_SERVER}/files",
+            f"{_TARGET_SERVER}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
         # Mock batch creation
         m.post(
-            f"{_TARGET_SERVER}/batches",
+            f"{_TARGET_SERVER}/v1/batches",
             status=200,
             payload={"id": "batch-456"},
         )
@@ -1541,7 +1541,7 @@ async def test_get_batch_status():
     """Test getting batch status."""
     with aioresponses() as m:
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1573,7 +1573,7 @@ async def test_get_batch_results():
     with aioresponses() as m:
         # Mock batch status request
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1589,7 +1589,7 @@ async def test_get_batch_results():
 
         # Mock file content request
         m.get(
-            f"{_TARGET_SERVER}/files/file-output-123/content",
+            f"{_TARGET_SERVER}/v1/files/file-output-123/content",
             status=200,
             body=json.dumps(
                 {
@@ -1636,13 +1636,13 @@ def test_infer_batch():
     with aioresponses() as m:
         # Mock file upload
         m.post(
-            f"{_TARGET_SERVER}/files",
+            f"{_TARGET_SERVER}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
         # Mock batch creation
         m.post(
-            f"{_TARGET_SERVER}/batches",
+            f"{_TARGET_SERVER}/v1/batches",
             status=200,
             payload={"id": "batch-456"},
         )
@@ -1670,7 +1670,7 @@ def test_get_batch_status_public():
     """Test the public get_batch_status method."""
     with aioresponses() as m:
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1701,7 +1701,7 @@ def test_get_batch_results_public():
     with aioresponses() as m:
         # Mock batch status request
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1717,7 +1717,7 @@ def test_get_batch_results_public():
 
         # Mock file content request
         m.get(
-            f"{_TARGET_SERVER}/files/file-output-123/content",
+            f"{_TARGET_SERVER}/v1/files/file-output-123/content",
             status=200,
             body=json.dumps(
                 {
@@ -1765,7 +1765,7 @@ async def test_list_batches():
     with aioresponses() as m:
         # Mock with exact URL including query parameters
         m.get(
-            f"{_TARGET_SERVER}/batches?limit=1",  # Include query params in URL
+            f"{_TARGET_SERVER}/v1/batches?limit=1",  # Include query params in URL
             status=200,
             payload={
                 "object": "list",
@@ -1814,7 +1814,7 @@ def test_list_batches_public():
     """Test the public list_batches method."""
     with aioresponses() as m:
         m.get(
-            f"{_TARGET_SERVER}/batches?limit=2",  # Include query params in URL
+            f"{_TARGET_SERVER}/v1/batches?limit=2",  # Include query params in URL
             status=200,
             payload={
                 "object": "list",
