@@ -49,12 +49,12 @@ setup:
 		if conda env list | grep -q "^$(CONDA_ENV) "; then \
 			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
 			$(CONDA_RUN) pip install -U uv; \
-			$(CONDA_RUN) uv pip install --prerelease=allow -U -e ".[dev]"; \
+			$(CONDA_RUN) uv pip install -U -e ".[dev]"; \
 		else \
 			echo "Creating new conda environment '$(CONDA_ENV)'..."; \
 			conda create -n $(CONDA_ENV) python=3.11 -y; \
 			$(CONDA_RUN) pip install uv; \
-			$(CONDA_RUN) uv pip install --prerelease=allow -e ".[dev]"; \
+			$(CONDA_RUN) uv pip install -e ".[dev]"; \
 			$(CONDA_RUN) pre-commit install; \
 			$(CONDA_RUN) python -m ipykernel install --user --name $(CONDA_ENV); \
 		fi; \
@@ -104,7 +104,7 @@ install-miniconda:
 
 upgrade:
 	@if $(CONDA_RUN) command -v uv >/dev/null 2>&1; then \
-		$(CONDA_RUN) uv pip install --prerelease=allow --upgrade -e ".[dev]"; \
+		$(CONDA_RUN) uv pip install --upgrade -e ".[dev]"; \
 	else \
 		echo "uv is not installed, using pip instead."; \
 		echo "To install uv, run: 'pip install uv'"; \

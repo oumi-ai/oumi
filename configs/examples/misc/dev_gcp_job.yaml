@@ -49,7 +49,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install --prerelease=allow oumi[dev]
+  pip install uv && uv pip install oumi[dev]
 
 run: |
   set -e  # Exit if any command failed.
