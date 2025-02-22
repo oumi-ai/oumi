@@ -653,9 +653,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         try:
             # Upload the file
             connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
-            async with aiohttp.ClientSession(
-                connector=connector, skip_auto_headers=[]
-            ) as session:
+            async with aiohttp.ClientSession(connector=connector) as session:
                 headers = self._get_request_headers(self._remote_params)
 
                 # Create form data with file
@@ -665,9 +663,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     form.add_field("file", file_data, filename="batch_requests.jsonl")
                 form.add_field("purpose", _BATCH_PURPOSE)
 
-                target_url = self.get_file_api_url()
                 async with session.post(
-                    target_url,
+                    self.get_file_api_url(),
                     data=form,
                     headers=headers,
                 ) as response:
