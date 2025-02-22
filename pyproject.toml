@@ -11,6 +11,11 @@ oumi = ["LICENSE", "README.md", "*.jinja"]
 [tool.setuptools]
 # default setuptools config.
 
+# We currently use the Omegaconf dev version, and uv doesn't allow pre-release versions
+# by default.
+[tool.uv]
+prerelease = "allow"
+
 [project]
 name = "oumi"
 dynamic = ["version"]
