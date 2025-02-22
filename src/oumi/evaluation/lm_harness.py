@@ -43,6 +43,8 @@ from oumi.core.distributed import is_world_process_zero
 from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
+# Used to set the few-shot seed for lm_eval.api.task.Task. The value is consistent with
+# LM Harness `simple_evaluate`'s default `fewshot_random_seed` = 1234.
 FEW_SHOT_SEED = 1234
 
 ########################################################################################
@@ -279,7 +281,7 @@ def evaluate(
         inference_engine_type: The inference engine to use (`VLLM`, `NATIVE`, `REMOTE`).
         inference_remote_params: The parameters for remote inference, if applicable.
         run_name: Unique identifier for wandb for the current training run.
-        random_seed: The random seed to use for reproducibility.
+        random_seed: The random seed to use for python's `random` package.
         numpy_random_seed: The numpy random seed to use for reproducibility.
         torch_random_seed: The torch random seed to use for reproducibility.
 
