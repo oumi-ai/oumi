@@ -141,7 +141,9 @@ def test_load_image_png_bytes_from_url():
 
 @requires_pdf_support()
 def test_load_pdf_pages_from_path(root_testdata_dir: Path):
-    pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
+    pdf_filename: Path = (
+        Path(root_testdata_dir) / "pdfs" / "oumi_getting_started_full_4pages.pdf"
+    )
 
     pil_pages = load_pdf_pages_from_path(pdf_filename)
     assert len(pil_pages) == 4
@@ -162,16 +164,20 @@ def test_load_pdf_pages_from_path(root_testdata_dir: Path):
 
 @requires_pdf_support()
 def test_load_pdf_pages_from_url(root_testdata_dir):
-    pdf_filename: Path = Path(root_testdata_dir) / "pdfs" / "oumi_getting_started.pdf"
+    pdf_filename: Path = (
+        Path(root_testdata_dir) / "pdfs" / "oumi_getting_started_full_4pages.pdf"
+    )
     pdf_bytes = pdf_filename.read_bytes()
 
     with responses.RequestsMock() as m:
         m.add(
             responses.GET,
-            "http://oumi.ai/oumi_getting_started.pdf",
+            "http://oumi.ai/oumi_getting_started_full_4pages.pdf",
             body=pdf_bytes,
             stream=True,
         )
 
-        pil_pages = load_pdf_pages_from_url("http://oumi.ai/oumi_getting_started.pdf")
+        pil_pages = load_pdf_pages_from_url(
+            "http://oumi.ai/oumi_getting_started_full_4pages.pdf"
+        )
         assert len(pil_pages) == 4

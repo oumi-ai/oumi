@@ -119,11 +119,12 @@ def build_collator_from_config(
     train_split = config.data.get_split(DatasetSplit.TRAIN)
     if not train_split.collator_name:
         return None
+    collator_name: str = train_split.collator_name
 
     if tokenizer is None:
         raise ValueError(
             "Tokenizer must be provided if collator is specified! "
-            f"collator: '{train_split.collator_name}'"
+            f"collator: '{collator_name}'"
         )
 
     model_config = find_internal_model_config(config.model)
@@ -134,9 +135,20 @@ def build_collator_from_config(
         else constants.LABEL_IGNORE_INDEX
     )
 
+    collator_kwargs = {}
+    if (
+        collator_name == "vision_language_with_padding"
+        and model_config is not None
+        and model_config.visual_config is not None
+    ):
+        collator_kwargs["allow_multi_image_inputs"] = (
+            model_config.visual_config.supports_multiple_images
+        )
+
     return build_data_collator(
-        collator_name=train_split.collator_name,
+        collator_name=collator_name,
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
         label_ignore_index=label_ignore_index,
+        **collator_kwargs,
     )
