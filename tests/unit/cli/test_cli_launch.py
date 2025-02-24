@@ -1022,3 +1022,27 @@ def test_launch_status_success(app, mock_launcher, mock_pool):
         [call(cloud="cloud", cluster="cluster", id="job")]
     )
     assert logger.level == logging.DEBUG
+
+
+def test_launch_status_cluster_no_jobs(app, mock_launcher, mock_pool):
+    mock_cluster = Mock()
+    mock_cluster.name.return_value = "cluster_id"
+    mock_cluster.get_jobs.return_value = []
+    mock_cloud = Mock()
+    mock_launcher.get_cloud.return_value = mock_cloud
+    mock_launcher.status.return_value = {"cloud_id": []}
+    mock_cloud.list_clusters.return_value = [mock_cluster]
+    result = runner.invoke(
+        app,
+        [
+            "status",
+        ],
+    )
+    mock_launcher.status.assert_has_calls([call(cloud=None, cluster=None, id=None)])
+    expected_output = """========================
+Job status:
+========================
+Cloud: cloud_id
+Cluster: cluster_id
+No matching jobs found."""
+    assert expected_output in result.stdout

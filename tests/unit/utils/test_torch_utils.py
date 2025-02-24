@@ -198,6 +198,54 @@ def test_stack_and_pad_to_max_dim_right_side(padding_value):
         result.numpy() == expected.numpy()
     ), f"result: {result} expected: {expected}"
 
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=3,
+            padding_side="right",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=-1,
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 1"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=1,
+            padding_side="right",
+            padding_value=padding_value,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 2"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=2,
+            padding_value=padding_value,
+        )
+
 
 @pytest.mark.parametrize(
     "padding_value",
@@ -210,7 +258,9 @@ def test_stack_and_pad_to_max_dim_left_side(padding_value):
         torch.full([1, 1, 1, 1], -3),
     ]
     result = pad_to_max_dim_and_stack(
-        test_sequences, padding_side="left", padding_value=padding_value
+        test_sequences,
+        padding_side="left",
+        padding_value=padding_value,
     )
     assert result.shape == (3, 5, 2, 2, 1)
 
@@ -221,6 +271,56 @@ def test_stack_and_pad_to_max_dim_left_side(padding_value):
     assert np.all(
         result.numpy() == expected.numpy()
     ), f"result: {result} expected: {expected}"
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=3,
+            padding_side="left",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=-1,
+            padding_side="left",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 1"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=1,
+            padding_side="left",
+            padding_value=padding_value,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 2"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=2,
+            padding_side="left",
+            padding_value=padding_value,
+        )
 
 
 def test_create_ones_from_empty():

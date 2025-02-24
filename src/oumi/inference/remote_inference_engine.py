@@ -17,6 +17,7 @@ import copy
 import json
 import os
 import tempfile
+import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -392,7 +393,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             generation_params = inference_config.generation or self._generation_params
             output_path = inference_config.output_path
 
-        assert remote_params.api_url
+        if not remote_params.api_url:
+            remote_params.api_url = self._remote_params.api_url or self.base_url
+
+        # Validate API URL one final time.
+        if not remote_params.api_url:
+            raise ValueError("API URL is required for remote inference.")
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params
@@ -422,6 +428,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
+                        if isinstance(response_json, list):
+                            # If the response is a list, it is likely an error message.
+                            response_json = response_json[0]
                         failure_reason = (
                             response_json.get("error").get("message")
                             if response_json and response_json.get("error")
@@ -528,6 +537,23 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     #
     # Batch inference
     #
+
+    def get_file_api_url(self) -> str:
+        """Returns the URL for the file API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/v1/files")
+            .geturl()
+        )
+
+    def get_batch_api_url(self) -> str:
+        """Returns the URL for the batch API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/v1/batches")
+            .geturl()
+        )
+
     def infer_batch(
         self,
         conversations: list[Conversation],
@@ -638,7 +664,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 form.add_field("purpose", _BATCH_PURPOSE)
 
                 async with session.post(
-                    f"{self._remote_params.api_url}/files",
+                    self.get_file_api_url(),
                     data=form,
                     headers=headers,
                 ) as response:
@@ -687,13 +713,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.post(
-                f"{self._remote_params.api_url}/batches",
+                self.get_batch_api_url(),
                 json={
                     "input_file_id": file_id,
                     "endpoint": _BATCH_ENDPOINT,
-                    "batch_completion_window": (
-                        self._remote_params.batch_completion_window
-                    ),
+                    "completion_window": (self._remote_params.batch_completion_window),
                 },
                 headers=headers,
             ) as response:
@@ -720,7 +744,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{self._remote_params.api_url}/batches/{batch_id}",
+                f"{self.get_batch_api_url()}/{batch_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -755,7 +779,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 params["limit"] = str(limit)
 
             async with session.get(
-                f"{self._remote_params.api_url}/batches",
+                self.get_batch_api_url(),
                 headers=headers,
                 params=params,
             ) as response:
@@ -899,7 +923,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 params["after"] = after
 
             async with session.get(
-                f"{self._remote_params.api_url}/files",
+                self.get_file_api_url(),
                 headers=headers,
                 params=params,
             ) as response:
@@ -939,7 +963,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{self._remote_params.api_url}/files/{file_id}",
+                f"{self.get_file_api_url()}/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -970,7 +994,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.delete(
-                f"{self._remote_params.api_url}/files/{file_id}",
+                f"{self.get_file_api_url()}/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -997,7 +1021,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{self._remote_params.api_url}/files/{file_id}/content",
+                f"{self.get_file_api_url()}/{file_id}/content",
                 headers=headers,
             ) as response:
                 if response.status != 200:
