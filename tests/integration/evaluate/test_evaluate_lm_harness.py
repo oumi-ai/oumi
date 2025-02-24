@@ -4,15 +4,19 @@ import tempfile
 from typing import Any
 
 import pytest
+from lm_eval.api.group import ConfigurableGroup
+from lm_eval.api.task import ConfigurableTask
 
 from oumi import evaluate
 from oumi.core.configs import (
     EvaluationConfig,
     EvaluationTaskParams,
     GenerationParams,
+    LMHarnessTaskParams,
     ModelParams,
 )
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.evaluation.lm_harness import _get_task_dict
 from oumi.evaluation.save_utils import OUTPUT_FILENAME_PLATFORM_RESULTS
 from tests.markers import requires_gpus
 
@@ -146,3 +150,51 @@ def test_evaluate_lm_harness(input_config, expected_results):
             output_dir=nested_output_dir,
             task_name=input_config["task_name"],
         )
+
+
+def test_get_task_dict_for_configurable_task():
+    task_params = LMHarnessTaskParams(
+        evaluation_platform="lm_harness",
+        task_name="mmlu_college_computer_science",
+        num_fewshot=33,
+    )
+
+    task_dict = _get_task_dict(task_params)
+
+    assert len(task_dict) == 1
+    assert "mmlu_college_computer_science" in task_dict
+    task: ConfigurableTask = task_dict["mmlu_college_computer_science"]  # type: ignore
+
+    assert task.config.task == "mmlu_college_computer_science"
+    assert task.config.num_fewshot == 33
+    assert len(task.eval_docs) == 100
+    assert task.OUTPUT_TYPE == "multiple_choice"
+
+
+def test_get_task_dict_for_configurable_group():
+    task_params = LMHarnessTaskParams(
+        evaluation_platform="lm_harness", task_name="mmmu_val", num_fewshot=222
+    )
+
+    task_dict = _get_task_dict(task_params)
+
+    # Top Level: A single ConfigurableGroup with 6 subgroups
+    assert len(task_dict) == 1
+    conf_group_key = next(iter(task_dict))
+    assert isinstance(conf_group_key, ConfigurableGroup)
+    assert conf_group_key.group == "mmmu_val"
+    conf_group_dict = task_dict[conf_group_key]
+    assert isinstance(conf_group_dict, dict)
+    assert len(conf_group_dict) == 6
+
+    # Subgroup level: ConfigurableGroups consisting of multiple tasks
+    for subgroup_key, subgroup_dict in conf_group_dict.items():
+        assert isinstance(subgroup_key, ConfigurableGroup)
+        assert isinstance(subgroup_dict, dict)
+
+        # Task level: ensure `num_fewshot` has propagated to all tasks.
+        for task_key, task in subgroup_dict.items():
+            assert isinstance(task_key, str)
+            assert task_key.startswith("mmmu_val")
+            assert isinstance(task, ConfigurableTask)
+            assert task.config.num_fewshot == 222
