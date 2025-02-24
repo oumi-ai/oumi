@@ -16,7 +16,6 @@ from oumi.core.configs import (
     ModelParams,
 )
 from oumi.evaluation.save_utils import OUTPUT_FILENAME_PLATFORM_RESULTS
-from tests.markers import requires_gpus
 
 INPUT_CONFIG = {
     # EvaluationTaskParams params.
@@ -149,7 +148,6 @@ def _mock_alpaca_eval_evaluate(
     return df_leaderboard, None
 
 
-@requires_gpus()
 def test_evaluate_alpaca_eval():
     if find_spec("alpaca_eval") is None:
         pytest.skip("Skipping because alpaca_eval is not installed")
