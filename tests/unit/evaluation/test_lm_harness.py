@@ -37,7 +37,7 @@ from oumi.evaluation.lm_harness import (
                 "pretrained": "text_model",
                 "dtype": torch.float32,
                 "max_length": None,
-                "batch_size": "auto",
+                "batch_size": 1,
                 "max_batch_size": None,
                 "device": "mps",
                 "parallelize": False,
