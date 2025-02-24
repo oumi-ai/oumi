@@ -43,6 +43,15 @@ class TrainerType(Enum):
     for fine-tuning language models based on human preferences.
     """
 
+    TRL_GRPO = "trl_grpo"
+    """Group Relative Policy Optimization trainer from `trl` library.
+
+    This trainer implements the Group Relative Policy Optimization algorithm
+    introduced in the paper https://arxiv.org/pdf/2402.03300
+    for fine-tuning language models.
+    Optionally, supports a user-defined reward function.
+    """
+
     HF = "hf"
     """Generic HuggingFace trainer from `transformers` library.
 
