@@ -377,3 +377,108 @@ def test_evaluate(mock_patches_for_evaluate):
     assert kwargs["model_params"] == model_params
     assert kwargs["generation_params"] == generation_params
     assert kwargs["inference_config"] is None
+
+
+def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
+    # Access the relevant mocks through the fixture.
+    mock_cuda_is_available = mock_patches_for_evaluate["mock_cuda_is_available"]
+    mock_is_image_text_llm = mock_patches_for_evaluate["mock_is_image_text_llm"]
+    mock_get_task_dict = mock_patches_for_evaluate["mock_get_task_dict"]
+    mock_generate_lm_harness_model_args = mock_patches_for_evaluate[
+        "mock_generate_lm_harness_model_args"
+    ]
+    mock_lm_harness_get_model_class = mock_patches_for_evaluate[
+        "mock_lm_harness_get_model_class"
+    ]
+    mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
+
+    # This combination should throw (we cannot use VLLM without CUDA).
+    inference_engine_type = InferenceEngineType.VLLM
+    mock_cuda_is_available.return_value = False
+
+    # Mock functions that evaluate() calls.
+    mock_is_image_text_llm.return_value = False
+    mock_is_world_process_zero.return_value = True
+    mock_get_task_dict.return_value = MagicMock()
+    mock_generate_lm_harness_model_args.return_value = MagicMock()
+    mock_lm_harness_get_model_class.return_value = MagicMock()
+
+    with pytest.raises(
+        ValueError, match="The `VLLM` inference_engine requires a CUDA-enabled GPU."
+    ):
+        evaluate(
+            task_params=LMHarnessTaskParams(),
+            output_dir="",
+            model_params=ModelParams(model_name="gpt2"),
+            generation_params=GenerationParams(),
+            enable_wandb=False,
+            inference_engine_type=inference_engine_type,
+        )
+
+
+@pytest.mark.parametrize(
+    "unsupported_inference_engine_type",
+    [
+        InferenceEngineType.REMOTE_VLLM,
+        InferenceEngineType.SGLANG,
+        InferenceEngineType.LLAMACPP,
+        InferenceEngineType.ANTHROPIC,
+        InferenceEngineType.GOOGLE_VERTEX,
+        InferenceEngineType.GOOGLE_GEMINI,
+        InferenceEngineType.DEEPSEEK,
+        InferenceEngineType.PARASAIL,
+        InferenceEngineType.TOGETHER,
+        InferenceEngineType.OPENAI,
+        InferenceEngineType.SAMBANOVA,
+    ],
+    ids=[
+        "non_supported_engine_remote_vllm",
+        "non_supported_engine_sglang",
+        "non_supported_engine_llamacpp",
+        "non_supported_engine_anthropic",
+        "non_supported_engine_google_vertex",
+        "non_supported_engine_google_gemini",
+        "non_supported_engine_deepseek",
+        "non_supported_engine_parasail",
+        "non_supported_engine_together",
+        "non_supported_engine_openai",
+        "non_supported_engine_sambanova",
+    ],
+)
+def test_evaluate_failure_non_supported_engine(
+    mock_patches_for_evaluate, unsupported_inference_engine_type
+):
+    # Access the relevant mocks through the fixture.
+    mock_cuda_is_available = mock_patches_for_evaluate["mock_cuda_is_available"]
+    mock_is_image_text_llm = mock_patches_for_evaluate["mock_is_image_text_llm"]
+    mock_get_task_dict = mock_patches_for_evaluate["mock_get_task_dict"]
+    mock_generate_lm_harness_model_args = mock_patches_for_evaluate[
+        "mock_generate_lm_harness_model_args"
+    ]
+    mock_lm_harness_get_model_class = mock_patches_for_evaluate[
+        "mock_lm_harness_get_model_class"
+    ]
+    mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
+
+    # Mock functions that evaluate() calls.
+    mock_cuda_is_available.return_value = True
+    mock_is_image_text_llm.return_value = False
+    mock_is_world_process_zero.return_value = True
+    mock_get_task_dict.return_value = MagicMock()
+    mock_generate_lm_harness_model_args.return_value = MagicMock()
+    mock_lm_harness_get_model_class.return_value = MagicMock()
+
+    with pytest.raises(
+        ValueError,
+        match=f"Unsupported inference engine type: {unsupported_inference_engine_type}."
+        " Our integration with the `lm_harness` evaluation platform supports "
+        "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types.",
+    ):
+        evaluate(
+            task_params=LMHarnessTaskParams(),
+            output_dir="",
+            model_params=ModelParams(model_name="gpt2"),
+            generation_params=GenerationParams(),
+            enable_wandb=False,
+            inference_engine_type=unsupported_inference_engine_type,
+        )
