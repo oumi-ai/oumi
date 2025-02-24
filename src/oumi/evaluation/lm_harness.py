@@ -132,6 +132,9 @@ def _generate_lm_harness_model_args(
 
     # Add NATIVE inference engine's additional parameters.
     if inference_engine_type == InferenceEngineType.NATIVE:
+        if model_args_dict["batch_size"] == "auto":
+            # NATIVE (hf) inference engine can NOT accept auto batch size.
+            model_args_dict["batch_size"] = 1
         model_args_dict["parallelize"] = model_params.shard_for_eval
         model_args_dict["device_map"] = model_params.device_map
         if model_params.adapter_model:
