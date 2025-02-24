@@ -29,6 +29,7 @@ envs:
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
+  TRAIN_CONFIG: configs/recipes/llama3_1/sft/8b_full/panos_variations/train_basis_with_eval_on_all_data.yaml # SELECT PROPER ONE
 
 setup: |
   set -e
@@ -53,8 +54,8 @@ run: |
       --use_fsdp \
       --config_file configs/recipes/llama3_1/sft/8b_full/accelerate.yaml \
       -m oumi.train \
-      -c configs/recipes/llama3_1/sft/8b_full/panos_variations/train_basis.yaml \
+      -c ${TRAIN_CONFIG} \
       "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
-      "training.output_dir='/output_gcs_bucket/lema-balerion/training_runs/panos/corroborate/for_manos_showcase/${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
+      "training.output_dir='/output_gcs_bucket/lema-balerion/training_runs/panos/corroborate/for_manos_showcase_2/${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
