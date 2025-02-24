@@ -20,6 +20,44 @@ from oumi.evaluation.lm_harness import (
 )
 
 
+@pytest.fixture
+def mock_patches_for_evaluate():
+    with (
+        patch(
+            "oumi.evaluation.lm_harness.save_evaluation_output"
+        ) as mock_save_evaluation_output,
+        patch(
+            "oumi.evaluation.lm_harness.is_world_process_zero"
+        ) as mock_is_world_process_zero,
+        patch(
+            "oumi.evaluation.lm_harness.lm_harness_evaluate"
+        ) as mock_lm_harness_evaluate,
+        patch(
+            "oumi.evaluation.lm_harness.lm_harness_get_model_class"
+        ) as mock_lm_harness_get_model_class,
+        patch(
+            "oumi.evaluation.lm_harness._generate_lm_harness_model_args"
+        ) as mock_generate_lm_harness_model_args,
+        patch("oumi.evaluation.lm_harness._get_task_dict") as mock_get_task_dict,
+        patch(
+            "oumi.evaluation.lm_harness.is_image_text_llm_using_model_name"
+        ) as mock_is_image_text_llm,
+        patch("oumi.evaluation.lm_harness._set_random_seeds") as mock_set_random_seeds,
+        patch("torch.cuda.is_available") as mock_cuda_is_available,
+    ):
+        yield {
+            "mock_cuda_is_available": mock_cuda_is_available,
+            "mock_set_random_seeds": mock_set_random_seeds,
+            "mock_is_image_text_llm": mock_is_image_text_llm,
+            "mock_get_task_dict": mock_get_task_dict,
+            "mock_generate_lm_harness_model_args": mock_generate_lm_harness_model_args,
+            "mock_lm_harness_get_model_class": mock_lm_harness_get_model_class,
+            "mock_lm_harness_evaluate": mock_lm_harness_evaluate,
+            "mock_is_world_process_zero": mock_is_world_process_zero,
+            "mock_save_evaluation_output": mock_save_evaluation_output,
+        }
+
+
 @pytest.mark.parametrize(
     "lm_harness_model, is_multimodal, device, model_params, generation_params, "
     "inference_engine_type, inference_remote_params, expected_model_args",
@@ -174,6 +212,17 @@ def test_generate_lm_harness_model_args(
         inference_remote_params,
     )
 
+    if is_multimodal and inference_engine_type == InferenceEngineType.NATIVE:
+        mock_build_tokenizer.assert_called_once_with(model_params)
+        mock_build_processor.assert_called_once_with(
+            model_params.model_name,
+            mock_build_tokenizer.return_value,
+            trust_remote_code=model_params.trust_remote_code,
+        )
+    else:
+        mock_build_tokenizer.assert_not_called()
+        mock_build_processor.assert_not_called()
+
     assert model_args == expected_model_args
 
 
@@ -226,26 +275,24 @@ def test_get_task_dict_for_configurable_group():
             assert task.config.num_fewshot == 222
 
 
-@patch("oumi.evaluation.lm_harness.save_evaluation_output")
-@patch("oumi.evaluation.lm_harness.is_world_process_zero")
-@patch("oumi.evaluation.lm_harness.lm_harness_evaluate")
-@patch("oumi.evaluation.lm_harness.lm_harness_get_model_class")
-@patch("oumi.evaluation.lm_harness._generate_lm_harness_model_args")
-@patch("oumi.evaluation.lm_harness._get_task_dict")
-@patch("oumi.evaluation.lm_harness.is_image_text_llm_using_model_name")
-@patch("oumi.evaluation.lm_harness._set_random_seeds")
-@patch("torch.cuda.is_available")
-def test_evaluate(
-    mock_cuda_is_available,
-    mock_set_random_seeds,
-    mock_is_image_text_llm_using_model_name,
-    mock_get_task_dict,
-    mock_generate_lm_harness_model_args,
-    mock_lm_harness_get_model_class,
-    mock_lm_harness_evaluate,
-    mock_is_world_process_zero,
-    mock_save_evaluation_output,
-):
+def test_evaluate(mock_patches_for_evaluate):
+    # Access the relevant mocks through the fixture.
+    mock_cuda_is_available = mock_patches_for_evaluate["mock_cuda_is_available"]
+    mock_set_random_seeds = mock_patches_for_evaluate["mock_set_random_seeds"]
+    mock_is_image_text_llm = mock_patches_for_evaluate["mock_is_image_text_llm"]
+    mock_get_task_dict = mock_patches_for_evaluate["mock_get_task_dict"]
+    mock_generate_lm_harness_model_args = mock_patches_for_evaluate[
+        "mock_generate_lm_harness_model_args"
+    ]
+    mock_lm_harness_get_model_class = mock_patches_for_evaluate[
+        "mock_lm_harness_get_model_class"
+    ]
+    mock_lm_harness_evaluate = mock_patches_for_evaluate["mock_lm_harness_evaluate"]
+    mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
+    mock_save_evaluation_output = mock_patches_for_evaluate[
+        "mock_save_evaluation_output"
+    ]
+
     # Set the inputs of evaluate() function.
     task_params = LMHarnessTaskParams(
         evaluation_platform="lm_harness", task_name="mmlu", num_samples=222
@@ -268,7 +315,7 @@ def test_evaluate(
 
     # Mock functions that evaluate() calls.
     mock_cuda_is_available.return_value = True
-    mock_is_image_text_llm_using_model_name.return_value = False
+    mock_is_image_text_llm.return_value = False
     mock_get_task_dict.return_value = mock_task_dict
     mock_generate_lm_harness_model_args.return_value = mock_lm_harness_model_args
     mock_lm_harness_get_model_class.return_value = MagicMock()
@@ -295,7 +342,7 @@ def test_evaluate(
         numpy_random_seed=numpy_random_seed,
         torch_random_seed=torch_random_seed,
     )
-    mock_is_image_text_llm_using_model_name.assert_called_once_with(
+    mock_is_image_text_llm.assert_called_once_with(
         model_name=model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
     )
