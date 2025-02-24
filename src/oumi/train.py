@@ -192,7 +192,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # We support running FSDP Oumi training without being invoked from the Accelerate
     # launcher. We detect this with the following:
     # 1. Accelerate's environment variables aren't set
-    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO, TRL_GRPO)
     # 3. FSDP is enabled in the Oumi config
     # In this case, we mimic an Accelerate launcher run by setting the necessary
     # environment variables.
