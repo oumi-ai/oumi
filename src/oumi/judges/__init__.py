@@ -24,7 +24,8 @@ from oumi.judges.base_judge import (
 )
 from oumi.judges.judge_court import (
     oumi_v1_xml_claude_sonnet_judge,
-    oumi_v1_xml_deepseek_r1_judge,
+    oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek,
+    oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova,
     oumi_v1_xml_gpt4o_judge,
     oumi_v1_xml_local_judge,
 )
@@ -38,7 +39,8 @@ __all__ = [
     "oumi_v1_xml_claude_sonnet_judge",
     "oumi_v1_xml_gpt4o_judge",
     "oumi_v1_xml_local_judge",
-    "oumi_v1_xml_deepseek_r1_judge",
+    "oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek",
+    "oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova",
     "OumiXmlJudge",
     "OumiJudgeInput",
     "OumiJudgeOutput",
