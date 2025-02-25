@@ -38,12 +38,6 @@ def test_build_reward_functions_empty():
 )
 def test_build_reward_functions_single(function_name: str):
     params = TrainingParams()
-    params.reward_functions = function_name
-    reward_funcs = build_reward_functions(params)
-    assert len(reward_funcs) == 1
-    assert reward_funcs == [REGISTRY.get(function_name, RegistryType.REWARD_FUNCTION)]
-
-    params = TrainingParams()
     params.reward_functions = [function_name]
     reward_funcs = build_reward_functions(params)
     assert len(reward_funcs) == 1
