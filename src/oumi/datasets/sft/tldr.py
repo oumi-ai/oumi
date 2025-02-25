@@ -21,7 +21,7 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
-@register_dataset("trl-lib/tldr")
+@register_dataset("trl-lib/tldr_sft")
 class TldrSftDataset(BaseSftDataset):
     default_dataset = "trl-lib/tldr"
 

@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
-from oumi.core.registry import register_dataset
+"""GRPO datasets module."""
 
+from oumi.datasets.grpo.tldr import TldrGrpoDataset
 
-@register_dataset("trl-lib/tldr")
-class TldrGrpoDataset(BaseExperimentalGrpoDataset):
-    default_dataset = "trl-lib/tldr"
+__all__ = [
+    "TldrGrpoDataset",
+]
