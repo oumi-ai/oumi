@@ -14,6 +14,8 @@
 
 from typing import Optional
 
+from typing_extensions import override
+
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
@@ -43,7 +45,7 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         return_tensors: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the BaseSftDataset class."""
+        """Initializes a new instance of the BaseExperimentalDpoDataset class."""
         super().__init__(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
@@ -76,6 +78,7 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
             _REJECTED_KEY: rejected_chat_response,
         }
 
+    @override
     def transform(self, sample: dict) -> dict:
         """Transform the samples to the Oumi format."""
         return self.transform_preference(sample)
