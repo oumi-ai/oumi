@@ -22,6 +22,9 @@ def build_reward_functions(config: TrainingParams) -> list[Callable]:
     """Builds the metrics function."""
     result: list[Callable] = []
     if config.reward_functions is not None:
+        # Import to ensure GRPO reward functions are added to REGISTRY.
+        import oumi.datasets.grpo.rewards as grpo_rewards  # noqa: F401
+
         function_names = [name for name in config.reward_functions if name]
         for name in function_names:
             reward_function = REGISTRY.get_reward_function(name)

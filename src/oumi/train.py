@@ -56,7 +56,6 @@ from oumi.core.distributed import (
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.registry import RegistryType, register
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
@@ -165,14 +164,6 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 
     assert isinstance(config.training.dataloader_num_workers, int)
     return config
-
-
-@register("starts_with_tldr", RegistryType.REWARD_FUNCTION)
-def format_reward_func(completions, **kwargs):
-    """Reward function that checks if the completion has a specific format."""
-    print(f"completions: {completions}")
-    matches = [content.startswith("TLDR") for content in completions]
-    return [1.0 if match else 0.0 for match in matches]
 
 
 def _create_optional_training_kwargs(
