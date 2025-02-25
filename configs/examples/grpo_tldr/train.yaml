@@ -17,8 +17,7 @@ model:
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  chat_template: "llava"
-  trust_remote_code: True
+  # trust_remote_code: True
 
 data:
   train:
@@ -44,6 +43,7 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
+  max_steps: 100
   logging_steps: 10
   log_model_summary: False
   output_dir: "output/tldr.grpo"
