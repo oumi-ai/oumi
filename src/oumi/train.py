@@ -16,7 +16,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Optional, Union
+from typing import Callable, Final, Optional, Union
 
 import torch
 import transformers
@@ -255,8 +255,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
     # Train model
+    trainer_type: Final[TrainerType] = config.training.trainer_type
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type, processor=processor
+        trainer_type, processor=processor
     )
 
     metrics_function = build_metrics_function(config.training)
@@ -273,20 +274,37 @@ def train(config: TrainingConfig, **kwargs) -> None:
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
             kwargs = {}
-            if config.training.trainer_type == TrainerType.OUMI:
+            if trainer_type == TrainerType.OUMI:
                 kwargs["config"] = config
+
+            if trainer_type != TrainerType.TRL_GRPO:
+                kwargs["tokenizer"] = tokenizer
+                kwargs["compute_metrics"] = metrics_function
+                kwargs["data_collator"] = collator
+            else:
+                assert trainer_type == TrainerType.TRL_GRPO
+                if metrics_function:
+                    raise ValueError(
+                        f"metrics_function isn't supported for {trainer_type}"
+                    )
+                if collator:
+                    raise ValueError(f"collator isn't supported for {trainer_type}")
+
+                kwargs["processing_class"] = tokenizer
+
+                def _reward_len(completions, **kwargs):
+                    return [-abs(20 - len(completion)) for completion in completions]
+
+                kwargs["reward_funcs"] = _reward_len
 
             callbacks = build_training_callbacks(config, model, profiler)
 
             trainer = create_trainer_fn(
                 model=model,
-                tokenizer=tokenizer,
                 args=config.training,
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
-                compute_metrics=metrics_function,
                 callbacks=callbacks,
-                data_collator=collator,
                 **kwargs,
             )
 

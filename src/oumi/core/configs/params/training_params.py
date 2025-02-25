@@ -647,6 +647,8 @@ class TrainingParams(BaseParams):
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_GRPO:
+            config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
         result = config_class(
