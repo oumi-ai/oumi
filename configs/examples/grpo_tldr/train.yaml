@@ -17,6 +17,7 @@ model:
   model_max_length: 4096
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
+  chat_template: "llava"
   trust_remote_code: True
 
 data:
@@ -30,8 +31,10 @@ training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
   # If gradient checkpointing is enabled: use 12 (~94% of 40GB VRAM)
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 64
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+
+  reward_functions: ["starts_with_tldr"]
 
   enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:

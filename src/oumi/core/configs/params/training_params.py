@@ -306,6 +306,15 @@ class TrainingParams(BaseParams):
     single metrics_function may compute multiple metrics.
     """
 
+    reward_functions: Optional[list[str]] = None
+    """The names of the reward function in the Oumi registry to use for reinforcement
+    learning.
+
+    Only supported with the TRL_GRPO trainer currently. Refer to
+    https://huggingface.co/docs/trl/main/en/grpo_trainer
+    for documentation about the function signature.
+    """
+
     log_level: str = "info"
     """The logging level for the main Oumi logger.
 
@@ -754,6 +763,16 @@ class TrainingParams(BaseParams):
                 "At least one of max_steps and num_train_epochs must be positive. "
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
+            )
+
+        if (
+            self.reward_functions is not None
+            and len(self.reward_functions) > 0
+            and self.trainer_type != TrainerType.TRL_GRPO
+        ):
+            raise ValueError(
+                "reward_functions may only be defined for the TRL_GRPO trainer. "
+                f"Actual: {self.trainer_type}"
             )
 
     @property

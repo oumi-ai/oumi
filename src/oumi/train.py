@@ -29,6 +29,7 @@ from oumi.builders import (
     build_model,
     build_peft_model,
     build_processor,
+    build_reward_functions,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
@@ -55,6 +56,7 @@ from oumi.core.distributed import (
     verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.processors.base_processor import BaseProcessor
+from oumi.core.registry import RegistryType, register
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers import BaseTrainer
 from oumi.performance.torch_profiler_utils import torch_profile
@@ -165,6 +167,14 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
+@register("starts_with_tldr", RegistryType.REWARD_FUNCTION)
+def format_reward_func(completions, **kwargs):
+    """Reward function that checks if the completion has a specific format."""
+    print(f"completions: {completions}")
+    matches = [content.startswith("TLDR") for content in completions]
+    return [1.0 if match else 0.0 for match in matches]
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -261,6 +271,9 @@ def train(config: TrainingConfig, **kwargs) -> None:
     )
 
     metrics_function = build_metrics_function(config.training)
+    reward_functions = build_reward_functions(config.training)
+    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
+        logger.warning(f"No reward_function specified for {trainer_type}!")
 
     collator = build_collator_from_config(config, tokenizer)
 
@@ -291,11 +304,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                     raise ValueError(f"collator isn't supported for {trainer_type}")
 
                 kwargs["processing_class"] = tokenizer
-
-                def _reward_len(completions, **kwargs):
-                    return [-abs(20 - len(completion)) for completion in completions]
-
-                kwargs["reward_funcs"] = _reward_len
+                kwargs["reward_funcs"] = reward_functions
 
             callbacks = build_training_callbacks(config, model, profiler)
 
