@@ -9,6 +9,7 @@ from oumi.judges.oumi_judge import OumiXmlJudge as OumiJudge
 
 
 class TestDeepSeekR1Judge(unittest.TestCase):
+    # [TODO] Unable to test due to unable to add funds
     def test_deepseek_r1_judge_config_hosted_by_deepseek(self):
 
         conversations = [
@@ -34,6 +35,7 @@ class TestDeepSeekR1Judge(unittest.TestCase):
         # Print the results
         print(judge_output)
 
+    # [TODO] Unable to test due to unable to R1 API on waiting list
     def test_deepseek_r1_judge_config_hosted_by_sambanova(self):
 
         conversations = [

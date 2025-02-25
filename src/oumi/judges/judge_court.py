@@ -223,6 +223,8 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova() -> JudgeConfig:
             api_url="https://api.sambanova.ai/v1/chat/completions",
             api_key_env_varname="SAMBANOVA_API_KEY",
             max_retries=3,
+            connection_timeout=10,
+            politeness_policy=2.0
         ),
     )
     return config
@@ -264,6 +266,13 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_Together() -> JudgeConfig:
             api_url="https://api.together.xyz/v1/chat/completions",
             api_key_env_varname="TOGETHER_API_KEY",
             max_retries=3,
+            # Experience number. Based on curl test, it takes about 48 seconds to 
+            # complete a LLM as judge task
+            connection_timeout=60, 
+            # Note: Due to high demand, DeepSeek R1 has a model specific rate limit of \
+            # 6 RPM for Free Users, and 12 RPM for Build Tier 1 users.
+            # https://docs.together.ai/docs/rate-limits#rate-limit-tiers
+            politeness_policy=11.0
         ),
     )
     return config

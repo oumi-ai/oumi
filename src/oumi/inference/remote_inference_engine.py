@@ -414,6 +414,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     headers=headers,
                     timeout=remote_params.connection_timeout,
                 ) as response:
+                    print("response", response)
                     response_json = await response.json()
                     if response.status == 200:
                         result = self._convert_api_output_to_conversation(
