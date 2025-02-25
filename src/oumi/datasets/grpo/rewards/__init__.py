@@ -15,9 +15,11 @@
 """GRPO datasets module."""
 
 from oumi.datasets.grpo.rewards.completion_length_rewards import (
+    compute_sharp_target_token_length_reward,
     compute_soft_target_token_length_reward,
 )
 
 __all__ = [
     "compute_soft_target_token_length_reward",
+    "compute_sharp_target_token_length_reward",
 ]
