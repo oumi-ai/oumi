@@ -227,6 +227,47 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova() -> JudgeConfig:
     )
     return config
 
+@register_judge("oumi/v1_xml_deepseek_r1_hosted_by_together")
+def oumi_v1_xml_deepseek_r1_judge_hosted_by_Together() -> JudgeConfig:
+    """Returns a JudgeConfig for the Oumi v1 XML DeepSeek R1 judge.
+
+    This function creates and returns a JudgeConfig object for the Oumi V1 Judge, which
+    uses DeepSeek R1 as a judge, with inputs and outputs in XML format.
+
+    Returns:
+        JudgeConfig: A configuration object for the Oumi v1 XML DeepSeek R1 judge.
+
+    Note:
+        This judge uses the Together Cloud API, so the TOGETHER_API_KEY environment
+        variable must be set with a valid API key.
+    """
+    judges_directory = get_oumi_root_directory() / "judges" / "oumi_v1"
+
+    attribute_names = ["helpful", "honest", "safe"]
+
+    attributes = {
+        attribute: JudgeAttribute[Union[OumiJudgeInput, OumiJudgeOutput]].load(
+            str(judges_directory / f"{attribute}.json")
+        )
+        for attribute in attribute_names
+    }
+
+    config = JudgeConfig(
+        attributes=attributes,
+        model=ModelParams(model_name="deepseek-ai/DeepSeek-R1"),
+        engine=InferenceEngineType.REMOTE,
+        generation=GenerationParams(
+            max_new_tokens=1024,
+            temperature=0.0,
+        ),
+        remote_params=RemoteParams(
+            api_url="https://api.together.xyz/v1/chat/completions",
+            api_key_env_varname="TOGETHER_API_KEY",
+            max_retries=3,
+        ),
+    )
+    return config
+
 @register_judge("oumi/v1_xml_unit_test")
 def unit_test_judge():
     """Tiny judge for unit testing.
