@@ -306,7 +306,7 @@ class TrainingParams(BaseParams):
     single metrics_function may compute multiple metrics.
     """
 
-    reward_functions: Optional[list[str]] = None
+    reward_functions: Optional[Union[str, list[str]]] = None
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
@@ -766,14 +766,20 @@ class TrainingParams(BaseParams):
             )
 
         if (
-            self.reward_functions is not None
-            and len(self.reward_functions) > 0
-            and self.trainer_type != TrainerType.TRL_GRPO
+            self.trainer_type != TrainerType.TRL_GRPO
+            and self.reward_functions is not None
         ):
-            raise ValueError(
-                "reward_functions may only be defined for the TRL_GRPO trainer. "
-                f"Actual: {self.trainer_type}"
+            function_names: list[str] = (
+                self.reward_functions
+                if isinstance(self.reward_functions, list)
+                else [self.reward_functions]
             )
+            function_names = [name for name in function_names if name]
+            if len(function_names) > 0:
+                raise ValueError(
+                    "reward_functions may only be defined for the TRL_GRPO trainer. "
+                    f"Actual: {self.trainer_type}"
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
