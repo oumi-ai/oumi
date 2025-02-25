@@ -21,11 +21,10 @@ model:
 
 data:
   train:
+    target_col: "prompt"
     datasets:
       - dataset_name: "trl-lib/tldr"
-        split: "train"
-        # dataset_kwargs:
-        #  seq_length: 4096
+        split: "train[0:100]"
 
 training:
   trainer_type: "TRL_GRPO"
@@ -54,5 +53,5 @@ training:
   logging_steps: 10
   log_model_summary: False
   output_dir: "output/fineweb.pt"
-  include_performance_metrics: True
+  include_performance_metrics: False
   enable_wandb: True

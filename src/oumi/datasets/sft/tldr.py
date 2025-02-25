@@ -22,8 +22,27 @@ from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @register_dataset("trl-lib/tldr")
-class TldrDataset(BaseSftDataset):
+class TldrSftDataset(BaseSftDataset):
     default_dataset = "trl-lib/tldr"
+
+    _DEFAULT_SYSTEM_PROMPT = (
+        "You are an expert summarizer. "
+        "Your task is to distill any given text into a concise, "
+        'easily understandable "TL;DR" (Too Long; Didn\'t Read) summary.'
+    )
+
+    def __init__(
+        self,
+        **kwargs,
+    ) -> None:
+        """Initializes a new instance of the BaseSftDataset class."""
+        tokenize = kwargs.pop("tokenize", False)
+        text_col = kwargs.pop("text_col", "prompt")
+        super().__init__(
+            tokenize=tokenize,
+            text_col=text_col,
+            **kwargs,
+        )
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
@@ -31,6 +50,7 @@ class TldrDataset(BaseSftDataset):
         completion: str = example.get("completion", None) or ""
 
         messages = [
+            Message(role=Role.SYSTEM, content=self._DEFAULT_SYSTEM_PROMPT),
             Message(role=Role.USER, content=prompt),
             Message(role=Role.ASSISTANT, content=completion),
         ]
