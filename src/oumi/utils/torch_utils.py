@@ -160,6 +160,15 @@ def log_model_summary(model, filepath: Optional[Path] = None) -> None:
             f.write(model_summary)
 
 
+def get_device_name() -> str:
+    """Returns the name of the device, assuming all are identical."""
+    device_name = "CPU"
+    # Assume all devices are identical
+    if torch.cuda.is_available():
+        device_name = torch.cuda.get_device_name(0)
+    return device_name
+
+
 class ModelParameterCount(NamedTuple):
     all_params: int
     trainable_params: int
