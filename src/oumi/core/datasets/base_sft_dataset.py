@@ -40,7 +40,6 @@ class BaseSftDataset(BaseMapDataset, ABC):
         dataset_path: Optional[str] = None,
         split: Optional[str] = None,
         tokenizer: Optional[BaseTokenizer] = None,
-        tokenize: Optional[bool] = None,
         task: Literal["sft", "generation", "auto"] = "auto",
         return_tensors: bool = False,
         text_col: str = "text",
@@ -60,7 +59,6 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._task = task
         self._text_col = text_col
         self._tokenizer = tokenizer
-        self._tokenize_flag = tokenize
         self._return_tensors = "pt" if return_tensors else None
 
         self._assistant_only = assistant_only
@@ -149,9 +147,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
     #
     def transform(self, sample: pd.Series) -> dict:
         """Preprocesses the inputs in the given sample."""
-        return self.tokenize(
-            self.transform_conversation(sample), tokenize=(self._tokenize_flag or False)
-        )
+        return self.tokenize(self.transform_conversation(sample))
 
     def tokenize(
         self,
@@ -195,7 +191,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 )
 
         if not self._assistant_only or not tokenize:
-            return self._tokenize_impl(conversation, tokenize=tokenize)
+            return self._tokenize(conversation, tokenize)
 
         if self._is_template_compatible_with_completions_only_training:
             return tokenize_for_completions_only_training_with_template(
@@ -212,8 +208,8 @@ class BaseSftDataset(BaseMapDataset, ABC):
                 instruction_token_ids=self.instruction_token_ids,
             )
 
-    def _tokenize_impl(
-        self, sample: Union[dict, pd.Series, Conversation], *, tokenize: bool = True
+    def _tokenize(
+        self, sample: Union[dict, pd.Series, Conversation], tokenize: bool = True
     ) -> dict:
         if self._tokenizer is None:
             raise ValueError("Tokenizer is required for tokenization.")
