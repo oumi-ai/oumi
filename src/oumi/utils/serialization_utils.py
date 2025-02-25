@@ -48,6 +48,21 @@ class TorchJsonEncoder(json.JSONEncoder):
                 return str(obj)
 
 
+def convert_all_keys_to_serializable_types(dictionary: dict) -> None:
+    """Converts all keys in a hierarchical dictionary to serializable types."""
+    serializable_key_types = {str, int, float, bool, None}
+    non_serializable_keys = [
+        key for key in dictionary if type(key) not in serializable_key_types
+    ]
+    for key in non_serializable_keys:
+        dictionary[str(key)] = dictionary.pop(key)
+
+    # Recursively convert all keys for nested dictionaries.
+    for value in dictionary.values():
+        if isinstance(value, dict):
+            convert_all_keys_to_serializable_types(value)
+
+
 def json_serializer(obj: Any) -> str:
     """Serializes a Python obj to a JSON formatted string."""
     if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
@@ -56,6 +71,10 @@ def json_serializer(obj: Any) -> str:
         dict_to_serialize = obj
     else:
         raise ValueError(f"Cannot serialize object of type {type(obj)} to JSON.")
+
+    # Ensure all (nested) dictionary keys are serializable.
+    if isinstance(dict_to_serialize, dict):
+        convert_all_keys_to_serializable_types(dict_to_serialize)
 
     # Attempt to serialize the dictionary to JSON.
     try:
