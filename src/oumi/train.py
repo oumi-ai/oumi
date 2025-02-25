@@ -175,6 +175,34 @@ def format_reward_func(completions, **kwargs):
     return [1.0 if match else 0.0 for match in matches]
 
 
+def _create_optional_training_kwargs(
+    config: TrainingConfig,
+    tokenizer: Optional[BaseTokenizer],
+    trainer_type: TrainerType,
+    metrics_function: Optional[Callable],
+    reward_functions: list[Callable],
+    collator: Optional[Callable],
+):
+    kwargs = {}
+    if trainer_type == TrainerType.OUMI:
+        kwargs["config"] = config
+
+    if trainer_type != TrainerType.TRL_GRPO:
+        kwargs["tokenizer"] = tokenizer
+        kwargs["compute_metrics"] = metrics_function
+        kwargs["data_collator"] = collator
+    else:
+        assert trainer_type == TrainerType.TRL_GRPO
+        if metrics_function:
+            raise ValueError(f"metrics_function isn't supported for {trainer_type}")
+        if collator:
+            raise ValueError(f"collator isn't supported for {trainer_type}")
+
+        kwargs["processing_class"] = tokenizer
+        kwargs["reward_funcs"] = reward_functions
+    return kwargs
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -270,12 +298,21 @@ def train(config: TrainingConfig, **kwargs) -> None:
         trainer_type, processor=processor
     )
 
-    metrics_function = build_metrics_function(config.training)
-    reward_functions = build_reward_functions(config.training)
+    metrics_function: Optional[Callable] = build_metrics_function(config.training)
+    reward_functions: list[Callable] = build_reward_functions(config.training)
     if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
         logger.warning(f"No reward_function specified for {trainer_type}!")
 
-    collator = build_collator_from_config(config, tokenizer)
+    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+
+    training_kwargs = _create_optional_training_kwargs(
+        config,
+        tokenizer,
+        trainer_type,
+        metrics_function,
+        reward_functions,
+        collator,
+    )
 
     # Reclaim memory before training starts.
     device_cleanup()
@@ -286,26 +323,6 @@ def train(config: TrainingConfig, **kwargs) -> None:
         record_function_name="oumi.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
-            kwargs = {}
-            if trainer_type == TrainerType.OUMI:
-                kwargs["config"] = config
-
-            if trainer_type != TrainerType.TRL_GRPO:
-                kwargs["tokenizer"] = tokenizer
-                kwargs["compute_metrics"] = metrics_function
-                kwargs["data_collator"] = collator
-            else:
-                assert trainer_type == TrainerType.TRL_GRPO
-                if metrics_function:
-                    raise ValueError(
-                        f"metrics_function isn't supported for {trainer_type}"
-                    )
-                if collator:
-                    raise ValueError(f"collator isn't supported for {trainer_type}")
-
-                kwargs["processing_class"] = tokenizer
-                kwargs["reward_funcs"] = reward_functions
-
             callbacks = build_training_callbacks(config, model, profiler)
 
             trainer = create_trainer_fn(
@@ -314,7 +331,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
                 callbacks=callbacks,
-                **kwargs,
+                **training_kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):

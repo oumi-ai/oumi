@@ -49,7 +49,7 @@ class TrainerType(Enum):
     This trainer implements the Group Relative Policy Optimization algorithm
     introduced in the paper https://arxiv.org/pdf/2402.03300
     for fine-tuning language models.
-    Optionally, supports a user-defined reward function.
+    Optionally, supports user-defined reward functions.
     """
 
     HF = "hf"
