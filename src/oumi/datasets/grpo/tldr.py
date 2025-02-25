@@ -18,4 +18,6 @@ from oumi.core.registry import register_dataset
 
 @register_dataset("trl-lib/tldr")
 class TldrGrpoDataset(BaseExperimentalGrpoDataset):
+    """Dataset class for the `trl-lib/tldr` dataset."""
+
     default_dataset = "trl-lib/tldr"
