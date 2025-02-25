@@ -18,6 +18,10 @@ import re
 from oumi.core.registry import RegistryType, register
 
 
+def _whitespace_tokenize(s: str) -> list[str]:
+    return re.split(r"\s+", s)
+
+
 def compute_soft_target_token_length_reward(num_tokens: int, *, target_tokens: int):
     """Returns maximum reward for inputs that are `target_tokens` long.
 
@@ -28,25 +32,77 @@ def compute_soft_target_token_length_reward(num_tokens: int, *, target_tokens: i
     return x * math.exp(-x)
 
 
-def _compute_completion_target_token_length_reward(completions, *, target_tokens: int):
+def _compute_completion_soft_target_token_length_reward(
+    completions, *, target_tokens: int
+):
     return [
         compute_soft_target_token_length_reward(
-            len(re.split(r"\s+", content)), target_tokens=target_tokens
+            len(_whitespace_tokenize(content)), target_tokens=target_tokens
         )
         for content in completions
     ]
 
 
+def compute_sharp_target_token_length_reward(num_tokens: int, *, target_tokens: int):
+    """Returns maximum reward for inputs that are `target_tokens` long.
+
+    The reward reduces sharply if the actual number of tokens deviates
+    from `target_tokens`.
+    """
+    return -abs(num_tokens - target_tokens)
+
+
+def _compute_completion_sharp_target_token_length_reward(
+    completions, *, target_tokens: int
+):
+    return [
+        compute_sharp_target_token_length_reward(
+            len(_whitespace_tokenize(content)), target_tokens=target_tokens
+        )
+        for content in completions
+    ]
+
+
+# Simple toy length-based reward functions for experimentation:
+
+
 @register("soft_5tokens_completions", RegistryType.REWARD_FUNCTION)
 def _soft_5tokens_completions(completions, **kwargs):
-    return _compute_completion_target_token_length_reward(completions, target_tokens=5)
+    return _compute_completion_soft_target_token_length_reward(
+        completions, target_tokens=5
+    )
 
 
 @register("soft_10tokens_completions", RegistryType.REWARD_FUNCTION)
 def _soft_10tokens_completions(completions, **kwargs):
-    return _compute_completion_target_token_length_reward(completions, target_tokens=10)
+    return _compute_completion_soft_target_token_length_reward(
+        completions, target_tokens=10
+    )
 
 
 @register("soft_20tokens_completions", RegistryType.REWARD_FUNCTION)
 def _soft_20tokens_completions(completions, **kwargs):
-    return _compute_completion_target_token_length_reward(completions, target_tokens=20)
+    return _compute_completion_soft_target_token_length_reward(
+        completions, target_tokens=20
+    )
+
+
+@register("sharp_5tokens_completions", RegistryType.REWARD_FUNCTION)
+def _sharp_5tokens_completions(completions, **kwargs):
+    return _compute_completion_sharp_target_token_length_reward(
+        completions, target_tokens=5
+    )
+
+
+@register("sharp_10tokens_completions", RegistryType.REWARD_FUNCTION)
+def _sharp_10tokens_completions(completions, **kwargs):
+    return _compute_completion_sharp_target_token_length_reward(
+        completions, target_tokens=10
+    )
+
+
+@register("sharp_20tokens_completions", RegistryType.REWARD_FUNCTION)
+def _sharp_20tokens_completions(completions, **kwargs):
+    return _compute_completion_sharp_target_token_length_reward(
+        completions, target_tokens=20
+    )
