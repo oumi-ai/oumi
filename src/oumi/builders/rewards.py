@@ -22,12 +22,13 @@ def build_reward_functions(config: TrainingParams) -> list[Callable]:
     """Builds the metrics function."""
     result: list[Callable] = []
     if config.reward_functions is not None:
-        reward_function_names: list[str] = (
+        function_names: list[str] = (
             config.reward_functions
             if isinstance(config.reward_functions, list)
             else [config.reward_functions]
         )
-        for name in reward_function_names:
+        function_names = [name for name in function_names if name]
+        for name in function_names:
             reward_function = REGISTRY.get_reward_function(name)
             if not reward_function:
                 raise KeyError(

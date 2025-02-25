@@ -136,6 +136,12 @@ class Registry:
                 f"Registry: `{name}` of `{type}` "
                 f"is already registered as `{current_value}`."
             )
+        if type in (
+            RegistryType.METRICS_FUNCTION,
+            RegistryType.REWARD_FUNCTION,
+        ) and not callable(value):
+            raise ValueError(f"Registry: `{name}` of `{type}` must be callable.")
+
         self._registry[registry_key] = value
 
     @_register_dependencies
