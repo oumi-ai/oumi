@@ -37,6 +37,8 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  pip install -e ".[gpu]"
+
   set -x
   oumi distributed torchrun \
       -m oumi train \
