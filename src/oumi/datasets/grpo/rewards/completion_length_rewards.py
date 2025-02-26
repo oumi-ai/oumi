@@ -68,9 +68,9 @@ def _compute_completion_sharp_target_token_length_reward(
     ]
 
 
-# Simple toy length-based reward functions for experimentation and demostration purpose.
-# In practice, most users are expected to define and use custom reward functions,
-# not these.
+# Simple toy length-based reward functions for experimentation and demonstration
+# purposes. In practice, most users are expected to define and  use custom reward
+# functions, not these.
 
 
 @register("soft_5tokens_completions", RegistryType.REWARD_FUNCTION)
