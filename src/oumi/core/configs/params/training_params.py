@@ -43,6 +43,15 @@ class TrainerType(Enum):
     for fine-tuning language models based on human preferences.
     """
 
+    TRL_GRPO = "trl_grpo"
+    """Group Relative Policy Optimization trainer from `trl` library.
+
+    This trainer implements the Group Relative Policy Optimization algorithm
+    introduced in the paper https://arxiv.org/pdf/2402.03300
+    for fine-tuning language models.
+    Optionally, supports user-defined reward functions.
+    """
+
     HF = "hf"
     """Generic HuggingFace trainer from `transformers` library.
 
@@ -295,6 +304,15 @@ class TrainingParams(BaseParams):
     The method must accept as input a HuggingFace EvalPrediction and
     return a dictionary of metrics, with string keys mapping to metric values. A
     single metrics_function may compute multiple metrics.
+    """
+
+    reward_functions: Optional[list[str]] = None
+    """The names of the reward function in the Oumi registry to use for reinforcement
+    learning.
+
+    Only supported with the TRL_GRPO trainer currently. Refer to
+    https://huggingface.co/docs/trl/main/en/grpo_trainer
+    for documentation about the function signature.
     """
 
     log_level: str = "info"
@@ -638,6 +656,8 @@ class TrainingParams(BaseParams):
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_GRPO:
+            config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
         result = config_class(
@@ -744,6 +764,17 @@ class TrainingParams(BaseParams):
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
             )
+
+        if (
+            self.trainer_type != TrainerType.TRL_GRPO
+            and self.reward_functions is not None
+        ):
+            function_names = [name for name in self.reward_functions if name]
+            if len(function_names) > 0:
+                raise ValueError(
+                    "reward_functions may only be defined for the TRL_GRPO trainer. "
+                    f"Actual: {self.trainer_type}"
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:

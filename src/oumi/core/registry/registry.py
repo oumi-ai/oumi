@@ -28,6 +28,7 @@ class RegistryType(Enum):
     CLOUD = auto()
     DATASET = auto()
     METRICS_FUNCTION = auto()
+    REWARD_FUNCTION = auto()
     MODEL_CONFIG = auto()
     MODEL = auto()
     JUDGE_CONFIG = auto()
@@ -51,7 +52,7 @@ def _load_user_requirements(requirements_file: str):
     """Loads user-defined requirements from a file."""
     logger.info(f"Loading user-defined registry from: {requirements_file}")
     logger.info(
-        "This value can be set using the OUMI_EXTRA_DEPS_FILE " "environment variable."
+        "This value can be set using the OUMI_EXTRA_DEPS_FILE environment variable."
     )
     requirements_path = Path(requirements_file)
     if not requirements_path.exists():
@@ -135,6 +136,12 @@ class Registry:
                 f"Registry: `{name}` of `{type}` "
                 f"is already registered as `{current_value}`."
             )
+        if type in (
+            RegistryType.METRICS_FUNCTION,
+            RegistryType.REWARD_FUNCTION,
+        ) and not callable(value):
+            raise ValueError(f"Registry: `{name}` of `{type}` must be callable.")
+
         self._registry[registry_key] = value
 
     @_register_dependencies
@@ -170,6 +177,10 @@ class Registry:
     def get_metrics_function(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered metrics function."""
         return self.get(name, RegistryType.METRICS_FUNCTION)
+
+    def get_reward_function(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered rewards function."""
+        return self.get(name, RegistryType.REWARD_FUNCTION)
 
     def get_judge_config(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered judge config."""
