@@ -14,16 +14,12 @@
 
 import math
 import re
-from typing import Final
 
 from oumi.core.registry import RegistryType, register
 
 
 def _whitespace_tokenize(s: str) -> list[str]:
     return re.split(r"\s+", s)
-
-
-_NORMALIZING_SCALE_FACTOR: Final[float] = 1 / 0.36787944117
 
 
 def compute_soft_target_token_length_reward(num_tokens: int, *, target_tokens: int):
@@ -35,7 +31,7 @@ def compute_soft_target_token_length_reward(num_tokens: int, *, target_tokens: i
     The reward is proportional to: `x*exp(-x)` where `x := num_tokens/target_tokens`.
     """
     x = num_tokens / target_tokens
-    return x * math.exp(-x) * _NORMALIZING_SCALE_FACTOR
+    return x * math.exp(-x) * math.e
 
 
 def _compute_completion_soft_target_token_length_reward(
