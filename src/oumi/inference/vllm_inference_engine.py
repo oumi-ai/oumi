@@ -221,7 +221,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             )
             return
 
-        self._openai_chat_template_override = chat_template or None
+        self._openai_chat_template_override = chat_template
 
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
