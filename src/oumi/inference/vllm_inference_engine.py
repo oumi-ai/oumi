@@ -189,6 +189,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         tokenizer_name = model_params.tokenizer_name or model_params.model_name
         chat_template: str | None = None
         try:
+            # Use HF-supplied chat template for VLM-s. See OPE-1090 for context.
             if is_image_text_llm_using_model_name(
                 model_params.model_name,
                 trust_remote_code=model_params.trust_remote_code,
