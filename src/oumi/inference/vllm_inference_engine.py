@@ -21,10 +21,14 @@ import torch
 from typing_extensions import override
 
 from oumi.builders import build_tokenizer
+from oumi.builders.models import is_image_text_llm_using_model_name
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.conversation_utils import create_list_of_message_json_dicts
+from oumi.utils.hf_utils import (
+    get_hf_chat_template,
+)
 from oumi.utils.logging import logger
 from oumi.utils.model_caching import get_local_filepath_for_gguf
 from oumi.utils.peft_utils import get_lora_rank
@@ -176,6 +180,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 
+        # FIXME OPE-1090 Replace the override below with a more general solution.
+        self._openai_chat_template_override: str | None = None
+        if is_image_text_llm_using_model_name(
+            model_params.model_name, trust_remote_code=model_params.trust_remote_code
+        ):
+            self._openai_chat_template_override = get_hf_chat_template(
+                model_params.tokenizer_name or model_params.model_name,
+                trust_remote_code=model_params.trust_remote_code,
+            )
+
     def _convert_conversation_to_vllm_input(
         self, conversation: Conversation
     ) -> list[ChatCompletionMessageParam]:
@@ -253,9 +267,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             if not conversation.messages:
                 logger.warning("Conversation must have at least one message.")
                 continue
-            # vllm_input = self._convert_conversation_to_vllm_input(conversation)
-            convo_dict = conversation.to_dict()
-            vllm_input = convo_dict["messages"]
+            vllm_input = self._convert_conversation_to_vllm_input(conversation)
             vllm_conversations.append(vllm_input)
             non_skipped_conversations.append(conversation)
 
@@ -271,6 +283,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             sampling_params=sampling_params,
             lora_request=self._lora_request,
             use_tqdm=enable_tqdm,
+            chat_template=self._openai_chat_template_override,
+            chat_template_content_format=(
+                "openai" if self._openai_chat_template_override else "auto"
+            ),
         )
 
         for conversation, chat_response in zip(
