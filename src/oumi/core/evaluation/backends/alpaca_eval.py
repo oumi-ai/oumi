@@ -167,7 +167,7 @@ def evaluate(
             logger.error("The `alpaca_eval` API did not return a leaderboard.")
 
         # if output_dir and metric_dict:
-        #     platform_task_config = {
+        #     backend_task_config = {
         #         "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
         #         "annotators_config": annotators_config,
         #         "fn_metric": fn_metric,
@@ -178,9 +178,9 @@ def evaluate(
 
         #     save_evaluation_output(
         #         base_output_dir=output_dir,
-        #         platform=task_params.get_evaluation_platform(),
-        #         platform_results={"results": metric_dict},
-        #         platform_task_config=platform_task_config,
+        #         backend=task_params.get_evaluation_backend(),
+        #         backend_results={"results": metric_dict},
+        #         backend_task_config=backend_task_config,
         #         task_params=task_params,
         #         start_time_str=start_time_str,
         #         elapsed_time_sec=elapsed_time_sec,

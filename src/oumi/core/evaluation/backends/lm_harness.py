@@ -321,7 +321,7 @@ def evaluate(
     else:
         raise ValueError(
             f"Unsupported inference engine type: {config.inference_engine}. "
-            "Our integration with the `lm_harness` evaluation platform supports "
+            "Our integration with the `lm_harness` evaluation backend supports "
             "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types."
         )
 
@@ -370,43 +370,43 @@ def evaluate(
             wandb_logger.post_init(lm_eval_output)
             wandb_logger.log_eval_result()
 
-        # The LM Harness platform's task configuration is a dictionary which
+        # The LM Harness backend's task configuration is a dictionary which
         # includes: the number of samples, the number of few-shots, task version(s),
         # the prompt(s) text, model/git hashes, seeds, and the special tokens used
         # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
-        platform_task_config = lm_eval_output
+        backend_task_config = lm_eval_output
 
-        # The LM Harness platform's results is a dictionary that includes all
+        # The LM Harness backend's results is a dictionary that includes all
         # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
         # or a classification category.
-        platform_results = {
-            key: platform_task_config.pop(key)
+        backend_results = {
+            key: backend_task_config.pop(key)
             for key in ["results", "groups"]
-            if key in platform_task_config
+            if key in backend_task_config
         }
 
         # Add LM Harness-specific configuration settings to the results.
-        platform_task_config.setdefault("config", {})
+        backend_task_config.setdefault("config", {})
 
         # Add configuration settings related to the model.
-        platform_task_config["config"]["model"] = lm_harness_model
-        platform_task_config["config"]["model_args"] = lm_harness_model_params
+        backend_task_config["config"]["model"] = lm_harness_model
+        backend_task_config["config"]["model_args"] = lm_harness_model_params
         if hasattr(lm, "get_model_info"):
-            platform_task_config["config"].update(lm.get_model_info())
+            backend_task_config["config"].update(lm.get_model_info())
 
         # Add configuration settings related to the task.
-        platform_task_config["config"]["task_params"] = task_params
-        platform_task_config["config"]["task_dict"] = task_dict
+        backend_task_config["config"]["task_params"] = task_params
+        backend_task_config["config"]["task_dict"] = task_dict
 
         # Add other configuration settings.
-        platform_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
-        lm_harness_log_utils.add_env_info(platform_task_config)
-        lm_harness_log_utils.add_tokenizer_info(platform_task_config, lm)
+        backend_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
+        lm_harness_log_utils.add_env_info(backend_task_config)
+        lm_harness_log_utils.add_tokenizer_info(backend_task_config, lm)
 
         return EvaluationResult(
             task_name=task_params.task_name,
-            task_result=platform_results,
-            backend_config=platform_task_config,
+            task_result=backend_results,
+            backend_config=backend_task_config,
         )
 
     return EvaluationResult()
