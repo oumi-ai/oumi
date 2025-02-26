@@ -15,7 +15,6 @@ from oumi.core.configs import (
     GenerationParams,
     ModelParams,
 )
-from oumi.evaluation.save_utils import OUTPUT_FILENAME_TASK_RESULT
 
 INPUT_CONFIG = {
     # EvaluationTaskParams params.
@@ -105,6 +104,8 @@ def _validate_results_returned(
 
 
 def _validate_results_in_file(expected_results: dict[str, Any], output_dir: str):
+    OUTPUT_FILENAME_TASK_RESULT = "task_result.json"
+
     # Identify the relevant `output_path` for the evaluation test:
     # <output_dir> / <platform>_<timestamp> / platform_results.json
     subfolders = [f for f in os.listdir(output_dir) if f.startswith("alpaca_eval_")]
