@@ -25,7 +25,7 @@ def _create_eval_config() -> EvaluationConfig:
         output_dir="output/dir",
         tasks=[
             EvaluationTaskParams(
-                evaluation_platform="lm_harness",
+                evaluation_backend="lm_harness",
                 task_name="mmlu",
                 num_samples=4,
             )

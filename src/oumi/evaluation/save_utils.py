@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from oumi.core.configs import EvaluationConfig, EvaluationTaskParams
-from oumi.core.evaluators.evaluation_result import EvaluationResult
+from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.utils.serialization_utils import json_serializer
 from oumi.utils.version_utils import get_python_package_versions
 

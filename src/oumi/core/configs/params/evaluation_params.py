@@ -22,8 +22,8 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.data_params import DatasetSplitParams
 
 
-class EvaluationPlatform(Enum):
-    """Enum representing the evaluation platform to use."""
+class EvaluationBackend(Enum):
+    """Enum representing the evaluation backend to use."""
 
     LM_HARNESS = "lm_harness"
     ALPACA_EVAL = "alpaca_eval"
@@ -33,7 +33,7 @@ class EvaluationPlatform(Enum):
 class EvaluationTaskParams(BaseParams):
     """Configuration parameters for model evaluation tasks.
 
-    Supported platforms:
+    Supported backends:
 
     - LM Harness: Framework for evaluating language models on standard benchmarks.
       A list of all supported tasks can be found at:
@@ -46,7 +46,7 @@ class EvaluationTaskParams(BaseParams):
 
             # LM Harness evaluation on MMLU
             params = EvaluationTaskParams(
-                evaluation_platform="lm_harness",
+                evaluation_backend="lm_harness",
                 task_name="mmlu",
                 eval_kwargs={"num_fewshot": 5}
             )
@@ -56,12 +56,12 @@ class EvaluationTaskParams(BaseParams):
 
             # Alpaca Eval 2.0 evaluation
             params = EvaluationTaskParams(
-                evaluation_platform="alpaca_eval"
+                evaluation_backend="alpaca_eval"
             )
     """
 
-    evaluation_platform: str = MISSING
-    """The evaluation platform to use for the current task."""
+    evaluation_backend: str = MISSING
+    """The evaluation backend to use for the current task."""
 
     task_name: Optional[str] = None
     """The task to evaluate."""
@@ -81,44 +81,44 @@ class EvaluationTaskParams(BaseParams):
     covered by other fields in TaskParams classes.
     """
 
-    def get_evaluation_platform(self) -> EvaluationPlatform:
-        """Returns the evaluation platform as an Enum."""
-        if not self.evaluation_platform:
+    def get_evaluation_backend(self) -> EvaluationBackend:
+        """Returns the evaluation backend as an Enum."""
+        if not self.evaluation_backend:
             raise ValueError(
-                "Missing `evaluation_platform`. When running evaluations, it is "
-                "necessary to specify the evaluation platform to use for EACH task. "
-                "The available platforms can be found in the following enum: "
+                "Missing `evaluation_backend`. When running evaluations, it is "
+                "necessary to specify the evaluation backend to use for EACH task. "
+                "The available backends can be found in the following enum: "
                 "`oumi.core.configs.params.evaluation_params.EvaluationPlatform`. "
-                f"Current options: {EvaluationTaskParams.list_evaluation_platforms()}."
+                f"Current options: {EvaluationTaskParams.list_evaluation_backends()}."
             )
-        elif self.evaluation_platform == EvaluationPlatform.LM_HARNESS.value:
-            return EvaluationPlatform.LM_HARNESS
-        elif self.evaluation_platform == EvaluationPlatform.ALPACA_EVAL.value:
-            return EvaluationPlatform.ALPACA_EVAL
+        elif self.evaluation_backend == EvaluationBackend.LM_HARNESS.value:
+            return EvaluationBackend.LM_HARNESS
+        elif self.evaluation_backend == EvaluationBackend.ALPACA_EVAL.value:
+            return EvaluationBackend.ALPACA_EVAL
         else:
-            raise ValueError(f"Unknown evaluation platform: {self.evaluation_platform}")
+            raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
-    def get_evaluation_platform_task_params(self):
-        """Returns the evaluation platform-specific task parameters."""
-        if self.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
+    def get_evaluation_backend_task_params(self):
+        """Returns the evaluation backend-specific task parameters."""
+        if self.get_evaluation_backend() == EvaluationBackend.LM_HARNESS:
             target_class = LMHarnessTaskParams
-        elif self.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
+        elif self.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
             target_class = AlpacaEvalTaskParams
         else:
-            raise ValueError(f"Unknown evaluation platform: {self.evaluation_platform}")
+            raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
         init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
         return target_class(**init_kwargs)
 
     @staticmethod
-    def list_evaluation_platforms() -> str:
-        """Returns a string listing all available evaluation platforms."""
-        return ", ".join([platform.value for platform in EvaluationPlatform])
+    def list_evaluation_backends() -> str:
+        """Returns a string listing all available evaluation backends."""
+        return ", ".join([backend.value for backend in EvaluationBackend])
 
     def _get_init_kwargs_for_task_params_class(self, target_class) -> dict[str, Any]:
         """Returns the init keyword arguments for a `target_class` of name *TaskParams.
 
-        Given a target class of name <evaluation platform>_TaskParams, which inherits
+        Given a target class of name <evaluation backend>_TaskParams, which inherits
         from the current class, this method returns a 'flattened' dict that includes all
         arguments needed to instantiate it. The dict includes all the parameters which
         are already members of the current class, as well as additional parameters which
@@ -156,7 +156,7 @@ class EvaluationTaskParams(BaseParams):
     def __post_init__(self):
         """Verifies params."""
         if (
-            self.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS
+            self.get_evaluation_backend() == EvaluationBackend.LM_HARNESS
             and not self.task_name
         ):
             raise ValueError("`task_name` must be a valid LM Harness task.")

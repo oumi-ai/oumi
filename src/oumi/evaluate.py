@@ -15,7 +15,8 @@
 from typing import Any
 
 from oumi.core.configs import EvaluationConfig
-from oumi.core.evaluators.evaluator_factory import evaluator_factory
+from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.core.evaluation.evaluator import Evaluator
 
 
 def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
@@ -28,11 +29,6 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
         A list of evaluation results (one for each task). Each evaluation result is a
         dictionary of metric names and their corresponding values.
     """
-    results = []
-
-    for task in config.tasks:
-        evaluator = evaluator_factory(task)
-        evaluation_result = evaluator.evaluate_task(task, config)
-        results.append(evaluation_result.task_result)
-
-    return results
+    evaluator = Evaluator()
+    results: list[EvaluationResult] = evaluator.evaluate(config)
+    return [result.task_result for result in results]

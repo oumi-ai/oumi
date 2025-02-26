@@ -96,7 +96,7 @@ from oumi.core.configs.params.data_params import (
 from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
     CustomEvaluationParams,
-    EvaluationPlatform,
+    EvaluationBackend,
     EvaluationTaskParams,
     LMHarnessTaskParams,
 )
@@ -139,7 +139,7 @@ __all__ = [
     "DatasetSplitParams",
     "EvaluationTaskParams",
     "EvaluationConfig",
-    "EvaluationPlatform",
+    "EvaluationBackend",
     "FSDPParams",
     "GenerationParams",
     "GuidedDecodingParams",

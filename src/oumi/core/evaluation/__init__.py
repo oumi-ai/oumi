@@ -32,12 +32,10 @@ Note:
         class documentation at oumi.core.evaluators.<name>_evaluator.
 """
 
-from oumi.core.evaluators.base_evaluator import BaseEvaluator
-from oumi.core.evaluators.evaluation_result import EvaluationResult
-from oumi.core.evaluators.lm_harness_evaluator import LmHarnessEvaluator
+from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.core.evaluation.evaluator import Evaluator
 
 __all__ = [
-    "BaseEvaluator",
+    "Evaluator",
     "EvaluationResult",
-    "LmHarnessEvaluator",
 ]

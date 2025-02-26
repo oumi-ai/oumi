@@ -7,43 +7,40 @@ from lm_eval.api.task import ConfigurableTask
 
 from oumi.core.configs import (
     EvaluationConfig,
-    EvaluationTaskParams,
     GenerationParams,
     InferenceEngineType,
     LMHarnessTaskParams,
     ModelParams,
     RemoteParams,
 )
-from oumi.core.configs.params.evaluation_params import EvaluationPlatform
-from oumi.core.evaluators import LmHarnessEvaluator
-from oumi.evaluation.lm_harness import (
-    _generate_lm_harness_model_args,
-)
+from oumi.core.evaluation.backends.lm_harness import _generate_lm_harness_model_args
+from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 
 
 @pytest.fixture
 def mock_patches_for_evaluate():
     with (
         patch(
-            "oumi.core.evaluators.base_evaluator.save_evaluation_output"
-        ) as mock_save_evaluation_output,
-        patch(
-            "oumi.evaluation.lm_harness.is_world_process_zero"
+            "oumi.core.evaluation.backends.lm_harness.is_world_process_zero"
         ) as mock_is_world_process_zero,
         patch(
-            "oumi.evaluation.lm_harness.lm_harness_evaluate"
+            "oumi.core.evaluation.backends.lm_harness.lm_harness_evaluate"
         ) as mock_lm_harness_evaluate,
         patch(
-            "oumi.evaluation.lm_harness.lm_harness_get_model_class"
+            "oumi.core.evaluation.backends.lm_harness.lm_harness_get_model_class"
         ) as mock_lm_harness_get_model_class,
         patch(
-            "oumi.evaluation.lm_harness._generate_lm_harness_model_args"
+            "oumi.core.evaluation.backends.lm_harness._generate_lm_harness_model_args"
         ) as mock_generate_lm_harness_model_args,
-        patch("oumi.evaluation.lm_harness._get_task_dict") as mock_get_task_dict,
         patch(
-            "oumi.evaluation.lm_harness.is_image_text_llm_using_model_name"
+            "oumi.core.evaluation.backends.lm_harness._get_task_dict"
+        ) as mock_get_task_dict,
+        patch(
+            "oumi.core.evaluation.backends.lm_harness.is_image_text_llm_using_model_name"
         ) as mock_is_image_text_llm,
-        patch("oumi.evaluation.lm_harness._set_random_seeds") as mock_set_random_seeds,
+        patch(
+            "oumi.core.evaluation.backends.lm_harness._set_random_seeds"
+        ) as mock_set_random_seeds,
         patch("torch.cuda.is_available") as mock_cuda_is_available,
     ):
         yield {
@@ -55,7 +52,6 @@ def mock_patches_for_evaluate():
             "mock_lm_harness_get_model_class": mock_lm_harness_get_model_class,
             "mock_lm_harness_evaluate": mock_lm_harness_evaluate,
             "mock_is_world_process_zero": mock_is_world_process_zero,
-            "mock_save_evaluation_output": mock_save_evaluation_output,
         }
 
 
@@ -184,8 +180,8 @@ def mock_patches_for_evaluate():
         "model_args_local-completions",
     ],
 )
-@patch("oumi.evaluation.lm_harness.build_tokenizer")
-@patch("oumi.evaluation.lm_harness.build_processor")
+@patch("oumi.core.evaluation.backends.lm_harness.build_tokenizer")
+@patch("oumi.core.evaluation.backends.lm_harness.build_processor")
 def test_generate_lm_harness_model_args(
     mock_build_processor,
     mock_build_tokenizer,
@@ -241,18 +237,15 @@ def test_evaluate(mock_patches_for_evaluate):
     ]
     mock_lm_harness_evaluate = mock_patches_for_evaluate["mock_lm_harness_evaluate"]
     mock_is_world_process_zero = mock_patches_for_evaluate["mock_is_world_process_zero"]
-    mock_save_evaluation_output = mock_patches_for_evaluate[
-        "mock_save_evaluation_output"
-    ]
 
     # Set the inputs of evaluate() function.
-    task_kwarg_params = {
-        "evaluation_platform": "lm_harness",
-        "task_name": "mmlu",
-        "num_samples": 222,
-    }
+    task_params = LMHarnessTaskParams(
+        evaluation_backend="lm_harness",
+        task_name="mmlu",
+        num_samples=222,
+    )
     evaluation_config = EvaluationConfig(
-        tasks=[EvaluationTaskParams(**task_kwarg_params)],
+        tasks=[task_params],
         model=ModelParams(model_name="gpt2"),
         generation=GenerationParams(),
         inference_engine=InferenceEngineType.NATIVE,
@@ -284,8 +277,8 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_lm_harness_evaluate.return_value = copy.deepcopy(mock_results)
     mock_is_world_process_zero.return_value = True
 
-    evaluator = LmHarnessEvaluator()
-    _ = evaluator.evaluate(
+    _ = evaluate_lm_harness(
+        task_params=task_params,
         config=evaluation_config,
         random_seed=random_seed,
         numpy_random_seed=numpy_random_seed,
@@ -302,7 +295,7 @@ def test_evaluate(mock_patches_for_evaluate):
         model_name=evaluation_config.model.model_name,
         trust_remote_code=evaluation_config.model.trust_remote_code,
     )
-    mock_get_task_dict.assert_called_once_with(LMHarnessTaskParams(**task_kwarg_params))
+    mock_get_task_dict.assert_called_once_with(task_params)
     mock_generate_lm_harness_model_args.assert_called_once_with(
         lm_harness_model="hf",
         is_multimodal=False,
@@ -319,18 +312,6 @@ def test_evaluate(mock_patches_for_evaluate):
     assert kwargs["task_dict"] == mock_task_dict
     assert kwargs["limit"] == 222
     assert not kwargs["apply_chat_template"]
-
-    mock_save_evaluation_output.assert_called_once()
-    _, kwargs = mock_save_evaluation_output.call_args
-    assert kwargs["backend_name"] == EvaluationPlatform.LM_HARNESS.value
-    assert kwargs["task_params"] == EvaluationTaskParams(**task_kwarg_params)
-    actual_result = kwargs["evaluation_result"].to_dict()
-    assert actual_result["task_name"] == "mmlu"
-    assert actual_result["task_result"]["results"] == mock_results["results"]
-    assert actual_result["backend_config"]["configs"]["my_config"] == "some_config"
-    assert actual_result["backend_config"]["config"]["model"] == "hf"
-    assert kwargs["base_output_dir"] == "test_output"
-    assert kwargs["config"] == evaluation_config_without_tasks
 
 
 def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
@@ -357,20 +338,18 @@ def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
     mock_generate_lm_harness_model_args.return_value = MagicMock()
     mock_lm_harness_get_model_class.return_value = MagicMock()
 
-    evaluator = LmHarnessEvaluator()
-
     with pytest.raises(
         ValueError, match="The `VLLM` inference_engine requires a CUDA-enabled GPU."
     ):
-        evaluator.evaluate(
-            EvaluationConfig(
-                tasks=[
-                    EvaluationTaskParams(
-                        evaluation_platform="lm_harness", task_name="x"
-                    )
-                ],
+        evaluate_lm_harness(
+            task_params=LMHarnessTaskParams(
+                evaluation_backend="lm_harness",
+                task_name="mmlu",
+            ),
+            config=EvaluationConfig(
+                tasks=[],
                 inference_engine=inference_engine_type,
-            )
+            ),
         )
 
 
@@ -426,21 +405,19 @@ def test_evaluate_failure_non_supported_engine(
     mock_generate_lm_harness_model_args.return_value = MagicMock()
     mock_lm_harness_get_model_class.return_value = MagicMock()
 
-    evaluator = LmHarnessEvaluator()
-
     with pytest.raises(
         ValueError,
         match=f"Unsupported inference engine type: {unsupported_inference_engine_type}."
-        " Our integration with the `lm_harness` evaluation platform supports "
+        " Our integration with the `lm_harness` evaluation backend supports "
         "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types.",
     ):
-        evaluator.evaluate(
-            EvaluationConfig(
-                tasks=[
-                    EvaluationTaskParams(
-                        evaluation_platform="lm_harness", task_name="x"
-                    ),
-                ],
+        evaluate_lm_harness(
+            task_params=LMHarnessTaskParams(
+                evaluation_backend="lm_harness",
+                task_name="mmlu",
+            ),
+            config=EvaluationConfig(
+                tasks=[],
                 inference_engine=unsupported_inference_engine_type,
-            )
+            ),
         )

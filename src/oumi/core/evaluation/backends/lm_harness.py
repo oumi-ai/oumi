@@ -30,6 +30,7 @@ from lm_eval.tasks import get_task_dict as lm_harness_get_task_dict
 from oumi.builders import build_processor, build_tokenizer
 from oumi.builders.models import is_image_text_llm_using_model_name
 from oumi.core.configs import (
+    EvaluationConfig,
     GenerationParams,
     InferenceEngineType,
     LMHarnessTaskParams,
@@ -37,6 +38,7 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.distributed import is_world_process_zero
+from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.utils.logging import logger
 
 # Used to set the few-shot seed for lm_eval.api.task.Task. The value is consistent with
@@ -255,17 +257,11 @@ def _set_random_seeds(random_seed, numpy_random_seed, torch_random_seed) -> None
 
 def evaluate(
     task_params: LMHarnessTaskParams,
-    output_dir: str,
-    model_params: ModelParams,
-    generation_params: GenerationParams,
-    enable_wandb: bool,
-    inference_engine_type: InferenceEngineType,
-    inference_remote_params: Optional[RemoteParams] = None,
-    run_name: Optional[str] = None,
+    config: EvaluationConfig,
     random_seed: Optional[int] = 0,
     numpy_random_seed: Optional[int] = 1234,
     torch_random_seed: Optional[int] = 1234,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> EvaluationResult:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
@@ -273,13 +269,7 @@ def evaluate(
 
     Args:
         task_params: The LM Harness parameters to use for evaluation.
-        output_dir: The directory where the evaluation results will be saved.
-        model_params: The parameters of the model to evaluate.
-        generation_params: The generation parameters to use for evaluation.
-        enable_wandb: Whether to enable Weights & Biases (wandb) logging.
-        inference_engine_type: The inference engine to use (`VLLM`, `NATIVE`, `REMOTE`).
-        inference_remote_params: The parameters for remote inference, if applicable.
-        run_name: Unique identifier for wandb for the current training run.
+        config: The evaluation configuration.
         random_seed: The random seed to use for python's `random` package.
         numpy_random_seed: The numpy random seed to use for reproducibility.
         torch_random_seed: The torch random seed to use for reproducibility.
@@ -309,12 +299,12 @@ def evaluate(
 
     # Identify whether the model is multi-modal.
     is_multimodal = is_image_text_llm_using_model_name(
-        model_name=model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
+        model_name=config.model.model_name,
+        trust_remote_code=config.model.trust_remote_code,
     )
 
     # Identify the proper LM Harness model (`lm_harness_model`) to use.
-    if inference_engine_type == InferenceEngineType.NATIVE:
+    if config.inference_engine == InferenceEngineType.NATIVE:
         lm_harness_model = "hf-multimodal" if is_multimodal else "hf"
         if device.startswith("cuda"):
             logger.warning(
@@ -322,15 +312,15 @@ def evaluate(
                 "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
                 "evaluation."
             )
-    elif inference_engine_type == InferenceEngineType.VLLM:
+    elif config.inference_engine == InferenceEngineType.VLLM:
         lm_harness_model = "vllm-vlm" if is_multimodal else "vllm"
         if not device.startswith("cuda"):
             raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
-    elif inference_engine_type == InferenceEngineType.REMOTE:
+    elif config.inference_engine == InferenceEngineType.REMOTE:
         lm_harness_model = "local-completions"
     else:
         raise ValueError(
-            f"Unsupported inference engine type: {inference_engine_type}. "
+            f"Unsupported inference engine type: {config.inference_engine}. "
             "Our integration with the `lm_harness` evaluation platform supports "
             "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types."
         )
@@ -345,10 +335,10 @@ def evaluate(
         lm_harness_model=lm_harness_model,
         is_multimodal=is_multimodal,
         device=device,
-        model_params=model_params,
-        generation_params=generation_params,
-        inference_engine_type=inference_engine_type,
-        inference_remote_params=inference_remote_params,
+        model_params=config.model,
+        generation_params=config.generation,
+        inference_engine_type=config.inference_engine,
+        inference_remote_params=config.inference_remote_params,
     )
     logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
     lm_class = lm_harness_get_model_class(lm_harness_model)
@@ -371,11 +361,11 @@ def evaluate(
         metric_dict = lm_eval_output["results"][task_name]  # type: ignore
         logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
 
-        if enable_wandb:
+        if config.enable_wandb:
             project_name = os.environ.get("WANDB_PROJECT", "oumi")
             logger.info(f"Logging to Weights and Biases project: '{project_name}'")
             wandb_logger = WandbLogger(
-                project=project_name, name=run_name, job_type="eval"
+                project=project_name, name=config.run_name, job_type="eval"
             )
             wandb_logger.post_init(lm_eval_output)
             wandb_logger.log_eval_result()
@@ -413,5 +403,10 @@ def evaluate(
         lm_harness_log_utils.add_env_info(platform_task_config)
         lm_harness_log_utils.add_tokenizer_info(platform_task_config, lm)
 
-        return platform_results, platform_task_config
-    return {}, {}
+        return EvaluationResult(
+            task_name=task_params.task_name,
+            task_result=platform_results,
+            backend_config=platform_task_config,
+        )
+
+    return EvaluationResult()

@@ -18,14 +18,14 @@ from typing import Any, Optional
 class EvaluationResult:
     def __init__(
         self,
-        task_name: Optional[str],
-        task_result: Optional[dict[str, Any]],
-        backend_config: Optional[dict[str, Any]],
+        task_name: Optional[str] = None,
+        task_result: Optional[dict[str, Any]] = None,
+        backend_config: Optional[dict[str, Any]] = None,
     ):
         """Initialize the EvaluationResult class."""
         self.task_name = task_name
-        self.task_result = task_result
-        self.backend_config = backend_config
+        self.task_result = task_result or {}
+        self.backend_config = backend_config or {}
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the EvaluationResult to a dictionary."""
