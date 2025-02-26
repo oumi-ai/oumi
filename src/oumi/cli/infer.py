@@ -119,26 +119,29 @@ def infer(
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_path(image)]
-
-    if interactive:
-        if parsed_config.input_path:
+    if parsed_config.input_path:
+        if interactive:
             logger.warning(
-                "Interactive inference requested, skipping reading from `input_path`."
+                "Input path provided, skipping interactive inference. "
+                "To run in interactive mode, do not provide an input path."
             )
-        return oumi_infer_interactive(
-            parsed_config,
-            input_image_bytes=input_image_png_bytes,
-            system_prompt=system_prompt,
-        )
-    if parsed_config.input_path is None:
-        raise ValueError("One of `--interactive` or `input_path` must be provided.")
-    generations = oumi_infer(parsed_config)
+        generations = oumi_infer(parsed_config)
+        # Don't print results if output_filepath is provided.
+        if parsed_config.output_path:
+            return
 
-    # Don't print results if output_filepath is provided.
-    if parsed_config.output_path:
-        return
-
-    for generation in generations:
+        for generation in generations:
+            print("------------")
+            print(repr(generation))
         print("------------")
-        print(repr(generation))
-    print("------------")
+        return
+    if not interactive:
+        logger.warning(
+            "No input path provided, running in interactive mode. "
+            "To run with an input path, provide one in the configuration file."
+        )
+    return oumi_infer_interactive(
+        parsed_config,
+        input_image_bytes=input_image_png_bytes,
+        system_prompt=system_prompt,
+    )
