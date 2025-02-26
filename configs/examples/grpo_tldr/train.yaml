@@ -37,6 +37,7 @@ training:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch"
+  empty_device_cache_steps: 1
   compile: True
 
   dataloader_num_workers: "auto"
