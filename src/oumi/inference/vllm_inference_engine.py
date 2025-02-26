@@ -203,7 +203,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             return
 
         if not chat_template:
-            return None
+            return
 
         found_image_tag = False
         # Some VLM-s (e.g., Phi3 Vision) come with text-only chat templates.
