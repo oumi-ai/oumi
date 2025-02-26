@@ -27,7 +27,7 @@ data:
 training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
-  per_device_train_batch_size: 2
+  per_device_train_batch_size: 1 # 1 for GPUs with 24GB VRAM
   gradient_accumulation_steps: 1
 
   reward_functions: ["soft_20tokens_completions"]
@@ -38,12 +38,17 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch"
   empty_device_cache_steps: 1
-  compile: True
+  compile: False #True
+
+  grpo:
+    use_vllm: True
+    vllm_device: "cuda:0"
+    vllm_gpu_memory_utilization: 0.3
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  max_steps: 500
+  max_steps: 50
   logging_steps: 10
   log_model_summary: False
   output_dir: "output/tldr.grpo"

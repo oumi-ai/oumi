@@ -65,3 +65,19 @@ class GrpoParams(BaseParams):
     will use the model context size, which might be much larger than the KV cache,
     leading to inefficiencies.
     """
+
+    def to_hf_trainer_kwargs(self) -> dict[str, Any]:
+        """Converts GRPO training params GRPOTrainer kwargs."""
+        result = {}
+        if len(self.model_init_kwargs) > 0:
+            result["model_init_kwargs"] = self.model_init_kwargs
+        result["use_vllm"] = self.use_vllm
+        if self.use_vllm:  # Return vLLM params only if vLLM is enabled.
+            if self.vllm_device is not None:
+                result["vllm_device"] = self.vllm_device
+            result["vllm_gpu_memory_utilization"] = self.vllm_gpu_memory_utilization
+            if self.vllm_dtype is not None:
+                result["vllm_dtype"] = self.vllm_dtype
+            if self.vllm_max_model_len is not None:
+                result["vllm_max_model_len"] = self.vllm_max_model_len
+        return result

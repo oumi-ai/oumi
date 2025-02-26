@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -664,6 +665,12 @@ class TrainingParams(BaseParams):
             config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
+
+        trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+        if self.trainer_type == TrainerType.TRL_GRPO:
+            grpo_kwargs = self.grpo.to_hf_trainer_kwargs()
+            trainer_kwargs.update(grpo_kwargs)
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -723,7 +730,7 @@ class TrainingParams(BaseParams):
             # },
             seed=self.seed,
             data_seed=self.data_seed,
-            **self.trainer_kwargs,
+            **trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
         return result
