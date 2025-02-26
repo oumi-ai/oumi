@@ -7,7 +7,7 @@ num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100-80GB:8"
-  use_spot: true
+  use_spot: false
   disk_size: 2000 # Disk size in GBs
 
 working_dir: .
@@ -29,7 +29,8 @@ envs:
   ACCELERATE_LOG_LEVEL: info
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
-  TRAIN_CONFIG: configs/recipes/llama3_1/sft/8b_full/panos_variations/train_basis_with_eval_on_all_data.yaml # SELECT PROPER ONE
+  # TRAIN_CONFIG: configs/recipes/llama3_1/sft/8b_full/panos_variations/train_basis_with_eval_on_all_data.yaml # SELECT PROPER ONE
+  TRAIN_CONFIG: configs/recipes/llama3_1/sft/8b_full/panos_variations/train_basis_with_plus_our_data_eval_on_all_data.yaml # SELECT PROPER ONE
 
 setup: |
   set -e
