@@ -365,7 +365,8 @@ def test_infer_online_falls_back_to_default_url():
 
 def test_infer_online_falls_back_to_default_api_key():
     def callback(url, **kwargs):
-        assert "Bearer xyz"
+        # Verify our headers
+        assert kwargs["headers"]["Authorization"] == "Bearer 1234"
 
     with aioresponses() as m:
         m.post(
@@ -381,6 +382,7 @@ def test_infer_online_falls_back_to_default_api_key():
                     }
                 ]
             ),
+            callback=callback,
         )
 
         engine = RemoteInferenceEngine(
@@ -435,7 +437,85 @@ def test_infer_online_falls_back_to_default_api_key():
             inference_config,
         )
         assert expected_result == result
-        m.assert_called_once_with("foo")
+
+
+def test_infer_online_falls_back_to_default_api_key_env_varname(monkeypatch):
+    def callback(url, **kwargs):
+        # Verify our headers
+        assert kwargs["headers"]["Authorization"] == "Bearer 4321"
+
+    monkeypatch.setenv("NEW_API_KEY_VAR", "4321")
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "The first time I saw",
+                        }
+                    }
+                ]
+            ),
+            callback=callback,
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER, api_key_env_varname="NEW_API_KEY_VAR"
+            ),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            content="Hello world!",
+                            type=Type.TEXT,
+                        ),
+                        ContentItem(
+                            content="/tmp/hello/again.png",
+                            binary=b"a binary image",
+                            type=Type.IMAGE_PATH,
+                        ),
+                        ContentItem(
+                            content="a url for our image",
+                            type=Type.IMAGE_URL,
+                        ),
+                        ContentItem(
+                            binary=b"a binary image",
+                            type=Type.IMAGE_BINARY,
+                        ),
+                    ],
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+        expected_result = [
+            Conversation(
+                messages=[
+                    *conversation.messages,
+                    Message(
+                        content="The first time I saw",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"foo": "bar"},
+                conversation_id="123",
+            )
+        ]
+        inference_config = _get_default_inference_config()
+        inference_config.remote_params = None
+        result = engine.infer_online(
+            [conversation],
+            inference_config,
+        )
+        assert expected_result == result
 
 
 def test_infer_no_remote_params_api_url():
