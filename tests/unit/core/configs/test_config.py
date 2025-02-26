@@ -145,7 +145,7 @@ def test_config_from_yaml_and_arg_list_override_list(tmp_path):
     new_config = EvaluationConfig.from_yaml_and_arg_list(
         config_path,
         [
-            "tasks=[{'evaluation_platform': 'lm_harness', 'task_name': 'mmlu', "
+            "tasks=[{'evaluation_backend': 'lm_harness', 'task_name': 'mmlu', "
             "'num_samples': 1, 'eval_kwargs': {'foo': 'bar'}}]",
         ],
     )

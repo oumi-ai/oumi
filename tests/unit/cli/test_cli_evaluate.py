@@ -76,7 +76,7 @@ def test_evaluate_with_overrides(app, mock_evaluate):
                 "--model.tokenizer_name",
                 "new_name",
                 "--tasks",
-                "[{evaluation_platform: lm_harness, num_samples: 5, task_name: mmlu}]",
+                "[{evaluation_backend: lm_harness, num_samples: 5, task_name: mmlu}]",
             ],
         )
         expected_config = _create_eval_config()

@@ -22,59 +22,59 @@ model:
   attn_implementation: "sdpa"
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_ar
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_zh
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_en
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_fr
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_de
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_hi
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_id
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_it
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_pt
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_ro
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_ru
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_es
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_uk
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: m_mmlu_vi
     eval_kwargs:
       num_fewshot: 5
