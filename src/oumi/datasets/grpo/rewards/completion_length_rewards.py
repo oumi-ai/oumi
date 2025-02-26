@@ -14,6 +14,7 @@
 
 import math
 import re
+from typing import Final
 
 from oumi.core.registry import RegistryType, register
 
@@ -22,14 +23,19 @@ def _whitespace_tokenize(s: str) -> list[str]:
     return re.split(r"\s+", s)
 
 
+_NORMALIZING_SCALE_FACTOR: Final[float] = 1 / 0.36787944117
+
+
 def compute_soft_target_token_length_reward(num_tokens: int, *, target_tokens: int):
     """Returns maximum reward for inputs that are `target_tokens` long.
 
-    The reward reduces smoothly if the actual number of tokens deviates
-    from `target_tokens`.
+    The reward is in the [0,1] range and reduces smoothly from the maximum value of 1.0
+    if the actual number of tokens deviates from `target_tokens`.
+
+    The reward is proportional to: `x*exp(-x)` where `x := num_tokens/target_tokens`.
     """
-    x = float(num_tokens) / target_tokens
-    return x * math.exp(-x)
+    x = num_tokens / target_tokens
+    return x * math.exp(-x) * _NORMALIZING_SCALE_FACTOR
 
 
 def _compute_completion_soft_target_token_length_reward(
@@ -48,6 +54,9 @@ def compute_sharp_target_token_length_reward(num_tokens: int, *, target_tokens: 
 
     The reward reduces sharply if the actual number of tokens deviates
     from `target_tokens`.
+
+    The reward is computed as: `-|num_tokens - target_tokens|`, whiche penalizes
+    token counts not equal to `target_tokens`.
     """
     return -abs(num_tokens - target_tokens)
 
