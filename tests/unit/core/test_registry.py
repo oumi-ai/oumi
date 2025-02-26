@@ -1,3 +1,4 @@
+import re
 import tempfile
 from pathlib import Path
 
@@ -163,20 +164,53 @@ def test_registry_failure_model_not_present_in_registry():
     assert REGISTRY.get_model_config(name="oumi/dummy2") is None
 
 
-def test_registry_metrics_function():
-    @register("dummy_fn", RegistryType.METRICS_FUNCTION)
+@pytest.mark.parametrize(
+    "registry_type", [RegistryType.METRICS_FUNCTION, RegistryType.REWARD_FUNCTION]
+)
+def test_registry_function(registry_type: RegistryType):
+    @register("dummy_fn", registry_type)
     def dummy_function():
         pass
 
-    @register("number2", RegistryType.METRICS_FUNCTION)
+    @register("number2", registry_type)
     def dummy_function2():
         pass
 
-    assert REGISTRY.contains("dummy_fn", RegistryType.METRICS_FUNCTION)
-    assert REGISTRY.get("dummy_fn", RegistryType.METRICS_FUNCTION) == dummy_function
+    assert REGISTRY.contains("dummy_fn", registry_type)
+    assert REGISTRY.get("dummy_fn", registry_type) == dummy_function
 
-    assert REGISTRY.contains("number2", RegistryType.METRICS_FUNCTION)
-    assert REGISTRY.get("number2", RegistryType.METRICS_FUNCTION) == dummy_function2
+    assert REGISTRY.contains("number2", registry_type)
+    assert REGISTRY.get("number2", registry_type) == dummy_function2
+
+
+@pytest.mark.parametrize(
+    "registry_type", [RegistryType.METRICS_FUNCTION, RegistryType.REWARD_FUNCTION]
+)
+def test_registry_metrics_function_non_callable(registry_type: RegistryType):
+    class FooNonCallable:
+        pass
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"Registry: `foo_non_callable` of `{registry_type}` must be callable"
+        ),
+    ):
+        REGISTRY.register("foo_non_callable", registry_type, FooNonCallable())
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"Registry: `integer_func` of `{registry_type}` must be callable"
+        ),
+    ):
+        REGISTRY.register("integer_func", registry_type, 99)
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(f"Registry: `none_func` of `{registry_type}` must be callable"),
+    ):
+        REGISTRY.register("none_func", registry_type, None)
 
 
 def test_registry_failure_metrics_function_not_present():

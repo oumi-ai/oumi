@@ -107,6 +107,8 @@ def build_trainer(
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(trl.DPOTrainer)
+    elif trainer_type == TrainerType.TRL_GRPO:
+        return _create_hf_builder_fn(trl.GRPOTrainer)
     elif trainer_type == TrainerType.HF:
         return _create_hf_builder_fn(transformers.Trainer)
     elif trainer_type == TrainerType.OUMI:
