@@ -17,7 +17,6 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.evaluation.lm_harness import _get_task_dict
-from oumi.evaluation.save_utils import OUTPUT_FILENAME_PLATFORM_RESULTS
 from tests.markers import requires_gpus
 
 
@@ -72,13 +71,13 @@ def _validate_results_in_file(
     output_dir: str,
     task_name: str,
 ) -> None:
+    OUTPUT_FILENAME_TASK_RESULT = "task_result.json"
+
     # Identify the relevant `output_path` for the evaluation test:
     # <output_dir> / <platform>_<timestamp> / platform_results.json
     subfolders = [f for f in os.listdir(output_dir) if f.startswith("lm_harness_")]
     assert len(subfolders) == 1
-    output_path = os.path.join(
-        output_dir, subfolders[0], OUTPUT_FILENAME_PLATFORM_RESULTS
-    )
+    output_path = os.path.join(output_dir, subfolders[0], OUTPUT_FILENAME_TASK_RESULT)
     assert os.path.exists(output_path)
 
     # Read the results from the evaluation test's output file.

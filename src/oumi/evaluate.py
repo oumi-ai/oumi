@@ -15,14 +15,7 @@
 from typing import Any
 
 from oumi.core.configs import EvaluationConfig
-from oumi.core.configs.params.evaluation_params import (
-    AlpacaEvalTaskParams,
-    EvaluationPlatform,
-    LMHarnessTaskParams,
-)
-from oumi.evaluation.alpaca_eval import evaluate as evaluate_alpaca_eval
-from oumi.evaluation.lm_harness import evaluate as evaluate_lm_harness
-from oumi.evaluation.platform_prerequisites import check_prerequisites
+from oumi.core.evaluators.evaluator_factory import evaluator_factory
 
 
 def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
@@ -36,39 +29,10 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
         dictionary of metric names and their corresponding values.
     """
     results = []
-    for task in config.tasks:
-        check_prerequisites(
-            evaluation_platform=task.get_evaluation_platform(),
-            task_name=task.task_name,
-        )
 
-        if task.get_evaluation_platform() == EvaluationPlatform.LM_HARNESS:
-            lm_harness_task_params = task.get_evaluation_platform_task_params()
-            assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
-            result = evaluate_lm_harness(
-                task_params=lm_harness_task_params,
-                output_dir=config.output_dir,
-                model_params=config.model,
-                generation_params=config.generation,
-                enable_wandb=config.enable_wandb,
-                inference_engine_type=config.inference_engine,
-                inference_remote_params=config.inference_remote_params,
-                run_name=config.run_name,
-            )
-            results.append(result)
-        elif task.get_evaluation_platform() == EvaluationPlatform.ALPACA_EVAL:
-            alpaca_eval_task_params = task.get_evaluation_platform_task_params()
-            assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
-            result = evaluate_alpaca_eval(
-                task_params=alpaca_eval_task_params,
-                output_dir=config.output_dir,
-                model_params=config.model,
-                generation_params=config.generation,
-                inference_engine_type=config.inference_engine,
-                inference_remote_params=config.inference_remote_params,
-                run_name=config.run_name,
-            )
-            results.append(result)
-        else:
-            raise ValueError("Unknown evaluation platform")
+    for task in config.tasks:
+        evaluator = evaluator_factory(task)
+        evaluation_result = evaluator.evaluate_task(task, config)
+        results.append(evaluation_result.task_result)
+
     return results

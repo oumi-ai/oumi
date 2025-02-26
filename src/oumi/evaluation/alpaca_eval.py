@@ -36,7 +36,6 @@ from oumi.core.configs import (
 )
 from oumi.core.distributed import is_world_process_zero
 from oumi.datasets.evaluation import AlpacaEvalDataset, utils
-from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
 
@@ -167,28 +166,28 @@ def evaluate(
         else:
             logger.error("The `alpaca_eval` API did not return a leaderboard.")
 
-        if output_dir and metric_dict:
-            platform_task_config = {
-                "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
-                "annotators_config": annotators_config,
-                "fn_metric": fn_metric,
-                "max_instances": task_params.num_samples,
-                "other_params": task_params.eval_kwargs,
-                "model_outputs": responses_json,
-            }
+        # if output_dir and metric_dict:
+        #     platform_task_config = {
+        #         "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
+        #         "annotators_config": annotators_config,
+        #         "fn_metric": fn_metric,
+        #         "max_instances": task_params.num_samples,
+        #         "other_params": task_params.eval_kwargs,
+        #         "model_outputs": responses_json,
+        #     }
 
-            save_evaluation_output(
-                base_output_dir=output_dir,
-                platform=task_params.get_evaluation_platform(),
-                platform_results={"results": metric_dict},
-                platform_task_config=platform_task_config,
-                task_params=task_params,
-                start_time_str=start_time_str,
-                elapsed_time_sec=elapsed_time_sec,
-                model_params=model_params,
-                generation_params=generation_params,
-                inference_config=inference_config,
-            )
+        #     save_evaluation_output(
+        #         base_output_dir=output_dir,
+        #         platform=task_params.get_evaluation_platform(),
+        #         platform_results={"results": metric_dict},
+        #         platform_task_config=platform_task_config,
+        #         task_params=task_params,
+        #         start_time_str=start_time_str,
+        #         elapsed_time_sec=elapsed_time_sec,
+        #         model_params=model_params,
+        #         generation_params=generation_params,
+        #         inference_config=inference_config,
+        #     )
 
         if metric_dict:
             return {"results": metric_dict}

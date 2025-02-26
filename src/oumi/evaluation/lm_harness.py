@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import os
 import random
-import time
-from datetime import datetime
 from pprint import pformat
 from typing import Any, Callable, Optional, Union
 
@@ -40,7 +37,6 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.distributed import is_world_process_zero
-from oumi.evaluation.save_utils import save_evaluation_output
 from oumi.utils.logging import logger
 
 # Used to set the few-shot seed for lm_eval.api.task.Task. The value is consistent with
@@ -269,7 +265,7 @@ def evaluate(
     random_seed: Optional[int] = 0,
     numpy_random_seed: Optional[int] = 1234,
     torch_random_seed: Optional[int] = 1234,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
@@ -358,10 +354,6 @@ def evaluate(
     lm_class = lm_harness_get_model_class(lm_harness_model)
     lm = lm_class(**lm_harness_model_params)
 
-    # Get a timestamp for the current run.
-    start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    start_time = time.time()
-
     logger.info("Starting evaluation...")
     lm_eval_output = lm_harness_evaluate(
         lm=lm,
@@ -371,7 +363,6 @@ def evaluate(
         apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )
-    elapsed_time_sec = time.time() - start_time
 
     # Metrics are only available on the main process, and `None` on others.
     if is_world_process_zero():
@@ -422,19 +413,5 @@ def evaluate(
         lm_harness_log_utils.add_env_info(platform_task_config)
         lm_harness_log_utils.add_tokenizer_info(platform_task_config, lm)
 
-        if output_dir:
-            save_evaluation_output(
-                base_output_dir=output_dir,
-                platform=task_params.get_evaluation_platform(),
-                platform_results=copy.deepcopy(platform_results),
-                platform_task_config=platform_task_config,
-                task_params=task_params,
-                start_time_str=start_time_str,
-                elapsed_time_sec=elapsed_time_sec,
-                model_params=model_params,
-                generation_params=generation_params,
-                inference_config=None,
-            )
-
-        return platform_results
-    return {}
+        return platform_results, platform_task_config
+    return {}, {}

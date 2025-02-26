@@ -1,3 +1,4 @@
+import copy
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -5,6 +6,8 @@ import torch
 from lm_eval.api.task import ConfigurableTask
 
 from oumi.core.configs import (
+    EvaluationConfig,
+    EvaluationTaskParams,
     GenerationParams,
     InferenceEngineType,
     LMHarnessTaskParams,
@@ -12,9 +15,9 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationPlatform
+from oumi.core.evaluators import LmHarnessEvaluator
 from oumi.evaluation.lm_harness import (
     _generate_lm_harness_model_args,
-    evaluate,
 )
 
 
@@ -22,7 +25,7 @@ from oumi.evaluation.lm_harness import (
 def mock_patches_for_evaluate():
     with (
         patch(
-            "oumi.evaluation.lm_harness.save_evaluation_output"
+            "oumi.core.evaluators.base_evaluator.save_evaluation_output"
         ) as mock_save_evaluation_output,
         patch(
             "oumi.evaluation.lm_harness.is_world_process_zero"
@@ -243,16 +246,23 @@ def test_evaluate(mock_patches_for_evaluate):
     ]
 
     # Set the inputs of evaluate() function.
-    task_params = LMHarnessTaskParams(
-        evaluation_platform="lm_harness", task_name="mmlu", num_samples=222
+    task_kwarg_params = {
+        "evaluation_platform": "lm_harness",
+        "task_name": "mmlu",
+        "num_samples": 222,
+    }
+    evaluation_config = EvaluationConfig(
+        tasks=[EvaluationTaskParams(**task_kwarg_params)],
+        model=ModelParams(model_name="gpt2"),
+        generation=GenerationParams(),
+        inference_engine=InferenceEngineType.NATIVE,
+        inference_remote_params=None,
+        run_name="run_name",
+        enable_wandb=False,
+        output_dir="test_output",
     )
-    output_dir = "test_output"
-    model_params = ModelParams(model_name="gpt2")
-    generation_params = GenerationParams()
-    enable_wandb = False
-    inference_engine_type = InferenceEngineType.NATIVE
-    inference_remote_params = None
-    run_name = "run_name"
+    evaluation_config_without_tasks = copy.deepcopy(evaluation_config)
+    evaluation_config_without_tasks.tasks = []
     random_seed = 123
     numpy_random_seed = 1234
     torch_random_seed = 12345
@@ -260,7 +270,10 @@ def test_evaluate(mock_patches_for_evaluate):
     # Mock the outputs of functions that evaluate() calls.
     mock_task_dict = {"mmlu": MagicMock(spec=ConfigurableTask)}
     mock_lm_harness_model_args = {"pretrained": "gpt2"}
-    mock_results = {"results": {"mmlu": {"acc": 0.77}}, "configs": {}}
+    mock_results = {
+        "results": {"mmlu": {"acc": 0.77}},
+        "configs": {"my_config": "some_config"},
+    }
 
     # Mock functions that evaluate() calls.
     mock_cuda_is_available.return_value = True
@@ -268,21 +281,15 @@ def test_evaluate(mock_patches_for_evaluate):
     mock_get_task_dict.return_value = mock_task_dict
     mock_generate_lm_harness_model_args.return_value = mock_lm_harness_model_args
     mock_lm_harness_get_model_class.return_value = MagicMock()
-    mock_lm_harness_evaluate.return_value = mock_results
+    mock_lm_harness_evaluate.return_value = copy.deepcopy(mock_results)
     mock_is_world_process_zero.return_value = True
 
-    evaluate(
-        task_params,
-        output_dir,
-        model_params,
-        generation_params,
-        enable_wandb,
-        inference_engine_type,
-        inference_remote_params,
-        run_name,
-        random_seed,
-        numpy_random_seed,
-        torch_random_seed,
+    evaluator = LmHarnessEvaluator()
+    _ = evaluator.evaluate(
+        config=evaluation_config,
+        random_seed=random_seed,
+        numpy_random_seed=numpy_random_seed,
+        torch_random_seed=torch_random_seed,
     )
 
     # Assertions
@@ -292,18 +299,18 @@ def test_evaluate(mock_patches_for_evaluate):
         torch_random_seed=torch_random_seed,
     )
     mock_is_image_text_llm.assert_called_once_with(
-        model_name=model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
+        model_name=evaluation_config.model.model_name,
+        trust_remote_code=evaluation_config.model.trust_remote_code,
     )
-    mock_get_task_dict.assert_called_once_with(task_params)
+    mock_get_task_dict.assert_called_once_with(LMHarnessTaskParams(**task_kwarg_params))
     mock_generate_lm_harness_model_args.assert_called_once_with(
         lm_harness_model="hf",
         is_multimodal=False,
         device="cuda:0",
-        model_params=model_params,
-        generation_params=generation_params,
-        inference_engine_type=inference_engine_type,
-        inference_remote_params=inference_remote_params,
+        model_params=evaluation_config.model,
+        generation_params=evaluation_config.generation,
+        inference_engine_type=evaluation_config.inference_engine,
+        inference_remote_params=evaluation_config.inference_remote_params,
     )
     mock_lm_harness_get_model_class.assert_called_once_with("hf")
 
@@ -315,17 +322,15 @@ def test_evaluate(mock_patches_for_evaluate):
 
     mock_save_evaluation_output.assert_called_once()
     _, kwargs = mock_save_evaluation_output.call_args
+    assert kwargs["backend_name"] == EvaluationPlatform.LM_HARNESS.value
+    assert kwargs["task_params"] == EvaluationTaskParams(**task_kwarg_params)
+    actual_result = kwargs["evaluation_result"].to_dict()
+    assert actual_result["task_name"] == "mmlu"
+    assert actual_result["task_result"]["results"] == mock_results["results"]
+    assert actual_result["backend_config"]["configs"]["my_config"] == "some_config"
+    assert actual_result["backend_config"]["config"]["model"] == "hf"
     assert kwargs["base_output_dir"] == "test_output"
-    assert kwargs["platform"] == EvaluationPlatform.LM_HARNESS
-    assert "results" in kwargs["platform_results"]
-    assert kwargs["platform_results"]["results"] == {"mmlu": {"acc": 0.77}}
-    assert "config" in kwargs["platform_task_config"]
-    assert "configs" in kwargs["platform_task_config"]
-    assert kwargs["platform_task_config"]["config"]["model"] == "hf"
-    assert kwargs["task_params"] == task_params
-    assert kwargs["model_params"] == model_params
-    assert kwargs["generation_params"] == generation_params
-    assert kwargs["inference_config"] is None
+    assert kwargs["config"] == evaluation_config_without_tasks
 
 
 def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
@@ -352,16 +357,20 @@ def test_evaluate_failure_vLLM_without_CUDA(mock_patches_for_evaluate):
     mock_generate_lm_harness_model_args.return_value = MagicMock()
     mock_lm_harness_get_model_class.return_value = MagicMock()
 
+    evaluator = LmHarnessEvaluator()
+
     with pytest.raises(
         ValueError, match="The `VLLM` inference_engine requires a CUDA-enabled GPU."
     ):
-        evaluate(
-            task_params=LMHarnessTaskParams(),
-            output_dir="",
-            model_params=ModelParams(model_name="gpt2"),
-            generation_params=GenerationParams(),
-            enable_wandb=False,
-            inference_engine_type=inference_engine_type,
+        evaluator.evaluate(
+            EvaluationConfig(
+                tasks=[
+                    EvaluationTaskParams(
+                        evaluation_platform="lm_harness", task_name="x"
+                    )
+                ],
+                inference_engine=inference_engine_type,
+            )
         )
 
 
@@ -417,17 +426,21 @@ def test_evaluate_failure_non_supported_engine(
     mock_generate_lm_harness_model_args.return_value = MagicMock()
     mock_lm_harness_get_model_class.return_value = MagicMock()
 
+    evaluator = LmHarnessEvaluator()
+
     with pytest.raises(
         ValueError,
         match=f"Unsupported inference engine type: {unsupported_inference_engine_type}."
         " Our integration with the `lm_harness` evaluation platform supports "
         "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types.",
     ):
-        evaluate(
-            task_params=LMHarnessTaskParams(),
-            output_dir="",
-            model_params=ModelParams(model_name="gpt2"),
-            generation_params=GenerationParams(),
-            enable_wandb=False,
-            inference_engine_type=unsupported_inference_engine_type,
+        evaluator.evaluate(
+            EvaluationConfig(
+                tasks=[
+                    EvaluationTaskParams(
+                        evaluation_platform="lm_harness", task_name="x"
+                    ),
+                ],
+                inference_engine=unsupported_inference_engine_type,
+            )
         )
