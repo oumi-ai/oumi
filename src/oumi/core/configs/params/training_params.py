@@ -21,6 +21,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.utils.str_utils import sanitize_run_name
@@ -314,6 +315,9 @@ class TrainingParams(BaseParams):
     https://huggingface.co/docs/trl/main/en/grpo_trainer
     for documentation about the function signature.
     """
+
+    grpo: GrpoParams = field(default_factory=GrpoParams)
+    """Parameters for GRPO training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
@@ -20,7 +20,7 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclass
 class GrpoParams(BaseParams):
-    model_init_kwargs: Optional[dict[str, Any]] = None
+    model_init_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments for `AutoModelForCausalLM.from_pretrained(...)`"""
 
     use_vllm: bool = False
