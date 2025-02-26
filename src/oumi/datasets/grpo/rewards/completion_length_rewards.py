@@ -55,7 +55,7 @@ def compute_sharp_target_token_length_reward(num_tokens: int, *, target_tokens: 
     The reward reduces sharply if the actual number of tokens deviates
     from `target_tokens`.
 
-    The reward is computed as: `-|num_tokens - target_tokens|`, whiche penalizes
+    The reward is computed as: `-|num_tokens - target_tokens|`, which penalizes
     token counts not equal to `target_tokens`.
     """
     return -abs(num_tokens - target_tokens)
