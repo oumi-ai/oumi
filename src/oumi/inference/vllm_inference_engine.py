@@ -253,7 +253,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             if not conversation.messages:
                 logger.warning("Conversation must have at least one message.")
                 continue
-            vllm_input = self._convert_conversation_to_vllm_input(conversation)
+            # vllm_input = self._convert_conversation_to_vllm_input(conversation)
+            convo_dict = conversation.to_dict()
+            vllm_input = convo_dict["messages"]
             vllm_conversations.append(vllm_input)
             non_skipped_conversations.append(conversation)
 
