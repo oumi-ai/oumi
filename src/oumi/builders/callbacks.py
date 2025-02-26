@@ -102,12 +102,12 @@ def build_training_callbacks(
                 "model_max_length must be set to log MFU performance information."
             )
 
-        if (
-            config.training.include_alternative_mfu_metrics
-            and config.training.trainer_type
+        if config.training.include_alternative_mfu_metrics and (
+            config.training.trainer_type
             in (
                 TrainerType.TRL_SFT,
                 TrainerType.TRL_DPO,
+                TrainerType.TRL_GRPO,
                 TrainerType.HF,
             )
         ):

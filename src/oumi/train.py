@@ -16,7 +16,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Optional, Union
+from typing import Callable, Final, Optional, Union
 
 import torch
 import transformers
@@ -29,6 +29,7 @@ from oumi.builders import (
     build_model,
     build_peft_model,
     build_processor,
+    build_reward_functions,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
@@ -165,6 +166,34 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
     return config
 
 
+def _create_optional_training_kwargs(
+    config: TrainingConfig,
+    tokenizer: Optional[BaseTokenizer],
+    trainer_type: TrainerType,
+    metrics_function: Optional[Callable],
+    reward_functions: list[Callable],
+    collator: Optional[Callable],
+):
+    kwargs = {}
+    if trainer_type == TrainerType.OUMI:
+        kwargs["config"] = config
+
+    if trainer_type != TrainerType.TRL_GRPO:
+        kwargs["tokenizer"] = tokenizer
+        kwargs["compute_metrics"] = metrics_function
+        kwargs["data_collator"] = collator
+    else:
+        assert trainer_type == TrainerType.TRL_GRPO
+        if metrics_function:
+            raise ValueError(f"metrics_function isn't supported for {trainer_type}")
+        if collator:
+            raise ValueError(f"collator isn't supported for {trainer_type}")
+
+        kwargs["processing_class"] = tokenizer
+        kwargs["reward_funcs"] = reward_functions
+    return kwargs
+
+
 def train(config: TrainingConfig, **kwargs) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -192,7 +221,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # We support running FSDP Oumi training without being invoked from the Accelerate
     # launcher. We detect this with the following:
     # 1. Accelerate's environment variables aren't set
-    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO, TRL_GRPO)
     # 3. FSDP is enabled in the Oumi config
     # In this case, we mimic an Accelerate launcher run by setting the necessary
     # environment variables.
@@ -255,13 +284,26 @@ def train(config: TrainingConfig, **kwargs) -> None:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
     # Train model
+    trainer_type: Final[TrainerType] = config.training.trainer_type
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type, processor=processor
+        trainer_type, processor=processor
     )
 
-    metrics_function = build_metrics_function(config.training)
+    metrics_function: Optional[Callable] = build_metrics_function(config.training)
+    reward_functions: list[Callable] = build_reward_functions(config.training)
+    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
+        logger.warning(f"No reward_function specified for {trainer_type}!")
 
-    collator = build_collator_from_config(config, tokenizer)
+    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+
+    training_kwargs = _create_optional_training_kwargs(
+        config,
+        tokenizer,
+        trainer_type,
+        metrics_function,
+        reward_functions,
+        collator,
+    )
 
     # Reclaim memory before training starts.
     device_cleanup()
@@ -272,22 +314,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
         record_function_name="oumi.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
-            kwargs = {}
-            if config.training.trainer_type == TrainerType.OUMI:
-                kwargs["config"] = config
-
             callbacks = build_training_callbacks(config, model, profiler)
 
             trainer = create_trainer_fn(
                 model=model,
-                tokenizer=tokenizer,
                 args=config.training,
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
-                compute_metrics=metrics_function,
                 callbacks=callbacks,
-                data_collator=collator,
-                **kwargs,
+                **training_kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):
