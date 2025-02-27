@@ -133,6 +133,7 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
     return config
 
 
+
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         pixel_values_variable_shape=True,
