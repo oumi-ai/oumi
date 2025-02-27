@@ -23,14 +23,18 @@ class GrpoParams(BaseParams):
     model_init_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments for `AutoModelForCausalLM.from_pretrained(...)`"""
 
-    max_prompt_length: int = 512
+    max_prompt_length: Optional[int] = None
     """Maximum length of the prompt.
 
     If the prompt is longer than this value, it will be truncated left.
+    If unspecified (`None`), defaults to 512.
     """
 
-    max_completion_length: int = 256
-    """Maximum length of the generated completion."""
+    max_completion_length: Optional[int] = None
+    """Maximum length of the generated completion.
+
+    If unspecified (`None`), defaults to 256.
+    """
 
     num_generations: Optional[int] = None
     """Number of generations per prompt to sample.
@@ -97,12 +101,12 @@ class GrpoParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
-        if not self.max_prompt_length > 0:
+        if not (self.max_prompt_length is None or self.max_prompt_length > 0):
             raise ValueError(
                 "GrpoParams.max_prompt_length must be positive. "
                 f"Actual: {self.max_prompt_length}"
             )
-        if not self.max_completion_length > 0:
+        if not (self.max_completion_length is None or self.max_completion_length > 0):
             raise ValueError(
                 "GrpoParams.max_completion_length must be positive. "
                 f"Actual: {self.max_completion_length}"
@@ -127,12 +131,21 @@ class GrpoParams(BaseParams):
         result = {}
         if len(self.model_init_kwargs) > 0:
             result["model_init_kwargs"] = self.model_init_kwargs
+        if self.max_prompt_length is not None:
+            result["max_prompt_length"] = self.max_prompt_length
+        if self.max_completion_length is not None:
+            result["max_completion_length"] = self.max_completion_length
         if self.num_generations is not None:
             result["num_generations"] = self.num_generations
 
         already_processed_keys: set[str] = set(
-            {"model_init_kwargs", "num_generations"}
-        ).union(result.keys())
+            {
+                "model_init_kwargs",
+                "max_prompt_length",
+                "max_completion_length",
+                "num_generations",
+            }
+        )
 
         # Copy the majority of fields that aren't special-cased.
         for param in fields(self):
