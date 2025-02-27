@@ -4,7 +4,7 @@
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3.1: https://huggingface.co/neuralmagic/Meta-Llama-3.1-405B-Instruct-quantized.w8a8
+
 #
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/evaluation/405b_quantized_gcp_job.yaml --cluster llama405b-quantized-eval
@@ -37,7 +37,7 @@ envs:
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
   MODEL_CHECKPOINT_DIR: neuralmagic/Meta-Llama-3.1-405B-Instruct-quantized.w8a8
-  WANDB_PROJECT: oumi-infer
+  WANDB_PROJECT: oumi-eval
   OUMI_RUN_NAME: llama405b.quantized.eval
 
 setup: |
@@ -60,7 +60,7 @@ run: |
   set -x
   oumi distributed accelerate launch \
     -m oumi evaluate \
-    -c configs/recipes/llama3_1/evaluation/405b_quantized_eval.yaml \
+    -c configs/recipes/llama3_1/evaluation/405b_quantized_gcp_job.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"
 

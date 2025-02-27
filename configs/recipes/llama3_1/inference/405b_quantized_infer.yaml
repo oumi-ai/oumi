@@ -4,7 +4,6 @@
 #
 # Requirements:
 #   - Log into HF: `huggingface-cli login`
-#   - Request access to Llama 3.1: https://huggingface.co/neuralmagic/Meta-Llama-3.1-405B-Instruct-quantized.w8a8
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/llama3_1/inference/405b_quantized_infer.yaml

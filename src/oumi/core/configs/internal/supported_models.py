@@ -128,36 +128,6 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
     return config
 
 
-def _create_llama_405b_quantized_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(supports_multiple_images=True)
-    config.chat_template = "llama3-instruct"
-    config.model_input_features.update(
-        {
-            feature_name: InternalFeatureSpec(
-                name=feature_name,
-                required=True,
-                variable_shape=False,
-            )
-            for feature_name in (
-                "aspect_ratio_ids",
-                "aspect_ratio_mask",
-                "cross_attention_mask",
-            )
-        }
-    )
-    
-    # quantization-specific parameters
-    config.processor_kwargs.update(
-        {
-            "quantization": "w8a8",    
-            "device_map": "auto", 
-            "tensor_parallel_size": 8,  
-            "max_model_len": 8192, 
-        }
-    )
-
-    return config
-
 
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(pixel_values_variable_shape=True)
@@ -307,12 +277,6 @@ def get_all_models_map() -> (
             model_class=default_vlm_class,
             tested=True,
             config=_create_mllama_vlm_config(),
-        ),
-        _ModelTypeInfo(
-            model_type="llama_405b_quantized",
-            model_class=default_vlm_class,
-            tested=False,
-            config=_create_llama_405b_quantized_config(),
         ),
         _ModelTypeInfo(
             model_type="paligemma",
