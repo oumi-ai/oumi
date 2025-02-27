@@ -1,0 +1,63 @@
+# Config to FSDP full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
+# Example command:
+# oumi launch up -c configs/recipes/qwen2_5/sft/32b_full/gcp_job.yaml --cluster qwen2.5-32b-sft-fsdp
+name: qwen2.5-32b-sft-fsdp
+
+num_nodes: 1
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  use_spot: false
+  disk_size: 4000 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+storage_mounts:
+  /output_gcs_bucket:
+    source: gs://oumi-dev-us-central1 # GCS bucket to store output
+    store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama8b.fft.fsdp
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+  TRAIN_CONFIG: configs/recipes/qwen2_5/sft/32b_full/train_basis_with_plus_our_data_eval_on_all_data.yaml # SELECT PROPER ONE
+
+setup: |
+  set -e
+  pip install uv && uv pip install '.[gpu]' hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2.5-32B-Instruct
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  uv pip install --upgrade --no-deps --force-reinstall '.[gpu]'
+
+  accelerate launch \
+      --num_machines ${OUMI_NUM_NODES} \
+      --machine_rank ${SKYPILOT_NODE_RANK} \
+      --num_processes ${OUMI_TOTAL_NUM_GPUS} \
+      --main_process_ip ${OUMI_MASTER_ADDR} \
+      --main_process_port 8007 \
+      --use_fsdp \
+      --config_file configs/recipes/qwen2_5/sft/32b_full/accelerate.yaml \
+      -m oumi.train \
+      -c ${TRAIN_CONFIG} \
+      "training.run_name='${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'" \
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
+
+# Avoid saving the model directly on the GCS bucket to avoid timeouts errors.
+# "training.output_dir='/output_gcs_bucket/lema-balerion/training_runs/panos/corroborate/for_manos_showcase_2/${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}'"
