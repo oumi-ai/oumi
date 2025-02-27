@@ -1,4 +1,3 @@
-import os
 import tempfile
 from pathlib import Path
 
@@ -14,6 +13,11 @@ from oumi.core.registry import (
 
 
 @pytest.fixture(autouse=True)
+def mock_env_vars(monkeypatch):
+    monkeypatch.setenv("OUMI_EXTRA_DEPS_FILE", "")
+
+
+@pytest.fixture(autouse=True)
 def cleanup():
     snapshot = Registry()
     for reg_type in RegistryType:
@@ -22,16 +26,7 @@ def cleanup():
     # Clear the registry before each test.
     REGISTRY.clear()
     REGISTRY._initialized = False
-    # Clear our registry env variable.
-    oumi_registry_reqs = os.environ.get("OUMI_EXTRA_DEPS_FILE", None)
-    if oumi_registry_reqs:
-        del os.environ["OUMI_EXTRA_DEPS_FILE"]
     yield
-    # Restore our registry env variable.
-    if os.environ.get("OUMI_EXTRA_DEPS_FILE", None):
-        del os.environ["OUMI_EXTRA_DEPS_FILE"]
-    if oumi_registry_reqs:
-        os.environ["OUMI_EXTRA_DEPS_FILE"] = oumi_registry_reqs
     # Clear the registry after each test.
     REGISTRY.clear()
     REGISTRY._initialized = False
@@ -329,101 +324,109 @@ def test_registry_get_all_initialization():
     assert REGISTRY._initialized
 
 
-def test_registry_user_classes():
+def test_registry_user_classes(monkeypatch):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         req_file = Path(output_temp_dir) / "requirements.txt"
         file_1 = Path(output_temp_dir) / "file_1.py"
         file_2 = Path(output_temp_dir) / "another_file.py"
         file_3 = Path(output_temp_dir) / "last_one.py"
-        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
-        with open(req_file, "w") as f:
-            f.write(str(file_1) + "\n\n")  # Add an empty line
-            f.write(str(file_2) + "\n")
-            f.write(str(file_3) + "\n")
-        with open(file_1, "w") as f:
-            f.writelines(
-                [
-                    "from oumi.core.registry import register, RegistryType\n",
-                    "@register('file_1', RegistryType.CLOUD)\n",
-                    "class FileOne:\n",
-                    "    pass\n",
-                ]
-            )
-        with open(file_2, "w") as f:
-            f.writelines(
-                [
-                    "from oumi.core.registry import register, RegistryType\n",
-                    "@register('file_2', RegistryType.MODEL)\n",
-                    "class FileTwo:\n",
-                    "    pass\n",
-                ]
-            )
-        with open(file_3, "w") as f:
-            f.writelines(
-                [
-                    "from oumi.core.registry import register, RegistryType\n",
-                    "@register('file_3', RegistryType.METRICS_FUNCTION)\n",
-                    "class FileThree:\n",
-                    "    pass\n",
-                ]
-            )
-        assert not REGISTRY._initialized
-        assert REGISTRY.contains("file_1", RegistryType.CLOUD)
-        assert REGISTRY.contains("file_2", RegistryType.MODEL)
-        assert REGISTRY.contains("file_3", RegistryType.METRICS_FUNCTION)
-        assert REGISTRY._initialized
+        with monkeypatch.context() as mp:
+            mp.setenv("OUMI_EXTRA_DEPS_FILE", str(req_file))
+            with open(req_file, "w") as f:
+                f.write(str(file_1) + "\n\n")  # Add an empty line
+                f.write(str(file_2) + "\n")
+                f.write(str(file_3) + "\n")
+            with open(file_1, "w") as f:
+                f.writelines(
+                    [
+                        "from oumi.core.registry import register, RegistryType\n",
+                        "@register('file_1', RegistryType.CLOUD)\n",
+                        "class FileOne:\n",
+                        "    pass\n",
+                    ]
+                )
+            with open(file_2, "w") as f:
+                f.writelines(
+                    [
+                        "from oumi.core.registry import register, RegistryType\n",
+                        "@register('file_2', RegistryType.MODEL)\n",
+                        "class FileTwo:\n",
+                        "    pass\n",
+                    ]
+                )
+            with open(file_3, "w") as f:
+                f.writelines(
+                    [
+                        "from oumi.core.registry import register, RegistryType\n",
+                        "@register('file_3', RegistryType.METRICS_FUNCTION)\n",
+                        "class FileThree:\n",
+                        "    pass\n",
+                    ]
+                )
+            assert not REGISTRY._initialized
+            assert REGISTRY.contains("file_1", RegistryType.CLOUD)
+            assert REGISTRY.contains("file_2", RegistryType.MODEL)
+            assert REGISTRY.contains("file_3", RegistryType.METRICS_FUNCTION)
+            assert REGISTRY._initialized
 
 
-def test_registry_user_classes_empty_requirements():
+def test_registry_user_classes_empty_requirements(monkeypatch):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         req_file = Path(output_temp_dir) / "requirements.txt"
-        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
-        with open(req_file, "w") as f:
-            f.write("\n")
-        assert not REGISTRY._initialized
-        assert not REGISTRY.contains("file_1", RegistryType.CLOUD)
-        assert REGISTRY._initialized
+        with monkeypatch.context() as mp:
+            mp.setenv("OUMI_EXTRA_DEPS_FILE", str(req_file))
+            with open(req_file, "w") as f:
+                f.write("\n")
+            assert not REGISTRY._initialized
+            assert not REGISTRY.contains("file_1", RegistryType.CLOUD)
+            assert REGISTRY._initialized
 
 
-def test_registry_user_classes_malformed_dep():
-    with tempfile.TemporaryDirectory() as output_temp_dir:
-        req_file = Path(output_temp_dir) / "requirements.txt"
-        file_1 = Path(output_temp_dir) / "file_1.py"
-        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
-        with open(req_file, "w") as f:
-            f.write(str(file_1) + "\n\n")  # Add an empty line
-            f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
-        with open(file_1, "w") as f:
-            f.writelines(
-                [
-                    "fr om thisisbadpython import fakemodulethatfails\n",
-                    "@register('file_1', RegistryType.CLOUD)\n",
-                    "class FileOne:\n",
-                    "    pass\n",
-                ]
-            )
-        assert not REGISTRY._initialized
-        with pytest.raises(ImportError, match="Failed to load user-defined module:"):
-            REGISTRY.contains("file_1", RegistryType.CLOUD)
-
-
-def test_registry_user_classes_missing_dep():
+def test_registry_user_classes_malformed_dep(monkeypatch):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         req_file = Path(output_temp_dir) / "requirements.txt"
         file_1 = Path(output_temp_dir) / "file_1.py"
-        os.environ["OUMI_EXTRA_DEPS_FILE"] = str(req_file)
-        with open(req_file, "w") as f:
-            f.write(str(file_1) + "\n\n")  # Add an empty line
-            f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
-        with open(file_1, "w") as f:
-            f.writelines(
-                [
-                    "from oumi.core.registry import register, RegistryType\n",
-                    "@register('file_1', RegistryType.CLOUD)\n",
-                    "class FileOne:\n",
-                    "    pass\n",
-                ]
-            )
-        assert not REGISTRY._initialized
-        with pytest.raises(ImportError, match="Failed to load user-defined module:"):
-            REGISTRY.contains("file_1", RegistryType.CLOUD)
+        with monkeypatch.context() as mp:
+            mp.setenv("OUMI_EXTRA_DEPS_FILE", str(req_file))
+            with open(req_file, "w") as f:
+                f.write(str(file_1) + "\n\n")  # Add an empty line
+                f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
+            with open(file_1, "w") as f:
+                f.writelines(
+                    [
+                        "fr om thisisbadpython import fakemodulethatfails\n",
+                        "@register('file_1', RegistryType.CLOUD)\n",
+                        "class FileOne:\n",
+                        "    pass\n",
+                    ]
+                )
+            assert not REGISTRY._initialized
+            with pytest.raises(
+                ImportError, match="Failed to load user-defined module:"
+            ):
+                REGISTRY.contains("file_1", RegistryType.CLOUD)
+
+
+def test_registry_user_classes_missing_dep(monkeypatch):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        req_file = Path(output_temp_dir) / "requirements.txt"
+        file_1 = Path(output_temp_dir) / "file_1.py"
+        with monkeypatch.context() as mp:
+            mp.setenv("OUMI_EXTRA_DEPS_FILE", str(req_file))
+            with open(req_file, "w") as f:
+                f.write(str(file_1) + "\n\n")  # Add an empty line
+                f.write(str(Path(output_temp_dir) / "non_existent_file.py") + "\n")
+            with open(file_1, "w") as f:
+                f.writelines(
+                    [
+                        "from oumi.core.registry import register, RegistryType\n",
+                        "@register('file_1', RegistryType.CLOUD)\n",
+                        "class FileOne:\n",
+                        "    pass\n",
+                    ]
+                )
+            assert not REGISTRY._initialized
+            with pytest.raises(
+                ImportError, match="Failed to load user-defined module:"
+            ):
+                REGISTRY.contains("file_1", RegistryType.CLOUD)

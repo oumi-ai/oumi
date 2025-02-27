@@ -36,7 +36,8 @@ from oumi.utils.image_utils import (
 )
 from tests import get_testdata_dir
 
-_TARGET_SERVER: Final[str] = "http://fakeurl"
+_TARGET_SERVER_BASE: Final[str] = "http://fakeurl"
+_TARGET_SERVER: Final[str] = "http://fakeurl/somepath"
 _TEST_IMAGE_DIR: Final[Path] = get_testdata_dir() / "images"
 
 
@@ -223,28 +224,152 @@ def test_infer_online():
         assert expected_result == result
 
 
+def test_infer_online_no_base_api():
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "The first time I saw",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            content="Hello world!",
+                            type=Type.TEXT,
+                        ),
+                        ContentItem(
+                            content="/tmp/hello/again.png",
+                            binary=b"a binary image",
+                            type=Type.IMAGE_PATH,
+                        ),
+                        ContentItem(
+                            content="a url for our image",
+                            type=Type.IMAGE_URL,
+                        ),
+                        ContentItem(
+                            binary=b"a binary image",
+                            type=Type.IMAGE_BINARY,
+                        ),
+                    ],
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+        expected_result = [
+            Conversation(
+                messages=[
+                    *conversation.messages,
+                    Message(
+                        content="The first time I saw",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"foo": "bar"},
+                conversation_id="123",
+            )
+        ]
+        result = engine.infer_online(
+            [conversation],
+            _get_default_inference_config(),
+        )
+        assert expected_result == result
+
+
+def test_infer_online_falls_back_to_default_url():
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "The first time I saw",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            content="Hello world!",
+                            type=Type.TEXT,
+                        ),
+                        ContentItem(
+                            content="/tmp/hello/again.png",
+                            binary=b"a binary image",
+                            type=Type.IMAGE_PATH,
+                        ),
+                        ContentItem(
+                            content="a url for our image",
+                            type=Type.IMAGE_URL,
+                        ),
+                        ContentItem(
+                            binary=b"a binary image",
+                            type=Type.IMAGE_BINARY,
+                        ),
+                    ],
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+        expected_result = [
+            Conversation(
+                messages=[
+                    *conversation.messages,
+                    Message(
+                        content="The first time I saw",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"foo": "bar"},
+                conversation_id="123",
+            )
+        ]
+        inference_config = _get_default_inference_config()
+        inference_config.remote_params = None
+        result = engine.infer_online(
+            [conversation],
+            inference_config,
+        )
+        assert expected_result == result
+
+
 def test_infer_no_remote_params_api_url():
-    with pytest.raises(
-        ValueError, match="The API URL must be provided in remote_params"
-    ):
-        RemoteInferenceEngine(
+    with pytest.raises(ValueError, match="API URL is required for remote inference."):
+        engine = RemoteInferenceEngine(
             model_params=_get_default_model_params(),
         )
-
-    with pytest.raises(
-        ValueError, match="The API URL must be provided in remote_params"
-    ):
-        RemoteInferenceEngine(
-            model_params=_get_default_model_params(),
-            remote_params=RemoteParams(),
-        )
-
-    with pytest.raises(
-        ValueError, match="The API URL must be provided in remote_params"
-    ):
-        RemoteInferenceEngine(
-            model_params=_get_default_model_params(),
-            remote_params=RemoteParams(api_url=""),
+        engine.infer(
+            input=[Conversation(messages=[])],
         )
 
 
@@ -1351,7 +1476,7 @@ async def test_upload_batch_file():
     """Test uploading a batch file."""
     with aioresponses() as m:
         m.post(
-            f"{_TARGET_SERVER}/files",
+            f"{_TARGET_SERVER_BASE}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
@@ -1382,13 +1507,13 @@ async def test_create_batch():
     with aioresponses() as m:
         # Mock file upload
         m.post(
-            f"{_TARGET_SERVER}/files",
+            f"{_TARGET_SERVER_BASE}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
         # Mock batch creation
         m.post(
-            f"{_TARGET_SERVER}/batches",
+            f"{_TARGET_SERVER_BASE}/v1/batches",
             status=200,
             payload={"id": "batch-456"},
         )
@@ -1417,7 +1542,7 @@ async def test_get_batch_status():
     """Test getting batch status."""
     with aioresponses() as m:
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1449,7 +1574,7 @@ async def test_get_batch_results():
     with aioresponses() as m:
         # Mock batch status request
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1465,7 +1590,7 @@ async def test_get_batch_results():
 
         # Mock file content request
         m.get(
-            f"{_TARGET_SERVER}/files/file-output-123/content",
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
             body=json.dumps(
                 {
@@ -1512,13 +1637,13 @@ def test_infer_batch():
     with aioresponses() as m:
         # Mock file upload
         m.post(
-            f"{_TARGET_SERVER}/files",
+            f"{_TARGET_SERVER_BASE}/v1/files",
             status=200,
             payload={"id": "file-123"},
         )
         # Mock batch creation
         m.post(
-            f"{_TARGET_SERVER}/batches",
+            f"{_TARGET_SERVER_BASE}/v1/batches",
             status=200,
             payload={"id": "batch-456"},
         )
@@ -1546,7 +1671,7 @@ def test_get_batch_status_public():
     """Test the public get_batch_status method."""
     with aioresponses() as m:
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1577,7 +1702,7 @@ def test_get_batch_results_public():
     with aioresponses() as m:
         # Mock batch status request
         m.get(
-            f"{_TARGET_SERVER}/batches/batch-123",
+            f"{_TARGET_SERVER_BASE}/v1/batches/batch-123",
             status=200,
             payload={
                 "id": "batch-123",
@@ -1593,7 +1718,7 @@ def test_get_batch_results_public():
 
         # Mock file content request
         m.get(
-            f"{_TARGET_SERVER}/files/file-output-123/content",
+            f"{_TARGET_SERVER_BASE}/v1/files/file-output-123/content",
             status=200,
             body=json.dumps(
                 {
@@ -1641,7 +1766,7 @@ async def test_list_batches():
     with aioresponses() as m:
         # Mock with exact URL including query parameters
         m.get(
-            f"{_TARGET_SERVER}/batches?limit=1",  # Include query params in URL
+            f"{_TARGET_SERVER_BASE}/v1/batches?limit=1",  # Include query params in URL
             status=200,
             payload={
                 "object": "list",
@@ -1690,7 +1815,7 @@ def test_list_batches_public():
     """Test the public list_batches method."""
     with aioresponses() as m:
         m.get(
-            f"{_TARGET_SERVER}/batches?limit=2",  # Include query params in URL
+            f"{_TARGET_SERVER_BASE}/v1/batches?limit=2",  # Include query params in URL
             status=200,
             payload={
                 "object": "list",

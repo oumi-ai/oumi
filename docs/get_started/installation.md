@@ -4,6 +4,8 @@ This guide will help you install Oumi and its dependencies.
 
 ## Requirements
 
+❗NOTE: Since PyTorch dropped support for Intel Macs, you cannot install Oumi there. Consider running Oumi on free Colab GPU instances, using our {doc}`notebook tutorials </get_started/tutorials>`!
+
 Before installing Oumi, ensure you have the following:
 
 - Python 3.9 or later

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from pathlib import Path
 from typing import Annotated, Final, Optional
 
 import typer
@@ -33,16 +32,6 @@ def infer(
             help="Path to the configuration file for inference.",
         ),
     ],
-    output_dir: Annotated[
-        Optional[Path],
-        typer.Option(
-            "--output-dir",
-            help=(
-                "Directory to save configs "
-                "(defaults to OUMI_DIR env var or ~/.oumi/fetch)"
-            ),
-        ),
-    ] = None,
     interactive: Annotated[
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
@@ -87,7 +76,11 @@ def infer(
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-    config = str(cli_utils.resolve_and_fetch_config(config, output_dir))
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
 
     # Delayed imports
     from oumi import infer as oumi_infer

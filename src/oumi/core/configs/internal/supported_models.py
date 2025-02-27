@@ -58,6 +58,9 @@ def _create_default_vlm_config(
     *,
     supports_multiple_images: bool = False,
     pixel_values_variable_shape: bool = False,
+    pixel_values_first_dim_action: InternalFeatureFirstDimAction = (
+        InternalFeatureFirstDimAction.DROP_IF_DUMMY
+    ),
 ) -> InternalModelConfig:
     config = InternalModelConfig()
     config.chat_template = "llava"
@@ -67,7 +70,8 @@ def _create_default_vlm_config(
                 name="pixel_values",
                 required=True,
                 variable_shape=pixel_values_variable_shape,
-                first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+                first_dim_action=pixel_values_first_dim_action,
+                image_dependent=True,
             )
         }
     )
@@ -117,6 +121,7 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in (
                 "aspect_ratio_ids",
@@ -130,7 +135,11 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
 
 
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
     config.chat_template = "qwen2-vl-instruct"
     # FIXME OPE-946 Consider updating to "right":
     # config.padding_side = InternalPaddingSide.PAD_RIGHT
@@ -140,6 +149,7 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("image_grid_thw",)
         }
@@ -169,7 +179,11 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
 
 
 def _create_phi3_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
     config.chat_template = "phi3-instruct"
     config.label_ignore_index = None
     config.sanitize_negative_labels = True
@@ -179,18 +193,18 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("image_sizes",)
         }
     )
-    assert config.visual_config is not None
-    visual_config = config.visual_config
-    visual_config.supports_multiple_images = True
     return config
 
 
 def _create_idefics3_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=False)
+    config = _create_default_vlm_config(
+        supports_multiple_images=True, pixel_values_variable_shape=True
+    )
     # FIXME OPE-697 Create model-specific chat template
     config.chat_template = "llava"
     config.model_input_features.update(
@@ -199,14 +213,11 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("pixel_attention_mask",)
         }
     )
-    assert config.visual_config is not None
-    visual_config = config.visual_config
-    visual_config.supports_multiple_images = True
-    visual_config.variable_shape_image_features = True
     return config
 
 

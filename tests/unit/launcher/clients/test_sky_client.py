@@ -23,7 +23,7 @@ def _get_default_job(cloud: str) -> JobConfig:
         cloud=cloud,
         region="us-central1",
         zone=None,
-        accelerators="A100-80",
+        accelerators="A100-80GB",
         cpus="4",
         memory="64",
         instance_type=None,
@@ -124,6 +124,35 @@ def test_sky_client_launch(
             cluster_name=None,
             detach_run=True,
             idle_minutes_to_autostop=60,
+        )
+
+
+def test_sky_client_launch_no_stop(
+    mock_sky_data_storage,
+):
+    with patch("sky.launch") as mock_launch:
+        job = _get_default_job("runpod")
+        job.resources.region = "ca"
+        job.resources.disk_tier = "best"
+        mock_resource_handle = Mock()
+        mock_resource_handle.cluster_name = "mycluster"
+        mock_launch.return_value = (1, mock_resource_handle)
+        client = SkyClient()
+        job_status = client.launch(job)
+        expected_job_status = JobStatus(
+            name="",
+            id="1",
+            cluster="mycluster",
+            status="",
+            metadata="",
+            done=False,
+        )
+        assert job_status == expected_job_status
+        mock_launch.assert_called_once_with(
+            ANY,
+            cluster_name=None,
+            detach_run=True,
+            idle_minutes_to_autostop=None,
         )
 
 

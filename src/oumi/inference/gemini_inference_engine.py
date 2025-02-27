@@ -81,3 +81,18 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def infer_batch(
+        self, conversations: list[Conversation], inference_config: dict[str, Any]
+    ) -> str:
+        """Run inference on a batch of conversations.
+
+        Args:
+            conversations: The batch of conversations to infer on.
+            inference_config: The inference configuration.
+
+        Returns:
+            str: The batch ID.
+        """
+        raise NotImplementedError("Batch inference is not supported for Gemini API.")
