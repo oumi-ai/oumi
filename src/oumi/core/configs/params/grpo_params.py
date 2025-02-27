@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass, field, fields
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
@@ -22,6 +23,39 @@ from oumi.core.configs.params.base_params import BaseParams
 class GrpoParams(BaseParams):
     model_init_kwargs: dict[str, Any] = field(default_factory=dict)
     """Keyword arguments for `AutoModelForCausalLM.from_pretrained(...)`"""
+
+    max_prompt_length: Optional[int] = None
+    """Maximum length of the prompt.
+
+    If the prompt is longer than this value, it will be truncated left.
+    If unspecified (`None`), defaults to 512.
+    """
+
+    max_completion_length: Optional[int] = None
+    """Maximum length of the generated completion.
+
+    If unspecified (`None`), defaults to 256.
+    """
+
+    num_generations: Optional[int] = None
+    """Number of generations per prompt to sample.
+
+    The global batch size (num_processes * per_device_batch_size) must be divisible
+    by this value. If unspecified (`None`), defaults to 8.
+    """
+
+    temperature: float = 0.9
+    """Temperature for sampling.
+
+    The higher the temperature, the more random the completions.
+    """
+
+    remove_unused_columns: bool = False
+    """Whether to only keep the column `"prompt"` in the dataset.
+
+    If you use a custom reward function that requires any column other than `"prompts"`
+    and `"completions"`, you should set it to `False`.
+    """
 
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
@@ -66,12 +100,60 @@ class GrpoParams(BaseParams):
     leading to inefficiencies.
     """
 
+    def __post_init__(self):
+        """Verifies params."""
+        if not (self.max_prompt_length is None or self.max_prompt_length > 0):
+            raise ValueError(
+                "GrpoParams.max_prompt_length must be positive. "
+                f"Actual: {self.max_prompt_length}"
+            )
+        if not (self.max_completion_length is None or self.max_completion_length > 0):
+            raise ValueError(
+                "GrpoParams.max_completion_length must be positive. "
+                f"Actual: {self.max_completion_length}"
+            )
+        if not (self.num_generations is None or self.num_generations > 0):
+            raise ValueError(
+                "GrpoParams.num_generations must be positive. "
+                f"Actual: {self.num_generations}"
+            )
+        if not (
+            math.isfinite(self.temperature)
+            and self.temperature >= 0.0
+            and self.temperature <= 1.0
+        ):
+            raise ValueError(
+                "GrpoParams.temperature must be within [0.0, 1.0] range. "
+                f"Actual: {self.temperature}"
+            )
+
     def to_hf_trainer_kwargs(self) -> dict[str, Any]:
         """Converts GRPO training params GRPOTrainer kwargs."""
         result = {}
         if len(self.model_init_kwargs) > 0:
             result["model_init_kwargs"] = self.model_init_kwargs
-        result["use_vllm"] = self.use_vllm
+        if self.max_prompt_length is not None:
+            result["max_prompt_length"] = self.max_prompt_length
+        if self.max_completion_length is not None:
+            result["max_completion_length"] = self.max_completion_length
+        if self.num_generations is not None:
+            result["num_generations"] = self.num_generations
+
+        already_processed_keys: set[str] = set(
+            {
+                "model_init_kwargs",
+                "max_prompt_length",
+                "max_completion_length",
+                "num_generations",
+            }
+        )
+
+        # Copy the majority of fields that aren't special-cased.
+        for param in fields(self):
+            if param.name.startswith("vllm_") or param.name in already_processed_keys:
+                continue
+            result[param.name] = getattr(self, param.name)
+
         if self.use_vllm:  # Return vLLM params only if vLLM is enabled.
             if self.vllm_device is not None:
                 result["vllm_device"] = self.vllm_device
