@@ -1,8 +1,8 @@
 import os
 import unittest
 from oumi.judges.judge_court import oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek, \
-    oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova, \
-    oumi_v1_xml_deepseek_r1_judge_hosted_by_Together
+    oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova, \
+    oumi_v1_xml_deepseek_r1_judge_hosted_by_together
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.judges.oumi_judge import OumiXmlJudge as OumiJudge
@@ -54,7 +54,7 @@ class TestDeepSeekR1Judge(unittest.TestCase):
         ]
 
         # Get the judge configuration
-        config = oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova()
+        config = oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova()
         judge = OumiJudge(config)
         judge_output = judge.judge(conversations)
 
@@ -79,7 +79,7 @@ class TestDeepSeekR1Judge(unittest.TestCase):
         ]
 
         # Get the judge configuration
-        config = oumi_v1_xml_deepseek_r1_judge_hosted_by_Together()
+        config = oumi_v1_xml_deepseek_r1_judge_hosted_by_together()
         judge = OumiJudge(config)
         judge_output = judge.judge(conversations)
 

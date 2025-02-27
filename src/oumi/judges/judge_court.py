@@ -176,16 +176,13 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek() -> JudgeConfig:
             temperature=0.0,
         ),
         remote_params=RemoteParams(
-            # Use OpenAI compatible API format https://api-docs.deepseek.com/
-            api_url="https://api.deepseek.com/",
-            api_key_env_varname="DEEPSEEK_API_KEY",
             max_retries=3,
         ),
     )
     return config
 
 @register_judge("oumi/v1_xml_deepseek_r1_hosted_by_sambanova")
-def oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova() -> JudgeConfig:
+def oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML DeepSeek R1 judge.
 
     This function creates and returns a JudgeConfig object for the Oumi V1 Judge, which
@@ -213,15 +210,12 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova() -> JudgeConfig:
         attributes=attributes,
         # refer to model name https://api-docs.deepseek.com/quick_start/pricing
         model=ModelParams(model_name="DeepSeek-R1"),
-        engine=InferenceEngineType.REMOTE,
+        engine=InferenceEngineType.SAMBANOVA,
         generation=GenerationParams(
             max_new_tokens=1024,
             temperature=0.0,
         ),
         remote_params=RemoteParams(
-            # Use OpenAI compatible API format https://api-docs.deepseek.com/
-            api_url="https://api.sambanova.ai/v1/chat/completions",
-            api_key_env_varname="SAMBANOVA_API_KEY",
             max_retries=3,
             connection_timeout=10,
             politeness_policy=2.0
@@ -230,7 +224,7 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_SambaNova() -> JudgeConfig:
     return config
 
 @register_judge("oumi/v1_xml_deepseek_r1_hosted_by_together")
-def oumi_v1_xml_deepseek_r1_judge_hosted_by_Together() -> JudgeConfig:
+def oumi_v1_xml_deepseek_r1_judge_hosted_by_together() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML DeepSeek R1 judge.
 
     This function creates and returns a JudgeConfig object for the Oumi V1 Judge, which
@@ -257,14 +251,12 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_Together() -> JudgeConfig:
     config = JudgeConfig(
         attributes=attributes,
         model=ModelParams(model_name="deepseek-ai/DeepSeek-R1"),
-        engine=InferenceEngineType.REMOTE,
+        engine=InferenceEngineType.TOGETHER,
         generation=GenerationParams(
             max_new_tokens=1024,
             temperature=0.0,
         ),
         remote_params=RemoteParams(
-            api_url="https://api.together.xyz/v1/chat/completions",
-            api_key_env_varname="TOGETHER_API_KEY",
             max_retries=3,
             # Experience number. Based on curl test, it takes about 48 seconds to 
             # complete a LLM as judge task
