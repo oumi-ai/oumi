@@ -265,6 +265,9 @@ class CustomOumiTaskParams(EvaluationTaskParams):
         signature = inspect.signature(self.evaluate_fn)
         if (
             "task_params" not in signature.parameters
+            or "EvaluationTaskParams" not in str(signature.parameters["task_params"])
             or "config" not in signature.parameters
+            or "EvaluationConfig" not in str(signature.parameters["config"])
+            or "EvaluationResult" not in str(signature.return_annotation)
         ):
             raise ValueError(signature_error)
