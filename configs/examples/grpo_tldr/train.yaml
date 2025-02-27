@@ -42,7 +42,7 @@ training:
 
   grpo:
     use_vllm: True
-    vllm_device: "cuda:0"
+    vllm_device: "cuda:3"
     vllm_gpu_memory_utilization: 0.3
 
   dataloader_num_workers: "auto"

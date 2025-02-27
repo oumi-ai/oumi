@@ -32,12 +32,17 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu]
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
+  SKYPILOT_NUM_GPUS_PER_NODE=3
   source ./configs/examples/misc/sky_init.sh
 
   pip install -e ".[ci_gpu]"
+  pip install -U flash-attn --no-build-isolation
+
+  oumi env
 
   set -x
   oumi distributed torchrun \
