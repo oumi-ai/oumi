@@ -27,7 +27,7 @@ data:
 training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
-  per_device_train_batch_size: 2 # 1 for GPUs with 24GB VRAM
+  per_device_train_batch_size: 1 # 1 for GPUs with 24GB VRAM
   gradient_accumulation_steps: 1
 
   reward_functions: ["soft_20tokens_completions"]
@@ -41,14 +41,22 @@ training:
   compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:
+    # log_completions: True
+    # num_generations: 1
+    temperature: 0.9
+    remove_unused_columns: False
+
     use_vllm: False
     vllm_device: "cuda:0"
     vllm_gpu_memory_utilization: 0.3
 
+    # vLLM: {'train_runtime': 206.8104, 'train_samples_per_second': 0.484, 'train_steps_per_second': 0.484, 'train_loss': 0.011827408373355865, 'epoch': 0.0}
+    # HF: {'train_runtime': 170.6305, 'train_samples_per_second': 0.586, 'train_steps_per_second': 0.586, 'train_loss': 0.10407473027706146, 'epoch': 0.0}
+
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  max_steps: 500
+  max_steps: 100
   logging_steps: 10
   log_model_summary: False
   output_dir: "output/tldr.grpo"
