@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Optional
 
 from oumi.core.configs import (
+    CustomOumiTaskParams,
     EvaluationConfig,
     EvaluationTaskParams,
     LMHarnessTaskParams,
@@ -95,6 +96,16 @@ class Evaluator:
                 task_params=lm_harness_task_params,
                 config=config,
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
+            )
+        elif evaluation_backend == EvaluationBackend.CUSTOM_OUMI:
+            custom_oumi_task_params = task_params.get_evaluation_backend_task_params()
+            assert isinstance(custom_oumi_task_params, CustomOumiTaskParams)
+            assert custom_oumi_task_params.evaluate_fn is not None
+
+            evaluation_result = custom_oumi_task_params.evaluate_fn(
+                task_params=custom_oumi_task_params,
+                config=config,
+                **kwargs,
             )
         elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
             #### FIXME

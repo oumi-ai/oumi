@@ -32,6 +32,7 @@ class RegistryType(Enum):
     MODEL_CONFIG = auto()
     MODEL = auto()
     JUDGE_CONFIG = auto()
+    EVALUATE_FUNCTION = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -186,6 +187,10 @@ class Registry:
         """Gets a record that corresponds to a registered judge config."""
         return self.get(name, RegistryType.JUDGE_CONFIG)
 
+    def get_evaluate_function(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered evaluation function."""
+        return self.get(name, RegistryType.EVALUATE_FUNCTION)
+
     def get_dataset(
         self, name: str, subset: Optional[str] = None
     ) -> Optional[Callable]:
@@ -320,6 +325,26 @@ def register_judge(registry_name: str) -> Callable:
     def decorator_register(obj):
         """Decorator to register its target builder."""
         REGISTRY.register(name=registry_name, type=RegistryType.JUDGE_CONFIG, value=obj)
+        return obj
+
+    return decorator_register
+
+
+def register_evaluate_function(registry_name: str) -> Callable:
+    """Returns function to register an evaluation function in the Oumi global registry.
+
+    Args:
+        registry_name: The name that the evaluation function should be registered with.
+
+    Returns:
+        Decorator function to register the target evaluation function.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target `obj`."""
+        REGISTRY.register(
+            name=registry_name, type=RegistryType.EVALUATE_FUNCTION, value=obj
+        )
         return obj
 
     return decorator_register

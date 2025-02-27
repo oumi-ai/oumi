@@ -95,7 +95,7 @@ from oumi.core.configs.params.data_params import (
 )
 from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
-    CustomEvaluationParams,
+    CustomOumiTaskParams,
     EvaluationBackend,
     EvaluationTaskParams,
     LMHarnessTaskParams,
@@ -132,7 +132,7 @@ __all__ = [
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
-    "CustomEvaluationParams",
+    "CustomOumiTaskParams",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",

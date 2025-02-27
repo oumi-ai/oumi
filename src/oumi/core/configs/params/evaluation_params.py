@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.configs.params.data_params import DatasetSplitParams
+from oumi.core.registry import REGISTRY
 
 
 class EvaluationBackend(Enum):
@@ -27,6 +28,7 @@ class EvaluationBackend(Enum):
 
     LM_HARNESS = "lm_harness"
     ALPACA_EVAL = "alpaca_eval"
+    CUSTOM_OUMI = "custom_oumi"
 
 
 @dataclass
@@ -95,6 +97,8 @@ class EvaluationTaskParams(BaseParams):
             return EvaluationBackend.LM_HARNESS
         elif self.evaluation_backend == EvaluationBackend.ALPACA_EVAL.value:
             return EvaluationBackend.ALPACA_EVAL
+        elif self.evaluation_backend == EvaluationBackend.CUSTOM_OUMI.value:
+            return EvaluationBackend.CUSTOM_OUMI
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
@@ -104,10 +108,14 @@ class EvaluationTaskParams(BaseParams):
             target_class = LMHarnessTaskParams
         elif self.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
             target_class = AlpacaEvalTaskParams
+        elif self.get_evaluation_backend() == EvaluationBackend.CUSTOM_OUMI:
+            target_class = CustomOumiTaskParams
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
         init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
+        if target_class == CustomOumiTaskParams:
+            self._load_evaluate_fn_from_registry(init_kwargs)
         return target_class(**init_kwargs)
 
     @staticmethod
@@ -152,6 +160,32 @@ class EvaluationTaskParams(BaseParams):
             init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
 
         return init_kwargs
+
+    def _load_evaluate_fn_from_registry(self, init_kwargs) -> None:
+        """Loads the evaluation function from the registry."""
+        if not self.task_name:
+            raise ValueError(
+                "Missing `task_name` for custom Oumi evaluation. Please specify the "
+                "task name, which should be corresponding to a registered evaluation "
+                "function, using the decorator `@register_evaluate_function`."
+            )
+
+        evaluate_fn = REGISTRY.get_evaluate_function(self.task_name)
+        if not evaluate_fn:
+            raise ValueError(
+                f"Task name `{self.task_name}` not found in the registry. For custom "
+                "Oumi evaluations, the task name must match the name of a registered "
+                "evaluation function (with `@register_evaluate_function`)."
+            )
+        elif not callable(evaluate_fn):
+            raise ValueError(
+                f"Task name `{self.task_name}` found in the registry, but it does not "
+                "correspond to a callable object. For custom Oumi evaluations, the "
+                "task name must match the name of a registered evaluation function "
+                "(with `@register_evaluate_function`)."
+            )
+        else:
+            init_kwargs["evaluate_fn"] = evaluate_fn
 
     def __post_init__(self):
         """Verifies params."""
@@ -208,12 +242,29 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
 
 
 @dataclass
-class CustomEvaluationParams(BaseParams):
-    """Parameters for running custom evaluations."""
+class CustomOumiTaskParams(EvaluationTaskParams):
+    """Parameters for running custom Oumi evaluations."""
 
-    data: DatasetSplitParams = field(default_factory=DatasetSplitParams)
-    """Parameters for the dataset split to be used in evaluation.
+    evaluate_fn: Optional[Callable] = None
+    """User-defined function to evaluate a model on the custom task."""
 
-    This includes specifications for train, validation, and test splits,
-    as well as any data preprocessing parameters.
-    """
+    def __post_init__(self):
+        """Verifies whether `evaluate_fn` has the required signature."""
+        if not self.evaluate_fn:
+            raise ValueError("`evaluate_fn` is undefined.")
+        elif not callable(self.evaluate_fn):
+            raise ValueError("`evaluate_fn` must be a callable function.")
+
+        signature_error = (
+            f"Signature Error: The registered evaluation function (`{self.task_name}`) "
+            "must have `task_params` (type: `CustomOumiTaskParams`) and `config` "
+            "(type: `EvaluationConfig`) as input arguments and `EvaluationResult` "
+            "as its return value. However, the provided signature is: "
+            f"{inspect.signature(self.evaluate_fn)}"
+        )
+        signature = inspect.signature(self.evaluate_fn)
+        if (
+            "task_params" not in signature.parameters
+            or "config" not in signature.parameters
+        ):
+            raise ValueError(signature_error)
