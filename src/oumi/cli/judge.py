@@ -81,6 +81,14 @@ def dataset(
     # Load the judge config
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
+    print(config)
+
     judge_config = _load_judge_config(config, extra_args)
 
     # Load the dataset class from the registry
@@ -123,6 +131,12 @@ def conversations(
 ):
     """Judge a list of conversations."""
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
 
     # Delayed imports
     from oumi import judge_conversations
@@ -178,6 +192,12 @@ def model(
     # End imports
 
     judge_extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
 
     # Load the judge config
     judge_config = _load_judge_config(config, judge_extra_args)
