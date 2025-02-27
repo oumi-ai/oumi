@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -21,6 +22,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.utils.str_utils import sanitize_run_name
@@ -314,6 +316,9 @@ class TrainingParams(BaseParams):
     https://huggingface.co/docs/trl/main/en/grpo_trainer
     for documentation about the function signature.
     """
+
+    grpo: GrpoParams = field(default_factory=GrpoParams)
+    """Parameters for GRPO training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.
@@ -660,6 +665,21 @@ class TrainingParams(BaseParams):
             config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
+
+        trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+        if self.trainer_type == TrainerType.TRL_GRPO:
+            grpo_kwargs = self.grpo.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                grpo_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GRPO kwargs: {conflicting_keys}. "
+                    "Use properties of GrpoParams instead."
+                )
+            trainer_kwargs.update(grpo_kwargs)
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -719,7 +739,7 @@ class TrainingParams(BaseParams):
             # },
             seed=self.seed,
             data_seed=self.data_seed,
-            **self.trainer_kwargs,
+            **trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
         return result
