@@ -28,7 +28,7 @@ class EvaluationBackend(Enum):
 
     LM_HARNESS = "lm_harness"
     ALPACA_EVAL = "alpaca_eval"
-    CUSTOM_OUMI = "custom_oumi"
+    CUSTOM = "custom"
 
 
 @dataclass
@@ -97,8 +97,8 @@ class EvaluationTaskParams(BaseParams):
             return EvaluationBackend.LM_HARNESS
         elif self.evaluation_backend == EvaluationBackend.ALPACA_EVAL.value:
             return EvaluationBackend.ALPACA_EVAL
-        elif self.evaluation_backend == EvaluationBackend.CUSTOM_OUMI.value:
-            return EvaluationBackend.CUSTOM_OUMI
+        elif self.evaluation_backend == EvaluationBackend.CUSTOM.value:
+            return EvaluationBackend.CUSTOM
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
@@ -108,7 +108,7 @@ class EvaluationTaskParams(BaseParams):
             target_class = LMHarnessTaskParams
         elif self.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
             target_class = AlpacaEvalTaskParams
-        elif self.get_evaluation_backend() == EvaluationBackend.CUSTOM_OUMI:
+        elif self.get_evaluation_backend() == EvaluationBackend.CUSTOM:
             target_class = CustomOumiTaskParams
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")

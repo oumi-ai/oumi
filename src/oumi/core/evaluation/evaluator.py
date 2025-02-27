@@ -97,13 +97,13 @@ class Evaluator:
                 config=config,
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
             )
-        elif evaluation_backend == EvaluationBackend.CUSTOM_OUMI:
-            custom_oumi_task_params = task_params.get_evaluation_backend_task_params()
-            assert isinstance(custom_oumi_task_params, CustomOumiTaskParams)
-            assert custom_oumi_task_params.evaluate_fn is not None
+        elif evaluation_backend == EvaluationBackend.CUSTOM:
+            custom_task_params = task_params.get_evaluation_backend_task_params()
+            assert isinstance(custom_task_params, CustomOumiTaskParams)
+            assert custom_task_params.evaluate_fn is not None
 
-            evaluation_result = custom_oumi_task_params.evaluate_fn(
-                task_params=custom_oumi_task_params,
+            evaluation_result = custom_task_params.evaluate_fn(
+                task_params=custom_task_params,
                 config=config,
                 **kwargs,
             )

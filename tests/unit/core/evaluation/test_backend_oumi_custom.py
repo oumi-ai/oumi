@@ -19,7 +19,7 @@ def oumi_test_evaluate_fn(
 ) -> EvaluationResult:
     """Dummy evaluate function for unit testing."""
     # Ensure the task_params are passed correctly.
-    assert task_params.evaluation_backend == EvaluationBackend.CUSTOM_OUMI.value
+    assert task_params.evaluation_backend == EvaluationBackend.CUSTOM.value
     assert task_params.task_name == EVALUATE_FN_REGISTERED_NAME
     assert task_params.eval_kwargs == EVAL_KWARGS
 
@@ -32,7 +32,7 @@ def oumi_test_evaluate_fn(
 
 def test_evaluate_oumi_custom():
     task_params = EvaluationTaskParams(
-        evaluation_backend=EvaluationBackend.CUSTOM_OUMI.value,
+        evaluation_backend=EvaluationBackend.CUSTOM.value,
         task_name=EVALUATE_FN_REGISTERED_NAME,
         eval_kwargs=EVAL_KWARGS,
     )

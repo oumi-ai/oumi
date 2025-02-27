@@ -49,7 +49,7 @@ BACKEND_PREREQUISITES: dict[
     EvaluationBackend.ALPACA_EVAL: {
         ALL_TASK_PREREQUISITES_KEY: [PackagePrerequisites("alpaca_eval")]
     },
-    EvaluationBackend.CUSTOM_OUMI: {ALL_TASK_PREREQUISITES_KEY: []},
+    EvaluationBackend.CUSTOM: {ALL_TASK_PREREQUISITES_KEY: []},
 }
 
 
