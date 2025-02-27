@@ -366,6 +366,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
         return headers
 
+    def _set_required_fields_for_inference(self, remote_params: RemoteParams):
+        """Set required fields for inference."""
+        if not remote_params.api_url:
+            remote_params.api_url = self._remote_params.api_url or self.base_url
+        if not remote_params.api_key_env_varname:
+            remote_params.api_key_env_varname = (
+                self._remote_params.api_key_env_varname or self.api_key_env_varname
+            )
+        if not remote_params.api_key:
+            remote_params.api_key = self._remote_params.api_key
+
     async def _query_api(
         self,
         conversation: Conversation,
@@ -393,10 +404,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             generation_params = inference_config.generation or self._generation_params
             output_path = inference_config.output_path
 
-        if not remote_params.api_url:
-            remote_params.api_url = self._remote_params.api_url or self.base_url
-
-        # Validate API URL one final time.
+        self._set_required_fields_for_inference(remote_params)
         if not remote_params.api_url:
             raise ValueError("API URL is required for remote inference.")
         async with semaphore:
