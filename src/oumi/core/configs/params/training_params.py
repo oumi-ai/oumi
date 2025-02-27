@@ -669,6 +669,15 @@ class TrainingParams(BaseParams):
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
         if self.trainer_type == TrainerType.TRL_GRPO:
             grpo_kwargs = self.grpo.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                grpo_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GRPO kwargs: {conflicting_keys}. "
+                    "Use properties of GrpoParams instead."
+                )
             trainer_kwargs.update(grpo_kwargs)
 
         result = config_class(
