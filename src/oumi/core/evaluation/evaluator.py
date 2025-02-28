@@ -100,7 +100,13 @@ class Evaluator:
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             custom_task_params = task_params.get_evaluation_backend_task_params()
             assert isinstance(custom_task_params, CustomOumiTaskParams)
-            assert custom_task_params.evaluate_fn is not None
+            if not custom_task_params.evaluate_fn:
+                raise ValueError(
+                    f"Task name `{custom_task_params.task_name}` not found in the "
+                    "registry. For custom Oumi evaluations, the task name must match "
+                    "the name of a registered evaluation function. You can register "
+                    "a new function with the decorator `@register_evaluate_function`."
+                )
 
             evaluation_result = custom_task_params.evaluate_fn(
                 task_params=custom_task_params,

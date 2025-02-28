@@ -14,6 +14,7 @@
 
 import functools
 import importlib.util
+import inspect
 import os
 import sys
 from collections import namedtuple
@@ -340,8 +341,35 @@ def register_evaluate_function(registry_name: str) -> Callable:
         Decorator function to register the target evaluation function.
     """
 
+    def check_evaluate_function_signature(evaluate_fn):
+        if not callable(evaluate_fn):
+            raise TypeError(
+                f"Registry `{registry_name}` does not correspond to a callable object. "
+                "It is required that registered evaluate functions of type "
+                f"`{RegistryType.EVALUATE_FUNCTION}` must be callable."
+            )
+
+        signature = inspect.signature(evaluate_fn)
+        if (
+            "task_params" not in signature.parameters
+            or "EvaluationTaskParams" not in str(signature.parameters["task_params"])
+            or "config" not in signature.parameters
+            or "EvaluationConfig" not in str(signature.parameters["config"])
+            or "EvaluationResult" not in str(signature.return_annotation)
+        ):
+            raise TypeError(
+                f"The evaluation function ({registry_name}) can not be registered "
+                "because it does not have the correct signature. This function "
+                "must have `task_params` (type: `CustomOumiTaskParams`) and `config` "
+                "(type: `EvaluationConfig`) as input arguments and `EvaluationResult` "
+                "as its return value. However, the signature that provided is: "
+                f"{inspect.signature(evaluate_fn)}"
+            )
+
     def decorator_register(obj):
         """Decorator to register its target `obj`."""
+        check_evaluate_function_signature(obj)
+
         REGISTRY.register(
             name=registry_name, type=RegistryType.EVALUATE_FUNCTION, value=obj
         )

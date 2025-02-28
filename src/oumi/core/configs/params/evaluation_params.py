@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Callable, Optional
@@ -114,8 +113,9 @@ class EvaluationTaskParams(BaseParams):
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
         init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
-        if target_class == CustomOumiTaskParams:
-            self._load_evaluate_fn_from_registry(init_kwargs)
+        if target_class == CustomOumiTaskParams and self.task_name:
+            # Custom tasks require an evaluation function to be loaded from registry.
+            init_kwargs["evaluate_fn"] = REGISTRY.get_evaluate_function(self.task_name)
         return target_class(**init_kwargs)
 
     @staticmethod
@@ -160,32 +160,6 @@ class EvaluationTaskParams(BaseParams):
             init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
 
         return init_kwargs
-
-    def _load_evaluate_fn_from_registry(self, init_kwargs) -> None:
-        """Loads the evaluation function from the registry."""
-        if not self.task_name:
-            raise ValueError(
-                "Missing `task_name` for custom Oumi evaluation. Please specify the "
-                "task name, which should be corresponding to a registered evaluation "
-                "function, using the decorator `@register_evaluate_function`."
-            )
-
-        evaluate_fn = REGISTRY.get_evaluate_function(self.task_name)
-        if not evaluate_fn:
-            raise ValueError(
-                f"Task name `{self.task_name}` not found in the registry. For custom "
-                "Oumi evaluations, the task name must match the name of a registered "
-                "evaluation function (with `@register_evaluate_function`)."
-            )
-        elif not callable(evaluate_fn):
-            raise ValueError(
-                f"Task name `{self.task_name}` found in the registry, but it does not "
-                "correspond to a callable object. For custom Oumi evaluations, the "
-                "task name must match the name of a registered evaluation function "
-                "(with `@register_evaluate_function`)."
-            )
-        else:
-            init_kwargs["evaluate_fn"] = evaluate_fn
 
     def __post_init__(self):
         """Verifies params."""
@@ -247,27 +221,3 @@ class CustomOumiTaskParams(EvaluationTaskParams):
 
     evaluate_fn: Optional[Callable] = None
     """User-defined function to evaluate a model on the custom task."""
-
-    def __post_init__(self):
-        """Verifies whether `evaluate_fn` has the required signature."""
-        if not self.evaluate_fn:
-            raise ValueError("`evaluate_fn` is undefined.")
-        elif not callable(self.evaluate_fn):
-            raise ValueError("`evaluate_fn` must be a callable function.")
-
-        signature_error = (
-            f"Signature Error: The registered evaluation function (`{self.task_name}`) "
-            "must have `task_params` (type: `CustomOumiTaskParams`) and `config` "
-            "(type: `EvaluationConfig`) as input arguments and `EvaluationResult` "
-            "as its return value. However, the provided signature is: "
-            f"{inspect.signature(self.evaluate_fn)}"
-        )
-        signature = inspect.signature(self.evaluate_fn)
-        if (
-            "task_params" not in signature.parameters
-            or "EvaluationTaskParams" not in str(signature.parameters["task_params"])
-            or "config" not in signature.parameters
-            or "EvaluationConfig" not in str(signature.parameters["config"])
-            or "EvaluationResult" not in str(signature.return_annotation)
-        ):
-            raise ValueError(signature_error)
