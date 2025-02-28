@@ -215,5 +215,5 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
 class CustomTaskParams(EvaluationTaskParams):
     """Parameters for running custom Oumi evaluations."""
 
-    evaluate_fn: Optional[Callable] = None
+    evaluation_fn: Optional[Callable] = None
     """User-defined function to evaluate a model on the custom task."""

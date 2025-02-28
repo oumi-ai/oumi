@@ -112,9 +112,9 @@ class Evaluator:
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             custom_task_params = task_params.get_evaluation_backend_task_params()
             assert isinstance(custom_task_params, CustomTaskParams)
-            evaluate_fn = self._get_evaluate_fn(custom_task_params)
+            evaluation_fn = self._get_evaluation_fn(custom_task_params)
 
-            evaluation_result = evaluate_fn(
+            evaluation_result = evaluation_fn(
                 task_params=custom_task_params,
                 config=config,
                 **kwargs,
@@ -169,22 +169,22 @@ class Evaluator:
             elapsed_time_sec=elapsed_time_sec,
         )
 
-    def _get_evaluate_fn(self, task_params: CustomTaskParams) -> Callable:
+    def _get_evaluation_fn(self, task_params: CustomTaskParams) -> Callable:
         """Retrieve the evaluation function of the custom task."""
         if not task_params.task_name:
             raise ValueError(
                 "Missing `task_name` for custom Oumi evaluation. Please specify the "
                 "task name, which should be corresponding to a registered evaluation "
-                "function, using the decorator `@register_evaluate_function`."
+                "function, using the decorator `@register_evaluation_function`."
             )
 
-        if evaluate_fn := REGISTRY.get_evaluate_function(task_params.task_name):
-            task_params.evaluate_fn = evaluate_fn
-            return evaluate_fn
+        if evaluation_fn := REGISTRY.get_evaluation_function(task_params.task_name):
+            task_params.evaluation_fn = evaluation_fn
+            return evaluation_fn
         else:
             raise ValueError(
                 f"Task name `{task_params.task_name}` not found in the "
                 "registry. For custom Oumi evaluations, the task name must match "
                 "the name of a registered evaluation function. You can register "
-                "a new function with the decorator `@register_evaluate_function`."
+                "a new function with the decorator `@register_evaluation_function`."
             )

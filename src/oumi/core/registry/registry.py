@@ -33,7 +33,7 @@ class RegistryType(Enum):
     MODEL_CONFIG = auto()
     MODEL = auto()
     JUDGE_CONFIG = auto()
-    EVALUATE_FUNCTION = auto()
+    EVALUATION_FUNCTION = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -188,9 +188,9 @@ class Registry:
         """Gets a record that corresponds to a registered judge config."""
         return self.get(name, RegistryType.JUDGE_CONFIG)
 
-    def get_evaluate_function(self, name: str) -> Optional[Callable]:
+    def get_evaluation_function(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered evaluation function."""
-        return self.get(name, RegistryType.EVALUATE_FUNCTION)
+        return self.get(name, RegistryType.EVALUATION_FUNCTION)
 
     def get_dataset(
         self, name: str, subset: Optional[str] = None
@@ -331,7 +331,7 @@ def register_judge(registry_name: str) -> Callable:
     return decorator_register
 
 
-def register_evaluate_function(registry_name: str) -> Callable:
+def register_evaluation_function(registry_name: str) -> Callable:
     """Returns function to register an evaluation function in the Oumi global registry.
 
     Args:
@@ -341,15 +341,15 @@ def register_evaluate_function(registry_name: str) -> Callable:
         Decorator function to register the target evaluation function.
     """
 
-    def check_evaluate_function_signature(evaluate_fn):
-        if not callable(evaluate_fn):
+    def check_evaluation_function_signature(evaluation_fn):
+        if not callable(evaluation_fn):
             raise TypeError(
                 f"Registry `{registry_name}` does not correspond to a callable object. "
-                "It is required that registered evaluate functions of type "
-                f"`{RegistryType.EVALUATE_FUNCTION}` must be callable."
+                "It is required that registered evaluation functions of type "
+                f"`{RegistryType.EVALUATION_FUNCTION}` must be callable."
             )
 
-        signature = inspect.signature(evaluate_fn)
+        signature = inspect.signature(evaluation_fn)
         if (
             "task_params" not in signature.parameters
             or "CustomTaskParams" not in str(signature.parameters["task_params"])
@@ -363,15 +363,15 @@ def register_evaluate_function(registry_name: str) -> Callable:
                 "must have `task_params` (type: `CustomTaskParams`) and `config` "
                 "(type: `EvaluationConfig`) as input arguments and `EvaluationResult` "
                 "as its return value. However, the signature that provided is: "
-                f"{inspect.signature(evaluate_fn)}"
+                f"{inspect.signature(evaluation_fn)}"
             )
 
     def decorator_register(obj):
         """Decorator to register its target `obj`."""
-        check_evaluate_function_signature(obj)
+        check_evaluation_function_signature(obj)
 
         REGISTRY.register(
-            name=registry_name, type=RegistryType.EVALUATE_FUNCTION, value=obj
+            name=registry_name, type=RegistryType.EVALUATION_FUNCTION, value=obj
         )
         return obj
 

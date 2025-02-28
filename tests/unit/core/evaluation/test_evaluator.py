@@ -109,11 +109,11 @@ def test_evaluate_alpaca_eval_task(mock_check_prerequisites, mock_evaluate_alpac
     assert result[0].task_result == {"test_metric": 1.0}
 
 
-@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluate_function")
-def test_evaluate_custom_task(mock_get_evaluate_function):
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+def test_evaluate_custom_task(mock_get_evaluation_function):
     # Inputs.
     task_params = EvaluationTaskParams(
-        task_name="evaluate_fn_reg_name",
+        task_name="evaluation_fn_reg_name",
         evaluation_backend=EvaluationBackend.CUSTOM.value,
     )
     evaluation_config = EvaluationConfig(
@@ -123,13 +123,13 @@ def test_evaluate_custom_task(mock_get_evaluate_function):
         inference_engine=InferenceEngineType.NATIVE,
     )
 
-    def evaluate_fn(
+    def evaluation_fn(
         task_params: CustomTaskParams,
         config: EvaluationConfig,
         optional_param: str,
     ) -> EvaluationResult:
         assert task_params.evaluation_backend == EvaluationBackend.CUSTOM.value
-        assert task_params.task_name == "evaluate_fn_reg_name"
+        assert task_params.task_name == "evaluation_fn_reg_name"
         assert optional_param == "optional_param_value"
         return EvaluationResult(
             task_name=task_params.task_name,
@@ -137,7 +137,7 @@ def test_evaluate_custom_task(mock_get_evaluate_function):
         )
 
     # Mocks.
-    mock_get_evaluate_function.return_value = evaluate_fn
+    mock_get_evaluation_function.return_value = evaluation_fn
 
     # Run the test.
     evaluator = Evaluator()
@@ -146,33 +146,33 @@ def test_evaluate_custom_task(mock_get_evaluate_function):
     )
 
     # Check the results.
-    mock_get_evaluate_function.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
     assert len(result) == 1
-    assert result[0].task_name == "evaluate_fn_reg_name"
+    assert result[0].task_name == "evaluation_fn_reg_name"
     assert result[0].task_result == {"test_metric": 1.0}
 
 
-@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluate_function")
-def test_evaluate_custom_task_unregistered_fn(mock_get_evaluate_function):
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+def test_evaluate_custom_task_unregistered_fn(mock_get_evaluation_function):
     # Inputs.
     task_params = EvaluationTaskParams(
-        task_name="evaluate_fn_unregistered",
+        task_name="evaluation_fn_unregistered",
         evaluation_backend=EvaluationBackend.CUSTOM.value,
     )
     evaluation_config = EvaluationConfig(tasks=[task_params])
 
     # Mocks.
-    mock_get_evaluate_function.return_value = None
+    mock_get_evaluation_function.return_value = None
 
     # Run the test.
     evaluator = Evaluator()
     with pytest.raises(
         ValueError,
         match=(
-            "Task name `evaluate_fn_unregistered` not found in the "
+            "Task name `evaluation_fn_unregistered` not found in the "
             "registry. For custom Oumi evaluations, the task name must match "
             "the name of a registered evaluation function. You can register "
-            "a new function with the decorator `@register_evaluate_function`."
+            "a new function with the decorator `@register_evaluation_function`."
         ),
     ):
         evaluator.evaluate(evaluation_config)
@@ -192,7 +192,7 @@ def test_evaluate_custom_task_without_task_name():
         match=(
             "Missing `task_name` for custom Oumi evaluation. Please specify the "
             "task name, which should be corresponding to a registered evaluation "
-            "function, using the decorator `@register_evaluate_function`."
+            "function, using the decorator `@register_evaluation_function`."
         ),
     ):
         evaluator.evaluate(evaluation_config)

@@ -12,7 +12,7 @@ from oumi.core.registry import (
     RegistryType,
     register,
     register_dataset,
-    register_evaluate_function,
+    register_evaluation_function,
 )
 
 
@@ -469,18 +469,18 @@ def test_registry_user_classes_missing_dep(monkeypatch):
                 REGISTRY.contains("file_1", RegistryType.CLOUD)
 
 
-# Tests for registering evaluate functions.
-def test_register_evaluate_fn_happy_path():
-    @register_evaluate_function("test_evaluate_fn")
-    def oumi_test_evaluate_fn(
+# Tests for registering evaluation functions.
+def test_register_evaluation_fn_happy_path():
+    @register_evaluation_function("test_evaluation_fn")
+    def oumi_test_evaluation_fn(
         task_params: CustomTaskParams,
         config: EvaluationConfig,
         optional_param: str,
     ) -> EvaluationResult:
-        """Dummy evaluate function for unit testing."""
+        """Dummy evaluation function for unit testing."""
         assert task_params.evaluation_backend == EvaluationBackend.CUSTOM.value
-        assert task_params.task_name == "test_evaluate_fn"
-        assert config.run_name == "run_name_for_test_evaluate_fn"
+        assert task_params.task_name == "test_evaluation_fn"
+        assert config.run_name == "run_name_for_test_evaluation_fn"
         assert optional_param == "optional_param_value"
 
         return EvaluationResult(
@@ -489,22 +489,22 @@ def test_register_evaluate_fn_happy_path():
             backend_config={"config": "dummy_config"},
         )
 
-    evaluate_fn = REGISTRY.get_evaluate_function("test_evaluate_fn")
-    assert evaluate_fn
-    evaluation_result = evaluate_fn(
+    evaluation_fn = REGISTRY.get_evaluation_function("test_evaluation_fn")
+    assert evaluation_fn
+    evaluation_result = evaluation_fn(
         task_params=CustomTaskParams(
             evaluation_backend=EvaluationBackend.CUSTOM.value,
-            task_name="test_evaluate_fn",
+            task_name="test_evaluation_fn",
         ),
-        config=EvaluationConfig(run_name="run_name_for_test_evaluate_fn"),
+        config=EvaluationConfig(run_name="run_name_for_test_evaluation_fn"),
         optional_param="optional_param_value",
     )
-    assert evaluation_result.task_name == "test_evaluate_fn"
+    assert evaluation_result.task_name == "test_evaluation_fn"
     assert evaluation_result.task_result == {"result": "dummy_result"}
     assert evaluation_result.backend_config == {"config": "dummy_config"}
 
 
-def test_register_evaluate_fn_wrong_input_param_name():
+def test_register_evaluation_fn_wrong_input_param_name():
     with pytest.raises(
         TypeError,
         match=(
@@ -513,16 +513,16 @@ def test_register_evaluate_fn_wrong_input_param_name():
         ),
     ):
 
-        @register_evaluate_function("incompatible")
-        def oumi_test_incompatible_evaluate_fn(
+        @register_evaluation_function("incompatible")
+        def oumi_test_incompatible_evaluation_fn(
             task_params: CustomTaskParams,
             incorrect_argument: EvaluationConfig,
         ) -> EvaluationResult:
-            """Evaluate function with incorrect signature for unit testing."""
+            """Evaluation function with incorrect signature for unit testing."""
             return EvaluationResult()
 
 
-def test_register_evaluate_fn_wrong_input_param_type():
+def test_register_evaluation_fn_wrong_input_param_type():
     with pytest.raises(
         TypeError,
         match=(
@@ -531,16 +531,16 @@ def test_register_evaluate_fn_wrong_input_param_type():
         ),
     ):
 
-        @register_evaluate_function("incompatible")
-        def oumi_test_incompatible_evaluate_fn(
+        @register_evaluation_function("incompatible")
+        def oumi_test_incompatible_evaluation_fn(
             task_params: CustomTaskParams,
             config: int,
         ) -> EvaluationResult:
-            """Evaluate function with incorrect signature for unit testing."""
+            """Evaluation function with incorrect signature for unit testing."""
             return EvaluationResult()
 
 
-def test_register_evaluate_fn_missing_input_param():
+def test_register_evaluation_fn_missing_input_param():
     with pytest.raises(
         TypeError,
         match=(
@@ -549,15 +549,15 @@ def test_register_evaluate_fn_missing_input_param():
         ),
     ):
 
-        @register_evaluate_function("incompatible")
-        def oumi_test_incompatible_evaluate_fn(
+        @register_evaluation_function("incompatible")
+        def oumi_test_incompatible_evaluation_fn(
             task_params: CustomTaskParams,
         ) -> EvaluationResult:
-            """Evaluate function with incorrect signature for unit testing."""
+            """Evaluation function with incorrect signature for unit testing."""
             return EvaluationResult()
 
 
-def test_register_evaluate_fn_no_return():
+def test_register_evaluation_fn_no_return():
     with pytest.raises(
         TypeError,
         match=(
@@ -566,16 +566,16 @@ def test_register_evaluate_fn_no_return():
         ),
     ):
 
-        @register_evaluate_function("incompatible")
-        def oumi_test_incompatible_evaluate_fn(
+        @register_evaluation_function("incompatible")
+        def oumi_test_incompatible_evaluation_fn(
             task_params: CustomTaskParams,
             config: EvaluationConfig,
         ):
-            """Evaluate function with incorrect signature for unit testing."""
+            """Evaluation function with incorrect signature for unit testing."""
             pass
 
 
-def test_register_evaluate_fn_wrong_return_type():
+def test_register_evaluation_fn_wrong_return_type():
     with pytest.raises(
         TypeError,
         match=(
@@ -584,10 +584,10 @@ def test_register_evaluate_fn_wrong_return_type():
         ),
     ):
 
-        @register_evaluate_function("incompatible")
-        def oumi_test_incompatible_evaluate_fn(
+        @register_evaluation_function("incompatible")
+        def oumi_test_incompatible_evaluation_fn(
             task_params: CustomTaskParams,
             config: EvaluationConfig,
         ) -> int:
-            """Evaluate function with incorrect signature for unit testing."""
+            """Evaluation function with incorrect signature for unit testing."""
             return 3

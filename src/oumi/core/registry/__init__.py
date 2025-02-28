@@ -21,7 +21,7 @@ from oumi.core.registry.registry import (
     register,
     register_cloud_builder,
     register_dataset,
-    register_evaluate_function,
+    register_evaluation_function,
     register_judge,
 )
 
@@ -32,6 +32,6 @@ __all__ = [
     "register",
     "register_cloud_builder",
     "register_dataset",
-    "register_evaluate_function",
+    "register_evaluation_function",
     "register_judge",
 ]
