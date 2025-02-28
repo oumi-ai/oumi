@@ -120,7 +120,7 @@ class Evaluator:
                 **kwargs,
             )
         else:
-            raise ValueError("Unknown evaluation backend")
+            raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 
         # Calculate the elapsed time for the evaluation run.
         elapsed_time_sec = time.time() - start_time
