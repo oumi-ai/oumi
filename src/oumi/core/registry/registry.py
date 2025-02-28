@@ -352,18 +352,15 @@ def register_evaluation_function(registry_name: str) -> Callable:
         signature = inspect.signature(evaluation_fn)
         if (
             "task_params" not in signature.parameters
-            or "CustomTaskParams" not in str(signature.parameters["task_params"])
             or "config" not in signature.parameters
-            or "EvaluationConfig" not in str(signature.parameters["config"])
-            or "EvaluationResult" not in str(signature.return_annotation)
         ):
             raise TypeError(
                 f"The evaluation function ({registry_name}) can not be registered "
                 "because it does not have the correct signature. This function "
                 "must have `task_params` (type: `CustomTaskParams`) and `config` "
-                "(type: `EvaluationConfig`) as input arguments and `EvaluationResult` "
-                "as its return value. However, the signature that provided is: "
-                f"{inspect.signature(evaluation_fn)}"
+                "(type: `EvaluationConfig`) as input arguments and return a value "
+                "(type:`EvaluationResult`). However, the signature that was provided "
+                f"is: {inspect.signature(evaluation_fn)}"
             )
 
     def decorator_register(obj):
