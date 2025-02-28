@@ -24,6 +24,14 @@ from oumi.core.launcher import JobStatus
 from oumi.launcher import JobConfig, JobResources
 from oumi.utils.logging import logger
 
+
+@pytest.fixture
+def mock_fetch():
+    with patch("oumi.cli.cli_utils.resolve_and_fetch_config") as m_fetch:
+        m_fetch.side_effect = lambda x: x
+        yield m_fetch
+
+
 runner = CliRunner()
 
 
@@ -149,7 +157,9 @@ def _create_job_config(training_config_path: str) -> JobConfig:
     )
 
 
-def test_launch_up_job(app, mock_launcher, mock_pool, mock_version, mock_confirm):
+def test_launch_up_job(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
+):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -186,12 +196,13 @@ def test_launch_up_job(app, mock_launcher, mock_pool, mock_version, mock_confirm
                 "DEBUG",
             ],
         )
+        mock_fetch.assert_called_once_with(job_yaml_path)
         mock_cluster.get_job.assert_has_calls([call("job_id")])
         assert logger.level == logging.DEBUG
 
 
 def test_launch_up_job_dev_confirm(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_git_root
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_git_root, mock_fetch
 ):
     mock_version.return_value = "0.1.0.dev0"
     mock_confirm.return_value = True
@@ -235,7 +246,7 @@ def test_launch_up_job_dev_confirm(
 
 
 def test_launch_up_job_dev_no_confirm(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     mock_version.return_value = "0.1.0.dev0"
     mock_confirm.return_value = False
@@ -278,7 +289,7 @@ def test_launch_up_job_dev_no_confirm(
 
 
 def test_launch_up_job_dev_no_confirm_same_path(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     working_dir = "/foo/dir/"
     mock_version.return_value = working_dir
@@ -322,7 +333,7 @@ def test_launch_up_job_dev_no_confirm_same_path(
 
 
 def test_launch_up_job_existing_cluster(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
@@ -369,7 +380,7 @@ def test_launch_up_job_existing_cluster(
 
 
 def test_launch_up_job_detach(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
@@ -410,7 +421,7 @@ def test_launch_up_job_detach(
 
 
 def test_launch_up_job_detached_local(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
@@ -451,7 +462,9 @@ def test_launch_up_job_detached_local(
         mock_cluster.get_job.assert_has_calls([call("job_id")])
 
 
-def test_launch_up_job_not_found(app, mock_launcher, mock_version, mock_confirm):
+def test_launch_up_job_not_found(
+    app, mock_launcher, mock_version, mock_confirm, mock_fetch
+):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -492,7 +505,9 @@ def test_launch_up_job_not_found(app, mock_launcher, mock_version, mock_confirm)
         assert "No such file or directory" in str(exception_info.value)
 
 
-def test_launch_run_job(app, mock_launcher, mock_pool, mock_version, mock_confirm):
+def test_launch_run_job(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
+):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
         config: TrainingConfig = _create_training_config()
@@ -540,11 +555,12 @@ def test_launch_run_job(app, mock_launcher, mock_pool, mock_version, mock_confir
         mock_cloud.get_cluster.assert_has_calls(
             [call("cluster_id"), call("cluster_id")]
         )
+        mock_fetch.assert_called_once_with(job_yaml_path)
         assert logger.level == logging.CRITICAL
 
 
 def test_launch_run_job_dev_confirm(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_git_root
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_git_root, mock_fetch
 ):
     mock_version.return_value = "0.1.0.dev0"
     mock_confirm.return_value = True
@@ -597,7 +613,7 @@ def test_launch_run_job_dev_confirm(
 
 
 def test_launch_run_job_dev_no_confirm(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     mock_version.return_value = "0.1.0.dev0"
     mock_confirm.return_value = False
@@ -649,7 +665,7 @@ def test_launch_run_job_dev_no_confirm(
 
 
 def test_launch_run_job_detached(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
@@ -698,7 +714,7 @@ def test_launch_run_job_detached(
 
 
 def test_launch_run_job_detached_local(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
@@ -747,7 +763,7 @@ def test_launch_run_job_detached_local(
 
 
 def test_launch_run_job_no_cluster(
-    app, mock_launcher, mock_pool, mock_version, mock_confirm
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
