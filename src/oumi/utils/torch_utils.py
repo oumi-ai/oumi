@@ -163,9 +163,11 @@ def log_model_summary(model, filepath: Optional[Path] = None) -> None:
 def get_device_name() -> str:
     """Returns the name of the device, assuming all are identical."""
     device_name = "CPU"
-    # Assume all devices are identical
     if torch.cuda.is_available():
+        # Assume all devices are identical
         device_name = torch.cuda.get_device_name(0)
+    elif torch.backends.mps.is_available():
+        device_name = "MPS"
     return device_name
 
 
