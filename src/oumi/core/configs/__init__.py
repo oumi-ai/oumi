@@ -50,6 +50,7 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.training_params.TrainerType`
     - :class:`~oumi.core.configs.params.peft_params.LoraWeightInitialization`
     - :class:`~oumi.core.configs.params.peft_params.PeftSaveMode`
+    - :class:`~oumi.core.configs.params.grpo_params.GrpoParams`
 - Profiling:
     - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
 - Telemetry:
@@ -108,6 +109,7 @@ from oumi.core.configs.params.fsdp_params import (
     StateDictType,
 )
 from oumi.core.configs.params.generation_params import GenerationParams
+from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import (
@@ -142,6 +144,7 @@ __all__ = [
     "EvaluationBackend",
     "FSDPParams",
     "GenerationParams",
+    "GrpoParams",
     "GuidedDecodingParams",
     "InferenceConfig",
     "InferenceEngineType",

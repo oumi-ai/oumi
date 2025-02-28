@@ -35,6 +35,13 @@ _DEVICE_SPECS = {
             torch.bfloat16: 312.0,
         },
     },
+    "NVIDIA A100 80GB PCIe": {
+        _TFLOPS: {
+            torch.float32: 19.5,
+            torch.float16: 312.0,
+            torch.bfloat16: 312.0,
+        },
+    },
     "NVIDIA A100-SXM4-40GB": {
         _TFLOPS: {
             torch.float32: 19.5,
@@ -85,7 +92,7 @@ _DEVICE_SPECS = {
 }
 
 
-def _get_device_flops(device_name: str, dtype: torch.dtype):
+def _get_device_flops(device_name: str, dtype: torch.dtype) -> float:
     """Returns peak TFLOPS for the given device name and dtype."""
     if device_name not in _DEVICE_SPECS:
         raise NotImplementedError(

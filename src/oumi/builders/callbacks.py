@@ -23,9 +23,11 @@ from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallba
 from oumi.core.callbacks.profiler_step_callback import ProfilerStepCallback
 from oumi.core.callbacks.telemetry_callback import TelemetryCallback
 from oumi.core.configs import TrainerType, TrainingConfig
+from oumi.performance.mfu import _get_device_flops
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import (
     count_model_parameters,
+    get_device_name,
 )
 
 
@@ -67,6 +69,16 @@ def build_training_callbacks(
     elif not config.data.train.pack:
         logger.warning("MFU logging requires packed datasets. Skipping MFU callbacks.")
         add_mfu_callbacks = False
+    else:
+        device_name = get_device_name()
+        try:
+            _get_device_flops(device_name, model.dtype)
+        except NotImplementedError:
+            logger.warning(
+                f"MFU logging is currently not supported for device {device_name}. "
+                "Skipping MFU callbacks."
+            )
+            add_mfu_callbacks = False
 
     if add_mfu_callbacks:
         if config.model.model_max_length is not None and (
