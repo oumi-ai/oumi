@@ -25,7 +25,7 @@
                 {%- endif -%}
                 {{ '<|vision_start|><|video_pad|><|vision_end|>' }}
             {%- elif item['type']=='text' -%}
-                {{- item['text'] -}}
+                {{- item['text'] if 'text' in item else item['content'] -}}
             {%- endif -%}
         {%- endfor -%}
     {%- endif -%}
