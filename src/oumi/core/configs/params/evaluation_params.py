@@ -19,7 +19,6 @@ from typing import Any, Callable, Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.registry import REGISTRY
 
 
 class EvaluationBackend(Enum):
@@ -113,9 +112,6 @@ class EvaluationTaskParams(BaseParams):
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
         init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
-        if target_class == CustomOumiTaskParams and self.task_name:
-            # Custom tasks require an evaluation function to be loaded from registry.
-            init_kwargs["evaluate_fn"] = REGISTRY.get_evaluate_function(self.task_name)
         return target_class(**init_kwargs)
 
     @staticmethod

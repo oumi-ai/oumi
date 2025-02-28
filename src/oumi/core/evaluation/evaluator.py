@@ -15,7 +15,7 @@
 import copy
 import time
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 
 from oumi.core.configs import (
     CustomOumiTaskParams,
@@ -26,6 +26,7 @@ from oumi.core.configs import (
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.core.registry import REGISTRY
 from oumi.evaluation.platform_prerequisites import check_prerequisites
 from oumi.evaluation.save_utils import save_evaluation_output
 
@@ -100,15 +101,9 @@ class Evaluator:
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             custom_task_params = task_params.get_evaluation_backend_task_params()
             assert isinstance(custom_task_params, CustomOumiTaskParams)
-            if not custom_task_params.evaluate_fn:
-                raise ValueError(
-                    f"Task name `{custom_task_params.task_name}` not found in the "
-                    "registry. For custom Oumi evaluations, the task name must match "
-                    "the name of a registered evaluation function. You can register "
-                    "a new function with the decorator `@register_evaluate_function`."
-                )
+            evaluate_fn = self._get_evaluate_fn(custom_task_params)
 
-            evaluation_result = custom_task_params.evaluate_fn(
+            evaluation_result = evaluate_fn(
                 task_params=custom_task_params,
                 config=config,
                 **kwargs,
@@ -165,3 +160,23 @@ class Evaluator:
             start_time_str=start_time_str,
             elapsed_time_sec=elapsed_time_sec,
         )
+
+    def _get_evaluate_fn(self, task_params: CustomOumiTaskParams) -> Callable:
+        """Retrieve the evaluation function of the custom task."""
+        if not task_params.task_name:
+            raise ValueError(
+                "Missing `task_name` for custom Oumi evaluation. Please specify the "
+                "task name, which should be corresponding to a registered evaluation "
+                "function, using the decorator `@register_evaluate_function`."
+            )
+
+        if evaluate_fn := REGISTRY.get_evaluate_function(task_params.task_name):
+            task_params.evaluate_fn = evaluate_fn
+            return evaluate_fn
+        else:
+            raise ValueError(
+                f"Task name `{task_params.task_name}` not found in the "
+                "registry. For custom Oumi evaluations, the task name must match "
+                "the name of a registered evaluation function. You can register "
+                "a new function with the decorator `@register_evaluate_function`."
+            )
