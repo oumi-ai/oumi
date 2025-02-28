@@ -87,8 +87,6 @@ def dataset(
         )
     )
 
-    print(config)
-
     judge_config = _load_judge_config(config, extra_args)
 
     # Load the dataset class from the registry
