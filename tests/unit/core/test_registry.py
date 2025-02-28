@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
+from oumi.core.configs import CustomTaskParams, EvaluationBackend, EvaluationConfig
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
     REGISTRY,
@@ -473,7 +473,7 @@ def test_registry_user_classes_missing_dep(monkeypatch):
 def test_register_evaluate_fn_happy_path():
     @register_evaluate_function("test_evaluate_fn")
     def oumi_test_evaluate_fn(
-        task_params: EvaluationTaskParams,
+        task_params: CustomTaskParams,
         config: EvaluationConfig,
         optional_param: str,
     ) -> EvaluationResult:
@@ -492,7 +492,7 @@ def test_register_evaluate_fn_happy_path():
     evaluate_fn = REGISTRY.get_evaluate_function("test_evaluate_fn")
     assert evaluate_fn
     evaluation_result = evaluate_fn(
-        task_params=EvaluationTaskParams(
+        task_params=CustomTaskParams(
             evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluate_fn",
         ),
@@ -515,7 +515,7 @@ def test_register_evaluate_fn_wrong_input_param_name():
 
         @register_evaluate_function("incompatible")
         def oumi_test_incompatible_evaluate_fn(
-            task_params: EvaluationTaskParams,
+            task_params: CustomTaskParams,
             incorrect_argument: EvaluationConfig,
         ) -> EvaluationResult:
             """Evaluate function with incorrect signature for unit testing."""
@@ -533,7 +533,7 @@ def test_register_evaluate_fn_wrong_input_param_type():
 
         @register_evaluate_function("incompatible")
         def oumi_test_incompatible_evaluate_fn(
-            task_params: EvaluationTaskParams,
+            task_params: CustomTaskParams,
             config: int,
         ) -> EvaluationResult:
             """Evaluate function with incorrect signature for unit testing."""
@@ -551,7 +551,7 @@ def test_register_evaluate_fn_missing_input_param():
 
         @register_evaluate_function("incompatible")
         def oumi_test_incompatible_evaluate_fn(
-            task_params: EvaluationTaskParams,
+            task_params: CustomTaskParams,
         ) -> EvaluationResult:
             """Evaluate function with incorrect signature for unit testing."""
             return EvaluationResult()
@@ -568,7 +568,7 @@ def test_register_evaluate_fn_no_return():
 
         @register_evaluate_function("incompatible")
         def oumi_test_incompatible_evaluate_fn(
-            task_params: EvaluationTaskParams,
+            task_params: CustomTaskParams,
             config: EvaluationConfig,
         ):
             """Evaluate function with incorrect signature for unit testing."""
@@ -586,7 +586,7 @@ def test_register_evaluate_fn_wrong_return_type():
 
         @register_evaluate_function("incompatible")
         def oumi_test_incompatible_evaluate_fn(
-            task_params: EvaluationTaskParams,
+            task_params: CustomTaskParams,
             config: EvaluationConfig,
         ) -> int:
             """Evaluate function with incorrect signature for unit testing."""

@@ -107,7 +107,7 @@ class EvaluationTaskParams(BaseParams):
         elif self.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
             target_class = AlpacaEvalTaskParams
         elif self.get_evaluation_backend() == EvaluationBackend.CUSTOM:
-            target_class = CustomOumiTaskParams
+            target_class = CustomTaskParams
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
@@ -212,7 +212,7 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
 
 
 @dataclass
-class CustomOumiTaskParams(EvaluationTaskParams):
+class CustomTaskParams(EvaluationTaskParams):
     """Parameters for running custom Oumi evaluations."""
 
     evaluate_fn: Optional[Callable] = None

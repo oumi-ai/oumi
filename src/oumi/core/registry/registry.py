@@ -352,7 +352,7 @@ def register_evaluate_function(registry_name: str) -> Callable:
         signature = inspect.signature(evaluate_fn)
         if (
             "task_params" not in signature.parameters
-            or "EvaluationTaskParams" not in str(signature.parameters["task_params"])
+            or "CustomTaskParams" not in str(signature.parameters["task_params"])
             or "config" not in signature.parameters
             or "EvaluationConfig" not in str(signature.parameters["config"])
             or "EvaluationResult" not in str(signature.return_annotation)
@@ -360,7 +360,7 @@ def register_evaluate_function(registry_name: str) -> Callable:
             raise TypeError(
                 f"The evaluation function ({registry_name}) can not be registered "
                 "because it does not have the correct signature. This function "
-                "must have `task_params` (type: `CustomOumiTaskParams`) and `config` "
+                "must have `task_params` (type: `CustomTaskParams`) and `config` "
                 "(type: `EvaluationConfig`) as input arguments and `EvaluationResult` "
                 "as its return value. However, the signature that provided is: "
                 f"{inspect.signature(evaluate_fn)}"
