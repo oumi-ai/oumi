@@ -18,7 +18,8 @@ from oumi.core.evaluation.evaluator import Evaluator
 
 
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
-def test_evaluate_lm_harness_task(mock_evaluate_lm_harness):
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+def test_evaluate_lm_harness_task(mock_check_prerequisites, mock_evaluate_lm_harness):
     # Inputs.
     task_params = EvaluationTaskParams(
         task_name="test_task",
@@ -32,6 +33,7 @@ def test_evaluate_lm_harness_task(mock_evaluate_lm_harness):
     )
 
     # Mocks.
+    mock_check_prerequisites.return_value = None
     mock_evaluate_lm_harness.return_value = EvaluationResult(
         task_name="test_task", task_result={"test_metric": 1.0}
     )
@@ -41,6 +43,7 @@ def test_evaluate_lm_harness_task(mock_evaluate_lm_harness):
     result = evaluator.evaluate(evaluation_config)
 
     # Check the results.
+    mock_check_prerequisites.assert_called_once()
     mock_evaluate_lm_harness.assert_called_once()
     _, kwargs = mock_evaluate_lm_harness.call_args
 
@@ -61,7 +64,8 @@ def test_evaluate_lm_harness_task(mock_evaluate_lm_harness):
 
 
 @patch("oumi.core.evaluation.evaluator.evaluate_alpaca_eval")
-def test_evaluate_alpaca_eval_task(mock_evaluate_alpaca_eval):
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+def test_evaluate_alpaca_eval_task(mock_check_prerequisites, mock_evaluate_alpaca_eval):
     # Inputs.
     task_params = EvaluationTaskParams(
         task_name="test_task",
@@ -75,6 +79,7 @@ def test_evaluate_alpaca_eval_task(mock_evaluate_alpaca_eval):
     )
 
     # Mocks.
+    mock_check_prerequisites.return_value = None
     mock_evaluate_alpaca_eval.return_value = EvaluationResult(
         task_name="test_task", task_result={"test_metric": 1.0}
     )
@@ -84,6 +89,7 @@ def test_evaluate_alpaca_eval_task(mock_evaluate_alpaca_eval):
     result = evaluator.evaluate(evaluation_config)
 
     # Check the results.
+    mock_check_prerequisites.assert_called_once()
     mock_evaluate_alpaca_eval.assert_called_once()
     _, kwargs = mock_evaluate_alpaca_eval.call_args
 
@@ -194,7 +200,10 @@ def test_evaluate_custom_task_without_task_name():
 
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
 @patch("oumi.core.evaluation.evaluator.evaluate_alpaca_eval")
-def test_evaluate_multiple_tasks(mock_evaluate_alpaca_eval, mock_evaluate_lm_harness):
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+def test_evaluate_multiple_tasks(
+    mock_check_prerequisites, mock_evaluate_alpaca_eval, mock_evaluate_lm_harness
+):
     # Inputs.
     task_params_lm_harness_1 = EvaluationTaskParams(
         task_name="test_task_lm_harness_1",
@@ -220,6 +229,7 @@ def test_evaluate_multiple_tasks(mock_evaluate_alpaca_eval, mock_evaluate_lm_har
     )
 
     # Mocks.
+    mock_check_prerequisites.return_value = None
     mock_evaluate_lm_harness.return_value = EvaluationResult(
         task_name="test_task_lm_harness", task_result={"test_metric_lm_harness": 1.0}
     )
@@ -232,6 +242,7 @@ def test_evaluate_multiple_tasks(mock_evaluate_alpaca_eval, mock_evaluate_lm_har
     result = evaluator.evaluate(evaluation_config)
 
     # Check the call counts to our mocks.
+    assert mock_check_prerequisites.call_count == 3
     assert mock_evaluate_lm_harness.call_count == 2
     assert mock_evaluate_alpaca_eval.call_count == 1
 
