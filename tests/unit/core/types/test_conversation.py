@@ -870,3 +870,19 @@ def test_frozen_message():
     message.content.append(test_item)
     assert isinstance(message.content, list)
     assert len(message.content) == 3
+
+
+def test_content_item_text_alias():
+    item = ContentItem(type=Type.TEXT, content="foo text")
+    assert item["content"] == "foo text"
+    assert item["text"] == "foo text"
+    with pytest.raises(KeyError, match="bzz"):
+        item["bzz"]
+
+    item = ContentItem(type=Type.IMAGE_BINARY, binary=_create_test_image_bytes())
+
+    assert item["content"] is None
+    with pytest.raises(KeyError, match="text"):
+        item["text"]
+    with pytest.raises(KeyError, match="bzz"):
+        item["bzz"]

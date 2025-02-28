@@ -140,7 +140,7 @@
                 "--image",
                 "tests/testdata/images/the_great_wave_off_kanagawa.jpg",
                 "-c",
-                "configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml"
+                "configs/recipes/vision/llava_7b/inference/vllm_infer.yaml"
             ],
             "justMyCode": false
         },

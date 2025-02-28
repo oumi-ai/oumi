@@ -174,6 +174,12 @@ class ContentItem(pydantic.BaseModel):
                     f"Binary can only be provided for images (Item type: {self.type})."
                 )
 
+    def __getitem__(self, item_name: str):
+        """Provide field name aliases for OpenAI format compatibility."""
+        if item_name == "text" and self.is_text():
+            item_name = "content"
+        return self.__dict__[item_name]
+
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
         return f"{self.content}" if self.is_text() else f"<{self.type.upper()}>"
