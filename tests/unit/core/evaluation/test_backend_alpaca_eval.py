@@ -145,7 +145,6 @@ def _mock_alpaca_eval_evaluate(
     return df_leaderboard, None
 
 
-@pytest.mark.skip(reason="Skipping until AlpacaEval is properly implemented")
 def test_evaluate_alpaca_eval():
     if find_spec("alpaca_eval") is None:
         pytest.skip("Skipping because alpaca_eval is not installed")

@@ -16,7 +16,7 @@ import os
 import time
 from datetime import datetime
 from pprint import pformat
-from typing import Any, Optional
+from typing import Any
 
 try:
     import alpaca_eval  # pyright: ignore[reportMissingImports]
@@ -28,26 +28,19 @@ import pandas as pd
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
     AlpacaEvalTaskParams,
-    GenerationParams,
+    EvaluationConfig,
     InferenceConfig,
-    InferenceEngineType,
-    ModelParams,
-    RemoteParams,
 )
 from oumi.core.distributed import is_world_process_zero
+from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.datasets.evaluation import AlpacaEvalDataset, utils
 from oumi.utils.logging import logger
 
 
 def evaluate(
     task_params: AlpacaEvalTaskParams,
-    output_dir: str,
-    model_params: ModelParams,
-    generation_params: GenerationParams,
-    inference_engine_type: InferenceEngineType,
-    inference_remote_params: Optional[RemoteParams] = None,
-    run_name: Optional[str] = None,
-) -> dict[str, Any]:
+    config: EvaluationConfig,
+) -> EvaluationResult:
     """Evaluates a model using the Alpaca Eval framework.
 
     For detailed documentation on the AlpacaEval framework, we refer you to the
@@ -55,15 +48,10 @@ def evaluate(
 
     Args:
         task_params: The AlpacaEval parameters to use for evaluation.
-        model_params: The parameters of the model to evaluate.
-        generation_params: The generation parameters to use during inference.
-        inference_engine_type: The type of inference engine to use.
-        inference_remote_params: The remote inference parameters to use.
-        output_dir: The directory where the evaluation results will be saved.
-        run_name: Unique identifier for the current run.
+        config: The desired configuration for evaluation.
 
     Returns:
-        The evaluation results (dict of metric names and their corresponding values).
+        The evaluation result (including metrics and their values).
     """
     # Prerequisites
     if not alpaca_eval:
@@ -111,27 +99,27 @@ def evaluate(
 
     # Run inference for the alpaca_dataset.
     logger.info("Running inference with {inference_engine_type}.")
-    logger.info(f"\tAlpacaEval inference `model_params`:\n{pformat(model_params)}")
+    logger.info(f"\tAlpacaEval inference `model_params`:\n{pformat(config.model)}")
     logger.info(
-        f"\tAlpacaEval inference `generation_params`:\n{pformat(generation_params)}"
+        f"\tAlpacaEval inference `generation_params`:\n{pformat(config.generation)}"
     )
     inference_config = InferenceConfig(
-        model=model_params,
-        generation=generation_params,
-        engine=inference_engine_type,
-        remote_params=inference_remote_params,
+        model=config.model,
+        generation=config.generation,
+        engine=config.inference_engine,
+        remote_params=config.inference_remote_params,
     )
     inference_engine = build_inference_engine(
-        engine_type=inference_engine_type,
-        model_params=model_params,
-        remote_params=inference_remote_params,
+        engine_type=config.inference_engine,
+        model_params=config.model,
+        remote_params=config.inference_remote_params,
     )
     responses = inference_engine.infer(
         input=alpaca_dataset, inference_config=inference_config
     )
 
     # Convert the model responses from Oumi format to Alpaca format.
-    generator_display_name = run_name or start_time_str  # if no run name, use time.
+    generator_display_name = config.run_name or start_time_str  # No run name? use time.
     responses_json = utils.conversations_to_alpaca_format(responses)
     responses_df = pd.DataFrame(responses_json)
     responses_df["generator"] = generator_display_name
@@ -153,6 +141,7 @@ def evaluate(
 
     # Metrics are only available on the main process, and `None` on others.
     if is_world_process_zero():
+        metric_dict = {}
         if df_leaderboard is not None:
             if generator_display_name in df_leaderboard.index:
                 metrics = df_leaderboard.loc[generator_display_name]
@@ -166,30 +155,19 @@ def evaluate(
         else:
             logger.error("The `alpaca_eval` API did not return a leaderboard.")
 
-        # if output_dir and metric_dict:
-        #     backend_task_config = {
-        #         "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
-        #         "annotators_config": annotators_config,
-        #         "fn_metric": fn_metric,
-        #         "max_instances": task_params.num_samples,
-        #         "other_params": task_params.eval_kwargs,
-        #         "model_outputs": responses_json,
-        #     }
+        backend_task_config = {
+            "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
+            "annotators_config": annotators_config,
+            "fn_metric": fn_metric,
+            "max_instances": task_params.num_samples,
+            "other_params": task_params.eval_kwargs,
+            "model_outputs": responses_json,
+        }
 
-        #     save_evaluation_output(
-        #         base_output_dir=output_dir,
-        #         backend=task_params.get_evaluation_backend(),
-        #         backend_results={"results": metric_dict},
-        #         backend_task_config=backend_task_config,
-        #         task_params=task_params,
-        #         start_time_str=start_time_str,
-        #         elapsed_time_sec=elapsed_time_sec,
-        #         model_params=model_params,
-        #         generation_params=generation_params,
-        #         inference_config=inference_config,
-        #     )
+        return EvaluationResult(
+            task_name=task_params.task_name,
+            task_result={"results": metric_dict},
+            backend_config=backend_task_config,
+        )
 
-        if metric_dict:
-            return {"results": metric_dict}
-
-    return {}
+    return EvaluationResult()

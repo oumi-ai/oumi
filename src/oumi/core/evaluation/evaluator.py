@@ -18,12 +18,14 @@ from datetime import datetime
 from typing import Callable, Optional
 
 from oumi.core.configs import (
+    AlpacaEvalTaskParams,
     CustomTaskParams,
     EvaluationConfig,
     EvaluationTaskParams,
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
+from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import REGISTRY
@@ -98,6 +100,15 @@ class Evaluator:
                 config=config,
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
             )
+        elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
+            alpaca_eval_task_params = task_params.get_evaluation_backend_task_params()
+            assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
+
+            evaluation_result = evaluate_alpaca_eval(
+                task_params=alpaca_eval_task_params,
+                config=config,
+                **kwargs,
+            )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             custom_task_params = task_params.get_evaluation_backend_task_params()
             assert isinstance(custom_task_params, CustomTaskParams)
@@ -108,9 +119,6 @@ class Evaluator:
                 config=config,
                 **kwargs,
             )
-        elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
-            #### FIXME
-            raise NotImplementedError("AlpacaEvalEvaluator not implemented")
         else:
             raise ValueError("Unknown evaluation backend")
 
