@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.configs import CustomTaskParams, EvaluationBackend, EvaluationConfig
+from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
     REGISTRY,
@@ -473,7 +473,7 @@ def test_registry_user_classes_missing_dep(monkeypatch):
 def test_register_evaluation_fn_with_annotations_happy_path():
     @register_evaluation_function("test_evaluation_fn")
     def oumi_test_evaluation_fn(
-        task_params: CustomTaskParams,
+        task_params: EvaluationTaskParams,
         config: EvaluationConfig,
         optional_param: str,
     ) -> EvaluationResult:
@@ -492,7 +492,7 @@ def test_register_evaluation_fn_with_annotations_happy_path():
     evaluation_fn = REGISTRY.get_evaluation_function("test_evaluation_fn")
     assert evaluation_fn
     evaluation_result = evaluation_fn(
-        task_params=CustomTaskParams(
+        task_params=EvaluationTaskParams(
             evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluation_fn",
         ),
@@ -522,7 +522,7 @@ def test_register_evaluation_fn_without_annotations_happy_path():
     evaluation_fn = REGISTRY.get_evaluation_function("test_evaluation_fn")
     assert evaluation_fn
     evaluation_result = evaluation_fn(
-        task_params=CustomTaskParams(
+        task_params=EvaluationTaskParams(
             evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluation_fn",
         ),
@@ -562,7 +562,7 @@ def test_register_evaluation_fn_missing_config():
 
         @register_evaluation_function("incompatible")
         def oumi_test_incompatible_evaluation_fn(
-            task_params: CustomTaskParams,
+            task_params: EvaluationTaskParams,
             optional_param: int,
         ) -> EvaluationResult:
             """Evaluation function with incorrect signature for unit testing."""

@@ -14,7 +14,7 @@
 
 from dataclasses import dataclass, field, fields
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from omegaconf import MISSING
 
@@ -107,7 +107,12 @@ class EvaluationTaskParams(BaseParams):
         elif self.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
             target_class = AlpacaEvalTaskParams
         elif self.get_evaluation_backend() == EvaluationBackend.CUSTOM:
-            target_class = CustomTaskParams
+            raise ValueError(
+                "The custom evaluation backend is not subclassing EvaluationTaskParams."
+                " Thus, `EvaluationTaskParams.get_evaluation_backend_task_params()`"
+                " should not be called when `EvaluationTaskParams.evaluation_backend`"
+                " is set to `EvaluationBackend.CUSTOM`."
+            )
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
@@ -209,11 +214,3 @@ class AlpacaEvalTaskParams(EvaluationTaskParams):
         """Verifies params."""
         if self.version not in [1.0, 2.0]:
             raise ValueError("AlpacaEval `version` must be 1.0 or 2.0.")
-
-
-@dataclass
-class CustomTaskParams(EvaluationTaskParams):
-    """Parameters for running custom Oumi evaluations."""
-
-    evaluation_fn: Optional[Callable] = None
-    """User-defined function to evaluate a model on the custom task."""

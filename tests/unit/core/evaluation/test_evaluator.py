@@ -4,7 +4,6 @@ import pytest
 
 from oumi.core.configs import (
     AlpacaEvalTaskParams,
-    CustomTaskParams,
     EvaluationConfig,
     EvaluationTaskParams,
     GenerationParams,
@@ -140,7 +139,7 @@ def test_evaluate_custom_task(
     )
 
     def evaluation_fn(
-        task_params: CustomTaskParams,
+        task_params: EvaluationTaskParams,
         config: EvaluationConfig,
         optional_param: str,
     ) -> EvaluationResult:

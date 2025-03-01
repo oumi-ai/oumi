@@ -357,7 +357,7 @@ def register_evaluation_function(registry_name: str) -> Callable:
             raise TypeError(
                 f"The evaluation function ({registry_name}) can not be registered "
                 "because it does not have the correct signature. This function "
-                "must have `task_params` (type: `CustomTaskParams`) and `config` "
+                "must have `task_params` (type: `EvaluationTaskParams`) and `config` "
                 "(type: `EvaluationConfig`) as input arguments and return a value "
                 "(type:`EvaluationResult`). However, the signature that was provided "
                 f"is: {inspect.signature(evaluation_fn)}"
