@@ -23,6 +23,12 @@ from oumi.utils.logging import logger
 runner = CliRunner()
 
 
+@pytest.fixture
+def mock_fetch():
+    with patch("oumi.cli.cli_utils.resolve_and_fetch_config") as m_fetch:
+        yield m_fetch
+
+
 def _create_inference_config() -> InferenceConfig:
     return InferenceConfig(
         model=ModelParams(
@@ -244,4 +250,27 @@ def test_infer_with_system_prompt_and_image(app, mock_infer_interactive):
             config,
             system_prompt="You are not an average assistant",
             input_image_bytes=[image_bytes],
+        )
+
+
+def test_infer_with_oumi_prefix_and_explicit_output_dir(
+    app, mock_fetch, mock_infer_interactive
+):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_dir = Path(temp_dir)
+        config_path = "oumi://configs/recipes/smollm/inference/135m_infer.yaml"
+        expected_path = output_dir / "configs/recipes/smollm/inference/135m_infer.yaml"
+
+        config = _create_inference_config()
+        expected_path.parent.mkdir(parents=True, exist_ok=True)
+        config.to_yaml(expected_path)
+        mock_fetch.return_value = expected_path
+
+        with patch.dict("os.environ", {"OUMI_DIR": str(output_dir)}):
+            result = runner.invoke(app, ["-i", "--config", config_path])
+
+        assert result.exit_code == 0
+        mock_fetch.assert_called_once_with(config_path)
+        mock_infer_interactive.assert_called_once_with(
+            config, input_image_bytes=None, system_prompt=None
         )
