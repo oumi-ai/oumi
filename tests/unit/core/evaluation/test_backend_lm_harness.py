@@ -21,6 +21,12 @@ from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_har
 def mock_patches_for_evaluate():
     with (
         patch(
+            "oumi.core.evaluation.backends.lm_harness.lm_harness_log_utils"
+        ) as mock_lm_harness_log_utils,
+        patch(
+            "oumi.core.evaluation.backends.lm_harness.WandbLogger"
+        ) as mock_WandbLogger,
+        patch(
             "oumi.core.evaluation.backends.lm_harness.is_world_process_zero"
         ) as mock_is_world_process_zero,
         patch(
@@ -52,6 +58,8 @@ def mock_patches_for_evaluate():
             "mock_lm_harness_get_model_class": mock_lm_harness_get_model_class,
             "mock_lm_harness_evaluate": mock_lm_harness_evaluate,
             "mock_is_world_process_zero": mock_is_world_process_zero,
+            "mock_WandbLogger": mock_WandbLogger,
+            "mock_lm_harness_log_utils": mock_lm_harness_log_utils,
         }
 
 
