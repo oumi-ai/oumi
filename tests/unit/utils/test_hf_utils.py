@@ -6,7 +6,11 @@ from unittest import mock
 import datasets
 import pytest
 
-from oumi.utils.hf_utils import find_hf_token, is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import (
+    find_hf_token,
+    get_hf_chat_template,
+    is_cached_to_disk_hf_dataset,
+)
 
 
 def test_is_saved_to_disk_hf_dataset():
@@ -76,3 +80,23 @@ def test_find_hf_token_from_hf_home_dir():
         token_file = Path(tmp_dir) / "token"
         token_file.write_text("my-test-token-999")
         assert find_hf_token() == "my-test-token-999"
+
+
+def test_get_hf_chat_template_empty():
+    assert get_hf_chat_template("", trust_remote_code=False) is None
+    assert get_hf_chat_template("", trust_remote_code=True) is None
+
+
+@pytest.mark.parametrize(
+    "tokenizer_name,trust_remote_code",
+    [
+        ("HuggingFaceTB/SmolLM2-135M-Instruct", False),
+        ("Qwen/Qwen2-VL-2B-Instruct", False),
+    ],
+)
+def test_get_hf_chat_template(tokenizer_name: str, trust_remote_code: bool):
+    chat_template = get_hf_chat_template(
+        tokenizer_name, trust_remote_code=trust_remote_code
+    )
+    assert chat_template is not None
+    assert len(chat_template) > 0

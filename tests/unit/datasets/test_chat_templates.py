@@ -190,9 +190,15 @@ def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
     return result
 
 
+def _get_chat_template_test_spec_id(spec):
+    assert isinstance(spec, ChatTemplateTestSpec)
+    return f"{spec.chat_template_name}_{spec.model_name}"
+
+
 @pytest.mark.parametrize(
     "test_spec",
     _generate_all_test_specs(),
+    ids=_get_chat_template_test_spec_id,
 )
 def test_chat_template(test_spec: ChatTemplateTestSpec):
     random.seed(hash(test_spec))

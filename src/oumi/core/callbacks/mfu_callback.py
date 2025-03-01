@@ -25,6 +25,7 @@ from oumi.core.configs import TrainingParams
 from oumi.core.distributed import get_device_rank_info, is_world_process_zero
 from oumi.performance.mfu import calculate_mfu
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import get_device_name
 
 _LOGS_KWARG = "logs"
 
@@ -79,10 +80,7 @@ class MfuTrainerCallback(BaseTrainerCallback):
         self._num_devices = device_rank_info.world_size
         self._is_world_rank_zero = is_world_process_zero()
         logger.info(f"MFU number of devices: {self._num_devices}")
-        # Assume all devices are identical
-        self._device_name = "CPU"
-        if torch.cuda.is_available():
-            self._device_name = torch.cuda.get_device_name(0)
+        self._device_name = get_device_name()
 
         logger.info(f"MFU device name: {self._device_name}")
         if self._device_name == "CPU":

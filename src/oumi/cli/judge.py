@@ -81,6 +81,12 @@ def dataset(
     # Load the judge config
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     judge_config = _load_judge_config(config, extra_args)
 
     # Load the dataset class from the registry
@@ -124,6 +130,12 @@ def conversations(
     """Judge a list of conversations."""
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     # Delayed imports
     from oumi import judge_conversations
     from oumi.core.types.conversation import Conversation
@@ -160,7 +172,7 @@ def model(
     ],
     inference_config: Annotated[
         str,
-        typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the inference config file"),
+        typer.Option(help="Path to the inference config file"),
     ],
     input_file: Annotated[
         Optional[str], typer.Option(help="Path to the input file (jsonl)")
@@ -179,10 +191,20 @@ def model(
 
     judge_extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
     # Load the judge config
     judge_config = _load_judge_config(config, judge_extra_args)
 
     # Load the inference config
+    inference_config = str(
+        cli_utils.resolve_and_fetch_config(
+            inference_config,
+        )
+    )
     inference_extra_args = cli_utils.parse_extra_cli_args(ctx)
     model_inference_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         inference_config, inference_extra_args

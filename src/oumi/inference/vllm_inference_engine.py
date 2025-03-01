@@ -269,6 +269,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             sampling_params=sampling_params,
             lora_request=self._lora_request,
             use_tqdm=enable_tqdm,
+            chat_template=None,
+            chat_template_content_format="auto",
         )
 
         for conversation, chat_response in zip(

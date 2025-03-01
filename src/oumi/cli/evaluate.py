@@ -39,6 +39,12 @@ def evaluate(
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     # Delayed imports
     from oumi import evaluate as oumi_evaluate
     from oumi.core.configs import EvaluationConfig
