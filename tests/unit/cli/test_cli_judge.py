@@ -1,7 +1,7 @@
 import logging
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 import typer
@@ -19,6 +19,13 @@ from oumi.utils.logging import logger
 runner = CliRunner()
 
 config = "oumi/v1_xml_unit_test"
+
+
+@pytest.fixture
+def mock_fetch():
+    with patch("oumi.cli.cli_utils.resolve_and_fetch_config") as m_fetch:
+        m_fetch.side_effect = lambda x: x
+        yield m_fetch
 
 
 #
@@ -51,7 +58,27 @@ def mock_judge_conversations():
         yield m_jc
 
 
-def test_judge_dataset_runs(app, mock_registry, mock_judge_dataset):
+def test_judge_model_calls_fetch(app, mock_registry, mock_fetch):
+    returned_exception = RuntimeError("fetch failed")
+    mock_fetch.side_effect = ["oumi/v1_xml_unit_test", returned_exception]
+    config = "oumi/v1_xml_unit_test"
+    mock_fetch.return_value = config
+    result = runner.invoke(
+        app,
+        [
+            "model",
+            "--config",
+            config,
+            "--inference-config",
+            config,
+        ],
+    )
+    assert result.exit_code == 1
+    assert returned_exception == result.exception
+    mock_fetch.assert_has_calls([call(config), call(config)])
+
+
+def test_judge_dataset_runs(app, mock_registry, mock_judge_dataset, mock_fetch):
     config = "oumi/v1_xml_unit_test"
     result = runner.invoke(
         app,
@@ -64,7 +91,7 @@ def test_judge_dataset_runs(app, mock_registry, mock_judge_dataset):
         ],
     )
     mock_judge_dataset.assert_called_once()
-
+    mock_fetch.assert_called_once_with(config)
     assert result.exit_code == 0, f"CLI command failed with: {result.exception}"
 
 
@@ -137,7 +164,7 @@ def test_judge_dataset_with_output_file(app, mock_registry, mock_judge_dataset):
         assert Path(output_file).exists()
 
 
-def test_judge_conversations_runs(app, mock_judge_conversations):
+def test_judge_conversations_runs(app, mock_judge_conversations, mock_fetch):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         input_file = str(Path(output_temp_dir) / "input.jsonl")
 
@@ -152,7 +179,6 @@ def test_judge_conversations_runs(app, mock_judge_conversations):
             input_file,
             [conversation.to_dict()],
         )
-
         result = runner.invoke(
             app,
             [
@@ -164,6 +190,7 @@ def test_judge_conversations_runs(app, mock_judge_conversations):
             ],
         )
         mock_judge_conversations.assert_called_once()
+        mock_fetch.assert_called_once_with(config)
         assert result.exit_code == 0
 
 
