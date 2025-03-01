@@ -40,6 +40,9 @@ class EvaluationTaskParams(BaseParams):
       https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
     - Alpaca Eval: Framework for evaluating language models on instruction-following
       and quality of responses on open-ended questions.
+    - Custom: Users can register their own evaluation functions using the decorator
+      `@register_evaluation_function`. The task_name should be the registry key for
+      the custom evaluation function to be used.
 
     Examples:
         .. code-block:: python
@@ -58,13 +61,38 @@ class EvaluationTaskParams(BaseParams):
             params = EvaluationTaskParams(
                 evaluation_backend="alpaca_eval"
             )
+
+
+        .. code-block:: python
+
+            # Custom evaluation
+            @register_evaluation_function("my_evaluation_function")
+            def my_evaluation(task_params, config):
+                accuracy = ...
+                return EvaluationResult(task_result={"accuracy": accuracy})
+
+            params = EvaluationTaskParams(
+                task_name="my_evaluation_function",
+                evaluation_backend="custom"
+            )
     """
 
     evaluation_backend: str = MISSING
     """The evaluation backend to use for the current task."""
 
     task_name: Optional[str] = None
-    """The task to evaluate."""
+    """The task to evaluate or the custom evaluation function to use.
+
+    For LM Harness evaluations (when the evaluation_backend is set to
+    EvaluationBackend.LM_HARNESS), the `task_name` corresponds to a predefined task
+    to evaluate on (e.g. "mmlu"). A list of all supported tasks by the LM Harness
+    backend can be found by running: `lm-eval --tasks list`.
+
+    For custom evaluations (when evaluation_backend is set to EvaluationBackend.CUSTOM),
+    the `task_name` should be the registry key for the custom evaluation function to be
+    used. Users can register new evaluation functions using the decorator
+    `@register_evaluation_function`.
+    """
 
     num_samples: Optional[int] = None
     """Number of samples/examples to evaluate from this dataset.
