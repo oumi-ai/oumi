@@ -181,6 +181,7 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek() -> JudgeConfig:
     )
     return config
 
+
 @register_judge("oumi/v1_xml_deepseek_r1_hosted_by_sambanova")
 def oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova() -> JudgeConfig:
     """Returns a JudgeConfig for the Oumi v1 XML DeepSeek R1 judge.
@@ -216,12 +217,11 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova() -> JudgeConfig:
             temperature=0.0,
         ),
         remote_params=RemoteParams(
-            max_retries=3,
-            connection_timeout=10,
-            politeness_policy=2.0
+            max_retries=3, connection_timeout=10, politeness_policy=2.0
         ),
     )
     return config
+
 
 @register_judge("oumi/v1_xml_deepseek_r1_hosted_by_together")
 def oumi_v1_xml_deepseek_r1_judge_hosted_by_together() -> JudgeConfig:
@@ -258,16 +258,17 @@ def oumi_v1_xml_deepseek_r1_judge_hosted_by_together() -> JudgeConfig:
         ),
         remote_params=RemoteParams(
             max_retries=3,
-            # Experience number. Based on curl test, it takes about 48 seconds to 
+            # Experience number. Based on curl test, it takes about 48 seconds to
             # complete a LLM as judge task
-            connection_timeout=60, 
+            connection_timeout=60,
             # Note: Due to high demand, DeepSeek R1 has a model specific rate limit of \
             # 6 RPM for Free Users, and 12 RPM for Build Tier 1 users.
             # https://docs.together.ai/docs/rate-limits#rate-limit-tiers
-            politeness_policy=11.0
+            politeness_policy=11.0,
         ),
     )
     return config
+
 
 @register_judge("oumi/v1_xml_unit_test")
 def unit_test_judge():
