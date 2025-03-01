@@ -60,13 +60,13 @@ def test_config_override():
 
 def test_config_from_yaml_and_arg_list_override_values(tmp_path):
     task1 = EvaluationTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name="mmlu",
         num_samples=5,
         eval_kwargs={"num_fewshot": 5},
     )
     task2 = EvaluationTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name="hellaswag",
         num_samples=5,
         eval_kwargs={"num_fewshot": 5},
@@ -86,13 +86,13 @@ def test_config_from_yaml_and_arg_list_override_values(tmp_path):
     )
     assert new_config.tasks == [
         EvaluationTaskParams(
-            evaluation_platform="lm_harness",
+            evaluation_backend="lm_harness",
             task_name="mmlu",
             num_samples=5,
             eval_kwargs={"num_fewshot": 5},
         ),
         EvaluationTaskParams(
-            evaluation_platform="lm_harness",
+            evaluation_backend="lm_harness",
             task_name="hellaswag",
             num_samples=1,
             eval_kwargs={"num_fewshot": 1, "foo": "bar"},
@@ -102,7 +102,7 @@ def test_config_from_yaml_and_arg_list_override_values(tmp_path):
 
 def test_config_from_yaml_and_arg_list_merge_dict(tmp_path):
     task = EvaluationTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name="mmlu",
         num_samples=5,
         eval_kwargs={"num_fewshot": 5},
@@ -121,7 +121,7 @@ def test_config_from_yaml_and_arg_list_merge_dict(tmp_path):
     )
     assert new_config.tasks == [
         EvaluationTaskParams(
-            evaluation_platform="lm_harness",
+            evaluation_backend="lm_harness",
             task_name="mmlu",
             num_samples=5,
             eval_kwargs={"num_fewshot": 5, "foo": "bar"},
@@ -131,7 +131,7 @@ def test_config_from_yaml_and_arg_list_merge_dict(tmp_path):
 
 def test_config_from_yaml_and_arg_list_override_list(tmp_path):
     task = EvaluationTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name="mmlu",
         num_samples=5,
         eval_kwargs={"num_fewshot": 5},
@@ -145,13 +145,13 @@ def test_config_from_yaml_and_arg_list_override_list(tmp_path):
     new_config = EvaluationConfig.from_yaml_and_arg_list(
         config_path,
         [
-            "tasks=[{'evaluation_platform': 'lm_harness', 'task_name': 'mmlu', "
+            "tasks=[{'evaluation_backend': 'lm_harness', 'task_name': 'mmlu', "
             "'num_samples': 1, 'eval_kwargs': {'foo': 'bar'}}]",
         ],
     )
     assert new_config.tasks == [
         EvaluationTaskParams(
-            evaluation_platform="lm_harness",
+            evaluation_backend="lm_harness",
             task_name="mmlu",
             num_samples=1,
             eval_kwargs={"foo": "bar"},
@@ -161,7 +161,7 @@ def test_config_from_yaml_and_arg_list_override_list(tmp_path):
 
 def test_config_from_yaml_and_arg_list_failure_nonexistent_index(tmp_path):
     task = EvaluationTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name="mmlu",
         num_samples=5,
         eval_kwargs={"num_fewshot": 5},

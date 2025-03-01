@@ -19,27 +19,27 @@ model:
 
 # HuggingFace Leaderboard V1
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: arc_challenge
     eval_kwargs:
       num_fewshot: 25
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: winogrande
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: hellaswag
     eval_kwargs:
       num_fewshot: 10
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: truthfulqa_mc2
     eval_kwargs:
       num_fewshot: 0
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: gsm8k
     eval_kwargs:
       num_fewshot: 5

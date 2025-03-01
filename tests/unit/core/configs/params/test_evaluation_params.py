@@ -4,7 +4,7 @@ import pytest
 
 from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
-    EvaluationPlatform,
+    EvaluationBackend,
     EvaluationTaskParams,
     LMHarnessTaskParams,
 )
@@ -12,11 +12,11 @@ from oumi.core.configs.params.evaluation_params import (
 
 @pytest.mark.parametrize(
     (
-        "evaluation_platform,"
+        "evaluation_backend,"
         "task_name,"
         "num_samples,"
         "eval_kwargs,"
-        "expected_platform,"
+        "expected_backend,"
         "expected_task_params_class,"
         "expected_init_kwargs,"
     ),
@@ -27,10 +27,10 @@ from oumi.core.configs.params.evaluation_params import (
             "",
             None,
             {},
-            EvaluationPlatform.ALPACA_EVAL,
+            EvaluationBackend.ALPACA_EVAL,
             AlpacaEvalTaskParams,
             {
-                "evaluation_platform": "alpaca_eval",
+                "evaluation_backend": "alpaca_eval",
                 "task_name": "",
                 "num_samples": None,
                 "eval_kwargs": {},
@@ -42,10 +42,10 @@ from oumi.core.configs.params.evaluation_params import (
             "unused_task_name",
             44,
             {"version": 2.0, "eval_param": "eval_param_value"},
-            EvaluationPlatform.ALPACA_EVAL,
+            EvaluationBackend.ALPACA_EVAL,
             AlpacaEvalTaskParams,
             {
-                "evaluation_platform": "alpaca_eval",
+                "evaluation_backend": "alpaca_eval",
                 "task_name": "unused_task_name",
                 "num_samples": 44,
                 "version": 2.0,
@@ -58,10 +58,10 @@ from oumi.core.configs.params.evaluation_params import (
             "abstract_algebra",
             None,
             {},
-            EvaluationPlatform.LM_HARNESS,
+            EvaluationBackend.LM_HARNESS,
             LMHarnessTaskParams,
             {
-                "evaluation_platform": "lm_harness",
+                "evaluation_backend": "lm_harness",
                 "task_name": "abstract_algebra",
                 "num_samples": None,
                 "eval_kwargs": {},
@@ -73,10 +73,10 @@ from oumi.core.configs.params.evaluation_params import (
             "abstract_algebra",
             55,
             {"num_fewshot": 44, "eval_param": "eval_param_value"},
-            EvaluationPlatform.LM_HARNESS,
+            EvaluationBackend.LM_HARNESS,
             LMHarnessTaskParams,
             {
-                "evaluation_platform": "lm_harness",
+                "evaluation_backend": "lm_harness",
                 "task_name": "abstract_algebra",
                 "num_samples": 55,
                 "num_fewshot": 44,
@@ -92,55 +92,55 @@ from oumi.core.configs.params.evaluation_params import (
     ],
 )
 def test_valid_initialization(
-    evaluation_platform,
+    evaluation_backend,
     task_name,
     num_samples,
     eval_kwargs,
-    expected_platform,
+    expected_backend,
     expected_task_params_class,
     expected_init_kwargs,
 ):
     task_params = EvaluationTaskParams(
-        evaluation_platform=evaluation_platform,
+        evaluation_backend=evaluation_backend,
         task_name=task_name,
         num_samples=num_samples,
         eval_kwargs=eval_kwargs,
     )
 
     # Ensure the `EvaluationTaskParams` class members are correct.
-    assert task_params.evaluation_platform == evaluation_platform
+    assert task_params.evaluation_backend == evaluation_backend
     assert task_params.task_name == task_name
     assert task_params.num_samples == num_samples
     assert task_params.eval_kwargs == eval_kwargs
 
     # Ensure the conversion methods produce the expected results.
-    assert task_params.get_evaluation_platform() == expected_platform
-    platform_task_params = copy.deepcopy(
+    assert task_params.get_evaluation_backend() == expected_backend
+    backend_task_params = copy.deepcopy(
         task_params
-    ).get_evaluation_platform_task_params()
-    assert isinstance(platform_task_params, expected_task_params_class)
+    ).get_evaluation_backend_task_params()
+    assert isinstance(backend_task_params, expected_task_params_class)
 
-    # Ensure the platform-specific task parameters are as expected.
+    # Ensure the backend-specific task parameters are as expected.
     assert expected_init_kwargs == task_params._get_init_kwargs_for_task_params_class(
         expected_task_params_class
     )
     expected_task_params = expected_task_params_class(**expected_init_kwargs)
-    assert platform_task_params == expected_task_params
+    assert backend_task_params == expected_task_params
 
 
 @pytest.mark.parametrize(
-    ("evaluation_platform, task_name, num_samples, eval_kwargs"),
+    ("evaluation_backend, task_name, num_samples, eval_kwargs"),
     [
-        # Missing `EvaluationTaskParams` argument: `evaluation_platform`.
+        # Missing `EvaluationTaskParams` argument: `evaluation_backend`.
         (
             "",
             "",
             None,
             {},
         ),
-        # Incorrect `EvaluationTaskParams` argument: `evaluation_platform`.
+        # Incorrect `EvaluationTaskParams` argument: `evaluation_backend`.
         (
-            "non_existing_platform",
+            "non_existing_backend",
             "",
             None,
             {},
@@ -168,22 +168,22 @@ def test_valid_initialization(
         ),
     ],
     ids=[
-        "no_platform",
-        "wrong_platform",
+        "no_backend",
+        "wrong_backend",
         "num_samples_negative",
         "num_samples_zero",
         "lm_harness_with_no_task_name",
     ],
 )
 def test_invalid_initialization(
-    evaluation_platform,
+    evaluation_backend,
     task_name,
     num_samples,
     eval_kwargs,
 ):
     with pytest.raises(ValueError):
         EvaluationTaskParams(
-            evaluation_platform=evaluation_platform,
+            evaluation_backend=evaluation_backend,
             task_name=task_name,
             num_samples=num_samples,
             eval_kwargs=eval_kwargs,
@@ -191,7 +191,7 @@ def test_invalid_initialization(
 
 
 @pytest.mark.parametrize(
-    ("evaluation_platform, task_name, num_samples, eval_kwargs"),
+    ("evaluation_backend, task_name, num_samples, eval_kwargs"),
     [
         # Incorrect `AlpacaEvalTaskParams` argument: `version`.
         (
@@ -221,17 +221,17 @@ def test_invalid_initialization(
         "lm_harness_num_fewshot_negative",
     ],
 )
-def test_platform_task_params_invalid_instantiation(
-    evaluation_platform,
+def test_backend_task_params_invalid_instantiation(
+    evaluation_backend,
     task_name,
     num_samples,
     eval_kwargs,
 ):
     task_params = EvaluationTaskParams(
-        evaluation_platform=evaluation_platform,
+        evaluation_backend=evaluation_backend,
         task_name=task_name,
         num_samples=num_samples,
         eval_kwargs=eval_kwargs,
     )
     with pytest.raises(ValueError):
-        task_params.get_evaluation_platform_task_params()
+        task_params.get_evaluation_backend_task_params()
