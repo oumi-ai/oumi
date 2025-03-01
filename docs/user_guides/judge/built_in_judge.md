@@ -59,6 +59,14 @@ The Built-In LLM Judge is powered by an underlying model that evaluates response
    judge = OumiXmlJudge(oumi_v1_xml_claude_sonnet_judge())
    ```
 
+4. **DeepSeek R1 Judge** ({py:func}`~oumi.judges.oumi_v1_xml_deepseek_r1_judge`)
+   - Uses DeepSeek R1 API (Requires DeepSeek API key)
+   - The DeepSeek R1 judge is the most powerful judge at judging prompts that require reasoning
+
+   ```python
+   from oumi.judges import OumiXmlJudge, oumi_v1_xml_deepseek_r1_judge
+   judge = OumiXmlJudge(oumi_v1_xml_deepseek_r1_judge())
+   ```
 You can test any of the aforementioned judges using the following code snippet:
 
 ```python
