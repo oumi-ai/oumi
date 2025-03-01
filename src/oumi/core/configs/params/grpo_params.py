@@ -102,17 +102,17 @@ class GrpoParams(BaseParams):
 
     def __post_init__(self):
         """Verifies params."""
-        if not (self.max_prompt_length is None or self.max_prompt_length > 0):
+        if self.max_prompt_length is not None and self.max_prompt_length <= 0:
             raise ValueError(
                 "GrpoParams.max_prompt_length must be positive. "
                 f"Actual: {self.max_prompt_length}"
             )
-        if not (self.max_completion_length is None or self.max_completion_length > 0):
+        if self.max_completion_length is not None and self.max_completion_length <= 0:
             raise ValueError(
                 "GrpoParams.max_completion_length must be positive. "
                 f"Actual: {self.max_completion_length}"
             )
-        if not (self.num_generations is None or self.num_generations > 0):
+        if self.num_generations is not None and self.num_generations <= 0:
             raise ValueError(
                 "GrpoParams.num_generations must be positive. "
                 f"Actual: {self.num_generations}"
@@ -128,7 +128,7 @@ class GrpoParams(BaseParams):
             )
 
     def to_hf_trainer_kwargs(self) -> dict[str, Any]:
-        """Converts GRPO training params GRPOTrainer kwargs."""
+        """Converts GrpoParams to TRL's GRPOConfig kwargs."""
         result = {}
         if len(self.model_init_kwargs) > 0:
             result["model_init_kwargs"] = self.model_init_kwargs
