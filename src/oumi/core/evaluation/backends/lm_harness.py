@@ -355,58 +355,58 @@ def evaluate(
     )
 
     # Metrics are only available on the main process, and `None` on others.
-    if is_world_process_zero():
-        assert lm_eval_output is not None
-        task_name = task_params.task_name
-        metric_dict = lm_eval_output["results"][task_name]  # type: ignore
-        logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
+    if not is_world_process_zero():
+        return EvaluationResult()
 
-        if config.enable_wandb:
-            project_name = os.environ.get("WANDB_PROJECT", "oumi")
-            logger.info(f"Logging to Weights and Biases project: '{project_name}'")
-            wandb_logger = WandbLogger(
-                project=project_name, name=config.run_name, job_type="eval"
-            )
-            wandb_logger.post_init(lm_eval_output)
-            wandb_logger.log_eval_result()
+    assert lm_eval_output is not None
+    task_name = task_params.task_name
+    metric_dict = lm_eval_output["results"][task_name]  # type: ignore
+    logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
 
-        # The LM Harness backend's task configuration is a dictionary which
-        # includes: the number of samples, the number of few-shots, task version(s),
-        # the prompt(s) text, model/git hashes, seeds, and the special tokens used
-        # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
-        backend_task_config = lm_eval_output
-
-        # The LM Harness backend's results is a dictionary that includes all
-        # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
-        # or a classification category.
-        backend_results = {
-            key: backend_task_config.pop(key)
-            for key in ["results", "groups"]
-            if key in backend_task_config
-        }
-
-        # Add LM Harness-specific configuration settings to the results.
-        backend_task_config.setdefault("config", {})
-
-        # Add configuration settings related to the model.
-        backend_task_config["config"]["model"] = lm_harness_model
-        backend_task_config["config"]["model_args"] = lm_harness_model_params
-        if hasattr(lm, "get_model_info"):
-            backend_task_config["config"].update(lm.get_model_info())
-
-        # Add configuration settings related to the task.
-        backend_task_config["config"]["task_params"] = task_params
-        backend_task_config["config"]["task_dict"] = task_dict
-
-        # Add other configuration settings.
-        backend_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
-        lm_harness_log_utils.add_env_info(backend_task_config)
-        lm_harness_log_utils.add_tokenizer_info(backend_task_config, lm)
-
-        return EvaluationResult(
-            task_name=task_params.task_name,
-            task_result=backend_results,
-            backend_config=backend_task_config,
+    if config.enable_wandb:
+        project_name = os.environ.get("WANDB_PROJECT", "oumi")
+        logger.info(f"Logging to Weights and Biases project: '{project_name}'")
+        wandb_logger = WandbLogger(
+            project=project_name, name=config.run_name, job_type="eval"
         )
+        wandb_logger.post_init(lm_eval_output)
+        wandb_logger.log_eval_result()
 
-    return EvaluationResult()
+    # The LM Harness backend's task configuration is a dictionary which
+    # includes: the number of samples, the number of few-shots, task version(s),
+    # the prompt(s) text, model/git hashes, seeds, and the special tokens used
+    # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
+    backend_task_config = lm_eval_output
+
+    # The LM Harness backend's results is a dictionary that includes all
+    # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
+    # or a classification category.
+    backend_results = {
+        key: backend_task_config.pop(key)
+        for key in ["results", "groups"]
+        if key in backend_task_config
+    }
+
+    # Add LM Harness-specific configuration settings to the results.
+    backend_task_config.setdefault("config", {})
+
+    # Add configuration settings related to the model.
+    backend_task_config["config"]["model"] = lm_harness_model
+    backend_task_config["config"]["model_args"] = lm_harness_model_params
+    if hasattr(lm, "get_model_info"):
+        backend_task_config["config"].update(lm.get_model_info())
+
+    # Add configuration settings related to the task.
+    backend_task_config["config"]["task_params"] = task_params
+    backend_task_config["config"]["task_dict"] = task_dict
+
+    # Add other configuration settings.
+    backend_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
+    lm_harness_log_utils.add_env_info(backend_task_config)
+    lm_harness_log_utils.add_tokenizer_info(backend_task_config, lm)
+
+    return EvaluationResult(
+        task_name=task_params.task_name,
+        task_result=backend_results,
+        backend_config=backend_task_config,
+    )

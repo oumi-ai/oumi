@@ -140,34 +140,34 @@ def evaluate(
     elapsed_time_sec = time.time() - start_time
 
     # Metrics are only available on the main process, and `None` on others.
-    if is_world_process_zero():
-        metric_dict = {}
-        if df_leaderboard is not None:
-            if generator_display_name in df_leaderboard.index:
-                metrics = df_leaderboard.loc[generator_display_name]
-                metric_dict: dict[str, Any] = {
-                    str(metric): value for metric, value in metrics.items()
-                }
-                logger.info(f"AlpacaEval run completed in {elapsed_time_sec:.2f} secs.")
-                logger.info(f"AlpacaEval's metric dict is {pformat(metric_dict)}.")
-            else:
-                logger.error("AlpacaEval results not found in leaderboard.")
+    if not is_world_process_zero():
+        return EvaluationResult()
+
+    metric_dict = {}
+    if df_leaderboard is not None:
+        if generator_display_name in df_leaderboard.index:
+            metrics = df_leaderboard.loc[generator_display_name]
+            metric_dict: dict[str, Any] = {
+                str(metric): value for metric, value in metrics.items()
+            }
+            logger.info(f"AlpacaEval run completed in {elapsed_time_sec:.2f} secs.")
+            logger.info(f"AlpacaEval's metric dict is {pformat(metric_dict)}.")
         else:
-            logger.error("The `alpaca_eval` API did not return a leaderboard.")
+            logger.error("AlpacaEval results not found in leaderboard.")
+    else:
+        logger.error("The `alpaca_eval` API did not return a leaderboard.")
 
-        backend_task_config = {
-            "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
-            "annotators_config": annotators_config,
-            "fn_metric": fn_metric,
-            "max_instances": task_params.num_samples,
-            "other_params": task_params.eval_kwargs,
-            "model_outputs": responses_json,
-        }
+    backend_task_config = {
+        "IS_ALPACA_EVAL_2": os.environ.get("IS_ALPACA_EVAL_2", "None"),
+        "annotators_config": annotators_config,
+        "fn_metric": fn_metric,
+        "max_instances": task_params.num_samples,
+        "other_params": task_params.eval_kwargs,
+        "model_outputs": responses_json,
+    }
 
-        return EvaluationResult(
-            task_name=task_params.task_name,
-            task_result={"results": metric_dict},
-            backend_config=backend_task_config,
-        )
-
-    return EvaluationResult()
+    return EvaluationResult(
+        task_name=task_params.task_name,
+        task_result={"results": metric_dict},
+        backend_config=backend_task_config,
+    )
