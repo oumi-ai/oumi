@@ -19,6 +19,9 @@ from oumi.core.types.conversation import (
 
 # Mocks
 class _MockAlpacaEvalDataset:
+    def __init__(self, dataset_name):
+        pass
+
     def conversations(self) -> list[Conversation]:
         return [
             Conversation(
@@ -35,6 +38,9 @@ class _MockAlpacaEvalDataset:
 
 
 class _MockInferenceEngine:
+    def __init__(self):
+        pass
+
     def infer(self, input, inference_config) -> list[Conversation]:
         assert str(input) == "[USER: Hello 1.1, USER: Hello 2.1]"
         return [
@@ -75,7 +81,10 @@ class _MockAlpacaEval:
         assert model_outputs["output"][1] == "Hello 2.2"
 
         # Mock the `alpaca_eval.evaluate` function.
-        df_leaderboard = pd.DataFrame({"win_rate": 0.23}, index=["my_run_name"])
+        df_leaderboard = pd.DataFrame(
+            {"win_rate": 0.23},
+            index=["my_run_name"],  # type: ignore
+        )
         return df_leaderboard, None
 
 
