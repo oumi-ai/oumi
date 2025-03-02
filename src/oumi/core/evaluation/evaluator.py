@@ -14,8 +14,9 @@
 
 import copy
 import time
+from dataclasses import fields
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, Union
 
 from oumi.core.configs import (
     AlpacaEvalTaskParams,
@@ -91,7 +92,7 @@ class Evaluator:
 
         # Redirect the evaluation execution to the appropriate evaluation backend.
         if evaluation_backend == EvaluationBackend.LM_HARNESS:
-            lm_harness_task_params = task_params.get_evaluation_backend_task_params()
+            lm_harness_task_params = Evaluator._get_backend_task_params(task_params)
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
 
             evaluation_result = evaluate_lm_harness(
@@ -100,7 +101,7 @@ class Evaluator:
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
             )
         elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
-            alpaca_eval_task_params = task_params.get_evaluation_backend_task_params()
+            alpaca_eval_task_params = Evaluator._get_backend_task_params(task_params)
             assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
 
             evaluation_result = evaluate_alpaca_eval(
@@ -109,7 +110,7 @@ class Evaluator:
                 **kwargs,
             )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
-            evaluation_fn = self._get_evaluation_fn(task_params.task_name)
+            evaluation_fn = Evaluator._get_custom_evaluation_fn(task_params.task_name)
             evaluation_result = evaluation_fn(
                 task_params=task_params,
                 config=config,
@@ -165,7 +166,8 @@ class Evaluator:
             elapsed_time_sec=elapsed_time_sec,
         )
 
-    def _get_evaluation_fn(self, task_name: Optional[str]) -> Callable:
+    @staticmethod
+    def _get_custom_evaluation_fn(task_name: Optional[str]) -> Callable:
         """Retrieve the evaluation function of the custom task."""
         if not task_name:
             raise ValueError(
@@ -183,3 +185,87 @@ class Evaluator:
                 "evaluation function. You can register a new function with the "
                 "decorator `@register_evaluation_function`."
             )
+
+    @staticmethod
+    def _get_backend_task_params(
+        task_params: EvaluationTaskParams,
+    ) -> Union[LMHarnessTaskParams, AlpacaEvalTaskParams]:
+        """Returns the evaluation backend-specific task parameters."""
+        if task_params.get_evaluation_backend() == EvaluationBackend.LM_HARNESS:
+            target_class = LMHarnessTaskParams
+        elif task_params.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
+            target_class = AlpacaEvalTaskParams
+        elif task_params.get_evaluation_backend() == EvaluationBackend.CUSTOM:
+            raise ValueError(
+                "The custom evaluation backend is not subclassing EvaluationTaskParams."
+                " Thus, `Evaluator._get_backend_task_params()` should not be called "
+                " when evaluation_backend is set to `EvaluationBackend.CUSTOM`."
+            )
+        else:
+            raise ValueError(f"Unknown backend: {task_params.evaluation_backend}")
+
+        init_kwargs = Evaluator._get_init_kwargs_for_task_params_class(
+            task_params=task_params, target_class=target_class
+        )
+        return target_class(**init_kwargs)
+
+    @staticmethod
+    def _get_init_kwargs_for_task_params_class(
+        task_params: EvaluationTaskParams,
+        target_class: type[EvaluationTaskParams],
+    ) -> dict[str, Any]:
+        """Returns the init keyword arguments for a `target_class` of name *TaskParams.
+
+        Given a target class of name <evaluation backend>TaskParams, which subclasses
+        `EvaluationTaskParams`, this method returns a 'flattened' dict with all
+        arguments needed to instantiate it. The dict includes all the parameters which
+        are already members of `EvaluationTaskParams`, as well as additional parameters
+        which are only known to the target class (stored under `eval_kwargs`).
+        By 'flattened', we mean that all known parameters that are stored under the
+        `eval_kwargs` dict are moved one level up, to the (flat) dict that is returned.
+        In contrast, all unknown (to the target class) parameters remain (unflattened)
+        inside the `eval_kwargs` dict.
+
+        Example:
+            Assuming these are the input parameters:
+            task_params: EvaluationTaskParams(       # <- `num_fewshot` is NOT a member
+                evaluation_backend=EvaluationBackend.LM_HARNESS,
+                task_name="mmlu",
+                eval_kwargs={"num_fewshot": 10, "some_param": 20},
+            )
+            target_class: LMHarnessTaskParams        # <- `num_fewshot` is a member
+
+            This function will return:
+            {
+                "evaluation_backend": EvaluationBackend.LM_HARNESS,
+                "task_name": "mmlu",
+                "num_fewshot": 10,
+                "eval_kwargs": {"some_param": 20}
+            }
+        """
+        task_params = copy.deepcopy(task_params)
+
+        # Find all keys in `eval_kwargs` which are known to the target class.
+        known_keys = []
+        if task_params.eval_kwargs:
+            field_names = [field.name for field in fields(target_class)]
+            known_keys.extend(k for k in task_params.eval_kwargs if k in field_names)
+
+        # Identify all kwargs known to the current class.
+        init_keys = [
+            key
+            for key in dir(task_params)
+            if not callable(getattr(task_params, key)) and not key.startswith("_")
+        ]
+        init_kwargs = {key: getattr(task_params, key) for key in init_keys}
+
+        # Move known kwargs one level up: from `eval_kwargs` to the top-level dict.
+        for key in known_keys:
+            if key in init_kwargs:
+                raise ValueError(
+                    f"Parameter `{key}` is present twice, in both task parameters and "
+                    "`eval_kwargs` dictionary. Please remove it from one of them."
+                )
+            init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
+
+        return init_kwargs

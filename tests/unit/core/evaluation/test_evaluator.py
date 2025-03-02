@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -341,3 +342,151 @@ def test_evaluate_multiple_tasks(
     assert result[1].task_result == {"test_metric_alpaca_eval": 2.0}
     assert result[2].task_name == "test_task_lm_harness"
     assert result[2].task_result == {"test_metric_lm_harness": 1.0}
+
+
+@pytest.mark.parametrize(
+    (
+        "evaluation_backend_str,"
+        "evaluation_backend_class,"
+        "task_name,"
+        "num_samples,"
+        "eval_kwargs,"
+        "expected_backend_task_params_class,"
+        "expected_backend_task_params,"
+    ),
+    [
+        # Alpaca Eval run with no arguments.
+        (
+            "alpaca_eval",
+            EvaluationBackend.ALPACA_EVAL,
+            "",
+            None,
+            {},
+            AlpacaEvalTaskParams,
+            {
+                "evaluation_backend": "alpaca_eval",
+                "task_name": "",
+                "num_samples": None,
+                "eval_kwargs": {},
+            },
+        ),
+        # Alpaca Eval run with arguments.
+        (
+            "alpaca_eval",
+            EvaluationBackend.ALPACA_EVAL,
+            "unused_task_name",
+            44,
+            {"version": 2.0, "eval_param": "eval_param_value"},
+            AlpacaEvalTaskParams,
+            {
+                "evaluation_backend": "alpaca_eval",
+                "task_name": "unused_task_name",
+                "num_samples": 44,
+                "version": 2.0,
+                "eval_kwargs": {"eval_param": "eval_param_value"},
+            },
+        ),
+        # LM Harness run with no arguments.
+        (
+            "lm_harness",
+            EvaluationBackend.LM_HARNESS,
+            "abstract_algebra",
+            None,
+            {},
+            LMHarnessTaskParams,
+            {
+                "evaluation_backend": "lm_harness",
+                "task_name": "abstract_algebra",
+                "num_samples": None,
+                "eval_kwargs": {},
+            },
+        ),
+        # LM Harness run with arguments.
+        (
+            "lm_harness",
+            EvaluationBackend.LM_HARNESS,
+            "abstract_algebra",
+            55,
+            {"num_fewshot": 44, "eval_param": "eval_param_value"},
+            LMHarnessTaskParams,
+            {
+                "evaluation_backend": "lm_harness",
+                "task_name": "abstract_algebra",
+                "num_samples": 55,
+                "num_fewshot": 44,
+                "eval_kwargs": {"eval_param": "eval_param_value"},
+            },
+        ),
+    ],
+    ids=[
+        "test_get_backend_task_params_alpaca_eval_no_args",
+        "test_get_backend_task_params_alpaca_eval_with_args",
+        "test_get_backend_task_params_lm_harness_no_args",
+        "test_get_backend_task_params_lm_harness_with_args",
+    ],
+)
+def test_get_backend_task_params(
+    evaluation_backend_str: str,
+    evaluation_backend_class: type,
+    task_name: str,
+    num_samples: int,
+    eval_kwargs: dict,
+    expected_backend_task_params_class: type,
+    expected_backend_task_params: dict[str, Any],
+):
+    task_params = EvaluationTaskParams(
+        evaluation_backend=evaluation_backend_str,
+        task_name=task_name,
+        num_samples=num_samples,
+        eval_kwargs=eval_kwargs,
+    )
+
+    # Ensure the `EvaluationTaskParams` class members are correct.
+    assert task_params.evaluation_backend == evaluation_backend_str
+    assert task_params.task_name == task_name
+    assert task_params.num_samples == num_samples
+    assert task_params.eval_kwargs == eval_kwargs
+
+    # Ensure the correct backend is returned.
+    assert task_params.get_evaluation_backend() == evaluation_backend_class
+
+    # Ensure the correct backend class is returned.
+    backend_task_params = Evaluator._get_backend_task_params(task_params)
+    assert isinstance(backend_task_params, expected_backend_task_params_class)
+
+    # Ensure the backend-specific task parameters are as expected.
+    for expected_param, expected_param_value in expected_backend_task_params.items():
+        actual_param_value = getattr(backend_task_params, expected_param)
+        assert actual_param_value == expected_param_value
+
+
+def test_get_backend_task_params_error_custom_backend():
+    task_params = EvaluationTaskParams(
+        evaluation_backend="custom",
+        task_name="my_evaluation_fn",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"^The custom evaluation backend is not subclassing EvaluationTaskParams."
+        ),
+    ):
+        Evaluator._get_backend_task_params(task_params)
+
+
+def test_get_backend_task_params_error_double_definition():
+    task_params = EvaluationTaskParams(
+        evaluation_backend="lm_harness",
+        task_name="some_task",
+        eval_kwargs={"task_name": "some_other_task"},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Parameter `task_name` is present twice, in both task parameters "
+            "and `eval_kwargs` dictionary. Please remove it from one of them."
+        ),
+    ):
+        Evaluator._get_backend_task_params(task_params)

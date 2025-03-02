@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
@@ -128,75 +128,13 @@ class EvaluationTaskParams(BaseParams):
         else:
             raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
 
-    def get_evaluation_backend_task_params(self):
-        """Returns the evaluation backend-specific task parameters."""
-        if self.get_evaluation_backend() == EvaluationBackend.LM_HARNESS:
-            target_class = LMHarnessTaskParams
-        elif self.get_evaluation_backend() == EvaluationBackend.ALPACA_EVAL:
-            target_class = AlpacaEvalTaskParams
-        elif self.get_evaluation_backend() == EvaluationBackend.CUSTOM:
-            raise ValueError(
-                "The custom evaluation backend is not subclassing EvaluationTaskParams."
-                " Thus, `EvaluationTaskParams.get_evaluation_backend_task_params()`"
-                " should not be called when `EvaluationTaskParams.evaluation_backend`"
-                " is set to `EvaluationBackend.CUSTOM`."
-            )
-        else:
-            raise ValueError(f"Unknown evaluation backend: {self.evaluation_backend}")
-
-        init_kwargs = self._get_init_kwargs_for_task_params_class(target_class)
-        return target_class(**init_kwargs)
-
     @staticmethod
     def list_evaluation_backends() -> str:
         """Returns a string listing all available evaluation backends."""
         return ", ".join([backend.value for backend in EvaluationBackend])
 
-    def _get_init_kwargs_for_task_params_class(self, target_class) -> dict[str, Any]:
-        """Returns the init keyword arguments for a `target_class` of name *TaskParams.
-
-        Given a target class of name <evaluation backend>_TaskParams, which inherits
-        from the current class, this method returns a 'flattened' dict that includes all
-        arguments needed to instantiate it. The dict includes all the parameters which
-        are already members of the current class, as well as additional parameters which
-        are only known to the target class (stored under `eval_kwargs`). By 'flattened',
-        we mean that all known parameters that are stored under the `eval_kwargs` dict
-        are moved one level up, to the (flat) dict that is returned. In contrast, all
-        unknown (to the target class) parameters remain (unflattened) inside the
-        `eval_kwargs` dict.
-        """
-        # Find all keys in `eval_kwargs` which are known to the target class.
-        known_keys = []
-        if self.eval_kwargs:
-            field_names = [field.name for field in fields(target_class)]
-            known_keys.extend(key for key in self.eval_kwargs if key in field_names)
-
-        # Identify all kwargs known to the current class.
-        init_keys = [
-            key
-            for key in dir(self)
-            if not callable(getattr(self, key)) and not key.startswith("_")
-        ]
-        init_kwargs = {key: getattr(self, key) for key in init_keys}
-
-        # Move known kwargs one level up: from `eval_kwargs` to the top-level dict.
-        for key in known_keys:
-            if key in init_kwargs:
-                raise ValueError(
-                    f"Parameter `{key}` is present twice, in both task parameters and "
-                    "`eval_kwargs` dictionary. Please remove it from one of them."
-                )
-            init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
-
-        return init_kwargs
-
     def __post_init__(self):
         """Verifies params."""
-        if (
-            self.get_evaluation_backend() == EvaluationBackend.LM_HARNESS
-            and not self.task_name
-        ):
-            raise ValueError("`task_name` must be a valid LM Harness task.")
         if self.num_samples is not None and self.num_samples <= 0:
             raise ValueError("`num_samples` must be None or a positive integer.")
 
@@ -219,6 +157,8 @@ class LMHarnessTaskParams(EvaluationTaskParams):
 
     def __post_init__(self):
         """Verifies params."""
+        if not self.task_name:
+            raise ValueError("`task_name` must be a valid LM Harness task.")
         if self.num_fewshot and self.num_fewshot < 0:
             raise ValueError("`num_fewshot` must be non-negative.")
 
