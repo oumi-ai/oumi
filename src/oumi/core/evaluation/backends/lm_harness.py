@@ -345,11 +345,14 @@ def evaluate(
     lm = lm_class(**lm_harness_model_params)
 
     logger.info("Starting evaluation...")
+    log_samples = False
+    if 'log_samples' in task_params.eval_kwargs:
+        log_samples = task_params.eval_kwargs.pop('log_samples')
     lm_eval_output = lm_harness_evaluate(
         lm=lm,
         task_dict=task_dict,
         limit=task_params.num_samples,
-        log_samples=False,  # Set to `True` to log all responses or logits.
+        log_samples=log_samples,  # Set to `True` to log all responses or logits.
         apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )
