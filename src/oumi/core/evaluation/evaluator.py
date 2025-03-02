@@ -120,7 +120,8 @@ class Evaluator:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 
         # Calculate the elapsed time for the evaluation run.
-        elapsed_time_sec = time.time() - start_time
+        evaluation_result.elapsed_time_sec = int(time.time() - start_time)
+        evaluation_result.start_time = start_time_str
 
         # Save the output, if an output directory has been provided.
         if config.output_dir:
@@ -129,8 +130,6 @@ class Evaluator:
                 evaluation_result=evaluation_result,
                 base_output_dir=config.output_dir,
                 config=config,
-                start_time_str=start_time_str,
-                elapsed_time_sec=int(elapsed_time_sec),
             )
         return evaluation_result
 
@@ -140,8 +139,6 @@ class Evaluator:
         evaluation_result: EvaluationResult,
         base_output_dir: str,
         config: Optional[EvaluationConfig],
-        start_time_str: Optional[str],
-        elapsed_time_sec: Optional[int],
     ) -> None:
         """Saves the evaluation's output to the specified output directory.
 
@@ -150,8 +147,6 @@ class Evaluator:
             evaluation_result: The evaluation result.
             base_output_dir: The directory where the evaluation results will be saved.
             config: The evaluation configuration.
-            start_time_str: Human-readable timestamp, indicating when the run started.
-            elapsed_time_sec: Duration (in seconds) of the evaluation run.
 
         Returns:
             None
@@ -162,8 +157,6 @@ class Evaluator:
             evaluation_result=evaluation_result,
             base_output_dir=base_output_dir,
             config=config,
-            start_time_str=start_time_str,
-            elapsed_time_sec=elapsed_time_sec,
         )
 
     @staticmethod

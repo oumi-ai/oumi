@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import time
 from datetime import datetime
 from pprint import pformat
 from typing import Any
@@ -86,7 +85,6 @@ def evaluate(
 
     # Get a timestamp for the current run.
     start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    start_time = time.time()
 
     # Load the evaluation dataset.
     logger.info("Loading the `tatsu-lab/alpaca_eval` dataset.")
@@ -137,7 +135,6 @@ def evaluate(
         sort_by=sort_by_metric,
         **task_params.eval_kwargs,
     )  # type: ignore
-    elapsed_time_sec = time.time() - start_time
 
     # Metrics are only available on the main process, and `None` on others.
     if not is_world_process_zero():
@@ -150,7 +147,6 @@ def evaluate(
             metric_dict: dict[str, Any] = {
                 str(metric): value for metric, value in metrics.items()
             }
-            logger.info(f"AlpacaEval run completed in {elapsed_time_sec:.2f} secs.")
             logger.info(f"AlpacaEval's metric dict is {pformat(metric_dict)}.")
         else:
             logger.error("AlpacaEval results not found in leaderboard.")

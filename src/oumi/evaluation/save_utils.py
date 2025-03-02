@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.utils.logging import logger
 from oumi.utils.serialization_utils import json_serializer
 from oumi.utils.version_utils import get_python_package_versions
 
@@ -59,6 +60,10 @@ def _find_non_existing_output_dir_from_base_dir(base_dir: Path) -> Path:
     while base_dir.exists():
         counter += 1
         base_dir = Path(f"{base_dir}_{counter}")
+        logger.warning(
+            "The requested output directory already exists. Creating a new directory "
+            f"to avoid overwriting previous evaluation results: {base_dir}."
+        )
     return base_dir
 
 
@@ -68,8 +73,6 @@ def save_evaluation_output(
     evaluation_result: EvaluationResult,
     base_output_dir: Optional[str],
     config: Optional[EvaluationConfig],
-    start_time_str: Optional[str],
-    elapsed_time_sec: Optional[int],
 ) -> None:
     """Writes configuration settings and evaluation outputs to files.
 
@@ -83,8 +86,6 @@ def save_evaluation_output(
             an existing directory with the same name, a new directory with a unique
             index will be created: `<base_output_dir> / <backend_name>_<time>_<index>`.
         config: Oumi evaluation configuration settings used for the evaluation.
-        start_time_str: User-friendly string with the start date/time of the evaluation.
-        elapsed_time_sec: The duration of the evaluation (in seconds).
     """
     # Ensure the evaluation backend and output directory are valid.
     if not backend_name:
@@ -92,7 +93,9 @@ def save_evaluation_output(
     base_output_dir = base_output_dir or "."
 
     # Create the output directory: `<base_output_dir> / <backend_name>_<time>`.
-    start_time_in_path = f"_{start_time_str}" if start_time_str else ""
+    start_time_in_path = (
+        f"_{evaluation_result.start_time}" if evaluation_result.start_time else ""
+    )
     output_dir = Path(base_output_dir) / f"{backend_name}{start_time_in_path}"
     if output_dir.exists():
         output_dir = _find_non_existing_output_dir_from_base_dir(output_dir)
@@ -103,10 +106,10 @@ def save_evaluation_output(
         task_result = copy.deepcopy(evaluation_result.task_result)
     else:
         task_result = {}
-    if start_time_str:
-        task_result["start_time"] = start_time_str
-    if elapsed_time_sec:
-        task_result["duration_sec"] = elapsed_time_sec
+    if evaluation_result.start_time:
+        task_result["start_time"] = evaluation_result.start_time
+    if evaluation_result.elapsed_time_sec:
+        task_result["duration_sec"] = evaluation_result.elapsed_time_sec
     if task_result:
         _save_to_file(output_dir / OUTPUT_FILENAME_TASK_RESULT, task_result)
 
