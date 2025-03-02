@@ -20,7 +20,7 @@ from oumi.utils.packaging import PackagePrerequisites, check_package_prerequisit
 # The `BACKEND_PREREQUISITES` dictionary is 2-levels deep (`dict` of nested `dict`s)
 # and contains the list of prerequisites (`PackagePrerequisites`) for each evaluation
 # backend. Specifically:
-# - The 1st-level key determines the evaluation backend (`EvaluationPlatform` Enum).
+# - The 1st-level key determines the evaluation backend (`EvaluationBackend` Enum).
 # - The 2nd-level key is an `str` that signifies either:
 #   - The task name of the task to be executed in the backend.
 #   - The key `ALL_TASK_PREREQUISITES_KEY`, which returns the aggregate backend

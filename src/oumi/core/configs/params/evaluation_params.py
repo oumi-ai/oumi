@@ -116,7 +116,7 @@ class EvaluationTaskParams(BaseParams):
                 "Missing `evaluation_backend`. When running evaluations, it is "
                 "necessary to specify the evaluation backend to use for EACH task. "
                 "The available backends can be found in the following enum: "
-                "`oumi.core.configs.params.evaluation_params.EvaluationPlatform`. "
+                "`oumi.core.configs.params.evaluation_params.EvaluationBackend`. "
                 f"Current options: {EvaluationTaskParams.list_evaluation_backends()}."
             )
         elif self.evaluation_backend == EvaluationBackend.LM_HARNESS.value:

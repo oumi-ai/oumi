@@ -78,10 +78,10 @@ def save_evaluation_output(
         task_params: Oumi task parameters used for this evaluation.
         evaluation_result: The evaluation results to save.
         base_output_dir: The directory where the evaluation results will be saved.
-            A subdirectory with the name `<base_output_dir> / <platform>_<time>`
+            A subdirectory with the name `<base_output_dir> / <backend_name>_<time>`
             will be created to retain all files related to this evaluation. If there is
             an existing directory with the same name, a new directory with a unique
-            index will be created: `<base_output_dir> / <platform>_<time>_<index>`.
+            index will be created: `<base_output_dir> / <backend_name>_<time>_<index>`.
         config: Oumi evaluation configuration settings used for the evaluation.
         start_time_str: User-friendly string with the start date/time of the evaluation.
         elapsed_time_sec: The duration of the evaluation (in seconds).
@@ -91,7 +91,7 @@ def save_evaluation_output(
         raise ValueError("The evaluation backend name must be provided.")
     base_output_dir = base_output_dir or "."
 
-    # Create the output directory: `<base_output_dir> / <platform>_<time>`.
+    # Create the output directory: `<base_output_dir> / <backend_name>_<time>`.
     start_time_in_path = f"_{start_time_str}" if start_time_str else ""
     output_dir = Path(base_output_dir) / f"{backend_name}{start_time_in_path}"
     if output_dir.exists():
@@ -110,7 +110,7 @@ def save_evaluation_output(
     if task_result:
         _save_to_file(output_dir / OUTPUT_FILENAME_TASK_RESULT, task_result)
 
-    # Save platform-specific task configuration.
+    # Save backend-specific task configuration.
     if evaluation_result.backend_config:
         _save_to_file(
             output_dir / OUTPUT_FILENAME_BACKEND_CONFIG,

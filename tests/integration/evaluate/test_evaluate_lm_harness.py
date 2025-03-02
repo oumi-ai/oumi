@@ -72,7 +72,7 @@ def _validate_results_in_file(
     task_name: str,
 ) -> None:
     # Identify the relevant `output_path` for the evaluation test:
-    # <output_dir> / <platform>_<timestamp> / platform_results.json
+    # <output_dir> / <backend>_<timestamp> / task_result.json
     subfolders = [f for f in os.listdir(output_dir) if f.startswith("lm_harness_")]
     assert len(subfolders) == 1
     output_path = os.path.join(output_dir, subfolders[0], "task_result.json")
