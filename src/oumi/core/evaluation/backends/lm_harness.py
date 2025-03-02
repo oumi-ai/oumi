@@ -41,6 +41,8 @@ from oumi.core.distributed import is_world_process_zero
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.utils.logging import logger
 
+_LOG_SAMPLES_KEY = "log_samples"
+
 # Used to set the few-shot seed for lm_eval.api.task.Task. The value is consistent with
 # LM Harness `simple_evaluate`'s default `fewshot_random_seed` = 1234.
 FEW_SHOT_SEED = 1234
@@ -345,11 +347,14 @@ def evaluate(
     lm = lm_class(**lm_harness_model_params)
 
     logger.info("Starting evaluation...")
+    log_samples = False
+    if _LOG_SAMPLES_KEY in task_params.eval_kwargs:
+        log_samples = task_params.eval_kwargs.pop(_LOG_SAMPLES_KEY)
     lm_eval_output = lm_harness_evaluate(
         lm=lm,
         task_dict=task_dict,
         limit=task_params.num_samples,
-        log_samples=False,  # Set to `True` to log all responses or logits.
+        log_samples=log_samples,  # Set to `True` to log all responses or logits.
         apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )
