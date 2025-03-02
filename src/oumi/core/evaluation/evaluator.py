@@ -34,7 +34,25 @@ from oumi.evaluation.save_utils import save_evaluation_output
 
 
 class Evaluator:
-    """Oumi evaluator for evaluating models on various backends and tasks."""
+    """A class for evaluating language models on various tasks.
+
+    Currently, the evaluator supports a wide range of tasks that are handled by three
+    separate backends: LM Harness, Alpaca Eval, and Custom.
+
+    - LM Harness: Framework by EleutherAI for evaluating language models (mostly) on
+        standardized benchmarks (multiple-choice, word match, etc). The backend supports
+        a large number of popular benchmarks, which can be found at:
+        https://github.com/EleutherAI/lm-evaluation-harness/tree/main/lm_eval/tasks.
+    - Alpaca Eval: Framework for evaluating the instruction-following capabilities of
+        language models, as well as whether their responses are helpful, accurate, and
+        relevant. The instruction set consists of 805 open-ended questions, while the
+        evaluation is based on "LLM-as-judge" and prioritizes human-alignment, aiming
+        to assess whether the model responses meet the expectations of human evaluators.
+    - Custom: Users can register their own evaluation functions using the decorator
+        `@register_evaluation_function` and run custom evaluations based on their
+        functions. Note that the `task_name` should be the registry key for the custom
+        evaluation function to be used.
+    """
 
     def evaluate(self, config: EvaluationConfig, **kwargs) -> list[EvaluationResult]:
         """Evaluates a model using the provided evaluation configuration.
