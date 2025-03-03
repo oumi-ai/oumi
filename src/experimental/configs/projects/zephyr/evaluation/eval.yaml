@@ -25,7 +25,7 @@ model:
   attn_implementation: "sdpa"
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
     eval_kwargs:
       num_fewshot: 5

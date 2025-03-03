@@ -79,7 +79,7 @@ model:
   trust_remote_code: True
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
 
 output_dir: "my_evaluation_results"
@@ -99,7 +99,7 @@ model:
   shard_for_eval: True
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
 
 output_dir: "my_evaluation_results"
@@ -118,13 +118,13 @@ Only single node, multiple GPU machine configurations are currently allowed i.e.
 
 ## Results and Logging
 
-The evaluation outputs are saved under the specified `output_dir`, in a folder named `<platform>_<timestamp>`. This folder includes the evaluation results and all metadata required to reproduce the results.
+The evaluation outputs are saved under the specified `output_dir`, in a folder named `<backend>_<timestamp>`. This folder includes the evaluation results and all metadata required to reproduce the results.
 
 ### Evaluation Results
 
 | File | Description |
 |------|-------------|
-| `platform_results.json` | A dictionary that contains all evaluation metrics relevant to the benchmark, together with the execution duration, and date/time of execution.
+| `task_result.json` | A dictionary that contains all evaluation metrics relevant to the benchmark, together with the execution duration, and date/time of execution.
 
 **Schema**
 ```yaml
