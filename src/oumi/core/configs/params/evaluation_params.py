@@ -103,6 +103,15 @@ class EvaluationTaskParams(BaseParams):
     If set, this must be a positive integer.
     """
 
+    log_samples: Optional[bool] = False
+    """Whether to log the samples used for evaluation.
+
+    If not set (False): the model samples used for evaluation will not be logged.
+    If set to True: the model samples generated during inference and used for
+    evaluation will be logged in `backend_config.json`. The backend may also log
+    other intermediate results related to inference.
+    """
+
     eval_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments to pass to the evaluation function.
 

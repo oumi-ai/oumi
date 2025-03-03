@@ -159,8 +159,10 @@ def evaluate(
         "fn_metric": fn_metric,
         "max_instances": task_params.num_samples,
         "other_params": task_params.eval_kwargs,
-        "model_outputs": responses_json,
     }
+
+    if task_params.log_samples:
+        backend_task_config["model_outputs"] = responses_json
 
     return EvaluationResult(
         task_name=task_params.task_name,
