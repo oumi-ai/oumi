@@ -1,0 +1,15 @@
+name: Continuous Integration Tests
+
+on:
+  schedule:
+    - cron: '0 */8 * * *' # Every 8 hours
+  workflow_dispatch:
+
+jobs:
+  cpu-tests:
+    secrets: inherit
+    uses: ./.github/workflows/pretest.yaml
+
+  gpu-tests:
+    secrets: inherit
+    uses: ./.github/workflows/gpu_tests.yaml
