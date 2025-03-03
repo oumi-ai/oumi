@@ -2,15 +2,17 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Union
 
 import typer
 import yaml
+from rich import box
+from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.syntax import Syntax
 from rich.table import Table
+from rich.text import Text
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -18,51 +20,140 @@ app = typer.Typer()
 console = Console(width=100)
 
 # Demo configuration
-models = {
-    "Small model (SmolLM2-135M-Instruct)": "HuggingFaceTB/SmolLM2-135M-Instruct",
-    "Medium model (DeepSeek-R1-Distill-Qwen-1.5B)": (
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-    ),
-    "Large model (Llama-2-7B-hf)": "meta-llama/Llama-2-7b-hf",
-}
+models = [
+    {
+        "name": "XS model",
+        "description": "SmolLM2-135M-Instruct",
+        "value": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    },
+    {
+        "name": "Small model",
+        "description": "Qwen-1.5B",
+        "value": "Qwen/Qwen2.5-Math-1.5B",
+    },
+    {
+        "name": "Medium model",
+        "description": "Llama-3.1-8B-Instruct",
+        "value": "meta-llama/Llama-3.1-8B-Instruct",
+    },
+    {
+        "name": "Large model",
+        "description": "Llama-3.3-70B-Instruct",
+        "value": "meta-llama/Llama-3.3-70B-Instruct",
+    },
+]
 
-datasets = {
-    "Alpaca (Instruction tuning)": "yahma/alpaca-cleaned",
-    "MetaMathQA-R1 (Math reasoning)": "oumi-ai/MetaMathQA-R1",
-}
+datasets = [
+    {
+        "name": "Alpaca",
+        "description": "Instruction tuning",
+        "value": "yahma/alpaca-cleaned",
+    },
+    {
+        "name": "MetaMathQA-R1",
+        "description": "Math reasoning",
+        "value": "oumi-ai/MetaMathQA-R1",
+    },
+]
 
-benchmarks = {
-    "MMLU (General knowledge)": "mmlu_college_computer_science",
-    "GSM8K (Mathematical reasoning)": "gsm8k_valid",
-    "TruthfulQA (Factual accuracy)": "truthfulqa_mc2",
-    "HellaSwag (Common sense reasoning)": "hellaswag",
-}
+benchmarks = [
+    {
+        "name": "MMLU",
+        "description": "General knowledge",
+        "value": "mmlu_college_computer_science",
+    },
+    {
+        "name": "GSM8K",
+        "description": "Mathematical reasoning",
+        "value": "gsm8k_valid",
+    },
+    {
+        "name": "TruthfulQA",
+        "description": "Factual accuracy",
+        "value": "truthfulqa_mc2",
+    },
+    {
+        "name": "HellaSwag",
+        "description": "Common sense reasoning",
+        "value": "hellaswag",
+    },
+]
 
-cloud_providers = {
-    "Local": "local",
-    "Google Cloud Platform (GCP)": "gcp",
-    "AWS": "aws",
-    "RunPod": "runpod",
-    "Lambda Labs": "lambda",
-}
+cloud_providers = [
+    {
+        "name": "Local",
+        "value": "local",
+    },
+    {
+        "name": "Google Cloud Platform",
+        "description": "GCP",
+        "value": "gcp",
+    },
+    {
+        "name": "AWS",
+        "value": "aws",
+    },
+    {
+        "name": "RunPod",
+        "value": "runpod",
+    },
+    {
+        "name": "Lambda Labs",
+        "value": "lambda",
+    },
+]
 
-hardware_options = {
-    "CPU Only": "cpu:32",
-    "1 x NVIDIA A100 GPUs": "A100:1",
-    "4 x NVIDIA A100 GPUs": "A100:4",
-    "8 x NVIDIA A100 GPUs": "A100:8",
-    "8 x NVIDIA H100 GPUs": "H100:8",
-}
+hardware_options = [
+    {
+        "name": "CPU Only",
+        "value": "cpu:32",
+    },
+    {
+        "name": "1 x NVIDIA A100 GPUs",
+        "value": "A100:1",
+    },
+    {
+        "name": "4 x NVIDIA A100 GPUs",
+        "value": "A100:4",
+    },
+    {
+        "name": "8 x NVIDIA A100 GPUs",
+        "value": "A100:8",
+    },
+    {
+        "name": "8 x NVIDIA H100 GPUs",
+        "value": "H100:8",
+    },
+]
+
+
+training_options = [
+    {
+        "name": "Quick demo",
+        "description": "25 steps",
+        "value": "25",
+    },
+    {
+        "name": "Extended training",
+        "description": "1000 steps",
+        "value": "1000",
+    },
+    {
+        "name": "Full training",
+        "description": "5000 steps",
+        "value": "5000",
+    },
+]
 
 
 def show_logo():
     """Display the Oumi platform logo in a panel."""
-    logo_text = """
-   ____  _    _ __  __ _____ 
+    logo_text = r"""
+   ____  _    _ __  __ _____
   / __ \| |  | |  \/  |_   _|
- | |  | | |  | | \  / | | |  
- | |  | | |  | | |\/| | | |  
- | |__| | |__| | |  | |_| |_ 
+ | |  | | |  | | \  / | | |
+ | |  | | |  | | |\/| | | |
+ | |__| | |__| | |  | |_| |_
   \____/ \____/|_|  |_|_____|"""
 
     tagline = (
@@ -74,8 +165,6 @@ def show_logo():
             f"[center]{logo_text}\n\n[bold cyan]Oumi:[/bold cyan] {tagline}[/center]",
             style="green",
             border_style="bright_blue",
-            # padding=(2, 4),
-            # width=console.width - 4,
         )
     )
 
@@ -167,7 +256,7 @@ def create_config_file(config_data: dict, filename: str):
 
 def select_from_choices(
     prompt: str,
-    choices: Union[dict[str, str], list[str]],
+    choices: list[dict[str, str]],
     default: str = "1",
     show_descriptions: bool = True,
 ) -> tuple[str, str]:
@@ -175,38 +264,44 @@ def select_from_choices(
 
     Args:
         prompt: The prompt to display to the user
-        choices: Dictionary of choice descriptions to values, or list of choices
+        choices: List of choice dictionaries with name, description (optional), and value,
+                or dictionary of choice descriptions to values, or list of choices
         default: Default choice number
         show_descriptions: Whether to show the full descriptions of choices
 
     Returns:
         A tuple of (selected description, selected value)
     """
-    if isinstance(choices, list):
-        choices_dict = {choice: choice for choice in choices}
-    else:
-        choices_dict = choices
+    options = []
+    for i, choice in enumerate(choices, 1):
+        option = Text()
+        option.append(f"{i}. ", style="cyan")
+        option.append(choice["name"], style="bold")
+        if show_descriptions and choice.get("description"):
+            option.append(f" ({choice['description']})", style="dim")
+        options.append(option)
 
-    # Display choices with numbers
-    console.print("\nAvailable options:")
-    for i, (desc, _) in enumerate(choices_dict.items(), 1):
-        if show_descriptions:
-            console.print(f"  {i}. {desc}")
-        else:
-            short_desc = desc.split(" (")[0]  # Take text before any parentheses
-            console.print(f"  {i}. {short_desc}")
+    # Display options in a nice grid layout
+    columns = Columns(options, equal=True, expand=True, padding=(0, 2))
+    console.print(
+        Panel(
+            columns,
+            title="[yellow]Available Options[/yellow]",
+            border_style="blue",
+            box=box.ROUNDED,
+            padding=(1, 1),
+        )
+    )
 
     # Get user selection
     choice_idx = Prompt.ask(
         f"\n{prompt}",
-        choices=[str(i) for i in range(1, len(choices_dict) + 1)],
+        choices=[str(i) for i in range(1, len(choices) + 1)],
         default=default,
     )
 
-    selected_desc = list(choices_dict.keys())[int(choice_idx) - 1]
-    selected_value = choices_dict[selected_desc]
-
-    return selected_desc, selected_value
+    selected = choices[int(choice_idx) - 1]
+    return selected["name"], selected["value"]
 
 
 @app.command()
@@ -250,11 +345,6 @@ def run_demo():
     section_header("4. Creating Configuration Files")
 
     # Training type selection
-    training_options = {
-        "Quick demo (25 steps)": "25",
-        "Extended training (1000 steps)": "1000",
-        "Full training (5000 steps)": "5000",
-    }
 
     training_choice, steps_str = select_from_choices(
         "Select training mode", training_options
