@@ -14,6 +14,15 @@ from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
+ENABLE_WANDB = False
+try:
+    import wandb
+
+    if wandb.api.api_key is not None:
+        ENABLE_WANDB = True
+except (ImportError, AttributeError):
+    pass
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer()
@@ -63,9 +72,9 @@ benchmarks = [
         "value": "mmlu_college_computer_science",
     },
     {
-        "name": "GSM8K",
-        "description": "Mathematical reasoning",
-        "value": "gsm8k_valid",
+        "name": "Arc Challenge",
+        "description": "Scientific reasoning",
+        "value": "arc_challenge",
     },
     {
         "name": "TruthfulQA",
@@ -469,16 +478,12 @@ def run_demo():
             {
                 "evaluation_platform": "lm_harness",
                 "task_name": benchmarks[i]["value"],
-                "eval_kwargs": {
-                    # "num_fewshot": 5,
-                    # "limit": 10,  # Evaluate on full dataset
-                },
+                "num_samples": 10,
             }
             for i in selected_indices
             if 0 <= i < len(benchmarks)
         ],
         "output_dir": "eval_results",
-        "enable_wandb": False,  # Set to True to enable W&B logging
     }
 
     # Save evaluation config
@@ -489,8 +494,8 @@ def run_demo():
     # Run evaluation with progress tracking
     try:
         with console.status("[bold green]Running evaluation...") as status:
-            results = run_command("oumi evaluate -c eval_config.yaml")
-            console.print(results)
+            run_command("oumi evaluate -c eval_config.yaml")
+
         # Display results
         results_dir = Path("eval_results")
         if results_dir.exists():
@@ -498,24 +503,72 @@ def run_demo():
             table.add_column("Benchmark", style="cyan")
             table.add_column("Metric", style="yellow")
             table.add_column("Score", style="green")
+            table.add_column("Std Error", style="dim")
 
-            for task_dir in results_dir.glob("lm_harness*"):
-                result_file = task_dir / "task_result.json"
-                if result_file.exists():
-                    with open(result_file) as f:
-                        results = yaml.safe_load(f)
-                        for metric, value in results.items():
+            # Find the latest run folder
+            run_folders = list(results_dir.glob("lm_harness*"))
+            if not run_folders:
+                console.print("\n[red]! No evaluation results found[/red]")
+                return
+
+            latest_run = max(run_folders, key=lambda x: str(x))
+            result_file = latest_run / "platform_results.json"
+
+            if result_file.exists():
+                with open(result_file) as f:
+                    data = json.load(f)
+                    results = data.get("results", {})
+                    eval_duration = data.get("duration_sec")
+
+                    for task_name, metrics in results.items():
+                        # Get the benchmark display name from our benchmarks list
+                        benchmark_name = next(
+                            (b["name"] for b in benchmarks if b["value"] == task_name),
+                            task_name,
+                        )
+
+                        # Process metrics
+                        for metric_name, value in metrics.items():
                             if isinstance(value, (int, float)):
-                                table.add_row(
-                                    task_dir.name.split("_")[0],
-                                    metric,
-                                    f"{value:.2%}" if value <= 1 else f"{value:.2f}",
+                                # Extract base metric name and type
+                                base_name, *metric_type = metric_name.split(",")
+
+                                # Skip if this is a stderr metric - we'll handle it with the main metric
+                                if base_name.endswith("_stderr"):
+                                    continue
+
+                                # Get corresponding stderr if it exists
+                                stderr_key = f"{base_name}_stderr,{metric_type[0] if metric_type else 'none'}"
+                                stderr_value = metrics.get(stderr_key)
+                                stderr_display = (
+                                    f"±{stderr_value:.2%}"
+                                    if stderr_value is not None
+                                    else "-"
                                 )
 
-            console.print(table)
-            console.print(
-                "\n[green]✓ Evaluation complete! Results saved to eval_results/[/green]"
-            )
+                                # Clean up metric name
+                                clean_metric = base_name.replace("_", " ").title()
+
+                                table.add_row(
+                                    benchmark_name,
+                                    clean_metric,
+                                    f"{value:.2%}" if value <= 1 else f"{value:.2f}",
+                                    stderr_display,
+                                )
+
+                console.print(table)
+
+                # Display evaluation metadata
+                if eval_duration is not None:
+                    console.print(
+                        f"\n[dim]Evaluation completed in {eval_duration:.2f} seconds[/dim]"
+                    )
+
+                console.print(
+                    "\n[green]✓ Evaluation complete! Results saved to eval_results/[/green]"
+                )
+            else:
+                console.print("\n[red]! No results file found in the latest run[/red]")
         else:
             console.print("\n[red]! No evaluation results found[/red]")
 
@@ -611,14 +664,12 @@ def run_demo():
     display_yaml_config(deploy_config, "Deployment Configuration")
 
     # Launch the deployment
+    console.print("\n[bold]Running inference...[/bold]")
     run_command("oumi launch up -c job_config.yaml")
     pause()
 
     # Final screen
-    console.print(
-        "\n[green bold]Thank you for attending this demonstration of the "
-        "Oumi platform![/green bold]\n"
-    )
+
     console.print("For more information:")
     console.print(
         "- Documentation: [blue underline]https://oumi.ai/docs[/blue underline]"
@@ -631,7 +682,7 @@ def run_demo():
         "- Community: [blue underline]https://discord.gg/oumi[/blue underline]"
     )
 
-    console.print("\n[green bold]Demo complete! Ready for questions.[/green bold]\n")
+    console.print("\n[green bold]Demo complete![/green bold]\n")
 
 
 if __name__ == "__main__":
