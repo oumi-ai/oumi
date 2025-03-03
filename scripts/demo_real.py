@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -10,7 +11,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-os.environ["TOKENIZERS_PARALLELISM="] = "false"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer()
 console = Console()
@@ -32,23 +33,24 @@ datasets = {
 benchmarks = {
     "MMLU (General knowledge)": "mmlu_college_computer_science",
     "GSM8K (Mathematical reasoning)": "gsm8k_valid",
-    "TruthfulQA (Factual accuracy)": "truthfulqa_mc",
+    "TruthfulQA (Factual accuracy)": "truthfulqa_mc2",
     "HellaSwag (Common sense reasoning)": "hellaswag",
 }
 
 cloud_providers = {
+    "Local": "local",
     "Google Cloud Platform (GCP)": "gcp",
     "AWS": "aws",
     "RunPod": "runpod",
     "Lambda Labs": "lambda",
-    "Local (Demo Only)": "local",
 }
 
 hardware_options = {
+    "CPU Only": "cpu:32",
+    "1 x NVIDIA A100 GPUs": "A100:1",
     "4 x NVIDIA A100 GPUs": "A100:4",
     "8 x NVIDIA A100 GPUs": "A100:8",
-    "V100 Cluster": "V100:8",
-    "CPU Only": "cpu:32",
+    "8 x NVIDIA H100 GPUs": "H100:8",
 }
 
 
@@ -192,7 +194,9 @@ def run_demo():
     # Setup & Installation
     section_header("1. Setup & Installation")
     run_command("pip install -U oumi")
-    run_command("oumi env")  # Show environment info
+    pause()
+
+    run_command("oumi env")
     pause()
 
     # Model Selection
@@ -218,7 +222,7 @@ def run_demo():
     }
 
     training_choice, steps_str = select_from_choices(
-        "Select training mode", training_options, default="1"
+        "Select training mode", training_options
     )
     console.print(f"\nSelected: [green]{training_choice}[/green]")
 
@@ -384,13 +388,27 @@ def run_demo():
     )
 
     # Create sample input file
-    sample_prompts = [
-        "What is machine learning?",
-        "Explain how neural networks work.",
-        "What are the applications of AI in healthcare?",
+    sample_conversations = [
+        {"messages": [{"role": "user", "content": "What is machine learning?"}]},
+        {
+            "messages": [
+                {"role": "user", "content": "Explain how neural networks work."}
+            ]
+        },
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What are the applications of AI in healthcare?",
+                }
+            ]
+        },
     ]
-    with open("test_prompt.txt", "w") as f:
-        f.write("\n".join(sample_prompts))
+
+    # Write conversations in JSONL format
+    with open("test_prompt.jsonl", "w") as f:
+        for conv in sample_conversations:
+            f.write(json.dumps(conv) + "\n")
 
     # Create inference configuration
     infer_config = {
@@ -404,9 +422,10 @@ def run_demo():
             "batch_size": 1,
             "max_new_tokens": 512,
             "temperature": 0.7,
+            "top_p": 0.95,
         },
-        "input_path": "test_prompt.txt",  # Path to input prompts
-        "output_path": "responses.txt",  # Path to save responses
+        "input_path": "test_prompt.jsonl",  # Path to input prompts
+        # "output_path": "responses.jsonl",  # Path to save responses
     }
 
     # Save inference config
@@ -423,7 +442,7 @@ def run_demo():
         },
         "working_dir": ".",
         "envs": {"MODEL_NAME": "output"},
-        "run": "oumi infer -c infer_config.yaml",  # Removed --input flag since it's in config
+        "run": "oumi infer -c infer_config.yaml",
     }
 
     create_config_file(deploy_config, "job_config.yaml")
