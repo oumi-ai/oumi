@@ -1,8 +1,8 @@
-name: Nightly Tests
+name: Continuous Integration Tests
 
 on:
   schedule:
-    - cron: '23 6 * * *' # 6:23 AM UTC ~ 11:23 PM PST
+    - cron: '0 */8 * * *' # Every 8 hours
   workflow_dispatch:
 
 jobs:
