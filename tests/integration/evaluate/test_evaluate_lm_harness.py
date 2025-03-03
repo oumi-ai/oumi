@@ -16,14 +16,13 @@ from oumi.core.configs import (
     ModelParams,
 )
 from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.evaluation.lm_harness import _get_task_dict
-from oumi.evaluation.save_utils import OUTPUT_FILENAME_PLATFORM_RESULTS
+from oumi.core.evaluation.backends.lm_harness import _get_task_dict
 from tests.markers import requires_gpus
 
 
 def _get_evaluation_config(input_config: dict) -> EvaluationConfig:
     evaluation_task_params = EvaluationTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name=input_config["task_name"],
         num_samples=input_config["num_samples"],
     )
@@ -73,12 +72,10 @@ def _validate_results_in_file(
     task_name: str,
 ) -> None:
     # Identify the relevant `output_path` for the evaluation test:
-    # <output_dir> / <platform>_<timestamp> / platform_results.json
+    # <output_dir> / <backend>_<timestamp> / task_result.json
     subfolders = [f for f in os.listdir(output_dir) if f.startswith("lm_harness_")]
     assert len(subfolders) == 1
-    output_path = os.path.join(
-        output_dir, subfolders[0], OUTPUT_FILENAME_PLATFORM_RESULTS
-    )
+    output_path = os.path.join(output_dir, subfolders[0], "task_result.json")
     assert os.path.exists(output_path)
 
     # Read the results from the evaluation test's output file.
@@ -154,7 +151,7 @@ def test_evaluate_lm_harness(input_config, expected_results):
 
 def test_get_task_dict_for_configurable_task():
     task_params = LMHarnessTaskParams(
-        evaluation_platform="lm_harness",
+        evaluation_backend="lm_harness",
         task_name="mmlu_college_computer_science",
         num_fewshot=33,
     )
@@ -173,7 +170,7 @@ def test_get_task_dict_for_configurable_task():
 
 def test_get_task_dict_for_configurable_group():
     task_params = LMHarnessTaskParams(
-        evaluation_platform="lm_harness", task_name="mmmu_val", num_fewshot=222
+        evaluation_backend="lm_harness", task_name="mmmu_val", num_fewshot=222
     )
 
     task_dict = _get_task_dict(task_params)

@@ -20,7 +20,7 @@ model:
   trust_remote_code: False # Set to true for HuggingFace models
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: <`Task Name` from the tables below>
     eval_kwargs:
       num_fewshot: <number of few-shot prompts, if applicable>
