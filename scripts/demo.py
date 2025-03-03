@@ -9,6 +9,7 @@ import yaml
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
+from rich.syntax import Syntax
 from rich.table import Table
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -88,6 +89,24 @@ def section_header(title):
     console.print(f"\n[blue]{'━' * console.width}[/blue]")
     console.print(f"[yellow]   {title}[/yellow]")
     console.print(f"[blue]{'━' * console.width}[/blue]\n")
+
+
+def display_yaml_config(config: dict, title: str = "Configuration"):
+    """Display a YAML configuration in a panel with syntax highlighting.
+
+    Args:
+        config: The configuration dictionary to display
+        title: The title for the panel
+    """
+    yaml_str = yaml.dump(config)
+    console.print(
+        Panel(
+            Syntax(yaml_str, "yaml"),
+            title=title,
+            border_style="bright_blue",
+            highlight=True,
+        )
+    )
 
 
 def show_intro():
@@ -270,7 +289,7 @@ def run_demo():
     # Save training config
     create_config_file(train_config, "train_config.yaml")
     console.print("\nCreated training configuration:")
-    console.print(yaml.dump(train_config))
+    display_yaml_config(train_config, "Training Configuration")
     pause()
 
     # Training
@@ -341,7 +360,7 @@ def run_demo():
     # Save evaluation config
     create_config_file(eval_config, "eval_config.yaml")
     console.print("\nCreated evaluation configuration:")
-    console.print(yaml.dump(eval_config))
+    display_yaml_config(eval_config, "Evaluation Configuration")
 
     # Run evaluation with progress tracking
     try:
@@ -447,7 +466,7 @@ def run_demo():
     # Save inference config
     create_config_file(infer_config, "infer_config.yaml")
     console.print("\nCreated inference configuration:")
-    console.print(yaml.dump(infer_config))
+    display_yaml_config(infer_config, "Inference Configuration")
 
     # Create deployment config
     deploy_config = {
@@ -465,7 +484,7 @@ def run_demo():
         deploy_config["setup"] = "pip install uv && uv pip install oumi[gpu]"
     create_config_file(deploy_config, "job_config.yaml")
     console.print("\nCreated deployment configuration:")
-    console.print(yaml.dump(deploy_config))
+    display_yaml_config(deploy_config, "Deployment Configuration")
 
     # Launch the deployment
     run_command("oumi launch up -c job_config.yaml")
