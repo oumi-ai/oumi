@@ -1,6 +1,7 @@
 name: "GPU Tests"
 
 on:
+  workflow_call:
   pull_request:
     paths-ignore:
       - 'docs/**'
