@@ -115,7 +115,7 @@ cloud_providers = [
 hardware_options = [
     {
         "name": "CPU Only",
-        "value": "cpu:32",
+        "value": "cpu",
     },
     {
         "name": "1 x NVIDIA A100 GPUs",
@@ -499,76 +499,93 @@ def run_demo():
         # Display results
         results_dir = Path("eval_results")
         if results_dir.exists():
-            table = Table(title="Evaluation Results")
-            table.add_column("Benchmark", style="cyan")
-            table.add_column("Metric", style="yellow")
-            table.add_column("Score", style="green")
-            table.add_column("Std Error", style="dim")
-
-            # Find the latest run folder
+            # Find all run folders
             run_folders = list(results_dir.glob("lm_harness*"))
             if not run_folders:
                 console.print("\n[red]! No evaluation results found[/red]")
                 return
 
-            latest_run = max(run_folders, key=lambda x: str(x))
-            result_file = latest_run / "platform_results.json"
+            # Sort folders by timestamp (newest first)
+            run_folders.sort(key=lambda x: str(x), reverse=True)
 
-            if result_file.exists():
-                with open(result_file) as f:
-                    data = json.load(f)
-                    results = data.get("results", {})
-                    eval_duration = data.get("duration_sec")
-
-                    for task_name, metrics in results.items():
-                        # Get the benchmark display name from our benchmarks list
-                        benchmark_name = next(
-                            (b["name"] for b in benchmarks if b["value"] == task_name),
-                            task_name,
-                        )
-
-                        # Process metrics
-                        for metric_name, value in metrics.items():
-                            if isinstance(value, (int, float)):
-                                # Extract base metric name and type
-                                base_name, *metric_type = metric_name.split(",")
-
-                                # Skip if this is a stderr metric - we'll handle it with the main metric
-                                if base_name.endswith("_stderr"):
-                                    continue
-
-                                # Get corresponding stderr if it exists
-                                stderr_key = f"{base_name}_stderr,{metric_type[0] if metric_type else 'none'}"
-                                stderr_value = metrics.get(stderr_key)
-                                stderr_display = (
-                                    f"±{stderr_value:.2%}"
-                                    if stderr_value is not None
-                                    else "-"
-                                )
-
-                                # Clean up metric name
-                                clean_metric = base_name.replace("_", " ").title()
-
-                                table.add_row(
-                                    benchmark_name,
-                                    clean_metric,
-                                    f"{value:.2%}" if value <= 1 else f"{value:.2f}",
-                                    stderr_display,
-                                )
-
-                console.print(table)
-
-                # Display evaluation metadata
-                if eval_duration is not None:
-                    console.print(
-                        f"\n[dim]Evaluation completed in {eval_duration:.2f} seconds[/dim]"
+            for run_folder in run_folders:
+                result_file = run_folder / "platform_results.json"
+                if result_file.exists():
+                    # Extract timestamp from folder name
+                    timestamp = (
+                        run_folder.name.split("_", 1)[1]
+                        if "_" in run_folder.name
+                        else ""
                     )
 
-                console.print(
-                    "\n[green]✓ Evaluation complete! Results saved to eval_results/[/green]"
-                )
-            else:
-                console.print("\n[red]! No results file found in the latest run[/red]")
+                    table = Table(
+                        title=f"Evaluation Results - Run {timestamp}",
+                        title_style="bold magenta",
+                    )
+                    table.add_column("Benchmark", style="cyan")
+                    table.add_column("Metric", style="yellow")
+                    table.add_column("Score", style="green")
+                    table.add_column("Std Error", style="dim")
+
+                    with open(result_file) as f:
+                        data = json.load(f)
+                        results = data.get("results", {})
+                        eval_duration = data.get("duration_sec")
+
+                        for task_name, metrics in results.items():
+                            # Get the benchmark display name from our benchmarks list
+                            benchmark_name = next(
+                                (
+                                    b["name"]
+                                    for b in benchmarks
+                                    if b["value"] == task_name
+                                ),
+                                task_name,
+                            )
+
+                            # Process metrics
+                            for metric_name, value in metrics.items():
+                                if isinstance(value, (int, float)):
+                                    # Extract base metric name and type
+                                    base_name, *metric_type = metric_name.split(",")
+
+                                    # Skip if this is a stderr metric - we'll handle it with the main metric
+                                    if base_name.endswith("_stderr"):
+                                        continue
+
+                                    # Get corresponding stderr if it exists
+                                    stderr_key = f"{base_name}_stderr,{metric_type[0] if metric_type else 'none'}"
+                                    stderr_value = metrics.get(stderr_key)
+                                    stderr_display = (
+                                        f"±{stderr_value:.2%}"
+                                        if stderr_value is not None
+                                        else "-"
+                                    )
+
+                                    # Clean up metric name
+                                    clean_metric = base_name.replace("_", " ").title()
+
+                                    table.add_row(
+                                        benchmark_name,
+                                        clean_metric,
+                                        f"{value:.2%}"
+                                        if value <= 1
+                                        else f"{value:.2f}",
+                                        stderr_display,
+                                    )
+
+                    console.print(table)
+
+                    # Display evaluation metadata for this run
+                    if eval_duration is not None:
+                        console.print(
+                            f"[dim]Run completed in {eval_duration:.2f} seconds[/dim]"
+                        )
+                    console.print()
+
+            console.print(
+                "\n[green]✓ All evaluation results displayed from eval_results/[/green]"
+            )
         else:
             console.print("\n[red]! No evaluation results found[/red]")
 
@@ -637,7 +654,7 @@ def run_demo():
             "top_p": 0.95,
         },
         "input_path": "test_prompt.jsonl",  # Path to input prompts
-        # "output_path": "responses.jsonl",  # Path to save responses
+        "output_path": "responses.jsonl",  # Path to save responses
     }
 
     # Save inference config
@@ -653,8 +670,7 @@ def run_demo():
             "accelerators": hardware_code,
         },
         "working_dir": ".",
-        "envs": {"MODEL_NAME": "output"},
-        "run": "oumi infer -c infer_config.yaml",
+        "run": "oumi infer -c infer_config.yaml && cat responses.jsonl",
     }
 
     if provider_code != "local":
@@ -665,7 +681,7 @@ def run_demo():
 
     # Launch the deployment
     console.print("\n[bold]Running inference...[/bold]")
-    run_command("oumi launch up -c job_config.yaml")
+    run_command("oumi launch up -c job_config.yaml --cluster oumi-demo")
     pause()
 
     # Final screen
