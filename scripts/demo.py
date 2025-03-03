@@ -14,7 +14,7 @@ from rich.table import Table
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 app = typer.Typer()
-console = Console()
+console = Console(width=100)
 
 # Demo configuration
 models = {
@@ -56,19 +56,25 @@ hardware_options = {
 
 def show_logo():
     """Display the Oumi platform logo in a panel."""
+    logo_text = """
+   ____  _    _ __  __ _____ 
+  / __ \| |  | |  \/  |_   _|
+ | |  | | |  | | \  / | | |  
+ | |  | | |  | | |\/| | | |  
+ | |__| | |__| | |  | |_| |_ 
+  \____/ \____/|_|  |_|_____|"""
+
+    tagline = (
+        "Everything you need to build state-of-the-art foundation models, end-to-end."
+    )
+
     console.print(
         Panel(
-            """
-   ____                  _    _       _                          _
-  / __ \\                | |  | |     (_)                        | |
- | |  | |_ __   ___ _ __| |  | |_ __  ___   _____ _ __ ___  __ _| |
- | |  | | '_ \\ / _ \\ '_ \\ |  | | '_ \\| \\ \\ / / _ \\ '__/ __|/ _` | |
- | |__| | |_) |  __/ | | | |__| | | | | |\\ V /  __/ |  \\__ \\ (_| | |
-  \\____/| .__/ \\___|_| |_|\\____/|_| |_|_| \\_/ \\___|_|  |___/\\__,_|_|
-        | |
-        |_|   Machine Intelligence Platform Demo
-    """,
+            f"[center]{logo_text}\n\n[bold cyan]Oumi:[/bold cyan] {tagline}[/center]",
             style="green",
+            border_style="bright_blue",
+            # padding=(2, 4),
+            # width=console.width - 4,
         )
     )
 
@@ -79,9 +85,27 @@ def section_header(title):
     Args:
         title: The title text to display in the header.
     """
-    console.print(f"\n[blue]{'━' * 80}[/blue]")
+    console.print(f"\n[blue]{'━' * console.width}[/blue]")
     console.print(f"[yellow]   {title}[/yellow]")
-    console.print(f"[blue]{'━' * 80}[/blue]\n")
+    console.print(f"[blue]{'━' * console.width}[/blue]\n")
+
+
+def show_intro():
+    """Display the introduction text about Oumi platform."""
+    intro_text = """[bold cyan]Oumi[/bold cyan] is a fully open-source platform that streamlines the entire lifecycle of foundation models - from [yellow]data preparation[/yellow] and [yellow]training[/yellow] to [yellow]evaluation[/yellow] and [yellow]deployment[/yellow]. Whether you're developing on a laptop, launching large scale experiments on a cluster, or deploying models in production, Oumi provides the tools and workflows you need.
+
+[bold green]With Oumi, you can:[/bold green]
+
+[magenta]🚀[/magenta] [white]Train and fine-tune models from 10M to 405B parameters using state-of-the-art techniques (SFT, LoRA, QLoRA, DPO, and more)[/white]
+[magenta]🤖[/magenta] [white]Work with both text and multimodal models (Llama, DeepSeek, Qwen, Phi, and others)[/white]
+[magenta]🔄[/magenta] [white]Synthesize and curate training data with LLM judges[/white]
+[magenta]⚡️[/magenta] [white]Deploy models efficiently with popular inference engines (vLLM, SGLang)[/white]
+[magenta]📊[/magenta] [white]Evaluate models comprehensively across standard benchmarks[/white]
+[magenta]🌎[/magenta] [white]Run anywhere - from laptops to clusters to clouds (AWS, Azure, GCP, Lambda, and more)[/white]
+[magenta]🔌[/magenta] [white]Integrate with both open models and commercial APIs (OpenAI, Anthropic, Vertex AI, Together, Parasail, ...)[/white]
+"""
+    # console.print(Panel(intro_text, border_style="bright_blue"))
+    console.print(intro_text)
 
 
 def run_command(
@@ -180,15 +204,7 @@ def run_demo():
 
     # Introduction
     section_header("Introduction to Oumi Platform")
-    intro_text = (
-        "Welcome to the Oumi Platform demo - the comprehensive open-source "
-        "framework for machine learning model development, evaluation, and "
-        "deployment.\n\n"
-        "Oumi stands for Open Universal Machine Intelligence, and it streamlines "
-        "the entire ML lifecycle from data preparation to production deployment. "
-        "Today's demonstration will show how Oumi revolutionizes ML workflows."
-    )
-    console.print(intro_text)
+    show_intro()
     pause()
 
     # Setup & Installation
@@ -445,6 +461,8 @@ def run_demo():
         "run": "oumi infer -c infer_config.yaml",
     }
 
+    if provider_code != "local":
+        deploy_config["setup"] = "pip install uv && uv pip install oumi[gpu]"
     create_config_file(deploy_config, "job_config.yaml")
     console.print("\nCreated deployment configuration:")
     console.print(yaml.dump(deploy_config))
