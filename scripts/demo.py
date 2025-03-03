@@ -344,8 +344,19 @@ def run_demo():
     # Create training configuration
     section_header("4. Creating Configuration Files")
 
-    # Training type selection
+    # Show training resources
+    console.print("Useful resources for training:")
+    console.print(
+        "- Training Guide: [blue underline]https://oumi.ai/docs/en/latest/user_guides/train/train.html[/blue underline]"
+    )
+    console.print(
+        "- Configuration Reference: [blue underline]https://oumi.ai/docs/en/latest/user_guides/train/configuration.html[/blue underline]"
+    )
+    console.print(
+        "- Example Configs: [blue underline]https://github.com/oumi-ai/oumi/tree/main/configs/recipes[/blue underline]"
+    )
 
+    # Training type selection
     training_choice, steps_str = select_from_choices(
         "Select training mode", training_options
     )
@@ -400,22 +411,44 @@ def run_demo():
         "- Example Configs: [blue underline]https://github.com/oumi-ai/oumi/tree/main/configs/recipes[/blue underline]\n"
     )
 
+    # Display evaluation options
+    console.print("\n[yellow]Available Evaluation Benchmarks:[/yellow]")
+    options = []
+    for i, benchmark in enumerate(benchmarks, 1):
+        option = Text()
+        option.append(f"{i}. ", style="cyan")
+        option.append(benchmark["name"], style="bold")
+        if benchmark.get("description"):
+            option.append(f" ({benchmark['description']})", style="dim")
+        options.append(option)
+
+    # Display options in a nice grid layout
+    columns = Columns(options, equal=True, expand=True, padding=(0, 2))
+    console.print(
+        Panel(
+            columns,
+            title="[yellow]Evaluation Benchmarks[/yellow]",
+            border_style="blue",
+            box=box.ROUNDED,
+            padding=(1, 1),
+        )
+    )
+
     # Select benchmarks
-    benchmark_choices = list(benchmarks.keys())
     benchmark_indices = Prompt.ask(
-        "Select benchmarks to evaluate (comma-separated numbers)", default="1,3"
+        "\nSelect benchmarks to evaluate (comma-separated numbers)", default="1"
     )
 
     selected_indices = [int(idx.strip()) - 1 for idx in benchmark_indices.split(",")]
     selected_benchmarks = [
-        benchmark_choices[i]
-        for i in selected_indices
-        if 0 <= i < len(benchmark_choices)
+        benchmarks[i] for i in selected_indices if 0 <= i < len(benchmarks)
     ]
 
-    console.print(
-        f"\nSelected benchmarks: [green]{', '.join(selected_benchmarks)}[/green]"
-    )
+    console.print("\nSelected benchmarks:")
+    for benchmark in selected_benchmarks:
+        console.print(
+            f"- [green]{benchmark['name']}[/green] ({benchmark['description']})"
+        )
 
     # Create evaluation configuration
     eval_config = {
@@ -435,13 +468,14 @@ def run_demo():
         "tasks": [
             {
                 "evaluation_platform": "lm_harness",
-                "task_name": benchmarks[benchmark],
+                "task_name": benchmarks[i]["value"],
                 "eval_kwargs": {
                     # "num_fewshot": 5,
                     # "limit": 10,  # Evaluate on full dataset
                 },
             }
-            for benchmark in selected_benchmarks
+            for i in selected_indices
+            if 0 <= i < len(benchmarks)
         ],
         "output_dir": "eval_results",
         "enable_wandb": False,  # Set to True to enable W&B logging
