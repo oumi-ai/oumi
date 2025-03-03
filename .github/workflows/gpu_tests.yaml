@@ -1,7 +1,9 @@
 name: "GPU Tests"
 
 on:
-  workflow_call:
+  schedule:
+    - cron: '0 */8 * * *' # Every 8 hours
+  workflow_dispatch:
   pull_request:
     paths-ignore:
       - 'docs/**'
