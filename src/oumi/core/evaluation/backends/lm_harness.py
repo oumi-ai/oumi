@@ -347,7 +347,6 @@ def evaluate(
     lm = lm_class(**lm_harness_model_params)
 
     logger.info("Starting evaluation...")
-    log_samples = False
     if _LOG_SAMPLES_KEY in task_params.eval_kwargs:
         # Avoid popping kwargs due to the need to write the kwargs to log files.
         lm_eval_output = lm_harness_evaluate(
