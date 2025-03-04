@@ -28,9 +28,9 @@ from oumi.core.configs.params.evaluation_params import EvaluationBackend
 from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.core.evaluation.utils.platform_prerequisites import check_prerequisites
+from oumi.core.evaluation.utils.save_utils import save_evaluation_output
 from oumi.core.registry import REGISTRY
-from oumi.evaluation.platform_prerequisites import check_prerequisites
-from oumi.evaluation.save_utils import save_evaluation_output
 
 
 class Evaluator:
