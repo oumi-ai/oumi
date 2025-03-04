@@ -38,16 +38,14 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  export PER_DEVICE_BATCH_SIZE=2
+  export PER_DEVICE_BATCH_SIZE=3
   export GLOBAL_BATCH_SIZE=$((${OUMI_TOTAL_NUM_GPUS} * ${PER_DEVICE_BATCH_SIZE}))
-  export GRPO_NUM_GENERATIONS=8
+  export GRPO_NUM_GENERATIONS=6
 
   if (test "$(( ${GLOBAL_BATCH_SIZE} % ${GRPO_NUM_GENERATIONS} ))" -ne 0); then
     echo "Global batch size (${GLOBAL_BATCH_SIZE}) must be divisible by num_generations (${GRPO_NUM_GENERATIONS})"
     exit 1
   fi
-
-  pip install -e ".[gpu]"
 
   set -x
   oumi distributed torchrun \
