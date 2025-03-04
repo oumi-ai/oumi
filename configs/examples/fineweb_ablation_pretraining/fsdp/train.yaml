@@ -74,3 +74,6 @@ fsdp:
   forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "LlamaDecoderLayer"
+  trainer_kwargs:
+    dataset_kwargs:
+      skip_prepare_dataset: True
