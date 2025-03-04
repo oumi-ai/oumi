@@ -730,8 +730,9 @@ class TrainingParams(BaseParams):
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,  # type: ignore
             accelerator_config={  # accelerator config for multi-device training
-                "split_batches": False,
                 "dispatch_batches": dispatch_batches,
+                # The params below are set to their default values.
+                "split_batches": False,
                 "even_batches": True,
                 "use_seedable_sampler": True,
             },
