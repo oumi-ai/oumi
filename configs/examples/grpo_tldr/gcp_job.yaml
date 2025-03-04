@@ -47,6 +47,8 @@ run: |
     exit 1
   fi
 
+  pip install -e ".[gpu]"
+
   set -x
   oumi distributed torchrun \
       -m oumi train \
