@@ -172,10 +172,10 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         if num_generations is not None and global_batch_size % num_generations != 0:
             logger.warning(
                 f"For {config.training.trainer_type}, "
-                f"global batch size ({global_batch_size}) should be divisible "
+                f"global batch size ({global_batch_size}) should be evenly divisible "
                 f"by `grpo.num_generations` ({num_generations}). It's not! "
-                f"World size: {world_size} "
-                f"Per-device batch size: {batch_size}"
+                f"World size: {world_size}. "
+                f"Per-device batch size: {batch_size}."
             )
 
     return config
