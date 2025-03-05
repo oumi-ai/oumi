@@ -197,7 +197,7 @@ class VisionLanguageConversationFeatureGenerator:
             dict: A dictionary of inputs for a model.
         """
         if self._processor is None:
-            raise ValueError("Processor required for transform")
+            raise ValueError("Processor required to transform a conversation")
 
         if self._processor.chat_template is None:
             image, prompt = self._prepare_simple_model(conversation)
