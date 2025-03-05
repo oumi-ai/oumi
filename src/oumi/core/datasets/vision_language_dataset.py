@@ -112,8 +112,8 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             dict: A dictionary of inputs for a model.
         """
         conversation = self.transform_conversation(sample)
-        if True:
+        if False:
             conversation_json = conversation.to_json()
-            return {"conversation": conversation_json, "input_ids": [1, 2, 3]}
+            return {"conversation": conversation_json}
 
         return self._feature_generator.transform_conversation(conversation)

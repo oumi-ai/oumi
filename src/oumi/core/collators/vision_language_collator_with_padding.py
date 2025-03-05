@@ -51,7 +51,7 @@ class VisionLanguageCollatorWithPadding:
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
         self._feature_generator: Optional[VisionLanguageFeatureGenerator] = None
-        if True:
+        if False:
             self._feature_generator = VisionLanguageFeatureGenerator(
                 tokenizer=tokenizer,
                 processor=None,
@@ -87,6 +87,10 @@ class VisionLanguageCollatorWithPadding:
             raise ValueError("Batch is empty")
 
         if self._feature_generator is None or "conversation" not in batch[0]:
+            print(
+                f"self._feature_generator: {self._feature_generator is not None}\n"
+                f"batch[0]: {batch[0].keys()}"
+            )
             return self._collate_batch(batch)
 
         updated_batch: list[dict] = []

@@ -49,7 +49,7 @@ data:
 
 training:
   output_dir: "output/vlm_finetuned"
-  trainer_type: "TRL_SFT"
+  trainer_type: "OUMI" # "TRL_SFT"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features.
   gradient_accumulation_steps: 32
