@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Any
 from unittest.mock import patch
 
@@ -11,10 +12,13 @@ from oumi.core.configs import (
     InferenceEngineType,
     LMHarnessTaskParams,
     ModelParams,
+    RemoteParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.evaluation.evaluator import Evaluator
+from oumi.core.inference import BaseInferenceEngine
+from oumi.inference import OpenAIInferenceEngine
 
 
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
@@ -175,6 +179,76 @@ def test_evaluate_custom_task(
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+def test_evaluate_custom_task_with_inference(
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    # Inputs.
+    task_params = EvaluationTaskParams(
+        task_name="evaluation_fn_reg_name",
+        evaluation_backend=EvaluationBackend.CUSTOM.value,
+    )
+    evaluation_config = EvaluationConfig(
+        tasks=[task_params],
+        model=ModelParams(model_name="test_model"),
+        generation=GenerationParams(max_new_tokens=8),
+        inference_engine=InferenceEngineType.OPENAI,
+        inference_remote_params=RemoteParams(api_url="my_api_url"),
+    )
+
+    def evaluation_fn(
+        task_params: EvaluationTaskParams,
+        config: EvaluationConfig,
+        inference_engine: BaseInferenceEngine,
+        optional_param: str,
+    ) -> EvaluationResult:
+        assert optional_param == "optional_param_value"
+
+        # Validate the `task_params`.
+        assert task_params.evaluation_backend == EvaluationBackend.CUSTOM.value
+        assert task_params.task_name == "evaluation_fn_reg_name"
+
+        # Validate the `config`.
+        expected_config_dict = asdict(evaluation_config)
+        expected_config_dict["tasks"] = []
+        assert asdict(config) == expected_config_dict
+
+        # Validate the `inference_engine`.
+        assert isinstance(inference_engine, OpenAIInferenceEngine)
+        open_ai_inference_engine: OpenAIInferenceEngine = inference_engine
+        assert open_ai_inference_engine._model_params.model_name == "test_model"
+        assert open_ai_inference_engine._generation_params.max_new_tokens == 8
+
+        return EvaluationResult(
+            task_name=task_params.task_name,
+            task_result={"test_metric": 1.0},
+        )
+
+    # Mocks.
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+    result = evaluator.evaluate(
+        evaluation_config, optional_param="optional_param_value"
+    )
+
+    # Validate the function calls and results.
+    mock_save_evaluation_output.assert_called_once()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
+
+    assert len(result) == 1
+    assert result[0].task_name == "evaluation_fn_reg_name"
+    assert result[0].task_result == {"test_metric": 1.0}
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
 def test_evaluate_custom_task_unregistered_fn(
     mock_save_evaluation_output, mock_check_prerequisites, mock_get_evaluation_function
 ):
@@ -242,6 +316,48 @@ def test_evaluate_custom_task_without_task_name(
     mock_save_evaluation_output.assert_not_called()
     mock_check_prerequisites.assert_called_once()
     mock_get_evaluation_function.assert_not_called()
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+def test_evaluate_custom_task_using_reserved_inference_keyword(
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    # Inputs.
+    evaluation_config = EvaluationConfig(
+        tasks=[
+            EvaluationTaskParams(
+                task_name="evaluation_fn_reg_name",
+                evaluation_backend=EvaluationBackend.CUSTOM.value,
+            )
+        ],
+        model=ModelParams(),
+        generation=GenerationParams(),
+        inference_engine=InferenceEngineType.NATIVE,
+    )
+
+    def evaluation_fn(task_params, config, inference_engine):
+        pass
+
+    # Mocks.
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+
+    with pytest.raises(
+        RuntimeError,
+        match=(r"^The inference engine is already provided in the keyword arguments"),
+    ):
+        _ = evaluator.evaluate(
+            evaluation_config,
+            inference_engine="inference_engine",  # NOT allowed, key is reserved.
+        )
 
 
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
