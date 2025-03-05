@@ -17,7 +17,6 @@ from collections.abc import Sequence
 from typing import Callable, Optional, TypeVar, Union, cast
 
 import datasets
-from trl.trainer import ConstantLengthDataset
 
 from oumi.core.configs import (
     DataParams,
@@ -44,7 +43,7 @@ def build_dataset_mixture(
     tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset for the specified split.
 
     Args:
@@ -120,7 +119,7 @@ def build_dataset_from_params(
     stream: bool = False,
     pack: bool = False,
     use_torchdata: Optional[bool] = None,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
@@ -153,7 +152,7 @@ def build_dataset(
     pack: bool = False,
     use_torchdata: Optional[bool] = None,
     **kwargs,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of

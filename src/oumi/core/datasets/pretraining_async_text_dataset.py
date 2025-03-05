@@ -19,7 +19,7 @@ from typing import Callable, Optional
 
 import datasets
 import torch
-from torch.utils.data import IterableDataset
+from trl.trainer.utils import ConstantLengthDataset
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
@@ -29,7 +29,7 @@ _SMALLEST_PRIORITY_VALUE = 0
 _END_PRIORITY_VALUE = _LARGEST_PRIORITY_VALUE + 1
 
 
-class PretrainingAsyncTextDataset(IterableDataset):
+class PretrainingAsyncTextDataset(ConstantLengthDataset):
     """Iterable dataset that returns constant length chunks of tokens.
 
     Prefetches, formats, and tokenizes asynchronously from main thread.
@@ -134,6 +134,11 @@ class PretrainingAsyncTextDataset(IterableDataset):
             self.formatting_func = lambda x: x[dataset_text_field]
         else:
             self.formatting_func = lambda x: x
+
+    @property
+    def column_names(self):
+        """Returns the column names of the dataset."""
+        return ["input_ids", "labels"]
 
     def _add_example_to_queue(self, example):
         """Adds a single example to the queue."""
