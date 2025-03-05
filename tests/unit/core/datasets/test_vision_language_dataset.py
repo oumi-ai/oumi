@@ -189,7 +189,7 @@ def test_transform_simple_model_using_image_path(
     test_dataset_image_path_no_label_ignore_index,
 ):
     with patch.object(
-        test_dataset_image_path_no_label_ignore_index, "_load_image"
+        test_dataset_image_path_no_label_ignore_index._feature_generator, "_load_image"
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
@@ -214,7 +214,7 @@ def test_transform_simple_model_using_image_binary(
     test_dataset_image_binary_label_ignore_index,
 ):
     with patch.object(
-        test_dataset_image_binary_label_ignore_index, "_load_image"
+        test_dataset_image_binary_label_ignore_index._feature_generator, "_load_image"
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
@@ -248,7 +248,7 @@ def test_transform_instruct_model_using_image_path(
     )
 
     with patch.object(
-        test_dataset_image_path_no_label_ignore_index, "_load_image"
+        test_dataset_image_path_no_label_ignore_index._feature_generator, "_load_image"
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
@@ -277,7 +277,7 @@ def test_transform_instruct_model_using_image_binary(
     mock_processor.apply_chat_template = Mock(return_value="Processed template")
 
     with patch.object(
-        test_dataset_image_binary_label_ignore_index, "_load_image"
+        test_dataset_image_binary_label_ignore_index._feature_generator, "_load_image"
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image

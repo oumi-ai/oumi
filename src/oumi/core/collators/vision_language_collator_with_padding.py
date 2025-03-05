@@ -18,7 +18,11 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
+from oumi.core.multimodal.vision_language_feature_generator import (
+    VisionLanguageFeatureGenerator,
+)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.types import Conversation
 from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 _PIXEL_VALUES_KEY = "pixel_values"
@@ -46,6 +50,14 @@ class VisionLanguageCollatorWithPadding:
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
+        self._feature_generator = VisionLanguageFeatureGenerator(
+            tokenizer=tokenizer,
+            processor=None,
+            processor_name="Qwen/Qwen2-VL-2B-Instruct",
+            trust_remote_code=True,
+            return_tensors="pt",
+        )
+
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
@@ -60,7 +72,7 @@ class VisionLanguageCollatorWithPadding:
         )
 
     def __call__(self, batch) -> dict[str, Any]:
-        """Custom collator for multi-modal  vision-language training.
+        """Custom collator for multi-modal vision-language training.
 
         Args:
             batch: List of batch items.
@@ -68,7 +80,30 @@ class VisionLanguageCollatorWithPadding:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        # Collate batch prompts
+        batch_size = len(batch)
+        if batch_size <= 0:
+            raise ValueError("Batch is empty")
+
+        if "conversation" not in batch[0]:
+            return self._collate_batch(batch)
+
+        updated_batch: list[dict] = []
+        for idx in range(batch_size):
+            if "conversation" not in batch[idx]:
+                raise ValueError(
+                    f"Item doesn't contain 'conversation' key. "
+                    f"Available keys: {batch[idx].keys()}"
+                )
+
+            conversation_json = batch[idx]["conversation"]
+            conversation: Conversation = Conversation.from_json(conversation_json)
+            updated_batch.append(
+                self._feature_generator.transform_conversation(conversation)
+            )
+        assert len(updated_batch) == batch_size
+        return self._collate_batch(updated_batch)
+
+    def _collate_batch(self, batch) -> dict[str, Any]:
         collated_batch = self._text_collator(batch)  # type: ignore
         known_input_names: set[str] = set(collated_batch.keys()).union(
             {_PIXEL_VALUES_KEY}
