@@ -181,6 +181,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             raise ValueError("Processor required for transform")
 
         conversation = self.transform_conversation(sample)
+        if True:
+            conversation_json = conversation.to_json()
+            return {"conversation": conversation_json}
 
         if self._processor.chat_template is None:
             image, prompt = self._prepare_simple_model(conversation)
