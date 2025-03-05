@@ -87,9 +87,9 @@ class VisionLanguageCollatorWithPadding:
         if "conversation" not in batch[0]:
             return self._collate_batch(batch)
 
-        updated_batch: list[dict] = [] * batch_size
+        updated_batch: list[dict] = []
         for idx in range(batch_size):
-            if "conversation" not in batch[idx]["conversation"]:
+            if "conversation" not in batch[idx]:
                 raise ValueError(
                     f"Item doesn't contain 'conversation' key. "
                     f"Available keys: {batch[idx].keys()}"
@@ -97,9 +97,10 @@ class VisionLanguageCollatorWithPadding:
 
             conversation_json = batch[idx]["conversation"]
             conversation: Conversation = Conversation.from_json(conversation_json)
-            updated_batch[idx] = self._feature_generator.transform_conversation(
-                conversation
+            updated_batch.append(
+                self._feature_generator.transform_conversation(conversation)
             )
+        assert len(updated_batch) == batch_size
         return self._collate_batch(updated_batch)
 
     def _collate_batch(self, batch) -> dict[str, Any]:
