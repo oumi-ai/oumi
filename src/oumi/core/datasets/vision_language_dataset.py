@@ -409,9 +409,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         Returns:
             dict: A dictionary of inputs for a model.
         """
-        if self._processor is None:
-            raise ValueError("Processor required for transform")
-
         conversation = self.transform_conversation(sample)
         if True and False:
             conversation_json = conversation.to_json()
