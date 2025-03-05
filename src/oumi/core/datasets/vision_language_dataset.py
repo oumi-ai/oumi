@@ -52,54 +52,21 @@ class _SpecialTokens(NamedTuple):
     """Token id of `PAD` token."""
 
 
-class VisionLanguageSftDataset(BaseSftDataset, ABC):
-    """Abstract dataset for vision-language models.
-
-    This class extends BaseSftDataset to provide functionality specific to
-    vision-language tasks. It handles the processing of both image and text data.
-
-    Note:
-        This dataset is designed to work with models that can process both
-        image and text inputs simultaneously, such as CLIP, BLIP, or other
-        multimodal architectures.
-
-    Example:
-        >>> from oumi.builders import build_processor, build_tokenizer
-        >>> from oumi.core.configs import ModelParams
-        >>> from oumi.core.types.conversation import Conversation
-        >>> from oumi.core.datasets import VisionLanguageSftDataset
-        >>> class MyVisionLanguageSftDataset(VisionLanguageSftDataset):
-        ...     def transform_conversation(self, example: dict):
-        ...         # Implement the abstract method
-        ...         # Convert the raw example into a Conversation object
-        ...         pass
-        >>> tokenizer = build_tokenizer(
-        ...     ModelParams(model_name="Qwen/Qwen2-1.5B-Instruct")
-        ... )
-        >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
-        ...     tokenizer=tokenizer,
-        ...     processor_name="openai/clip-vit-base-patch32",
-        ...     dataset_name="coco_captions",
-        ...     split="train"
-        ... )
-        >>> sample = next(iter(dataset))  # doctest: +SKIP
-        >>> print(sample.keys()) # doctest: +SKIP
-    """
-
+class VisionLanguageConversationFeatureGenerator:
     def __init__(
         self,
         *,
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
-        limit: Optional[int] = None,
         trust_remote_code: bool = False,
-        **kwargs,
+        return_tensors: Optional[str] = None,
     ) -> None:
-        """Initializes a new instance of the VisionLanguageDataset class."""
-        super().__init__(tokenizer=tokenizer, **kwargs)
+        """Initializes a new instance of VisionLanguageConversationFeatureProcessor."""
         # Importing these here to avoid circular dependencies
         from oumi.builders.processors import build_processor
+
+        self._return_tensors = return_tensors
 
         if tokenizer is None:
             raise ValueError(
@@ -149,41 +116,88 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             pad_token_id=int(tokenizer.pad_token_id),
         )
 
-        if limit is not None:
-            # TODO: this should be removed when we switch to datapipes.
-            # Right now, we have to iterate over the whole dataset at init time,
-            # Which takes way to long.
-            self._data = self._data.head(limit)
+    def _prepare_simple_model(
+        self, conversation: Conversation
+    ) -> tuple[Image.Image, str]:
+        """Prepares the images and prompt for a simple model.
 
-    @abstractmethod
-    def transform_conversation(self, example: dict) -> Conversation:
-        """Transforms a raw example into an Oumi Conversation object.
+        Simple models only use the last image and text turn in the conversation. They
+        don't use the chat template, so the prompt is just the last text turn.
+        """
+        image_turns = [turn for turn in conversation.messages if turn.contains_images()]
+        text_turns = [turn for turn in conversation.messages if turn.contains_text()]
+
+        if len(image_turns) == 0:
+            raise ValueError("Conversation must contain at least one image turn")
+        if len(text_turns) == 0:
+            raise ValueError("Conversation must contain at least one text turn")
+
+        last_image_item: ContentItem = image_turns[-1].image_content_items[-1]
+        last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
+
+        prompt = last_text_item.content or ""
+        image = self._load_image(last_image_item)
+
+        return image, prompt
+
+    def _prepare_instruct_model(
+        self, conversation: Conversation
+    ) -> tuple[list[Image.Image], str]:
+        """Prepares the images and prompt for an instruct model.
+
+        Instruct models use the chat template to generate the prompt, and can include
+        multiple images and text turns.
+        """
+        if self._processor is None:
+            raise ValueError("Processor is required for instruct model")
+
+        # Generates the prompt using the chat template
+        # including image placeholders for each image in the conversation
+        messages = []
+        for turn in conversation.messages:
+            if turn.contains_text() or turn.contains_images():
+                messages.append(turn)
+            else:
+                raise ValueError(
+                    f"Unsupported message: {turn.id}. Contains no text and no images."
+                )
+
+        text_prompt = self._processor.apply_chat_template(
+            messages, add_generation_prompt=False
+        )
+
+        # Loads the images from the conversation
+        image_items = [
+            item for turn in conversation.messages for item in turn.image_content_items
+        ]
+        images = [self._load_image(item) for item in image_items]
+
+        return images, text_prompt
+
+    def _load_image(self, image_item: ContentItem) -> Image.Image:
+        """Loads an image from a message.
 
         Args:
-            example (dict): A dictionary representing a single conversation example.
+            image_item (`ContentItem`): A content item representing an image.
 
         Returns:
-            Conversation: A Conversation object representing the conversation.
+            Image.Image: A PIL image.
         """
-        raise NotImplementedError
+        if self._image_processor is None:
+            raise ValueError("Processor required for transform")
+        return load_pil_image_from_content_item(image_item)
 
-    @override
-    def transform(self, sample: dict) -> dict:
+    def transform_conversation(self, conversation: Conversation) -> dict:
         """Transforms an Oumi conversation into a dictionary of inputs for a model.
 
         Args:
-            sample (dict): A dictionary representing a single conversation example.
+            conversation: An input conversation.
 
         Returns:
             dict: A dictionary of inputs for a model.
         """
         if self._processor is None:
             raise ValueError("Processor required for transform")
-
-        conversation = self.transform_conversation(sample)
-        if True:
-            conversation_json = conversation.to_json()
-            return {"conversation": conversation_json}
 
         if self._processor.chat_template is None:
             image, prompt = self._prepare_simple_model(conversation)
@@ -311,73 +325,96 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
 
         return inputs.data
 
-    def _prepare_simple_model(
-        self, conversation: Conversation
-    ) -> tuple[Image.Image, str]:
-        """Prepares the images and prompt for a simple model.
 
-        Simple models only use the last image and text turn in the conversation. They
-        don't use the chat template, so the prompt is just the last text turn.
-        """
-        image_turns = [turn for turn in conversation.messages if turn.contains_images()]
-        text_turns = [turn for turn in conversation.messages if turn.contains_text()]
+class VisionLanguageSftDataset(BaseSftDataset, ABC):
+    """Abstract dataset for vision-language models.
 
-        if len(image_turns) == 0:
-            raise ValueError("Conversation must contain at least one image turn")
-        if len(text_turns) == 0:
-            raise ValueError("Conversation must contain at least one text turn")
+    This class extends BaseSftDataset to provide functionality specific to
+    vision-language tasks. It handles the processing of both image and text data.
 
-        last_image_item: ContentItem = image_turns[-1].image_content_items[-1]
-        last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
+    Note:
+        This dataset is designed to work with models that can process both
+        image and text inputs simultaneously, such as CLIP, BLIP, or other
+        multimodal architectures.
 
-        prompt = last_text_item.content or ""
-        image = self._load_image(last_image_item)
+    Example:
+        >>> from oumi.builders import build_processor, build_tokenizer
+        >>> from oumi.core.configs import ModelParams
+        >>> from oumi.core.types.conversation import Conversation
+        >>> from oumi.core.datasets import VisionLanguageSftDataset
+        >>> class MyVisionLanguageSftDataset(VisionLanguageSftDataset):
+        ...     def transform_conversation(self, example: dict):
+        ...         # Implement the abstract method
+        ...         # Convert the raw example into a Conversation object
+        ...         pass
+        >>> tokenizer = build_tokenizer(
+        ...     ModelParams(model_name="Qwen/Qwen2-1.5B-Instruct")
+        ... )
+        >>> dataset = MyVisionLanguageSftDataset( # doctest: +SKIP
+        ...     tokenizer=tokenizer,
+        ...     processor_name="openai/clip-vit-base-patch32",
+        ...     dataset_name="coco_captions",
+        ...     split="train"
+        ... )
+        >>> sample = next(iter(dataset))  # doctest: +SKIP
+        >>> print(sample.keys()) # doctest: +SKIP
+    """
 
-        return image, prompt
+    def __init__(
+        self,
+        *,
+        tokenizer: Optional[BaseTokenizer] = None,
+        processor: Optional[BaseProcessor] = None,
+        processor_name: Optional[str] = None,
+        limit: Optional[int] = None,
+        trust_remote_code: bool = False,
+        **kwargs,
+    ) -> None:
+        """Initializes a new instance of the VisionLanguageDataset class."""
+        super().__init__(tokenizer=tokenizer, **kwargs)
 
-    def _prepare_instruct_model(
-        self, conversation: Conversation
-    ) -> tuple[list[Image.Image], str]:
-        """Prepares the images and prompt for an instruct model.
-
-        Instruct models use the chat template to generate the prompt, and can include
-        multiple images and text turns.
-        """
-        if self._processor is None:
-            raise ValueError("Processor is required for instruct model")
-
-        # Generates the prompt using the chat template
-        # including image placeholders for each image in the conversation
-        messages = []
-        for turn in conversation.messages:
-            if turn.contains_text() or turn.contains_images():
-                messages.append(turn)
-            else:
-                raise ValueError(
-                    f"Unsupported message: {turn.id}. Contains no text and no images."
-                )
-
-        text_prompt = self._processor.apply_chat_template(
-            messages, add_generation_prompt=False
+        self._feature_generator = VisionLanguageConversationFeatureGenerator(
+            tokenizer=tokenizer,
+            processor=processor,
+            processor_name=processor_name,
+            trust_remote_code=trust_remote_code,
+            return_tensors=self._return_tensors,
         )
 
-        # Loads the images from the conversation
-        image_items = [
-            item for turn in conversation.messages for item in turn.image_content_items
-        ]
-        images = [self._load_image(item) for item in image_items]
+        if limit is not None:
+            # TODO: this should be removed when we switch to datapipes.
+            # Right now, we have to iterate over the whole dataset at init time,
+            # Which takes way to long.
+            self._data = self._data.head(limit)
 
-        return images, text_prompt
-
-    def _load_image(self, image_item: ContentItem) -> Image.Image:
-        """Loads an image from a message.
+    @abstractmethod
+    def transform_conversation(self, example: dict) -> Conversation:
+        """Transforms a raw example into an Oumi Conversation object.
 
         Args:
-            image_item (`ContentItem`): A content item representing an image.
+            example (dict): A dictionary representing a single conversation example.
 
         Returns:
-            Image.Image: A PIL image.
+            Conversation: A Conversation object representing the conversation.
         """
-        if self._image_processor is None:
+        raise NotImplementedError
+
+    @override
+    def transform(self, sample: dict) -> dict:
+        """Transforms an Oumi conversation into a dictionary of inputs for a model.
+
+        Args:
+            sample (dict): A dictionary representing a single conversation example.
+
+        Returns:
+            dict: A dictionary of inputs for a model.
+        """
+        if self._processor is None:
             raise ValueError("Processor required for transform")
-        return load_pil_image_from_content_item(image_item)
+
+        conversation = self.transform_conversation(sample)
+        if True and False:
+            conversation_json = conversation.to_json()
+            return {"conversation": conversation_json}
+
+        return self._feature_generator.transform_conversation(conversation)
