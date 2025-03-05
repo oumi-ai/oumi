@@ -50,13 +50,15 @@ class VisionLanguageCollatorWithPadding:
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
-        self._feature_generator = VisionLanguageFeatureGenerator(
-            tokenizer=tokenizer,
-            processor=None,
-            processor_name="Qwen/Qwen2-VL-2B-Instruct",
-            trust_remote_code=True,
-            return_tensors="pt",
-        )
+        self._feature_generator: Optional[VisionLanguageFeatureGenerator] = None
+        if False:
+            self._feature_generator = VisionLanguageFeatureGenerator(
+                tokenizer=tokenizer,
+                processor=None,
+                processor_name="Qwen/Qwen2-VL-2B-Instruct",
+                trust_remote_code=True,
+                return_tensors="pt",
+            )
 
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
@@ -84,7 +86,7 @@ class VisionLanguageCollatorWithPadding:
         if batch_size <= 0:
             raise ValueError("Batch is empty")
 
-        if "conversation" not in batch[0]:
+        if self._feature_generator is None or "conversation" not in batch[0]:
             return self._collate_batch(batch)
 
         updated_batch: list[dict] = []
