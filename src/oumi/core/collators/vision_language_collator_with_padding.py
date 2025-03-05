@@ -22,6 +22,7 @@ from oumi.core.multimodal.vision_language_feature_generator import (
     VisionLanguageFeatureGenerator,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.types import Conversation
 from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 _PIXEL_VALUES_KEY = "pixel_values"
@@ -71,7 +72,7 @@ class VisionLanguageCollatorWithPadding:
         )
 
     def __call__(self, batch) -> dict[str, Any]:
-        """Custom collator for multi-modal  vision-language training.
+        """Custom collator for multi-modal vision-language training.
 
         Args:
             batch: List of batch items.
@@ -79,7 +80,29 @@ class VisionLanguageCollatorWithPadding:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        # Collate batch prompts
+        batch_size = len(batch)
+        if batch_size <= 0:
+            raise ValueError("Batch is empty")
+
+        if "conversation" not in batch[0]:
+            return self._collate_batch(batch)
+
+        updated_batch: list[dict] = [] * batch_size
+        for idx in range(batch_size):
+            if "conversation" not in batch[idx]["conversation"]:
+                raise ValueError(
+                    f"Item doesn't contain 'conversation' key. "
+                    f"Available keys: {batch[idx].keys()}"
+                )
+
+            conversation_json = batch[idx]["conversation"]
+            conversation: Conversation = Conversation.from_json(conversation_json)
+            updated_batch[idx] = self._feature_generator.transform_conversation(
+                conversation
+            )
+        return self._collate_batch(updated_batch)
+
+    def _collate_batch(self, batch) -> dict[str, Any]:
         collated_batch = self._text_collator(batch)  # type: ignore
         known_input_names: set[str] = set(collated_batch.keys()).union(
             {_PIXEL_VALUES_KEY}

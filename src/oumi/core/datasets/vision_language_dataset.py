@@ -112,7 +112,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             dict: A dictionary of inputs for a model.
         """
         conversation = self.transform_conversation(sample)
-        if True and False:
+        if True:
             conversation_json = conversation.to_json()
             return {"conversation": conversation_json}
 
