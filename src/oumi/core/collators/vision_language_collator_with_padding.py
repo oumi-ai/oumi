@@ -51,7 +51,7 @@ class VisionLanguageCollatorWithPadding:
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
         self._feature_generator: Optional[VisionLanguageFeatureGenerator] = None
-        if False:
+        if True:
             self._feature_generator = VisionLanguageFeatureGenerator(
                 tokenizer=tokenizer,
                 processor=None,

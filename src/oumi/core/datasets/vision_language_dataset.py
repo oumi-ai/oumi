@@ -114,6 +114,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         conversation = self.transform_conversation(sample)
         if True:
             conversation_json = conversation.to_json()
-            return {"conversation": conversation_json}
+            return {"conversation": conversation_json, "input_ids": [1, 2, 3]}
 
         return self._feature_generator.transform_conversation(conversation)
