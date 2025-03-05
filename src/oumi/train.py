@@ -298,6 +298,26 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
+    # trl's SFTTrainer has its own dataset processing code. We should skip it if
+    # the dataset is already processed, i.e. it's tokenized and has an `input_ids` col.
+    # This generally occurs if the dataset is:
+    # 1. In the Oumi registry and thus is processed by the `BasePretrainingDataset` or
+    # `BaseSftDataset` classes
+    # 2. Packing is requested, and thus is processed by the
+    # `PretrainingAsyncTextDataset` class
+    if (
+        config.training.trainer_type == TrainerType.TRL_SFT
+        and hasattr(dataset, "column_names")
+        and "input_ids" in dataset.column_names
+    ):
+        logger.info(
+            "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
+            "already processed."
+        )
+        if "dataset_kwargs" not in config.training.trainer_kwargs:
+            config.training.trainer_kwargs["dataset_kwargs"] = {}
+        config.training.trainer_kwargs["dataset_kwargs"]["skip_prepare_dataset"] = True
+
     # Train model
     trainer_type: Final[TrainerType] = config.training.trainer_type
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(

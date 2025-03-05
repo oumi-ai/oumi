@@ -67,6 +67,3 @@ training:
   output_dir: "output/fineweb.pt"
   include_performance_metrics: True
   enable_wandb: True
-  trainer_kwargs:
-    dataset_kwargs:
-      skip_prepare_dataset: True
