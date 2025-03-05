@@ -1,11 +1,11 @@
-# Job config to LoRA tune Deepseek R1 Distill Qwen2.5 32B.
+# Job config to LoRA tune QwQ (based on Qwen2.5 32B).
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_gcp_job.yaml --cluster deepseek-r1-qwen32b-lora
+#   oumi launch up -c configs/recipes/qwq/sft/lora_gcp_job.yaml --cluster qwq-lora
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -13,7 +13,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: deepseek-r1-distill-qwen32b-lora
+name: qwq-lora
 
 resources:
   cloud: gcp
@@ -28,14 +28,14 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: deepseek-r1.qwen32b.lora
+  OUMI_RUN_NAME: qwq.lora
 
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/QwQ-32B
 
 run: |
   set -e  # Exit if any command failed.
@@ -44,7 +44,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml \
+      -c configs/recipes/qwq/sft/lora_train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
