@@ -18,6 +18,9 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
+from oumi.core.multimodal.vision_language_feature_generator import (
+    VisionLanguageFeatureGenerator,
+)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
@@ -46,6 +49,14 @@ class VisionLanguageCollatorWithPadding:
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
+        self._feature_generator = VisionLanguageFeatureGenerator(
+            tokenizer=tokenizer,
+            processor=None,
+            processor_name="Qwen/Qwen2-VL-2B-Instruct",
+            trust_remote_code=True,
+            return_tensors="pt",
+        )
+
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
