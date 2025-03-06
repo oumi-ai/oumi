@@ -17,7 +17,7 @@ import math
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Sized
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, Union, cast
 
@@ -55,7 +55,7 @@ class _InferredFeatureMap(NamedTuple):
     """Whether the features are multimodal."""
 
 
-class BaseMapDataset(MapDataPipe, ABC):
+class BaseMapDataset(MapDataPipe, Sized, ABC):
     """Abstract base class for map datasets."""
 
     _data: pd.DataFrame
