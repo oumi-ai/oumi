@@ -18,9 +18,7 @@ from typing import Optional
 from typing_extensions import override
 
 from oumi.core.datasets import BaseSftDataset
-from oumi.core.feature_generators.vision_language_feature_generator import (
-    VisionLanguageFeatureGenerator,
-)
+from oumi.core.feature_generators import VisionLanguageConversationFeatureGenerator
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
@@ -75,7 +73,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         """Initializes a new instance of the VisionLanguageDataset class."""
         super().__init__(tokenizer=tokenizer, **kwargs)
 
-        self._feature_generator = VisionLanguageFeatureGenerator(
+        self._feature_generator = VisionLanguageConversationFeatureGenerator(
             tokenizer=tokenizer,
             processor=processor,
             processor_name=processor_name,

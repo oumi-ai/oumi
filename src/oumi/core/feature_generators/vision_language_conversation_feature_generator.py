@@ -52,7 +52,7 @@ class _SpecialTokens(NamedTuple):
     """Token id of `PAD` token."""
 
 
-class VisionLanguageFeatureGenerator(BaseConversationFeatureGenerator):
+class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerator):
     """Applies `processor` to generate model inputs from an input `Conversation`."""
 
     def __init__(

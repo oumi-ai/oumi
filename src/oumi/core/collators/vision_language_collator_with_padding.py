@@ -18,8 +18,8 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
-from oumi.core.feature_generators.vision_language_feature_generator import (
-    VisionLanguageFeatureGenerator,
+from oumi.core.feature_generators import (
+    VisionLanguageConversationFeatureGenerator,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types import Conversation
@@ -50,9 +50,11 @@ class VisionLanguageCollatorWithPadding:
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
-        self._feature_generator: Optional[VisionLanguageFeatureGenerator] = None
+        self._feature_generator: Optional[
+            VisionLanguageConversationFeatureGenerator
+        ] = None
         if True:
-            self._feature_generator = VisionLanguageFeatureGenerator(
+            self._feature_generator = VisionLanguageConversationFeatureGenerator(
                 tokenizer=tokenizer,
                 processor=None,
                 processor_name="Qwen/Qwen2-VL-2B-Instruct",
