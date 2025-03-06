@@ -65,6 +65,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         processor_name: Optional[str] = None,
         trust_remote_code: bool = False,
         return_tensors: Optional[str] = None,
+        label_ignore_index: Optional[int] = None,
     ) -> None:
         """Initializes a new instance of VisionLanguageFeatureProcessor."""
         # Importing these here to avoid circular dependencies
@@ -116,7 +117,11 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         self._special_tokens: _SpecialTokens = _SpecialTokens(
             image_token=self._processor.image_token,
             image_token_id=self._processor.image_token_id,
-            label_ignore_index=self._processor.label_ignore_index,
+            label_ignore_index=(
+                label_ignore_index
+                if label_ignore_index is not None
+                else self._processor.label_ignore_index
+            ),
             pad_token_id=int(tokenizer.pad_token_id),
         )
 

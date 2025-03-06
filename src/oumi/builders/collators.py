@@ -22,6 +22,7 @@ from oumi.core.collators.text_completions_collator_with_padding import (
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
+from oumi.core.collators.vision_language_sft_collator import VisionLanguageSftCollator
 from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
@@ -48,7 +49,11 @@ def build_data_collator(
             Supported values are:
 
             - "text_with_padding": Uses `TextCollatorWithPadding`.
+            - "text_completions_only_with_padding": Uses
+                `TextCompletionsCollatorWithPadding`.
             - "vision_language_with_padding": Uses `VisionLanguageCollatorWithPadding`.
+            - "vision_language_sft": Uses `VisionLanguageSftCollator`.
+
         tokenizer: A tokenizer.
         max_length: An optional maximum sequence length.
         label_ignore_index: If set, then label values of tokens that shouldn't
@@ -90,16 +95,28 @@ def build_data_collator(
         return TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
-            label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
+            label_ignore_index=label_ignore_index,
             **kwargs,
         )
-    elif collator_name in ("vision_language_with_padding", "vision_language_sft"):
+    elif collator_name == "vision_language_with_padding":
         return VisionLanguageCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
-            label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
+            label_ignore_index=label_ignore_index,
+            **kwargs,
+        )
+    elif collator_name == "vision_language_sft":
+        processor_name = kwargs.pop("processor_name", None)
+        if not processor_name:
+            raise ValueError(f"Empty processor_name for '{collator_name}'")
+        return VisionLanguageSftCollator(
+            tokenizer=tokenizer,
+            processor_name=processor_name,
+            max_length=max_length,
+            truncation=enable_truncation,
+            label_ignore_index=label_ignore_index,
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
