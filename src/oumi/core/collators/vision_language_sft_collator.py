@@ -28,7 +28,7 @@ from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 _PIXEL_VALUES_KEY = "pixel_values"
 
 
-class VisionLanguageCollatorWithPadding:
+class VisionLanguageSftCollator:
     def __init__(
         self,
         tokenizer: BaseTokenizer,
@@ -50,7 +50,7 @@ class VisionLanguageCollatorWithPadding:
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
-        self._conversation_feature_generator: Optional[
+        self._feature_generator: Optional[
             VisionLanguageConversationFeatureGenerator
         ] = None
         if True:
@@ -92,8 +92,7 @@ class VisionLanguageCollatorWithPadding:
 
         if self._conversation_feature_generator is None:
             print(
-                f"self._conversation_feature_generator: "
-                f"{self._conversation_feature_generator is not None}\n"
+                f"self._feature_generator: {self._feature_generator is not None}\n"
                 f"batch[0]: {batch[0].keys()}"
             )
             return self._collate_batch(batch)
