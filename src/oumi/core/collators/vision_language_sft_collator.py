@@ -208,6 +208,6 @@ class VisionLanguageSftCollator:
             max_variable_sized_dims=(
                 # if multi-image inputs are possible, then
                 # allow 1 variable-sized dimension (`num_images`).
-                1 if self._allow_multi_image_inputs else 0
+                2 if self._allow_multi_image_inputs else 1
             ),
         )
