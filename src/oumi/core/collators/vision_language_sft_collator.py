@@ -97,14 +97,15 @@ class VisionLanguageSftCollator:
 
         conversations: list[Conversation] = []
         for idx in range(batch_size):
-            if "conversation" not in batch[idx]:
+            example = batch[idx]
+            if "conversation_json" not in example:
                 raise ValueError(
-                    f"Example doesn't contain 'conversation' key. "
+                    f"Example doesn't contain 'conversation_json' key. "
                     f"Example: {idx + 1} of {batch_size}. "
-                    f"Available keys: {batch[idx].keys()}"
+                    f"Available keys: {example.keys()}"
                 )
 
-            conversation_json = batch[idx]["conversation"]
+            conversation_json = example["conversation_json"]
             conversations.append(Conversation.from_json(conversation_json))
         assert len(conversations) == batch_size
 

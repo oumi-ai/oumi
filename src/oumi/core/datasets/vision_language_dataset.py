@@ -63,6 +63,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
     def __init__(
         self,
         *,
+        return_conversations: bool = False,
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
@@ -70,15 +71,35 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         trust_remote_code: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the VisionLanguageDataset class."""
+        """Initializes a new instance of the VisionLanguageDataset class.
+
+        if `return_conversations` is True, the dataset will return dictionaries
+            containing just JSON-encoded `Conversation` objects:
+            {"conversation_json": conversation.to_json()}
+        Otherwise, the dataset will return dictionaries containing model inputs:
+            {"input_ids": ..., "attention_mask": ..., "pixel_values": ...}
+
+        Args:
+            tokenizer: A tokenizer for encoding text data.
+            processor: An optional processor object for generating features.
+            processor_name: The name of the processor to use for feature generation.
+            limit: An optional limit on the number of examples to load.
+            trust_remote_code: Whether to trust remote code execution for the processor.
+            return_conversations: Whether to return raw `Conversation` objects.
+            **kwargs: Additional keyword arguments to pass to the base class.
+        """
         super().__init__(tokenizer=tokenizer, **kwargs)
 
-        self._feature_generator = VisionLanguageConversationFeatureGenerator(
-            tokenizer=tokenizer,
-            processor=processor,
-            processor_name=processor_name,
-            trust_remote_code=trust_remote_code,
-            return_tensors=self._return_tensors,
+        self._feature_generator = (
+            None
+            if return_conversations
+            else VisionLanguageConversationFeatureGenerator(
+                tokenizer=tokenizer,
+                processor=processor,
+                processor_name=processor_name,
+                trust_remote_code=trust_remote_code,
+                return_tensors=self._return_tensors,
+            )
         )
 
         if limit is not None:
@@ -110,8 +131,10 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             dict: A dictionary of inputs for a model.
         """
         conversation = self.transform_conversation(sample)
-        if True:
+        if self._feature_generator is None:
+            # This is only compatible with `use_torchdata=True`
+            # as HF loaders expect certain keys like `input_ids`.
             conversation_json = conversation.to_json()
-            return {"conversation": conversation_json}
+            return {"conversation_json": conversation_json}
 
-        return self._feature_generator.transform_conversation(conversation)
+        return self._feature_generator.transform_conversation(conversation, None)
