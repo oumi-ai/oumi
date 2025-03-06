@@ -115,9 +115,9 @@ class VisionLanguageCollatorWithPadding:
 
         result2 = self._feature_generator.transform_conversations(conversations)
         for idx, res in enumerate([result1, result2]):
-            res_shapes = {k: v.shape for k, v in res.items()}
-            print(f"result{idx+1}: {res_shapes}")
-        return result1
+            res_shapes = {k: res[k].shape for k in sorted(res.keys())}
+            print(f"result{idx + 1}: {res_shapes}")
+        return result2
 
     def _collate_batch(self, batch) -> dict[str, Any]:
         collated_batch = self._text_collator(batch)  # type: ignore

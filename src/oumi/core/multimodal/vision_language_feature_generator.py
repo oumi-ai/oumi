@@ -260,6 +260,12 @@ class VisionLanguageFeatureGenerator:
                 )
 
             first_dim_action = feature_spec.first_dim_action
+            if (
+                first_dim_action != InternalFeatureFirstDimAction.KEEP
+                and len(conversations) > 1
+            ):
+                logger.debug(f"{feature_name}: Rewrote {first_dim_action} to KEEP")
+                first_dim_action = InternalFeatureFirstDimAction.KEEP
 
             if first_dim_action in (
                 InternalFeatureFirstDimAction.DROP_ALWAYS,
@@ -287,9 +293,7 @@ class VisionLanguageFeatureGenerator:
                 else:
                     inputs[feature_name] = x
             else:
-                assert (
-                    feature_spec.first_dim_action == InternalFeatureFirstDimAction.KEEP
-                )
+                assert first_dim_action == InternalFeatureFirstDimAction.KEEP
                 inputs[feature_name] = x
 
         # Ignore `image_token_id`-s in the loss computation.
