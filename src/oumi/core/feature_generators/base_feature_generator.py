@@ -22,7 +22,7 @@ class FeatureGeneratorOptions(NamedTuple):
     """Options for the feature generator."""
 
     allow_feature_reshape: bool = True
-    """Whether to allow reshaping of the model input features
+    """Whether to allow reshaping of the model input features.
 
     For example, whether the generator can drop the first dummy dimension.
     """

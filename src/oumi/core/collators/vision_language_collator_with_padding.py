@@ -38,6 +38,8 @@ class VisionLanguageCollatorWithPadding:
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
+        processor_name: Optional[str] = None,
+        trust_remote_code: bool = False,
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -50,21 +52,9 @@ class VisionLanguageCollatorWithPadding:
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
+        processor_name: The name of the processor to use for feature generation.
+        trust_remote_code: Whether to trust remote code execution for the processor.
         """
-        self._conversation_feature_generator: Optional[
-            VisionLanguageConversationFeatureGenerator
-        ] = None
-        if True:
-            self._conversation_feature_generator = (
-                VisionLanguageConversationFeatureGenerator(
-                    tokenizer=tokenizer,
-                    processor=None,
-                    processor_name="Qwen/Qwen2-VL-2B-Instruct",
-                    trust_remote_code=True,
-                    return_tensors="pt",
-                )
-            )
-
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
@@ -76,6 +66,19 @@ class VisionLanguageCollatorWithPadding:
                 # allow 2 variable-sized dimensions: `seq_len`, `num_images`.
                 2 if allow_multi_image_inputs else 1
             ),
+        )
+
+        self._conversation_feature_generator: Optional[
+            VisionLanguageConversationFeatureGenerator
+        ] = (
+            VisionLanguageConversationFeatureGenerator(
+                tokenizer=tokenizer,
+                processor_name=processor_name,
+                trust_remote_code=trust_remote_code,
+                return_tensors="pt",
+            )
+            if processor_name
+            else None
         )
 
     def __call__(self, batch) -> dict[str, Any]:
