@@ -34,7 +34,7 @@ from oumi.core.evaluation.utils.platform_prerequisites import check_prerequisite
 from oumi.core.evaluation.utils.save_utils import save_evaluation_output
 from oumi.core.registry import REGISTRY
 
-EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME = "inference_engine"
+_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME = "inference_engine"
 
 
 class Evaluator:
@@ -295,14 +295,14 @@ class Evaluator:
         # Check if the evaluation function requires an inference engine.
         fn_signature = inspect.signature(evaluation_function)
         fn_input_params = [param.name for param in fn_signature.parameters.values()]
-        if EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME not in fn_input_params:
+        if _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME not in fn_input_params:
             return
 
         # Ensure an inference engine is not already provided in the keyword arguments.
-        if kwargs.get(EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME):
+        if kwargs.get(_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME):
             raise RuntimeError(
                 "The inference engine is already provided in the keyword arguments. "
-                f"The input param `{EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME}` "
+                f"The input param `{_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME}` "
                 "is reserved for an inference engine that is generated according to "
                 "the evaluation config's `EvaluationConfig.inference_engine` field and "
                 "should not be populated by users."
@@ -315,4 +315,4 @@ class Evaluator:
             remote_params=config.inference_remote_params,
             generation_params=config.generation,
         )
-        kwargs[EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME] = inference_engine
+        kwargs[_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME] = inference_engine
