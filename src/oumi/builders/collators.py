@@ -144,6 +144,7 @@ def build_collator_from_config(
         collator_kwargs["allow_multi_image_inputs"] = (
             model_config.visual_config.supports_multiple_images
         )
+
     if collator_name == "vision_language_sft":
         processor_name = collator_kwargs.get(
             "processor_name", config.model.tokenizer_name or config.model.model_name
