@@ -94,7 +94,7 @@ def build_data_collator(
             truncation=enable_truncation,
             **kwargs,
         )
-    elif collator_name == "vision_language_with_padding":
+    elif collator_name in ("vision_language_with_padding", "vision_language_sft"):
         return VisionLanguageCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
@@ -137,12 +137,25 @@ def build_collator_from_config(
 
     collator_kwargs = {}
     if (
-        collator_name == "vision_language_with_padding"
+        collator_name in ("vision_language_with_padding", "vision_language_sft")
         and model_config is not None
         and model_config.visual_config is not None
     ):
         collator_kwargs["allow_multi_image_inputs"] = (
             model_config.visual_config.supports_multiple_images
+        )
+    if collator_name == "vision_language_sft":
+        processor_name = collator_kwargs.get(
+            "processor_name", config.model.tokenizer_name or config.model.model_name
+        )
+        if not processor_name:
+            raise ValueError(
+                "Processor name must be provided for vision-language SFT collator."
+            )
+        collator_kwargs["processor_name"] = processor_name
+
+        collator_kwargs["trust_remote_code"] = collator_kwargs.get(
+            "trust_remote_code", config.model.trust_remote_code
         )
 
     return build_data_collator(

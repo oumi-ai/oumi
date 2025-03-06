@@ -105,7 +105,7 @@ class VisionLanguageCollatorWithPadding:
             if "conversation" not in batch[idx]:
                 raise ValueError(
                     f"Example doesn't contain 'conversation' key. "
-                    f"Examples index: {idx + 1} of {batch_size}. "
+                    f"Example: {idx + 1} of {batch_size}. "
                     f"Available keys: {batch[idx].keys()}"
                 )
 
@@ -129,7 +129,12 @@ class VisionLanguageCollatorWithPadding:
         for idx, res in enumerate([result1, result2]):
             res_shapes = {k: res[k].shape for k in sorted(res.keys())}
             print(f"result{idx + 1}: {res_shapes}")
-        return result2
+
+        result = result2
+
+        # TODO: Handle truncation.
+
+        return result
 
     def _collate_batch(self, batch) -> dict[str, Any]:
         collated_batch = self._text_collator(batch)  # type: ignore
@@ -159,7 +164,7 @@ class VisionLanguageCollatorWithPadding:
                     other_input_names.add(key)
 
         # Collate images.
-        pixel_values = self.collate_images(images)
+        pixel_values = self._collate_images(images)
 
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
@@ -189,7 +194,7 @@ class VisionLanguageCollatorWithPadding:
 
         return collated_batch
 
-    def collate_images(self, images) -> torch.Tensor:
+    def _collate_images(self, images) -> torch.Tensor:
         """Collate images for multi-modal training.
 
         Args:
