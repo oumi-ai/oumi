@@ -120,7 +120,7 @@ class VisionLanguageCollatorWithPadding:
                 updated_batch.append(
                     self._conversation_feature_generator.transform_conversation(
                         conversation,
-                        FeatureGeneratorOptions(allow_feature_reshape=True),
+                        options=None,
                     )
                 )
             result1 = self._collate_batch(updated_batch)
