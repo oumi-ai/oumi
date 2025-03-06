@@ -18,7 +18,7 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
-from oumi.core.multimodal.vision_language_feature_generator import (
+from oumi.core.feature_generators.vision_language_feature_generator import (
     VisionLanguageFeatureGenerator,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer

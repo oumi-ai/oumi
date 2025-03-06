@@ -18,7 +18,7 @@ from typing import Optional
 from typing_extensions import override
 
 from oumi.core.datasets import BaseSftDataset
-from oumi.core.multimodal.vision_language_feature_generator import (
+from oumi.core.feature_generators.vision_language_feature_generator import (
     VisionLanguageFeatureGenerator,
 )
 from oumi.core.processors.base_processor import BaseProcessor

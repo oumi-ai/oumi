@@ -27,6 +27,9 @@ from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     get_default_vlm_model_config,
 )
+from oumi.core.feature_generators.base_feature_generator import (
+    BaseConversationFeatureGenerator,
+)
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
@@ -49,7 +52,7 @@ class _SpecialTokens(NamedTuple):
     """Token id of `PAD` token."""
 
 
-class VisionLanguageFeatureGenerator:
+class VisionLanguageFeatureGenerator(BaseConversationFeatureGenerator):
     """Applies `processor` to generate model inputs from an input `Conversation`."""
 
     def __init__(
