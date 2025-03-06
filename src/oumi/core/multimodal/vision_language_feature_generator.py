@@ -187,7 +187,7 @@ class VisionLanguageFeatureGenerator:
         return load_pil_image_from_content_item(image_item)
 
     def transform_conversation(self, conversation: Conversation) -> dict:
-        """Transforms an Oumi conversation into a dictionary of inputs for a model.
+        """Transforms a single Oumi conversation into a dictionary of model inputs.
 
         Args:
             conversation: An input conversation.
