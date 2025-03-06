@@ -138,7 +138,7 @@ def test_save_evaluation_output_empty_results():
         # Run the function to be tested.
         save_evaluation_output(
             backend_name="mock_backend_name",
-            task_params=EvaluationTaskParams(),
+            task_params=EvaluationTaskParams(evaluation_backend="lm_harness"),
             evaluation_result=EvaluationResult(),
             base_output_dir=my_base_output_dir,
             config=EvaluationConfig(),
@@ -172,7 +172,7 @@ def test_save_evaluation_output_missing_backend():
     ):
         save_evaluation_output(
             backend_name="",
-            task_params=EvaluationTaskParams(),
+            task_params=EvaluationTaskParams(evaluation_backend="lm_harness"),
             evaluation_result=EvaluationResult(),
             base_output_dir="",
             config=EvaluationConfig(),
