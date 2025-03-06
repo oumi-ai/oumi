@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 import torch
 
+from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.feature_generators import (
     FeatureGeneratorOptions,
     VisionLanguageConversationFeatureGenerator,
@@ -67,6 +68,18 @@ class VisionLanguageSftCollator:
                 return_tensors="pt",
                 label_ignore_index=label_ignore_index,
             )
+        )
+
+        self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
+            tokenizer=tokenizer,
+            max_length=max_length,
+            truncation=truncation,
+            label_ignore_index=label_ignore_index,
+            max_variable_sized_dims=(
+                # if multi-image inputs are possible, then
+                # allow 2 variable-sized dimensions: `seq_len`, `num_images`.
+                2 if allow_multi_image_inputs else 1
+            ),
         )
 
     def __call__(self, batch) -> dict[str, Any]:

@@ -167,9 +167,7 @@ def build_collator_from_config(
             "processor_name", config.model.tokenizer_name or config.model.model_name
         )
         if not processor_name:
-            raise ValueError(
-                "Processor name must be provided for vision-language SFT collator."
-            )
+            raise ValueError(f"Processor name must be provided for '{collator_name}'!")
         collator_kwargs["processor_name"] = processor_name
 
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(

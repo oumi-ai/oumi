@@ -18,12 +18,7 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
-from oumi.core.feature_generators import (
-    FeatureGeneratorOptions,
-    VisionLanguageConversationFeatureGenerator,
-)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.types import Conversation
 from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 _PIXEL_VALUES_KEY = "pixel_values"
@@ -38,8 +33,6 @@ class VisionLanguageCollatorWithPadding:
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
-        processor_name: Optional[str] = None,
-        trust_remote_code: bool = False,
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -52,8 +45,6 @@ class VisionLanguageCollatorWithPadding:
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
-        processor_name: The name of the processor to use for feature generation.
-        trust_remote_code: Whether to trust remote code execution for the processor.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
@@ -68,21 +59,8 @@ class VisionLanguageCollatorWithPadding:
             ),
         )
 
-        self._conversation_feature_generator: Optional[
-            VisionLanguageConversationFeatureGenerator
-        ] = (
-            VisionLanguageConversationFeatureGenerator(
-                tokenizer=tokenizer,
-                processor_name=processor_name,
-                trust_remote_code=trust_remote_code,
-                return_tensors="pt",
-            )
-            if processor_name
-            else None
-        )
-
     def __call__(self, batch) -> dict[str, Any]:
-        """Custom collator for multi-modal vision-language training.
+        """Custom collator for multi-modal  vision-language training.
 
         Args:
             batch: List of batch items.
@@ -90,59 +68,7 @@ class VisionLanguageCollatorWithPadding:
         Returns:
             Dict[str, torch.Tensor]: Processed batch.
         """
-        batch_size = len(batch)
-        if batch_size <= 0:
-            raise ValueError("Batch is empty")
-
-        if self._conversation_feature_generator is None:
-            print(
-                f"self._conversation_feature_generator: "
-                f"{self._conversation_feature_generator is not None}\n"
-                f"batch[0]: {batch[0].keys()}"
-            )
-            return self._collate_batch(batch)
-
-        assert self._conversation_feature_generator is not None
-
-        conversations: list[Conversation] = []
-        for idx in range(batch_size):
-            if "conversation" not in batch[idx]:
-                raise ValueError(
-                    f"Example doesn't contain 'conversation' key. "
-                    f"Example: {idx + 1} of {batch_size}. "
-                    f"Available keys: {batch[idx].keys()}"
-                )
-
-            conversation_json = batch[idx]["conversation"]
-            conversations.append(Conversation.from_json(conversation_json))
-        assert len(conversations) == batch_size
-
-        if True:
-            updated_batch: list[dict] = []
-            for conversation in conversations:
-                updated_batch.append(
-                    self._conversation_feature_generator.transform_conversation(
-                        conversation,
-                        options=None,
-                    )
-                )
-            result1 = self._collate_batch(updated_batch)
-
-        result2 = self._conversation_feature_generator.transform_conversations(
-            conversations,
-            FeatureGeneratorOptions(allow_feature_reshape=False),
-        )
-        for idx, res in enumerate([result1, result2]):
-            res_shapes = {k: res[k].shape for k in sorted(res.keys())}
-            print(f"result{idx + 1}: {res_shapes}")
-
-        result = result2
-
-        # TODO: Handle truncation.
-
-        return result
-
-    def _collate_batch(self, batch) -> dict[str, Any]:
+        # Collate batch prompts
         collated_batch = self._text_collator(batch)  # type: ignore
         known_input_names: set[str] = set(collated_batch.keys()).union(
             {_PIXEL_VALUES_KEY}
@@ -170,7 +96,7 @@ class VisionLanguageCollatorWithPadding:
                     other_input_names.add(key)
 
         # Collate images.
-        pixel_values = self._collate_images(images)
+        pixel_values = self.collate_images(images)
 
         # Add images to other inputs.
         collated_batch[_PIXEL_VALUES_KEY] = pixel_values
@@ -200,7 +126,7 @@ class VisionLanguageCollatorWithPadding:
 
         return collated_batch
 
-    def _collate_images(self, images) -> torch.Tensor:
+    def collate_images(self, images) -> torch.Tensor:
         """Collate images for multi-modal training.
 
         Args:
