@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import copy
+import inspect
 import time
 from dataclasses import fields
 from datetime import datetime
 from typing import Any, Callable, Optional, Union
 
+from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
     AlpacaEvalTaskParams,
     EvaluationConfig,
@@ -31,6 +33,8 @@ from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.evaluation.utils.platform_prerequisites import check_prerequisites
 from oumi.core.evaluation.utils.save_utils import save_evaluation_output
 from oumi.core.registry import REGISTRY
+
+_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME = "inference_engine"
 
 
 class Evaluator:
@@ -129,6 +133,8 @@ class Evaluator:
             )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             evaluation_fn = Evaluator._get_custom_evaluation_fn(task_params.task_name)
+            Evaluator._add_inference_engine_if_needed(evaluation_fn, kwargs, config)
+
             evaluation_result = evaluation_fn(
                 task_params=task_params,
                 config=config,
@@ -280,3 +286,33 @@ class Evaluator:
             init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
 
         return init_kwargs
+
+    @staticmethod
+    def _add_inference_engine_if_needed(
+        evaluation_function: Callable, kwargs: dict[str, Any], config: EvaluationConfig
+    ) -> None:
+        """Adds an inference engine to the keyword arguments (`kwargs`), if needed."""
+        # Check if the evaluation function requires an inference engine.
+        fn_signature = inspect.signature(evaluation_function)
+        fn_input_params = [param.name for param in fn_signature.parameters.values()]
+        if _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME not in fn_input_params:
+            return
+
+        # Ensure an inference engine is not already provided in the keyword arguments.
+        if kwargs.get(_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME):
+            raise RuntimeError(
+                "The inference engine is already provided in the keyword arguments. "
+                f"The input param `{_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME}` "
+                "is reserved for an inference engine that is generated according to "
+                "the evaluation config's `EvaluationConfig.inference_engine` field and "
+                "should not be populated by users."
+            )
+
+        # Instantiate inference engine.
+        inference_engine = build_inference_engine(
+            engine_type=config.inference_engine,
+            model_params=config.model,
+            remote_params=config.inference_remote_params,
+            generation_params=config.generation,
+        )
+        kwargs[_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME] = inference_engine
