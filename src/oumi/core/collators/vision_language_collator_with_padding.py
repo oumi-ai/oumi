@@ -19,6 +19,7 @@ import torch
 
 from oumi.core.collators.text_collator_with_padding import TextCollatorWithPadding
 from oumi.core.feature_generators import (
+    FeatureGeneratorOptions,
     VisionLanguageConversationFeatureGenerator,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -118,13 +119,15 @@ class VisionLanguageCollatorWithPadding:
             for conversation in conversations:
                 updated_batch.append(
                     self._conversation_feature_generator.transform_conversation(
-                        conversation
+                        conversation,
+                        FeatureGeneratorOptions(allow_feature_reshape=True),
                     )
                 )
             result1 = self._collate_batch(updated_batch)
 
         result2 = self._conversation_feature_generator.transform_conversations(
-            conversations
+            conversations,
+            FeatureGeneratorOptions(allow_feature_reshape=False),
         )
         for idx, res in enumerate([result1, result2]):
             res_shapes = {k: res[k].shape for k in sorted(res.keys())}

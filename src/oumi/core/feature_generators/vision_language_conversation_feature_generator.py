@@ -18,6 +18,7 @@ from typing import NamedTuple, Optional
 import numpy as np
 import torch
 from PIL import Image
+from typing_extensions import override
 
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
@@ -29,6 +30,7 @@ from oumi.core.configs.internal.supported_models import (
 )
 from oumi.core.feature_generators.base_feature_generator import (
     BaseConversationFeatureGenerator,
+    FeatureGeneratorOptions,
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
@@ -189,28 +191,40 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             raise ValueError("Processor required for transform")
         return load_pil_image_from_content_item(image_item)
 
-    def transform_conversation(self, conversation: Conversation) -> dict:
+    @override
+    def transform_conversation(
+        self, conversation: Conversation, options: Optional[FeatureGeneratorOptions]
+    ) -> dict:
         """Transforms a single Oumi conversation into a dictionary of model inputs.
 
         Args:
             conversation: An input conversation.
+            options: Options for the feature generator.
 
         Returns:
             dict: A dictionary of inputs for a model.
         """
-        return self.transform_conversations([conversation])
+        return self.transform_conversations([conversation], options)
 
-    def transform_conversations(self, conversations: list[Conversation]) -> dict:
+    @override
+    def transform_conversations(
+        self,
+        conversations: list[Conversation],
+        options: Optional[FeatureGeneratorOptions],
+    ) -> dict:
         """Transforms a list of Oumi conversations into a dictionary of model inputs.
 
         Args:
-            conversations: A list of input conversations.
+            conversations: An input conversation.
+            options: Options for the feature generator.
 
         Returns:
             dict: A dictionary of inputs for a model.
         """
         if self._processor is None:
             raise ValueError("Processor required to transform a conversation")
+
+        valid_options: FeatureGeneratorOptions = options or FeatureGeneratorOptions()
 
         if self._processor.chat_template is None:
             all_images = []
@@ -265,7 +279,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             first_dim_action = feature_spec.first_dim_action
             if (
                 first_dim_action != InternalFeatureFirstDimAction.KEEP
-                and len(conversations) > 1
+                and not valid_options.allow_feature_reshape
             ):
                 logger.debug(f"{feature_name}: Rewrote {first_dim_action} to KEEP")
                 first_dim_action = InternalFeatureFirstDimAction.KEEP

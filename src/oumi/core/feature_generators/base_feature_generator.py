@@ -13,19 +13,33 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
+from typing import NamedTuple, Optional
 
 from oumi.core.types.conversation import Conversation
+
+
+class FeatureGeneratorOptions(NamedTuple):
+    """Options for the feature generator."""
+
+    allow_feature_reshape: bool = True
+    """Whether to allow reshaping of the model input features
+
+    For example, whether the generator can drop the first dummy dimension.
+    """
 
 
 class BaseConversationFeatureGenerator(ABC):
     """Applies `processor` to generate model inputs from an input `Conversation`."""
 
     @abstractmethod
-    def transform_conversation(self, conversation: Conversation) -> dict:
+    def transform_conversation(
+        self, conversation: Conversation, options: Optional[FeatureGeneratorOptions]
+    ) -> dict:
         """Transforms a single Oumi conversation into a dictionary of model inputs.
 
         Args:
             conversation: An input conversation.
+            options: Options for the feature generator.
 
         Returns:
             dict: A dictionary of inputs for a model.
@@ -33,11 +47,16 @@ class BaseConversationFeatureGenerator(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def transform_conversations(self, conversations: list[Conversation]) -> dict:
+    def transform_conversations(
+        self,
+        conversations: list[Conversation],
+        options: Optional[FeatureGeneratorOptions],
+    ) -> dict:
         """Transforms a list of Oumi conversations into a dictionary of model inputs.
 
         Args:
             conversations: A list of input conversations.
+            options: Options for the feature generator.
 
         Returns:
             dict: A dictionary of inputs for a model.
