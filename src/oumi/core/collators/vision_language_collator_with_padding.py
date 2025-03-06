@@ -51,7 +51,7 @@ class VisionLanguageCollatorWithPadding:
         allow_multi_image_inputs: Whether to allow multi-image inputs.
         """
         self._feature_generator: Optional[VisionLanguageFeatureGenerator] = None
-        if False:
+        if True:
             self._feature_generator = VisionLanguageFeatureGenerator(
                 tokenizer=tokenizer,
                 processor=None,
@@ -93,7 +93,7 @@ class VisionLanguageCollatorWithPadding:
             )
             return self._collate_batch(batch)
 
-        updated_batch: list[dict] = []
+        conversations: list[Conversation] = []
         for idx in range(batch_size):
             if "conversation" not in batch[idx]:
                 raise ValueError(
@@ -102,12 +102,20 @@ class VisionLanguageCollatorWithPadding:
                 )
 
             conversation_json = batch[idx]["conversation"]
-            conversation: Conversation = Conversation.from_json(conversation_json)
-            updated_batch.append(
-                self._feature_generator.transform_conversation(conversation)
-            )
-        assert len(updated_batch) == batch_size
-        return self._collate_batch(updated_batch)
+            conversations.append(Conversation.from_json(conversation_json))
+        assert len(conversations) == batch_size
+
+        if False:
+            updated_batch: list[dict] = []
+            for conversation in conversations:
+                updated_batch.append(
+                    self._feature_generator.transform_conversation(conversation)
+                )
+            return self._collate_batch(updated_batch)
+
+        return self._collate_batch(
+            self._feature_generator.transform_conversations(conversations)
+        )
 
     def _collate_batch(self, batch) -> dict[str, Any]:
         collated_batch = self._text_collator(batch)  # type: ignore

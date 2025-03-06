@@ -195,24 +195,45 @@ class VisionLanguageFeatureGenerator:
         Returns:
             dict: A dictionary of inputs for a model.
         """
+        return self.transform_conversations([conversation])
+
+    def transform_conversations(self, conversations: list[Conversation]) -> dict:
+        """Transforms a list of Oumi conversations into a dictionary of model inputs.
+
+        Args:
+            conversations: A list of input conversations.
+
+        Returns:
+            dict: A dictionary of inputs for a model.
+        """
         if self._processor is None:
             raise ValueError("Processor required to transform a conversation")
 
         if self._processor.chat_template is None:
-            image, prompt = self._prepare_simple_model(conversation)
+            all_images = []
+            all_prompts = []
+            for conversation in conversations:
+                image, prompt = self._prepare_simple_model(conversation)
+                all_images.append(image)
+                all_prompts.append(prompt)
 
             inputs = self._processor(
-                images=[image],
-                text=[prompt],
+                images=all_images,
+                text=all_prompts,
                 return_tensors=self._return_tensors,
                 padding=True,
             )
         else:
-            images, prompt = self._prepare_instruct_model(conversation)
+            all_images = []
+            all_prompts = []
+            for conversation in conversations:
+                images, prompt = self._prepare_instruct_model(conversation)
+                all_images.append(images)
+                all_prompts.append(prompt)
 
             inputs = self._processor(
-                images=images,
-                text=[prompt],
+                images=all_images,
+                text=all_prompts,
                 return_tensors=self._return_tensors,
                 padding=True,
             )
