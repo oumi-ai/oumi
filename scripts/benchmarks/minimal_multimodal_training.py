@@ -226,7 +226,7 @@ def test_multimodal_trainer(
             f"Using batch size 1 for {model_name.value} (original: bs={batch_size}). "
             "The model only supports bs=1 because of variable-size image encodings."
         )
-        batch_size = 8
+        batch_size = 3
 
     dataset_info = _get_dataset_info(dataset_name)
 
