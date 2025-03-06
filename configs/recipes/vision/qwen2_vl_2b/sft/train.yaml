@@ -52,7 +52,7 @@ training:
   trainer_type: "OUMI" # "TRL_SFT"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 4
-  gradient_accumulation_steps: 32
+  gradient_accumulation_steps: 8
   max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
   # num_train_epochs: 1
 
