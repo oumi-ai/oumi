@@ -142,7 +142,8 @@ def _get_chat_template(model_name: ModelName) -> str:
         result = _MODELS_MAP[model_name].chat_template
         print(f"Chat template: {result}")
     else:
-        print(f"No chat templates defined for {model_name}!")
+        result = _DEFAULT_MLLM_CHAT_TEMPLATE
+        print(f"No chat template defined for {model_name}! Defaulting to '{result}'...")
     return result or _DEFAULT_MLLM_CHAT_TEMPLATE
 
 
@@ -152,7 +153,8 @@ def _get_collator_name(model_name: ModelName) -> str:
         result = _MODELS_MAP[model_name].collator_name
         print(f"Collator: {result}")
     else:
-        print(f"No collator defined for {model_name}!")
+        result = _DEFAULT_MLLM_COLLATOR
+        print(f"No collator defined for {model_name}! Defaulting to '{result}'...")
     return result or _DEFAULT_MLLM_COLLATOR
 
 
