@@ -29,6 +29,13 @@ def train(
         ),
     ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
+    debug_tokenized_example: Annotated[
+        bool,
+        typer.Option(
+            default=False,
+            help="Enable logging of tokenized examples during training for debugging.",
+        ),
+    ] = False,
 ):
     """Train a model.
 
@@ -36,6 +43,7 @@ def train(
         ctx: The Typer context object.
         config: Path to the configuration file for training.
         level: The logging level for the specified command.
+        debug_tokenized_example: Enable logging of tokenized examples during training.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
@@ -61,6 +69,8 @@ def train(
         config, extra_args, logger=logger
     )
     parsed_config.finalize_and_validate()
+
+    parsed_config.training.debug_tokenized_example = debug_tokenized_example
 
     limit_per_process_memory()
     device_cleanup()

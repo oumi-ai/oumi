@@ -22,6 +22,7 @@ from oumi.utils.torch_utils import (
     pad_sequences,
     pad_to_max_dim_and_stack,
 )
+from oumi.builders.collators import log_tokenized_example
 
 _INPUT_IDS_KEY = "input_ids"
 _ATTENTION_MASK_KEY = "attention_mask"
@@ -50,6 +51,7 @@ class TextCollatorWithPadding:
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
         max_variable_sized_dims: int = 1,
+        debug: bool = False,
     ):
         """Custom collator for text LLM training.
 
@@ -65,11 +67,13 @@ class TextCollatorWithPadding:
             Normally, it's 1 (sequence length dimension), but can sometimes be higher
             e.g., 2 for "cross_attention_mask" for VLM-s with multi-image inputs.
             Negative value mean `Unlimited`.
+        debug: Whether to enable logging of tokenized examples for debugging.
         """
         self._max_length: Optional[int] = (
             int(max_length) if max_length is not None and max_length > 0 else None
         )
         self._truncation: bool = bool(truncation)
+        self._debug: bool = debug
 
         if not hasattr(tokenizer, "padding_side") or not tokenizer.padding_side:
             raise RuntimeError("Tokenizer doesn't define `padding_side`.")
@@ -222,6 +226,15 @@ class TextCollatorWithPadding:
         # Add labels if present.
         if labels_on:
             combined_batch[_LABELS_KEY] = collated_text_inputs[_LABELS_KEY]
+
+        if self._debug:
+            raw_example = batch[0]
+            formatted_example = tokenizer.apply_chat_template(raw_example, tokenize=False)
+            tokenized_example = tokenizer.apply_chat_template(raw_example)
+            decoded_tokens = [tokenizer.decode(t) for t in tokenized_example]
+            tokenized_example = list(zip(tokenized_example, decoded_tokens))
+            model_input = combined_batch
+            log_tokenized_example(raw_example, formatted_example, tokenized_example, model_input)
 
         return combined_batch
 
