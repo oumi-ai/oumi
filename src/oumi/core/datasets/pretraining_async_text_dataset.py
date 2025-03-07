@@ -19,7 +19,7 @@ from typing import Callable, Optional
 
 import datasets
 import torch
-from trl.trainer.utils import ConstantLengthDataset
+from torch.utils.data import IterableDataset
 
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.logging import logger
@@ -29,7 +29,7 @@ _SMALLEST_PRIORITY_VALUE = 0
 _END_PRIORITY_VALUE = _LARGEST_PRIORITY_VALUE + 1
 
 
-class PretrainingAsyncTextDataset(ConstantLengthDataset):
+class PretrainingAsyncTextDataset(IterableDataset):
     """Iterable dataset that returns constant length chunks of tokens.
 
     Prefetches, formats, and tokenizes asynchronously from main thread.

@@ -118,7 +118,6 @@ def test_train_pack_with_pretraining_dataset():
                 enable_wandb=False,
                 enable_tensorboard=False,
                 output_dir=output_temp_dir,
-                trainer_kwargs={"dataset_kwargs": {"skip_prepare_dataset": True}},
             ),
         )
 
