@@ -370,6 +370,7 @@ def test_return_conversations(
     result = my_dataset.transform({"example": "data"})
 
     assert isinstance(result, dict)
+    assert set({"conversation_json"}) == set(result.keys())
     assert "conversation_json" in result
     conversation = Conversation.from_json(result["conversation_json"])
     assert conversation == sample_conversation_using_image_binary
