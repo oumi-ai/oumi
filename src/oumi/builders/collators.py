@@ -33,12 +33,21 @@ from oumi.utils.logging import logger
 _VERY_LARGE_INTEGER = int(1e30)
 
 
+def log_tokenized_example(raw_example, formatted_example, tokenized_example, model_input):
+    """Logs raw, formatted, tokenized examples, and model input for debugging."""
+    logger.debug("Raw Example: %s", raw_example)
+    logger.debug("Formatted Example: %s", formatted_example)
+    logger.debug("Tokenized Example: %s", tokenized_example)
+    logger.debug("Model Input: %s", model_input)
+
+
 def build_data_collator(
     collator_name: str,
     tokenizer: BaseTokenizer,
     *,
     max_length: Optional[int],
     label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
+    debug: bool = False,
     **kwargs,
 ) -> Callable:
     """Builds a data collator based on the given collator name.
@@ -57,6 +66,7 @@ def build_data_collator(
             PyTorch convention is to use -100 as the `ignore_index` label. Refer to
             the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
             for more details.
+        debug: Whether to enable logging of tokenized examples for debugging.
         **kwargs: Additional keyword arguments to pass to the collator constructor.
 
     Returns:
@@ -92,6 +102,7 @@ def build_data_collator(
             max_length=max_length,
             label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
+            debug=debug,
             **kwargs,
         )
     elif collator_name == "vision_language_with_padding":
@@ -100,6 +111,7 @@ def build_data_collator(
             max_length=max_length,
             label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
+            debug=debug,
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
@@ -107,6 +119,7 @@ def build_data_collator(
             tokenizer=tokenizer,
             instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
             response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
+            debug=debug,
         )
 
     raise ValueError(f"Unknown data collator name: '{collator_name}'")
@@ -150,5 +163,6 @@ def build_collator_from_config(
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
         label_ignore_index=label_ignore_index,
+        debug=config.training.debug_tokenized_example,
         **collator_kwargs,
     )
