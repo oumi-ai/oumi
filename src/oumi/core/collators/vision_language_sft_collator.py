@@ -39,16 +39,17 @@ class VisionLanguageSftCollator:
         """Custom collator for multi-modal vision-language training.
 
         Args:
-        tokenizer: The tokenizer used for encoding the data.
-        processor_name: The name of the processor to use for feature generation.
-        max_length: Padding length.
-        truncation: Whether to truncate long inputs to `max_length`.
-            If False, the long inputs are preserved as is even if they exceed
-            `max_length`. Only has effect if `max_length` is specified.
-        label_ignore_index:  If set, then label values of tokens that shouldn't
-            contribute to the loss computation will be replaced by this special value.
-        allow_multi_image_inputs: Whether to allow multi-image inputs.
-        trust_remote_code: Whether to trust remote code execution for the processor.
+            tokenizer: The tokenizer used for encoding the data.
+            processor_name: The name of the processor to use for feature generation.
+            max_length: Padding length.
+            truncation: Whether to truncate long inputs to `max_length`.
+                If False, the long inputs are preserved as is even if they exceed
+                `max_length`. Only has effect if `max_length` is specified.
+            label_ignore_index:  If set, then label values of tokens that shouldn't
+                contribute to the loss computation will be replaced by
+                this special value.
+            allow_multi_image_inputs: Whether to allow multi-image inputs.
+            trust_remote_code: Whether to trust remote code execution for the processor.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
 
