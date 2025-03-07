@@ -256,12 +256,16 @@ def test_multimodal_trainer(
         model_name.value, tokenizer, trust_remote_code=True
     )
 
+    collator_name = _get_collator_name(model_name)
+    dataset_kwargs = dict(processor=processor, limit=100)
+    if collator_name == "vision_language_sft":
+        dataset_kwargs["return_conversations"] = True
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
         tokenizer=tokenizer,
         subset=subset,
         split=split,
-        dataset_kwargs=dict(processor=processor, limit=100),
+        dataset_kwargs=dataset_kwargs,
         trust_remote_code=True,
         use_torchdata=True,
     )
@@ -299,7 +303,6 @@ def test_multimodal_trainer(
             log_model_summary(model)
 
     collator_kwargs = {}
-    collator_name = _get_collator_name(model_name)
     if collator_name == "vision_language_sft":
         collator_kwargs["processor_name"] = model_name.value
         collator_kwargs["trust_remote_code"] = model_params.trust_remote_code
