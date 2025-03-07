@@ -174,7 +174,6 @@ def build_collator_from_config(
             "trust_remote_code", config.model.trust_remote_code
         )
 
-    print(f"COLLAOR: {collator_name}: {collator_kwargs}")
     return build_data_collator(
         collator_name=collator_name,
         tokenizer=tokenizer,
