@@ -1,10 +1,10 @@
-# LoRA config for QwQ (based on Qwen2.5 32B).
+# QLoRA config for QwQ (based on Qwen2.5 32B).
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c configs/recipes/qwq/sft/lora_train.yaml
+#   oumi train -c configs/recipes/qwq/sft/qlora_train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -30,10 +30,10 @@ training:
   trainer_type: "TRL_SFT"
   use_peft: True
   save_steps: 200
+  max_steps: 10
   num_train_epochs: 1
   per_device_train_batch_size: 2
-  gradient_accumulation_steps: 8
-  max_grad_norm: null
+  gradient_accumulation_steps: 1
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -51,11 +51,18 @@ training:
 
   logging_steps: 100
   empty_device_cache_steps: 50
-  output_dir: "output/qwq.lora"
+  output_dir: "output/qwq.qlora"
   include_performance_metrics: True
   enable_wandb: True
 
 peft:
+  q_lora: True
+  # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
+  bnb_4bit_quant_type: "nf4"
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
+  bnb_4bit_quant_storage: "bfloat16"
+  bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 16
   lora_alpha: 32
   lora_dropout: 0.0
@@ -63,6 +70,10 @@ peft:
     - "q_proj"
     - "k_proj"
     - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
 
 fsdp:
   enable_fsdp: True
