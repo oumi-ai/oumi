@@ -186,7 +186,28 @@ def sample_dataset_image_binary_label_ignore_index(
 
 
 @pytest.fixture
-def sample_dataset_image_binary_return_conversations(
+def sample_dataset_image_binary_return_conversations_barebones(
+    sample_conversation_using_image_binary: Conversation,
+):
+    class TestDatasetImageBinary(VisionLanguageSftDataset):
+        default_dataset = "custom"
+
+        @override
+        def transform_conversation(self, example):
+            return sample_conversation_using_image_binary
+
+        @override
+        def _load_data(self):
+            pass
+
+    return TestDatasetImageBinary(
+        # No processor/tokenizer
+        return_conversations=True,
+    )
+
+
+@pytest.fixture
+def sample_dataset_image_binary_return_conversations_with_processor(
     mock_processor: Mock,
     sample_conversation_using_image_binary: Conversation,
     mock_image_tokenizer: MagicMock,
@@ -207,6 +228,19 @@ def sample_dataset_image_binary_return_conversations(
         tokenizer=mock_image_tokenizer,
         return_conversations=True,
     )
+
+
+@pytest.fixture
+def return_conversation_fixtures(
+    sample_dataset_image_binary_return_conversations_barebones,
+    sample_dataset_image_binary_return_conversations_with_processor,
+):
+    return {
+        "barebones": (sample_dataset_image_binary_return_conversations_barebones),
+        "with_processor": (
+            sample_dataset_image_binary_return_conversations_with_processor
+        ),
+    }
 
 
 def test_transform_simple_model_using_image_path(
@@ -317,12 +351,17 @@ def test_transform_instruct_model_using_image_binary(
     mock_processor.apply_chat_template.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["barebones", "with_processor"],
+)
 def test_return_conversations(
-    sample_dataset_image_binary_return_conversations,
+    fixture_name: str,
+    return_conversation_fixtures,
     mock_processor: Mock,
     sample_conversation_using_image_binary: Conversation,
 ):
-    my_dataset = sample_dataset_image_binary_return_conversations
+    my_dataset = return_conversation_fixtures[fixture_name]
     mock_processor.chat_template = "Template"
     mock_processor.apply_chat_template = Mock(return_value="Processed template")
 
