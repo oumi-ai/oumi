@@ -12,17 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Core datasets module for the Oumi (Open Universal Machine Intelligence) library.
+"""Feature generators module for the Oumi (Open Universal Machine Intelligence) library.
 
-This module provides base classes for different types of datasets used in
-the Oumi framework. These base classes serve as foundations for creating custom
-datasets for various machine learning tasks.
-
-These base classes can be extended to create custom datasets tailored to specific
-machine learning tasks within the Oumi framework.
-
-For more detailed information on each class, please refer to their respective
-documentation.
+This module provides classes to generate model input features, which can be used
+in multiple contexts (datasets, collators, etc).
 """
 
 from oumi.core.feature_generators.base_feature_generator import (
