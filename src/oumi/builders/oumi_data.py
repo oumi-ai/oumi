@@ -161,6 +161,7 @@ def _load_dataset(
             **dataset_kwargs,
         )
 
+        # print(f"\n\nFIRST SAMPLE: {next(iter(dataset))}\n\n")
         if isinstance(dataset, MapDataPipe):
             # TODO: should we keep map datasets as is?
             return MapToIterConverterIterDataPipe(dataset)

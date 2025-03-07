@@ -24,7 +24,7 @@ model:
 
 data:
   train:
-    collator_name: "vision_language_sft"
+    collator_name: "vision_language_with_padding" # "vision_language_sft"
     use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -33,9 +33,9 @@ data:
         seed: 42
         transform_num_workers: "auto"
         dataset_kwargs:
-          # processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+          processor_name: "Qwen/Qwen2-VL-2B-Instruct"
           limit: 4096 # Uncomment to limit dataset size!
-          return_conversations: True
+          # return_conversations: True
 
       # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -49,10 +49,10 @@ data:
 
 training:
   output_dir: "output/vlm_finetuned"
-  trainer_type: "TRL_SFT" # "TRL_SFT" #  "OUMI"
+  trainer_type: "TRL_SFT" # "OUMI"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 8
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 32
   max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
   # num_train_epochs: 1
 
