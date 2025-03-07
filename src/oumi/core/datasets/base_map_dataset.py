@@ -297,7 +297,6 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
                 )
             )
         )
-        logger.info(f"\n\n\nOUTPUT FEATURES: {output_features}\n\n")
         elements_per_shard: int = int(math.ceil(float(total_examples) / num_proc))
         if output_features.element_size_in_bytes > 0:
             elements_per_shard = min(
