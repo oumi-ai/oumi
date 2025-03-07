@@ -34,6 +34,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+          return_tensors: True
           # limit: 4096 # Uncomment to limit dataset size!
           # return_conversations: True
 
