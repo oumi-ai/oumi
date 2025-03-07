@@ -73,7 +73,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class.
 
-        if `return_conversations` is True, the dataset will return dictionaries
+        If `return_conversations` is True, the dataset will return dictionaries
             containing just JSON-encoded `Conversation` objects:
             {"conversation_json": conversation.to_json()}
         Otherwise, the dataset will return dictionaries containing model inputs:
