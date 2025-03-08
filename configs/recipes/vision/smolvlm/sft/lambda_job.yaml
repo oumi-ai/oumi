@@ -24,7 +24,8 @@ resources:
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-working_dir: .
+# working_dir: .
+workdir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
@@ -36,11 +37,16 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install hf_transfer
+  git clone https://github.com/jrwana/oumi.git
+  make setup
+  pip install -U flash-attn --no-build-isolation
+
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceTB/SmolVLM-Instruct --exclude "onnx/*" "runs/*"
 
+  conda activate oumi
   pip install -U flash-attn --no-build-isolation
 
 run: |
@@ -48,6 +54,9 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
+
+  conda activate oumi
+  python src/oumi/__main__.py train -c configs/recipes/vision/smolvlm/sft/train_pixmo.yaml
 
   # oumi distributed torchrun \
   #     -m oumi train \
