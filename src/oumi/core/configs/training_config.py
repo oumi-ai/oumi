@@ -125,3 +125,23 @@ class TrainingConfig(BaseConfig):
                         f"'{existing_max_seq_length}' with '{max_seq_length_value}'"
                     )
                 self.training.trainer_kwargs[max_seq_length_key] = max_seq_length_value
+
+        # Set Liger kernel flags if using a HF trainer, and if so, don't do Liger
+        # patch ourselves.
+        # TODO(OPE-1117): Clean up this logic after upgrading to trl 0.16.
+        if self.model.enable_liger_kernel:
+            if self.training.trainer_type == TrainerType.TRL_SFT:
+                self.training.trainer_kwargs["use_liger"] = True
+                self.training.trainer_kwargs["use_liger_kernel"] = True
+                self.model.enable_liger_kernel = False
+            elif (
+                self.training.trainer_type == TrainerType.TRL_DPO
+                or self.training.trainer_type == TrainerType.HF
+            ):
+                self.training.trainer_kwargs["use_liger_kernel"] = True
+                self.model.enable_liger_kernel = False
+            elif self.training.trainer_type == TrainerType.OUMI:
+                # We need to Liger patch ourselves for our own training loop.
+                pass
+            else:
+                raise ValueError("Unrecognized trainer type!")
