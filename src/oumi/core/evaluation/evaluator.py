@@ -123,8 +123,9 @@ class Evaluator:
 
             # Destroy the inference engine, if created by a previous task. LM Harness
             # uses its own inference engine, which is created internally.
-            del self._inference_engine
-            self._inference_engine = None
+            if self._inference_engine:
+                del self._inference_engine
+                self._inference_engine = None
 
             evaluation_result = evaluate_lm_harness(
                 task_params=lm_harness_task_params,
