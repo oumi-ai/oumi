@@ -14,6 +14,7 @@
 
 import hashlib
 import logging
+import os
 import re
 from typing import Optional
 
@@ -119,3 +120,75 @@ def compute_utf8_len(s: str) -> int:
     # This is inefficient: allocates a temporary copy of string content.
     # FIXME Can we do better?
     return len(s.encode("utf-8"))
+
+
+def get_editable_install_override() -> bool:
+    """Returns whether OUMI_TRY_EDITABLE_INSTALL env var is set to a truthy value."""
+    s = os.environ.get("OUMI_TRY_EDITABLE_INSTALL", "")
+    mode = s.lower().strip()
+    bool_result = try_str_to_bool(mode)
+    if bool_result is not None:
+        return bool_result
+    return False
+
+
+# Experimental function, only for developer usage.
+def set_oumi_install_editable(setup: str) -> str:
+    """Tries to replace oumi PyPi installs with editable installation from source.
+
+    For example, the following line:
+        `pip install uv && uv pip -q install oumi[gpu,dev] vllm`
+    will be replaced with:
+        `pip install uv && uv pip -q install -e '.[gpu,dev]' vllm`
+
+    Args:
+        setup (str): The bash setup script to modify. May be multi-line.
+
+    Returns:
+        The modified setup script.
+    """
+    setup_lines = setup.split("\n")
+    for i, line in enumerate(setup_lines):
+        # Skip comments.
+        if line.strip().startswith("#"):
+            continue
+
+        # Only consider lines with the words "pip" "install" "oumi" in that order.
+        # This is to try to handle cases where those words may appear multiple times
+        # in the line for some reason, but this logic may not be perfect.
+        pip_idx = line.find("pip")
+        install_idx = line.find("install", pip_idx)
+        oumi_idx = line.find("oumi", install_idx)
+        if not (pip_idx != -1 and install_idx != -1 and oumi_idx != -1):
+            continue
+        # Find the last occurrences of "pip" and "install", in case one line has
+        # multiple pip installs, ex. `pip install uv && uv pip install oumi`.
+        install_idx = line.rfind("install", 0, oumi_idx)
+        pip_idx = line.rfind("pip", 0, install_idx)
+
+        # The oumi import could be followed by optional dependencies, ex. "oumi[gpu]".
+        # We need to extract the exact oumi install string.
+        oumi_end_idx = oumi_idx + 4
+        while oumi_end_idx < len(line) and not line[oumi_end_idx].isspace():
+            oumi_end_idx += 1
+        oumi_install = line[oumi_idx:oumi_end_idx]
+
+        # Replace the oumi install with local editable install.
+        # Ex. oumi[gpu,dev] -> '.[gpu,dev]'
+        local_install = f"'.{oumi_install[4:]}'"
+        line = line.replace(oumi_install, local_install)
+        # Add the editable flag if not already present.
+        # If already present, the flag should be after "install" and before the packages
+        # to install, i.e. oumi in this case.
+        edit_flag_idx = line.find("-e", install_idx)
+        # If the editable flag is not present or is after the oumi install, add it.
+        if edit_flag_idx == -1 or edit_flag_idx > oumi_idx:
+            line = line[:install_idx] + line[install_idx:].replace(
+                "install", "install -e"
+            )
+        # Replace the line in the setup script.
+        logger = logging.getLogger("oumi")
+        logger.info(f"Detected the following oumi installation: `{setup_lines[i]}`")
+        logger.info(f"Replaced with: `{line}`")
+        setup_lines[i] = line
+    return "\n".join(setup_lines)
