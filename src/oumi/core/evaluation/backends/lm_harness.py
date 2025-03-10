@@ -12,11 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 import os
 import random
-import time
-from datetime import datetime
 from pprint import pformat
 from typing import Any, Callable, Optional, Union
 
@@ -33,6 +30,7 @@ from lm_eval.tasks import get_task_dict as lm_harness_get_task_dict
 from oumi.builders import build_processor, build_tokenizer
 from oumi.builders.models import is_image_text_llm_using_model_name
 from oumi.core.configs import (
+    EvaluationConfig,
     GenerationParams,
     InferenceEngineType,
     LMHarnessTaskParams,
@@ -40,7 +38,7 @@ from oumi.core.configs import (
     RemoteParams,
 )
 from oumi.core.distributed import is_world_process_zero
-from oumi.evaluation.save_utils import save_evaluation_output
+from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.utils.logging import logger
 
 # Used to set the few-shot seed for lm_eval.api.task.Task. The value is consistent with
@@ -259,17 +257,11 @@ def _set_random_seeds(random_seed, numpy_random_seed, torch_random_seed) -> None
 
 def evaluate(
     task_params: LMHarnessTaskParams,
-    output_dir: str,
-    model_params: ModelParams,
-    generation_params: GenerationParams,
-    enable_wandb: bool,
-    inference_engine_type: InferenceEngineType,
-    inference_remote_params: Optional[RemoteParams] = None,
-    run_name: Optional[str] = None,
+    config: EvaluationConfig,
     random_seed: Optional[int] = 0,
     numpy_random_seed: Optional[int] = 1234,
     torch_random_seed: Optional[int] = 1234,
-) -> dict[str, Any]:
+) -> EvaluationResult:
     """Evaluates a model using the LM Evaluation Harness framework (EleutherAI).
 
     For detailed documentation, we refer you to the following readme:
@@ -277,13 +269,7 @@ def evaluate(
 
     Args:
         task_params: The LM Harness parameters to use for evaluation.
-        output_dir: The directory where the evaluation results will be saved.
-        model_params: The parameters of the model to evaluate.
-        generation_params: The generation parameters to use for evaluation.
-        enable_wandb: Whether to enable Weights & Biases (wandb) logging.
-        inference_engine_type: The inference engine to use (`VLLM`, `NATIVE`, `REMOTE`).
-        inference_remote_params: The parameters for remote inference, if applicable.
-        run_name: Unique identifier for wandb for the current training run.
+        config: The evaluation configuration.
         random_seed: The random seed to use for python's `random` package.
         numpy_random_seed: The numpy random seed to use for reproducibility.
         torch_random_seed: The torch random seed to use for reproducibility.
@@ -313,12 +299,12 @@ def evaluate(
 
     # Identify whether the model is multi-modal.
     is_multimodal = is_image_text_llm_using_model_name(
-        model_name=model_params.model_name,
-        trust_remote_code=model_params.trust_remote_code,
+        model_name=config.model.model_name,
+        trust_remote_code=config.model.trust_remote_code,
     )
 
     # Identify the proper LM Harness model (`lm_harness_model`) to use.
-    if inference_engine_type == InferenceEngineType.NATIVE:
+    if config.inference_engine == InferenceEngineType.NATIVE:
         lm_harness_model = "hf-multimodal" if is_multimodal else "hf"
         if device.startswith("cuda"):
             logger.warning(
@@ -326,16 +312,16 @@ def evaluate(
                 "the `inference_engine` to `VLLM`, instead of the `NATIVE`, for faster "
                 "evaluation."
             )
-    elif inference_engine_type == InferenceEngineType.VLLM:
+    elif config.inference_engine == InferenceEngineType.VLLM:
         lm_harness_model = "vllm-vlm" if is_multimodal else "vllm"
         if not device.startswith("cuda"):
             raise ValueError("The `VLLM` inference_engine requires a CUDA-enabled GPU.")
-    elif inference_engine_type == InferenceEngineType.REMOTE:
+    elif config.inference_engine == InferenceEngineType.REMOTE:
         lm_harness_model = "local-completions"
     else:
         raise ValueError(
-            f"Unsupported inference engine type: {inference_engine_type}. "
-            "Our integration with the `lm_harness` evaluation platform supports "
+            f"Unsupported inference engine type: {config.inference_engine}. "
+            "Our integration with the `lm_harness` evaluation backend supports "
             "the `NATIVE`, `VLLM` and `REMOTE` inference_engine types."
         )
 
@@ -349,92 +335,79 @@ def evaluate(
         lm_harness_model=lm_harness_model,
         is_multimodal=is_multimodal,
         device=device,
-        model_params=model_params,
-        generation_params=generation_params,
-        inference_engine_type=inference_engine_type,
-        inference_remote_params=inference_remote_params,
+        model_params=config.model,
+        generation_params=config.generation,
+        inference_engine_type=config.inference_engine,
+        inference_remote_params=config.inference_remote_params,
     )
     logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
     lm_class = lm_harness_get_model_class(lm_harness_model)
     lm = lm_class(**lm_harness_model_params)
 
-    # Get a timestamp for the current run.
-    start_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    start_time = time.time()
-
     logger.info("Starting evaluation...")
+
     lm_eval_output = lm_harness_evaluate(
         lm=lm,
         task_dict=task_dict,
+        log_samples=task_params.log_samples or False,
         limit=task_params.num_samples,
-        log_samples=False,  # Set to `True` to log all responses or logits.
         apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )
-    elapsed_time_sec = time.time() - start_time
 
     # Metrics are only available on the main process, and `None` on others.
-    if is_world_process_zero():
-        assert lm_eval_output is not None
-        task_name = task_params.task_name
-        metric_dict = lm_eval_output["results"][task_name]  # type: ignore
-        logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
+    if not is_world_process_zero():
+        return EvaluationResult()
 
-        if enable_wandb:
-            project_name = os.environ.get("WANDB_PROJECT", "oumi")
-            logger.info(f"Logging to Weights and Biases project: '{project_name}'")
-            wandb_logger = WandbLogger(
-                project=project_name, name=run_name, job_type="eval"
-            )
-            wandb_logger.post_init(lm_eval_output)
-            wandb_logger.log_eval_result()
+    assert lm_eval_output is not None
+    task_name = task_params.task_name
+    metric_dict = lm_eval_output["results"][task_name]  # type: ignore
+    logger.info(f"{task_name}'s metric dict is {pformat(metric_dict)}")
 
-        # The LM Harness platform's task configuration is a dictionary which
-        # includes: the number of samples, the number of few-shots, task version(s),
-        # the prompt(s) text, model/git hashes, seeds, and the special tokens used
-        # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
-        platform_task_config = lm_eval_output
+    if config.enable_wandb:
+        project_name = os.environ.get("WANDB_PROJECT", "oumi")
+        logger.info(f"Logging to Weights and Biases project: '{project_name}'")
+        wandb_logger = WandbLogger(
+            project=project_name, name=config.run_name, job_type="eval"
+        )
+        wandb_logger.post_init(lm_eval_output)
+        wandb_logger.log_eval_result()
 
-        # The LM Harness platform's results is a dictionary that includes all
-        # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
-        # or a classification category.
-        platform_results = {
-            key: platform_task_config.pop(key)
-            for key in ["results", "groups"]
-            if key in platform_task_config
-        }
+    # The LM Harness backend's task configuration is a dictionary which
+    # includes: the number of samples, the number of few-shots, task version(s),
+    # the prompt(s) text, model/git hashes, seeds, and the special tokens used
+    # by the tokenizer (such as `pad`, `eos`, `bos, and `eot`).
+    backend_task_config = lm_eval_output
 
-        # Add LM Harness-specific configuration settings to the results.
-        platform_task_config.setdefault("config", {})
+    # The LM Harness backend's results is a dictionary that includes all
+    # evaluation metrics, which are oftentimes grouped (in `groups`) by a theme
+    # or a classification category.
+    backend_results = {
+        key: backend_task_config.pop(key)
+        for key in ["results", "groups"]
+        if key in backend_task_config
+    }
 
-        # Add configuration settings related to the model.
-        platform_task_config["config"]["model"] = lm_harness_model
-        platform_task_config["config"]["model_args"] = lm_harness_model_params
-        if hasattr(lm, "get_model_info"):
-            platform_task_config["config"].update(lm.get_model_info())
+    # Add LM Harness-specific configuration settings to the results.
+    backend_task_config.setdefault("config", {})
 
-        # Add configuration settings related to the task.
-        platform_task_config["config"]["task_params"] = task_params
-        platform_task_config["config"]["task_dict"] = task_dict
+    # Add configuration settings related to the model.
+    backend_task_config["config"]["model"] = lm_harness_model
+    backend_task_config["config"]["model_args"] = lm_harness_model_params
+    if hasattr(lm, "get_model_info"):
+        backend_task_config["config"].update(lm.get_model_info())
 
-        # Add other configuration settings.
-        platform_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
-        lm_harness_log_utils.add_env_info(platform_task_config)
-        lm_harness_log_utils.add_tokenizer_info(platform_task_config, lm)
+    # Add configuration settings related to the task.
+    backend_task_config["config"]["task_params"] = task_params
+    backend_task_config["config"]["task_dict"] = task_dict
 
-        if output_dir:
-            save_evaluation_output(
-                base_output_dir=output_dir,
-                platform=task_params.get_evaluation_platform(),
-                platform_results=copy.deepcopy(platform_results),
-                platform_task_config=platform_task_config,
-                task_params=task_params,
-                start_time_str=start_time_str,
-                elapsed_time_sec=elapsed_time_sec,
-                model_params=model_params,
-                generation_params=generation_params,
-                inference_config=None,
-            )
+    # Add other configuration settings.
+    backend_task_config["git_hash"] = lm_harness_log_utils.get_git_commit_hash()
+    lm_harness_log_utils.add_env_info(backend_task_config)
+    lm_harness_log_utils.add_tokenizer_info(backend_task_config, lm)
 
-        return platform_results
-    return {}
+    return EvaluationResult(
+        task_name=task_params.task_name,
+        task_result=backend_results,
+        backend_config=backend_task_config,
+    )

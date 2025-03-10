@@ -163,6 +163,21 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         config.training.dataloader_num_workers = num_workers
 
     assert isinstance(config.training.dataloader_num_workers, int)
+
+    if config.training.trainer_type == TrainerType.TRL_GRPO:
+        world_size = get_device_rank_info().world_size
+        batch_size = config.training.per_device_train_batch_size
+        global_batch_size = world_size * batch_size
+        num_generations = config.training.grpo.num_generations
+        if num_generations is not None and global_batch_size % num_generations != 0:
+            logger.warning(
+                f"For {config.training.trainer_type}, "
+                f"global batch size ({global_batch_size}) should be evenly divisible "
+                f"by `grpo.num_generations` ({num_generations}). It's not! "
+                f"World size: {world_size}. "
+                f"Per-device batch size: {batch_size}."
+            )
+
     return config
 
 

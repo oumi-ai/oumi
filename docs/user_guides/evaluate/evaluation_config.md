@@ -16,22 +16,22 @@ model:
 
 tasks:
   # LM Harness Tasks
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
     num_samples: 100
     eval_kwargs:
       num_fewshot: 5
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: arc_challenge
     eval_kwargs:
       num_fewshot: 25
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: hellaswag
     eval_kwargs:
       num_fewshot: 10
 
   # AlpacaEval Task
-  - evaluation_platform: alpaca_eval
+  - evaluation_backend: alpaca_eval
     version: 2.0  # or 1.0
     num_samples: 805
 
@@ -58,14 +58,14 @@ run_name: "phi3-evaluation"
 
 - `tasks`: List of evaluation tasks ({py:class}`~oumi.core.configs.params.evaluation_params.EvaluationTaskParams`)
   - LM Harness Task Parameters:   ({py:class}`~oumi.core.configs.params.evaluation_params.LMHarnessTaskParams`)
-    - `evaluation_platform`: "lm_harness"
+    - `evaluation_backend`: "lm_harness"
     - `task_name`: Name of the LM Harness task
     - `num_fewshot`: Number of few-shot examples (0 for zero-shot)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
 
   - AlpacaEval Task Parameters: ({py:class}`~oumi.core.configs.params.evaluation_params.AlpacaEvalTaskParams`)
-    - `evaluation_platform`: "alpaca_eval"
+    - `evaluation_backend`: "alpaca_eval"
     - `version`: AlpacaEval version (1.0 or 2.0)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters

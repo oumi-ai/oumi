@@ -34,8 +34,9 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen2-VL-2B-Instruct"
-          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
+          # limit: 4096 # Uncomment to limit dataset size!
+          # return_conversations: True
 
       # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -49,7 +50,7 @@ data:
 
 training:
   output_dir: "output/vlm_finetuned"
-  trainer_type: "TRL_SFT"
+  trainer_type: "TRL_SFT" # or "OUMI"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features.
   gradient_accumulation_steps: 32
@@ -67,7 +68,7 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
   warmup_ratio: 0.03
-  weight_decay: 0.1  # Safeguard overfitting to vqav2-small training set.
+  weight_decay: 0.1 # Safeguard overfitting to vqav2-small training set.
   lr_scheduler_type: "cosine"
 
   logging_steps: 5

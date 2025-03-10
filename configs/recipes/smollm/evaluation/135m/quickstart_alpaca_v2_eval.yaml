@@ -26,6 +26,7 @@ generation:
 
 tasks:
   - evaluation_platform: alpaca_eval
+    num_samples: 3  # Limit the number of eval samples.
     eval_kwargs:
       version: 2.0
 
