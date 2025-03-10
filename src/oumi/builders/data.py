@@ -67,7 +67,7 @@ def build_dataset_mixture(
         # TODO: OPE-271. Some type hackery going on here.
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
-        # and becomes the default processign pipeline.
+        # and becomes the default processing pipeline.
         return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
     # Check if the underlying dataset is already packed, or if we need to pack it

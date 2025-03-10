@@ -302,25 +302,23 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # `BaseSftDataset` classes
     # 2. Packing is requested, and thus is processed by the
     # `PretrainingAsyncTextDataset` class
-    if (
-        config.training.trainer_type == TrainerType.TRL_SFT
-        and hasattr(dataset, "column_names")
-        and "input_ids" in dataset.column_names
-    ):
-        logger.info(
-            "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
-            "already processed."
-        )
-        if "dataset_kwargs" not in config.training.trainer_kwargs:
-            config.training.trainer_kwargs["dataset_kwargs"] = {}
-        # Skip preparing dataset if `skip_prepare_dataset` isn't already set.
-        if (
-            "skip_prepare_dataset"
-            not in config.training.trainer_kwargs["dataset_kwargs"]
-        ):
-            config.training.trainer_kwargs["dataset_kwargs"]["skip_prepare_dataset"] = (
-                True
+    if config.training.trainer_type == TrainerType.TRL_SFT:
+        example = next(iter(dataset))
+        if "input_ids" in example:
+            logger.info(
+                "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
+                "already processed."
             )
+            if "dataset_kwargs" not in config.training.trainer_kwargs:
+                config.training.trainer_kwargs["dataset_kwargs"] = {}
+            # Skip preparing dataset if `skip_prepare_dataset` isn't already set.
+            if (
+                "skip_prepare_dataset"
+                not in config.training.trainer_kwargs["dataset_kwargs"]
+            ):
+                config.training.trainer_kwargs["dataset_kwargs"][
+                    "skip_prepare_dataset"
+                ] = True
 
     # Train model
     trainer_type: Final[TrainerType] = config.training.trainer_type
