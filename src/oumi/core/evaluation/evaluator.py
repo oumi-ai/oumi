@@ -32,6 +32,7 @@ from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_har
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.evaluation.utils.platform_prerequisites import check_prerequisites
 from oumi.core.evaluation.utils.save_utils import save_evaluation_output
+from oumi.core.inference import BaseInferenceEngine
 from oumi.core.registry import REGISTRY
 
 _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME = "inference_engine"
@@ -57,6 +58,9 @@ class Evaluator:
         functions. Note that the `task_name` should be the registry key for the custom
         evaluation function to be used.
     """
+
+    _inference_engine: Optional[BaseInferenceEngine] = None
+    """Inference engine used for evaluation, if needed by the tasks."""
 
     def evaluate(self, config: EvaluationConfig, **kwargs) -> list[EvaluationResult]:
         """Evaluates a model using the provided evaluation configuration.
@@ -117,6 +121,12 @@ class Evaluator:
             lm_harness_task_params = Evaluator._get_backend_task_params(task_params)
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
 
+            # Destroy the inference engine, if created by a previous task. LM Harness
+            # uses its own inference engine, which is created internally.
+            if self._inference_engine:
+                del self._inference_engine
+                self._inference_engine = None
+
             evaluation_result = evaluate_lm_harness(
                 task_params=lm_harness_task_params,
                 config=config,
@@ -129,11 +139,12 @@ class Evaluator:
             evaluation_result = evaluate_alpaca_eval(
                 task_params=alpaca_eval_task_params,
                 config=config,
+                inference_engine=self._get_inference_engine(config),
                 **kwargs,
             )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             evaluation_fn = Evaluator._get_custom_evaluation_fn(task_params.task_name)
-            Evaluator._add_inference_engine_if_needed(evaluation_fn, kwargs, config)
+            self._add_inference_engine_if_needed(evaluation_fn, kwargs, config)
 
             evaluation_result = evaluation_fn(
                 task_params=task_params,
@@ -287,9 +298,11 @@ class Evaluator:
 
         return init_kwargs
 
-    @staticmethod
     def _add_inference_engine_if_needed(
-        evaluation_function: Callable, kwargs: dict[str, Any], config: EvaluationConfig
+        self,
+        evaluation_function: Callable,
+        kwargs: dict[str, Any],
+        config: EvaluationConfig,
     ) -> None:
         """Adds an inference engine to the keyword arguments (`kwargs`), if needed."""
         # Check if the evaluation function requires an inference engine.
@@ -308,11 +321,18 @@ class Evaluator:
                 "should not be populated by users."
             )
 
-        # Instantiate inference engine.
-        inference_engine = build_inference_engine(
-            engine_type=config.inference_engine,
-            model_params=config.model,
-            remote_params=config.inference_remote_params,
-            generation_params=config.generation,
+        # Add inference engine in kwargs.
+        kwargs[_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME] = (
+            self._get_inference_engine(config)
         )
-        kwargs[_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME] = inference_engine
+
+    def _get_inference_engine(self, config: EvaluationConfig) -> BaseInferenceEngine:
+        """Returns the inference engine based on the evaluation configuration."""
+        if not self._inference_engine:
+            self._inference_engine = build_inference_engine(
+                engine_type=config.inference_engine,
+                model_params=config.model,
+                remote_params=config.inference_remote_params,
+                generation_params=config.generation,
+            )
+        return self._inference_engine
