@@ -37,18 +37,18 @@ generation:
 ########################################################################################
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_bbh
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_gpqa
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_mmlu_pro
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_musr
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_ifeval
   # # Temporarily disabled due to packaging conflicts
-  # - evaluation_platform: lm_harness
+  # - evaluation_backend: lm_harness
   #   task_name: leaderboard_math_hard
 
 # NOTE: If you are running this in a remote machine, which is not accessible after the
