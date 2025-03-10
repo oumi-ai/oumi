@@ -138,7 +138,7 @@ def test_save_evaluation_output_empty_results():
         # Run the function to be tested.
         save_evaluation_output(
             backend_name="mock_backend_name",
-            task_params=EvaluationTaskParams(evaluation_backend="lm_harness"),
+            task_params=EvaluationTaskParams(),
             evaluation_result=EvaluationResult(),
             base_output_dir=my_base_output_dir,
             config=EvaluationConfig(),
@@ -172,7 +172,7 @@ def test_save_evaluation_output_missing_backend():
     ):
         save_evaluation_output(
             backend_name="",
-            task_params=EvaluationTaskParams(evaluation_backend="lm_harness"),
+            task_params=EvaluationTaskParams(),
             evaluation_result=EvaluationResult(),
             base_output_dir="",
             config=EvaluationConfig(),
@@ -210,7 +210,7 @@ def test_save_evaluation_output_with_preexisting_path(
         # Run the save function to create a new dictionary.
         save_evaluation_output(
             backend_name=backend_dir,
-            task_params=EvaluationTaskParams(evaluation_backend="lm_harness"),
+            task_params=EvaluationTaskParams(),
             evaluation_result=EvaluationResult(),
             base_output_dir=output_temp_dir,
             config=EvaluationConfig(),
