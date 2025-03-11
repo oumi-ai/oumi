@@ -67,7 +67,8 @@ dependencies = [
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.48.0,<4.49",
-    "trl>=0.14.0,<0.15",
+    # >=0.14.0 is needed for GRPOTrainer.
+    "trl>=0.15.0,<0.16",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
@@ -132,9 +133,9 @@ evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
     "langdetect",              # leaderboard_ifeval
     "immutabledict",           # leaderboard_ifeval
-    "nltk>=3.9.1",
-    # "antlr4-python3-runtime==4.11",  # leaderboard_math_hard (incompatible)
-    "sympy>=1.12",           # leaderboard_math_hard
+    "nltk>=3.9.1",             # leaderboard_ifeval
+    "antlr4-python3-runtime==4.11",  # leaderboard_math_hard
+    "sympy>=1.12",                   # leaderboard_math_hard
     "sentencepiece>=0.1.98",
 ]
 
@@ -150,7 +151,7 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp]",
-    "vllm>=0.6.3,<0.7.0", # For VLLMInferenceEngine
+    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3.5,<0.4", # For LlamaCppInferenceEngine
@@ -159,7 +160,7 @@ ci_cpu = [
 # gpu actions runner, so we skip it for now
 ci_gpu = [
     "oumi[dev,docs,gcp,gpu]",
-    "vllm>=0.6.3,<0.7.0",
+    "vllm>=0.7.3,<0.8.0",
     "alpaca-eval>=0.6.6,<0.7",
 ]
 

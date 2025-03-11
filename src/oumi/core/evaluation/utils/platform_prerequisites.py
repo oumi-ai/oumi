@@ -37,10 +37,6 @@ BACKEND_PREREQUISITES: dict[
             PackagePrerequisites("nltk", "3.9.1"),
         ],
         "leaderboard_math_hard": [
-            # FIXME: This benchmark is currently NOT compatible with Oumi; MATH
-            # requires antlr4 version 4.11, but Oumi's omegaconf (2.3.0) requires
-            # antlr4 version 4.9.*. This is a known issue and will be fixed when we
-            # upgrade omegaconf to version 2.4.0.
             PackagePrerequisites("antlr4-python3-runtime", "4.11", "4.11"),
             PackagePrerequisites("sympy", "1.12"),
             PackagePrerequisites("sentencepiece", "0.1.98"),

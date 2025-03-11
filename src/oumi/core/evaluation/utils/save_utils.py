@@ -56,15 +56,24 @@ def _find_non_existing_output_dir_from_base_dir(base_dir: Path) -> Path:
         A new output directory (does not exist yet), if `base_dir` already exists,
         or the original `base_dir` if it does not exist.
     """
-    counter = 1
-    while base_dir.exists():
-        counter += 1
-        base_dir = Path(f"{base_dir}_{counter}")
+    dir_index = 0
+    new_dir = base_dir
+
+    while new_dir.exists():
         logger.warning(
-            "The requested output directory already exists. Creating a new directory "
-            f"to avoid overwriting previous evaluation results: {base_dir}."
+            f"The requested output directory already exists: `{new_dir}`. Looking up a "
+            "new location, to avoid overwriting previous evaluation results."
         )
-    return base_dir
+        dir_index += 1
+        new_dir = base_dir.parent / f"{base_dir.name}_{dir_index}"
+
+    if dir_index > 0:
+        logger.warning(
+            f"Created a new output directory to avoid overwriting previous evaluation "
+            f"results. The new directory is `{new_dir}`."
+        )
+
+    return new_dir
 
 
 def save_evaluation_output(
