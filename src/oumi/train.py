@@ -16,7 +16,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Final, Optional, Union
+from typing import Any, Callable, Final, Optional, Union
 
 import torch
 import transformers
@@ -188,13 +188,12 @@ def _create_optional_training_kwargs(
     metrics_function: Optional[Callable],
     reward_functions: list[Callable],
     collator: Optional[Callable],
-):
-    kwargs = {}
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"processing_class": tokenizer}
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
     if trainer_type != TrainerType.TRL_GRPO:
-        kwargs["tokenizer"] = tokenizer
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
     else:
@@ -203,8 +202,6 @@ def _create_optional_training_kwargs(
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
-
-        kwargs["processing_class"] = tokenizer
         kwargs["reward_funcs"] = reward_functions
     return kwargs
 
@@ -297,6 +294,32 @@ def train(config: TrainingConfig, **kwargs) -> None:
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
+
+    # trl's SFTTrainer has its own dataset processing code. We should skip it if
+    # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
+    # field. This generally occurs if the dataset is:
+    # 1. In the Oumi registry and thus is processed by the `BasePretrainingDataset` or
+    # `BaseSftDataset` classes
+    # 2. Packing is requested, and thus is processed by the
+    # `PretrainingAsyncTextDataset` class
+    # See OPE-1108 for more details.
+    if config.training.trainer_type == TrainerType.TRL_SFT:
+        example = next(iter(dataset))
+        if "input_ids" in example:
+            logger.info(
+                "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
+                "already processed."
+            )
+            if "dataset_kwargs" not in config.training.trainer_kwargs:
+                config.training.trainer_kwargs["dataset_kwargs"] = {}
+            # Skip preparing dataset if `skip_prepare_dataset` isn't already set.
+            if (
+                "skip_prepare_dataset"
+                not in config.training.trainer_kwargs["dataset_kwargs"]
+            ):
+                config.training.trainer_kwargs["dataset_kwargs"][
+                    "skip_prepare_dataset"
+                ] = True
 
     # Train model
     trainer_type: Final[TrainerType] = config.training.trainer_type
