@@ -24,7 +24,7 @@ model:
 
 generation:
   # NOTE: Adjust based on your available GPU memory.
-  batch_size: 64
+  batch_size: 4
 
 tasks:
   - evaluation_platform: alpaca_eval # 805 examples.
