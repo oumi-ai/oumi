@@ -3,6 +3,9 @@
 # Requirements:
 #   - Run `pip install vllm`
 #
+#   !Important! this model also requires the latest (dev) version of transformers.
+#   Please read more at qwen2_5_vl_3b/README.md
+#
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml \
 #     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"

@@ -5,10 +5,10 @@
     {%- if message['content'] is string -%}
         {{ message['content'] }}
     {%- elif message['content'] is iterable -%}
-        {%- for content in message['content'] -%}
-            {%- if content['type'] == 'text' -%}
-                {{ content['content'] }}
-            {%- elif content['type'].startswith('image') -%}
+        {%- for item in message['content'] -%}
+            {%- if item['type'] == 'text' -%}
+                {{ item['text'] if 'text' in item else item['content'] }}
+            {%- elif item['type'].startswith('image') -%}
                 {{ '<|image_{i:d}|>'.format(i=vars.next_image_id) }}
                 {%- set vars.next_image_id = vars.next_image_id + 1 -%}
             {%- endif -%}

@@ -11,21 +11,21 @@
     {%- if message['content'] is string -%}
         {{- message['content'] -}}
     {%- elif message['content'] is iterable -%}
-        {%- for content in message['content'] -%}
-            {%- if content['type'].startswith('image') -%}
+        {%- for item in message['content'] -%}
+            {%- if item['type'].startswith('image') -%}
                 {%- set image_count.value = image_count.value + 1 -%}
                 {%- if add_vision_id -%}
                     {{ 'Picture ' + image_count.value + ': ' }}
                 {%- endif -%}
                 {{ '<|vision_start|><|image_pad|><|vision_end|>' }}
-            {%- elif content['type'].startswith('video') -%}
+            {%- elif item['type'].startswith('video') -%}
                 {%- set video_count.value = video_count.value + 1 -%}
                 {%- if add_vision_id -%}
                     {{ 'Video ' + video_count.value + ': ' }}
                 {%- endif -%}
                 {{ '<|vision_start|><|video_pad|><|vision_end|>' }}
-            {%- elif content['type']=='text' -%}
-                {{- content['content'] -}}
+            {%- elif item['type']=='text' -%}
+                {{- item['text'] if 'text' in item else item['content'] -}}
             {%- endif -%}
         {%- endfor -%}
     {%- endif -%}

@@ -326,6 +326,13 @@ def run(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     # Delayed imports
     from oumi import launcher
 
@@ -378,7 +385,7 @@ def status(
     filtered_jobs = launcher.status(cloud=cloud, cluster=cluster, id=id)
     num_jobs = sum(len(cloud_jobs) for cloud_jobs in filtered_jobs.keys())
     # Print the filtered jobs.
-    if num_jobs == 0:
+    if num_jobs == 0 and (cloud or cluster or id):
         print("No jobs found for the specified filter criteria: ")
         if cloud:
             print(f"Cloud: {cloud}")
@@ -388,11 +395,18 @@ def status(
             print(f"Job ID: {id}")
     for target_cloud, job_list in filtered_jobs.items():
         print(f"Cloud: {target_cloud}")
-        if len(job_list) == 0:
+        cluster_name_list = [
+            c.name() for c in launcher.get_cloud(target_cloud).list_clusters()
+        ]
+        if len(cluster_name_list) == 0:
             print("No matching clusters found.")
             continue
         # Organize all jobs by cluster.
         jobs_by_cluster: dict[str, list[JobStatus]] = defaultdict(list)
+        # List all clusters, even if they don't have jobs.
+        for cluster_name in cluster_name_list:
+            if not cluster or cluster == cluster_name:
+                jobs_by_cluster[cluster_name] = []
         for job in job_list:
             jobs_by_cluster[job.cluster].append(job)
         for target_cluster, jobs in jobs_by_cluster.items():
@@ -466,6 +480,13 @@ def up(
 
     # End imports
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )

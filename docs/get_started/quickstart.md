@@ -60,12 +60,13 @@ You can quickly start training a model using any of existing {doc}`recipes </res
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
 ```
 
-You can easily override any parameters directly in the command line, for example:
+Any Oumi command which takes a config path as an argument (`train`, `evaluate`, `infer`, etc.) can override parameters from the command line. See {doc}`/cli/commands` for more details. For example:
 
 ```bash
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --training.max_steps 20 \
   --training.learning_rate 1e-4 \
+  --data.train.datasets[0].shuffle true \
   --training.output_dir output/smollm-135m-sft
 ```
 

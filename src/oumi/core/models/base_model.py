@@ -40,8 +40,8 @@ class BaseModel(nn.Module, ABC):
         Optionally computes the loss if the necessary keyword arguments are provided.
 
         Args:
-            **kwargs: should contain all the parameters needed
-            to perform the forward pass, and compute the loss if needed.
+            **kwargs: should contain all the parameters needed to perform the forward
+                pass, and compute the loss if needed.
 
         Returns:
             A dictionary containing the output tensors.

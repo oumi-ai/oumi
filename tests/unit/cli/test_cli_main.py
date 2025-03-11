@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
+from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import conversations, dataset
 from oumi.cli.launch import cancel, down, status, stop, up, which
@@ -47,6 +48,13 @@ def mock_infer():
     with patch("oumi.cli.main.infer") as m_infer:
         _copy_command(m_infer, infer)
         yield m_infer
+
+
+@pytest.fixture
+def mock_fetch():
+    with patch("oumi.cli.main.fetch") as m_fetch:
+        _copy_command(m_fetch, fetch)
+        yield m_fetch
 
 
 @pytest.fixture
@@ -145,6 +153,11 @@ def test_main_infer_registered(mock_infer):
         get_app(), ["infer", "--config", "some/path", "--allow_extra" "args"]
     )
     mock_infer.assert_called_once()
+
+
+def test_main_fetch_registered(mock_fetch):
+    _ = runner.invoke(get_app(), ["fetch", "some/path", "--output-dir", "output/path"])
+    mock_fetch.assert_called_once()
 
 
 def test_main_eval_registered(mock_eval):
