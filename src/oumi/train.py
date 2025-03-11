@@ -296,12 +296,13 @@ def train(config: TrainingConfig, **kwargs) -> None:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
     # trl's SFTTrainer has its own dataset processing code. We should skip it if
-    # the dataset is already processed, i.e. it's tokenized and has an `input_ids` col.
-    # This generally occurs if the dataset is:
+    # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
+    # field. This generally occurs if the dataset is:
     # 1. In the Oumi registry and thus is processed by the `BasePretrainingDataset` or
     # `BaseSftDataset` classes
     # 2. Packing is requested, and thus is processed by the
     # `PretrainingAsyncTextDataset` class
+    # See OPE-1108 for more details.
     if config.training.trainer_type == TrainerType.TRL_SFT:
         example = next(iter(dataset))
         if "input_ids" in example:

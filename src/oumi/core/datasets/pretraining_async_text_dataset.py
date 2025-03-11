@@ -136,7 +136,7 @@ class PretrainingAsyncTextDataset(IterableDataset):
             self.formatting_func = lambda x: x
 
     @property
-    def column_names(self):
+    def column_names(self) -> list[str]:
         """Returns the column names of the dataset."""
         return ["input_ids", "labels"]
 
