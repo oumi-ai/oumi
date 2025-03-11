@@ -162,8 +162,8 @@ class EvaluationTaskParams(BaseParams):
             )
         if self.evaluation_platform:
             logger.warning(
-                "The input parameter `evaluation_platform` is deprecated. Please use "
-                "`evaluation_backend` instead."
+                "The input parameter `evaluation_platform` is deprecated and will be "
+                "removed at v0.2.0. Please use `evaluation_backend` instead."
             )
             self.evaluation_backend = self.evaluation_platform
             self.evaluation_platform = ""
