@@ -17,7 +17,6 @@ from collections.abc import Sequence
 from typing import Callable, Optional, TypeVar, Union, cast
 
 import datasets
-from trl.trainer import ConstantLengthDataset
 
 from oumi.core.configs import (
     DataParams,
@@ -44,7 +43,7 @@ def build_dataset_mixture(
     tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset for the specified split.
 
     Args:
@@ -68,7 +67,7 @@ def build_dataset_mixture(
         # TODO: OPE-271. Some type hackery going on here.
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
-        # and becomes the default processign pipeline.
+        # and becomes the default processing pipeline.
         return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
 
     # Check if the underlying dataset is already packed, or if we need to pack it
@@ -120,7 +119,7 @@ def build_dataset_from_params(
     stream: bool = False,
     pack: bool = False,
     use_torchdata: Optional[bool] = None,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset params object.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
@@ -153,7 +152,7 @@ def build_dataset(
     pack: bool = False,
     use_torchdata: Optional[bool] = None,
     **kwargs,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of

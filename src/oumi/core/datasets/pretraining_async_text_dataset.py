@@ -135,6 +135,11 @@ class PretrainingAsyncTextDataset(IterableDataset):
         else:
             self.formatting_func = lambda x: x
 
+    @property
+    def column_names(self) -> list[str]:
+        """Returns the column names of the dataset."""
+        return ["input_ids", "labels"]
+
     def _add_example_to_queue(self, example):
         """Adds a single example to the queue."""
         # Shuffle by using a priority queue with random priority values
