@@ -79,10 +79,6 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
         dataset_type_name = self.__class__.__name__
-        logger.info(
-            f"Creating map dataset (type: {dataset_type_name}) "
-            f"dataset_name: '{dataset_name}', dataset_path: '{dataset_path}'..."
-        )
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
@@ -92,6 +88,11 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
 
         dataset_name = dataset_name or self.default_dataset
 
+        logger.info(
+            f"Creating map dataset (type: {dataset_type_name})..."
+            + (f" dataset_name: '{dataset_name}'" if dataset_name else "")
+            + (f" dataset_path: '{dataset_path}'" if dataset_path else "")
+        )
         if dataset_name is None:
             raise ValueError(
                 "Please specify a dataset_name or "
