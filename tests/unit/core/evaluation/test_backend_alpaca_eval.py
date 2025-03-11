@@ -38,10 +38,13 @@ class _MockAlpacaEvalDataset:
 
 
 class _MockInferenceEngine:
+    _model_params = {}
+    _generation_params = {}
+
     def __init__(self):
         pass
 
-    def infer(self, input, inference_config) -> list[Conversation]:
+    def infer(self, input) -> list[Conversation]:
         assert str(input) == "[USER: Hello 1.1, USER: Hello 2.1]"
         return [
             Conversation(
@@ -88,20 +91,12 @@ class _MockAlpacaEval:
         return df_leaderboard, None
 
 
-def _mock_build_inference_engine(engine_type, model_params, remote_params):
-    return _MockInferenceEngine()
-
-
 def test_evaluate_alpaca_eval():
     with (
         patch("oumi.core.evaluation.backends.alpaca_eval.alpaca_eval", _MockAlpacaEval),
         patch(
             "oumi.core.evaluation.backends.alpaca_eval.AlpacaEvalDataset",
             _MockAlpacaEvalDataset,
-        ),
-        patch(
-            "oumi.core.evaluation.backends.alpaca_eval.build_inference_engine",
-            _mock_build_inference_engine,
         ),
     ):
         result: EvaluationResult = evaluate(
@@ -117,6 +112,7 @@ def test_evaluate_alpaca_eval():
                 generation=GenerationParams(),
                 run_name="my_run_name",
             ),
+            inference_engine=_MockInferenceEngine(),  # type: ignore
         )
         result_metrics = result.task_result["results"]
         assert result_metrics == {"win_rate": 0.23}
