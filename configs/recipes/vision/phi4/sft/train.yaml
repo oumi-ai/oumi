@@ -1,8 +1,9 @@
-# Phi-3-vision-128k-instruct full fine-tune training config.
+# Phi-3-vision-128k-instruct training config for full (all-parameters) finetuning.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Run `pip install -U flash-attn --no-build-isolation`
+#   - Run `pip install backoff==2.2.1`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/phi4/sft/train.yaml
@@ -23,7 +24,6 @@ model:
   # freeze_layers:
     # - "model.image_embed"
 
-
 data:
   train:
     collator_name: "vision_language_with_padding"
@@ -38,6 +38,8 @@ data:
         dataset_kwargs:
           processor_name: "microsoft/Phi-4-multimodal-instruct"
           return_tensors: True
+          padding: True # TODO check if they work.
+          truncation: True # TODO check if they work.
 
       # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -65,7 +67,7 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 4
+  per_device_train_batch_size: 1 # TODO: ablate.
   gradient_accumulation_steps: 8
   max_steps: 20
 
@@ -86,5 +88,5 @@ training:
   dataloader_num_workers: 4
   dataloader_prefetch_factor: 8
   include_performance_metrics: True
-  log_model_summary: True
+  log_model_summary: False
   enable_wandb: True

@@ -200,6 +200,32 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_phi4_vlm_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
+    config.chat_template = "phi3-instruct"
+    # del config.model_input_features['pixel_values'] # TODO-has to be parameterized
+
+    config.label_ignore_index = None
+
+    # config.sanitize_negative_labels = True
+    # config.model_input_features.update(
+    #     {
+    #         feature_name: InternalFeatureSpec(
+    #             name=feature_name,
+    #             required=True,
+    #             variable_shape=False,
+    #             image_dependent=True,
+    #         )
+    #         for feature_name in ("image_sizes",)
+    #     }
+    # )
+    return config
+
+
 def _create_idefics3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         supports_multiple_images=True, pixel_values_variable_shape=True
@@ -320,6 +346,11 @@ def get_all_models_map() -> (
             model_class=transformers.AutoModelForCausalLM,
             tested=True,
             config=_create_phi3_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="phi4mm",
+            model_class=transformers.AutoModelForCausalLM,
+            config=_create_phi4_vlm_config(),
         ),
     ]
 
