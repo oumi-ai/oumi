@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -21,6 +22,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.utils.str_utils import sanitize_run_name
@@ -41,6 +43,15 @@ class TrainerType(Enum):
 
     This trainer implements the Direct Preference Optimization algorithm
     for fine-tuning language models based on human preferences.
+    """
+
+    TRL_GRPO = "trl_grpo"
+    """Group Relative Policy Optimization trainer from `trl` library.
+
+    This trainer implements the Group Relative Policy Optimization algorithm
+    introduced in the paper https://arxiv.org/pdf/2402.03300
+    for fine-tuning language models.
+    Optionally, supports user-defined reward functions.
     """
 
     HF = "hf"
@@ -296,6 +307,18 @@ class TrainingParams(BaseParams):
     return a dictionary of metrics, with string keys mapping to metric values. A
     single metrics_function may compute multiple metrics.
     """
+
+    reward_functions: Optional[list[str]] = None
+    """The names of the reward function in the Oumi registry to use for reinforcement
+    learning.
+
+    Only supported with the TRL_GRPO trainer currently. Refer to
+    https://huggingface.co/docs/trl/main/en/grpo_trainer
+    for documentation about the function signature.
+    """
+
+    grpo: GrpoParams = field(default_factory=GrpoParams)
+    """Parameters for GRPO training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.
@@ -638,8 +661,25 @@ class TrainingParams(BaseParams):
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_GRPO:
+            config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
+
+        trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+        if self.trainer_type == TrainerType.TRL_GRPO:
+            grpo_kwargs = self.grpo.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                grpo_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GRPO kwargs: {conflicting_keys}. "
+                    "Use properties of GrpoParams instead."
+                )
+            trainer_kwargs.update(grpo_kwargs)
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -689,17 +729,16 @@ class TrainingParams(BaseParams):
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,  # type: ignore
-            dispatch_batches=dispatch_batches,
-            # TODO Switch to `accelerator_config` for `dispatch_batches`
-            # accelerator_config={  # accelerator config for multi-device training
-            #    "split_batches": False,
-            #    "dispatch_batches": dispatch_batches,
-            #    "even_batches": True,
-            #    "use_seedable_sampler": True,
-            # },
+            accelerator_config={  # accelerator config for multi-device training
+                "dispatch_batches": dispatch_batches,
+                # The params below are set to their default values.
+                "split_batches": False,
+                "even_batches": True,
+                "use_seedable_sampler": True,
+            },
             seed=self.seed,
             data_seed=self.data_seed,
-            **self.trainer_kwargs,
+            **trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
         return result
@@ -744,6 +783,17 @@ class TrainingParams(BaseParams):
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
             )
+
+        if (
+            self.trainer_type != TrainerType.TRL_GRPO
+            and self.reward_functions is not None
+        ):
+            function_names = [name for name in self.reward_functions if name]
+            if len(function_names) > 0:
+                raise ValueError(
+                    "reward_functions may only be defined for the TRL_GRPO trainer. "
+                    f"Actual: {self.trainer_type}"
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:

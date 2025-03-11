@@ -44,35 +44,41 @@ help:
 	@echo "  doctest           - Run doctests on documentation files"
 	@echo "  doctest-file      - Run doctests on a specific documentation file"
 
+# If we detect the system is an Intel Mac, print an error message and exit.
 setup:
-	@if command -v conda >/dev/null 2>&1; then \
-		if conda env list | grep -q "^$(CONDA_ENV) "; then \
-			echo "Conda environment '$(CONDA_ENV)' already exists. Updating dependencies..."; \
-			$(CONDA_RUN) pip install -U uv; \
-			$(CONDA_RUN) uv pip install -U -e ".[dev]"; \
-		else \
-			echo "Creating new conda environment '$(CONDA_ENV)'..."; \
-			conda create -n $(CONDA_ENV) python=3.11 -y; \
-			$(CONDA_RUN) pip install uv; \
-			$(CONDA_RUN) uv pip install -e ".[dev]"; \
-			$(CONDA_RUN) pre-commit install; \
-			$(CONDA_RUN) python -m ipykernel install --user --name $(CONDA_ENV); \
+	@bash -c '\
+		if [ "$$(uname -s)" = "Darwin" ] && [ "$$(uname -m)" = "x64_64" ]; then \
+			echo "Cannot install Oumi on Intel Macs because PyTorch dropped support for that platform!"; \
+			exit 1; \
 		fi; \
-	else \
-		echo "Error: Conda is not installed or not in PATH."; \
-		echo "Please run 'make install-miniconda' to install Miniconda, then run 'make setup' again."; \
-		exit 1; \
-	fi
-	@echo "Installation complete. Testing if oumi package can be imported..."
-	@if $(CONDA_RUN) python -c "import oumi" >/dev/null 2>&1; then \
-		echo "oumi package imported successfully!"; \
-		echo "To start using your new environment, run: \"conda activate $(CONDA_ENV)\"."; \
-		echo "Happy fine-tuning!"; \
-	else \
-		echo "Error: Failed to import oumi package. Please check your installation."; \
-		echo "Please open an issue at https://github.com/oumi-ai/oumi/issues if the problem persists."; \
-		exit 1; \
-	fi
+		if command -v conda >/dev/null 2>&1; then \
+			if conda env list | grep -q "^$(CONDA_ENV) "; then \
+				echo "Conda environment $(CONDA_ENV) already exists. Updating dependencies..."; \
+				$(CONDA_RUN) pip install -U uv; \
+				$(CONDA_RUN) uv pip install -U -e ".[dev]"; \
+			else \
+				echo "Creating new conda environment $(CONDA_ENV)..."; \
+				conda create -n $(CONDA_ENV) python=3.11 -y; \
+				$(CONDA_RUN) pip install uv; \
+				$(CONDA_RUN) uv pip install -e ".[dev]"; \
+				$(CONDA_RUN) pre-commit install; \
+				$(CONDA_RUN) python -m ipykernel install --user --name $(CONDA_ENV); \
+			fi; \
+		else \
+			echo "Error: Conda is not installed or not in PATH."; \
+			echo "Please run `make install-miniconda` to install Miniconda, then run `make setup` again."; \
+			exit 1; \
+		fi; \
+		echo "Installation complete. Testing if oumi package can be imported..."; \
+		if $(CONDA_RUN) python -c "import oumi" >/dev/null 2>&1; then \
+			echo "oumi package imported successfully!"; \
+			echo "To start using your new environment, run: \"conda activate $(CONDA_ENV)\"."; \
+			echo "Happy fine-tuning!"; \
+		else \
+			echo "Error: Failed to import oumi package. Please check your installation."; \
+			echo "Please open an issue at https://github.com/oumi-ai/oumi/issues if the problem persists."; \
+			exit 1; \
+		fi'
 
 install-miniconda:
 	@bash -c '\

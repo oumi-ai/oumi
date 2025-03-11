@@ -297,6 +297,8 @@ def test_infer_online_lora(mock_vllm, mock_lora_request):
         sampling_params=ANY,
         lora_request=lora_request,
         use_tqdm=False,
+        chat_template=None,
+        chat_template_content_format="auto",
     )
 
 
