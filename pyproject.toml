@@ -67,7 +67,8 @@ dependencies = [
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.48.0,<4.49",
-    "trl>=0.14.0,<0.15",
+    # >=0.14.0 is needed for GRPOTrainer.
+    "trl>=0.15.0,<0.16",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
