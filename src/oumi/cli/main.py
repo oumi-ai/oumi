@@ -26,6 +26,7 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.quickstart import quickstart
 from oumi.cli.train import train
 
 _ASCII_LOGO = """
@@ -56,6 +57,7 @@ def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
     app = typer.Typer(pretty_exceptions_enable=False)
     app.callback()(_oumi_welcome)
+    app.command()(quickstart)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",
