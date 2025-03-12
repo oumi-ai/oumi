@@ -330,7 +330,7 @@ def remove_excessive_images_from_conversation(
             If 0, all images are dropped.
 
     Returns:
-        list[Message]: The conversation with excessive images discarded.
+        Conversation: The conversation with excessive images discarded.
     """
     if max_images >= 0:
         filtered_messages = remove_excessive_images(
