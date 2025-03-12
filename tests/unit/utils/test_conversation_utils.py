@@ -15,6 +15,7 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
+    remove_excessive_images_from_conversation,
 )
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -514,3 +515,100 @@ def test_load_pil_image_from_content_item():
         )
         assert pil_image.mode == "RGBA"
         assert pil_image.size == test_pil_image.size
+
+
+def test_remove_excessive_images_from_conversation():
+    png_bytes = create_test_png_image_bytes()
+
+    input = create_test_multimodal_text_image_conversation()
+    assert len(input.messages) == 4
+
+    output = remove_excessive_images_from_conversation(input, max_images=-1)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=100)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=3)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=2)
+    assert output == Conversation(
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=[
+                    ContentItem(content="Greetings!", type=Type.TEXT),
+                    ContentItem(
+                        content="http://oumi.ai/test.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(content="Describe this image", type=Type.TEXT),
+                ],
+            ),
+        ]
+    )
+
+    output = remove_excessive_images_from_conversation(input, max_images=1)
+    assert output == Conversation(
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=[
+                    ContentItem(content="Greetings!", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(content="Describe this image", type=Type.TEXT),
+                ],
+            ),
+        ]
+    )
+
+    output = remove_excessive_images_from_conversation(input, max_images=0)
+    assert output == Conversation(
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=[
+                    ContentItem(content="Greetings!", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(content="Describe this image", type=Type.TEXT),
+                ],
+            ),
+        ]
+    )
