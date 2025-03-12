@@ -23,7 +23,9 @@ def _find_last_number(s: str) -> int:
 
 
 def compute_letter_count_reward(completion: str, target_count: int) -> int:
-    """Counts the number of letters in a string."""
+    """Computes the rewards for counting the letters in a string."""
+    # This assumes that the last group of digits in the completion is the count.
+    # It also assumes that it is counting the right letter.
     try:
         count = _find_last_number(completion)
     except Exception:
