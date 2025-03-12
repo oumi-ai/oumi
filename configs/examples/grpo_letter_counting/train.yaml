@@ -1,10 +1,10 @@
-# Sample GRPO training config for the Qwen2-0.5B-Instruct model.
+# GRPO config to train a letter counting model.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c configs/examples/grpo_tldr/train.yaml
+#   oumi train -c configs/examples/grpo_letter_counting/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -13,7 +13,9 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
+  # model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
   model_name: "Qwen/Qwen2-0.5B-Instruct"
+  # model_max_length: 128
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -21,36 +23,34 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "trl-lib/tldr"
+      - dataset_name: "oumi-ai/oumi-letter-count"
         split: "train"
 
 training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
-  per_device_train_batch_size: 2 # 1 for GPUs with 24GB VRAM
+  max_steps: 500
+  per_device_train_batch_size: 3
   gradient_accumulation_steps: 1
 
-  reward_functions: ["soft_20tokens_completions"]
+  reward_functions: ["count_letters"]
 
   enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "adamw_torch"
-  empty_device_cache_steps: 1
-  compile: False # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
+  optimizer: "adamw_torch_fused"
+  # empty_device_cache_steps: 1
+  compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:
-    use_vllm: True
-    vllm_device: "cuda:0"
-    vllm_gpu_memory_utilization: 0.3
+    use_vllm: False
+    num_generations: 6
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
-  max_steps: 500
   logging_steps: 10
-  log_model_summary: False
-  output_dir: "output/tldr.grpo"
-  include_performance_metrics: False
+  output_dir: "output/letter_counting.grpo"
+  include_performance_metrics: True
   enable_wandb: True

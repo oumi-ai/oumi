@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""GRPO reward functions module."""
+from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
+from oumi.core.registry import register_dataset
 
-from oumi.datasets.grpo.rewards.completion_length_rewards import (
-    compute_sharp_target_token_length_reward,
-    compute_soft_target_token_length_reward,
-)
 
-__all__ = [
-    "compute_soft_target_token_length_reward",
-    "compute_sharp_target_token_length_reward",
-]
+@register_dataset("oumi-ai/oumi-letter-count")
+class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
+    """Dataset class for the `oumi-ai/oumi-letter-count` dataset."""
+
+    default_dataset = "oumi-ai/oumi-letter-count"
