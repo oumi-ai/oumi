@@ -1,3 +1,4 @@
+import copy
 import functools
 import io
 from typing import Optional
@@ -362,6 +363,64 @@ def test_return_conversations(
     sample_conversation_using_image_binary: Conversation,
 ):
     my_dataset = return_conversation_fixtures[fixture_name]
+    mock_processor.chat_template = "Template"
+    mock_processor.apply_chat_template = Mock(return_value="Processed template")
+
+    assert my_dataset._feature_generator is None
+
+    result = my_dataset.transform({"example": "data"})
+
+    assert isinstance(result, dict)
+    assert set({"conversation_json"}) == set(result.keys())
+    assert "conversation_json" in result
+    conversation = Conversation.from_json(result["conversation_json"])
+    assert conversation == sample_conversation_using_image_binary
+
+    mock_processor.apply_chat_template.assert_not_called()
+
+
+def test_return_conversations_with_max_images(
+    mock_processor,
+    mock_image_tokenizer,
+    sample_conversation_using_image_binary: Conversation,
+):
+    class TestDatasetImageBinary(VisionLanguageSftDataset):
+        default_dataset = "custom"
+
+        @override
+        def transform_conversation(self, example):
+            convo = sample_conversation_using_image_binary
+            messages = copy.deepcopy(convo.messages)
+            last_message = messages[-1]
+            assert isinstance(last_message.content, str)
+            messages[-1] = Message(
+                role=last_message.role,
+                content=[
+                    ContentItem(content=last_message.content, type=Type.TEXT),
+                    ContentItem(content="/anotherimage.jpg", type=Type.IMAGE_PATH),
+                    ContentItem(
+                        content="http://oumi.ai/yet_another_image.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            )
+            return Conversation(
+                conversation_id=convo.conversation_id,
+                messages=messages,
+                metadata=convo.metadata,
+            )
+
+        @override
+        def _load_data(self):
+            pass
+
+    my_dataset = TestDatasetImageBinary(
+        processor=mock_processor,
+        tokenizer=mock_image_tokenizer,
+        return_conversations=True,
+        max_images=1,
+    )
+
     mock_processor.chat_template = "Template"
     mock_processor.apply_chat_template = Mock(return_value="Processed template")
 
