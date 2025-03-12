@@ -147,25 +147,29 @@ class TrainingConfig(BaseConfig):
                 raise ValueError("Unrecognized trainer type!")
 
         # Setup and validate params for "vision_language_sft" collator.
-        # The collator expects VLM SFT dataset to have the 'conversaion_json' column
-        # only!
-        if (
-            self.training.trainer_type == TrainerType.TRL_SFT
-            and self.data.train.collator_name == "vision_language_sft"
-        ):
-            remove_unused_columns = self.training.trainer_kwargs.get(
-                "remove_unused_columns", False
-            )
-            if remove_unused_columns:
-                raise ValueError(
-                    "`remove_unused_columns` must be False "
-                    "when using 'vision_language_sft' collator! "
-                    'The "unused" columns are consumed by the collator, '
-                    "not by a model."
-                )
-            self.training.trainer_kwargs["remove_unused_columns"] = False
+        # The collator expects VLM SFT dataset to only produce
+        # one columne: 'conversation_json' (JSON-encoded `Conversation`)!
+        if self.data.train.collator_name == "vision_language_sft":
+            for dataset_params in self.data.train.datasets:
+                if not dataset_params.dataset_kwargs.get("return_conversations", True):
+                    raise ValueError(
+                        "`return_conversations` must be True "
+                        f"for the dataset '{dataset_params.dataset_name}' "
+                        "when using 'vision_language_sft' collator! "
+                    )
+                dataset_params.dataset_kwargs["return_conversations"] = True
+            # Extra setup for TRL_SFT.
+            if self.training.trainer_type == TrainerType.TRL_SFT:
+                if self.training.trainer_kwargs.get("remove_unused_columns", False):
+                    raise ValueError(
+                        "`remove_unused_columns` must be False "
+                        "when using 'vision_language_sft' collator! "
+                        'The "unused" columns are consumed by the collator, '
+                        "not by a model."
+                    )
+                self.training.trainer_kwargs["remove_unused_columns"] = False
 
-            # `trl` shouldn't be preparing the dataset, as we do it in Oumi.
-            dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
-            dataset_kwargs["skip_prepare_dataset"] = True
-            self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
+                # `trl` shouldn't be preparing the dataset, as we do it in Oumi.
+                dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
+                dataset_kwargs["skip_prepare_dataset"] = True
+                self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
