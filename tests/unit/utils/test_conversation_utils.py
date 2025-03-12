@@ -27,12 +27,14 @@ _TEST_IMAGE_DIR: Final[Path] = get_testdata_dir() / "images"
 
 def create_test_text_only_conversation():
     return Conversation(
+        conversation_id="text_convo",
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(content="Hello", role=Role.USER),
             Message(content="Hi there!", role=Role.ASSISTANT),
             Message(content="How are you?", role=Role.USER),
-        ]
+        ],
+        metadata={"foo": "bar_text"},
     )
 
 
@@ -51,6 +53,7 @@ def create_test_png_image_base64_str() -> str:
 def create_test_multimodal_text_image_conversation():
     png_bytes = create_test_png_image_bytes()
     return Conversation(
+        conversation_id="mm_convo",
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(
@@ -83,7 +86,8 @@ def create_test_multimodal_text_image_conversation():
                     ),
                 ],
             ),
-        ]
+        ],
+        metadata={"foo": "bar_mm"},
     )
 
 
@@ -531,6 +535,8 @@ def test_remove_excessive_images_from_conversation():
     assert output == input
     output = remove_excessive_images_from_conversation(input, max_images=2)
     assert output == Conversation(
+        conversation_id="mm_convo",
+        metadata={"foo": "bar_mm"},
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(
@@ -557,11 +563,13 @@ def test_remove_excessive_images_from_conversation():
                     ContentItem(content="Describe this image", type=Type.TEXT),
                 ],
             ),
-        ]
+        ],
     )
 
     output = remove_excessive_images_from_conversation(input, max_images=1)
     assert output == Conversation(
+        conversation_id="mm_convo",
+        metadata={"foo": "bar_mm"},
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(
@@ -584,11 +592,13 @@ def test_remove_excessive_images_from_conversation():
                     ContentItem(content="Describe this image", type=Type.TEXT),
                 ],
             ),
-        ]
+        ],
     )
 
     output = remove_excessive_images_from_conversation(input, max_images=0)
     assert output == Conversation(
+        conversation_id="mm_convo",
+        metadata={"foo": "bar_mm"},
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(
@@ -610,5 +620,18 @@ def test_remove_excessive_images_from_conversation():
                     ContentItem(content="Describe this image", type=Type.TEXT),
                 ],
             ),
-        ]
+        ],
     )
+
+    input = create_test_text_only_conversation()
+    assert len(input.messages) == 4
+    output = remove_excessive_images_from_conversation(input, max_images=-1)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=100)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=3)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=1)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=0)
+    assert output == input

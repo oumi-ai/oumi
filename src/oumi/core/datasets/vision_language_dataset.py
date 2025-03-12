@@ -24,6 +24,7 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     Conversation,
 )
+from oumi.utils.conversation_utils import remove_excessive_images_from_conversation
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -138,7 +139,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         """
         conversation = self.transform_conversation(sample)
         if self._max_images is not None and self._max_images >= 0:
-            pass
+            conversation = remove_excessive_images_from_conversation(
+                conversation, max_images=self._max_images
+            )
 
         if self._feature_generator is None:
             # This is only compatible with `use_torchdata=True`
