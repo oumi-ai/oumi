@@ -17,7 +17,7 @@ from typing import Any, Union
 
 import PIL.Image
 
-from oumi.core.types.conversation import ContentItem, Message, Type
+from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
     load_image_png_bytes_from_path,
@@ -260,3 +260,78 @@ def create_list_of_message_json_dicts(
         result.append(item)
 
     return result
+
+
+def remove_excessive_images(
+    messages: list[Message], *, max_images: int
+) -> list[Message]:
+    """Returns a list of messages with excessive images dropped.
+
+    Args:
+        messages: The input messages.
+        max_images: The maximum number of images to keep.
+            If the limit is exceeded, the first N images are retained, and
+            the rest is discarded. If negative, all images are kept.
+            If 0, all images are dropped.
+
+    Returns:
+        list[Message]: The list of messages with excessive images discarded.
+    """
+    if max_images < 0:
+        return messages
+
+    total_images = 0
+    result: list[Message] = []
+    for message in messages:
+        num_images = message.count_content_items().image_items
+        images_to_keep = (
+            min(num_images, max_images - total_images)
+            if total_images < max_images
+            else 0
+        )
+        total_images += num_images
+        if images_to_keep == num_images:
+            result.append(message)
+            continue
+        assert num_images > 0
+        assert isinstance(message.content, list)
+
+        filtered_items: list[ContentItem] = []
+        for item in message.content:
+            if item.is_image():
+                if images_to_keep <= 0:
+                    continue
+                images_to_keep -= 1
+            filtered_items.append(item)
+
+        result.append(Message(id=message.id, content=filtered_items, role=message.role))
+
+    return result
+
+
+def remove_excessive_images_from_conversation(
+    conversation: Conversation, *, max_images: int
+) -> Conversation:
+    """Returns a conversation with excessive images dropped.
+
+    Args:
+        conversation: The input conversation.
+        max_images: The maximum number of images to keep.
+            If the limit is exceeded, the first N images are retained, and
+            the rest is discarded. If negative, all images are kept.
+            If 0, all images are dropped.
+
+    Returns:
+        list[Message]: The conversation with excessive images discarded.
+    """
+    if max_images >= 0:
+        filtered_messages = remove_excessive_images(
+            conversation.messages, max_images=max_images
+        )
+    else:
+        filtered_messages = conversation.messages
+    return Conversation(
+        conversation_id=conversation.conversation_id,
+        messages=filtered_messages,
+        metadata=conversation.metadata,
+    )
