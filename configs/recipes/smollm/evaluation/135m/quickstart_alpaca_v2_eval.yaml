@@ -27,7 +27,7 @@ generation:
   batch_size: 4
 
 tasks:
-  - evaluation_platform: alpaca_eval # 805 examples.
+  - evaluation_backend: alpaca_eval # 805 examples.
     # NOTE: We use a small subset for demonstration purposes, and to reduce the cost of
     # OpenAI inference. Comment out for full evaluation.
     num_samples: 3
