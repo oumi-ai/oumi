@@ -147,8 +147,8 @@ class TrainingConfig(BaseConfig):
                 raise ValueError("Unrecognized trainer type!")
 
         # Setup and validate params for "vision_language_sft" collator.
-        # The collator expects VLM SFT dataset to only produce
-        # one columne: 'conversation_json' (JSON-encoded `Conversation`)!
+        # The collator expects VLM SFT dataset to only produce just
+        # one column: 'conversation_json' (JSON-encoded `Conversation`)!
         if self.data.train.collator_name == "vision_language_sft":
             for dataset_params in self.data.train.datasets:
                 if not dataset_params.dataset_kwargs.get("return_conversations", True):
