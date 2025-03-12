@@ -151,6 +151,13 @@ class Evaluator:
                 config=config,
                 **kwargs,
             )
+            if not isinstance(evaluation_result, EvaluationResult):
+                raise ValueError(
+                    f"The custom evaluation function `{task_params.task_name}` must "
+                    "return an `EvaluationResult` object, but it's currently returning "
+                    f"`{type(evaluation_result)}`. Please ensure that the function "
+                    "returns the correct object "
+                )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 
