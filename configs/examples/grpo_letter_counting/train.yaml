@@ -13,9 +13,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  # model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
   model_name: "Qwen/Qwen2-0.5B-Instruct"
-  # model_max_length: 128
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -23,7 +21,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "trl-lib/tldr"
+      - dataset_name: "oumi-ai/oumi-letter-count"
         split: "train"
 
 training:
@@ -33,14 +31,13 @@ training:
   per_device_train_batch_size: 3
   gradient_accumulation_steps: 1
 
-  reward_functions: ["soft_20tokens_completions"]
+  reward_functions: ["count_letters"]
 
   enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch_fused"
-  # empty_device_cache_steps: 1
   compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:

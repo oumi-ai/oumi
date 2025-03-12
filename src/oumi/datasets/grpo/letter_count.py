@@ -30,5 +30,5 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
         """Validate and transform the sample into Python `dict`."""
         return {
             "prompt": sample["messages"],
-            # "letter_count": sample["metadata"]["letter_count_integer"],
+            "letter_count": sample["metadata"]["letter_count_integer"],
         }
