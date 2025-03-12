@@ -303,8 +303,16 @@ def remove_excessive_images(
                     continue
                 images_to_keep -= 1
             filtered_items.append(item)
-
-        result.append(Message(id=message.id, content=filtered_items, role=message.role))
+        if len(filtered_items) == 1 and isinstance(filtered_items[0].content, str):
+            result.append(
+                Message(
+                    id=message.id, content=filtered_items[0].content, role=message.role
+                )
+            )
+        else:
+            result.append(
+                Message(id=message.id, content=filtered_items, role=message.role)
+            )
 
     return result
 

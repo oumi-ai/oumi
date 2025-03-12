@@ -557,12 +557,7 @@ def test_remove_excessive_images_from_conversation():
                     ),
                 ],
             ),
-            Message(
-                role=Role.USER,
-                content=[
-                    ContentItem(content="Describe this image", type=Type.TEXT),
-                ],
-            ),
+            Message(role=Role.USER, content="Describe this image"),
         ],
     )
 
@@ -580,18 +575,8 @@ def test_remove_excessive_images_from_conversation():
                     ContentItem(content="there", type=Type.TEXT),
                 ],
             ),
-            Message(
-                role=Role.ASSISTANT,
-                content=[
-                    ContentItem(content="Greetings!", type=Type.TEXT),
-                ],
-            ),
-            Message(
-                role=Role.USER,
-                content=[
-                    ContentItem(content="Describe this image", type=Type.TEXT),
-                ],
-            ),
+            Message(role=Role.ASSISTANT, content="Greetings!"),
+            Message(role=Role.USER, content="Describe this image"),
         ],
     )
 
@@ -610,16 +595,9 @@ def test_remove_excessive_images_from_conversation():
             ),
             Message(
                 role=Role.ASSISTANT,
-                content=[
-                    ContentItem(content="Greetings!", type=Type.TEXT),
-                ],
+                content="Greetings!",
             ),
-            Message(
-                role=Role.USER,
-                content=[
-                    ContentItem(content="Describe this image", type=Type.TEXT),
-                ],
-            ),
+            Message(role=Role.USER, content="Describe this image"),
         ],
     )
 
