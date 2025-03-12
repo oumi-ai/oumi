@@ -145,3 +145,27 @@ class TrainingConfig(BaseConfig):
                 pass
             else:
                 raise ValueError("Unrecognized trainer type!")
+
+        # Setup and validate params for "vision_language_sft" collator.
+        # The collator expects VLM SFT dataset to have the 'conversaion_json' column
+        # only!
+        if (
+            self.training.trainer_type == TrainerType.TRL_SFT
+            and self.data.train.collator_name == "vision_language_sft"
+        ):
+            remove_unused_columns = self.training.trainer_kwargs.get(
+                "remove_unused_columns", False
+            )
+            if remove_unused_columns:
+                raise ValueError(
+                    "`remove_unused_columns` must be False "
+                    "when using 'vision_language_sft' collator! "
+                    'The "unused" columns are consumed by the collator, '
+                    "not by a model."
+                )
+            self.training.trainer_kwargs["remove_unused_columns"] = False
+
+            # `trl` shouldn't be preparing the dataset, as we do it in Oumi.
+            dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
+            dataset_kwargs["skip_prepare_dataset"] = True
+            self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
