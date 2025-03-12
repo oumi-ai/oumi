@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from typing import Final
 
 import torch
 
@@ -97,13 +98,15 @@ class TrainingConfig(BaseConfig):
                     "Model must be loaded in fp32 to enable mixed precision training."
                 )
 
+        trainer_type: Final[TrainerType] = self.training.trainer_type
+
         # Check values for model sequence length.
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
             max_seq_length_key = None
-            if self.training.trainer_type == TrainerType.TRL_SFT:
+            if trainer_type == TrainerType.TRL_SFT:
                 max_seq_length_key = "max_seq_length"
-            elif self.training.trainer_type == TrainerType.TRL_DPO:
+            elif trainer_type == TrainerType.TRL_DPO:
                 max_seq_length_key = "max_length"
                 # TODO: DPOTrainer also defines "max_prompt_length" and
                 # "max_target_length". How to handle them?
@@ -130,17 +133,14 @@ class TrainingConfig(BaseConfig):
         # patch ourselves.
         # TODO(OPE-1117): Clean up this logic after upgrading to trl 0.16.
         if self.model.enable_liger_kernel:
-            if self.training.trainer_type == TrainerType.TRL_SFT:
+            if trainer_type == TrainerType.TRL_SFT:
                 self.training.trainer_kwargs["use_liger"] = True
                 self.training.trainer_kwargs["use_liger_kernel"] = True
                 self.model.enable_liger_kernel = False
-            elif (
-                self.training.trainer_type == TrainerType.TRL_DPO
-                or self.training.trainer_type == TrainerType.HF
-            ):
+            elif trainer_type in (TrainerType.TRL_DPO, TrainerType.HF):
                 self.training.trainer_kwargs["use_liger_kernel"] = True
                 self.model.enable_liger_kernel = False
-            elif self.training.trainer_type == TrainerType.OUMI:
+            elif trainer_type == TrainerType.OUMI:
                 # We need to Liger patch ourselves for our own training loop.
                 pass
             else:
@@ -159,7 +159,7 @@ class TrainingConfig(BaseConfig):
                     )
                 dataset_params.dataset_kwargs["return_conversations"] = True
             # Extra setup for TRL_SFT.
-            if self.training.trainer_type == TrainerType.TRL_SFT:
+            if trainer_type == TrainerType.TRL_SFT:
                 if self.training.trainer_kwargs.get("remove_unused_columns", False):
                     raise ValueError(
                         "`remove_unused_columns` must be False "
