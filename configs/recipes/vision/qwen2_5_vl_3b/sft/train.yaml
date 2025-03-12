@@ -28,7 +28,7 @@ model:
 
 data:
   train:
-    collator_name: vision_language_sft # "vision_language_with_padding"
+    collator_name: "vision_language_with_padding"
     use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
