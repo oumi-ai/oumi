@@ -89,8 +89,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             trust_remote_code: Whether to trust remote code execution for the processor.
             return_conversations: Whether to return raw `Conversation` objects.
             max_images: The maximum number of images per conversation.
-                If the limit is exceeded, the first N images are used.
-                If None or negative, all images are used. If 0, all images are dropped.
+                If the limit is exceeded, the first N images are kept.
+                If None or negative, all images are kept intact.
+                If 0, all images are dropped.
             **kwargs: Additional keyword arguments to pass to the base class.
         """
         super().__init__(tokenizer=tokenizer, **kwargs)
