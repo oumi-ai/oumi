@@ -1,0 +1,7 @@
+model:
+  model_name: "claude-3-7-sonnet-20250219"
+
+engine: ANTHROPIC
+
+remote_params:
+  politeness_policy: .5

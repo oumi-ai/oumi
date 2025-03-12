@@ -231,30 +231,28 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         valid_options: FeatureGeneratorOptions = options or FeatureGeneratorOptions()
 
+        all_images: list[list[Image.Image]] = []
+        all_prompts: list[str] = []
         if self._processor.chat_template is None:
-            all_images = []
-            all_prompts = []
             for conversation in conversations:
                 image, prompt = self._prepare_simple_model(conversation)
-                all_images.append(image)
+                all_images.append([image])
                 all_prompts.append(prompt)
 
             inputs = self._processor(
-                images=all_images,
+                images=[image for item in all_images for image in item],
                 text=all_prompts,
                 return_tensors=self._return_tensors,
                 padding=True,
             )
         else:
-            all_images = []
-            all_prompts = []
             for conversation in conversations:
                 images, prompt = self._prepare_instruct_model(conversation)
                 all_images.append(images)
                 all_prompts.append(prompt)
 
             inputs = self._processor(
-                images=all_images,
+                images=[image for item in all_images for image in item],
                 text=all_prompts,
                 return_tensors=self._return_tensors,
                 padding=True,
