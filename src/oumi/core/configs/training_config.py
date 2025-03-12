@@ -149,13 +149,14 @@ class TrainingConfig(BaseConfig):
         # Setup and validate params for "vision_language_sft" collator.
         # The collator expects VLM SFT dataset to only produce just
         # one column: 'conversation_json' (JSON-encoded `Conversation`)!
-        if self.data.train.collator_name == "vision_language_sft":
+        collator_name: Final[str] = self.data.train.collator_name or ""
+        if collator_name == "vision_language_sft":
             for dataset_params in self.data.train.datasets:
                 if not dataset_params.dataset_kwargs.get("return_conversations", True):
                     raise ValueError(
                         "`return_conversations` must be True "
                         f"for the dataset '{dataset_params.dataset_name}' "
-                        "when using 'vision_language_sft' collator! "
+                        f"when using '{collator_name}' collator!"
                     )
                 dataset_params.dataset_kwargs["return_conversations"] = True
             # Extra setup for TRL_SFT.
@@ -163,7 +164,7 @@ class TrainingConfig(BaseConfig):
                 if self.training.trainer_kwargs.get("remove_unused_columns", False):
                     raise ValueError(
                         "`remove_unused_columns` must be False "
-                        "when using 'vision_language_sft' collator! "
+                        f"when using '{collator_name}' collator! "
                         'The "unused" columns are consumed by the collator, '
                         "not by a model."
                     )
