@@ -487,7 +487,7 @@ def quickstart():
         },
         "tasks": [
             {
-                "evaluation_platform": "lm_harness",
+                "evaluation_backend": "lm_harness",
                 "task_name": benchmarks[i]["value"],
                 "num_samples": 10,
             }
