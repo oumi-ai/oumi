@@ -290,7 +290,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
 
     # Load data & preprocessing
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
-
+    # return dataset
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)

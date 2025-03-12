@@ -22,7 +22,7 @@ def _find_last_number(s: str) -> int:
     return int(re.findall(r"\d+", s)[-1])
 
 
-def _compute_letter_count_reward(completion: str, target_count: int) -> int:
+def compute_letter_count_reward(completion: str, target_count: int) -> int:
     """Counts the number of letters in a string."""
     try:
         count = _find_last_number(completion)
@@ -32,9 +32,8 @@ def _compute_letter_count_reward(completion: str, target_count: int) -> int:
 
 
 @register("count_letters", RegistryType.REWARD_FUNCTION)
-def _count_letters(completions, metadata, **kwargs):
+def _count_letters(completions, letter_count, **kwargs):
     """Reward function for counting letters in a string."""
-    target_counts = [m["letter_count_integer"] for m in metadata]
     return [
-        _compute_letter_count_reward(c, t) for c, t in zip(completions, target_counts)
+        compute_letter_count_reward(c, t) for c, t in zip(completions, letter_count)
     ]

@@ -38,10 +38,10 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch"
   empty_device_cache_steps: 1
-  compile: False # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
+  compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:
-    use_vllm: True
+    use_vllm: False
     vllm_device: "cuda:0"
     vllm_gpu_memory_utilization: 0.3
 

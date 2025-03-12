@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pandas as pd
+from typing_extensions import override
+
 from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
 
@@ -21,3 +24,11 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     """Dataset class for the `oumi-ai/oumi-letter-count` dataset."""
 
     default_dataset = "oumi-ai/oumi-letter-count"
+
+    @override
+    def transform(self, sample: pd.Series) -> dict:
+        """Validate and transform the sample into Python `dict`."""
+        return {
+            "prompt": sample["messages"],
+            # "letter_count": sample["metadata"]["letter_count_integer"],
+        }

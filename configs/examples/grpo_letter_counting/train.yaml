@@ -23,7 +23,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "oumi-ai/oumi-letter-count"
+      - dataset_name: "trl-lib/tldr"
         split: "train"
 
 training:
@@ -33,7 +33,7 @@ training:
   per_device_train_batch_size: 3
   gradient_accumulation_steps: 1
 
-  reward_functions: ["count_letters"]
+  reward_functions: ["soft_20tokens_completions"]
 
   enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
@@ -44,13 +44,15 @@ training:
   compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:
-    use_vllm: False
     num_generations: 6
+    use_vllm: False
+    vllm_device: "cuda:0"
+    vllm_gpu_memory_utilization: 0.9
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
   logging_steps: 10
   output_dir: "output/letter_counting.grpo"
-  include_performance_metrics: True
+  include_performance_metrics: False # Cannot enable due to transformers bug
   enable_wandb: True
