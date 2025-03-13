@@ -52,5 +52,5 @@ training:
   logging_steps: 10
   log_model_summary: False
   output_dir: "output/tldr.grpo"
-  include_performance_metrics: False
+  include_performance_metrics: False # Cannot enable due to transformers bug
   enable_wandb: True
