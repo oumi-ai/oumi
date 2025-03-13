@@ -22,6 +22,7 @@ from oumi.core.collators.text_completions_collator_with_padding import (
 from oumi.core.collators.vision_language_collator_with_padding import (
     VisionLanguageCollatorWithPadding,
 )
+from oumi.core.collators.vision_language_sft_collator import VisionLanguageSftCollator
 from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config,
@@ -48,7 +49,11 @@ def build_data_collator(
             Supported values are:
 
             - "text_with_padding": Uses `TextCollatorWithPadding`.
+            - "text_completions_only_with_padding": Uses
+                `TextCompletionsCollatorWithPadding`.
             - "vision_language_with_padding": Uses `VisionLanguageCollatorWithPadding`.
+            - "vision_language_sft": Uses `VisionLanguageSftCollator`.
+
         tokenizer: A tokenizer.
         max_length: An optional maximum sequence length.
         label_ignore_index: If set, then label values of tokens that shouldn't
@@ -90,16 +95,28 @@ def build_data_collator(
         return TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
-            label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
+            label_ignore_index=label_ignore_index,
             **kwargs,
         )
     elif collator_name == "vision_language_with_padding":
         return VisionLanguageCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
-            label_ignore_index=label_ignore_index,
             truncation=enable_truncation,
+            label_ignore_index=label_ignore_index,
+            **kwargs,
+        )
+    elif collator_name == "vision_language_sft":
+        processor_name = kwargs.pop("processor_name", None)
+        if not processor_name:
+            raise ValueError(f"Empty processor_name for '{collator_name}'")
+        return VisionLanguageSftCollator(
+            tokenizer=tokenizer,
+            processor_name=processor_name,
+            max_length=max_length,
+            truncation=enable_truncation,
+            label_ignore_index=label_ignore_index,
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
@@ -137,12 +154,24 @@ def build_collator_from_config(
 
     collator_kwargs = {}
     if (
-        collator_name == "vision_language_with_padding"
+        collator_name in ("vision_language_with_padding", "vision_language_sft")
         and model_config is not None
         and model_config.visual_config is not None
     ):
         collator_kwargs["allow_multi_image_inputs"] = (
             model_config.visual_config.supports_multiple_images
+        )
+
+    if collator_name == "vision_language_sft":
+        processor_name = collator_kwargs.get(
+            "processor_name", config.model.tokenizer_name or config.model.model_name
+        )
+        if not processor_name:
+            raise ValueError(f"Processor name must be provided for '{collator_name}'!")
+        collator_kwargs["processor_name"] = processor_name
+
+        collator_kwargs["trust_remote_code"] = collator_kwargs.get(
+            "trust_remote_code", config.model.trust_remote_code
         )
 
     return build_data_collator(
