@@ -61,6 +61,11 @@ models = [
         "description": "Llama-3.3-70B-Instruct",
         "value": "meta-llama/Llama-3.3-70B-Instruct",
     },
+    {
+        "name": "XL model",
+        "description": "Llama-3.1-405B-Instruct",
+        "value": "meta-llama/Llama-3.1-405B-Instruct",
+    },
 ]
 
 datasets = [
@@ -681,7 +686,7 @@ def quickstart():
             "cloud": provider_code,
             "accelerators": hardware_code,
         },
-        "working_dir": ".",
+        "working_dir": str(Path.cwd().resolve()),
         "run": "oumi infer -c infer_config.yaml && cat responses.jsonl",
     }
 
