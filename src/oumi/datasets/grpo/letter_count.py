@@ -21,7 +21,20 @@ from oumi.core.registry import register_dataset
 
 @register_dataset("oumi-ai/oumi-letter-count")
 class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
-    """Dataset class for the `oumi-ai/oumi-letter-count` dataset."""
+    """Dataset class for the `oumi-ai/oumi-letter-count` dataset.
+
+    A sample from the dataset:
+    {
+        "prompt": "Can you let me know how many 'r's are in 'pandered'?",
+        "metadata": {
+            "letter": "r",
+            "letter_count_integer": 1,
+            "letter_count_string": "one",
+            "unformatted_prompt": "Can you let me know how many {letter}s are in {word}?",
+            "word": "pandered",
+        },
+    }
+    """  # noqa: E501
 
     default_dataset = "oumi-ai/oumi-letter-count"
 
