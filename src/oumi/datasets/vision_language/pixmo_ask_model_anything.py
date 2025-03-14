@@ -39,10 +39,10 @@ class PixmoAskModelAnythingDataset(VisionLanguageSftDataset):
                 Message(
                     role=Role.USER,
                     content=[
-                        ContentItem(type=Type.IMAGE_URL, content=example["image_url"])
+                        ContentItem(type=Type.IMAGE_URL, content=example["image_url"]),
+                        ContentItem(type=Type.TEXT, content=example["question"]),
                     ],
                 ),
-                Message(role=Role.USER, content=example["question"]),
                 Message(role=Role.ASSISTANT, content=example["answer"]),
             ]
         )

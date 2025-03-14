@@ -34,12 +34,15 @@ class PixmoCapDataset(VisionLanguageSftDataset):
     @override
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform the example into a Conversation object."""
+        input_text = "Describe this image:"
+
         messages: list[Message] = []
         messages.append(
             Message(
                 role=Role.USER,
                 content=[
-                    ContentItem(type=Type.IMAGE_URL, content=example["image_url"])
+                    ContentItem(type=Type.IMAGE_URL, content=example["image_url"]),
+                    ContentItem(type=Type.TEXT, content=input_text),
                 ],
             )
         )

@@ -33,13 +33,20 @@ class PixmoCapQADataset(VisionLanguageSftDataset):
 
     @override
     def transform_conversation(self, example: dict) -> Conversation:
-        """Transform the example into a Conversation object."""
+        """Transform the example into a Conversation object.
+
+        Sample "question": "[USER] Can you come up with a joke? [ASSISTANT]"
+        Note it starts with a [USER] and ends with an [ASSISTANT] role tag.
+        The Assistant response appears in the "answer" field.
+        """
+        input_text = "Describe this image:"
         messages: list[Message] = []
         messages.append(
             Message(
                 role=Role.USER,
                 content=[
-                    ContentItem(type=Type.IMAGE_URL, content=example["image_url"])
+                    ContentItem(type=Type.IMAGE_URL, content=example["image_url"]),
+                    ContentItem(type=Type.TEXT, content=input_text),
                 ],
             )
         )
