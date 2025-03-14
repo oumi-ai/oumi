@@ -39,31 +39,6 @@ def _get_package_version(package_name: str, version_fallback: str) -> str:
         return version_fallback
 
 
-def _get_padded_table(
-    kv: dict, key_title: str, value_title: str, padding: int = 5
-) -> str:
-    """Formats a key-value pair as a table with padding.
-
-    Args:
-        kv: The key-value pair to format.
-        key_title: The title for the key column.
-        value_title: The title for the value column.
-        padding: The padding to use.
-
-    Returns:
-        str: The formatted table.
-    """
-    max_length = max(len(key) for key in kv.keys())
-    formatted_kv = []
-    for key, value in kv.items():
-        k = "{0:{space}}".format(key, space=max_length + padding)
-        formatted_kv.append(k + value)
-    title_row = (
-        "{0:{space}}".format(key_title, space=max_length + padding) + value_title + "\n"
-    )
-    return title_row + "\n".join(formatted_kv)
-
-
 def env():
     """Prints information about the current environment."""
     # Delayed imports
