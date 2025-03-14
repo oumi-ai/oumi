@@ -21,12 +21,20 @@ indicating whether an output is desirable or undesirable.
 
 from typing import Optional
 
+import datasets
+from typing_extensions import override
+
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 _PROMPT_KEY = "prompt"
-_RESPONSE_KEY = "response"
+_COMPLETION_KEY = "completion"
 _LABEL_KEY = "label"  # True for desirable, False for undesirable
+
+_ROLE = "role"
+_CONTENT = "content"
+_ASSISTANT = "assistant"
+
 
 class BaseKtoDataset(BaseMapDataset):
     """Base class for KTO datasets.
@@ -68,26 +76,84 @@ class BaseKtoDataset(BaseMapDataset):
 
     def transform_kto(self, sample: dict) -> dict:
         """Transform the sample to the KTO format.
-        
+
         Args:
             sample: A dictionary containing the raw sample data.
-            
+
         Returns:
-            A dictionary with the following keys:
+            A dictionary with the basic format expected by TRL:
             - prompt: The input prompt
-            - response: The model's response
-            - label: Boolean indicating if the response is desirable (True) or undesirable (False)
+            - completion: The model's response
+            - label: Boolean indicating if the response is desirable or undesirable
         """
         prompt = sample[_PROMPT_KEY]
-        response = sample[_RESPONSE_KEY]
+        completion = sample[_COMPLETION_KEY]
         label = sample[_LABEL_KEY]
+
+        # Extract text from completion if it's in chat format
+        if isinstance(completion, list):
+            completion = self._extract_from_chat_format(completion)
 
         return {
             _PROMPT_KEY: prompt,
-            _RESPONSE_KEY: response,
+            _COMPLETION_KEY: completion,
             _LABEL_KEY: label,
         }
 
+    @override
     def transform(self, sample: dict) -> dict:
         """Transform the sample to the KTO format."""
-        return self.transform_kto(sample) 
+        return self.transform_kto(sample)
+
+    def _extract_from_chat_format(self, sample) -> str:
+        """Extract the last 'assistant' turn in the chat."""
+        if not isinstance(sample, list):
+            return sample
+
+        for turn in sample[::-1]:
+            if turn[_ROLE] == _ASSISTANT:
+                return turn[_CONTENT]
+
+        raise ValueError("No chat turn was found with an 'assistant' role.")
+
+    @property
+    def _kto_features(self) -> datasets.Features:
+        """Get the explicit feature schema required for KTO training."""
+        return datasets.Features(
+            {
+                "prompt": datasets.Value("string"),
+                "completion": datasets.Value("string"),
+                "label": datasets.Value("bool"),
+            }
+        )
+
+    def _detect_features_and_estimate_element_size_bytes(self, generator):
+        """Override to use explicit KTO features."""
+        from oumi.core.datasets.base_map_dataset import _InferredFeatureMap
+        from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes
+
+        # Collect a few samples to estimate average size
+        samples = []
+        for _ in range(min(10, len(self))):  # Use up to 10 samples
+            try:
+                samples.append(next(generator))
+            except StopIteration:
+                break
+
+        # Calculate estimated element size based on actual samples
+        element_size = 1024  # Default fallback
+        if samples:
+            # Get average size of samples
+            element_size = sum(
+                estimate_sample_dict_size_in_bytes(s) for s in samples
+            ) // len(samples)
+            # Add 20% buffer for safety
+            element_size = int(element_size * 1.2)
+
+        # Return features optimized for KTO training with proper size estimate
+        return _InferredFeatureMap(
+            feature_map=self._kto_features,
+            is_feature_map_optimized=True,
+            element_size_in_bytes=element_size,
+            multimodal=False,
+        )

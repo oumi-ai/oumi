@@ -12,37 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from oumi.core.datasets import BaseKtoDataset
 from oumi.core.registry import register_dataset
 
 
-@register_dataset("mlabonne/kto-mix-40k")
-class KtoMix40kDataset(BaseKtoDataset):
+@register_dataset("trl-lib/kto-mix-14k")
+class KtoMix14kDataset(BaseKtoDataset):
     """Preprocess the KTO dataset.
 
-    A dataset designed for KTO (Kahneman-Tversky Optimization) training.
-    This dataset is a combination of high-quality datasets with binary feedback,
-    including:
-    - Capybara-Preferences (converted to binary)
-    - distilabel-intel-orca-dpo-pairs (converted to binary)
-    - ultrafeedback-binarized-preferences-cleaned
-    - distilabel-math-preference-dpo (converted to binary)
-    - toxic-dpo-v0.2 (converted to binary)
-    - prm_dpo_pairs_cleaned (converted to binary)
-    - truthy-dpo-v0.1 (converted to binary)
-
-    Rule-based filtering was applied to remove 'gptisms' in the desirable answers.
+    A KTO-formatted version of argilla/dpo-mix-7k designed for Kahneman-Tversky
+    Optimization training. This dataset provides binary preference data for
+    training language models with human preferences.
 
     Data Fields:
-        - source: string
-        - prompt: string
-        - response: string
+        - prompt: List of message dictionaries with a single user message
+          Example: [{"content": "Question text", "role": "assistant"}]
+        - completion: List of message dictionaries with a single assistant message
+          Example: [{"content": "Answer text", "role": "assistant"}]
         - label: boolean (True for desirable, False for undesirable)
 
     See Also:
         For more information on how to use this dataset, refer to:
-        - Paper: https://arxiv.org/pdf/2402.01306
-        - Huggingface hub: https://huggingface.co/docs/trl/main/en/kto_trainer
+        - Huggingface hub: https://huggingface.co/datasets/trl-lib/kto-mix-14k
+        - KTO documentation: https://huggingface.co/docs/trl/main/en/kto_trainer
     """
 
-    default_dataset = "mlabonne/kto-mix-40k" 
+    default_dataset = "trl-lib/kto-mix-14k"
