@@ -1,0 +1,26 @@
+
+syntax = "proto3";
+
+package oumi.core.conversations;
+
+message DataBlob {
+  // The MIME type of the data.
+  string mime_type = 1;
+
+  // Raw bytes e.g., PNG bytes for "image/png".
+  bytes binary_data = 2;
+}
+
+message ContentItem {
+    // The type of the content (e.g., text, image path, image URL).
+    Type type = 1;
+
+    oneof data {
+        // Optional text content of the content item.
+        // It can also be used to store URL and file paths.
+        string content = 2;
+
+        // Binary data.
+        DataBlob blob = 3;
+    }
+}
