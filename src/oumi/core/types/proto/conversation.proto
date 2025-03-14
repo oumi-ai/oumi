@@ -59,7 +59,7 @@ enum class Role {
 
     // Represents a tool message in the conversation.
     TOOL = 4;
-
+};
 
 
 // A message in a conversation.
