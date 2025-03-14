@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Callable, Optional
 
 import typer
+from rich.columns import Columns
+from rich.panel import Panel
+from rich.text import Text
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.utils.git_utils import get_git_root_dir
@@ -518,8 +521,11 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
 
     # End imports
     clouds = launcher.which_clouds()
-    print("========================")
-    print("Available clouds:")
-    print("========================")
-    for cloud in clouds:
-        print(cloud)
+    cloud_options = [Text(f"{cloud}", style="bold cyan") for cloud in clouds]
+    cli_utils.CONSOLE.print(
+        Panel(
+            Columns(cloud_options, equal=True, expand=True, padding=(0, 2)),
+            title="[yellow]Available Clouds[/yellow]",
+            border_style="blue",
+        )
+    )
