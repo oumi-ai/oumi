@@ -795,7 +795,7 @@ class TrainingParams(BaseParams):
                     f"Actual: {self.trainer_type}"
                 )
 
-        # See https://github.com/oumi-ai/oumi/issues/1540.
+        # TODO: #1540 - Remove when TRL bug is fixed.
         if (
             self.trainer_type == TrainerType.TRL_GRPO
             and self.include_performance_metrics

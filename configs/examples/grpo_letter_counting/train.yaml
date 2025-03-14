@@ -51,5 +51,6 @@ training:
 
   logging_steps: 10
   output_dir: "output/letter_counting.grpo"
-  include_performance_metrics: False # Cannot enable due to transformers bug
+  # Cannot enable due to trl bug. See https://github.com/huggingface/trl/issues/3081.
+  include_performance_metrics: False
   enable_wandb: True
