@@ -12,6 +12,24 @@ message DataBlob {
 }
 
 message ContentItem {
+    // Type of the content item.
+    enum Type {
+        TYPE_UNSPECIFIED = 0;
+
+        // Represents a text message.
+        TEXT = 1;
+
+        // Represents an image referenced by its file path.
+        IMAGE_PATH = 2;
+
+        // Represents an image referenced by its URL.
+        IMAGE_URL = 3;
+
+        // Represents an image stored as binary data.
+        IMAGE_BINARY = 4;
+    };
+
+
     // The type of the content (e.g., text, image path, image URL).
     Type type = 1;
 
