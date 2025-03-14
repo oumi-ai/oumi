@@ -22,6 +22,7 @@ import requests
 import typer
 import yaml
 from requests.exceptions import RequestException
+from rich.console import Console
 
 from oumi.utils.logging import logger
 
@@ -30,6 +31,20 @@ CONFIG_FLAGS = ["--config", "-c"]
 OUMI_FETCH_DIR = "~/.oumi/fetch"
 OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main"
 _OUMI_PREFIX = "oumi://"
+
+CONSOLE = Console()
+
+
+def section_header(title, console: Console = CONSOLE):
+    """Print a section header with the given title.
+
+    Args:
+        title: The title text to display in the header.
+        console: The Console object to use for printing.
+    """
+    console.print(f"\n[blue]{'━' * console.width}[/blue]")
+    console.print(f"[yellow]   {title}[/yellow]")
+    console.print(f"[blue]{'━' * console.width}[/blue]\n")
 
 
 def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
