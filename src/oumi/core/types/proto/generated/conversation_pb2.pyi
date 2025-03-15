@@ -1,13 +1,14 @@
-from collections.abc import Iterable as _Iterable
-from collections.abc import Mapping as _Mapping
-from typing import ClassVar as _ClassVar
-from typing import Optional as _Optional
-from typing import Union as _Union
-
-from google.protobuf import descriptor as _descriptor
-from google.protobuf import message as _message
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from typing import (
+    ClassVar as _ClassVar,
+    Iterable as _Iterable,
+    Mapping as _Mapping,
+    Optional as _Optional,
+    Union as _Union,
+)
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -76,4 +77,29 @@ class Message(_message.Message):
         id: _Optional[str] = ...,
         role: _Optional[_Union[Role, str]] = ...,
         parts: _Optional[_Iterable[_Union[ContentItem, _Mapping]]] = ...,
+    ) -> None: ...
+
+class Conversation(_message.Message):
+    __slots__ = ("conversation_id", "messages", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[str] = ...
+        ) -> None: ...
+
+    CONVERSATION_ID_FIELD_NUMBER: _ClassVar[int]
+    MESSAGES_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    conversation_id: str
+    messages: _containers.RepeatedCompositeFieldContainer[Message]
+    metadata: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        conversation_id: _Optional[str] = ...,
+        messages: _Optional[_Iterable[_Union[Message, _Mapping]]] = ...,
+        metadata: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...

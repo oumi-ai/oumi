@@ -80,3 +80,17 @@ message Message {
     // potentially different types e.g., text and image.
     repeated ContentItem parts = 3;
 }
+
+
+
+// Represents a conversation, which is a sequence of messages.
+message Conversation {
+    // Optional unique identifier for the conversation.
+    string conversation_id = 1;
+
+    // List of Message objects that make up the conversation.
+    repeated Message messages =2;
+
+    // Optional metadata associated with the conversation.
+    map<string, string> metadata =3;
+}

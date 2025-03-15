@@ -20,6 +20,10 @@ from typing import Any, Callable, NamedTuple, Optional, Union
 import pydantic
 from jinja2 import Template
 
+from oumi.core.types.proto.generated.conversation_pb2 import (
+    Conversation as ConversationProto,
+)
+
 
 class Role(str, Enum):
     """Role of the entity sending the message."""
@@ -452,6 +456,11 @@ class Conversation(pydantic.BaseModel):
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
         return cls.model_validate_json(data)
+
+    def to_proto(self) -> ConversationProto:
+        """Converts a conversation to Protocol Buffer format."""
+        result = ConversationProto()
+        return result
 
     def __repr__(self) -> str:
         """Returns a string representation of the conversation."""
