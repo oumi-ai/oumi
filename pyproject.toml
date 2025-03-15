@@ -55,6 +55,7 @@ dependencies = [
     "peft>=0.14.0,<0.15",
     "pexpect>=4.8.0,<4.9",       # Used by Polaris client
     "pillow>=10.3.0,<10.4",      # Used by image datasets
+    "protobuf>=5.29.0",
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
