@@ -36,30 +36,30 @@ class DataBlob(_message.Message):
         self, mime_type: _Optional[str] = ..., binary_data: _Optional[bytes] = ...
     ) -> None: ...
 
-class ContentItem(_message.Message):
+class ContentPart(_message.Message):
     __slots__ = ("type", "content", "blob")
     class Type(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        TYPE_UNSPECIFIED: _ClassVar[ContentItem.Type]
-        TEXT: _ClassVar[ContentItem.Type]
-        IMAGE_PATH: _ClassVar[ContentItem.Type]
-        IMAGE_URL: _ClassVar[ContentItem.Type]
-        IMAGE_BINARY: _ClassVar[ContentItem.Type]
+        TYPE_UNSPECIFIED: _ClassVar[ContentPart.Type]
+        TEXT: _ClassVar[ContentPart.Type]
+        IMAGE_PATH: _ClassVar[ContentPart.Type]
+        IMAGE_URL: _ClassVar[ContentPart.Type]
+        IMAGE_BINARY: _ClassVar[ContentPart.Type]
 
-    TYPE_UNSPECIFIED: ContentItem.Type
-    TEXT: ContentItem.Type
-    IMAGE_PATH: ContentItem.Type
-    IMAGE_URL: ContentItem.Type
-    IMAGE_BINARY: ContentItem.Type
+    TYPE_UNSPECIFIED: ContentPart.Type
+    TEXT: ContentPart.Type
+    IMAGE_PATH: ContentPart.Type
+    IMAGE_URL: ContentPart.Type
+    IMAGE_BINARY: ContentPart.Type
     TYPE_FIELD_NUMBER: _ClassVar[int]
     CONTENT_FIELD_NUMBER: _ClassVar[int]
     BLOB_FIELD_NUMBER: _ClassVar[int]
-    type: ContentItem.Type
+    type: ContentPart.Type
     content: str
     blob: DataBlob
     def __init__(
         self,
-        type: _Optional[_Union[ContentItem.Type, str]] = ...,
+        type: _Optional[_Union[ContentPart.Type, str]] = ...,
         content: _Optional[str] = ...,
         blob: _Optional[_Union[DataBlob, _Mapping]] = ...,
     ) -> None: ...
@@ -71,12 +71,12 @@ class Message(_message.Message):
     PARTS_FIELD_NUMBER: _ClassVar[int]
     id: str
     role: Role
-    parts: _containers.RepeatedCompositeFieldContainer[ContentItem]
+    parts: _containers.RepeatedCompositeFieldContainer[ContentPart]
     def __init__(
         self,
         id: _Optional[str] = ...,
         role: _Optional[_Union[Role, str]] = ...,
-        parts: _Optional[_Iterable[_Union[ContentItem, _Mapping]]] = ...,
+        parts: _Optional[_Iterable[_Union[ContentPart, _Mapping]]] = ...,
     ) -> None: ...
 
 class Conversation(_message.Message):

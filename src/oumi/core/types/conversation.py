@@ -21,8 +21,15 @@ import pydantic
 from jinja2 import Template
 
 from oumi.core.types.proto.generated.conversation_pb2 import (
+    ContentPart as ContentPartProto,
+)
+from oumi.core.types.proto.generated.conversation_pb2 import (
     Conversation as ConversationProto,
 )
+from oumi.core.types.proto.generated.conversation_pb2 import (
+    Message as MessageProto,
+)
+from oumi.core.types.proto.generated.conversation_pb2 import Role as RoleProto
 
 
 class Role(str, Enum):
@@ -47,6 +54,20 @@ class Role(str, Enum):
             str: The string value of the Role enum.
         """
         return self.value
+
+
+def _to_proto_role(role: Role) -> RoleProto:
+    """Converts a Role enum to Protocol Buffer format."""
+    if role == Role.SYSTEM:
+        return RoleProto.SYSTEM
+    elif role == Role.USER:
+        return RoleProto.USER
+    elif role == Role.ASSISTANT:
+        return RoleProto.ASSISTANT
+    elif role == Role.TOOL:
+        return RoleProto.TOOL
+
+    raise ValueError(f"Invalid role: {role}")
 
 
 class Type(str, Enum):
@@ -177,6 +198,13 @@ class ContentItem(pydantic.BaseModel):
                 raise ValueError(
                     f"Binary can only be provided for images (Item type: {self.type})."
                 )
+
+    def to_proto(self) -> ContentPartProto:
+        """Converts a content item to Protocol Buffer format."""
+        return ContentPartProto(
+            type=self.type,
+            content=(self.content or ""),
+        )
 
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
@@ -327,6 +355,14 @@ class Message(pydantic.BaseModel):
         counts = self.count_content_items()
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
+    def to_proto(self) -> MessageProto:
+        """Converts a message to Protocol Buffer format."""
+        return MessageProto(
+            id=self.id,
+            role=_to_proto_role(self.role),
+            parts=[item.to_proto() for item in self.content_items],
+        )
+
     def __repr__(self) -> str:
         """Returns a string representation of the message."""
         id_str = ""
@@ -459,7 +495,13 @@ class Conversation(pydantic.BaseModel):
 
     def to_proto(self) -> ConversationProto:
         """Converts a conversation to Protocol Buffer format."""
-        result = ConversationProto()
+        result = ConversationProto(
+            conversation_id=self.conversation_id,
+            messages=[m.to_proto() for m in self.messages],
+        )
+        if self.metadata is not None:
+            for key, value in self.metadata.items():
+                result.metadata[key] = str(value)
         return result
 
     def __repr__(self) -> str:

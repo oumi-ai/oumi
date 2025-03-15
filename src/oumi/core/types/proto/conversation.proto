@@ -11,8 +11,8 @@ message DataBlob {
   bytes binary_data = 2;
 }
 
-message ContentItem {
-    // Type of the content item.
+message ContentPart {
+    // Type of the content part.
     enum Type {
         TYPE_UNSPECIFIED = 0;
 
@@ -78,7 +78,7 @@ message Message {
     // For text messages, `content` can be set to a string value.
     // For multimodal messages, `content` should be a list of content items of
     // potentially different types e.g., text and image.
-    repeated ContentItem parts = 3;
+    repeated ContentPart parts = 3;
 }
 
 
