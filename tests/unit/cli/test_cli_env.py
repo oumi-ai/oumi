@@ -20,4 +20,4 @@ def app():
 def test_env_runs_without_exceptions(app):
     result = runner.invoke(app, [])
     assert result.exit_code == 0
-    assert "----------Oumi environment information:----------" in result.stdout
+    assert "Oumi environment information:" in result.stdout

@@ -1,6 +1,6 @@
 from dataclasses import asdict
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -24,8 +24,12 @@ from oumi.inference import OpenAIInferenceEngine
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_lm_harness_task(
-    mock_save_evaluation_output, mock_check_prerequisites, mock_evaluate_lm_harness
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_evaluate_lm_harness,
 ):
     # Inputs.
     task_params = EvaluationTaskParams(
@@ -40,6 +44,7 @@ def test_evaluate_lm_harness_task(
     )
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_evaluate_lm_harness.return_value = EvaluationResult(
@@ -51,6 +56,7 @@ def test_evaluate_lm_harness_task(
     result = evaluator.evaluate(evaluation_config)
 
     # Check the results.
+    mock_build_inference_engine.assert_not_called()
     mock_save_evaluation_output.assert_called_once()
     mock_check_prerequisites.assert_called_once()
     mock_evaluate_lm_harness.assert_called_once()
@@ -75,8 +81,12 @@ def test_evaluate_lm_harness_task(
 @patch("oumi.core.evaluation.evaluator.evaluate_alpaca_eval")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_alpaca_eval_task(
-    mock_save_evaluation_output, mock_check_prerequisites, mock_evaluate_alpaca_eval
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_evaluate_alpaca_eval,
 ):
     # Inputs.
     task_params = EvaluationTaskParams(
@@ -91,6 +101,7 @@ def test_evaluate_alpaca_eval_task(
     )
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_evaluate_alpaca_eval.return_value = EvaluationResult(
@@ -102,6 +113,7 @@ def test_evaluate_alpaca_eval_task(
     result = evaluator.evaluate(evaluation_config)
 
     # Check the results.
+    mock_build_inference_engine.assert_called_once()
     mock_save_evaluation_output.assert_called_once()
     mock_check_prerequisites.assert_called_once()
     mock_evaluate_alpaca_eval.assert_called_once()
@@ -126,7 +138,9 @@ def test_evaluate_alpaca_eval_task(
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_custom_task(
+    mock_build_inference_engine,
     mock_save_evaluation_output,
     mock_check_prerequisites,
     mock_get_evaluation_function,
@@ -157,6 +171,7 @@ def test_evaluate_custom_task(
         )
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_get_evaluation_function.return_value = evaluation_fn
@@ -168,6 +183,7 @@ def test_evaluate_custom_task(
     )
 
     # Check the results.
+    mock_build_inference_engine.assert_not_called()
     mock_save_evaluation_output.assert_called_once()
     mock_check_prerequisites.assert_called_once()
     mock_get_evaluation_function.assert_called_once()
@@ -249,8 +265,12 @@ def test_evaluate_custom_task_with_inference(
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_custom_task_unregistered_fn(
-    mock_save_evaluation_output, mock_check_prerequisites, mock_get_evaluation_function
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
 ):
     # Inputs.
     task_params = EvaluationTaskParams(
@@ -260,6 +280,7 @@ def test_evaluate_custom_task_unregistered_fn(
     evaluation_config = EvaluationConfig(tasks=[task_params])
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_get_evaluation_function.return_value = None
@@ -278,6 +299,7 @@ def test_evaluate_custom_task_unregistered_fn(
         evaluator.evaluate(evaluation_config)
 
     # Check the results.
+    mock_build_inference_engine.assert_not_called()
     mock_save_evaluation_output.assert_not_called()
     mock_check_prerequisites.assert_called_once()
     mock_get_evaluation_function.assert_called_once()
@@ -286,8 +308,12 @@ def test_evaluate_custom_task_unregistered_fn(
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_custom_task_without_task_name(
-    mock_save_evaluation_output, mock_check_prerequisites, mock_get_evaluation_function
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
 ):
     # Inputs.
     task_params = EvaluationTaskParams(
@@ -296,6 +322,7 @@ def test_evaluate_custom_task_without_task_name(
     evaluation_config = EvaluationConfig(tasks=[task_params])
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_get_evaluation_function.return_value = None
@@ -313,6 +340,7 @@ def test_evaluate_custom_task_without_task_name(
         evaluator.evaluate(evaluation_config)
 
     # Check the results.
+    mock_build_inference_engine.assert_not_called()
     mock_save_evaluation_output.assert_not_called()
     mock_check_prerequisites.assert_called_once()
     mock_get_evaluation_function.assert_not_called()
@@ -321,7 +349,9 @@ def test_evaluate_custom_task_without_task_name(
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_custom_task_using_reserved_inference_keyword(
+    mock_build_inference_engine,
     mock_save_evaluation_output,
     mock_check_prerequisites,
     mock_get_evaluation_function,
@@ -343,6 +373,7 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
         pass
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_get_evaluation_function.return_value = evaluation_fn
@@ -359,12 +390,20 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
             inference_engine="inference_engine",  # NOT allowed, key is reserved.
         )
 
+    # Check the results.
+    mock_build_inference_engine.assert_not_called()
+    mock_save_evaluation_output.assert_not_called()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
+
 
 @patch("oumi.core.evaluation.evaluator.evaluate_lm_harness")
 @patch("oumi.core.evaluation.evaluator.evaluate_alpaca_eval")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_multiple_tasks(
+    mock_build_inference_engine,
     mock_save_evaluation_output,
     mock_check_prerequisites,
     mock_evaluate_alpaca_eval,
@@ -395,6 +434,7 @@ def test_evaluate_multiple_tasks(
     )
 
     # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
     mock_save_evaluation_output.return_value = None
     mock_check_prerequisites.return_value = None
     mock_evaluate_lm_harness.return_value = EvaluationResult(
@@ -409,6 +449,7 @@ def test_evaluate_multiple_tasks(
     result = evaluator.evaluate(evaluation_config)
 
     # Check the call counts to our mocks.
+    assert mock_build_inference_engine.call_count == 1
     assert mock_save_evaluation_output.call_count == 3
     assert mock_check_prerequisites.call_count == 3
     assert mock_evaluate_lm_harness.call_count == 2
@@ -449,6 +490,9 @@ def test_evaluate_multiple_tasks(
     assert kwargs["config"].tasks == []
     assert kwargs["config"].model.model_name == "test_model"
     assert kwargs["config"].inference_engine == InferenceEngineType.VLLM
+
+    # Ensure the 2nd LM Harness call destroyed the inference engine.
+    assert evaluator._inference_engine is None
 
     # Check the result.
     assert len(result) == 3
