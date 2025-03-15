@@ -45,7 +45,7 @@ message ContentItem {
 
 
 // Role of the entity sending the message.
-enum class Role {
+enum Role {
     ROLE_UNSPECIFIED = 0;
 
     // Represents a system message in the conversation.
