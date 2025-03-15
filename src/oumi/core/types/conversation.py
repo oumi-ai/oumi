@@ -244,8 +244,8 @@ class ContentItem(pydantic.BaseModel):
                     f"Binary can only be provided for images (Item type: {self.type})."
                 )
 
-    @classmethod
-    def from_proto(cls, item_proto: ContentPartProto) -> "ContentItem":
+    @staticmethod
+    def from_proto(item_proto: ContentPartProto) -> "ContentItem":
         """Converts a Protocol Buffer to a content item."""
         if item_proto.HasField("blob") and item_proto.blob:
             return ContentItem(
@@ -418,8 +418,8 @@ class Message(pydantic.BaseModel):
         counts = self.count_content_items()
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
-    @classmethod
-    def from_proto(cls, message_proto: MessageProto) -> "Message":
+    @staticmethod
+    def from_proto(message_proto: MessageProto) -> "Message":
         """Converts a Protocol Buffer to a message."""
         return Message(
             id=message_proto.id,
@@ -564,6 +564,17 @@ class Conversation(pydantic.BaseModel):
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
         return cls.model_validate_json(data)
+
+    @staticmethod
+    def from_proto(conversation_proto: ConversationProto) -> "Conversation":
+        """Converts a conversation from Protocol Buffer format."""
+        result: Conversation = Conversation(
+            conversation_id=conversation_proto.conversation_id,
+            messages=[Message.from_proto(m) for m in conversation_proto.messages],
+        )
+        for key, value in conversation_proto.metadata.items():
+            result.metadata[key] = str(value)
+        return result
 
     def to_proto(self) -> ConversationProto:
         """Converts a conversation to Protocol Buffer format."""
