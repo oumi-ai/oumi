@@ -27,6 +27,9 @@ from oumi.core.types.proto.generated.conversation_pb2 import (
     Conversation as ConversationProto,
 )
 from oumi.core.types.proto.generated.conversation_pb2 import (
+    DataBlob as DataBlobProto,
+)
+from oumi.core.types.proto.generated.conversation_pb2 import (
     Message as MessageProto,
 )
 from oumi.core.types.proto.generated.conversation_pb2 import Role as RoleProto
@@ -201,6 +204,10 @@ class ContentItem(pydantic.BaseModel):
 
     def to_proto(self) -> ContentPartProto:
         """Converts a content item to Protocol Buffer format."""
+        if self.binary is not None and len(self.binary) > 0:
+            return ContentPartProto(
+                type=self.type, blob=DataBlobProto(binary_data=self.binary)
+            )
         return ContentPartProto(
             type=self.type,
             content=(self.content or ""),
