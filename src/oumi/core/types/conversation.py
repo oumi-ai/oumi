@@ -59,18 +59,29 @@ class Role(str, Enum):
         return self.value
 
 
-def _to_proto_role(role: Role) -> RoleProto:
-    """Converts a Role enum to Protocol Buffer format."""
-    if role == Role.SYSTEM:
-        return RoleProto.SYSTEM
-    elif role == Role.USER:
-        return RoleProto.USER
-    elif role == Role.ASSISTANT:
-        return RoleProto.ASSISTANT
-    elif role == Role.TOOL:
-        return RoleProto.TOOL
+_ROLE_TO_PROTO_ROLE_MAP = {
+    Role.SYSTEM: RoleProto.SYSTEM,
+    Role.USER: RoleProto.USER,
+    Role.ASSISTANT: RoleProto.ASSISTANT,
+    Role.TOOL: RoleProto.TOOL,
+}
+_PROTO_ROLE_TO_ROLE_MAP = {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
 
-    raise ValueError(f"Invalid role: {role}")
+
+def _convert_role_to_proto_role(role: Role) -> RoleProto:
+    """Converts a Role enum to Protocol Buffer format."""
+    result: RoleProto = _ROLE_TO_PROTO_ROLE_MAP.get(role, RoleProto.ROLE_UNSPECIFIED)
+    if result == RoleProto.ROLE_UNSPECIFIED:
+        raise ValueError(f"Invalid role: {role}")
+    return result
+
+
+def _convert_proto_role_to_role(role: RoleProto) -> Role:
+    """Converts a Protocol Buffer role format to role."""
+    result: Optional[Role] = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
+    if result is None:
+        raise ValueError(f"Invalid role: {role}")
+    return result
 
 
 class Type(str, Enum):
@@ -95,6 +106,37 @@ class Type(str, Enum):
             str: The string value of the Type enum.
         """
         return self.value
+
+
+_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP = {
+    Type.TEXT: ContentPartProto.TEXT,
+    Type.IMAGE_PATH: ContentPartProto.IMAGE_PATH,
+    Type.IMAGE_URL: ContentPartProto.IMAGE_URL,
+    Type.IMAGE_BINARY: ContentPartProto.IMAGE_BINARY,
+}
+_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP = {
+    v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()
+}
+
+
+def _convert_type_to_proto_type(content_type: Type) -> ContentPartProto.Type:
+    """Converts a type enum to Protocol Buffer format."""
+    result: ContentPartProto.Type = _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.get(
+        content_type, ContentPartProto.TYPE_UNSPECIFIED
+    )
+    if result == ContentPartProto.TYPE_UNSPECIFIED:
+        raise ValueError(f"Invalid type: {content_type}")
+    return result
+
+
+def _convert_proto_type_to_type(content_type: ContentPartProto.Type) -> Type:
+    """Converts a Protocol Buffer type format to type."""
+    result: Optional[Type] = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(
+        content_type, None
+    )
+    if result is None:
+        raise ValueError(f"Invalid type: {content_type}")
+    return result
 
 
 class ContentItemCounts(NamedTuple):
@@ -202,14 +244,28 @@ class ContentItem(pydantic.BaseModel):
                     f"Binary can only be provided for images (Item type: {self.type})."
                 )
 
+    @classmethod
+    def from_proto(cls, item_proto: ContentPartProto) -> "ContentItem":
+        """Converts a Protocol Buffer to a content item."""
+        if item_proto.HasField("blob") and item_proto.blob:
+            return ContentItem(
+                type=_convert_proto_type_to_type(item_proto.type),
+                binary=item_proto.blob.binary_data,
+            )
+        return ContentItem(
+            type=_convert_proto_type_to_type(item_proto.type),
+            content=item_proto.content,
+        )
+
     def to_proto(self) -> ContentPartProto:
         """Converts a content item to Protocol Buffer format."""
         if self.binary is not None and len(self.binary) > 0:
             return ContentPartProto(
-                type=self.type, blob=DataBlobProto(binary_data=self.binary)
+                type=_convert_type_to_proto_type(self.type),
+                blob=DataBlobProto(binary_data=self.binary),
             )
         return ContentPartProto(
-            type=self.type,
+            type=_convert_type_to_proto_type(self.type),
             content=(self.content or ""),
         )
 
@@ -362,11 +418,20 @@ class Message(pydantic.BaseModel):
         counts = self.count_content_items()
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
+    @classmethod
+    def from_proto(cls, message_proto: MessageProto) -> "Message":
+        """Converts a Protocol Buffer to a message."""
+        return Message(
+            id=message_proto.id,
+            role=_convert_proto_role_to_role(message_proto.role),
+            content=[ContentItem.from_proto(part) for part in message_proto.parts],
+        )
+
     def to_proto(self) -> MessageProto:
         """Converts a message to Protocol Buffer format."""
         return MessageProto(
             id=self.id,
-            role=_to_proto_role(self.role),
+            role=_convert_role_to_proto_role(self.role),
             parts=[item.to_proto() for item in self.content_items],
         )
 
