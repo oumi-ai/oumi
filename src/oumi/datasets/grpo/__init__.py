@@ -14,8 +14,10 @@
 
 """GRPO datasets module."""
 
+from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
 
 __all__ = [
+    "LetterCountGrpoDataset",
     "TldrGrpoDataset",
 ]

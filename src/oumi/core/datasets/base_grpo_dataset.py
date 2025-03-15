@@ -61,7 +61,7 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
 
     @staticmethod
     def _process_text_value(s: str) -> str:
-        # The data contains occasional `\n` at the beginning or end
+        # The data may contain occasional `\n` at the beginning or end
         # of text values. Let's strip them.
         return s.strip() if s else ""
 
