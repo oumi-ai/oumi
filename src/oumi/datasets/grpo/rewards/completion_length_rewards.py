@@ -35,7 +35,7 @@ def compute_soft_target_token_length_reward(num_tokens: int, *, target_tokens: i
 
 
 def _compute_completion_soft_target_token_length_reward(
-    completions, *, target_tokens: int
+    completions: list[str], *, target_tokens: int
 ):
     return [
         compute_soft_target_token_length_reward(
@@ -58,7 +58,7 @@ def compute_sharp_target_token_length_reward(num_tokens: int, *, target_tokens: 
 
 
 def _compute_completion_sharp_target_token_length_reward(
-    completions, *, target_tokens: int
+    completions: list[str], *, target_tokens: int
 ):
     return [
         compute_sharp_target_token_length_reward(
@@ -71,45 +71,47 @@ def _compute_completion_sharp_target_token_length_reward(
 # Simple toy length-based reward functions for experimentation and demonstration
 # purposes. In practice, most users are expected to define and  use custom reward
 # functions, not these.
+# For more details on custom reward functions used in trl's GRPOTrainer, see:
+# https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function.
 
 
 @register("soft_5tokens_completions", RegistryType.REWARD_FUNCTION)
-def _soft_5tokens_completions(completions, **kwargs):
+def _soft_5tokens_completions(completions: list[str], **kwargs):
     return _compute_completion_soft_target_token_length_reward(
         completions, target_tokens=5
     )
 
 
 @register("soft_10tokens_completions", RegistryType.REWARD_FUNCTION)
-def _soft_10tokens_completions(completions, **kwargs):
+def _soft_10tokens_completions(completions: list[str], **kwargs):
     return _compute_completion_soft_target_token_length_reward(
         completions, target_tokens=10
     )
 
 
 @register("soft_20tokens_completions", RegistryType.REWARD_FUNCTION)
-def _soft_20tokens_completions(completions, **kwargs):
+def _soft_20tokens_completions(completions: list[str], **kwargs):
     return _compute_completion_soft_target_token_length_reward(
         completions, target_tokens=20
     )
 
 
 @register("sharp_5tokens_completions", RegistryType.REWARD_FUNCTION)
-def _sharp_5tokens_completions(completions, **kwargs):
+def _sharp_5tokens_completions(completions: list[str], **kwargs):
     return _compute_completion_sharp_target_token_length_reward(
         completions, target_tokens=5
     )
 
 
 @register("sharp_10tokens_completions", RegistryType.REWARD_FUNCTION)
-def _sharp_10tokens_completions(completions, **kwargs):
+def _sharp_10tokens_completions(completions: list[str], **kwargs):
     return _compute_completion_sharp_target_token_length_reward(
         completions, target_tokens=10
     )
 
 
 @register("sharp_20tokens_completions", RegistryType.REWARD_FUNCTION)
-def _sharp_20tokens_completions(completions, **kwargs):
+def _sharp_20tokens_completions(completions: list[str], **kwargs):
     return _compute_completion_sharp_target_token_length_reward(
         completions, target_tokens=20
     )
