@@ -61,7 +61,7 @@ from oumi.models.layers.ring_attention import (
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import log_trainable_parameters
+from oumi.utils.torch_utils import log_number_of_model_parameters
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
@@ -204,7 +204,7 @@ class Trainer(BaseTrainer):
                 self._load_from_checkpoint(resume_from_checkpoint)
 
         if is_local_process_zero():
-            log_trainable_parameters(self.model)
+            log_number_of_model_parameters(self.model, use_icons=False)
 
         total_steps = self._estimate_total_training_steps()
 

@@ -15,6 +15,7 @@
 import gc
 import math
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
 
@@ -171,10 +172,37 @@ def get_device_name() -> str:
     return device_name
 
 
-class ModelParameterCount(NamedTuple):
+@dataclass(frozen=True)
+class ModelParameterCount:
     all_params: int
     trainable_params: int
     embedding_params: int
+
+    def __post_init__(self):
+        """Ensure that the parameters are valid."""
+        for name, value in [
+            ("all_params", self.all_params),
+            ("trainable_params", self.trainable_params),
+            ("embedding_params", self.embedding_params),
+        ]:
+            if value < 0:
+                raise ValueError(f"`{name}` must be >= 0.")
+        if self.trainable_params > self.all_params:
+            raise ValueError("`trainable_params` cannot be greater than `all_params`.")
+        if self.embedding_params > self.all_params:
+            raise ValueError("`embedding_params` cannot be greater than `all_params`.")
+
+    @property
+    def trainable_params_percent(self) -> float:
+        """Percentage of trainable parameters [0.0, 100.0], rounded to 2 decimals."""
+        if self.all_params == 0:
+            return 0.0
+        return round(100 * self.trainable_params / self.all_params, 2)
+
+    @property
+    def frozen_params_percent(self) -> float:
+        """Percentage of frozen parameters [0.0, 100.0], rounded to 2 decimals."""
+        return round(100.0 - self.trainable_params_percent, 2)
 
 
 def _get_parameter_names(
@@ -199,13 +227,13 @@ def _get_parameter_names(
 
 
 def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
-    """Counts the number of parameters in a model.
+    """Creates a basic counter of the parameters in a neural model.
 
     Args:
         model: The torch-implemented neural network.
 
     Returns:
-        A tuple of (total_parameters, trainable_parameters).
+        ModelParameterCount: A ModelParameterCount for the underlying model.
     """
     trainable_params = 0
     all_params = 0
@@ -232,21 +260,36 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     )
 
 
-def log_trainable_parameters(model: torch.nn.Module) -> None:
-    """Logs the number of trainable parameters of the model.
+def log_number_of_model_parameters(
+    model: torch.nn.Module, use_icons: bool = True
+) -> None:
+    """Logs the number of parameters of the model.
 
     Args:
         model: The torch-implemented neural network.
-
-    Note: original code:
-    https://github.com/huggingface/peft/blob/main/examples/fp4_finetuning/finetune_fp4_opt_bnb_peft.py
+        use_icons: Whether to display emojis/icons in the log output.
     """
     params = count_model_parameters(model)
-    all_params = params.all_params
-    trainable_params = params.trainable_params
+    # print("yo")
+    # params = ModelParameterCount(all_params=0, trainable_params=0, embedding_params=0)
+    # Icons if enabled, else fallback to plain text
+    total_icon = "🔢" if use_icons else "Total"
+    embedding_icon = "🔗" if use_icons else "Embedding"
+    trainable_icon = "🎯" if use_icons else "Trainable"
+    frozen_icon = "🔒" if use_icons else "Frozen"
+
+    separator = "-" * 60
+
     logger.info(
-        f"Trainable params: {trainable_params} || All params: {all_params} "
-        f"|| Trainable%: {100 * trainable_params / all_params:.4f}"
+        f"Model Parameters Summary:\n"
+        f"{separator}\n"
+        f"{total_icon:<10} Parameters: {params.all_params:,}\n"
+        f"{embedding_icon:<10} Parameters: {params.embedding_params:,}\n"
+        f"{trainable_icon:<10} Parameters: {params.trainable_params:,}\n"
+        f"{frozen_icon:<10} Parameters: "
+        f"{params.all_params - params.trainable_params:,} "
+        f"({params.frozen_params_percent:.2f}%)\n"
+        f"{separator}"
     )
 
 
