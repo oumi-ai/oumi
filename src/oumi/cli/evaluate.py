@@ -65,16 +65,17 @@ def evaluate(
     ):
         results = oumi_evaluate(parsed_config)
     # Make a best-effort attempt at parsing metrics.
-    for be_result in results:
+    for task_result in results:
         table = Table(
             title="Evaluation Results",
             title_style="bold magenta",
+            show_lines=True,
         )
         table.add_column("Benchmark", style="cyan")
         table.add_column("Metric", style="yellow")
         table.add_column("Score", style="green")
         table.add_column("Std Error", style="dim")
-        parsed_results = be_result.get("results", {})
+        parsed_results = task_result.get("results", {})
         if not isinstance(parsed_results, dict):
             continue
         for task_name, metrics in parsed_results.items():
@@ -89,7 +90,7 @@ def evaluate(
                     "-",
                 )
                 continue
-            benchmark_name: str = metrics.get("name", task_name)
+            benchmark_name: str = metrics.get("alias", task_name)
             # Process metrics
             for metric_name, value in metrics.items():
                 metric_name: str = str(metric_name)
