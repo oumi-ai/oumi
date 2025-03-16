@@ -69,6 +69,62 @@ def test_evaluate_runs(app, mock_evaluate):
         mock_evaluate.assert_has_calls([call(config)])
 
 
+def test_evaluate_unparsable_metrics(app, mock_evaluate):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        mock_evaluate.return_value = [
+            {
+                "results": {
+                    "mmlu_college_computer_science": {
+                        "alias": "college_computer_science",
+                        "acc,none": 0.24,
+                        "acc_stderr,none": 0.042923469599092816,
+                    }
+                }
+            },
+            {"results": {"mmlu": {"parsable_metric": 1.0}}},
+            {
+                "results": {
+                    "q": {
+                        "name": "our name",
+                        "second_metric": 0.5,
+                        "parsable_metric": 0.77,
+                    },
+                    "unparsable": "real name",
+                }
+            },
+            {"results": []},
+        ]
+        yaml_path = str(Path(output_temp_dir) / "eval.yaml")
+        config: EvaluationConfig = _create_eval_config()
+        config.to_yaml(yaml_path)
+        result = runner.invoke(app, ["--config", yaml_path])
+        mock_evaluate.assert_has_calls([call(config)])
+        assert result.exit_code == 0
+        table1 = """
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━┓
+┃ Benchmark                     ┃ Metric ┃ Score  ┃ Std Error ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━┩
+│ mmlu_college_computer_science │ Acc    │ 24.00% │ ±4.29%    │
+└───────────────────────────────┴────────┴────────┴───────────┘"""
+        table2 = """
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Benchmark ┃ Metric          ┃ Score   ┃ Std Error ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━┩
+│ mmlu      │ Parsable Metric │ 100.00% │ -         │
+└───────────┴─────────────────┴─────────┴───────────┘"""
+        table3 = """
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Benchmark  ┃ Metric          ┃ Score     ┃ Std Error ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ our name   │ Second Metric   │ 50.00%    │ -         │
+│ our name   │ Parsable Metric │ 77.00%    │ -         │
+│ unparsable │ <unknown>       │ <unknown> │ -         │
+└────────────┴─────────────────┴───────────┴───────────┘"""
+        assert table1 in result.stdout
+        assert table2 in result.stdout
+        assert table3 in result.stdout
+
+
 def test_evaluate_with_overrides(app, mock_evaluate):
     with tempfile.TemporaryDirectory() as output_temp_dir:
         yaml_path = str(Path(output_temp_dir) / "eval.yaml")

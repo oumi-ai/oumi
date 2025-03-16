@@ -15,6 +15,7 @@
 from typing import Annotated
 
 import typer
+from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
@@ -44,11 +45,13 @@ def evaluate(
             config,
         )
     )
-
-    # Delayed imports
-    from oumi import evaluate as oumi_evaluate
-    from oumi.core.configs import EvaluationConfig
-    # End imports
+    with cli_utils.CONSOLE.status(
+        "[green]Loading configuration...[/green]", spinner="dots"
+    ):
+        # Delayed imports
+        from oumi import evaluate as oumi_evaluate
+        from oumi.core.configs import EvaluationConfig
+        # End imports
 
     # Load configuration
     parsed_config: EvaluationConfig = EvaluationConfig.from_yaml_and_arg_list(
@@ -57,4 +60,62 @@ def evaluate(
     parsed_config.finalize_and_validate()
 
     # Run evaluation
-    oumi_evaluate(parsed_config)
+    with cli_utils.CONSOLE.status(
+        "[green]Running evaluation...[/green]", spinner="dots"
+    ):
+        results = oumi_evaluate(parsed_config)
+    # Make a best-effort attempt at parsing metrics.
+    for be_result in results:
+        table = Table(
+            title="Evaluation Results",
+            title_style="bold magenta",
+        )
+        table.add_column("Benchmark", style="cyan")
+        table.add_column("Metric", style="yellow")
+        table.add_column("Score", style="green")
+        table.add_column("Std Error", style="dim")
+        parsed_results = be_result.get("results", {})
+        if not isinstance(parsed_results, dict):
+            continue
+        for task_name, metrics in parsed_results.items():
+            # Get the benchmark display name from our benchmarks list
+
+            if not isinstance(metrics, dict):
+                # Skip if the metrics are not in a dict format
+                table.add_row(
+                    task_name,
+                    "<unknown>",
+                    "<unknown>",
+                    "-",
+                )
+                continue
+            benchmark_name: str = metrics.get("name", task_name)
+            # Process metrics
+            for metric_name, value in metrics.items():
+                metric_name: str = str(metric_name)
+                if isinstance(value, (int, float)):
+                    # Extract base metric name and type
+                    base_name, *metric_type = metric_name.split(",")
+
+                    # Skip if this is a stderr metric
+                    # we'll handle it with the main metric
+                    if base_name.endswith("_stderr"):
+                        continue
+
+                    # Get corresponding stderr if it exists
+                    stderr_key = f"{base_name}_stderr,{metric_type[0] if metric_type else 'none'}"  # noqa E501
+                    stderr_value = metrics.get(stderr_key)
+                    stderr_display = (
+                        f"±{stderr_value:.2%}" if stderr_value is not None else "-"
+                    )
+
+                    # Clean up metric name
+                    clean_metric = base_name.replace("_", " ").title()
+
+                    table.add_row(
+                        benchmark_name,
+                        clean_metric,
+                        f"{value:.2%}" if value <= 1 else f"{value:.2f}",
+                        stderr_display,
+                    )
+        cli_utils.CONSOLE.print(table)
