@@ -242,7 +242,8 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     for name, module in model.named_modules():
         if isinstance(module, torch.nn.Embedding):
             # Embedding layers appear in named_parameters with ".weight" at the end
-            embedding_layer_names.append(name + ".weight")
+            param_name = f"{name}.weight" if name else "weight"
+            embedding_layer_names.append(param_name)
 
     for name, param in model.named_parameters():
         param_count = param.numel()
@@ -270,26 +271,23 @@ def log_number_of_model_parameters(
         use_icons: Whether to display emojis/icons in the log output.
     """
     params = count_model_parameters(model)
-    # print("yo")
-    # params = ModelParameterCount(all_params=0, trainable_params=0, embedding_params=0)
-    # Icons if enabled, else fallback to plain text
-    total_icon = "🔢" if use_icons else "Total"
-    embedding_icon = "🔗" if use_icons else "Embedding"
-    trainable_icon = "🎯" if use_icons else "Trainable"
-    frozen_icon = "🔒" if use_icons else "Frozen"
 
-    separator = "-" * 60
+    # Icons if enabled, else fallback to plain text
+    total_label = "🔢 Total" if use_icons else "Total"
+    embedding_label = "🔗 Embedding" if use_icons else "Embedding"
+    trainable_label = "🎯 Trainable" if use_icons else "Trainable"
+    frozen_label = "🔒 Frozen" if use_icons else "Frozen"
+
+    n_space = 11 if use_icons else 9
 
     logger.info(
-        f"Model Parameters Summary:\n"
-        f"{separator}\n"
-        f"{total_icon:<10} Parameters: {params.all_params:,}\n"
-        f"{embedding_icon:<10} Parameters: {params.embedding_params:,}\n"
-        f"{trainable_icon:<10} Parameters: {params.trainable_params:,}\n"
-        f"{frozen_icon:<10} Parameters: "
+        f"\nModel Parameters Summary:\n"
+        f"{total_label:<{n_space}} Parameters: {params.all_params:,}\n"
+        f"{embedding_label:<{n_space}} Parameters: {params.embedding_params:,}\n"
+        f"{trainable_label:<{n_space}} Parameters: {params.trainable_params:,}\n"
+        f"{frozen_label:<{n_space}} Parameters: "
         f"{params.all_params - params.trainable_params:,} "
         f"({params.frozen_params_percent:.2f}%)\n"
-        f"{separator}"
     )
 
 
