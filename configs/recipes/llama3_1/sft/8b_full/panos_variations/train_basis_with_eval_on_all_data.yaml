@@ -20,7 +20,6 @@ data:
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/minicheck_train.jsonl"}
         shuffle: True
         seed: 42
-
     collator_name: "text_with_padding"
     target_col: "messages"
     use_async_dataset: True

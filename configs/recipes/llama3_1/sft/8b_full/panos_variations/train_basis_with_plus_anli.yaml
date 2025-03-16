@@ -20,18 +20,22 @@ data:
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/anli_relabel__presplit_claim_subclaims_citations_label_explanation_v1_21076.jsonl"}
         shuffle: True
         seed: 42
+        sample_count: 2
       - dataset_name: "text_classification_jsonl"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/minicheck_c2d_d2c_relabel__presplit_claim_subclaims_citations_label_explanation_v1_14357.jsonl"}
         shuffle: True
         seed: 42
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/oumi_synthetic_claims__presplit_claim_subclaims_citations_label_explanation_v1_19199.jsonl"}
         shuffle: True
         seed: 42
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/halloumi_synthetic_benchmark_responselevel_withoriginalrequest_training_7363__presplit_claim_subclaim_citation_label_explanation.jsonl"}
         shuffle: True
         seed: 42
+        limit: 2
     collator_name: "text_with_padding"
     target_col: "messages"
     use_async_dataset: True
@@ -41,39 +45,50 @@ data:
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "cnn"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/AggreFactCNN_test_558.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "xsum"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/AggreFactXSum_test_558.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "medias"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/TofuEvalMediaS_test_726.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "meetb"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/TofuEvalMeetB_test_772.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "wice"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/Wice_test_358.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "reveal"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/Reveal_test_1710.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "claim_verify"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/ClaimVerify_test_1088.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "fact_check"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/FactCheckGPT_test_1566.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "expertqa"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/ExpertQA_test_3702.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "lfqa"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/Lfqa_test_1911.jsonl"}
+        limit: 2
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "ragtruth"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/RAGTruth_test_16371.jsonl"}
       - dataset_name: "text_classification_jsonl"
         dataset_display_name: "halloumi_synthetic"
         dataset_kwargs: {"dataset_path": "/output_gcs_bucket/lema-balerion/datasets/minicheck/halloumi_synthetic_benchmark_responselevel_withoriginalrequest_test_2089__presplit_claim_subclaim_citation_label_explanation.jsonl"}
+        limit: 2
 
     collator_name: "text_with_padding"
     target_col: "messages"
@@ -83,9 +98,11 @@ training:
   trainer_type: HF
   save_steps: 0
   num_train_epochs: 1
-  per_device_train_batch_size: 16
+  # per_device_train_batch_size: 16
+  per_device_train_batch_size: 1
   gradient_accumulation_steps: 1
-  per_device_eval_batch_size: 8
+  # per_device_eval_batch_size: 8
+  per_device_eval_batch_size: 1
 
   enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
@@ -110,4 +127,5 @@ training:
   output_dir: "output/llama8b.fft"
   include_performance_metrics: True
   enable_wandb: True
-  save_final_model: True
+  # save_final_model: True
+  save_final_model: False
