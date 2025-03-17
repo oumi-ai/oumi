@@ -66,7 +66,12 @@ def _get_all_source_file_paths(exclude_dirs: list[str] = []) -> list[str]:
 
 @pytest.mark.parametrize(
     "py_source_path",
-    _get_all_source_file_paths(exclude_dirs=["src/oumi/models/experimental/cambrian"]),
+    _get_all_source_file_paths(
+        exclude_dirs=[
+            "src/oumi/models/experimental/cambrian",
+            "src/oumi/core/types/proto/generated/",
+        ]
+    ),
 )
 def test_python_source_files_start_with_apache_header(py_source_path: str):
     with open(py_source_path) as f:

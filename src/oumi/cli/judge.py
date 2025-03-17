@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Annotated, Optional
 
 import jsonlines
 import typer
+from rich.table import Table
 
 from oumi.cli import cli_utils
 from oumi.utils.io_utils import load_jsonlines
@@ -110,8 +111,16 @@ def dataset(
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
+        table = Table(
+            title="Judge Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Judgements", style="green")
         for result in results:
-            print(json.dumps(result))
+            table.add_row(json.dumps(result))
+        cli_utils.CONSOLE.print(table)
 
 
 def conversations(
@@ -161,8 +170,16 @@ def conversations(
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
+        table = Table(
+            title="Judge Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Judgements", style="green")
         for result in results:
-            print(json.dumps(result))
+            table.add_row(json.dumps(result))
+        cli_utils.CONSOLE.print(table)
 
 
 def model(
@@ -241,5 +258,13 @@ def model(
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
+        table = Table(
+            title="Judge Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Judgements", style="green")
         for result in results:
-            print(json.dumps(result))
+            table.add_row(json.dumps(result))
+        cli_utils.CONSOLE.print(table)
