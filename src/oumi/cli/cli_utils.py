@@ -144,7 +144,7 @@ def set_log_level(level: Optional[LogLevel]):
         return
     uppercase_level = level.upper()
     logger.setLevel(uppercase_level)
-    print(f"Set log level to {uppercase_level}")
+    CONSOLE.print(f"Set log level to [yellow]{uppercase_level}[/yellow]")
 
 
 LOG_LEVEL_TYPE = Annotated[

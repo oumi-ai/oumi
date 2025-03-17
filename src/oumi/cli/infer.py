@@ -16,6 +16,7 @@ import os
 from typing import Annotated, Final, Optional
 
 import typer
+from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
@@ -129,11 +130,16 @@ def infer(
         # Don't print results if output_filepath is provided.
         if parsed_config.output_path:
             return
-
+        table = Table(
+            title="Inference Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Conversation", style="green")
         for generation in generations:
-            print("------------")
-            print(repr(generation))
-        print("------------")
+            table.add_row(repr(generation))
+        cli_utils.CONSOLE.print(table)
         return
     if not interactive:
         logger.warning(
