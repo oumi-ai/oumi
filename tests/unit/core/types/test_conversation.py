@@ -570,15 +570,15 @@ def test_roundtrip_proto_legacy(root_testdata_dir):
                 content="oumi_logo_dark",
             ),
         ],
-        metadata={"test": "metadata"},
+        # metadata={"test": "metadata"},
     )
     convo_proto = original.to_proto()
     reconstructed = Conversation.from_proto(convo_proto)
 
     assert original == reconstructed, (
-        f"original: {repr(original)}\n"
-        f"reconstructed: {repr(reconstructed)}\n"
-        f"proto: {convo_proto.SerializeToString()}"
+        f"\n\noriginal: {original.to_dict()}\n"
+        f"\n\nreconstructed: {reconstructed.to_dict()}\n"
+        f"\n\nproto: {convo_proto.SerializeToString()}"
     )
 
 

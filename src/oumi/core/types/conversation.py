@@ -578,7 +578,7 @@ class Conversation(pydantic.BaseModel):
     def from_proto(conversation_proto: ConversationProto) -> "Conversation":
         """Converts a conversation from Protocol Buffer format."""
         result: Conversation = Conversation(
-            conversation_id=conversation_proto.conversation_id,
+            conversation_id=(conversation_proto.conversation_id or None),
             messages=[Message.from_proto(m) for m in conversation_proto.messages],
         )
         for key, value in conversation_proto.metadata.items():
