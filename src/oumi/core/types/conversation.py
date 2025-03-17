@@ -60,7 +60,7 @@ class Role(str, Enum):
         return self.value
 
 
-_ROLE_TO_PROTO_ROLE_MAP = MappingProxyType(
+_ROLE_TO_PROTO_ROLE_MAP: Final[Mapping[Role, RoleProto]] = MappingProxyType(
     {
         Role.SYSTEM: RoleProto.SYSTEM,
         Role.USER: RoleProto.USER,
@@ -68,7 +68,7 @@ _ROLE_TO_PROTO_ROLE_MAP = MappingProxyType(
         Role.TOOL: RoleProto.TOOL,
     }
 )
-_PROTO_ROLE_TO_ROLE_MAP = MappingProxyType(
+_PROTO_ROLE_TO_ROLE_MAP: Final[Mapping[RoleProto, Role]] = MappingProxyType(
     {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
 )
 
