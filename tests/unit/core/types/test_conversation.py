@@ -555,6 +555,29 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
     assert original == reconstructed
 
 
+def test_roundtrip_proto_legacy(root_testdata_dir):
+    original = Conversation(
+        messages=[
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(id="", role=Role.ASSISTANT, content="Hi there!"),
+            Message(
+                role=Role.USER,
+                content="",
+            ),
+            Message(
+                id="xyz",
+                role=Role.TOOL,
+                content="oumi_logo_dark",
+            ),
+        ],
+        metadata={"test": "metadata"},
+    )
+    convo_proto = original.to_proto()
+    reconstructed = Conversation.from_proto(convo_proto)
+
+    assert original == reconstructed
+
+
 def test_from_dict_with_invalid_field():
     with pytest.raises(ValueError, match="Field required"):
         Conversation.from_dict({"invalid": "data"})

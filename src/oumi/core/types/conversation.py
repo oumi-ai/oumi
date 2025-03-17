@@ -421,6 +421,15 @@ class Message(pydantic.BaseModel):
     @staticmethod
     def from_proto(message_proto: MessageProto) -> "Message":
         """Converts a Protocol Buffer to a message."""
+        if (len(message_proto.parts) == 1) and (
+            message_proto.parts[0].type == ContentPartProto.TEXT
+        ):
+            return Message(
+                id=message_proto.id,
+                role=_convert_proto_role_to_role(message_proto.role),
+                content=message_proto.parts[0].content,
+            )
+
         return Message(
             id=message_proto.id,
             role=_convert_proto_role_to_role(message_proto.role),
