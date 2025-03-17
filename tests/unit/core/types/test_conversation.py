@@ -575,7 +575,11 @@ def test_roundtrip_proto_legacy(root_testdata_dir):
     convo_proto = original.to_proto()
     reconstructed = Conversation.from_proto(convo_proto)
 
-    assert original == reconstructed
+    assert original == reconstructed, (
+        f"original: {repr(original)}\n"
+        f"reconstructed: {repr(reconstructed)}\n"
+        f"proto: {convo_proto.SerializeToString()}"
+    )
 
 
 def test_from_dict_with_invalid_field():
