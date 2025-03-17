@@ -264,10 +264,11 @@ class ContentItem(pydantic.BaseModel):
             return ContentPartProto(
                 type=_convert_type_to_proto_type(self.type),
                 blob=DataBlobProto(binary_data=self.binary),
+                content=(self.content or None),
             )
         return ContentPartProto(
             type=_convert_type_to_proto_type(self.type),
-            content=(self.content or ""),
+            content=(self.content or None),
         )
 
     def __repr__(self) -> str:
