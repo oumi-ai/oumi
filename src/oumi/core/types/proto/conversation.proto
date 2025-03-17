@@ -1,3 +1,9 @@
+// Protocol buffer (`protobuf`) definitions for Conversation messages.
+// Sample command to generate Python bindings:
+// protoc -I="." src/oumi/core/types/proto/conversation.proto   \
+//  --python_out=src/oumi/core/types/proto/generated/           \
+//  --pyi_out=src/oumi/core/types/proto/generated/
+
 
 syntax = "proto3";
 
