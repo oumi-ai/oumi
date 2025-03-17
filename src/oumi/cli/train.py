@@ -44,19 +44,21 @@ def train(
             config,
         )
     )
-
-    # Delayed imports
-    from oumi import train as oumi_train
-    from oumi.core.configs import TrainingConfig
-    from oumi.core.distributed import set_random_seeds
-    from oumi.utils.torch_utils import (
-        device_cleanup,
-        limit_per_process_memory,
-    )
+    with cli_utils.CONSOLE.status(
+        "[green]Loading configuration...[/green]", spinner="dots"
+    ):
+        # Delayed imports
+        from oumi import train as oumi_train
+        from oumi.core.configs import TrainingConfig
+        from oumi.core.distributed import set_random_seeds
+        from oumi.utils.torch_utils import (
+            device_cleanup,
+            limit_per_process_memory,
+        )
+        # End imports
 
     cli_utils.configure_common_env_vars()
 
-    # End imports
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
