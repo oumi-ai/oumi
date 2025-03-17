@@ -43,8 +43,6 @@ training:
   grpo:
     num_generations: 6
     use_vllm: False
-    vllm_device: "cuda:0"
-    vllm_gpu_memory_utilization: 0.9
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
