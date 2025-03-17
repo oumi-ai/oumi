@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import base64
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from enum import Enum
-from typing import Any, Callable, NamedTuple, Optional, Union
+from types import MappingProxyType
+from typing import Any, Callable, Final, NamedTuple, Optional, Union
 
 import pydantic
 from jinja2 import Template
@@ -59,13 +60,17 @@ class Role(str, Enum):
         return self.value
 
 
-_ROLE_TO_PROTO_ROLE_MAP = {
-    Role.SYSTEM: RoleProto.SYSTEM,
-    Role.USER: RoleProto.USER,
-    Role.ASSISTANT: RoleProto.ASSISTANT,
-    Role.TOOL: RoleProto.TOOL,
-}
-_PROTO_ROLE_TO_ROLE_MAP = {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
+_ROLE_TO_PROTO_ROLE_MAP = MappingProxyType(
+    {
+        Role.SYSTEM: RoleProto.SYSTEM,
+        Role.USER: RoleProto.USER,
+        Role.ASSISTANT: RoleProto.ASSISTANT,
+        Role.TOOL: RoleProto.TOOL,
+    }
+)
+_PROTO_ROLE_TO_ROLE_MAP = MappingProxyType(
+    {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
+)
 
 
 def _convert_role_to_proto_role(role: Role) -> RoleProto:
@@ -108,15 +113,19 @@ class Type(str, Enum):
         return self.value
 
 
-_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP = {
-    Type.TEXT: ContentPartProto.TEXT,
-    Type.IMAGE_PATH: ContentPartProto.IMAGE_PATH,
-    Type.IMAGE_URL: ContentPartProto.IMAGE_URL,
-    Type.IMAGE_BINARY: ContentPartProto.IMAGE_BINARY,
-}
-_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP = {
-    v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()
-}
+_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, ContentPartProto.Type]] = (
+    MappingProxyType(
+        {
+            Type.TEXT: ContentPartProto.TEXT,
+            Type.IMAGE_PATH: ContentPartProto.IMAGE_PATH,
+            Type.IMAGE_URL: ContentPartProto.IMAGE_URL,
+            Type.IMAGE_BINARY: ContentPartProto.IMAGE_BINARY,
+        }
+    )
+)
+_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP: Final[Mapping[ContentPartProto.Type, Type]] = (
+    MappingProxyType({v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()})
+)
 
 
 def _convert_type_to_proto_type(content_type: Type) -> ContentPartProto.Type:
