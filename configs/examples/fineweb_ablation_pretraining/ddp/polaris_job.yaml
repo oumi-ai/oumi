@@ -1,5 +1,10 @@
 # Job config to DDP pretrain the FineWeb ablation model on Polaris.
 #
+# Requirements:
+#   - Set up your ALCF account (only available to Oumi core team)
+#   - Set `user` to your ALCF username
+#   - Log into WandB (`wandb login`) on Polaris or disable `enable_wandb`
+#
 # Usage:
 #   oumi launch up -c configs/examples/fineweb_ablation_pretraining/ddp/polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
 #
@@ -17,6 +22,7 @@ num_nodes: 2
 resources:
   cloud: polaris
 
+# Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
 
 setup: |

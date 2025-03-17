@@ -161,15 +161,6 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         test_image=True,
         image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
     ),
-    # TODO: To be added back once we update Oumi to the latest (>=4.49.0) version of
-    # transformers, which is required for this model. The test passes locally with
-    # 4.49.0.dev0
-    # ChatTemplateTestSpec(
-    #     chat_template_name="qwen2.5-vl-instruct",
-    #     model_name="Qwen/Qwen2.5-VL-3B-Instruct",
-    #     test_image=True,
-    #     image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
-    # ),
     ChatTemplateTestSpec(
         chat_template_name="zephyr",
         model_name="openai-community/gpt2",
@@ -199,9 +190,15 @@ def _generate_all_test_specs() -> list[ChatTemplateTestSpec]:
     return result
 
 
+def _get_chat_template_test_spec_id(spec):
+    assert isinstance(spec, ChatTemplateTestSpec)
+    return f"{spec.chat_template_name}_{spec.model_name}"
+
+
 @pytest.mark.parametrize(
     "test_spec",
     _generate_all_test_specs(),
+    ids=_get_chat_template_test_spec_id,
 )
 def test_chat_template(test_spec: ChatTemplateTestSpec):
     random.seed(hash(test_spec))
@@ -471,3 +468,97 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
             assert (
                 oumi_result == expected
             ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
+
+
+@pytest.mark.parametrize(
+    "model_name, is_vision",
+    [
+        ("Qwen/Qwen2-VL-2B-Instruct", True),
+        # ("Qwen/Qwen2.5-VL-3B-Instruct", True), # TODO: Activate (uncomment)
+        # when we upgrade transformers version >= 4.49.0.
+    ],
+)
+def test_qwen2_chat_template(model_name: str, is_vision: bool):
+    oumi_chat_template: str = build_chat_template("qwen2-vl-instruct")
+    hf_chat_template = get_hf_chat_template(model_name)
+    assert hf_chat_template != oumi_chat_template
+
+    oumi_tokenizer = create_test_tokenizer(
+        model_name,
+        chat_template_name="qwen2-vl-instruct",
+        trust_remote_code=True,
+    )
+    assert oumi_chat_template == oumi_tokenizer.chat_template
+
+    hf_tokenizer = create_test_tokenizer(
+        model_name,
+        inline_chat_template=hf_chat_template,
+        trust_remote_code=True,
+    )
+    assert hf_chat_template == hf_tokenizer.chat_template
+
+    # Text only: Verify that oumi template leads to the same result as HF template.
+    test_convo_tuple: ConversationTuple = create_test_conversation(3, num_with_images=0)
+    for add_generation_prompt in (False, True):
+        debug_tag = f"Text-only: add_generation_prompt: {add_generation_prompt} "
+        oumi_result = oumi_tokenizer.apply_chat_template(
+            test_convo_tuple.convo.messages,  # type: ignore
+            tokenize=False,
+            add_generation_prompt=add_generation_prompt,
+        )
+        assert isinstance(oumi_result, str), debug_tag
+        hf_result = hf_tokenizer.apply_chat_template(
+            test_convo_tuple.convo.messages,  # type: ignore
+            tokenize=False,
+            add_generation_prompt=add_generation_prompt,
+        )
+        assert isinstance(hf_result, str), debug_tag
+        unique_text_pieces = test_convo_tuple.unique_text_pieces
+        assert len(unique_text_pieces) == 3
+        expected_lines = (
+            [
+                "<|im_start|>system",
+                "You are a helpful assistant.<|im_end|>",
+                "<|im_start|>user",
+                f"{unique_text_pieces[0]}<|im_end|>",
+                "<|im_start|>assistant",
+                f"{unique_text_pieces[1]}<|im_end|>",
+                "<|im_start|>user",
+                f"{unique_text_pieces[2]}<|im_end|>",
+            ]
+            + (["<|im_start|>assistant"] if add_generation_prompt else [])
+            + [""]
+        )
+        expected = "\n".join(expected_lines)
+        assert oumi_result == expected, debug_tag
+        assert hf_result.startswith(
+            expected
+        ), f"{debug_tag}\n\n{hf_result}\n\n{expected}"
+
+    # With images.
+    test_convo_tuple: ConversationTuple = create_test_conversation(3, num_with_images=2)
+    for add_generation_prompt in (False, True):
+        debug_tag = f"Multi-modal: add_generation_prompt: {add_generation_prompt} "
+        oumi_result = oumi_tokenizer.apply_chat_template(
+            test_convo_tuple.convo.messages,  # type: ignore
+            tokenize=False,
+            add_generation_prompt=add_generation_prompt,
+        )
+        unique_text_pieces = test_convo_tuple.unique_text_pieces
+        assert len(unique_text_pieces) == 3
+        expected_lines = (
+            [
+                "<|im_start|>system",
+                "You are a helpful assistant.<|im_end|>",
+                "<|im_start|>user",
+                f"<|vision_start|><|image_pad|><|vision_end|>{unique_text_pieces[0]}<|im_end|>",
+                "<|im_start|>assistant",
+                f"<|vision_start|><|image_pad|><|vision_end|>{unique_text_pieces[1]}<|im_end|>",
+                "<|im_start|>user",
+                f"{unique_text_pieces[2]}<|im_end|>",
+            ]
+            + (["<|im_start|>assistant"] if add_generation_prompt else [])
+            + [""]
+        )
+        expected = "\n".join(expected_lines)
+        assert oumi_result == expected, debug_tag

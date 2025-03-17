@@ -1,4 +1,11 @@
-# Training config.
+# Qwen 2.5 VL 3B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - (optional) If you want to use flash attention, run `pip install -U flash-attn --no-build-isolation`
+#
+# !Important! this model requires the latest (dev) version of transformers.
+# Please read more at qwen2_5_vl_3b/README.md
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/sft/train.yaml
@@ -15,7 +22,7 @@ model:
   model_max_length: 4096
   trust_remote_code: True
   attn_implementation: "sdpa" # You can also use `flash_attention_2` if you install it
-  chat_template: "qwen2.5-vl-instruct"
+  chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
   freeze_layers:
     - "visual"
 

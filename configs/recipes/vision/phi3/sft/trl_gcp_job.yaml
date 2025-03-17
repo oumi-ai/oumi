@@ -1,4 +1,9 @@
-# Job config.
+# Phi3 vision full fine-tune training job config, with the TRL trainer.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/phi3/sft/trl_gcp_job.yaml --cluster phi3-vision
@@ -23,16 +28,11 @@ resources:
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on your local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train

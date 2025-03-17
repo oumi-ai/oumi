@@ -1,4 +1,8 @@
-# Job config.
+# Llava 7B full fine-tune training job config, with the Oumi trainer.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/llava_7b/sft/oumi_gcp_job.yaml --cluster llava-7b-vision
@@ -23,10 +27,8 @@ resources:
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 

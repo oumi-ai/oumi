@@ -1,5 +1,8 @@
 # LoRA config for Deepseek R1 Distill Qwen2.5 32B.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi train -c configs/recipes/deepseek_r1/sft/distill_qwen_32b/lora_train.yaml
 #

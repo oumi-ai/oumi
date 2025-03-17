@@ -1,5 +1,11 @@
 # Job config to eval Llama 3.1 70B Instruct on GCP.
 #
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/evaluation/70b_gcp_job.yaml --cluster llama70b-eval
 #
@@ -17,15 +23,11 @@ resources:
   use_spot: false
   disk_size: 400 # Disk size in GBs
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.

@@ -2,6 +2,11 @@
 # Some param values are inspired by the following recipe:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_3/70B_full.yaml
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
+#
 # Usage:
 #   oumi train -c configs/recipes/llama3_3/sft/70b_full/train.yaml
 #

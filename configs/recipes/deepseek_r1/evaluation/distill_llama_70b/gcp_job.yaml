@@ -1,5 +1,9 @@
 # Job config to eval Deepseek R1 Distill Llama 3.3 70B.
 #
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi launch up -c configs/recipes/deepseek_r1/evaluation/distill_llama_70b/gcp_job.yaml --cluster deepseek-r1-llama70b-eval
 #

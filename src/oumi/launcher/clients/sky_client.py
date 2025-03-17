@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import sky
 import sky.data
+from sky.clouds import CloudImplementationFeatures
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobStatus
@@ -135,18 +136,37 @@ class SkyClient:
         Returns:
             A JobStatus with only `id` and `cluster` populated.
         """
-        autostop_kw = "idle_minutes_to_autostop"
-        # Default to 60 minutes.
-        idle_minutes_to_autostop = 60
-        if autostop_kw in kwargs:
-            idle_minutes_to_autostop = kwargs.get(autostop_kw)
-        else:
-            logger.info(
-                "No idle_minutes_to_autostop provided. "
-                f"Defaulting to {idle_minutes_to_autostop} minutes."
+        sky_cloud = _get_sky_cloud_from_job(job)
+        sky_task = _convert_job_to_task(job)
+
+        # Set autostop if supported by the cloud, defaulting to 60 minutes if not
+        # specified by the user. Currently, Lambda and RunPod do not support autostop.
+        idle_minutes_to_autostop = None
+        try:
+            sky_resources = next(iter(sky_task.resources))
+            # This will raise an exception if the cloud does not support stopping.
+            sky_cloud.check_features_are_supported(
+                sky_resources, requested_features={CloudImplementationFeatures.STOP}
             )
+            autostop_kw = "idle_minutes_to_autostop"
+            # Default to 60 minutes.
+            idle_minutes_to_autostop = 60
+            if autostop_kw in kwargs:
+                idle_minutes_to_autostop = kwargs.get(autostop_kw)
+                logger.info(f"Setting autostop to {idle_minutes_to_autostop} minutes.")
+            else:
+                logger.info(
+                    "No idle_minutes_to_autostop provided. "
+                    f"Defaulting to {idle_minutes_to_autostop} minutes."
+                )
+        except Exception:
+            logger.info(
+                f"{sky_cloud._REPR} does not support stopping clusters. "
+                "Will not set autostop."
+            )
+
         job_id, resource_handle = sky.launch(
-            _convert_job_to_task(job),
+            sky_task,
             cluster_name=cluster_name,
             detach_run=True,
             idle_minutes_to_autostop=idle_minutes_to_autostop,

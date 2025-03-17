@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Annotated, Optional
 
 import jsonlines
 import typer
+from rich.table import Table
 
 from oumi.cli import cli_utils
 from oumi.utils.io_utils import load_jsonlines
@@ -81,6 +82,12 @@ def dataset(
     # Load the judge config
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
+
     judge_config = _load_judge_config(config, extra_args)
 
     # Load the dataset class from the registry
@@ -104,8 +111,16 @@ def dataset(
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
+        table = Table(
+            title="Judge Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Judgements", style="green")
         for result in results:
-            print(json.dumps(result))
+            table.add_row(json.dumps(result))
+        cli_utils.CONSOLE.print(table)
 
 
 def conversations(
@@ -123,6 +138,12 @@ def conversations(
 ):
     """Judge a list of conversations."""
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
 
     # Delayed imports
     from oumi import judge_conversations
@@ -149,8 +170,16 @@ def conversations(
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
+        table = Table(
+            title="Judge Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Judgements", style="green")
         for result in results:
-            print(json.dumps(result))
+            table.add_row(json.dumps(result))
+        cli_utils.CONSOLE.print(table)
 
 
 def model(
@@ -160,7 +189,7 @@ def model(
     ],
     inference_config: Annotated[
         str,
-        typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the inference config file"),
+        typer.Option(help="Path to the inference config file"),
     ],
     input_file: Annotated[
         Optional[str], typer.Option(help="Path to the input file (jsonl)")
@@ -179,10 +208,20 @@ def model(
 
     judge_extra_args = cli_utils.parse_extra_cli_args(ctx)
 
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
+    )
     # Load the judge config
     judge_config = _load_judge_config(config, judge_extra_args)
 
     # Load the inference config
+    inference_config = str(
+        cli_utils.resolve_and_fetch_config(
+            inference_config,
+        )
+    )
     inference_extra_args = cli_utils.parse_extra_cli_args(ctx)
     model_inference_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
         inference_config, inference_extra_args
@@ -219,5 +258,13 @@ def model(
         with jsonlines.open(output_file, mode="w") as writer:
             writer.write_all(results)
     else:
+        table = Table(
+            title="Judge Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        table.add_column("Judgements", style="green")
         for result in results:
-            print(json.dumps(result))
+            table.add_row(json.dumps(result))
+        cli_utils.CONSOLE.print(table)

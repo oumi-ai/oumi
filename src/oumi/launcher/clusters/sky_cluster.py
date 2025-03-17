@@ -14,6 +14,8 @@
 
 from typing import Any, Optional
 
+import sky.exceptions
+
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.sky_client import SkyClient
@@ -71,10 +73,13 @@ class SkyCluster(BaseCluster):
 
     def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
-        return [
-            self._convert_sky_job_to_status(job)
-            for job in self._client.queue(self.name())
-        ]
+        try:
+            return [
+                self._convert_sky_job_to_status(job)
+                for job in self._client.queue(self.name())
+            ]
+        except sky.exceptions.ClusterNotUpError:
+            return []
 
     def cancel_job(self, job_id: str) -> JobStatus:
         """Cancels the specified job on this cluster."""

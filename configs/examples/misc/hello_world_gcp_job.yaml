@@ -1,7 +1,7 @@
-# Job config.
+# GCP Hello World job config.
 #
 # Usage:
-#   oumi launch up -c configs/examples/misc/hello_world_gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c configs/examples/misc/hello_world_gcp_job.yaml --cluster hello-world-gcp
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -14,7 +14,6 @@ resources:
   cloud: gcp
   accelerators: "A100:1"
 
-# Upload working directory to remote.
 working_dir: .
 
 envs:

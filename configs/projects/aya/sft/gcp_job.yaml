@@ -1,7 +1,13 @@
-# Job config.
+# Train GCP job config for Aya.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
-#   oumi launch up -c configs/projects/aya/sft/gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c configs/projects/aya/sft/gcp_job.yaml --cluster aya-fft
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -25,7 +31,6 @@ resources:
 
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
@@ -33,7 +38,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama3.8b.aya.fft
-  TOKENIZERS_PARALLELISM: true
 
 setup: |
   set -e

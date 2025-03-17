@@ -56,7 +56,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         tensor_parallel_size: int = -1,
         quantization: str | None = None,
         enable_prefix_caching: bool = True,
-        gpu_memory_utilization: float = 1.0,
+        gpu_memory_utilization: float = 0.9,
         enforce_eager: bool = True,
         max_num_seqs: int | None = None,
     ):
@@ -70,8 +70,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             quantization: The quantization method to use for inference.
             enable_prefix_caching: Whether to enable prefix caching.
             gpu_memory_utilization: The fraction of available GPU memory the model's
-                executor will use. It can range from 0 to 1. Defaults to 1.0, i.e.,
-                full (100%) memory utilization.
+                executor will use. It can range from 0 to 1. Defaults to 0.9, i.e.,
+                (90%) memory utilization.
             enforce_eager: Whether to enforce eager execution. Defaults to True.
                 If False, will use eager mode and CUDA graph in hybrid mode.
             max_num_seqs: Maximum number of sequences per iteration.
@@ -269,6 +269,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             sampling_params=sampling_params,
             lora_request=self._lora_request,
             use_tqdm=enable_tqdm,
+            chat_template=None,
+            chat_template_content_format="auto",
         )
 
         for conversation, chat_response in zip(

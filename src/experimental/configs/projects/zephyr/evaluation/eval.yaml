@@ -1,5 +1,10 @@
 # Eval config for Zephyr.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
+#
 # Usage:
 #   oumi evaluate -c src/experimental/configs/projects/zephyr/evaluation/eval.yaml
 #
@@ -20,7 +25,7 @@ model:
   attn_implementation: "sdpa"
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
     eval_kwargs:
       num_fewshot: 5

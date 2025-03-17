@@ -88,7 +88,7 @@ def test_infer_basic_interactive_with_images(
 
     # Replace the built-in input function
     monkeypatch.setattr("builtins.input", mock_input)
-    infer_interactive(config, input_image_bytes=png_image_bytes)
+    infer_interactive(config, input_image_bytes=[png_image_bytes])
 
 
 @pytest.mark.parametrize(
@@ -166,7 +166,7 @@ def test_infer_basic_non_interactive_with_images(
     output = infer(
         config=InferenceConfig(model=model_params, generation=generation_params),
         inputs=input,
-        input_image_bytes=png_image_bytes,
+        input_image_bytes=[png_image_bytes],
     )
 
     valid_responses = [

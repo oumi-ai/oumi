@@ -23,6 +23,7 @@ from oumi.inference import (
     ParasailInferenceEngine,
     RemoteInferenceEngine,
     RemoteVLLMInferenceEngine,
+    SambanovaInferenceEngine,
     SGLangInferenceEngine,
     TogetherInferenceEngine,
     VLLMInferenceEngine,
@@ -63,6 +64,7 @@ REMOTE_API_ENGINES = [
     GoogleVertexInferenceEngine,
     OpenAIInferenceEngine,
     ParasailInferenceEngine,
+    SambanovaInferenceEngine,
     TogetherInferenceEngine,
 ]
 

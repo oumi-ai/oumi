@@ -1,5 +1,11 @@
 # Job config to FSDP QLoRA tune Llama 3.1 8B Instruct on 1 GCP node.
 #
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
 # Usage:
 #   oumi launch up -c configs/recipes/llama3_1/sft/8b_qlora/gcp_job.yaml --cluster llama8b-qlora-fsdp
 #
@@ -20,9 +26,7 @@ working_dir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train

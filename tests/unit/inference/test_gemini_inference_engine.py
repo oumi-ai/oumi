@@ -183,3 +183,14 @@ def test_gemini_infer_from_file(gemini_engine, inference_config, tmp_path):
 
     assert len(results) == 1
     assert results[0] == conversation
+
+
+def test_gemini_batch_prediction_disabled(gemini_engine, inference_config):
+    conversation = Conversation(
+        messages=[
+            Message(content="Hello", role=Role.USER),
+        ]
+    )
+
+    with pytest.raises(NotImplementedError):
+        gemini_engine.infer_batch([conversation], inference_config)

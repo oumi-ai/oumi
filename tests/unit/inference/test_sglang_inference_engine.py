@@ -70,7 +70,7 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
 
 
 @pytest.mark.parametrize(
-    "engine,guided_decoding",
+    "engine,guided_decoding,num_images",
     list(
         itertools.product(
             _generate_all_engines(),
@@ -82,13 +82,20 @@ def _generate_all_engines() -> list[SGLangInferenceEngine]:
                 GuidedDecodingParams(json=SamplePydanticType),
                 GuidedDecodingParams(regex="(apple|pear)"),
             ],
+            [None],  # num_images
         )
-    ),
+    )
+    + [
+        (create_test_vision_language_engine(), None, 2),
+    ],
 )
 def test_convert_conversation_to_api_input(
-    engine: SGLangInferenceEngine, guided_decoding: Optional[GuidedDecodingParams]
+    engine: SGLangInferenceEngine,
+    guided_decoding: Optional[GuidedDecodingParams],
+    num_images: Optional[int],
 ):
     is_vision_language: bool = "llava" in engine._model.lower()
+    num_images = num_images or (1 if is_vision_language else 0)
 
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
     png_bytes = create_png_bytes_from_image(pil_image)
@@ -99,10 +106,11 @@ def test_convert_conversation_to_api_input(
                 [
                     Message(
                         role=Role.USER,
-                        content=[
-                            ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
-                            ContentItem(type=Type.TEXT, content="User message"),
-                        ],
+                        content=(
+                            [ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY)]
+                            * num_images
+                            + [ContentItem(type=Type.TEXT, content="User message")]
+                        ),
                     )
                 ]
                 if is_vision_language
@@ -126,6 +134,12 @@ def test_convert_conversation_to_api_input(
         stop_token_ids=[32000],
         guided_decoding=guided_decoding,
     )
+
+    if num_images > 1 and is_vision_language and not engine._supports_multiple_images:
+        with pytest.raises(ValueError, match="A conversation contains too many images"):
+            engine._convert_conversation_to_api_input(conversation, generation_params)
+
+        return
 
     result = engine._convert_conversation_to_api_input(conversation, generation_params)
 
@@ -161,8 +175,19 @@ def test_convert_conversation_to_api_input(
     logger.info(f"expected_prompt:\n{expected_prompt}\n\n")
     assert result["text"] == expected_prompt, result
     if is_vision_language:
+        assert num_images >= 1
         assert "image_data" in result, result
-        assert result["image_data"].startswith("data:image/png;base64,"), result
+        if num_images > 1:
+            assert isinstance(result["image_data"], list)
+            assert len(result["image_data"]) == num_images
+            for idx in range(num_images):
+                assert result["image_data"][idx].startswith(
+                    "data:image/png;base64,"
+                ), result
+
+        else:
+            assert isinstance(result["image_data"], str)
+            assert result["image_data"].startswith("data:image/png;base64,"), result
     else:
         assert "image_data" not in result, result
     assert "sampling_params" in result, result

@@ -23,7 +23,7 @@ Working configs:
 
 from enum import Enum
 from pprint import pformat
-from typing import NamedTuple, Optional
+from typing import Final, NamedTuple, Optional
 
 import torch
 import typer
@@ -69,12 +69,16 @@ class ModelName(str, Enum):
     SMOLVLM = "HuggingFaceTB/SmolVLM-Instruct"
 
 
+_DEFAULT_MLLM_CHAT_TEMPLATE: Final[str] = "llava"
+_DEFAULT_MLLM_COLLATOR: Final[str] = "vision_language_with_padding"
+
+
 class ModelInfo(NamedTuple):
     chat_template: str
     freeze_layers: list[str]
+    supports_multiple_images: bool = False
+    collator_name: str = _DEFAULT_MLLM_COLLATOR
 
-
-_DEFAULT_MLLM_CHAT_TEMPLATE = "llava"
 
 _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.BLIP2: ModelInfo(
@@ -88,9 +92,10 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
     ModelName.QWEN2_VL: ModelInfo(
         chat_template="qwen2-vl-instruct",
         freeze_layers=["visual"],
+        collator_name="vision_language_sft",
     ),
     ModelName.QWEN2_5_3B_VL: ModelInfo(
-        chat_template="qwen2.5-vl-instruct",
+        chat_template="qwen2-vl-instruct",
         freeze_layers=["visual"],
     ),
     ModelName.CHAMELEON: ModelInfo(
@@ -106,7 +111,9 @@ _MODELS_MAP: dict[ModelName, ModelInfo] = {
         freeze_layers=["model.vision_embed_tokens"],
     ),
     ModelName.LLAMA_11B_VISION_INSTRUCT: ModelInfo(
-        chat_template="llama3-instruct", freeze_layers=["vision_model"]
+        chat_template="llama3-instruct",
+        freeze_layers=["vision_model"],
+        supports_multiple_images=True,
     ),
     ModelName.MOLMOE_1B: ModelInfo(
         chat_template=_DEFAULT_MLLM_CHAT_TEMPLATE,
@@ -135,8 +142,27 @@ def _get_chat_template(model_name: ModelName) -> str:
         result = _MODELS_MAP[model_name].chat_template
         print(f"Chat template: {result}")
     else:
-        print(f"No chat templates  defined for {model_name}!")
+        result = _DEFAULT_MLLM_CHAT_TEMPLATE
+        print(f"No chat template defined for {model_name}! Defaulting to '{result}'...")
     return result or _DEFAULT_MLLM_CHAT_TEMPLATE
+
+
+def _get_collator_name(model_name: ModelName) -> str:
+    result = ""
+    if model_name in _MODELS_MAP:
+        result = _MODELS_MAP[model_name].collator_name
+        print(f"Collator: {result}")
+    else:
+        result = _DEFAULT_MLLM_COLLATOR
+        print(f"No collator defined for {model_name}! Defaulting to '{result}'...")
+    return result or _DEFAULT_MLLM_COLLATOR
+
+
+def _supports_multiple_images(model_name: ModelName) -> bool:
+    result = False
+    if model_name in _MODELS_MAP:
+        result = _MODELS_MAP[model_name].supports_multiple_images
+    return result
 
 
 class DatasetName(str, Enum):
@@ -145,15 +171,36 @@ class DatasetName(str, Enum):
     FLICKR = "nlphuji/flickr30k"
     COCO = "coco_captions"
     MNIST_SFT = "mnist_sft"
+    DOCMATIX = "HuggingFaceM4/Docmatix"
 
 
-def _get_default_dataset_split(dataset_name: DatasetName) -> str:
+class _DatasetInfo(NamedTuple):
+    default_split: str
+    default_subset: Optional[str]
+    contains_multiple_images: bool
+
+
+def _get_dataset_info(dataset_name: DatasetName) -> _DatasetInfo:
+    default_split = "train"
     if dataset_name in (DatasetName.FLICKR,):
         # The dataset only has "test" split.
-        return "test"
+        default_split = "test"
     elif dataset_name in (DatasetName.MERVE_VQAV2_SMALL,):
-        return "validation"
-    return "train"
+        default_split = "validation"
+
+    contains_multiple_images: bool = False
+
+    default_subset: Optional[str] = None
+    if dataset_name in (DatasetName.DOCMATIX,):
+        # The only non-giant subset in the dataset
+        default_subset = "zero-shot-exp"
+        contains_multiple_images = True
+
+    return _DatasetInfo(
+        default_split=default_split,
+        default_subset=default_subset,
+        contains_multiple_images=contains_multiple_images,
+    )
 
 
 def test_multimodal_trainer(
@@ -164,6 +211,7 @@ def test_multimodal_trainer(
     optimizer: str = "sgd",
     logging_steps: int = 5,
     split: Optional[str] = None,
+    subset: Optional[str] = None,
     test_inference: bool = False,
     test_save_state: bool = False,
     test_fsdp: bool = False,
@@ -175,15 +223,21 @@ def test_multimodal_trainer(
     else:
         print("Not initializing distributed process group")
 
-    if model_name in (ModelName.QWEN2_VL, ModelName.QWEN2_5_3B_VL) and batch_size != 1:
-        print(
-            f"Using batch size 1 for {model_name.value} (original: bs={batch_size}). "
-            "The model only supports bs=1 because of variable-size image encodings."
-        )
-        batch_size = 1
+    dataset_info = _get_dataset_info(dataset_name)
 
     if not split:
-        split = _get_default_dataset_split(dataset_name)
+        split = dataset_info.default_split
+    if not subset:
+        subset = dataset_info.default_subset
+
+    if dataset_info.contains_multiple_images and not _supports_multiple_images(
+        model_name
+    ):
+        print(
+            f"Using multi-image dataset {dataset_name} "
+            f"with model {model_name} that doesn't support multiple images! "
+            "Training may FAIL!"
+        )
 
     #
     # Init model, processor, and dataset
@@ -204,11 +258,16 @@ def test_multimodal_trainer(
         model_name.value, tokenizer, trust_remote_code=True
     )
 
+    collator_name = _get_collator_name(model_name)
+    dataset_kwargs = dict(processor=processor, limit=100)
+    if collator_name == "vision_language_sft":
+        dataset_kwargs["return_conversations"] = True
     dataset = build_dataset(
         dataset_name=str(dataset_name.value),
         tokenizer=tokenizer,
+        subset=subset,
         split=split,
-        dataset_kwargs=dict(processor=processor, limit=100),
+        dataset_kwargs=dataset_kwargs,
         trust_remote_code=True,
         use_torchdata=True,
     )
@@ -245,12 +304,18 @@ def test_multimodal_trainer(
         if training_params.log_model_summary:
             log_model_summary(model)
 
+    collator_kwargs = {}
+    if collator_name == "vision_language_sft":
+        collator_kwargs["processor_name"] = model_name.value
+        collator_kwargs["trust_remote_code"] = model_params.trust_remote_code
+
     # Initialize trainer with custom collator
     collator = build_data_collator(
-        collator_name="vision_language_with_padding",
+        collator_name=collator_name,
         tokenizer=tokenizer,
         max_length=model_params.model_max_length,
         label_ignore_index=constants.LABEL_IGNORE_INDEX,
+        **collator_kwargs,
     )
 
     trainer = Trainer(

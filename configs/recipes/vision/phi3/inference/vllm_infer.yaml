@@ -1,7 +1,11 @@
-# Inference config.
+# Phi3 vision vLLM inference config.
+#
+# Requirements:
+#   - Run `pip install vllm`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/vision/phi3/inference/vllm_infer.yaml
+#   oumi infer -i -c configs/recipes/vision/phi3/inference/vllm_infer.yaml \
+#     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

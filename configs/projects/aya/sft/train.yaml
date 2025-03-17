@@ -1,4 +1,9 @@
-# Training config.
+# Full fine-tune config for Aya.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
 #   oumi train -c configs/projects/aya/sft/train.yaml
@@ -66,6 +71,5 @@ training:
     dataset_text_field: ${data.train.target_col}
     max_seq_length: ${model.model_max_length}
     packing: True
-
   # Use for debugging purposes
   #max_steps: 10

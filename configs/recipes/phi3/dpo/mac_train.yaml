@@ -1,4 +1,4 @@
-# Training config.
+# Phi3 DPO train config for Mac.
 #
 # Usage:
 #   oumi train -c configs/recipes/phi3/dpo/mac_train.yaml

@@ -61,3 +61,11 @@ def requires_cuda_not_available() -> pytest.MarkDecorator:
 
 def requires_hf_token() -> pytest.MarkDecorator:
     return pytest.mark.skipif(not find_hf_token(), reason="HF token is not available")
+
+
+def requires_pdf_support():
+    from importlib.util import find_spec
+
+    return pytest.mark.skipif(
+        not find_spec("pdf2image"), reason="PDF support is not available"
+    )

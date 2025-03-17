@@ -7,6 +7,8 @@ output/
 coverage_html/
 # Notebook tutorial working files/directories
 notebooks/*tutorial*
+# Evaluation results
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -174,3 +176,6 @@ cython_debug/
 
 # Mac
 .DS_Store
+
+# VS Code Workspace
+oumi.code-workspace

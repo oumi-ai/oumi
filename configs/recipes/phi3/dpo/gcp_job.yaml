@@ -1,7 +1,11 @@
-# Job config.
+# Phi3 DPO GCP job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/phi3/dpo/gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c configs/recipes/phi3/dpo/gcp_job.yaml --cluster phi3-dpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -25,7 +29,6 @@ resources:
 
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 

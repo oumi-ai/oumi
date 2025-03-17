@@ -81,13 +81,52 @@ def test_filter_messages_no_role(test_conversation):
 
 def test_filter_messages_with_role(test_conversation):
     conversation, role_user, _, message1, _, message3 = test_conversation
-    assert conversation.filter_messages(role_user) == [message1, message3]
+    assert conversation.filter_messages(role=role_user) == [message1, message3]
+    assert conversation.filter_messages(filter_fn=lambda m: m.role == role_user) == [
+        message1,
+        message3,
+    ]
+
+
+def test_filter_messages_with_filter_fn(test_conversation):
+    conversation, role_user, _, message1, message2, message3 = test_conversation
+    assert conversation.filter_messages(filter_fn=lambda m: m.role == role_user) == [
+        message1,
+        message3,
+    ]
+    assert conversation.filter_messages(filter_fn=lambda m: m.role != role_user) == [
+        message2,
+    ]
+
+
+def test_filter_messages_with_role_and_filter_fn(test_conversation):
+    conversation, role_user, _, message1, message2, message3 = test_conversation
+    assert conversation.filter_messages(
+        role=role_user, filter_fn=lambda m: m.role == role_user
+    ) == [
+        message1,
+        message3,
+    ]
+    assert (
+        conversation.filter_messages(
+            role=role_user, filter_fn=lambda m: m.role != role_user
+        )
+        == []
+    )
 
 
 def test_filter_messages_with_nonexistent_role(test_conversation):
     conversation, _, _, _, _, _ = test_conversation
     role_nonexistent = Role.TOOL
-    assert conversation.filter_messages(role_nonexistent) == []
+    assert conversation.filter_messages(role=role_nonexistent) == []
+    assert (
+        conversation.filter_messages(role=role_nonexistent, filter_fn=lambda m: True)
+        == []
+    )
+    assert (
+        conversation.filter_messages(filter_fn=lambda m: m.role == role_nonexistent)
+        == []
+    )
 
 
 def test_repr(test_conversation):
@@ -514,6 +553,87 @@ def test_roundtrip_json_compound_mixed_content(root_testdata_dir):
     reconstructed = Conversation.from_json(json_str)
 
     assert original == reconstructed
+
+
+def test_roundtrip_proto_legacy(root_testdata_dir):
+    original = Conversation(
+        messages=[
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+            Message(
+                role=Role.USER,
+                content="",
+            ),
+            Message(
+                id="xyz",
+                role=Role.TOOL,
+                content="oumi_logo_dark",
+            ),
+        ],
+        metadata={"test": "metadata"},
+    )
+    convo_proto = original.to_proto()
+    reconstructed = Conversation.from_proto(convo_proto)
+
+    assert original == reconstructed, (
+        f"\n\noriginal: {original.to_dict()}\n"
+        f"\n\nreconstructed: {reconstructed.to_dict()}\n"
+        f"\n\nproto: {convo_proto.SerializeToString()}"
+    )
+
+
+def test_roundtrip_proto_compound_mixed_content(root_testdata_dir):
+    png_logo_bytes = load_image_png_bytes_from_path(
+        root_testdata_dir / "images" / "oumi_logo_light.png"
+    )
+    png_small_image_bytes = _create_test_image_bytes()
+
+    original = Conversation(
+        messages=[
+            Message(id="001", role=Role.SYSTEM, content="Behave!"),
+            Message(role=Role.ASSISTANT, content="Hi there!"),
+            Message(
+                id="z072",
+                role=Role.USER,
+                content=[
+                    ContentItem(binary=png_logo_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(binary=png_small_image_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(
+                        content="https://www.oumi.ai/logo.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(
+                id="_xyz",
+                role=Role.TOOL,
+                content=[
+                    ContentItem(
+                        content=str(
+                            root_testdata_dir / "images" / "oumi_logo_dark.png"
+                        ),
+                        binary=png_logo_bytes,
+                        type=Type.IMAGE_PATH,
+                    ),
+                    ContentItem(
+                        content="http://oumi.ai/bzz.png",
+                        binary=png_small_image_bytes,
+                        type=Type.IMAGE_URL,
+                    ),
+                    ContentItem(content="<@>", type=Type.TEXT),
+                ],
+            ),
+        ],
+        metadata={"a": "b", "b": "c"},
+    )
+    convo_proto = original.to_proto()
+    reconstructed = Conversation.from_proto(convo_proto)
+
+    assert original == reconstructed, (
+        f"\n\noriginal: {original.to_dict()}\n"
+        f"\n\nreconstructed: {reconstructed.to_dict()}\n"
+        f"\n\nproto: {convo_proto.SerializeToString()}"
+    )
 
 
 def test_from_dict_with_invalid_field():

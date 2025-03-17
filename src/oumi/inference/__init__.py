@@ -27,6 +27,7 @@ from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
 from oumi.inference.parasail_inference_engine import ParasailInferenceEngine
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.inference.remote_vllm_inference_engine import RemoteVLLMInferenceEngine
+from oumi.inference.sambanova_inference_engine import SambanovaInferenceEngine
 from oumi.inference.sglang_inference_engine import SGLangInferenceEngine
 from oumi.inference.together_inference_engine import TogetherInferenceEngine
 from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
@@ -42,7 +43,9 @@ __all__ = [
     "ParasailInferenceEngine",
     "RemoteInferenceEngine",
     "RemoteVLLMInferenceEngine",
+    "SambanovaInferenceEngine",
     "SGLangInferenceEngine",
     "TogetherInferenceEngine",
     "VLLMInferenceEngine",
+    "SambanovaInferenceEngine",
 ]

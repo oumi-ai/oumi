@@ -1,4 +1,4 @@
-# Inference config.
+# GPT2 inference config.
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/gpt2/inference/infer.yaml

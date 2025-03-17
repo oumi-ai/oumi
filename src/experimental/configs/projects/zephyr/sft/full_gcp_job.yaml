@@ -1,7 +1,13 @@
-# Job config.
+# Zephyr full fine-tune job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
 #
 # Usage:
-#   oumi launch up -c src/experimental/configs/projects/zephyr/sft/full_gcp_job.yaml --cluster my-oumi-cluster
+#   oumi launch up -c src/experimental/configs/projects/zephyr/sft/full_gcp_job.yaml --cluster zephyr-7b-fft
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -26,10 +32,9 @@ resources:
 
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train

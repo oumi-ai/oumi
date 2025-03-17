@@ -39,6 +39,9 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
 
+  seed: 192847
+  use_deterministic: True
+
   logging_steps: 5
   log_model_summary: False
   empty_device_cache_steps: 50

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -21,6 +22,7 @@ import transformers
 import trl
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.utils.str_utils import sanitize_run_name
@@ -41,6 +43,15 @@ class TrainerType(Enum):
 
     This trainer implements the Direct Preference Optimization algorithm
     for fine-tuning language models based on human preferences.
+    """
+
+    TRL_GRPO = "trl_grpo"
+    """Group Relative Policy Optimization trainer from `trl` library.
+
+    This trainer implements the Group Relative Policy Optimization algorithm
+    introduced in the paper https://arxiv.org/pdf/2402.03300
+    for fine-tuning language models.
+    Optionally, supports user-defined reward functions.
     """
 
     HF = "hf"
@@ -252,6 +263,33 @@ class TrainingParams(BaseParams):
     weight initialization, and any stochastic operations.
     """
 
+    data_seed: int = 42
+    """Random data_seed used for initialization.
+    The seed to use for the underlying generator when using
+    use_seedable_sampler. If None, the generator will use
+    the current default seed from torch.
+    Used only by the HuggingFace trainers.
+    """
+
+    use_deterministic: bool = False
+    """Whether to use deterministic algorithms for reproducibility.
+    If set to True, this will only allow those CuDNN algorithms
+    that are (believed to be) deterministic. Please refer to
+    https://pytorch.org/docs/stable/generated/torch.use_deterministic_algorithms.html
+    for more details. If using distributed training,
+    this will override ddp_find_unused_parameters to False and will
+    also use ddp_broadcast_buffers, and disable gradient checkpointing.
+    Note that this will not guarantee full reproducibility,
+    but will help to reduce the variance between runs.
+    """
+
+    full_determinism: bool = False
+    """If True, enable_full_determinism() is called instead of set_seed()
+    to ensure reproducible results in distributed training. This will only
+    affect HF trainers. Important: this will negatively impact performance,
+    so only use it for debugging.
+    """
+
     run_name: Optional[str] = None
     """A unique identifier for the current training run.
 
@@ -269,6 +307,18 @@ class TrainingParams(BaseParams):
     return a dictionary of metrics, with string keys mapping to metric values. A
     single metrics_function may compute multiple metrics.
     """
+
+    reward_functions: Optional[list[str]] = None
+    """The names of the reward function in the Oumi registry to use for reinforcement
+    learning.
+
+    Only supported with the TRL_GRPO trainer currently. Refer to
+    https://huggingface.co/docs/trl/main/en/grpo_trainer
+    for documentation about the function signature.
+    """
+
+    grpo: GrpoParams = field(default_factory=GrpoParams)
+    """Parameters for GRPO training."""
 
     log_level: str = "info"
     """The logging level for the main Oumi logger.
@@ -487,6 +537,14 @@ class TrainingParams(BaseParams):
     then at minimum 1 worker is guaranteed to be assigned.
     """
 
+    dataloader_persistent_workers: bool = False
+    """Whether to use persistent workers for data loading (HF Trainers only).
+    If True, the data loader will not shut down the worker processes after
+    a dataset has been consumed once. This allows to maintain the workers
+    Dataset instances alive. Can potentially speed up training, but will
+    increase RAM usage. Will default to False.
+    """
+
     dataloader_prefetch_factor: Optional[int] = None
     """Number of batches loaded in advance by each worker.
 
@@ -589,12 +647,39 @@ class TrainingParams(BaseParams):
 
         dispatch_batches = self.dataloader_main_process_only
 
+        if self.use_deterministic:
+            self.enable_gradient_checkpointing = (
+                False  # Fails ddp_broadcast_buffers=True
+            )
+            dispatch_batches = False  # Prevents dynamic batch redistribution
+            self.ddp_find_unused_parameters = False  # Helps with determinism in DDP
+            ddp_broadcast_buffers = True  # Ensures consistent buffer states
+        else:
+            ddp_broadcast_buffers = None
+
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_GRPO:
+            config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
+
+        trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+        if self.trainer_type == TrainerType.TRL_GRPO:
+            grpo_kwargs = self.grpo.to_hf_trainer_kwargs()
+            conflicting_keys = set(trainer_kwargs.keys()).intersection(
+                grpo_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "trainer_kwargs attempt to override the following "
+                    f"GRPO kwargs: {conflicting_keys}. "
+                    "Use properties of GrpoParams instead."
+                )
+            trainer_kwargs.update(grpo_kwargs)
+
         result = config_class(
             gradient_accumulation_steps=self.gradient_accumulation_steps,
             log_level=self.dep_log_level,
@@ -638,21 +723,22 @@ class TrainingParams(BaseParams):
             dataloader_prefetch_factor=(
                 self.dataloader_prefetch_factor if dataloader_num_workers > 0 else None
             ),
+            full_determinism=self.full_determinism,
+            ddp_broadcast_buffers=ddp_broadcast_buffers,
+            dataloader_persistent_workers=self.dataloader_persistent_workers,
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,  # type: ignore
-            dispatch_batches=dispatch_batches,
-            # TODO Switch to `accelerator_config` for `dispatch_batches`
-            # accelerator_config={  # accelerator config for multi-device training
-            #    "split_batches": False,
-            #    "dispatch_batches": dispatch_batches,
-            #    "even_batches": True,
-            #    "use_seedable_sampler": True,
-            # },
+            accelerator_config={  # accelerator config for multi-device training
+                "dispatch_batches": dispatch_batches,
+                # The params below are set to their default values.
+                "split_batches": False,
+                "even_batches": True,
+                "use_seedable_sampler": True,
+            },
             seed=self.seed,
-            # TODO: OPE-891 - Support setting a data seed.
-            # By default, HF will use the global seed for data loading.
-            **self.trainer_kwargs,
+            data_seed=self.data_seed,
+            **trainer_kwargs,
         )
         assert isinstance(result, transformers.TrainingArguments)
         return result
@@ -697,6 +783,17 @@ class TrainingParams(BaseParams):
                 f"Actual: max_steps: {self.max_steps}, "
                 f"num_train_epochs: {self.num_train_epochs}."
             )
+
+        if (
+            self.trainer_type != TrainerType.TRL_GRPO
+            and self.reward_functions is not None
+        ):
+            function_names = [name for name in self.reward_functions if name]
+            if len(function_names) > 0:
+                raise ValueError(
+                    "reward_functions may only be defined for the TRL_GRPO trainer. "
+                    f"Actual: {self.trainer_type}"
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:

@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pytest
 import torch
@@ -13,6 +15,7 @@ from oumi.utils.torch_utils import (
     pad_sequences,
     pad_sequences_left_side,
     pad_sequences_right_side,
+    pad_to_max_dim_and_stack,
 )
 
 
@@ -87,6 +90,12 @@ def test_convert_to_list_of_tensors_from_tensors():
     assert np.all(result[2].numpy() == np.asarray([6, 7]))
 
 
+def test_pad_sequences_invalid_side():
+    test_sequences = [[1, 2, 3, 4], [5], [6, 7]]
+    with pytest.raises(ValueError, match="Unsupported padding side: 'bottom'"):
+        pad_sequences(test_sequences, padding_side="bottom", padding_value=1)
+
+
 @pytest.mark.parametrize(
     "padding_value",
     [0, -100, 7],
@@ -108,6 +117,18 @@ def test_pad_sequences_right_side(padding_value: int):
         == pad_sequences(
             test_sequences, padding_side="right", padding_value=padding_value
         ).numpy()
+    )
+
+    # Verify `stack_and_pad_to_max_dim()` returns exact same result for 1D sequences.
+    assert np.all(
+        result.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences, padding_side="right", padding_value=padding_value
+        ).numpy()
+    )
+    assert np.all(
+        result.numpy()
+        == pad_to_max_dim_and_stack(test_sequences, padding_value=padding_value).numpy()
     )
 
 
@@ -133,6 +154,173 @@ def test_pad_sequences_left_side(padding_value: int):
             test_sequences, padding_side="left", padding_value=padding_value
         ).numpy()
     )
+
+    # Verify `stack_and_pad_to_max_dim()` returns exact same result for 1D sequences.
+    assert np.all(
+        result.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences, padding_side="left", padding_value=padding_value
+        ).numpy()
+    )
+
+
+def test_stack_and_pad_to_max_dim_invalid_side():
+    test_sequences = [[1, 2, 3, 4], [5], [6, 7]]
+    with pytest.raises(ValueError, match="Unsupported padding side: 'top'"):
+        pad_to_max_dim_and_stack(test_sequences, padding_side="top", padding_value=1)
+
+
+def test_stack_and_pad_to_max_dim_incompatible_dimensionality():
+    test_sequences = [[1, 2, 3, 4], [5], [[6, 7], [8, 9]]]
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Tensors have different number of dimensions: 1 vs 2! "
+            "Shapes: torch.Size([4]), torch.Size([2, 2])"
+        ),
+    ):
+        pad_to_max_dim_and_stack(test_sequences, padding_value=1)
+
+
+@pytest.mark.parametrize(
+    "padding_value",
+    [0, -100, 7],
+)
+def test_stack_and_pad_to_max_dim_right_side(padding_value):
+    test_sequences = [torch.ones([5, 1, 2]), torch.full([3, 2, 1], 2)]
+    result = pad_to_max_dim_and_stack(test_sequences, padding_value=padding_value)
+    assert result.shape == (2, 5, 2, 2)
+
+    expected = torch.full((2, 5, 2, 2), padding_value)
+    expected[0, :, :1, :] = 1
+    expected[1, :3, :, :1] = 2
+    assert np.all(
+        result.numpy() == expected.numpy()
+    ), f"result: {result} expected: {expected}"
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=3,
+            padding_side="right",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=-1,
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 1"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=1,
+            padding_side="right",
+            padding_value=padding_value,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 2"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=2,
+            padding_value=padding_value,
+        )
+
+
+@pytest.mark.parametrize(
+    "padding_value",
+    [0, -100, 7],
+)
+def test_stack_and_pad_to_max_dim_left_side(padding_value):
+    test_sequences = [
+        torch.ones([5, 1, 2, 1]),
+        torch.full([3, 2, 1, 1], 2),
+        torch.full([1, 1, 1, 1], -3),
+    ]
+    result = pad_to_max_dim_and_stack(
+        test_sequences,
+        padding_side="left",
+        padding_value=padding_value,
+    )
+    assert result.shape == (3, 5, 2, 2, 1)
+
+    expected = torch.full((3, 5, 2, 2, 1), padding_value)
+    expected[0, :, -1:, :, :] = 1
+    expected[1, -3:, :, -1:, :] = 2
+    expected[2, -1:, -1:, -1:, :] = -3
+    assert np.all(
+        result.numpy() == expected.numpy()
+    ), f"result: {result} expected: {expected}"
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=3,
+            padding_side="left",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=-1,
+            padding_side="left",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 1"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=1,
+            padding_side="left",
+            padding_value=padding_value,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 2"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=2,
+            padding_side="left",
+            padding_value=padding_value,
+        )
 
 
 def test_create_ones_from_empty():

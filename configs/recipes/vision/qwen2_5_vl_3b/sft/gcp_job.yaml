@@ -1,4 +1,9 @@
-# Job config.
+# Qwen 2.5 VL 3B full fine-tune training job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/qwen2_5_vl_3b/sft/gcp_job.yaml --cluster qwen2_5-vl-vision
@@ -19,16 +24,11 @@ resources:
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on your local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -45,7 +45,7 @@ setup: |
   # Specifically, Oumi has tested this model with transformers 4.49.0.dev0
   # Updating to this version below can break other Oumi utilities.
   set +e
-  pip install git+https://github.com/huggingface/transformers.git
+  pip install "transformers>=4.49.0"
 
   # Also, if you want to try it with a more efficient attention implementation,
   # you can install the `flash_attention_2` package and set `attn_implementation:

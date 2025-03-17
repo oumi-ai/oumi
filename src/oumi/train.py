@@ -16,7 +16,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Final, Optional, Union
 
 import torch
 import transformers
@@ -29,6 +29,7 @@ from oumi.builders import (
     build_model,
     build_peft_model,
     build_processor,
+    build_reward_functions,
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
@@ -162,7 +163,47 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         config.training.dataloader_num_workers = num_workers
 
     assert isinstance(config.training.dataloader_num_workers, int)
+
+    if config.training.trainer_type == TrainerType.TRL_GRPO:
+        world_size = get_device_rank_info().world_size
+        batch_size = config.training.per_device_train_batch_size
+        global_batch_size = world_size * batch_size
+        num_generations = config.training.grpo.num_generations
+        if num_generations is not None and global_batch_size % num_generations != 0:
+            logger.warning(
+                f"For {config.training.trainer_type}, "
+                f"global batch size ({global_batch_size}) should be evenly divisible "
+                f"by `grpo.num_generations` ({num_generations}). It's not! "
+                f"World size: {world_size}. "
+                f"Per-device batch size: {batch_size}."
+            )
+
     return config
+
+
+def _create_optional_training_kwargs(
+    config: TrainingConfig,
+    tokenizer: Optional[BaseTokenizer],
+    trainer_type: TrainerType,
+    metrics_function: Optional[Callable],
+    reward_functions: list[Callable],
+    collator: Optional[Callable],
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"processing_class": tokenizer}
+    if trainer_type == TrainerType.OUMI:
+        kwargs["config"] = config
+
+    if trainer_type != TrainerType.TRL_GRPO:
+        kwargs["compute_metrics"] = metrics_function
+        kwargs["data_collator"] = collator
+    else:
+        assert trainer_type == TrainerType.TRL_GRPO
+        if metrics_function:
+            raise ValueError(f"metrics_function isn't supported for {trainer_type}")
+        if collator:
+            raise ValueError(f"collator isn't supported for {trainer_type}")
+        kwargs["reward_funcs"] = reward_functions
+    return kwargs
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
@@ -192,7 +233,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     # We support running FSDP Oumi training without being invoked from the Accelerate
     # launcher. We detect this with the following:
     # 1. Accelerate's environment variables aren't set
-    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO)
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO, TRL_GRPO)
     # 3. FSDP is enabled in the Oumi config
     # In this case, we mimic an Accelerate launcher run by setting the necessary
     # environment variables.
@@ -254,14 +295,53 @@ def train(config: TrainingConfig, **kwargs) -> None:
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
         eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
 
+    # trl's SFTTrainer has its own dataset processing code. We should skip it if
+    # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
+    # field. This generally occurs if the dataset is:
+    # 1. In the Oumi registry and thus is processed by the `BasePretrainingDataset` or
+    # `BaseSftDataset` classes
+    # 2. Packing is requested, and thus is processed by the
+    # `PretrainingAsyncTextDataset` class
+    # See OPE-1108 for more details.
+    if config.training.trainer_type == TrainerType.TRL_SFT:
+        example = next(iter(dataset))
+        if "input_ids" in example:
+            logger.info(
+                "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
+                "already processed."
+            )
+            if "dataset_kwargs" not in config.training.trainer_kwargs:
+                config.training.trainer_kwargs["dataset_kwargs"] = {}
+            # Skip preparing dataset if `skip_prepare_dataset` isn't already set.
+            if (
+                "skip_prepare_dataset"
+                not in config.training.trainer_kwargs["dataset_kwargs"]
+            ):
+                config.training.trainer_kwargs["dataset_kwargs"][
+                    "skip_prepare_dataset"
+                ] = True
+
     # Train model
+    trainer_type: Final[TrainerType] = config.training.trainer_type
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        config.training.trainer_type, processor=processor
+        trainer_type, processor=processor
     )
 
-    metrics_function = build_metrics_function(config.training)
+    metrics_function: Optional[Callable] = build_metrics_function(config.training)
+    reward_functions: list[Callable] = build_reward_functions(config.training)
+    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
+        logger.warning(f"No reward_function specified for {trainer_type}!")
 
-    collator = build_collator_from_config(config, tokenizer)
+    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+
+    training_kwargs = _create_optional_training_kwargs(
+        config,
+        tokenizer,
+        trainer_type,
+        metrics_function,
+        reward_functions,
+        collator,
+    )
 
     # Reclaim memory before training starts.
     device_cleanup()
@@ -272,22 +352,15 @@ def train(config: TrainingConfig, **kwargs) -> None:
         record_function_name="oumi.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
-            kwargs = {}
-            if config.training.trainer_type == TrainerType.OUMI:
-                kwargs["config"] = config
-
             callbacks = build_training_callbacks(config, model, profiler)
 
             trainer = create_trainer_fn(
                 model=model,
-                tokenizer=tokenizer,
                 args=config.training,
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
-                compute_metrics=metrics_function,
                 callbacks=callbacks,
-                data_collator=collator,
-                **kwargs,
+                **training_kwargs,
             )
 
         with torch.profiler.record_function("log_and_verify"):

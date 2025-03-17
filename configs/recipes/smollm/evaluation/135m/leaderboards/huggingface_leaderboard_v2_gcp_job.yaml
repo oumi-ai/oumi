@@ -1,7 +1,11 @@
 # Job config to evaluate smollm 135M on HuggingFace's Leaderboard V2 (1 GCP node).
 #
 # Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #   - Request access to the GPQA dataset: https://huggingface.co/datasets/Idavidrein/gpqa
+#   - (optional) Mount a storage bucket below
 #
 # Usage:
 #   oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_gcp_job_eval.yaml --cluster smollm-135m-lb-v2-eval
@@ -32,7 +36,7 @@ working_dir: .
 # https://huggingface.co/datasets/Idavidrein/gpqa, and authenticate with the HuggingFace
 # token when launching the evaluation job.
 file_mounts:
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
   ~/.netrc: ~/.netrc # WandB credentials
 
 # If the remote machine is not accessible after evaluation completes, which is the

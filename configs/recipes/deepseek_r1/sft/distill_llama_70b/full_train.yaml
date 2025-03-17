@@ -1,5 +1,8 @@
 # FFT config for Deepseek R1 Distill Llama 3.3 70B.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi train -c configs/recipes/deepseek_r1/sft/distill_llama_70b/full_train.yaml
 #

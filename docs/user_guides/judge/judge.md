@@ -59,9 +59,10 @@ from oumi.judges import OumiXmlJudge
 from oumi.judges import oumi_v1_xml_local_judge as judge_local
 from oumi.judges import oumi_v1_xml_gpt4o_judge as judge_gpt4o
 from oumi.judges import oumi_v1_xml_claude_sonnet_judge as judge_sonnet
+from oumi.judges import oumi_v1_xml_deepseek_r1_judge as judge_deepseek_r1
 
 # Instantiate the judge.
-judge = OumiXmlJudge(judge_local()) # alternatives: judge_gpt4o(), judge_sonnet()
+judge = OumiXmlJudge(judge_local()) # alternatives: judge_gpt4o(), judge_sonnet(), judge_deepseek_r1()
 
 # Define the `conversations` to be judged.
 conversations = [

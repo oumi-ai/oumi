@@ -38,18 +38,27 @@ def train(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
-    # Delayed imports
-    from oumi import train as oumi_train
-    from oumi.core.configs import TrainingConfig
-    from oumi.core.distributed import set_random_seeds
-    from oumi.utils.torch_utils import (
-        device_cleanup,
-        limit_per_process_memory,
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            config,
+        )
     )
+    with cli_utils.CONSOLE.status(
+        "[green]Loading configuration...[/green]", spinner="dots"
+    ):
+        # Delayed imports
+        from oumi import train as oumi_train
+        from oumi.core.configs import TrainingConfig
+        from oumi.core.distributed import set_random_seeds
+        from oumi.utils.torch_utils import (
+            device_cleanup,
+            limit_per_process_memory,
+        )
+        # End imports
 
     cli_utils.configure_common_env_vars()
 
-    # End imports
     parsed_config: TrainingConfig = TrainingConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
@@ -57,7 +66,9 @@ def train(
 
     limit_per_process_memory()
     device_cleanup()
-    set_random_seeds(parsed_config.training.seed)
+    set_random_seeds(
+        parsed_config.training.seed, parsed_config.training.use_deterministic
+    )
 
     # Run training
     oumi_train(parsed_config)

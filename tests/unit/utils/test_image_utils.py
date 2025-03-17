@@ -4,14 +4,20 @@ from pathlib import Path
 
 import PIL.Image
 import pytest
+import responses
 
 from oumi.utils.image_utils import (
     convert_pil_image_mode,
     create_png_bytes_from_image,
     create_png_bytes_from_image_bytes,
+    create_png_bytes_from_image_list,
     load_image_png_bytes_from_path,
+    load_image_png_bytes_from_url,
+    load_pdf_pages_from_path,
+    load_pdf_pages_from_url,
     load_pil_image_from_bytes,
 )
+from tests.markers import requires_pdf_support
 
 
 def _create_jpg_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
@@ -26,6 +32,20 @@ def test_load_image_from_empty_bytes():
 
     with pytest.raises(ValueError, match="No image bytes"):
         load_pil_image_from_bytes(b"")
+
+
+def test_create_png_bytes_from_images():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+    assert len(png_bytes) > 50
+
+    png_bytes_list = create_png_bytes_from_image_list([pil_image, pil_image, pil_image])
+    assert len(png_bytes_list) == 3
+    assert png_bytes_list[0] == png_bytes
+    assert png_bytes_list[1] == png_bytes
+    assert png_bytes_list[2] == png_bytes
+
+    assert len(create_png_bytes_from_image_list([])) == 0
 
 
 def test_load_image_from_bytes():
@@ -100,3 +120,64 @@ def test_load_image_png_bytes_from_path():
 
         loaded_png_bytes2 = load_image_png_bytes_from_path(f"file://{png_filename}")
         assert loaded_png_bytes1 == loaded_png_bytes2
+
+
+def test_load_image_png_bytes_from_url():
+    pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
+    png_bytes = create_png_bytes_from_image(pil_image)
+    assert len(png_bytes) > 50
+
+    with responses.RequestsMock() as m:
+        m.add(
+            responses.GET,
+            "http://oumi.ai/test.png",
+            body=png_bytes,
+            stream=True,
+        )
+
+        loaded_png_bytes = load_image_png_bytes_from_url("http://oumi.ai/test.png")
+        assert len(loaded_png_bytes) > 0
+
+
+@requires_pdf_support()
+def test_load_pdf_pages_from_path(root_testdata_dir: Path):
+    pdf_filename: Path = (
+        Path(root_testdata_dir) / "pdfs" / "oumi_getting_started_full_4pages.pdf"
+    )
+
+    pil_pages = load_pdf_pages_from_path(pdf_filename)
+    assert len(pil_pages) == 4
+
+    pil_pages = load_pdf_pages_from_path(f"file://{pdf_filename}", dpi=300)
+    assert len(pil_pages) == 4
+    image_size = pil_pages[0].size
+
+    smaller_pil_pages = load_pdf_pages_from_path(pdf_filename, dpi=100)
+    assert len(smaller_pil_pages) == 4
+    smaller_image_size = smaller_pil_pages[0].size
+
+    ratio = float(image_size[0]) / float(smaller_image_size[0])
+    assert ratio == pytest.approx(3.0, 0.1)
+    ratio = float(image_size[1]) / float(smaller_image_size[1])
+    assert ratio == pytest.approx(3.0, 0.1)
+
+
+@requires_pdf_support()
+def test_load_pdf_pages_from_url(root_testdata_dir):
+    pdf_filename: Path = (
+        Path(root_testdata_dir) / "pdfs" / "oumi_getting_started_full_4pages.pdf"
+    )
+    pdf_bytes = pdf_filename.read_bytes()
+
+    with responses.RequestsMock() as m:
+        m.add(
+            responses.GET,
+            "http://oumi.ai/oumi_getting_started_full_4pages.pdf",
+            body=pdf_bytes,
+            stream=True,
+        )
+
+        pil_pages = load_pdf_pages_from_url(
+            "http://oumi.ai/oumi_getting_started_full_4pages.pdf"
+        )
+        assert len(pil_pages) == 4

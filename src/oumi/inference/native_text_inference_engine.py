@@ -28,9 +28,13 @@ from oumi.builders import (
     is_image_text_llm,
 )
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs.internal.supported_models import (
+    find_internal_model_config_using_model_name,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.types.conversation import Conversation, Message, Role, Type
+from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.conversation_utils import load_image_bytes_to_content_item
 from oumi.utils.image_utils import load_pil_image_from_bytes
 from oumi.utils.logging import logger
 
@@ -61,12 +65,23 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 f"Model {self._model_params.model_name} does not support generation."
             )
 
+        self._supports_multiple_images: bool = False
         if is_image_text_llm(self._model_params):
             # Only enable Processor for vision language models for now.
             self._processor = build_processor(
                 self._model_params.model_name,
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
+            )
+            internal_model_config = find_internal_model_config_using_model_name(
+                self._model_params.model_name,
+                trust_remote_code=self._model_params.trust_remote_code,
+            )
+
+            self._supports_multiple_images = (
+                (internal_model_config is not None)
+                and (internal_model_config.visual_config is not None)
+                and internal_model_config.visual_config.supports_multiple_images
             )
 
         # https://stackoverflow.com/questions/69609401/suppress-huggingface-logging-warning-setting-pad-token-id-to-eos-token-id
@@ -172,38 +187,31 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 item for m in conversation.messages for item in m.image_content_items
             ]
             num_images = len(image_items)
-            if num_images >= 1:
-                if num_images > 1:
-                    # FIXME OPE-355 Support multiple images
-                    logger.warning(
-                        conversation.append_id_to_string(
-                            f"A conversation contains multiple images ({num_images}). "
-                            "Only 1 image is currently supported. "
-                            "Using the last image."
-                        )
-                    )
-                if len(pil_images) != i:
+            if num_images > 0:
+                max_images = num_images if self._supports_multiple_images else 1
+                if num_images > max_images:
+                    # If a conversation contains too many images, raise an error.
+                    # We can't silently discard extra images at this point
+                    # as many models verify that the actual number of images matches
+                    # the number of image tokens in text prompt.
                     raise ValueError(
                         conversation.append_id_to_string(
-                            "All or none conversations in a batch must contain images."
+                            f"A conversation contains too many images ({num_images}). "
+                            f"Max {max_images} image is allowed."
                         )
                     )
-                image_item = image_items[-1]
-                if image_item.type != Type.IMAGE_BINARY:
-                    raise NotImplementedError(
-                        conversation.append_id_to_string(
-                            "Only binary image messages (`IMAGE_BINARY`) "
-                            f"are supported. Actual: {image_item.type}"
+
+                for idx, image_item in enumerate(image_items):
+                    image_item = load_image_bytes_to_content_item(image_item)
+                    if image_item.binary is None or len(image_item.binary) == 0:
+                        raise ValueError(
+                            conversation.append_id_to_string(
+                                "No image bytes "
+                                f"in image item {idx + 1} of {num_images}!"
+                            )
                         )
-                    )
-                elif image_item.binary is None or len(image_item.binary) == 0:
-                    raise ValueError(
-                        conversation.append_id_to_string(
-                            "No image bytes in a binary image message (`IMAGE_BINARY`)!"
-                        )
-                    )
-                image = load_pil_image_from_bytes(image_item.binary)
-                pil_images.append(image)
+                    image = load_pil_image_from_bytes(image_item.binary)
+                    pil_images.append(image)
 
         batch = self._processor(
             text=text_prompts,

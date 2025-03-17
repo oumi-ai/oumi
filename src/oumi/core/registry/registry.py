@@ -14,6 +14,7 @@
 
 import functools
 import importlib.util
+import inspect
 import os
 import sys
 from collections import namedtuple
@@ -28,9 +29,11 @@ class RegistryType(Enum):
     CLOUD = auto()
     DATASET = auto()
     METRICS_FUNCTION = auto()
+    REWARD_FUNCTION = auto()
     MODEL_CONFIG = auto()
     MODEL = auto()
     JUDGE_CONFIG = auto()
+    EVALUATION_FUNCTION = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -51,7 +54,7 @@ def _load_user_requirements(requirements_file: str):
     """Loads user-defined requirements from a file."""
     logger.info(f"Loading user-defined registry from: {requirements_file}")
     logger.info(
-        "This value can be set using the OUMI_EXTRA_DEPS_FILE " "environment variable."
+        "This value can be set using the OUMI_EXTRA_DEPS_FILE environment variable."
     )
     requirements_path = Path(requirements_file)
     if not requirements_path.exists():
@@ -67,15 +70,11 @@ def _load_user_requirements(requirements_file: str):
                 continue
             import_count += 1
             import_path = Path(line)
-            logger.debug(f"Loading user-defined registry module: {import_path}")
-            mod_name = f"oumi_registry_user_defined_module_{idx}"
-            spec = importlib.util.spec_from_file_location(mod_name, import_path)
-            if not spec or not spec.loader:
-                raise ImportError(f"Failed to load user-defined module: {line}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[mod_name] = module
+            logger.info(f"Loading user-defined registry module: {import_path}")
+            mod_name = import_path.stem
+            sys.path.append(str(import_path.parent))
             try:
-                spec.loader.exec_module(module)
+                importlib.import_module(mod_name)
             except Exception as e:
                 logger.error(
                     "Failed to load a user-defined module in "
@@ -139,6 +138,12 @@ class Registry:
                 f"Registry: `{name}` of `{type}` "
                 f"is already registered as `{current_value}`."
             )
+        if type in (
+            RegistryType.METRICS_FUNCTION,
+            RegistryType.REWARD_FUNCTION,
+        ) and not callable(value):
+            raise ValueError(f"Registry: `{name}` of `{type}` must be callable.")
+
         self._registry[registry_key] = value
 
     @_register_dependencies
@@ -175,9 +180,17 @@ class Registry:
         """Gets a record that corresponds to a registered metrics function."""
         return self.get(name, RegistryType.METRICS_FUNCTION)
 
+    def get_reward_function(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered rewards function."""
+        return self.get(name, RegistryType.REWARD_FUNCTION)
+
     def get_judge_config(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered judge config."""
         return self.get(name, RegistryType.JUDGE_CONFIG)
+
+    def get_evaluation_function(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered evaluation function."""
+        return self.get(name, RegistryType.EVALUATION_FUNCTION)
 
     def get_dataset(
         self, name: str, subset: Optional[str] = None
@@ -313,6 +326,50 @@ def register_judge(registry_name: str) -> Callable:
     def decorator_register(obj):
         """Decorator to register its target builder."""
         REGISTRY.register(name=registry_name, type=RegistryType.JUDGE_CONFIG, value=obj)
+        return obj
+
+    return decorator_register
+
+
+def register_evaluation_function(registry_name: str) -> Callable:
+    """Returns function to register an evaluation function in the Oumi global registry.
+
+    Args:
+        registry_name: The name that the evaluation function should be registered with.
+
+    Returns:
+        Decorator function to register the target evaluation function.
+    """
+
+    def check_evaluation_function_signature(evaluation_fn):
+        if not callable(evaluation_fn):
+            raise TypeError(
+                f"Registry `{registry_name}` does not correspond to a callable object. "
+                "It is required that registered evaluation functions of type "
+                f"`{RegistryType.EVALUATION_FUNCTION}` must be callable."
+            )
+
+        signature = inspect.signature(evaluation_fn)
+        if (
+            "task_params" not in signature.parameters
+            or "config" not in signature.parameters
+        ):
+            raise TypeError(
+                f"The evaluation function ({registry_name}) can not be registered "
+                "because it does not have the correct signature. This function "
+                "must have `task_params` (type: `EvaluationTaskParams`) and `config` "
+                "(type: `EvaluationConfig`) as input arguments and return a value "
+                "(type:`EvaluationResult`). However, the signature that was provided "
+                f"is: {inspect.signature(evaluation_fn)}"
+            )
+
+    def decorator_register(obj):
+        """Decorator to register its target `obj`."""
+        check_evaluation_function_signature(obj)
+
+        REGISTRY.register(
+            name=registry_name, type=RegistryType.EVALUATION_FUNCTION, value=obj
+        )
         return obj
 
     return decorator_register

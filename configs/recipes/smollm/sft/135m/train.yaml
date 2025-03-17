@@ -1,5 +1,8 @@
 # FFT config for SmolLM 135M Instruct.
 #
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
 # Usage:
 #   oumi train -c configs/recipes/smollm/sft/135m/train.yaml
 #

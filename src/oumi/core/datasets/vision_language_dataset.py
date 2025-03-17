@@ -12,44 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from abc import ABC, abstractmethod
-from typing import NamedTuple, Optional
+from typing import Optional
 
-import numpy as np
-import torch
-from PIL import Image
 from typing_extensions import override
 
-from oumi.core.configs.internal.internal_model_config import (
-    InternalFeatureFirstDimAction,
-    InternalModelConfig,
-)
-from oumi.core.configs.internal.supported_models import (
-    find_internal_model_config_using_model_name,
-    get_default_vlm_model_config,
-)
 from oumi.core.datasets import BaseSftDataset
+from oumi.core.feature_generators import VisionLanguageConversationFeatureGenerator
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
-    ContentItem,
     Conversation,
 )
-from oumi.utils.conversation_utils import load_pil_image_from_content_item
-from oumi.utils.logging import logger
-from oumi.utils.torch_utils import get_first_dim_len
-
-
-class _SpecialTokens(NamedTuple):
-    """Special tokens used by VisionLanguageSftDataset."""
-
-    image_token: Optional[str]
-    image_token_id: Optional[int]
-    label_ignore_index: Optional[int]
-
-    pad_token_id: int
-    """Token id of `PAD` token."""
+from oumi.utils.conversation_utils import remove_excessive_images_from_conversation
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -89,64 +64,50 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
     def __init__(
         self,
         *,
+        return_conversations: bool = False,
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
+        max_images: Optional[int] = None,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the VisionLanguageDataset class."""
+        """Initializes a new instance of the VisionLanguageDataset class.
+
+        If `return_conversations` is True, the dataset will return dictionaries
+            containing just JSON-encoded `Conversation` objects:
+            {"conversation_json": conversation.to_json()}
+        Otherwise, the dataset will return dictionaries containing model inputs:
+            {"input_ids": ..., "attention_mask": ..., "pixel_values": ...}
+
+        Args:
+            tokenizer: A tokenizer for encoding text data.
+            processor: An optional processor object for generating features.
+            processor_name: The name of the processor to use for feature generation.
+            limit: An optional limit on the number of examples to load.
+            trust_remote_code: Whether to trust remote code execution for the processor.
+            return_conversations: Whether to return raw `Conversation` objects.
+            max_images: The maximum number of images per conversation.
+                If the limit is exceeded, the first N images are kept.
+                If None or negative, all images are kept intact.
+                If 0, all images are dropped.
+            **kwargs: Additional keyword arguments to pass to the base class.
+        """
         super().__init__(tokenizer=tokenizer, **kwargs)
-        # Importing these here to avoid circular dependencies
-        from oumi.builders.processors import build_processor
 
-        if tokenizer is None:
-            raise ValueError(
-                f"Tokenizer must be provided for {self.__class__.__name__}"
+        self._max_images = max_images
+
+        self._feature_generator = (
+            None
+            if return_conversations
+            else VisionLanguageConversationFeatureGenerator(
+                tokenizer=tokenizer,
+                processor=processor,
+                processor_name=processor_name,
+                trust_remote_code=trust_remote_code,
+                return_tensors=self._return_tensors,
             )
-        elif not hasattr(tokenizer, "pad_token_id") or tokenizer.pad_token_id is None:
-            raise RuntimeError("Tokenizer doesn't define `pad_token_id`.")
-        elif not isinstance(tokenizer.pad_token_id, int):
-            raise RuntimeError(
-                "Tokenizer's `pad_token_id` is not an integer. "
-                f"Type: {type(tokenizer.pad_token_id)}"
-            )
-
-        if processor is not None:
-            if processor_name:
-                logger.warning(
-                    "Both processor and processor_name are provided. "
-                    f"Ignoring processor_name: {processor_name}"
-                )
-        elif processor_name:
-            processor = build_processor(
-                processor_name, tokenizer, trust_remote_code=trust_remote_code
-            )
-        else:
-            raise ValueError(
-                "At least one of processor or processor_name must provided."
-            )
-
-        assert processor is not None
-        if not callable(processor):
-            raise ValueError("Processor is not callable!")
-
-        self._processor: BaseProcessor = processor
-        self._image_processor = self._processor.image_processor
-
-        self._internal_model_config: InternalModelConfig = (
-            find_internal_model_config_using_model_name(
-                self._processor.processor_name, trust_remote_code=trust_remote_code
-            )
-            or get_default_vlm_model_config()
-        )
-
-        self._special_tokens: _SpecialTokens = _SpecialTokens(
-            image_token=self._processor.image_token,
-            image_token_id=self._processor.image_token_id,
-            label_ignore_index=self._processor.label_ignore_index,
-            pad_token_id=int(tokenizer.pad_token_id),
         )
 
         if limit is not None:
@@ -177,207 +138,16 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         Returns:
             dict: A dictionary of inputs for a model.
         """
-        if self._processor is None:
-            raise ValueError("Processor required for transform")
-
         conversation = self.transform_conversation(sample)
-
-        if self._processor.chat_template is None:
-            image, prompt = self._prepare_simple_model(conversation)
-
-            inputs = self._processor(
-                images=[image],
-                text=[prompt],
-                return_tensors=self._return_tensors,
-                padding=True,
-            )
-        else:
-            images, prompt = self._prepare_instruct_model(conversation)
-
-            inputs = self._processor(
-                images=images,
-                text=[prompt],
-                return_tensors=self._return_tensors,
-                padding=True,
+        if self._max_images is not None and self._max_images >= 0:
+            conversation = remove_excessive_images_from_conversation(
+                conversation, max_images=self._max_images
             )
 
-        # Clone `input_ids` as `labels`.
-        input_ids = inputs["input_ids"]
-        if isinstance(input_ids, torch.Tensor):
-            inputs["labels"] = input_ids.clone()
-        else:
-            inputs["labels"] = copy.deepcopy(input_ids)
+        if self._feature_generator is None:
+            # This is only compatible with `use_torchdata=True`
+            # as HF loaders expect certain keys like `input_ids`.
+            conversation_json = conversation.to_json()
+            return {"conversation_json": conversation_json}
 
-        # Processors by default return a list of tensors for each key
-        # We need to squeeze the first dimension so that it works with the data-loader
-        # Images will be of shape (C, H, W) and texts will be of shape (T)
-        # However, this is going to break models that support multiple images
-        # TODO: OPE-355 add support for multiple images
-        for (
-            feature_name,
-            feature_spec,
-        ) in self._internal_model_config.model_input_features.items():
-            if (not feature_spec.required) and (feature_name not in inputs):
-                continue
-            x = inputs[feature_name]
-
-            if not isinstance(x, (list, torch.Tensor, np.ndarray)):
-                raise ValueError(
-                    f"Unexpected type of the feature '{feature_name}': {type(x)}"
-                )
-
-            first_dim_action = feature_spec.first_dim_action
-
-            if first_dim_action in (
-                InternalFeatureFirstDimAction.DROP_ALWAYS,
-                InternalFeatureFirstDimAction.DROP_IF_DUMMY,
-            ):
-                first_dim_len = get_first_dim_len(x)
-                if first_dim_len <= 0:
-                    raise ValueError(
-                        f"Empty first dimension for the feature '{feature_name}'."
-                    )
-                drop_first_dim = (
-                    first_dim_action == InternalFeatureFirstDimAction.DROP_ALWAYS
-                    or first_dim_len <= 1
-                )
-                if first_dim_len > 1 and drop_first_dim:
-                    logger.warning(
-                        "The first dimension is non-dummy for "
-                        f"the feature: '{feature_name}' (Length: {first_dim_len}). "
-                        "Only the first element is kept, others are dropped, "
-                        "which may lead to data loss, and to tensor shape errors."
-                    )
-                if drop_first_dim:
-                    inputs[feature_name] = x[0]
-                else:
-                    inputs[feature_name] = x
-            else:
-                assert (
-                    feature_spec.first_dim_action == InternalFeatureFirstDimAction.KEEP
-                )
-                inputs[feature_name] = x
-
-        # Ignore `image_token_id`-s in the loss computation.
-        if (
-            self._special_tokens.label_ignore_index is not None
-            and self._special_tokens.image_token_id is not None
-        ):
-            labels = inputs["labels"]
-            image_token_id = int(self._special_tokens.image_token_id)
-            label_ignore_index = int(self._special_tokens.label_ignore_index)
-            if isinstance(labels, (torch.Tensor, np.ndarray)):
-                # Modify in-place
-                labels[labels == image_token_id] = label_ignore_index
-            else:
-                # Create numpy array, modify, and copy back.
-                labels = np.array(labels)
-                labels[labels == image_token_id] = label_ignore_index
-                inputs["labels"] = labels.tolist()
-        elif (
-            self._internal_model_config is not None
-            and self._internal_model_config.sanitize_negative_labels
-        ):
-            # Some VLM-s may generate negative input_ids for image tokens.
-            # For example, Phi3-Vision generates `-N` input ids for
-            # "<|image_N|>" tokens. It can cause CUDA errors during loss
-            # computation as loss function may assume all labels are
-            # within the [0, num_classes) range.
-            # The code below attempts to sanitize labels by resetting all negative
-            # labels to `label_ignore_index` (if provided) or to PAD token index.
-            #
-            # TODO OPE-701 Consider having a more general configuration per model type.
-            labels = inputs["labels"]
-            sanitized_label_target = int(
-                self._special_tokens.pad_token_id
-                if (
-                    self._special_tokens.label_ignore_index is None
-                    or self._special_tokens.label_ignore_index < 0
-                )
-                else self._special_tokens.label_ignore_index
-            )
-            assert sanitized_label_target >= 0
-            if isinstance(labels, torch.Tensor):
-                # Modify in-place
-                labels[labels < 0] = sanitized_label_target
-            elif isinstance(labels, np.ndarray):
-                # Modify in-place
-                labels[labels < 0] = sanitized_label_target
-            else:
-                # Create numpy array, modify, and copy back.
-                labels = np.array(labels)
-                labels[labels < 0] = sanitized_label_target
-                inputs["labels"] = labels.tolist()
-
-        return inputs.data
-
-    def _prepare_simple_model(
-        self, conversation: Conversation
-    ) -> tuple[Image.Image, str]:
-        """Prepares the images and prompt for a simple model.
-
-        Simple models only use the last image and text turn in the conversation. They
-        don't use the chat template, so the prompt is just the last text turn.
-        """
-        image_turns = [turn for turn in conversation.messages if turn.contains_images()]
-        text_turns = [turn for turn in conversation.messages if turn.contains_text()]
-
-        if len(image_turns) == 0:
-            raise ValueError("Conversation must contain at least one image turn")
-        if len(text_turns) == 0:
-            raise ValueError("Conversation must contain at least one text turn")
-
-        last_image_item: ContentItem = image_turns[-1].image_content_items[-1]
-        last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
-
-        prompt = last_text_item.content or ""
-        image = self._load_image(last_image_item)
-
-        return image, prompt
-
-    def _prepare_instruct_model(
-        self, conversation: Conversation
-    ) -> tuple[list[Image.Image], str]:
-        """Prepares the images and prompt for an instruct model.
-
-        Instruct models use the chat template to generate the prompt, and can include
-        multiple images and text turns.
-        """
-        if self._processor is None:
-            raise ValueError("Processor is required for instruct model")
-
-        # Generates the prompt using the chat template
-        # including image placeholders for each image in the conversation
-        messages = []
-        for turn in conversation.messages:
-            if turn.contains_text() or turn.contains_images():
-                messages.append(turn)
-            else:
-                raise ValueError(
-                    f"Unsupported message: {turn.id}. Contains no text and no images."
-                )
-
-        text_prompt = self._processor.apply_chat_template(
-            messages, add_generation_prompt=False
-        )
-
-        # Loads the images from the conversation
-        image_items = [
-            item for turn in conversation.messages for item in turn.image_content_items
-        ]
-        images = [self._load_image(item) for item in image_items]
-
-        return images, text_prompt
-
-    def _load_image(self, image_item: ContentItem) -> Image.Image:
-        """Loads an image from a message.
-
-        Args:
-            image_item (`ContentItem`): A content item representing an image.
-
-        Returns:
-            Image.Image: A PIL image.
-        """
-        if self._image_processor is None:
-            raise ValueError("Processor required for transform")
-        return load_pil_image_from_content_item(image_item)
+        return self._feature_generator.transform_conversation(conversation, None)
