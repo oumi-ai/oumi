@@ -251,6 +251,7 @@ class ContentItem(pydantic.BaseModel):
             return ContentItem(
                 type=_convert_proto_type_to_type(item_proto.type),
                 binary=item_proto.blob.binary_data,
+                content=(item_proto.content or None),
             )
         return ContentItem(
             type=_convert_proto_type_to_type(item_proto.type),
@@ -425,13 +426,13 @@ class Message(pydantic.BaseModel):
             message_proto.parts[0].type == ContentPartProto.TEXT
         ):
             return Message(
-                id=message_proto.id,
+                id=(message_proto.id or None),
                 role=_convert_proto_role_to_role(message_proto.role),
                 content=message_proto.parts[0].content,
             )
 
         return Message(
-            id=message_proto.id,
+            id=(message_proto.id or None),
             role=_convert_proto_role_to_role(message_proto.role),
             content=[ContentItem.from_proto(part) for part in message_proto.parts],
         )
