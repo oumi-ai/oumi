@@ -200,15 +200,15 @@ class ModelParameterCount:
 
     @property
     def trainable_params_percent(self) -> float:
-        """Percentage of trainable parameters [0.0, 100.0], rounded to 2 decimals."""
+        """Percentage of trainable parameters [0.0, 100.0]."""
         if self.all_params == 0:
             return 0.0
-        return round(100 * self.trainable_params / self.all_params, 2)
+        return 100 * self.trainable_params / self.all_params
 
     @property
     def frozen_params_percent(self) -> float:
-        """Percentage of frozen parameters [0.0, 100.0], rounded to 2 decimals."""
-        return round(100.0 - self.trainable_params_percent, 2)
+        """Percentage of frozen parameters [0.0, 100.0]."""
+        return 100.0 - self.trainable_params_percent
 
 
 def _get_parameter_names(
