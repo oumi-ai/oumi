@@ -74,6 +74,12 @@ class InternalFeatureSpec(NamedTuple):
 
 @dataclass
 class InternalVisualModelConfig(BaseConfig):
+    image_input_features_key: str = "pixel_values"
+    """The key corresponding to the main image feature consumed by the model.
+
+    E.g., raw pixels, transformed image patches, etc. resulting from data
+    preprocessing and consumed by the underlying model."""
+
     variable_shape_image_features: bool = False
     """Whether image features can be of variable shape.
 

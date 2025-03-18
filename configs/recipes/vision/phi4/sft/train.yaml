@@ -20,13 +20,16 @@ model:
   model_max_length: 4096
   trust_remote_code: True
   attn_implementation: "flash_attention_2" # The model requires Flash Attention.
-  # chat_template: "phi3-instruct"
-  # freeze_layers:
-    # - "model.image_embed"
+  chat_template: "phi3-instruct"
+  # chat_template: "phi4-multimodal-instruct" # not working
+  freeze_layers: ## OK - the model had already frozen those. The real question is if we can unfreeze them - and to who many more models this is happening (TODO).
+    - "model.embed_tokens_extend.audio_embed" # Freeze audio related params.
+    - "model.embed_tokens_extend.image_embed" # Uncomment to freeze image rel. params.
 
 data:
   train:
     collator_name: "vision_language_with_padding"
+    # collator_name:  "vision_language_sft"
     use_torchdata: true
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -67,14 +70,14 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 1 # TODO: ablate.
+  per_device_train_batch_size: 1 # Due to variable sized img features.
   gradient_accumulation_steps: 8
   max_steps: 20
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  ddp_find_unused_parameters: False
+  ddp_find_unused_parameters: True # Important - check why.
 
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5

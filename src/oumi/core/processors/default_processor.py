@@ -186,6 +186,13 @@ class DefaultProcessor(BaseProcessor):
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):
+            for ignore_key in (
+                "audio_attention_mask",
+                "audio_embed_sizes",
+                "input_audio_embeds",
+            ):
+                del result[ignore_key]
+
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors
             )

@@ -201,28 +201,44 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
 
 
 def _create_phi4_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(
-        pixel_values_variable_shape=True,
-        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
-        supports_multiple_images=False,
+    config = InternalModelConfig()
+    # config.chat_template = "phi3-instruct"
+    config.chat_template = "phi4-multimodal-instruct"  ## FIXME.
+
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=True,
+                image_dependent=True,
+                first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+            )
+            for feature_name in (
+                "input_image_embeds",
+                "image_attention_mask",
+            )
+        }
     )
-    config.chat_template = "phi3-instruct"
-    # del config.model_input_features['pixel_values'] # TODO-has to be parameterized
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+                image_dependent=True,
+            )
+            for feature_name in ("image_sizes",)
+        }
+    )
+    visual_config = InternalVisualModelConfig()
+    visual_config.supports_multiple_images = False
+    visual_config.variable_shape_image_features = True
+    visual_config.image_input_features_key = "input_image_embeds"
 
+    config.visual_config = visual_config
     config.label_ignore_index = None
-
-    # config.sanitize_negative_labels = True
-    # config.model_input_features.update(
-    #     {
-    #         feature_name: InternalFeatureSpec(
-    #             name=feature_name,
-    #             required=True,
-    #             variable_shape=False,
-    #             image_dependent=True,
-    #         )
-    #         for feature_name in ("image_sizes",)
-    #     }
-    # )
+    config.sanitize_negative_labels = True
     return config
 
 
