@@ -3,7 +3,6 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/phi4/sft/gcp_job.yaml --cluster phi4-multimodal

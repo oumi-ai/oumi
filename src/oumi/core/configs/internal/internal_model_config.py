@@ -139,5 +139,8 @@ class InternalModelConfig(BaseConfig):
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Extra params to pass to processor constructor."""
 
+    ignore_keys: list[str] = field(default_factory=list)
+    """Keys corresponding to input to ignore in the model's forward method."""
+
     visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""

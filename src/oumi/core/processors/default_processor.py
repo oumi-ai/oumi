@@ -40,6 +40,7 @@ class DefaultProcessor(BaseProcessor):
         tokenizer: BaseTokenizer,
         *,
         label_ignore_index: Optional[int],
+        ignore_keys: Optional[list[str]] = None,
     ):
         """Initializes the processor."""
         if not processor_name:
@@ -63,7 +64,7 @@ class DefaultProcessor(BaseProcessor):
         self._tokenizer: BaseTokenizer = tokenizer
 
         # Use chat template from tokenizer.
-        if self._worker_processor.chat_template is None:  # TODO WIP
+        if self._worker_processor.chat_template is None:
             self._worker_processor.chat_template = tokenizer.chat_template
         else:
             assert self._worker_processor.chat_template == tokenizer.chat_template
@@ -77,6 +78,7 @@ class DefaultProcessor(BaseProcessor):
                 self._worker_processor.image_processor
             )
         self._label_ignore_index: Optional[int] = label_ignore_index
+        self._ignore_keys: Optional[list[str]] = ignore_keys
 
     @property
     @override
@@ -152,6 +154,12 @@ class DefaultProcessor(BaseProcessor):
         """Returns a label ignore index."""
         return self._label_ignore_index
 
+    @property
+    @override
+    def ignore_keys(self) -> list[str]:
+        """Returns ignore keys list."""
+        return self._ignore_keys if self._ignore_keys else []
+
     @override
     def __call__(
         self,
@@ -186,11 +194,7 @@ class DefaultProcessor(BaseProcessor):
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):
-            for ignore_key in (
-                "audio_attention_mask",
-                "audio_embed_sizes",
-                "input_audio_embeds",
-            ):
+            for ignore_key in self.ignore_keys:
                 del result[ignore_key]
 
             result = transformers.BatchEncoding(

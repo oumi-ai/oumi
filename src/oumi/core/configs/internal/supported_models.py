@@ -202,8 +202,12 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
 
 def _create_phi4_vlm_config() -> InternalModelConfig:
     config = InternalModelConfig()
-    # config.chat_template = "phi3-instruct"
-    config.chat_template = "phi4-multimodal-instruct"  ## FIXME.
+    config.chat_template = "phi3-instruct"
+    config.ignore_keys = [
+        "audio_attention_mask",  # We won't use audio features.
+        "audio_embed_sizes",
+        "input_audio_embeds",
+    ]
 
     config.model_input_features.update(
         {

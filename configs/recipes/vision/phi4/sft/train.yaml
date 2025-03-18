@@ -1,4 +1,10 @@
-# Phi-3-vision-128k-instruct training config for full (all-parameters) finetuning.
+# Phi-4-multimodal-instruct training config for SFT finetuning.
+#
+# Phi-4-multimodal-instruct is a multimodal model that combines text, visual, and audio # inputs. It uses a "Mixture of LoRAs" approach, allowing you to plug in adapters for
+# each modality without needing to retrain the base model.
+#
+# Important Note: Oumi has currently integrated and fully tested Phi-4 for vision and
+# text modalities only (!).
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
@@ -20,11 +26,10 @@ model:
   model_max_length: 4096
   trust_remote_code: True
   attn_implementation: "flash_attention_2" # The model requires Flash Attention.
-  chat_template: "phi3-instruct"
-  # chat_template: "phi4-multimodal-instruct" # not working
-  freeze_layers: ## OK - the model had already frozen those. The real question is if we can unfreeze them - and to who many more models this is happening (TODO).
-    - "model.embed_tokens_extend.audio_embed" # Freeze audio related params.
-    - "model.embed_tokens_extend.image_embed" # Uncomment to freeze image rel. params.
+
+  # The model by default freezes the following audio/image-related modules:
+  #   model.embed_tokens_extend.audio_embed
+  #   model.embed_tokens_extend.image_embed
 
 data:
   train:
@@ -91,5 +96,4 @@ training:
   dataloader_num_workers: 4
   dataloader_prefetch_factor: 8
   include_performance_metrics: True
-  log_model_summary: False
   enable_wandb: True

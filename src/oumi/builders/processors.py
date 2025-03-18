@@ -50,9 +50,11 @@ def build_processor(
 
     # Initialize model-specific params.
     label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
+    ignore_keys: Optional[list[str]] = None
     processor_kwargs = {}
     if model_config is not None:
         label_ignore_index = model_config.label_ignore_index
+        ignore_keys = model_config.ignore_keys
         processor_kwargs.update(model_config.processor_kwargs)
 
     create_processor_fn = functools.partial(
@@ -70,4 +72,5 @@ def build_processor(
         worker_processor,
         tokenizer,
         label_ignore_index=label_ignore_index,
+        ignore_keys=ignore_keys,
     )
