@@ -123,8 +123,8 @@ def compute_utf8_len(s: str) -> int:
 
 
 def get_editable_install_override() -> bool:
-    """Returns whether OUMI_TRY_EDITABLE_INSTALL env var is set to a truthy value."""
-    s = os.environ.get("OUMI_TRY_EDITABLE_INSTALL", "")
+    """Returns whether OUMI_FORCE_EDITABLE_INSTALL env var is set to a truthy value."""
+    s = os.environ.get("OUMI_FORCE_EDITABLE_INSTALL", "")
     mode = s.lower().strip()
     bool_result = try_str_to_bool(mode)
     if bool_result is not None:
@@ -153,42 +153,40 @@ def set_oumi_install_editable(setup: str) -> str:
         if line.strip().startswith("#"):
             continue
 
-        # Only consider lines with the words "pip" "install" "oumi" in that order.
-        # This is to try to handle cases where those words may appear multiple times
-        # in the line for some reason, but this logic may not be perfect.
-        pip_idx = line.find("pip")
-        install_idx = line.find("install", pip_idx)
-        oumi_idx = line.find("oumi", install_idx)
-        if not (pip_idx != -1 and install_idx != -1 and oumi_idx != -1):
+        # In summary, this regex looks for variants of `pip install oumi` and replaces
+        # the oumi package with an editable install from the current directory.
+        #
+        # It captures any misc. tokens like flags for the pip and
+        # install commands, in addition to any optional dependencies oumi is installed
+        # with.
+        # Tip: Use https://regexr.com/ or an LLM to help understand the regex.
+        #
+        # `((?:[-'\"\w]+ +)*)` matches whitespace-separated tokens potentially
+        # containing quotes, such as flag names and values.
+        # `((?:[-'\",\[\]\w]+ +)*)` does the same, with the addition of commas and
+        # brackets, which may be present for packages with optional dependencies.
+        # Since these don't include special characters like && and ;, it shouldn't span
+        # across multiple pip install commands.
+        # `(?<!-e )`` means we don't match if the previous token is -e. This means an
+        # editable install of a local dir called "oumi" is being done, so we skip it.
+        # We ideally should check for `--editable` as well, but Python re doesn't
+        # support lookbehinds with variable length.
+        # We additionally consume quotation marks around oumi if present.
+        # Finally, `(\[[^\]]*\])?['\"]?` captures optional dependencies, if present.
+        pattern = (
+            r"pip3? +((?:[-'\"\w]+ +)*)install +((?:[-'\",\[\]\w]+ +)*)"
+            r"(?<!-e )['\"]?oumi(\[[^\]]*\])?['\"]?"
+        )
+        # Compared to the pattern we captured, the changes are replacing `oumi` with
+        # `.` and adding `-e` to make the install editable.
+        replacement = r"pip \1install \2-e '.\3'"
+
+        result = re.sub(pattern, replacement, line)
+        if result == line:
             continue
-        # Find the last occurrences of "pip" and "install", in case one line has
-        # multiple pip installs, ex. `pip install uv && uv pip install oumi`.
-        install_idx = line.rfind("install", 0, oumi_idx)
-        pip_idx = line.rfind("pip", 0, install_idx)
-
-        # The oumi import could be followed by optional dependencies, ex. "oumi[gpu]".
-        # We need to extract the exact oumi install string.
-        oumi_end_idx = oumi_idx + 4
-        while oumi_end_idx < len(line) and not line[oumi_end_idx].isspace():
-            oumi_end_idx += 1
-        oumi_install = line[oumi_idx:oumi_end_idx]
-
-        # Replace the oumi install with local editable install.
-        # Ex. oumi[gpu,dev] -> '.[gpu,dev]'
-        local_install = f"'.{oumi_install[4:]}'"
-        line = line.replace(oumi_install, local_install)
-        # Add the editable flag if not already present.
-        # If already present, the flag should be after "install" and before the packages
-        # to install, i.e. oumi in this case.
-        edit_flag_idx = line.find("-e", install_idx)
-        # If the editable flag is not present or is after the oumi install, add it.
-        if edit_flag_idx == -1 or edit_flag_idx > oumi_idx:
-            line = line[:install_idx] + line[install_idx:].replace(
-                "install", "install -e"
-            )
         # Replace the line in the setup script.
         logger = logging.getLogger("oumi")
-        logger.info(f"Detected the following oumi installation: `{setup_lines[i]}`")
-        logger.info(f"Replaced with: `{line}`")
-        setup_lines[i] = line
+        logger.info(f"Detected the following oumi installation: `{line}`")
+        logger.info(f"Replaced with: `{result}`")
+        setup_lines[i] = result
     return "\n".join(setup_lines)

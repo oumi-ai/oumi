@@ -171,12 +171,12 @@ class JobConfig(BaseConfig):
     @override
     def __finalize_and_validate__(self):
         """Finalizes and validates the configuration."""
-        # (experimental) If the OUMI_TRY_EDITABLE_INSTALL env var is set to a truthy
+        # (experimental) If the OUMI_FORCE_EDITABLE_INSTALL env var is set to a truthy
         # value, attempt to modify the setup script in the job config to install Oumi in
         # editable mode from source, as opposed to installing from PyPI.
         if get_editable_install_override() and self.setup:
             logger.info(
-                "OUMI_TRY_EDITABLE_INSTALL detected! Attempting to modify job config's "
-                "`setup` to install Oumi in editable mode from source..."
+                "OUMI_FORCE_EDITABLE_INSTALL detected! Attempting to modify job "
+                "config's `setup` to install Oumi in editable mode from source..."
             )
             self.setup = set_oumi_install_editable(self.setup)

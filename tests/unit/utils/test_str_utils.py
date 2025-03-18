@@ -109,7 +109,7 @@ def test_compute_utf8_len():
 def test_get_editable_install_override(env_var_val: Optional[str], expected_val: bool):
     overrides = {}
     if env_var_val is not None:
-        overrides = {"OUMI_TRY_EDITABLE_INSTALL": env_var_val}
+        overrides = {"OUMI_FORCE_EDITABLE_INSTALL": env_var_val}
     with patch.dict(os.environ, overrides, clear=True):
         assert get_editable_install_override() == expected_val
 
@@ -118,30 +118,30 @@ def test_get_editable_install_override(env_var_val: Optional[str], expected_val:
     "setup,output_setup",
     [
         (
-            "pip install oumi[gpu]",
+            "pip install 'oumi[gpu]'",
             "pip install -e '.[gpu]'",
         ),
         (
             """
             #A comment
-            pip install -e uv && uv pip -q install oumi[gpu,dev] vllm # comment
-            pip install -e oumi
+            pip install -e uv && uv pip -q install "oumi[gpu,dev]" vllm # comment
+            pip install -e "oumi"
             """,
             """
             #A comment
             pip install -e uv && uv pip -q install -e '.[gpu,dev]' vllm # comment
-            pip install -e '.'
+            pip install -e "oumi"
             """,
         ),
         (
             """
             #A comment
-            pip -q install oumi vllm
+            pip -q --debug install -U "skypilot[azure]" oumi vllm "wandb" # Foo.
             print("All done")
             """,
             """
             #A comment
-            pip -q install -e '.' vllm
+            pip -q --debug install -U "skypilot[azure]" -e '.' vllm "wandb" # Foo.
             print("All done")
             """,
         ),
