@@ -218,10 +218,8 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
     assert dataset.num_rows > 0, debug_tag
     assert dataset.num_rows <= info.max_rows, debug_tag
 
-    # TODO: Remove this once we have a way to handle the expected rows for
-    # pixmo datasets
-    # if info.expected_rows is not None:
-    #     assert dataset.num_rows == info.expected_rows, debug_tag
+    if info.expected_rows is not None:
+        assert dataset.num_rows == info.expected_rows, debug_tag
 
     assert "input_ids" in dataset.features, debug_tag
     assert "attention_mask" in dataset.features, debug_tag

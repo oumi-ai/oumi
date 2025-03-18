@@ -45,10 +45,9 @@ def test_pixmo_ask_model_anything_dataset(sample_pixmo_ask_model_anything_entry)
         dataset = PixmoAskModelAnythingDataset()
     conversation = dataset.transform_conversation(sample_pixmo_ask_model_anything_entry)
     assert isinstance(conversation, Conversation)
-    assert len(conversation.messages) == 3
+    assert len(conversation.messages) == 2
     assert conversation.messages[0].role == Role.USER
-    assert conversation.messages[1].role == Role.USER
-    assert conversation.messages[2].role == Role.ASSISTANT
+    assert conversation.messages[1].role == Role.ASSISTANT
 
 
 def test_pixmo_cap_dataset(sample_pixmo_cap_entry):
@@ -56,10 +55,9 @@ def test_pixmo_cap_dataset(sample_pixmo_cap_entry):
         dataset = PixmoCapDataset()
     conversation = dataset.transform_conversation(sample_pixmo_cap_entry)
     assert isinstance(conversation, Conversation)
-    assert len(conversation.messages) >= 3
+    assert len(conversation.messages) >= 2
     assert conversation.messages[0].role == Role.USER
     assert conversation.messages[1].role == Role.ASSISTANT
-    assert conversation.messages[2].role == Role.ASSISTANT
 
 
 def test_pixmo_cap_qa_dataset(sample_pixmo_cap_qa_entry):
