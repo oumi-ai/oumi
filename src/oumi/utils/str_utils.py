@@ -122,7 +122,7 @@ def compute_utf8_len(s: str) -> int:
     return len(s.encode("utf-8"))
 
 
-def get_editable_install_override() -> bool:
+def get_editable_install_override_env_var() -> bool:
     """Returns whether OUMI_FORCE_EDITABLE_INSTALL env var is set to a truthy value."""
     s = os.environ.get("OUMI_FORCE_EDITABLE_INSTALL", "")
     mode = s.lower().strip()

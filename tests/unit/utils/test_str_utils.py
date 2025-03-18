@@ -6,7 +6,7 @@ import pytest
 
 from oumi.utils.str_utils import (
     compute_utf8_len,
-    get_editable_install_override,
+    get_editable_install_override_env_var,
     sanitize_run_name,
     set_oumi_install_editable,
     str_to_bool,
@@ -111,7 +111,7 @@ def test_get_editable_install_override(env_var_val: Optional[str], expected_val:
     if env_var_val is not None:
         overrides = {"OUMI_FORCE_EDITABLE_INSTALL": env_var_val}
     with patch.dict(os.environ, overrides, clear=True):
-        assert get_editable_install_override() == expected_val
+        assert get_editable_install_override_env_var() == expected_val
 
 
 @pytest.mark.parametrize(
