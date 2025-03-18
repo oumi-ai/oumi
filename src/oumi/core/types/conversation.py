@@ -21,19 +21,7 @@ from typing import Any, Callable, Final, NamedTuple, Optional, Union
 import pydantic
 from jinja2 import Template
 
-from oumi.core.types.proto.generated.conversation_pb2 import (
-    ContentPart as ContentPartProto,
-)
-from oumi.core.types.proto.generated.conversation_pb2 import (
-    Conversation as ConversationProto,
-)
-from oumi.core.types.proto.generated.conversation_pb2 import (
-    DataBlob as DataBlobProto,
-)
-from oumi.core.types.proto.generated.conversation_pb2 import (
-    Message as MessageProto,
-)
-from oumi.core.types.proto.generated.conversation_pb2 import Role as RoleProto
+import oumi.core.types.proto.generated.conversation_pb2 as pb2
 
 
 class Role(str, Enum):
@@ -60,28 +48,28 @@ class Role(str, Enum):
         return self.value
 
 
-_ROLE_TO_PROTO_ROLE_MAP: Final[Mapping[Role, RoleProto]] = MappingProxyType(
+_ROLE_TO_PROTO_ROLE_MAP: Final[Mapping[Role, pb2.Role]] = MappingProxyType(
     {
-        Role.SYSTEM: RoleProto.SYSTEM,
-        Role.USER: RoleProto.USER,
-        Role.ASSISTANT: RoleProto.ASSISTANT,
-        Role.TOOL: RoleProto.TOOL,
+        Role.SYSTEM: pb2.Role.SYSTEM,
+        Role.USER: pb2.Role.USER,
+        Role.ASSISTANT: pb2.Role.ASSISTANT,
+        Role.TOOL: pb2.Role.TOOL,
     }
 )
-_PROTO_ROLE_TO_ROLE_MAP: Final[Mapping[RoleProto, Role]] = MappingProxyType(
+_PROTO_ROLE_TO_ROLE_MAP: Final[Mapping[pb2.Role, Role]] = MappingProxyType(
     {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
 )
 
 
-def _convert_role_to_proto_role(role: Role) -> RoleProto:
+def _convert_role_to_proto_role(role: Role) -> pb2.Role:
     """Converts a Role enum to Protocol Buffer format."""
-    result: RoleProto = _ROLE_TO_PROTO_ROLE_MAP.get(role, RoleProto.ROLE_UNSPECIFIED)
-    if result == RoleProto.ROLE_UNSPECIFIED:
+    result: pb2.Role = _ROLE_TO_PROTO_ROLE_MAP.get(role, pb2.Role.ROLE_UNSPECIFIED)
+    if result == pb2.Role.ROLE_UNSPECIFIED:
         raise ValueError(f"Invalid role: {role}")
     return result
 
 
-def _convert_proto_role_to_role(role: RoleProto) -> Role:
+def _convert_proto_role_to_role(role: pb2.Role) -> Role:
     """Converts a Protocol Buffer role format to role."""
     result: Optional[Role] = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
     if result is None:
@@ -113,32 +101,32 @@ class Type(str, Enum):
         return self.value
 
 
-_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, ContentPartProto.Type]] = (
+_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, pb2.ContentPart.Type]] = (
     MappingProxyType(
         {
-            Type.TEXT: ContentPartProto.TEXT,
-            Type.IMAGE_PATH: ContentPartProto.IMAGE_PATH,
-            Type.IMAGE_URL: ContentPartProto.IMAGE_URL,
-            Type.IMAGE_BINARY: ContentPartProto.IMAGE_BINARY,
+            Type.TEXT: pb2.ContentPart.TEXT,
+            Type.IMAGE_PATH: pb2.ContentPart.IMAGE_PATH,
+            Type.IMAGE_URL: pb2.ContentPart.IMAGE_URL,
+            Type.IMAGE_BINARY: pb2.ContentPart.IMAGE_BINARY,
         }
     )
 )
-_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP: Final[Mapping[ContentPartProto.Type, Type]] = (
+_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP: Final[Mapping[pb2.ContentPart.Type, Type]] = (
     MappingProxyType({v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()})
 )
 
 
-def _convert_type_to_proto_type(content_type: Type) -> ContentPartProto.Type:
+def _convert_type_to_proto_type(content_type: Type) -> pb2.ContentPart.Type:
     """Converts a type enum to Protocol Buffer format."""
-    result: ContentPartProto.Type = _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.get(
-        content_type, ContentPartProto.TYPE_UNSPECIFIED
+    result: pb2.ContentPart.Type = _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.get(
+        content_type, pb2.ContentPart.TYPE_UNSPECIFIED
     )
-    if result == ContentPartProto.TYPE_UNSPECIFIED:
+    if result == pb2.ContentPart.TYPE_UNSPECIFIED:
         raise ValueError(f"Invalid type: {content_type}")
     return result
 
 
-def _convert_proto_type_to_type(content_type: ContentPartProto.Type) -> Type:
+def _convert_proto_type_to_type(content_type: pb2.ContentPart.Type) -> Type:
     """Converts a Protocol Buffer type format to type."""
     result: Optional[Type] = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(
         content_type, None
@@ -254,7 +242,7 @@ class ContentItem(pydantic.BaseModel):
                 )
 
     @staticmethod
-    def from_proto(item_proto: ContentPartProto) -> "ContentItem":
+    def from_proto(item_proto: pb2.ContentPart) -> "ContentItem":
         """Converts a Protocol Buffer to a content item."""
         if item_proto.HasField("blob") and item_proto.blob:
             return ContentItem(
@@ -267,15 +255,15 @@ class ContentItem(pydantic.BaseModel):
             content=item_proto.content,
         )
 
-    def to_proto(self) -> ContentPartProto:
+    def to_proto(self) -> pb2.ContentPart:
         """Converts a content item to Protocol Buffer format."""
         if self.binary is not None and len(self.binary) > 0:
-            return ContentPartProto(
+            return pb2.ContentPart(
                 type=_convert_type_to_proto_type(self.type),
-                blob=DataBlobProto(binary_data=self.binary),
+                blob=pb2.DataBlob(binary_data=self.binary),
                 content=(self.content or None),
             )
-        return ContentPartProto(
+        return pb2.ContentPart(
             type=_convert_type_to_proto_type(self.type),
             content=(self.content or None),
         )
@@ -430,10 +418,10 @@ class Message(pydantic.BaseModel):
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
     @staticmethod
-    def from_proto(message_proto: MessageProto) -> "Message":
+    def from_proto(message_proto: pb2.Message) -> "Message":
         """Converts a Protocol Buffer to a message."""
         if (len(message_proto.parts) == 1) and (
-            message_proto.parts[0].type == ContentPartProto.TEXT
+            message_proto.parts[0].type == pb2.ContentPart.TEXT
         ):
             return Message(
                 id=(message_proto.id or None),
@@ -447,9 +435,9 @@ class Message(pydantic.BaseModel):
             content=[ContentItem.from_proto(part) for part in message_proto.parts],
         )
 
-    def to_proto(self) -> MessageProto:
+    def to_proto(self) -> pb2.Message:
         """Converts a message to Protocol Buffer format."""
-        return MessageProto(
+        return pb2.Message(
             id=self.id,
             role=_convert_role_to_proto_role(self.role),
             parts=[item.to_proto() for item in self.content_items],
@@ -586,7 +574,7 @@ class Conversation(pydantic.BaseModel):
         return cls.model_validate_json(data)
 
     @staticmethod
-    def from_proto(conversation_proto: ConversationProto) -> "Conversation":
+    def from_proto(conversation_proto: pb2.Conversation) -> "Conversation":
         """Converts a conversation from Protocol Buffer format."""
         result: Conversation = Conversation(
             conversation_id=(conversation_proto.conversation_id or None),
@@ -596,9 +584,9 @@ class Conversation(pydantic.BaseModel):
             result.metadata[key] = str(value)
         return result
 
-    def to_proto(self) -> ConversationProto:
+    def to_proto(self) -> pb2.Conversation:
         """Converts a conversation to Protocol Buffer format."""
-        result = ConversationProto(
+        result = pb2.Conversation(
             conversation_id=self.conversation_id,
             messages=[m.to_proto() for m in self.messages],
         )

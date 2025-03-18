@@ -238,25 +238,18 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 image, prompt = self._prepare_simple_model(conversation)
                 all_images.append([image])
                 all_prompts.append(prompt)
-
-            inputs = self._processor(
-                images=[image for item in all_images for image in item],
-                text=all_prompts,
-                return_tensors=self._return_tensors,
-                padding=True,
-            )
         else:
             for conversation in conversations:
                 images, prompt = self._prepare_instruct_model(conversation)
                 all_images.append(images)
                 all_prompts.append(prompt)
 
-            inputs = self._processor(
-                images=[image for item in all_images for image in item],
-                text=all_prompts,
-                return_tensors=self._return_tensors,
-                padding=True,
-            )
+        inputs = self._processor(
+            images=[image for item in all_images for image in item],
+            text=all_prompts,
+            return_tensors=self._return_tensors,
+            padding=True,
+        )
 
         # Clone `input_ids` as `labels`.
         input_ids = inputs["input_ids"]
