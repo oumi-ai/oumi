@@ -186,11 +186,17 @@ class ModelParameterCount:
             ("embedding_params", self.embedding_params),
         ]:
             if value < 0:
-                raise ValueError(f"`{name}` must be >= 0.")
-        if self.trainable_params > self.all_params:
-            raise ValueError("`trainable_params` cannot be greater than `all_params`.")
-        if self.embedding_params > self.all_params:
-            raise ValueError("`embedding_params` cannot be greater than `all_params`.")
+                raise ValueError(f"`{name}` ({value}) must be >= 0.")
+            if self.trainable_params > self.all_params:
+                raise ValueError(
+                    f"`trainable_params` ({self.trainable_params}) cannot be "
+                    f"greater than `all_params` ({self.all_params})."
+                )
+            if self.embedding_params > self.all_params:
+                raise ValueError(
+                    f"`embedding_params` ({self.embedding_params}) cannot be "
+                    f"greater than `all_params` ({self.all_params})."
+                )
 
     @property
     def trainable_params_percent(self) -> float:

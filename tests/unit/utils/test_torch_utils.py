@@ -45,18 +45,26 @@ def test_model_parameter_count_zero_params():
 def test_model_parameter_count_negative_values(
     all_params, trainable_params, embedding_params, error_field
 ):
-    with pytest.raises(ValueError, match=f"`{error_field}` must be >= 0."):
+    with pytest.raises(ValueError, match=rf"`{error_field}`.*must be >= 0\."):
         ModelParameterCount(all_params, trainable_params, embedding_params)
 
 
 def test_model_parameter_relative_sizes():
     with pytest.raises(
-        ValueError, match="`trainable_params` cannot be greater than `all_params`."
+        ValueError,
+        match=(
+            r"`trainable_params` \(200\) cannot be greater than "
+            r"`all_params` \(100\)\."
+        ),
     ):
         ModelParameterCount(all_params=100, trainable_params=200, embedding_params=50)
 
     with pytest.raises(
-        ValueError, match="`embedding_params` cannot be greater than `all_params`."
+        ValueError,
+        match=(
+            r"`embedding_params` \(150\) cannot be greater than "
+            r"`all_params` \(100\)\."
+        ),
     ):
         ModelParameterCount(all_params=100, trainable_params=80, embedding_params=150)
 
