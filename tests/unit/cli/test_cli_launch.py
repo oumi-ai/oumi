@@ -1055,10 +1055,6 @@ def test_launch_status_cluster_no_jobs(app, mock_launcher, mock_pool):
         ],
     )
     mock_launcher.status.assert_has_calls([call(cloud=None, cluster=None, id=None)])
-    expected_output = """========================
-Job status:
-========================
-Cloud: cloud_id
-Cluster: cluster_id
-No matching jobs found."""
-    assert expected_output in result.stdout
+    assert "Cloud: cloud_id" in result.stdout
+    assert "Cluster: cluster_id" in result.stdout
+    assert "No matching jobs found." in result.stdout

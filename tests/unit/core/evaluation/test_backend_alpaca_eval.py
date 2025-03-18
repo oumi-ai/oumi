@@ -8,7 +8,7 @@ from oumi.core.configs import (
     GenerationParams,
     ModelParams,
 )
-from oumi.core.evaluation.backends.alpaca_eval import evaluate
+from oumi.core.evaluation.backends.alpaca_eval import ALPACA_EVAL_TASK_NAME, evaluate
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.types.conversation import (
     Conversation,
@@ -114,5 +114,5 @@ def test_evaluate_alpaca_eval():
             ),
             inference_engine=_MockInferenceEngine(),  # type: ignore
         )
-        result_metrics = result.task_result["results"]
+        result_metrics = result.task_result["results"][ALPACA_EVAL_TASK_NAME]
         assert result_metrics == {"win_rate": 0.23}

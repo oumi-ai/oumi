@@ -72,6 +72,7 @@ from oumi.utils.torch_utils import (
     get_torch_dtype,
     log_devices_info,
     log_model_summary,
+    log_number_of_model_parameters,
     log_peak_gpu_memory,
     log_versioning_info,
 )
@@ -283,10 +284,12 @@ def train(config: TrainingConfig, **kwargs) -> None:
             model, config.training.enable_gradient_checkpointing, config.peft
         )
 
-    if config.training.log_model_summary and is_local_process_zero():
-        log_model_summary(
-            model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
-        )
+    if is_local_process_zero():
+        log_number_of_model_parameters(model)
+        if config.training.log_model_summary:
+            log_model_summary(
+                model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
+            )
 
     # Load data & preprocessing
     dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)

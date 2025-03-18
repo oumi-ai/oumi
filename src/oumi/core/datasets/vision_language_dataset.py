@@ -24,6 +24,7 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     Conversation,
 )
+from oumi.utils.conversation_utils import remove_excessive_images_from_conversation
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -69,6 +70,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         processor_name: Optional[str] = None,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
+        max_images: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the VisionLanguageDataset class.
@@ -86,9 +88,15 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             limit: An optional limit on the number of examples to load.
             trust_remote_code: Whether to trust remote code execution for the processor.
             return_conversations: Whether to return raw `Conversation` objects.
+            max_images: The maximum number of images per conversation.
+                If the limit is exceeded, the first N images are kept.
+                If None or negative, all images are kept intact.
+                If 0, all images are dropped.
             **kwargs: Additional keyword arguments to pass to the base class.
         """
         super().__init__(tokenizer=tokenizer, **kwargs)
+
+        self._max_images = max_images
 
         self._feature_generator = (
             None
@@ -131,6 +139,11 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             dict: A dictionary of inputs for a model.
         """
         conversation = self.transform_conversation(sample)
+        if self._max_images is not None and self._max_images >= 0:
+            conversation = remove_excessive_images_from_conversation(
+                conversation, max_images=self._max_images
+            )
+
         if self._feature_generator is None:
             # This is only compatible with `use_torchdata=True`
             # as HF loaders expect certain keys like `input_ids`.

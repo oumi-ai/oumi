@@ -1,7 +1,7 @@
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 import typer
@@ -16,6 +16,7 @@ from oumi.cli.cli_utils import (
     configure_common_env_vars,
     parse_extra_cli_args,
     resolve_and_fetch_config,
+    section_header,
 )
 
 
@@ -358,3 +359,24 @@ def test_resolve_and_fetch_config_yaml_error(mock_requests):
         # When
         with pytest.raises(yaml.YAMLError):
             _ = resolve_and_fetch_config(config_path, output_dir, force=False)
+
+
+def test_section_header():
+    """Test the section_header function."""
+
+    # Create a mock console
+    mock_console = Mock()
+    mock_console.width = 10
+
+    # Call the function with a test message
+    test_message = "Test Header"
+    section_header(test_message, console=mock_console)
+
+    # Assert that the console's print method was called with the correct message
+    mock_console.print.assert_has_calls(
+        [
+            call("\n[blue]━━━━━━━━━━[/blue]"),
+            call("[yellow]   Test Header[/yellow]"),
+            call("[blue]━━━━━━━━━━[/blue]\n"),
+        ]
+    )
