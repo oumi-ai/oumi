@@ -156,10 +156,10 @@ def set_oumi_install_editable(setup: str) -> str:
         # In summary, this regex looks for variants of `pip install oumi` and replaces
         # the oumi package with an editable install from the current directory.
         #
+        # Tip: Use https://regexr.com/ or an LLM to help understand the regex.
         # It captures any misc. tokens like flags for the pip and
         # install commands, in addition to any optional dependencies oumi is installed
         # with.
-        # Tip: Use https://regexr.com/ or an LLM to help understand the regex.
         #
         # `((?:[-'\"\w]+ +)*)` matches whitespace-separated tokens potentially
         # containing quotes, such as flag names and values.
@@ -167,9 +167,9 @@ def set_oumi_install_editable(setup: str) -> str:
         # brackets, which may be present for packages with optional dependencies.
         # Since these don't include special characters like && and ;, it shouldn't span
         # across multiple pip install commands.
-        # `(?<!-e )`` means we don't match if the previous token is -e. This means an
+        # `(?<!-e )` means we don't match if the previous token is -e. This means an
         # editable install of a local dir called "oumi" is being done, so we skip it.
-        # We ideally should check for `--editable` as well, but Python re doesn't
+        # NOTE: We ideally should check for `--editable` as well, but Python re doesn't
         # support lookbehinds with variable length.
         # We additionally consume quotation marks around oumi if present.
         # Finally, `(\[[^\]]*\])?['\"]?` captures optional dependencies, if present.

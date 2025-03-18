@@ -176,13 +176,19 @@ class JobConfig(BaseConfig):
         # value, and we're running a dev build of oumi, attempt to modify the setup/run
         # scripts in the job config to install Oumi in editable mode from source, as
         # opposed to installing from PyPI.
+        # This is intended for developers who are modifying Oumi source code and need to
+        # test their changes in a remote job; by default, all of our job configs install
+        # Oumi from PyPI.
         if get_editable_install_override_env_var() and is_dev_build():
+            logger.info("-" * 80)
             logger.info(
                 "OUMI_FORCE_EDITABLE_INSTALL detected! Attempting to modify job "
-                "config's `setup` and `run` sections to install Oumi in editable mode "
-                "from source..."
+                "config to install Oumi in editable mode from source..."
             )
             if self.setup:
+                logger.info("Modifying setup script...")
                 self.setup = set_oumi_install_editable(self.setup)
             if self.run:
+                logger.info("Modifying run script...")
                 self.run = set_oumi_install_editable(self.run)
+            logger.info("-" * 80)
