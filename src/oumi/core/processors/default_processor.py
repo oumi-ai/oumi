@@ -64,10 +64,8 @@ class DefaultProcessor(BaseProcessor):
         self._tokenizer: BaseTokenizer = tokenizer
 
         # Use chat template from tokenizer.
-        if self._worker_processor.chat_template is None:
+        if self._worker_processor.chat_template != tokenizer.chat_template:
             self._worker_processor.chat_template = tokenizer.chat_template
-        else:
-            assert self._worker_processor.chat_template == tokenizer.chat_template
 
         self._image_processor: Optional[BaseImageProcessor] = None
         if (
