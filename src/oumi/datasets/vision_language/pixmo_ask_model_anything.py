@@ -27,7 +27,10 @@ from oumi.core.types.conversation import (
 
 @register_dataset("allenai/pixmo-ask-model-anything")
 class PixmoAskModelAnythingDataset(VisionLanguageSftDataset):
-    """Dataset class for the `allenai/pixmo-docs` dataset."""
+    """Dataset class for the `allenai/pixmo-docs` dataset.
+
+    The dataset is affected by some image URLs having a 404 issue.
+    """
 
     default_dataset = "allenai/pixmo-ask-model-anything"
 

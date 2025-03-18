@@ -36,8 +36,10 @@ class PixmoCapQADataset(VisionLanguageSftDataset):
         """Transform the example into a Conversation object.
 
         Sample "question": "[USER] Can you come up with a joke? [ASSISTANT]"
-        Note it starts with a [USER] and ends with an [ASSISTANT] role tag.
+        It starts with a [USER] and ends with an [ASSISTANT] role tag.
         The Assistant response appears in the "answer" field.
+
+        The dataset is affected by some image URLs having a 404 issue.
         """
         input_text = "Describe this image:"
         messages: list[Message] = []

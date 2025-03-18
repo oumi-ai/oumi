@@ -35,7 +35,9 @@ class PixmoCapDataset(VisionLanguageSftDataset):
     def transform_conversation(self, example: dict) -> Conversation:
         """Transform the example into a Conversation object.
 
-        Note a "transcripts" column is also available but not used yet.
+        A "transcripts" column is also available but not used yet.
+
+        The dataset is affected by some image URLs having a 404 issue.
         """
         input_text = "Describe this image:"
 
