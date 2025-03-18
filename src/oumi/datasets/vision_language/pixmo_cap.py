@@ -33,7 +33,10 @@ class PixmoCapDataset(VisionLanguageSftDataset):
 
     @override
     def transform_conversation(self, example: dict) -> Conversation:
-        """Transform the example into a Conversation object."""
+        """Transform the example into a Conversation object.
+
+        Note a "transcripts" column is also available but not used yet.
+        """
         input_text = "Describe this image:"
 
         messages: list[Message] = []
@@ -47,7 +50,5 @@ class PixmoCapDataset(VisionLanguageSftDataset):
             )
         )
         messages.append(Message(role=Role.ASSISTANT, content=example["caption"]))
-        for transcript in example["transcripts"]:
-            messages.append(Message(role=Role.ASSISTANT, content=transcript))
 
         return Conversation(messages=messages)
