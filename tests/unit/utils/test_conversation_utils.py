@@ -692,6 +692,36 @@ def test_remove_excessive_images_from_conversation():
         (
             [
                 Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Wonderful World!"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+            2,
+            "right",
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Wonder"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
                 Message(role=Role.USER, content="Wonderful World!"),
             ],
             2,
@@ -699,6 +729,58 @@ def test_remove_excessive_images_from_conversation():
             [
                 Message(role=Role.USER, content=""),
                 Message(role=Role.USER, content=" World!"),
+            ],
+        ),
+        (
+            [
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, content=""),
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/x.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Hello"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/x.png"),
+                        ContentItem(type=Type.TEXT, content=""),
+                    ],
+                ),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Wonderful World!"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+            2,
+            "left",
+            [
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, content=""),
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/x.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content=""),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/x.png"),
+                        ContentItem(type=Type.TEXT, content=""),
+                    ],
+                ),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content=" World!"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
             ],
         ),
     ],
