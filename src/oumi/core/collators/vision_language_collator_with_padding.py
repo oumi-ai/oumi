@@ -31,7 +31,7 @@ class VisionLanguageCollatorWithPadding:
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
-        image_input_features_key: str = "pixel_values",
+        main_image_feature: str = "pixel_values",
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -44,11 +44,11 @@ class VisionLanguageCollatorWithPadding:
         label_ignore_index:  If set, then label values of tokens that shouldn't
             contribute to the loss computation will be replaced by this special value.
         allow_multi_image_inputs: Whether to allow multi-image inputs.
-        image_input_features_key: The key to use for fetching the main image data
+        main_image_feature: The key to use for fetching the main image data
         (e.g., raw pixels, patches, etc.) from the input.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
-        self._image_input_features_key = image_input_features_key
+        self._main_image_feature = main_image_feature
         self._text_collator: TextCollatorWithPadding = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
@@ -73,7 +73,7 @@ class VisionLanguageCollatorWithPadding:
         # Collate batch prompts
         collated_batch = self._text_collator(batch)  # type: ignore
         known_input_names: set[str] = set(collated_batch.keys()).union(
-            {self._image_input_features_key}
+            {self._main_image_feature}
         )
         other_input_names: set[str] = set()
 
@@ -82,12 +82,12 @@ class VisionLanguageCollatorWithPadding:
             # TODO Consider relaxing this constraint: a vision/language model
             # can handle text-only inputs e.g., a follow-up to an answer,
             # or image-only inputs e.g., captioning.
-            if self._image_input_features_key not in item:
+            if self._main_image_feature not in item:
                 raise ValueError(
-                    f"Item doesn't contain '{self._image_input_features_key}' key. "
+                    f"Item doesn't contain '{self._main_image_feature}' key. "
                     f"Available keys: {item.keys()}"
                 )
-            images.append(item[self._image_input_features_key])
+            images.append(item[self._main_image_feature])
 
             for key in item:
                 if (
@@ -101,7 +101,7 @@ class VisionLanguageCollatorWithPadding:
         image_input_features = self.collate_images(images)
 
         # Add images to other inputs.
-        collated_batch[self._image_input_features_key] = image_input_features
+        collated_batch[self._main_image_feature] = image_input_features
 
         # For other inputs, let's verify they present in all examples and stack them.
         if len(other_input_names) > 0:

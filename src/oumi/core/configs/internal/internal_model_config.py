@@ -74,7 +74,7 @@ class InternalFeatureSpec(NamedTuple):
 
 @dataclass
 class InternalVisualModelConfig(BaseConfig):
-    image_input_features_key: str = "pixel_values"
+    main_image_feature: str = "pixel_values"
     """The key corresponding to the main image feature consumed by the model.
 
     E.g., raw pixels, transformed image patches, etc. resulting from data
@@ -139,8 +139,8 @@ class InternalModelConfig(BaseConfig):
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Extra params to pass to processor constructor."""
 
-    ignore_keys: list[str] = field(default_factory=list)
-    """Keys corresponding to input to ignore in the model's forward method."""
+    ignore_features: list[str] = field(default_factory=list)
+    """Features from processing the input to ignore in the model's forward method."""
 
     visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""

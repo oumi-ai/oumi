@@ -34,7 +34,6 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    # collator_name:  "vision_language_sft"
     use_torchdata: true
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -46,8 +45,8 @@ data:
         dataset_kwargs:
           processor_name: "microsoft/Phi-4-multimodal-instruct"
           return_tensors: True
-          padding: True # TODO check if they work.
-          truncation: True # TODO check if they work.
+          # padding: True
+          # truncation: True
 
       # Below are examples of other vision SFT datasets
       # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
@@ -75,14 +74,14 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 1 # Due to variable sized img features.
+  per_device_train_batch_size: 1 # Due to processor's handling of variable sized img-features.
   gradient_accumulation_steps: 8
   max_steps: 20
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  ddp_find_unused_parameters: True # Important - check why.
+  ddp_find_unused_parameters: True
 
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5

@@ -40,7 +40,7 @@ class DefaultProcessor(BaseProcessor):
         tokenizer: BaseTokenizer,
         *,
         label_ignore_index: Optional[int],
-        ignore_keys: Optional[list[str]] = None,
+        ignore_features: Optional[list[str]] = None,
     ):
         """Initializes the processor."""
         if not processor_name:
@@ -63,7 +63,9 @@ class DefaultProcessor(BaseProcessor):
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
 
-        # Use chat template from tokenizer.
+        # If the worker processor has a different chat template, then update it.
+        # This also prevents runtime errors when the worker's processor template
+        # is a read-only attribute and identical to tokenizer's template.
         if self._worker_processor.chat_template != tokenizer.chat_template:
             self._worker_processor.chat_template = tokenizer.chat_template
 
@@ -76,7 +78,7 @@ class DefaultProcessor(BaseProcessor):
                 self._worker_processor.image_processor
             )
         self._label_ignore_index: Optional[int] = label_ignore_index
-        self._ignore_keys: Optional[list[str]] = ignore_keys
+        self._ignore_features: Optional[list[str]] = ignore_features
 
     @property
     @override
@@ -154,9 +156,9 @@ class DefaultProcessor(BaseProcessor):
 
     @property
     @override
-    def ignore_keys(self) -> list[str]:
-        """Returns ignore keys list."""
-        return self._ignore_keys if self._ignore_keys else []
+    def ignore_features(self) -> list[str]:
+        """Returns a list of keys of features to ignore from feeding the model."""
+        return self._ignore_features if self._ignore_features else []
 
     @override
     def __call__(
@@ -192,8 +194,10 @@ class DefaultProcessor(BaseProcessor):
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):
-            for ignore_key in self.ignore_keys:
-                del result[ignore_key]
+            for key in self.ignore_features:
+                if key in result:  # If it is not, we do not act to allow
+                    del result[key]  # the underlying dataset/processor to vary
+                    # their examples/output across batches.
 
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors

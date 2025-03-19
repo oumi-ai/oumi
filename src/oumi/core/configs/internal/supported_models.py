@@ -203,7 +203,7 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
 def _create_phi4_vlm_config() -> InternalModelConfig:
     config = InternalModelConfig()
     config.chat_template = "phi3-instruct"
-    config.ignore_keys = [
+    config.ignore_features = [
         "audio_attention_mask",  # We won't use audio features.
         "audio_embed_sizes",
         "input_audio_embeds",
@@ -236,9 +236,10 @@ def _create_phi4_vlm_config() -> InternalModelConfig:
         }
     )
     visual_config = InternalVisualModelConfig()
+    # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
     visual_config.supports_multiple_images = False
     visual_config.variable_shape_image_features = True
-    visual_config.image_input_features_key = "input_image_embeds"
+    visual_config.main_image_feature = "input_image_embeds"
 
     config.visual_config = visual_config
     config.label_ignore_index = None

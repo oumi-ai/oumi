@@ -89,8 +89,8 @@ class BaseProcessor(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def ignore_keys(self) -> list[str]:
-        """Returns ignore keys list."""
+    def ignore_features(self) -> list[str]:
+        """Returns a list of keys of features to ignore from feeding the model."""
         raise NotImplementedError
 
     @abc.abstractmethod
