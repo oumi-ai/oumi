@@ -145,11 +145,12 @@ class Evaluator:
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             evaluation_fn = Evaluator._get_custom_evaluation_fn(task_params.task_name)
             self._add_inference_engine_if_needed(evaluation_fn, kwargs, config)
+            custom_kwargs = Evaluator._merge_kwargs(kwargs, task_params.eval_kwargs)
 
             evaluation_result = evaluation_fn(
                 task_params=task_params,
                 config=config,
-                **kwargs,
+                **custom_kwargs,
             )
             if not isinstance(evaluation_result, EvaluationResult):
                 raise ValueError(
@@ -304,6 +305,20 @@ class Evaluator:
             init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
 
         return init_kwargs
+
+    @staticmethod
+    def _merge_kwargs(
+        kwargs_1: dict[str, Any],
+        kwargs_2: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Merges two keyword argument dictionaries."""
+        if kwargs_1.keys() & kwargs_2.keys():
+            raise ValueError(
+                "The two keyword argument dictionaries contain overlapping keys. "
+                "Please ensure that the keys in the two dictionaries are unique: "
+                f"`{kwargs_1.keys()}` and `{kwargs_2.keys()}`"
+            )
+        return kwargs_1 | kwargs_2
 
     def _add_inference_engine_if_needed(
         self,
