@@ -641,7 +641,7 @@ def test_remove_excessive_images_from_conversation():
         (
             [
                 Message(role=Role.USER, content="Hello"),
-                Message(role=Role.USER, content="World!"),
+                Message(role=Role.USER, content="Wonderful World!"),
             ],
             100,
             "right",
