@@ -647,6 +647,15 @@ def test_remove_excessive_images_from_conversation():
             "right",
             None,
         ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            2,
+            "right",
+            None,
+        ),
     ],
 )
 def test_truncate_text_in_content_items(
