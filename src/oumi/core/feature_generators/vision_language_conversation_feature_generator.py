@@ -382,12 +382,12 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         return inputs.data
 
     def _truncate_text_in_content_items(self, messages: list[Message]) -> list[Message]:
-        """Truncates text contents in Messages to total number of tokens `<=max_length`.
+        """Truncates text contents in Messages to `max_length` total tokens.
 
-        Note that we have to truncate plain texts before we apply chat template
+        Note that we have to truncate plain texts *before* we apply chat template
         as the final rendered prompt is generally unsafe to truncate at arbitrary
-        position as it may imply a specific structure/format
-        e.g., must contain a certain number `N` of images tokens.
+        offset: it may break invariants (e.g., prompt contains `N` images tokens)
+        leading to runtime errors in processor.
         """
         if not (
             self._truncation and self._max_length is not None and self._max_length > 0
@@ -396,7 +396,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         text_pieces: list[str] = []
         for msg_idx, message in enumerate(messages):
-            for item_idx, item in enumerate(message.text_content_items):
+            for item_idx, item in enumerate(message.content_items):
                 if item.is_text():
                     text_pieces.append(item.content or "")
 
