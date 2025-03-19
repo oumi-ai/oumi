@@ -233,8 +233,9 @@ def truncate_to_max_tokens_limit(
         truncation=(not left_side),  # Left-side truncation is done as post-processing.
     )
     if "offset_mapping" not in result:
-        raise ValueError(
-            f"Tokenizer must return offset mapping for truncation! Got: {result.keys()}"
+        raise RuntimeError(
+            "Tokenizer must return offset mapping for truncation! "
+            f"Got: {result.keys()}"
         )
     token2char_offsets = result["offset_mapping"]
     assert isinstance(token2char_offsets, list)
