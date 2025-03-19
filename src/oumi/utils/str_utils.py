@@ -251,10 +251,26 @@ def truncate_to_max_tokens_limit(
         num_truncated_tokens = min(len(token2char_offsets), max_tokens)
         if left_side:
             lead_token_start = token2char_offsets[-num_truncated_tokens][0]
+            if not (lead_token_start >= 0 and lead_token_start < len(text)):
+                raise RuntimeError(
+                    f"Truncation error: lead_token_start={lead_token_start} "
+                    f"for text of length {len(text)}"
+                )
             truncated_text = text[lead_token_start:]
+            if lead_token_start > 0:
+                print(
+                    f"Truncated [{lead_token_start}, {len(text)}] of [0, {len(text)}]"
+                )
         else:
             last_token_end = token2char_offsets[num_truncated_tokens - 1][1]
+            if not (last_token_end >= 0 and last_token_end <= len(text)):
+                raise RuntimeError(
+                    f"Truncation error: last_token_end={last_token_end} "
+                    f"for text of length {len(text)}"
+                )
             truncated_text = text[:last_token_end]
+            if last_token_end < len(text):
+                print(f"Truncated [0, {last_token_end}] of [0, {len(text)}]")
 
     return (truncated_text, num_truncated_tokens)
 
