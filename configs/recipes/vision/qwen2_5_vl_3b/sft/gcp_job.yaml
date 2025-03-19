@@ -56,6 +56,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
+  pip install -e ".[gpu]"
+  pip install "transformers>=4.49.0"
   set -x
   oumi distributed torchrun \
       -m oumi train \

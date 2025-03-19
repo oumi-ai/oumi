@@ -19,7 +19,7 @@
 model:
   model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
   torch_dtype_str: "bfloat16"
-  model_max_length: 4096
+  model_max_length: 1024 # 4096
   trust_remote_code: True
   attn_implementation: "sdpa" # You can also use `flash_attention_2` if you install it
   chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
@@ -28,27 +28,27 @@ model:
 
 data:
   train:
-    collator_name: "vision_language_with_padding"
+    collator_name: "vision_language_sft" # "vision_language_with_padding"
     use_torchdata: True
     datasets:
-      - dataset_name: "merve/vqav2-small"
-        split: "validation"
-        shuffle: True
-        seed: 42
-        transform_num_workers: "auto"
-        dataset_kwargs:
-          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-          # limit: 4096 # Uncomment to limit dataset size!
-          return_tensors: True
-      # Or, to use another dataset for training:
-      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #   split: "train"
+      # - dataset_name: "merve/vqav2-small"
+      #   split: "validation"
       #   shuffle: True
       #   seed: 42
       #   transform_num_workers: "auto"
       #   dataset_kwargs:
       #     processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+      #     # limit: 4096 # Uncomment to limit dataset size!
       #     return_tensors: True
+      # Or, to use another dataset for training:
+      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+        split: "train"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+          return_tensors: True
       # Note: If the images of the dataset are large they may cause OOM errors.
       # Consider resizing the images or using GPUs with more memory.
 
