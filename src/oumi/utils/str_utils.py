@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import hashlib
 import logging
 import os
@@ -197,6 +198,7 @@ def set_oumi_install_editable(setup: str) -> str:
 def truncate_to_max_tokens_limit(
     text: str,
     tokenizer: BaseTokenizer,
+    *,
     max_tokens: int,
     truncation_side: str = "right",
 ) -> tuple[str, int]:
@@ -255,3 +257,48 @@ def truncate_to_max_tokens_limit(
             truncated_text = text[:last_token_end]
 
     return (truncated_text, num_truncated_tokens)
+
+
+def truncate_text_pieces_to_max_tokens_limit(
+    text_pieces: list[str],
+    tokenizer: BaseTokenizer,
+    *,
+    max_tokens: int,
+    truncation_side: str = "right",
+) -> Optional[list[str]]:
+    """Truncates text pieces to total length not exceeding `max_length`.
+
+    Args:
+        text_pieces: A list of text prompts.
+        tokenizer: The tokenizer used for encoding the data.
+        max_tokens: Maximum number of tokens to keep in all text pieces combined.
+        truncation_side: The side to truncate the tokens ("right" or "left").
+
+    Returns:
+        A list of truncated text prompts. `None` if no truncation is needed.
+    """
+    remaining_tokens = max_tokens
+
+    result = copy.deepcopy(text_pieces)
+    if truncation_side == "left":
+        result.reverse()
+
+    for idx, text_piece in enumerate(text_pieces):
+        if len(text_piece) == 0:
+            continue
+        elif remaining_tokens > 0:
+            truncated_text_piece, num_tokens = truncate_to_max_tokens_limit(
+                text_piece,
+                tokenizer=tokenizer,
+                max_tokens=remaining_tokens,
+                truncation_side=truncation_side,
+            )
+            text_pieces[idx] = truncated_text_piece
+            remaining_tokens -= num_tokens
+        else:
+            text_pieces[idx] = ""
+
+    if truncation_side == "left":
+        result.reverse()
+
+    return result

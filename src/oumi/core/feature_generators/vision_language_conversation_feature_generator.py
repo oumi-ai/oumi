@@ -41,6 +41,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.utils.conversation_utils import load_pil_image_from_content_item
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
 from oumi.utils.torch_utils import get_first_dim_len
 
 
@@ -449,27 +450,9 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         ):
             return None
 
-        remaining_max_length = self._max_length
-
-        result = copy.deepcopy(text_pieces)
-        if self._truncation_side == "left":
-            result.reverse()
-
-        for idx, text_piece in enumerate(text_pieces):
-            if len(text_piece) == 0:
-                continue
-            elif remaining_max_length > 0:
-                truncated_text_piece, num_tokens = self._processor.truncate_text(
-                    text_piece,
-                    max_tokens=remaining_max_length,
-                    truncation_side=self._truncation_side,
-                )
-                text_pieces[idx] = truncated_text_piece
-                remaining_max_length -= num_tokens
-            else:
-                text_pieces[idx] = ""
-
-        if self._truncation_side == "left":
-            result.reverse()
-
-        return result
+        return truncate_text_pieces_to_max_tokens_limit(
+            text_pieces,
+            tokenizer=self._processor.tokenizer,
+            max_tokens=self._max_length,
+            truncation_side=self._truncation_side,
+        )
