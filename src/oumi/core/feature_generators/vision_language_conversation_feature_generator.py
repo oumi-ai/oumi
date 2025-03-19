@@ -39,7 +39,10 @@ from oumi.core.types.conversation import (
     Conversation,
     Message,
 )
-from oumi.utils.conversation_utils import load_pil_image_from_content_item
+from oumi.utils.conversation_utils import (
+    load_pil_image_from_content_item,
+    truncate_text_in_content_items,
+)
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
 from oumi.utils.torch_utils import get_first_dim_len
@@ -394,46 +397,12 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         ):
             return messages
 
-        text_pieces: list[str] = []
-        for msg_idx, message in enumerate(messages):
-            for item_idx, item in enumerate(message.content_items):
-                if item.is_text():
-                    text_pieces.append(item.content or "")
-
-        truncated_texts = self._truncate_text_pieces(text_pieces)
-        assert len(text_pieces) == len(truncated_texts)
-
-        idx = 0
-        for msg_idx, message in enumerate(messages):
-            message_truncated = False
-            items: list[ContentItem] = []
-            for item_idx, item in enumerate(message.content_items):
-                if item.is_text():
-                    items.append(
-                        ContentItem(
-                            content=truncated_texts[idx],
-                            type=item.type,
-                        )
-                    )
-                    original_text = item.content or ""
-                    if truncated_texts[idx] != original_text:
-                        message_truncated = True
-                    idx += 1
-                else:
-                    items.append(item)
-
-            if message_truncated:
-                if len(items) == 1 and items[0].is_text():
-                    assert isinstance(items[0].content, str)
-                    messages[msg_idx] = Message(
-                        id=message.id, content=items[0].content, role=message.role
-                    )
-                else:
-                    messages[msg_idx] = Message(
-                        id=message.id, content=items, role=message.role
-                    )
-
-        return messages
+        return truncate_text_in_content_items(
+            messages,
+            tokenizer=self._processor.tokenizer,
+            max_tokens=self._max_length,
+            truncation_side=self._truncation_side,
+        )
 
     def _truncate_text_pieces(self, text_pieces: list[str]) -> list[str]:
         """Truncates text pieces to total length not exceeding `max_length`."""
