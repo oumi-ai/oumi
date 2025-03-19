@@ -649,12 +649,57 @@ def test_remove_excessive_images_from_conversation():
         ),
         (
             [
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.TEXT, content="Hello")],
+                ),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            100,
+            "right",
+            None,
+        ),
+        (
+            [
                 Message(role=Role.USER, content="Hello"),
                 Message(role=Role.USER, content="Wonderful World!"),
             ],
             2,
             "right",
-            None,
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonder"),
+            ],
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.TEXT, content="Wonderful World!")],
+                ),
+            ],
+            2,
+            "right",
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.TEXT, content="Wonder")],
+                ),
+            ],
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            2,
+            "left",
+            [
+                Message(role=Role.USER, content=""),
+                Message(role=Role.USER, content=" World!"),
+            ],
         ),
     ],
 )

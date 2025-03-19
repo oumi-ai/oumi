@@ -379,14 +379,16 @@ def truncate_text_in_content_items(
             f"Invalid truncation_side: '{truncation_side}'. Expected 'left' or 'right'."
         )
 
+    result = [m for m in messages]  # shallow copy
+
     text_pieces: list[str] = []
-    for msg_idx, message in enumerate(messages):
+    for msg_idx, message in enumerate(result):
         for item_idx, item in enumerate(message.content_items):
             if item.is_text():
                 text_pieces.append(item.content or "")
 
     if len(text_pieces) == 0:
-        return messages
+        return result
 
     truncated_texts = truncate_text_pieces_to_max_tokens_limit(
         text_pieces,
@@ -397,7 +399,7 @@ def truncate_text_in_content_items(
     assert len(text_pieces) == len(truncated_texts)
 
     idx = 0
-    for msg_idx, message in enumerate(messages):
+    for msg_idx, message in enumerate(result):
         message_truncated = False
         items: list[ContentItem] = []
         for item_idx, item in enumerate(message.content_items):
@@ -416,14 +418,18 @@ def truncate_text_in_content_items(
                 items.append(item)
 
         if message_truncated:
-            if len(items) == 1 and items[0].is_text():
+            if (
+                len(items) == 1
+                and items[0].is_text()
+                and isinstance(messages[msg_idx].content, str)
+            ):
                 assert isinstance(items[0].content, str)
-                messages[msg_idx] = Message(
+                result[msg_idx] = Message(
                     id=message.id, content=items[0].content, role=message.role
                 )
             else:
-                messages[msg_idx] = Message(
+                result[msg_idx] = Message(
                     id=message.id, content=items, role=message.role
                 )
 
-    return messages
+    return result
