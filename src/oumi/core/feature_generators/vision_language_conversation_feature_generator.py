@@ -37,6 +37,7 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
+    Message,
 )
 from oumi.utils.conversation_utils import load_pil_image_from_content_item
 from oumi.utils.logging import logger
@@ -65,12 +66,24 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         processor_name: Optional[str] = None,
         trust_remote_code: bool = False,
         return_tensors: Optional[str] = None,
+        max_length: Optional[int] = None,
+        truncation: bool = False,
+        truncation_side: str = "right",
         label_ignore_index: Optional[int] = None,
     ) -> None:
         """Initializes a new instance of VisionLanguageFeatureProcessor."""
         # Importing these here to avoid circular dependencies
         from oumi.builders.processors import build_processor
 
+        if truncation_side not in ("left", "right"):
+            raise ValueError(
+                f"Invalid truncation_side: {truncation_side}. "
+                "Expected 'left' or 'right'."
+            )
+
+        self._max_length: Optional[int] = max_length
+        self._truncation: bool = truncation
+        self._truncation_side = truncation_side
         self._return_tensors = return_tensors
 
         if tokenizer is None:
@@ -145,6 +158,10 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
 
         prompt = last_text_item.content or ""
+        truncated_texts = self._truncate_text_pieces([prompt])
+        if truncated_texts is not None:
+            assert len(truncated_texts) == 1
+            prompt = truncated_texts[0]
         image = self._load_image(last_image_item)
 
         return image, prompt
@@ -170,6 +187,8 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 raise ValueError(
                     f"Unsupported message: {turn.id}. Contains no text and no images."
                 )
+
+        messages = self._truncate_text_in_content_items(messages)
 
         text_prompt = self._processor.apply_chat_template(
             messages, add_generation_prompt=False
@@ -361,3 +380,96 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 inputs["labels"] = labels.tolist()
 
         return inputs.data
+
+    def _truncate_text_in_content_items(self, messages: list[Message]) -> list[Message]:
+        """Truncates text contents in Messages to total number of tokens `<=max_length`.
+
+        Note that we have to truncate plain texts before we apply chat template
+        as the final rendered prompt is generally unsafe to truncate at arbitrary
+        position as it may imply a specific structure/format
+        e.g., must contain a certain number `N` of images tokens.
+        """
+        if not (
+            self._truncation and self._max_length is not None and self._max_length > 0
+        ):
+            return messages
+
+        text_pieces: list[str] = []
+        for msg_idx, message in enumerate(messages):
+            for item_idx, item in enumerate(message.text_content_items):
+                if item.is_text():
+                    text_pieces.append(item.content or "")
+
+        truncated_texts = self._truncate_text_pieces(text_pieces)
+        if truncated_texts is None:
+            # No truncation needed.
+            return messages
+
+        assert len(text_pieces) == len(truncated_texts)
+
+        idx = 0
+        for msg_idx, message in enumerate(messages):
+            message_truncated = False
+            items: list[ContentItem] = []
+            for item_idx, item in enumerate(message.content_items):
+                if item.is_text():
+                    items.append(
+                        ContentItem(
+                            content=truncated_texts[idx],
+                            type=item.type,
+                        )
+                    )
+                    original_text = item.content or ""
+                    if truncated_texts[idx] != original_text:
+                        message_truncated = True
+                    idx += 1
+                else:
+                    items.append(item)
+
+            if message_truncated:
+                if len(items) == 1 and items[0].is_text():
+                    assert isinstance(items[0].content, str)
+                    messages[msg_idx] = Message(
+                        id=message.id, content=items[0].content, role=message.role
+                    )
+                else:
+                    messages[msg_idx] = Message(
+                        id=message.id, content=items, role=message.role
+                    )
+
+        return messages
+
+    def _truncate_text_pieces(self, text_pieces: list[str]) -> Optional[list[str]]:
+        """Truncates text pieces to total length not exceeding `max_length`.
+
+        Returns `None` if no truncation is needed.
+        """
+        if not (
+            self._truncation and self._max_length is not None and self._max_length > 0
+        ):
+            return None
+
+        remaining_max_length = self._max_length
+
+        result = copy.deepcopy(text_pieces)
+        if self._truncation_side == "left":
+            result.reverse()
+
+        for idx, text_piece in enumerate(text_pieces):
+            if len(text_piece) == 0:
+                continue
+            elif remaining_max_length > 0:
+                truncated_text_piece, num_tokens = self._processor.truncate_text(
+                    text_piece,
+                    max_length=remaining_max_length,
+                    truncation_side=self._truncation_side,
+                )
+                text_pieces[idx] = truncated_text_piece
+                remaining_max_length -= num_tokens
+            else:
+                text_pieces[idx] = ""
+
+        if self._truncation_side == "left":
+            result.reverse()
+
+        return result
