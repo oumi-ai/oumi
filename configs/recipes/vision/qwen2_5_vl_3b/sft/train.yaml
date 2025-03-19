@@ -28,27 +28,27 @@ model:
 
 data:
   train:
-    collator_name: "vision_language_sft" # "vision_language_with_padding"
+    collator_name: "vision_language_with_padding"
     use_torchdata: True
     datasets:
-      # - dataset_name: "merve/vqav2-small"
-      #   split: "validation"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-      #     # limit: 4096 # Uncomment to limit dataset size!
-      #     return_tensors: True
-      # Or, to use another dataset for training:
-      - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-        split: "train"
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
         shuffle: True
         seed: 42
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
+      # Or, to use another dataset for training:
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+      #     return_tensors: True
       # Note: If the images of the dataset are large they may cause OOM errors.
       # Consider resizing the images or using GPUs with more memory.
 
