@@ -265,7 +265,7 @@ def truncate_text_pieces_to_max_tokens_limit(
     *,
     max_tokens: int,
     truncation_side: str = "right",
-) -> Optional[list[str]]:
+) -> list[str]:
     """Truncates text pieces to total length not exceeding `max_length`.
 
     Args:
@@ -275,7 +275,7 @@ def truncate_text_pieces_to_max_tokens_limit(
         truncation_side: The side to truncate the tokens ("right" or "left").
 
     Returns:
-        A list of truncated text prompts. `None` if no truncation is needed.
+        A list of truncated text prompts.
     """
     if max_tokens <= 0:
         raise ValueError("`max_tokens` must be a positive integer")

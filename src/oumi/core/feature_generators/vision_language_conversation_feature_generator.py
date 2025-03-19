@@ -160,9 +160,8 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         prompt = last_text_item.content or ""
         truncated_texts = self._truncate_text_pieces([prompt])
-        if truncated_texts is not None:
-            assert len(truncated_texts) == 1
-            prompt = truncated_texts[0]
+        assert len(truncated_texts) == 1
+        prompt = truncated_texts[0]
         image = self._load_image(last_image_item)
 
         return image, prompt
@@ -402,10 +401,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                     text_pieces.append(item.content or "")
 
         truncated_texts = self._truncate_text_pieces(text_pieces)
-        if truncated_texts is None:
-            # No truncation needed.
-            return messages
-
         assert len(text_pieces) == len(truncated_texts)
 
         idx = 0
@@ -440,15 +435,12 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         return messages
 
-    def _truncate_text_pieces(self, text_pieces: list[str]) -> Optional[list[str]]:
-        """Truncates text pieces to total length not exceeding `max_length`.
-
-        Returns `None` if no truncation is needed.
-        """
+    def _truncate_text_pieces(self, text_pieces: list[str]) -> list[str]:
+        """Truncates text pieces to total length not exceeding `max_length`."""
         if not (
             self._truncation and self._max_length is not None and self._max_length > 0
         ):
-            return None
+            return copy.deepcopy(text_pieces)
 
         return truncate_text_pieces_to_max_tokens_limit(
             text_pieces,
