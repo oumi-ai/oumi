@@ -13,6 +13,7 @@ from oumi.utils.str_utils import (
     sanitize_run_name,
     set_oumi_install_editable,
     str_to_bool,
+    truncate_text_pieces_to_max_tokens_limit,
     truncate_to_max_tokens_limit,
     try_str_to_bool,
 )
@@ -250,3 +251,29 @@ def test_truncate_to_max_tokens_limit_invalid_args(
             max_tokens=100,
             truncation_side="kaboom",
         )
+
+
+@pytest.mark.parametrize(
+    "text,max_tokens,truncation_side,expected_text,expected_tokens",
+    [
+        (["Hello ", "World!"], 100, "right", None),
+    ],
+)
+def test_truncate_text_pieces_to_max_tokens_limit_success(
+    text_pieces: list[str],
+    max_tokens: int,
+    truncation_side: str,
+    expected_text_pieces: Optional[list[str]],
+    gpt2_tokenizer,
+):
+    truncated_text_pieces = truncate_text_pieces_to_max_tokens_limit(
+        text_pieces,
+        tokenizer=gpt2_tokenizer,
+        max_tokens=max_tokens,
+        truncation_side=truncation_side,
+    )
+
+    if expected_text_pieces is not None:
+        assert truncated_text_pieces == expected_text_pieces
+    else:
+        assert truncated_text_pieces == text_pieces

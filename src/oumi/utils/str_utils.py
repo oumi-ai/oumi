@@ -277,6 +277,8 @@ def truncate_text_pieces_to_max_tokens_limit(
     Returns:
         A list of truncated text prompts. `None` if no truncation is needed.
     """
+    if max_tokens <= 0:
+        raise ValueError("`max_tokens` must be a positive integer")
     remaining_tokens = max_tokens
 
     result = copy.deepcopy(text_pieces)
