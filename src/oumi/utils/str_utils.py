@@ -285,7 +285,7 @@ def truncate_text_pieces_to_max_tokens_limit(
     if truncation_side == "left":
         result.reverse()
 
-    for idx, text_piece in enumerate(text_pieces):
+    for idx, text_piece in enumerate(result):
         if len(text_piece) == 0:
             continue
         elif remaining_tokens > 0:
@@ -295,10 +295,10 @@ def truncate_text_pieces_to_max_tokens_limit(
                 max_tokens=remaining_tokens,
                 truncation_side=truncation_side,
             )
-            text_pieces[idx] = truncated_text_piece
+            result[idx] = truncated_text_piece
             remaining_tokens -= num_tokens
         else:
-            text_pieces[idx] = ""
+            result[idx] = ""
 
     if truncation_side == "left":
         result.reverse()

@@ -254,9 +254,14 @@ def test_truncate_to_max_tokens_limit_invalid_args(
 
 
 @pytest.mark.parametrize(
-    "text,max_tokens,truncation_side,expected_text,expected_tokens",
+    "text_pieces,max_tokens,truncation_side,expected_text_pieces",
     [
-        (["Hello ", "World!"], 100, "right", None),
+        (["Hello", "World!"], 100, "right", None),
+        (["Hello", "World!"], 100, "left", None),
+        (["Hello", "World!"], 2, "right", ["Hello", "World"]),
+        (["Hello", "World!"], 2, "left", ["", "World!"]),
+        (["Hello", "World!"], 1, "right", ["Hello", ""]),
+        (["Hello", "World!"], 1, "left", ["", "!"]),
     ],
 )
 def test_truncate_text_pieces_to_max_tokens_limit_success(
