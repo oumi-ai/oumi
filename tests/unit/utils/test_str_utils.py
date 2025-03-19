@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Optional
 from unittest.mock import patch
 
@@ -179,16 +180,20 @@ def test_set_oumi_install_editable(setup, output_setup):
         ("Hello World!", 3, "right", "Hello World!", 3),
         ("Hello World!", 3, "left", "Hello World!", 3),
         ("Hello World!", 2, "right", "Hello World", 2),
-        ("Hello World!", 2, "left", "World!", 2),
+        ("Hello World!", 2, "left", " World!", 2),
         ("Hello World!", 1, "right", "Hello", 1),
         ("Hello World!", 1, "left", "!", 1),
         ("", 10, "right", "", 0),
         ("", 10, "left", "", 0),
         ("", 1, "right", "", 0),
         ("", 1, "left", "", 0),
+        ("  \t", 10, "right", "  \t", 3),
+        ("  \t\n", 10, "left", "  \t\n", 4),
+        ("  \t", 1, "right", " ", 1),
+        ("  \t\n", 1, "left", "\n", 1),
     ],
 )
-def test_truncate_to_max_tokens_limit(
+def test_truncate_to_max_tokens_limit_success(
     text: str,
     max_tokens: int,
     truncation_side: str,
@@ -204,3 +209,40 @@ def test_truncate_to_max_tokens_limit(
     )
     assert truncated_text == expected_text
     assert truncated_tokens == expected_tokens
+
+
+def test_truncate_to_max_tokens_limit_invalid_args(
+    gpt2_tokenizer,
+):
+    with pytest.raises(
+        ValueError, match=re.escape("`max_tokens` must be a positive integer")
+    ):
+        truncated_text, truncated_tokens = truncate_to_max_tokens_limit(
+            "hi there",
+            tokenizer=gpt2_tokenizer,
+            max_tokens=0,
+            truncation_side="right",
+        )
+
+    with pytest.raises(
+        ValueError, match=re.escape("`max_tokens` must be a positive integer")
+    ):
+        truncated_text, truncated_tokens = truncate_to_max_tokens_limit(
+            "apple",
+            tokenizer=gpt2_tokenizer,
+            max_tokens=-1,
+            truncation_side="left",
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Invalid truncation_side: 'kaboom'. Expected 'left' or 'right'"
+        ),
+    ):
+        truncated_text, truncated_tokens = truncate_to_max_tokens_limit(
+            "hi there",
+            tokenizer=gpt2_tokenizer,
+            max_tokens=100,
+            truncation_side="kaboom",
+        )

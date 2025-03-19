@@ -199,7 +199,6 @@ def truncate_to_max_tokens_limit(
     tokenizer: BaseTokenizer,
     max_tokens: int,
     truncation_side: str = "right",
-    strip_whitespace: bool = True,
 ) -> tuple[str, int]:
     """Truncates text to `max_length` in tokens.
 
@@ -208,15 +207,19 @@ def truncate_to_max_tokens_limit(
         tokenizer: The tokenizer used for encoding the data.
         max_tokens: Maximum number of tokens to keep.
         truncation_side: The side to truncate the tokens ("right" or "left").
-        strip_whitespace: Whether to strip leading and trailing whitespace.
 
     Returns:
         A tuple containing truncated text prompt and the number of tokens.
     """
-    if not text:
-        return (text, 0)
-    elif max_tokens <= 0:
+    if max_tokens <= 0:
         raise ValueError("`max_tokens` must be a positive integer")
+    elif truncation_side not in ("left", "right"):
+        raise ValueError(
+            f"Invalid truncation_side: '{truncation_side}'. Expected 'left' or 'right'."
+        )
+
+    if not text:
+        return ("", 0)
 
     left_side = truncation_side == "left"
 
@@ -247,8 +250,5 @@ def truncate_to_max_tokens_limit(
         else:
             last_token_end = token2char_offsets[num_truncated_tokens - 1][1]
             truncated_text = text[:last_token_end]
-
-        # Drop leading and trailing whitespace.
-        truncated_text = truncated_text.strip()
 
     return (truncated_text, num_truncated_tokens)

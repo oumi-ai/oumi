@@ -77,7 +77,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         if truncation_side not in ("left", "right"):
             raise ValueError(
-                f"Invalid truncation_side: {truncation_side}. "
+                f"Invalid truncation_side: '{truncation_side}'. "
                 "Expected 'left' or 'right'."
             )
 
