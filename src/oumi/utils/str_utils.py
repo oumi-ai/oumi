@@ -18,6 +18,8 @@ import os
 import re
 from typing import Optional
 
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+
 
 def sanitize_run_name(run_name: Optional[str]) -> Optional[str]:
     """Computes a sanitized version of wandb run name.
@@ -190,3 +192,63 @@ def set_oumi_install_editable(setup: str) -> str:
         logger.info(f"Replaced with: `{result}`")
         setup_lines[i] = result
     return "\n".join(setup_lines)
+
+
+def truncate_to_max_tokens_limit(
+    text: str,
+    tokenizer: BaseTokenizer,
+    max_tokens: int,
+    truncation_side: str = "right",
+    strip_whitespace: bool = True,
+) -> tuple[str, int]:
+    """Truncates text to `max_length` in tokens.
+
+    Args:
+        text: A text prompt.
+        tokenizer: The tokenizer used for encoding the data.
+        max_tokens: Maximum number of tokens to keep.
+        truncation_side: The side to truncate the tokens ("right" or "left").
+        strip_whitespace: Whether to strip leading and trailing whitespace.
+
+    Returns:
+        A tuple containing truncated text prompt and the number of tokens.
+    """
+    if not text:
+        return (text, 0)
+    elif max_tokens <= 0:
+        raise ValueError("`max_tokens` must be a positive integer")
+
+    left_side = truncation_side == "left"
+
+    # The `truncation_side` parameter isn't universally supported by all tokenizers.
+    # Let's do left-side truncation as post-processing.
+    result = tokenizer(
+        text,
+        return_offsets_mapping=True,
+        return_length=True,
+        max_length=(None if left_side else max_tokens),
+        truncation=(not left_side),  # Left-side truncation is done as post-processing.
+    )
+    if "offset_mapping" not in result:
+        raise ValueError(
+            f"Tokenizer must return offset mapping for truncation! Got: {result.keys()}"
+        )
+    token2char_offsets = result["offset_mapping"]
+    assert isinstance(token2char_offsets, list)
+    print(f"token2char_offsets: {token2char_offsets}")
+
+    truncated_text: str = ""
+    num_truncated_tokens: int = 0
+    if len(token2char_offsets) > 0:
+        num_truncated_tokens = min(len(token2char_offsets), max_tokens)
+        if left_side:
+            lead_token_start = token2char_offsets[-num_truncated_tokens][0]
+            truncated_text = text[lead_token_start:]
+        else:
+            last_token_end = token2char_offsets[num_truncated_tokens - 1][1]
+            truncated_text = text[:last_token_end]
+
+        # Drop leading and trailing whitespace.
+        truncated_text = truncated_text.strip()
+
+    return (truncated_text, num_truncated_tokens)

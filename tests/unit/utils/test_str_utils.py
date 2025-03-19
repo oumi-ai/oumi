@@ -4,14 +4,33 @@ from unittest.mock import patch
 
 import pytest
 
+from oumi.builders import build_tokenizer
+from oumi.core.configs import ModelParams
 from oumi.utils.str_utils import (
     compute_utf8_len,
     get_editable_install_override_env_var,
     sanitize_run_name,
     set_oumi_install_editable,
     str_to_bool,
+    truncate_to_max_tokens_limit,
     try_str_to_bool,
 )
+
+
+@pytest.fixture
+def gpt2_tokenizer():
+    tokenizer = build_tokenizer(
+        ModelParams(
+            model_name="openai-community/gpt2",
+            torch_dtype_str="float16",
+            trust_remote_code=False,
+            chat_template="default",
+            tokenizer_pad_token="<|endoftext|>",
+        )
+    )
+    assert tokenizer.pad_token_id is not None
+    assert isinstance(tokenizer.pad_token_id, int)
+    return tokenizer
 
 
 def test_sanitize_run_name_empty():
@@ -150,3 +169,38 @@ def test_get_editable_install_override(env_var_val: Optional[str], expected_val:
 def test_set_oumi_install_editable(setup, output_setup):
     actual_setup = set_oumi_install_editable(setup)
     assert actual_setup == output_setup
+
+
+@pytest.mark.parametrize(
+    "text,max_tokens,truncation_side,expected_text,expected_tokens",
+    [
+        ("Hello World!", 100, "right", "Hello World!", 3),
+        ("Hello World!", 100, "left", "Hello World!", 3),
+        ("Hello World!", 3, "right", "Hello World!", 3),
+        ("Hello World!", 3, "left", "Hello World!", 3),
+        ("Hello World!", 2, "right", "Hello World", 2),
+        ("Hello World!", 2, "left", "World!", 2),
+        ("Hello World!", 1, "right", "Hello", 1),
+        ("Hello World!", 1, "left", "!", 1),
+        ("", 10, "right", "", 0),
+        ("", 10, "left", "", 0),
+        ("", 1, "right", "", 0),
+        ("", 1, "left", "", 0),
+    ],
+)
+def test_truncate_to_max_tokens_limit(
+    text: str,
+    max_tokens: int,
+    truncation_side: str,
+    expected_text: str,
+    expected_tokens: int,
+    gpt2_tokenizer,
+):
+    truncated_text, truncated_tokens = truncate_to_max_tokens_limit(
+        text,
+        tokenizer=gpt2_tokenizer,
+        max_tokens=max_tokens,
+        truncation_side=truncation_side,
+    )
+    assert truncated_text == expected_text
+    assert truncated_tokens == expected_tokens

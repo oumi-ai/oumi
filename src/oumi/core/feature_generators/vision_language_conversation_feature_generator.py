@@ -461,7 +461,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             elif remaining_max_length > 0:
                 truncated_text_piece, num_tokens = self._processor.truncate_text(
                     text_piece,
-                    max_length=remaining_max_length,
+                    max_tokens=remaining_max_length,
                     truncation_side=self._truncation_side,
                 )
                 text_pieces[idx] = truncated_text_piece

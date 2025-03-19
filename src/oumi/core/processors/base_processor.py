@@ -134,14 +134,14 @@ class BaseProcessor(abc.ABC):
         self,
         text: str,
         *,
-        max_length: int,
+        max_tokens: int,
         truncation_side: str = "right",
     ) -> tuple[str, int]:
         """Truncates text to `max_length` in tokens.
 
         Args:
             text: A text prompt.
-            max_length: Padding length.
+            max_tokens: Maximum number of tokens to keep.
             truncation_side: The side to truncate the tokens ("right" or "left").
 
         Returns:
