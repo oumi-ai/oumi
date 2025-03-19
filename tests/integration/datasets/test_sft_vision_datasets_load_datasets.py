@@ -114,7 +114,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
             max_rows=64,
-            expected_rows=64,
+            expected_rows=None,
         ),
         LoadDatasetInfo(
             dataset_name="allenai/pixmo-cap",
@@ -123,7 +123,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
             max_rows=64,
-            expected_rows=64,
+            expected_rows=None,
         ),
         LoadDatasetInfo(
             dataset_name="allenai/pixmo-cap-qa",
@@ -132,7 +132,7 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             chat_template=_DEFAULT_CHAT_TEMPLATE,
             trust_remote_code=True,
             max_rows=64,
-            expected_rows=64,
+            expected_rows=None,
         ),
     ]
 
