@@ -61,6 +61,7 @@ def env():
             "LOCAL_WORLD_SIZE",
             "OUMI_EXTRA_DEPS_FILE",
             "OUMI_SLURM_CONNECTIONS",
+            "OUMI_FORCE_EDITABLE_INSTALL",
             "OUMI_USE_SPOT_VM",
             "RANK",
             "WORLD_SIZE",
