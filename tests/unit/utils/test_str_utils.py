@@ -191,7 +191,10 @@ def test_set_oumi_install_editable(setup, output_setup):
         ("  \t\n", 10, "left", "  \t\n", 4),
         ("  \t", 1, "right", " ", 1),
         ("  \t\n", 1, "left", "\n", 1),
-        ("HelloWorld!", 1, "right", "Hello", 1),
+        ("Hellolololworld!", 1, "right", "Hell", 1),
+        ("Hellolololworld!", 1, "left", "!", 1),
+        ("Hellolololworld!", 2, "right", "Hellol", 2),
+        ("Hellolololworld!", 2, "left", "world!", 2),
     ],
 )
 def test_truncate_to_max_tokens_limit_success(
