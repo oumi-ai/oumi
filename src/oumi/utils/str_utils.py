@@ -14,6 +14,7 @@
 
 import hashlib
 import logging
+import os
 import re
 from typing import Optional
 
@@ -119,3 +120,73 @@ def compute_utf8_len(s: str) -> int:
     # This is inefficient: allocates a temporary copy of string content.
     # FIXME Can we do better?
     return len(s.encode("utf-8"))
+
+
+def get_editable_install_override_env_var() -> bool:
+    """Returns whether OUMI_FORCE_EDITABLE_INSTALL env var is set to a truthy value."""
+    s = os.environ.get("OUMI_FORCE_EDITABLE_INSTALL", "")
+    mode = s.lower().strip()
+    bool_result = try_str_to_bool(mode)
+    if bool_result is not None:
+        return bool_result
+    return False
+
+
+# Experimental function, only for developer usage.
+def set_oumi_install_editable(setup: str) -> str:
+    """Tries to replace oumi PyPi installs with editable installation from source.
+
+    For example, the following line:
+        `pip install uv && uv pip -q install oumi[gpu,dev] vllm`
+    will be replaced with:
+        `pip install uv && uv pip -q install -e '.[gpu,dev]' vllm`
+
+    Args:
+        setup (str): The bash setup script to modify. May be multi-line.
+
+    Returns:
+        The modified setup script.
+    """
+    setup_lines = setup.split("\n")
+    for i, line in enumerate(setup_lines):
+        # Skip comments.
+        if line.strip().startswith("#"):
+            continue
+
+        # In summary, this regex looks for variants of `pip install oumi` and replaces
+        # the oumi package with an editable install from the current directory.
+        #
+        # Tip: Use https://regexr.com/ or an LLM to help understand the regex.
+        # It captures any misc. tokens like flags for the pip and
+        # install commands, in addition to any optional dependencies oumi is installed
+        # with.
+        #
+        # `((?:[-'\"\w]+ +)*)` matches whitespace-separated tokens potentially
+        # containing quotes, such as flag names and values.
+        # `((?:[-'\",\[\]\w]+ +)*)` does the same, with the addition of commas and
+        # brackets, which may be present for packages with optional dependencies.
+        # Since these don't include special characters like && and ;, it shouldn't span
+        # across multiple pip install commands.
+        # `(?<!-e )` means we don't match if the previous token is -e. This means an
+        # editable install of a local dir called "oumi" is being done, so we skip it.
+        # NOTE: We ideally should check for `--editable` as well, but Python re doesn't
+        # support lookbehinds with variable length.
+        # We additionally consume quotation marks around oumi if present.
+        # Finally, `(\[[^\]]*\])?['\"]?` captures optional dependencies, if present.
+        pattern = (
+            r"pip3? +((?:[-'\"\w]+ +)*)install +((?:[-'\",\[\]\w]+ +)*)"
+            r"(?<!-e )['\"]?oumi(\[[^\]]*\])?['\"]?"
+        )
+        # Compared to the pattern we captured, the changes are replacing `oumi` with
+        # `.` and adding `-e` to make the install editable.
+        replacement = r"pip \1install \2-e '.\3'"
+
+        result = re.sub(pattern, replacement, line)
+        if result == line:
+            continue
+        # Replace the line in the setup script.
+        logger = logging.getLogger("oumi")
+        logger.info(f"Detected the following oumi installation: `{line}`")
+        logger.info(f"Replaced with: `{result}`")
+        setup_lines[i] = result
+    return "\n".join(setup_lines)
