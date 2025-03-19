@@ -1,0 +1,100 @@
+// Protocol buffer (`protobuf`) definitions for Conversation messages.
+// Sample command to generate Python bindings:
+// protoc -I="." src/oumi/core/types/proto/conversation.proto   \
+//  --python_out=src/oumi/core/types/proto/generated/           \
+//  --pyi_out=src/oumi/core/types/proto/generated/
+
+
+syntax = "proto3";
+
+package oumi.core.conversations;
+
+message DataBlob {
+  // The MIME type of the data.
+  string mime_type = 1;
+
+  // Raw bytes e.g., PNG bytes for "image/png".
+  bytes binary_data = 2;
+}
+
+message ContentPart {
+    // Type of the content part.
+    enum Type {
+        TYPE_UNSPECIFIED = 0;
+
+        // Represents a text message.
+        TEXT = 1;
+
+        // Represents an image referenced by its file path.
+        IMAGE_PATH = 2;
+
+        // Represents an image referenced by its URL.
+        IMAGE_URL = 3;
+
+        // Represents an image stored as binary data.
+        IMAGE_BINARY = 4;
+    };
+
+
+    // The type of the content (e.g., text, image path, image URL).
+    Type type = 1;
+
+    // Optional text content of the content item.
+    // It can also be used to store URL and file paths.
+    string content = 2;
+
+    // Binary data.
+    DataBlob blob = 3;
+}
+
+
+// Role of the entity sending the message.
+enum Role {
+    ROLE_UNSPECIFIED = 0;
+
+    // Represents a system message in the conversation.
+    SYSTEM = 1;
+
+    // Represents a user message in the conversation.
+    USER = 2;
+
+    // Represents an assistant message in the conversation.
+    ASSISTANT = 3;
+
+    // Represents a tool message in the conversation.
+    TOOL = 4;
+};
+
+
+// A message in a conversation.
+//
+// This class represents a single message within a conversation, containing
+// various attributes such as role, content, identifier.
+message Message {
+    // Optional unique identifier for the message.
+    string id = 1;
+
+    // The role of the entity sending the message e.g., user, assistant, system.
+    Role role = 2;
+
+    // Content of the message.
+    //
+    // For text messages, `content` can be set to a string value.
+    // For multimodal messages, `content` should be a list of content items of
+    // potentially different types e.g., text and image.
+    repeated ContentPart parts = 3;
+}
+
+
+
+// Represents a conversation, which is a sequence of messages.
+message Conversation {
+    // Optional unique identifier for the conversation.
+    string conversation_id = 1;
+
+    // List of Message objects that make up the conversation.
+    repeated Message messages =2;
+
+    // Optional metadata associated with the conversation.
+    map<string, string> metadata =3;
+}

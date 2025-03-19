@@ -32,7 +32,8 @@ training:
   save_steps: 200
   num_train_epochs: 1
   per_device_train_batch_size: 2
-  gradient_accumulation_steps: 1
+  gradient_accumulation_steps: 8
+  max_grad_norm: null
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -49,7 +50,6 @@ training:
   dataloader_prefetch_factor: 32
 
   logging_steps: 100
-  log_model_summary: False
   empty_device_cache_steps: 50
   output_dir: "output/qwq.lora"
   include_performance_metrics: True
