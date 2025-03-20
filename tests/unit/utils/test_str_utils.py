@@ -1,8 +1,14 @@
+import os
+from typing import Optional
+from unittest.mock import patch
+
 import pytest
 
 from oumi.utils.str_utils import (
     compute_utf8_len,
+    get_editable_install_override_env_var,
     sanitize_run_name,
+    set_oumi_install_editable,
     str_to_bool,
     try_str_to_bool,
 )
@@ -86,3 +92,61 @@ def test_compute_utf8_len():
     assert compute_utf8_len("a b c") == 5
     assert compute_utf8_len("Wir müssen") == 11
     assert compute_utf8_len("Мы должны") == 17
+
+
+@pytest.mark.parametrize(
+    "env_var_val,expected_val",
+    [
+        (None, False),
+        ("1", True),
+        ("true", True),
+        ("True", True),
+        ("0", False),
+        ("false", False),
+        ("False", False),
+    ],
+)
+def test_get_editable_install_override(env_var_val: Optional[str], expected_val: bool):
+    overrides = {}
+    if env_var_val is not None:
+        overrides = {"OUMI_FORCE_EDITABLE_INSTALL": env_var_val}
+    with patch.dict(os.environ, overrides, clear=True):
+        assert get_editable_install_override_env_var() == expected_val
+
+
+@pytest.mark.parametrize(
+    "setup,output_setup",
+    [
+        (
+            "pip install 'oumi[gpu]'",
+            "pip install -e '.[gpu]'",
+        ),
+        (
+            """
+            #A comment
+            pip install -e uv && uv pip -q install "oumi[gpu,dev]" vllm # comment
+            pip install -e "oumi"
+            """,
+            """
+            #A comment
+            pip install -e uv && uv pip -q install -e '.[gpu,dev]' vllm # comment
+            pip install -e "oumi"
+            """,
+        ),
+        (
+            """
+            #A comment
+            pip -q --debug install -U "skypilot[azure]" oumi vllm "wandb" # Foo.
+            print("All done")
+            """,
+            """
+            #A comment
+            pip -q --debug install -U "skypilot[azure]" -e '.' vllm "wandb" # Foo.
+            print("All done")
+            """,
+        ),
+    ],
+)
+def test_set_oumi_install_editable(setup, output_setup):
+    actual_setup = set_oumi_install_editable(setup)
+    assert actual_setup == output_setup
