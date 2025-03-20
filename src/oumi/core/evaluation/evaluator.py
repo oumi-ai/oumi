@@ -130,7 +130,7 @@ class Evaluator:
 
         # Redirect the evaluation execution to the appropriate evaluation backend.
         if evaluation_backend == EvaluationBackend.LM_HARNESS:
-            lm_harness_task_params = Evaluator._get_backend_task_params(task_params)
+            lm_harness_task_params = self._get_backend_task_params(task_params)
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
 
             # Destroy the inference engine, if created by a previous task. LM Harness
@@ -145,7 +145,7 @@ class Evaluator:
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
             )
         elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
-            alpaca_eval_task_params = Evaluator._get_backend_task_params(task_params)
+            alpaca_eval_task_params = self._get_backend_task_params(task_params)
             assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
 
             evaluation_result = evaluate_alpaca_eval(
@@ -156,9 +156,9 @@ class Evaluator:
             )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
             evaluation_fn_name = task_params.task_name or ""
-            evaluation_fn = Evaluator._get_custom_evaluation_fn(evaluation_fn_name)
-            custom_kwargs = Evaluator._merge_kwargs(kwargs, task_params.eval_kwargs)
-            Evaluator._validate_custom_kwargs(
+            evaluation_fn = self._get_custom_evaluation_fn(evaluation_fn_name)
+            custom_kwargs = self._merge_kwargs(kwargs, task_params.eval_kwargs)
+            self._validate_custom_kwargs(
                 custom_kwargs=custom_kwargs,
                 evaluation_fn=evaluation_fn,
                 evaluation_fn_name=evaluation_fn_name,
@@ -374,8 +374,8 @@ class Evaluator:
         fn_signature = inspect.signature(evaluation_fn)
         fn_input_params = [param.name for param in fn_signature.parameters.values()]
 
-        provided_keys: set = custom_kwargs.keys() - set(RESERVED_KEYS)
-        expected_keys: set = set(fn_input_params) - set(RESERVED_KEYS)
+        provided_keys: set[str] = custom_kwargs.keys() - set(RESERVED_KEYS)
+        expected_keys: set[str] = set(fn_input_params) - set(RESERVED_KEYS)
 
         if unrecognized_keys := provided_keys - expected_keys:
             raise RuntimeError(
