@@ -4,7 +4,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c oumi://configs/examples/grpo_letter_counting/train.yaml
+#   oumi train -c oumi://configs/examples/letter_counting/grpo/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

@@ -5,7 +5,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/examples/grpo_letter_counting/gcp_job.yaml --cluster letter-counting-grpo
+#   oumi launch up -c oumi://configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -42,7 +42,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c oumi://configs/examples/grpo_letter_counting/train.yaml \
+      -c oumi://configs/examples/letter_counting/grpo/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
