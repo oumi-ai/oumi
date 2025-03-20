@@ -198,6 +198,49 @@ def test_evaluate_custom_task(
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
+def test_evaluate_custom_task_with_no_evaluation_fn_args(
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    # Custom evaluation function with NO input arguments.
+    def evaluation_fn() -> EvaluationResult:
+        return EvaluationResult(task_result={"test_metric": 1.0})
+
+    # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+    result = evaluator.evaluate(
+        EvaluationConfig(
+            tasks=[
+                EvaluationTaskParams(
+                    task_name="evaluation_fn_reg_name",
+                    evaluation_backend=EvaluationBackend.CUSTOM.value,
+                )
+            ],
+        )
+    )
+
+    # Check the results.
+    mock_build_inference_engine.assert_not_called()
+    mock_save_evaluation_output.assert_called_once()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
+    assert len(result) == 1
+    assert result[0].task_name is None
+    assert result[0].task_result == {"test_metric": 1.0}
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
 def test_evaluate_custom_task_with_inference(
     mock_save_evaluation_output,
     mock_check_prerequisites,
@@ -349,15 +392,83 @@ def test_evaluate_custom_task_without_task_name(
     mock_get_evaluation_function.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("kwargs," "eval_kwargs," "expected_error_message"),
+    [
+        (
+            {"expected_param_1": 1, "inference_engine": "my_inference_engine"},
+            {"expected_param_2": 2},
+            "Reserved keys are present when calling `Evaluator.evaluate()`. You are "
+            "not allowed to pass the following keyword arguments into the "
+            "`evaluation_fn_reg_name` function: ['config', 'inference_engine', "
+            "'task_params']. However, you have passed the following reserved keys: "
+            "['inference_engine'].",
+        ),
+        (
+            {"expected_param_1": 1},
+            {"expected_param_2": 2, "inference_engine": "my_inference_engine"},
+            "Reserved keys are present when calling `Evaluator.evaluate()`. You are "
+            "not allowed to pass the following keyword arguments into the "
+            "`evaluation_fn_reg_name` function: ['config', 'inference_engine', "
+            "'task_params']. However, you have passed the following reserved keys: "
+            "['inference_engine'].",
+        ),
+        (
+            {
+                "expected_param_1": 1,
+                "unrecognized_keyword": "unrecognized_keyword_value",
+            },
+            {"expected_param_2": 2},
+            "Unrecognized keyword arguments are present when calling "
+            "`Evaluator.evaluate()`. You have passed the following unrecognized "
+            "keys: ['unrecognized_keyword'].",
+        ),
+        (
+            {"expected_param_1": 1},
+            {
+                "expected_param_2": 2,
+                "unrecognized_keyword": "unrecognized_keyword_value",
+            },
+            "Unrecognized keyword arguments are present when calling "
+            "`Evaluator.evaluate()`. You have passed the following unrecognized "
+            "keys: ['unrecognized_keyword'].",
+        ),
+        (
+            {},
+            {"expected_param_2": 2},
+            "Missing keyword arguments have been identified when calling "
+            "`Evaluator.evaluate()`. You have not passed the following expected keys: "
+            "{'expected_param_1'}.",
+        ),
+        (
+            {"expected_param_1": 1},
+            {},
+            "Missing keyword arguments have been identified when calling "
+            "`Evaluator.evaluate()`. You have not passed the following expected keys: "
+            "{'expected_param_2'}.",
+        ),
+    ],
+    ids=[
+        "kwargs_including_reserved_keyword_inference_engine",
+        "eval_kwargs_including_reserved_keyword_inference_engine",
+        "kwargs_including_unrecognized_keyword",
+        "eval_kwargs_including_unrecognized_keyword",
+        "kwargs_missing_required_keyword",
+        "eval_kwargs_missing_required_keyword",
+    ],
+)
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
 @patch("oumi.core.evaluation.evaluator.build_inference_engine")
-def test_evaluate_custom_task_using_reserved_inference_keyword(
+def test_evaluate_custom_task_incorrect_input_arguments(
     mock_build_inference_engine,
     mock_save_evaluation_output,
     mock_check_prerequisites,
     mock_get_evaluation_function,
+    kwargs,
+    eval_kwargs,
+    expected_error_message,
 ):
     # Inputs.
     evaluation_config = EvaluationConfig(
@@ -365,6 +476,7 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
             EvaluationTaskParams(
                 task_name="evaluation_fn_reg_name",
                 evaluation_backend=EvaluationBackend.CUSTOM.value,
+                eval_kwargs=eval_kwargs,
             )
         ],
         model=ModelParams(),
@@ -372,8 +484,8 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
         inference_engine=InferenceEngineType.NATIVE,
     )
 
-    def evaluation_fn(task_params, config, inference_engine):
-        pass
+    def evaluation_fn(task_params, config, expected_param_1, expected_param_2):
+        raise RuntimeError("This function should not be called.")
 
     # Mocks.
     mock_build_inference_engine.return_value = MagicMock()
@@ -384,14 +496,14 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
     # Run the test.
     evaluator = Evaluator()
 
-    with pytest.raises(
-        RuntimeError,
-        match=(r"^The inference engine is already provided in the keyword arguments"),
-    ):
+    with pytest.raises(RuntimeError) as exc_info:
         _ = evaluator.evaluate(
             evaluation_config,
-            inference_engine="inference_engine",  # NOT allowed, key is reserved.
+            **kwargs,
         )
+
+    # Check the error message.
+    assert str(exc_info.value).startswith(expected_error_message)
 
     # Check the results.
     mock_build_inference_engine.assert_not_called()
