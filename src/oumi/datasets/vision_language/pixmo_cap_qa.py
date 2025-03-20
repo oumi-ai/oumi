@@ -27,7 +27,10 @@ from oumi.core.types.conversation import (
 
 @register_dataset("allenai/pixmo-cap-qa")
 class PixmoCapQADataset(VisionLanguageSftDataset):
-    """Dataset class for the `allenai/pixmo-cap-qa` dataset."""
+    """Dataset class for the `allenai/pixmo-cap-qa` dataset.
+
+    The dataset is affected by some image URLs having a 404 issue.
+    """
 
     default_dataset = "allenai/pixmo-cap-qa"
 
@@ -38,8 +41,6 @@ class PixmoCapQADataset(VisionLanguageSftDataset):
         Sample "question": "[USER] Can you come up with a joke? [ASSISTANT]"
         It starts with a [USER] and ends with an [ASSISTANT] role tag.
         The Assistant response appears in the "answer" field.
-
-        The dataset is affected by some image URLs having a 404 issue.
         """
         messages: list[Message] = []
         messages.append(

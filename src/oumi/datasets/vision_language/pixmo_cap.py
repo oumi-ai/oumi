@@ -27,7 +27,10 @@ from oumi.core.types.conversation import (
 
 @register_dataset("allenai/pixmo-cap")
 class PixmoCapDataset(VisionLanguageSftDataset):
-    """Dataset class for the `allenai/pixmo-cap` dataset."""
+    """Dataset class for the `allenai/pixmo-cap` dataset.
+
+    The dataset is affected by some image URLs having a 404 issue.
+    """
 
     default_dataset = "allenai/pixmo-cap"
 
@@ -36,8 +39,6 @@ class PixmoCapDataset(VisionLanguageSftDataset):
         """Transform the example into a Conversation object.
 
         A "transcripts" column is also available but not used yet.
-
-        The dataset is affected by some image URLs having a 404 issue.
         """
         input_text = "Describe this image:"
 
