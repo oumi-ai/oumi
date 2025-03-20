@@ -388,7 +388,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         """Truncates text contents in Messages to `max_length` total tokens.
 
         Note that we have to truncate plain texts *before* we apply chat template
-        as the final rendered prompt is generally unsafe to truncate at arbitrary
+        as the final processed prompt is generally unsafe to truncate at arbitrary
         offset: it may break invariants (e.g., prompt contains `N` images tokens)
         leading to runtime errors in processor.
         """
