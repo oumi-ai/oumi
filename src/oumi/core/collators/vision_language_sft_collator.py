@@ -30,8 +30,9 @@ class VisionLanguageSftCollator:
         tokenizer: BaseTokenizer,
         processor_name: str,
         *,
-        max_length: Optional[int],
+        max_length: Optional[int] = None,
         truncation: bool = False,
+        truncation_side: str = "right",
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
         trust_remote_code: bool = False,
@@ -45,6 +46,7 @@ class VisionLanguageSftCollator:
             truncation: Whether to truncate long inputs to `max_length`.
                 If False, the long inputs are preserved as is even if they exceed
                 `max_length`. Only has effect if `max_length` is specified.
+            truncation_side: The side to truncate the tokens ("right" or "left").
             label_ignore_index:  If set, then label values of tokens that shouldn't
                 contribute to the loss computation will be replaced by
                 this special value.
@@ -52,10 +54,6 @@ class VisionLanguageSftCollator:
             trust_remote_code: Whether to trust remote code execution for the processor.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
-
-        # TODO Consider supporting truncation using these params
-        self._max_length = max_length
-        self._truncation = truncation
 
         if not processor_name:
             raise ValueError("processor_name is required for VisionLanguageSftCollator")
@@ -66,6 +64,9 @@ class VisionLanguageSftCollator:
                 processor_name=processor_name,
                 trust_remote_code=trust_remote_code,
                 return_tensors="pt",
+                truncation=truncation,
+                truncation_side=truncation_side,
+                max_length=max_length,
                 label_ignore_index=label_ignore_index,
             )
         )
