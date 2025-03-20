@@ -242,8 +242,6 @@ def _create_phi4_vlm_config() -> InternalModelConfig:
     visual_config.main_image_feature = "input_image_embeds"
 
     config.visual_config = visual_config
-    config.label_ignore_index = None
-    config.sanitize_negative_labels = True
     return config
 
 

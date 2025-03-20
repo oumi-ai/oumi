@@ -17,8 +17,7 @@ name: phi4-mm-sft-oumi-train
 
 resources:
   cloud: gcp
-  # accelerators: "A100-80GB:1"
-  accelerators: "A100:1"
+  accelerators: "A100:1" # Feel free to bump up the number of GPUs!
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -29,7 +28,6 @@ working_dir: .
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
-  ./tmp: ./tmp # TODO - REMOVE
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -37,8 +35,8 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install -e '.[ci_gpu]' hf_transfer ## TODO REMOVE
-  # pip install uv && uv pip install oumi[gpu] hf_transfer
+
+  pip install uv && uv pip install oumi[gpu] hf_transfer
 
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
@@ -47,8 +45,6 @@ setup: |
   # The model requires flash_attention_2! Install it here.
   pip install -U flash-attn --no-build-isolation
 
-  # Some extra minor dependencies of this model:
-  pip install backoff==2.2.1
 
 run: |
   set -e  # Exit if any command failed.
@@ -58,15 +54,8 @@ run: |
       -m oumi train \
       -c configs/recipes/vision/phi4/sft/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.max_steps 10 \
+      --training.max_steps 25 \
       --training.save_steps 0 \
       --training.save_final_model false
-
-  # oumi train \
-  #     -c configs/recipes/vision/phi4/sft/train.yaml \
-  #     --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-  #     --training.max_steps 10 \
-  #     --training.save_steps 0 \
-  #     --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
