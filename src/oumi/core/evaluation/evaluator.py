@@ -312,11 +312,11 @@ class Evaluator:
         kwargs_2: dict[str, Any],
     ) -> dict[str, Any]:
         """Merges two keyword argument dictionaries."""
-        if kwargs_1.keys() & kwargs_2.keys():
+        if overlapping_keys := kwargs_1.keys() & kwargs_2.keys():
             raise ValueError(
-                "The two keyword argument dictionaries contain overlapping keys. "
-                "Please ensure that the keys in the two dictionaries are unique: "
-                f"`{kwargs_1.keys()}` and `{kwargs_2.keys()}`"
+                "The two keyword argument dictionaries contain overlapping keys: "
+                f"{overlapping_keys}. Please ensure that the keys in the following "
+                f"dictionaries are unique: `{kwargs_1.keys()}` and `{kwargs_2.keys()}`"
             )
         return kwargs_1 | kwargs_2
 

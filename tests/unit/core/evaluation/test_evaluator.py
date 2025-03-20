@@ -432,7 +432,10 @@ def test_evaluate_custom_task_duplicate_optional_param(
 
     with pytest.raises(
         ValueError,
-        match=(r"^The two keyword argument dictionaries contain overlapping keys."),
+        match=(
+            r"^The two keyword argument dictionaries contain overlapping keys: "
+            "{'optional_param'}."
+        ),
     ):
         _ = evaluator.evaluate(
             evaluation_config,
