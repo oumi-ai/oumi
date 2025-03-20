@@ -25,6 +25,7 @@ from oumi.core.processors.default_image_processor import DefaultImageProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import truncate_to_max_tokens_limit
 
 
 class DefaultProcessor(BaseProcessor):
@@ -55,7 +56,7 @@ class DefaultProcessor(BaseProcessor):
             and callable(worker_processor.apply_chat_template)
         ):
             raise ValueError(
-                "Worker processor doesn't have " "the `apply_chat_template` method"
+                "Worker processor doesn't have the `apply_chat_template` method"
             )
 
         self._processor_name = processor_name
@@ -266,3 +267,28 @@ class DefaultProcessor(BaseProcessor):
             return
 
         self._worker_processor.save_pretrained(str(output_dir))
+
+    @override
+    def truncate_text(
+        self,
+        text: str,
+        *,
+        max_tokens: int,
+        truncation_side: str = "right",
+    ) -> tuple[str, int]:
+        """Truncates text to `max_length` in tokens.
+
+        Args:
+            text: A text prompt.
+            max_tokens: Maximum number of tokens to keep.
+            truncation_side: The side to truncate the tokens ("right" or "left").
+
+        Returns:
+            A tuple containing truncated text prompt and the number of tokens.
+        """
+        return truncate_to_max_tokens_limit(
+            text,
+            self._tokenizer,
+            max_tokens=max_tokens,
+            truncation_side=truncation_side,
+        )

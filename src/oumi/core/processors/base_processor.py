@@ -134,3 +134,23 @@ class BaseProcessor(abc.ABC):
     def save_config(self, output_dir: Union[Path, str]) -> None:
         """Saves processor config to the directory."""
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def truncate_text(
+        self,
+        text: str,
+        *,
+        max_tokens: int,
+        truncation_side: str = "right",
+    ) -> tuple[str, int]:
+        """Truncates text to `max_length` in tokens.
+
+        Args:
+            text: A text prompt.
+            max_tokens: Maximum number of tokens to keep.
+            truncation_side: The side to truncate the tokens ("right" or "left").
+
+        Returns:
+            A tuple containing truncated text prompt and the number of tokens.
+        """
+        raise NotImplementedError

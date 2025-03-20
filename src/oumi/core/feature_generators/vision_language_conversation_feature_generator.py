@@ -37,9 +37,14 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
+    Message,
 )
-from oumi.utils.conversation_utils import load_pil_image_from_content_item
+from oumi.utils.conversation_utils import (
+    load_pil_image_from_content_item,
+    truncate_text_in_content_items,
+)
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
 from oumi.utils.torch_utils import get_first_dim_len
 
 
@@ -65,12 +70,24 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         processor_name: Optional[str] = None,
         trust_remote_code: bool = False,
         return_tensors: Optional[str] = None,
+        max_length: Optional[int] = None,
+        truncation: bool = False,
+        truncation_side: str = "right",
         label_ignore_index: Optional[int] = None,
     ) -> None:
         """Initializes a new instance of VisionLanguageFeatureProcessor."""
         # Importing these here to avoid circular dependencies
         from oumi.builders.processors import build_processor
 
+        if truncation_side not in ("left", "right"):
+            raise ValueError(
+                f"Invalid truncation_side: '{truncation_side}'. "
+                "Expected 'left' or 'right'."
+            )
+
+        self._max_length: Optional[int] = max_length
+        self._truncation: bool = truncation
+        self._truncation_side = truncation_side
         self._return_tensors = return_tensors
 
         if tokenizer is None:
@@ -145,6 +162,9 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         last_text_item: ContentItem = text_turns[-1].text_content_items[-1]
 
         prompt = last_text_item.content or ""
+        truncated_texts = self._truncate_text_pieces([prompt])
+        assert len(truncated_texts) == 1
+        prompt = truncated_texts[0]
         image = self._load_image(last_image_item)
 
         return image, prompt
@@ -170,6 +190,8 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 raise ValueError(
                     f"Unsupported message: {turn.id}. Contains no text and no images."
                 )
+
+        messages = self._truncate_text_in_content_items(messages)
 
         text_prompt = self._processor.apply_chat_template(
             messages, add_generation_prompt=False
@@ -361,3 +383,37 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 inputs["labels"] = labels.tolist()
 
         return inputs.data
+
+    def _truncate_text_in_content_items(self, messages: list[Message]) -> list[Message]:
+        """Truncates text contents in Messages to `max_length` total tokens.
+
+        Note that we have to truncate plain texts *before* we apply chat template
+        as the final processed prompt is generally unsafe to truncate at arbitrary
+        offset: it may break invariants (e.g., prompt contains `N` images tokens)
+        leading to runtime errors in processor.
+        """
+        if not (
+            self._truncation and self._max_length is not None and self._max_length > 0
+        ):
+            return messages
+
+        return truncate_text_in_content_items(
+            messages,
+            tokenizer=self._processor.tokenizer,
+            max_tokens=self._max_length,
+            truncation_side=self._truncation_side,
+        )
+
+    def _truncate_text_pieces(self, text_pieces: list[str]) -> list[str]:
+        """Truncates text pieces to total length not exceeding `max_length`."""
+        if not (
+            self._truncation and self._max_length is not None and self._max_length > 0
+        ):
+            return copy.deepcopy(text_pieces)
+
+        return truncate_text_pieces_to_max_tokens_limit(
+            text_pieces,
+            tokenizer=self._processor.tokenizer,
+            max_tokens=self._max_length,
+            truncation_side=self._truncation_side,
+        )
