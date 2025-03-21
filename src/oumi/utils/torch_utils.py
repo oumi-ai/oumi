@@ -288,10 +288,10 @@ def log_number_of_model_parameters(
 
     logger.info(
         f"\nModel Parameters Summary:\n"
-        f"{total_label:<{n_space}} Parameters: {params.all_params:,}\n"
-        f"{embedding_label:<{n_space}} Parameters: {params.embedding_params:,}\n"
-        f"{trainable_label:<{n_space}} Parameters: {params.trainable_params:,}\n"
-        f"{frozen_label:<{n_space}} Parameters: "
+        f"{total_label:<{n_space}} parameters: {params.all_params:,}\n"
+        f"{embedding_label:<{n_space}} parameters: {params.embedding_params:,}\n"
+        f"{trainable_label:<{n_space}} parameters: {params.trainable_params:,}\n"
+        f"{frozen_label:<{n_space}} parameters: "
         f"{params.all_params - params.trainable_params:,} "
         f"({params.frozen_params_percent:.2f}%)\n"
     )

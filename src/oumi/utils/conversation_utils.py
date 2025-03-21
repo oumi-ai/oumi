@@ -17,6 +17,7 @@ from typing import Any, Union
 
 import PIL.Image
 
+from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Type
 from oumi.utils.image_utils import (
     DEFAULT_IMAGE_MODE,
@@ -26,6 +27,7 @@ from oumi.utils.image_utils import (
     load_pil_image_from_path,
     load_pil_image_from_url,
 )
+from oumi.utils.str_utils import truncate_text_pieces_to_max_tokens_limit
 
 
 def load_image_bytes_to_content_item(
@@ -343,3 +345,91 @@ def remove_excessive_images_from_conversation(
         messages=filtered_messages,
         metadata=conversation.metadata,
     )
+
+
+def truncate_text_in_content_items(
+    messages: list[Message],
+    tokenizer: BaseTokenizer,
+    *,
+    max_tokens: int,
+    truncation_side: str = "right",
+) -> list[Message]:
+    """Truncates text contents in Messages to `max_length` total tokens.
+
+    Note that we have to truncate plain texts *before* we apply chat template
+    as the final processed prompt is generally unsafe to truncate at arbitrary
+    offset: it may break invariants (e.g., prompt contains `N` images tokens)
+    leading to runtime errors in processor.
+
+    Args:
+        messages: A list of messages.
+        tokenizer: The tokenizer used for encoding the data.
+        max_tokens: Maximum number of tokens to keep in all text pieces combined.
+        truncation_side: The side to truncate the tokens ("right" or "left").
+
+    Returns:
+        A list of messages with potentially truncated text prompts.
+        The returned list contains the same messages as the input list,
+        except that the text content items may be truncated.
+    """
+    if max_tokens <= 0:
+        raise ValueError("`max_tokens` must be a positive integer")
+    elif truncation_side not in ("left", "right"):
+        raise ValueError(
+            f"Invalid truncation_side: '{truncation_side}'. Expected 'left' or 'right'."
+        )
+
+    result = [m for m in messages]  # shallow copy
+
+    text_pieces: list[str] = []
+    for msg_idx, message in enumerate(result):
+        for item_idx, item in enumerate(message.content_items):
+            if item.is_text():
+                text_pieces.append(item.content or "")
+
+    if len(text_pieces) == 0:
+        return result
+
+    truncated_texts = truncate_text_pieces_to_max_tokens_limit(
+        text_pieces,
+        tokenizer=tokenizer,
+        max_tokens=max_tokens,
+        truncation_side=truncation_side,
+    )
+    assert len(text_pieces) == len(truncated_texts)
+
+    idx = 0
+    for msg_idx, message in enumerate(result):
+        message_truncated = False
+        items: list[ContentItem] = []
+        for item_idx, item in enumerate(message.content_items):
+            if item.is_text():
+                items.append(
+                    ContentItem(
+                        content=truncated_texts[idx],
+                        type=item.type,
+                    )
+                )
+                original_text = item.content or ""
+                if truncated_texts[idx] != original_text:
+                    message_truncated = True
+                idx += 1
+            else:
+                items.append(item)
+
+        if message_truncated:
+            if (
+                len(items) == 1
+                and items[0].is_text()
+                and isinstance(messages[msg_idx].content, str)
+            ):
+                assert isinstance(items[0].content, str)
+                result[msg_idx] = Message(
+                    id=message.id, content=items[0].content, role=message.role
+                )
+            else:
+                result[msg_idx] = Message(
+                    id=message.id, content=items, role=message.role
+                )
+
+    return result
