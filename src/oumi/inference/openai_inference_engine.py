@@ -33,3 +33,39 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
     def api_key_env_varname(self) -> Optional[str]:
         """Return the default environment variable name for the OpenAI API key."""
         return "OPENAI_API_KEY"
+
+    @override
+    def get_supported_params(self) -> set[str]:
+        """Returns a set of supported generation parameters for this engine."""
+        if self._model and self._model == "o1-preview":
+            # o1-preview does NOT support logit_bias.
+            return {
+                "model",
+                "messages",
+                "frequency_penalty",
+                "response_format",
+                "max_completion_tokens",
+                "presence_penalty",
+                "seed",
+                "stop",
+                "stop_strings",
+                "temperature",
+                "top_p",
+                "n",
+            }
+        else:
+            return {
+                "model",
+                "messages",
+                "frequency_penalty",
+                "response_format",
+                "logit_bias",
+                "max_completion_tokens",
+                "presence_penalty",
+                "seed",
+                "stop",
+                "stop_strings",
+                "temperature",
+                "top_p",
+                "n",
+            }
