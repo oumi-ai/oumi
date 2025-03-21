@@ -34,6 +34,8 @@ from oumi.core.inference import BaseInferenceEngine
 from oumi.datasets.evaluation import AlpacaEvalDataset, utils
 from oumi.utils.logging import logger
 
+ALPACA_EVAL_TASK_NAME = "alpaca_eval"
+
 
 def evaluate(
     task_params: AlpacaEvalTaskParams,
@@ -155,6 +157,6 @@ def evaluate(
 
     return EvaluationResult(
         task_name=task_params.task_name,
-        task_result={"results": metric_dict},
+        task_result={"results": {ALPACA_EVAL_TASK_NAME: metric_dict}},
         backend_config=backend_task_config,
     )

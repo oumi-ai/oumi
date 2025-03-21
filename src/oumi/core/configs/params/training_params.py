@@ -795,6 +795,15 @@ class TrainingParams(BaseParams):
                     f"Actual: {self.trainer_type}"
                 )
 
+        # TODO: #1540 - Remove when TRL bug is fixed.
+        if (
+            self.trainer_type == TrainerType.TRL_GRPO
+            and self.include_performance_metrics
+        ):
+            raise ValueError(
+                "`include_performance_metrics` is not supported for TRL_GRPO trainer."
+            )
+
     @property
     def telemetry_dir(self) -> Optional[Path]:
         """Returns the telemetry stats output directory."""

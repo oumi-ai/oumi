@@ -83,6 +83,12 @@ oumi-conda
 
 The Oumi launcher can be used to launch jobs on remote clusters. Our launcher integrates with SkyPilot to launch jobs on popular cloud providers (GCP, Lambda, etc.). To enable the Oumi launcher to run on your preferred cloud, make sure to follow the setup instructions in our [launch guide](../user_guides/launch/launch.md).
 
+### 3.1 [optional] Force all job configs to do Oumi editable install
+
+If you're making changes to the Oumi codebase which you can't test locally (ex. training of large 8B+ models), you can use the Oumi launcher to launch remote jobs on GPU clusters and test your changes there. By default, most Oumi configs in the [`configs` directory](https://github.com/oumi-ai/oumi/tree/main/configs) install oumi from PyPI (i.e. `pip install oumi`). However, for the remote job to pick up your local changes, you need to install from your local copy of the repo (i.e. `pip install -e .`).
+
+To automate this process, you can set the `OUMI_FORCE_EDITABLE_INSTALL` environment variable to `"true"`. This experimental feature will automatically detect and modify oumi PyPI installs to instead install in editable mode from source using regex.
+
 (optional-set-up-huggingface)=
 
 ## 4. [optional] Set up HuggingFace
