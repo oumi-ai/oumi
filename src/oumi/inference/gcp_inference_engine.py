@@ -113,13 +113,21 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "guided_decoding",
-            "logit_bias",
-            "max_new_tokens",
+            "model",
+            "messages",
             "seed",
-            "stop_strings",
             "temperature",
             "top_p",
+            "n",
+            "max_new_tokens",
+            "max_completion_tokens",
+            "stop",
+            "stop_strings",
+            "presence_penalty",
+            "frequency_penalty",
+            "guided_decoding",
+            "response_format",
+            "logit_bias",
         }
 
 

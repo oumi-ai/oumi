@@ -43,16 +43,22 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "frequency_penalty",
-            "logit_bias",
-            "presence_penalty",
+            "model",
+            "messages",
             "seed",
-            "stop_strings",
-            "stop_token_ids",
             "temperature",
             "top_p",
-            "guided_decoding",
+            "n",
             "max_new_tokens",
+            "max_completion_tokens",
+            "stop",
+            "stop_strings",
+            "stop_token_ids",
+            "presence_penalty",
+            "frequency_penalty",
+            "guided_decoding",
+            "response_format",
+            "logit_bias",
         }
 
     @override

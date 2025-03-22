@@ -48,6 +48,7 @@ from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
 )
+from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -316,6 +317,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     generation_params.guided_decoding,
                 )
 
+        # Remove any keys that are not supported when subclassing the engine.
+        unsupported_keys: set[str] = api_input.keys() - self.get_supported_params()
+        for key in unsupported_keys:
+            logger.warning(f"Removing unsupported key `{key}` from API call")
+            del api_input[key]
+
         return api_input
 
     def _convert_api_output_to_conversation(
@@ -531,15 +538,24 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "frequency_penalty",
-            "guided_decoding",
-            "logit_bias",
-            "max_new_tokens",
-            "presence_penalty",
+            "model",
+            "messages",
             "seed",
-            "stop_strings",
             "temperature",
             "top_p",
+            "n",
+            "max_new_tokens",
+            "max_completion_tokens",
+            "stop",
+            "stop_strings",
+            "presence_penalty",
+            "frequency_penalty",
+            "guided_decoding",
+            "response_format",
+            "logit_bias",
+            # Note for the future: Consider adding the following here:
+            # 1) "stop_token_ids"
+            # 2) "min_p"
         }
 
     #
