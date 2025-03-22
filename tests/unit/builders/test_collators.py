@@ -154,7 +154,7 @@ def test_build_collator_from_config_no_collator(mock_tokenizer):
     assert collator is None
 
 
-def test_build_collator_from_config_no_collator_no_tokenzier():
+def test_build_collator_from_config_no_collator_no_tokenizer():
     training_config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(

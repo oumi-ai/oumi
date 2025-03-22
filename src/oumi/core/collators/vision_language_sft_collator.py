@@ -21,8 +21,6 @@ from oumi.core.feature_generators import (
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types import Conversation
 
-_PIXEL_VALUES_KEY = "pixel_values"
-
 
 class VisionLanguageSftCollator:
     def __init__(
