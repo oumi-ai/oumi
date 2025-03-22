@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
@@ -79,7 +80,9 @@ class DefaultProcessor(BaseProcessor):
                 self._worker_processor.image_processor
             )
         self._label_ignore_index: Optional[int] = label_ignore_index
-        self._ignore_features: Optional[list[str]] = ignore_features
+        self._ignore_features: Optional[list[str]] = (
+            copy.copy(ignore_features) if ignore_features else []
+        )
 
     @property
     @override
@@ -159,7 +162,7 @@ class DefaultProcessor(BaseProcessor):
     @override
     def ignore_features(self) -> list[str]:
         """Returns a list of keys of features to ignore from feeding the model."""
-        return self._ignore_features if self._ignore_features else []
+        return copy.copy(self._ignore_features) if self._ignore_features else []
 
     @override
     def __call__(

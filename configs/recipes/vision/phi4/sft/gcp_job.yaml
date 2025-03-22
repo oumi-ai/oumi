@@ -1,4 +1,4 @@
-# Phi4 multimodal 14B full fine-tune training job config.
+# Phi4 multimodal 5.6B full fine-tune training job config.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -37,7 +37,6 @@ setup: |
   set -e
 
   pip install uv && uv pip install oumi[gpu] hf_transfer
-
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-4-multimodal-instruct
