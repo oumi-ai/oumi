@@ -32,7 +32,7 @@ model:
 
 data:
   train:
-    collator_name: "vision_language_with_padding"
+    collator_name: "vision_language_sft"
     use_torchdata: true
     datasets:
       - dataset_name: "merve/vqav2-small"
@@ -71,7 +71,7 @@ training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 1 # Due to processor's handling of variable sized img-features.
+  per_device_train_batch_size: 2
   gradient_accumulation_steps: 8
   max_steps: 20
 
