@@ -42,6 +42,7 @@ dependencies = [
     "aiohttp>=3.10,<3.12",          # Used by inference engine
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
+    "backoff>=2.2.1,<2.3",
     "datasets>=3.2.0,<3.3",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
