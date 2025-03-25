@@ -143,7 +143,7 @@ class TrainTestConfig(NamedTuple):
     config_path: Path
     max_steps: int
     is_lora: bool = False
-    skip: bool = True
+    skip: bool = False
     interactive_logs: bool = True
 
     trainer_type: Optional[TrainerType] = None
