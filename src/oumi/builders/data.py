@@ -115,36 +115,6 @@ def build_dataset_mixture(
     return dataset
 
 
-def build_dataset_from_params(
-    dataset_params: DatasetParams,
-    tokenizer: Optional[BaseTokenizer],
-    seed: Optional[int] = None,
-    stream: bool = False,
-    pack: bool = False,
-    use_torchdata: Optional[bool] = None,
-) -> Union[DatasetType, PretrainingAsyncTextDataset]:
-    """Builds a dataset from a dataset params object.
-
-    Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
-    all the arguments.
-    """
-    data_params = DataParams(
-        train=DatasetSplitParams(
-            datasets=[dataset_params],
-            stream=stream,
-            pack=pack,
-            use_torchdata=use_torchdata,
-        )
-    )
-
-    return build_dataset_mixture(
-        data_params=data_params,
-        dataset_split=DatasetSplit.TRAIN,
-        tokenizer=tokenizer,
-        seed=seed,
-    )
-
-
 def build_dataset(
     dataset_name: str,
     tokenizer: Optional[BaseTokenizer],
@@ -163,14 +133,20 @@ def build_dataset(
         dataset_name=dataset_name,
         **kwargs,
     )
+    data_params = DataParams(
+        train=DatasetSplitParams(
+            datasets=[dataset_params],
+            stream=stream,
+            pack=pack,
+            use_torchdata=use_torchdata,
+        )
+    )
 
-    return build_dataset_from_params(
-        dataset_params=dataset_params,
+    return build_dataset_mixture(
+        data_params=data_params,
+        dataset_split=DatasetSplit.TRAIN,
         tokenizer=tokenizer,
         seed=seed,
-        stream=stream,
-        pack=pack,
-        use_torchdata=use_torchdata,
     )
 
 

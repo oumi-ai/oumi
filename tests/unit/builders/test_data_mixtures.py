@@ -6,7 +6,6 @@ from trl.trainer import ConstantLengthDataset
 
 from oumi.builders import (
     build_dataset,
-    build_dataset_from_params,
     build_dataset_mixture,
     build_tokenizer,
 )
@@ -135,14 +134,9 @@ def test_data_single_dataset_from_params(stream: bool):
         DatasetSplit.TRAIN,
     )
 
-    dataset_params = DatasetParams(
-        dataset_name="debug_sft", dataset_kwargs={"dataset_size": 5}
-    )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_from_params(
-        dataset_params=dataset_params,
-        tokenizer=tokenizer,
-        stream=stream,
+    dataset = build_dataset(
+        dataset_name="debug_sft", tokenizer=tokenizer, stream=stream, dataset_size=5
     )
     assert _get_dataset_size(dataset, stream) == 5
 
