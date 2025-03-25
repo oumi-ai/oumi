@@ -80,19 +80,12 @@ def _test_eval_impl(
         config_path = test_config.config_path
         # Overriding nested fields using OmegaConf's dot-list syntax is complicated,
         # or impossible. Let's just create a modified config copy instead.
-        if (
-            test_config.num_samples is not None
-            or test_config.num_fewshot is not None
-            or (single_gpu is not None and single_gpu)
-        ):
+        if test_config.num_samples is not None or test_config.num_fewshot is not None:
             for task in eval_config.tasks:
                 if test_config.num_samples is not None:
                     task.num_samples = test_config.num_samples
                 if test_config.num_fewshot is not None:
                     task.eval_kwargs["num_fewshot"] = test_config.num_fewshot
-
-            if single_gpu is not None and single_gpu:
-                eval_config.model.shard_for_eval = False
 
             config_path = (
                 output_dir / f"MODIFIED_{test_config.config_path.name}"
@@ -116,6 +109,7 @@ def _test_eval_impl(
 
         for param_name, param_value in [
             ("model_max_length", test_config.model_max_length),
+            ("shard_for_eval", False if single_gpu else None),
         ]:
             if param_value is not None:
                 cmd.append(f"--model.{param_name}={str(param_value)}")
