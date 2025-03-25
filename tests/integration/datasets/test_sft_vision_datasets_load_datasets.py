@@ -14,7 +14,6 @@ from oumi.core.configs import (
     DatasetSplit,
     DatasetSplitParams,
     ModelParams,
-    TrainingConfig,
 )
 from oumi.core.datasets import VisionLanguageSftDataset
 from oumi.core.registry import REGISTRY, RegistryType
@@ -181,10 +180,9 @@ def test_build_dataset_mixture(info: LoadDatasetInfo):
             )
         ],
     )
-    train_config = TrainingConfig(
-        model=model_params, data=DataParams(train=train_split)
+    dataset = build_dataset_mixture(
+        DataParams(train=train_split), tokenizer, DatasetSplit.TRAIN
     )
-    dataset = build_dataset_mixture(train_config, tokenizer, DatasetSplit.TRAIN)
 
     assert isinstance(dataset, datasets.Dataset)
 

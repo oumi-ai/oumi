@@ -292,11 +292,21 @@ def train(config: TrainingConfig, **kwargs) -> None:
             )
 
     # Load data & preprocessing
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
-        eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
+        eval_dataset = build_dataset_mixture(
+            config.data,
+            tokenizer,
+            DatasetSplit.VALIDATION,
+            seq_length=config.model.model_max_length,
+        )
 
     # trl's SFTTrainer has its own dataset processing code. We should skip it if
     # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
