@@ -27,6 +27,7 @@ from oumi.core.configs import (
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
+from oumi.core.distributed import is_world_process_zero
 from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
@@ -186,7 +187,7 @@ class Evaluator:
         evaluation_result.start_time = start_time_str
 
         # Save the output, if an output directory has been provided.
-        if config.output_dir:
+        if config.output_dir and is_world_process_zero():
             self.save_output(
                 task_params=task_params,
                 evaluation_result=evaluation_result,
