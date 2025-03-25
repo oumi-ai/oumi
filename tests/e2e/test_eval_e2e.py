@@ -19,6 +19,7 @@ class EvalTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     skip: bool = True
+    interactive_logs: bool = True
 
     model_max_length: Optional[int] = None
     batch_size: Optional[int] = None
@@ -37,13 +38,14 @@ def _test_eval_impl(
     tmp_path: Path,
     *,
     use_plain_oumi_evaluate_command: bool = False,
-    interactive_logs: bool = True,
     cleanup_output_dir_on_success: bool = True,
 ):
     device_cleanup()
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
+
+    interactive_logs = test_config.interactive_logs
 
     test_tag = f"[{test_config.test_name}]"
 
@@ -226,13 +228,10 @@ def _test_eval_impl(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_eval_text_1gpu_24gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_text_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        interactive_logs=interactive_logs,
     )
 
 
@@ -258,13 +257,10 @@ def test_eval_text_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_eval_multimodal_1gpu_24gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        interactive_logs=interactive_logs,
     )
 
 
@@ -313,13 +309,10 @@ def test_eval_multimodal_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_eval_text_4gpu_40gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_text_4gpu_40gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        interactive_logs=interactive_logs,
     )
 
 
@@ -344,11 +337,8 @@ def test_eval_text_4gpu_40gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_eval_multimodal_4gpu_24gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_multimodal_4gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        interactive_logs=interactive_logs,
     )
