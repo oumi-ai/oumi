@@ -341,6 +341,16 @@ def evaluate(
         inference_remote_params=config.inference_remote_params,
     )
     logger.info(f"\tLM Harness `model_params`:\n{pformat(lm_harness_model_params)}")
+
+    if False:
+        print("Debug!. Quickly `register` model as if it was LLM-only here.")
+        lm_harness_model = "hf"  # or "hf-multimodal" i.e., our current default which
+        # is expected to break things for phi4 or phi3 or molmo.
+        # those should go since they are not supported by AutoModelForCausalLM.
+        lm_harness_model_params.pop("max_images", None)
+        lm_harness_model_params.pop("interleave", None)
+        lm_harness_model_params.pop("convert_img_format", None)
+
     lm_class = lm_harness_get_model_class(lm_harness_model)
     lm = lm_class(**lm_harness_model_params)
 
