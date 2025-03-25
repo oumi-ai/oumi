@@ -13,17 +13,18 @@
 #   - Other eval configs: configs/**/evaluation/
 
 model:
-  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  # model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
 
-data:
-  train:
-    datasets:
-      - dataset_name: "oumi-ai/oumi-letter-count"
-        split: "test"
+# data:
+#   train:
+#     datasets:
+#       - dataset_name: "oumi-ai/oumi-letter-count"
+#         split: "test"
 
 generation:
   batch_size: 4
