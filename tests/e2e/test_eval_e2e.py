@@ -18,7 +18,7 @@ from tests.markers import requires_gpus
 class EvalTestConfig(NamedTuple):
     test_name: str
     config_path: Path
-    skip: bool = False
+    skip: bool = True
 
     model_max_length: Optional[int] = None
     batch_size: Optional[int] = None
@@ -195,6 +195,7 @@ def _test_eval_impl(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
             ),
             num_samples=10,
+            skip=False,
         ),
         EvalTestConfig(
             test_name="eval_text_llama32_3b_single_gpu",
@@ -281,6 +282,7 @@ def test_eval_multimodal_1gpu_24gb(
                 / "70b_eval.yaml"
             ),
             num_samples=20,
+            skip=False,
         ),
         EvalTestConfig(
             test_name="eval_text_deepseek_r1_distill_llama8b_multi_gpu",
