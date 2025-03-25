@@ -144,6 +144,8 @@ class TrainTestConfig(NamedTuple):
     max_steps: int
     is_lora: bool = False
     skip: bool = False
+    interactive_logs: bool = True
+
     trainer_type: Optional[TrainerType] = None
     model_max_length: Optional[int] = None
     batch_size: Optional[int] = None
@@ -165,13 +167,14 @@ def _test_train_impl(
     tmp_path: Path,
     *,
     use_distributed: bool,
-    interactive_logs: bool = True,
     cleanup_output_dir_on_success: bool = True,
 ):
     device_cleanup()
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
+
+    interactive_logs = test_config.interactive_logs
 
     test_tag = f"[{test_config.test_name}]"
 
@@ -412,14 +415,10 @@ def _test_train_impl(
 @pytest.mark.e2e
 @pytest.mark.single_gpu
 def test_train_text_1gpu_24gb(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+    test_config: TrainTestConfig,
+    tmp_path: Path,
 ):
-    _test_train_impl(
-        test_config=test_config,
-        tmp_path=tmp_path,
-        use_distributed=False,
-        interactive_logs=interactive_logs,
-    )
+    _test_train_impl(test_config=test_config, tmp_path=tmp_path, use_distributed=False)
 
 
 @requires_gpus(count=1, min_gb=24.0)
@@ -460,14 +459,11 @@ def test_train_text_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_train_multimodal_1gpu_24gb(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_train_multimodal_1gpu_24gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=False,
-        interactive_logs=interactive_logs,
     )
 
 
@@ -522,12 +518,9 @@ def test_train_multimodal_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_train_multimodal_fsdp_4gpu_80gb(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=True,
-        interactive_logs=interactive_logs,
     )

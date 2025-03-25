@@ -19,6 +19,7 @@ class EvalTestConfig(NamedTuple):
     test_name: str
     config_path: Path
     skip: bool = False
+    interactive_logs: bool = True
 
     model_max_length: Optional[int] = None
     batch_size: Optional[int] = None
@@ -36,14 +37,16 @@ def _test_eval_impl(
     test_config: EvalTestConfig,
     tmp_path: Path,
     *,
-    use_distributed: bool,
-    interactive_logs: bool = True,
+    use_distributed: bool = True,
     cleanup_output_dir_on_success: bool = True,
+    single_gpu: Optional[bool] = None,
 ):
     device_cleanup()
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
+
+    interactive_logs = test_config.interactive_logs
 
     test_tag = f"[{test_config.test_name}]"
 
@@ -106,6 +109,7 @@ def _test_eval_impl(
 
         for param_name, param_value in [
             ("model_max_length", test_config.model_max_length),
+            ("shard_for_eval", False if single_gpu else None),
         ]:
             if param_value is not None:
                 cmd.append(f"--model.{param_name}={str(param_value)}")
@@ -223,14 +227,11 @@ def _test_eval_impl(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_eval_text_1gpu_24gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_text_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=False,
-        interactive_logs=interactive_logs,
+        single_gpu=True,
     )
 
 
@@ -256,14 +257,11 @@ def test_eval_text_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_eval_multimodal_1gpu_24gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=False,
-        interactive_logs=interactive_logs,
+        single_gpu=True,
     )
 
 
@@ -311,14 +309,10 @@ def test_eval_multimodal_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_eval_text_4gpu_40gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_text_4gpu_40gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=True,
-        interactive_logs=interactive_logs,
     )
 
 
@@ -343,12 +337,8 @@ def test_eval_text_4gpu_40gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_eval_multimodal_4gpu_24gb(
-    test_config: EvalTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_eval_multimodal_4gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=True,
-        interactive_logs=interactive_logs,
     )
