@@ -37,8 +37,9 @@ def _test_eval_impl(
     test_config: EvalTestConfig,
     tmp_path: Path,
     *,
-    use_plain_oumi_evaluate_command: bool = False,
+    use_distributed: bool = True,
     cleanup_output_dir_on_success: bool = True,
+    single_gpu: Optional[bool] = None,
 ):
     device_cleanup()
     if test_config.skip:
@@ -71,20 +72,27 @@ def _test_eval_impl(
             ) from e
 
         cmd: list[str] = []
-        if use_plain_oumi_evaluate_command:
-            cmd.append("oumi evaluate")
-        else:
+        if use_distributed:
             cmd.append("oumi distributed accelerate launch -m oumi evaluate")
+        else:
+            cmd.append("oumi evaluate")
 
         config_path = test_config.config_path
         # Overriding nested fields using OmegaConf's dot-list syntax is complicated,
         # or impossible. Let's just create a modified config copy instead.
-        if test_config.num_samples is not None or test_config.num_fewshot is not None:
+        if (
+            test_config.num_samples is not None
+            or test_config.num_fewshot is not None
+            or (single_gpu is not None and single_gpu)
+        ):
             for task in eval_config.tasks:
                 if test_config.num_samples is not None:
                     task.num_samples = test_config.num_samples
                 if test_config.num_fewshot is not None:
                     task.eval_kwargs["num_fewshot"] = test_config.num_fewshot
+
+            if single_gpu is not None and single_gpu:
+                eval_config.model.shard_for_eval = False
 
             config_path = (
                 output_dir / f"MODIFIED_{test_config.config_path.name}"
@@ -232,6 +240,7 @@ def test_eval_text_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
+        single_gpu=True,
     )
 
 
@@ -261,6 +270,7 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
+        single_gpu=True,
     )
 
 
