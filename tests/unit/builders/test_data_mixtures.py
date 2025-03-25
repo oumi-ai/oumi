@@ -136,7 +136,10 @@ def test_data_single_dataset_from_params(stream: bool):
 
     tokenizer = build_tokenizer(config.model)
     dataset = build_dataset(
-        dataset_name="debug_sft", tokenizer=tokenizer, stream=stream, dataset_size=5
+        dataset_name="debug_sft",
+        tokenizer=tokenizer,
+        stream=stream,
+        dataset_kwargs={"dataset_size": 5},
     )
     assert _get_dataset_size(dataset, stream) == 5
 
