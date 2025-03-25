@@ -37,35 +37,10 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
     @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
+        supported_params = super().get_supported_params()
+
+        # o1-preview does NOT support logit_bias.
         if self._model and self._model == "o1-preview":
-            # o1-preview does NOT support logit_bias.
-            return {
-                "model",
-                "messages",
-                "frequency_penalty",
-                "response_format",
-                "max_completion_tokens",
-                "presence_penalty",
-                "seed",
-                "stop",
-                "stop_strings",
-                "temperature",
-                "top_p",
-                "n",
-            }
-        else:
-            return {
-                "model",
-                "messages",
-                "frequency_penalty",
-                "response_format",
-                "logit_bias",
-                "max_completion_tokens",
-                "presence_penalty",
-                "seed",
-                "stop",
-                "stop_strings",
-                "temperature",
-                "top_p",
-                "n",
-            }
+            supported_params.remove("logit_bias")
+
+        return supported_params
