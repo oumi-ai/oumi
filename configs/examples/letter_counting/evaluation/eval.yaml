@@ -1,10 +1,10 @@
-# Eval config for Deepseek R1 Distill Qwen2.5 1.5B.
+# Config to eval an LLM's ability to count letters in words.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi evaluate -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/eval.yaml
+#   oumi evaluate -c configs/examples/letter_counting/evaluation/eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
@@ -13,20 +13,27 @@
 #   - Other eval configs: configs/**/evaluation/
 
 model:
-  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  # model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
   model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
 
+# data:
+#   train:
+#     datasets:
+#       - dataset_name: "oumi-ai/oumi-letter-count"
+#         split: "test"
+
 generation:
   batch_size: 4
 
 tasks:
-  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
-  - evaluation_backend: lm_harness
-    task_name: mmlu_college_computer_science
-    eval_kwargs:
-      num_fewshot: 5
+  - evaluation_backend: custom
+    task_name: count_letters
+    num_samples: 10
 
-enable_wandb: True
+inference_engine: NATIVE
+
+output_dir: "output/letter_counting/evaluation"

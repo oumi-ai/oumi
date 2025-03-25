@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from abc import abstractmethod
 from typing import Optional, Union
 
 import pandas as pd
@@ -19,6 +20,7 @@ from typing_extensions import override
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.types.conversation import Conversation
 
 _PROMPT_KEY = "prompt"
 _COMPLETION_KEY = "completion"
@@ -96,3 +98,36 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
         return self.transform_grpo_example(sample)
+
+    def conversation(self, idx: int) -> Conversation:
+        """Returns the conversation at the specified index.
+
+        Args:
+            idx (int): The index of the conversation to retrieve.
+
+        Returns:
+            str: The conversation at the specified index.
+        """
+        sample = self.raw(idx)
+        return self.transform_conversation(sample)
+
+    def conversations(self) -> list[Conversation]:
+        """Returns a list of all conversations."""
+        indexes = range(len(self))
+        return [self.conversation(index) for index in indexes]
+
+    #
+    # Abstract Methods
+    #
+    @abstractmethod
+    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
+        """Preprocesses the inputs of the example and returns a dictionary.
+
+        Args:
+            example (dict): The example containing the input and instruction.
+
+        Returns:
+            dict: The preprocessed inputs as a dictionary.
+
+        """
+        raise NotImplementedError

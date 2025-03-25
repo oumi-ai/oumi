@@ -13,7 +13,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "Qwen/Qwen2-0.5B-Instruct"
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
   model_max_length: 8192
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
