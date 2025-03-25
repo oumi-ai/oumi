@@ -87,6 +87,12 @@ class BaseProcessor(abc.ABC):
         """Returns a label ignore index."""
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def ignore_features(self) -> list[str]:
+        """Returns a list of keys of features to ignore from feeding the model."""
+        raise NotImplementedError
+
     @abc.abstractmethod
     def __call__(
         self,
