@@ -18,7 +18,7 @@ from tests.markers import requires_gpus
 class EvalTestConfig(NamedTuple):
     test_name: str
     config_path: Path
-    skip: bool = True
+    skip: bool = False
     interactive_logs: bool = True
 
     model_max_length: Optional[int] = None
@@ -200,14 +200,11 @@ def _test_eval_impl(
             num_samples=20,
         ),
         EvalTestConfig(
-            # FAILS ValueError: You are trying to offload the whole model to the disk.
-            # Please use the `disk_offload` function instead.
             test_name="eval_text_phi3_single_gpu",
             config_path=(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
             ),
             num_samples=10,
-            skip=False,
         ),
         EvalTestConfig(
             test_name="eval_text_llama32_3b_single_gpu",
