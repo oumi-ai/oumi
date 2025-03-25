@@ -142,18 +142,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "model",
-            "messages",
-            "seed",
+            "max_new_tokens",
+            "stop_strings",
             "temperature",
             "top_p",
-            "n",
-            "max_new_tokens",
-            "max_completion_tokens",
-            "stop",
-            "stop_strings",
-            "presence_penalty",
-            "frequency_penalty",
-            "response_format",
-            "logit_bias",
         }
