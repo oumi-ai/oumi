@@ -36,7 +36,7 @@ def _test_eval_impl(
     test_config: EvalTestConfig,
     tmp_path: Path,
     *,
-    use_distributed: bool,
+    use_plain_oumi_evaluate_command: bool = False,
     interactive_logs: bool = True,
     cleanup_output_dir_on_success: bool = True,
 ):
@@ -69,10 +69,10 @@ def _test_eval_impl(
             ) from e
 
         cmd: list[str] = []
-        if use_distributed:
-            cmd.append("oumi distributed accelerate launch -m oumi evaluate")
-        else:
+        if use_plain_oumi_evaluate_command:
             cmd.append("oumi evaluate")
+        else:
+            cmd.append("oumi distributed accelerate launch -m oumi evaluate")
 
         config_path = test_config.config_path
         # Overriding nested fields using OmegaConf's dot-list syntax is complicated,
@@ -190,6 +190,8 @@ def _test_eval_impl(
             num_samples=20,
         ),
         EvalTestConfig(
+            # FAILS ValueError: You are trying to offload the whole model to the disk.
+            # Please use the `disk_offload` function instead.
             test_name="eval_text_phi3_single_gpu",
             config_path=(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
@@ -230,7 +232,6 @@ def test_eval_text_1gpu_24gb(
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=False,
         interactive_logs=interactive_logs,
     )
 
@@ -263,7 +264,6 @@ def test_eval_multimodal_1gpu_24gb(
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=False,
         interactive_logs=interactive_logs,
     )
 
@@ -319,7 +319,6 @@ def test_eval_text_4gpu_40gb(
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=True,
         interactive_logs=interactive_logs,
     )
 
@@ -351,6 +350,5 @@ def test_eval_multimodal_4gpu_24gb(
     _test_eval_impl(
         test_config=test_config,
         tmp_path=tmp_path,
-        use_distributed=True,
         interactive_logs=interactive_logs,
     )
