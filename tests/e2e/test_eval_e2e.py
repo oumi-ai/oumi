@@ -284,8 +284,6 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "70b_eval.yaml"
             ),
             num_samples=20,
-            interactive_logs=False,
-            skip=False,
             use_simple_oumi_evaluate_command=True,
         ),
         EvalTestConfig(
@@ -311,6 +309,7 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "eval.yaml"
             ),
             num_samples=20,
+            use_simple_oumi_evaluate_command=True,
         ),
     ],
     ids=get_eval_test_id_fn,
