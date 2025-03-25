@@ -21,6 +21,12 @@ class EvalTestConfig(NamedTuple):
     skip: bool = True
     interactive_logs: bool = True
 
+    use_simple_oumi_evaluate_command: bool = False
+    """
+    If True, the test will use the simple `oumi evaluate` command instead of the
+    distributed version. This sometimes leads to lower GPU RAM usage.
+    """
+
     model_max_length: Optional[int] = None
     batch_size: Optional[int] = None
     num_samples: Optional[int] = 20  # Limit the number of samples by default
@@ -37,7 +43,6 @@ def _test_eval_impl(
     test_config: EvalTestConfig,
     tmp_path: Path,
     *,
-    use_distributed: bool = True,
     cleanup_output_dir_on_success: bool = True,
     single_gpu: Optional[bool] = None,
 ):
@@ -72,10 +77,10 @@ def _test_eval_impl(
             ) from e
 
         cmd: list[str] = []
-        if use_distributed:
-            cmd.append("oumi distributed accelerate launch -m oumi evaluate")
-        else:
+        if test_config.use_simple_oumi_evaluate_command:
             cmd.append("oumi evaluate")
+        else:
+            cmd.append("oumi distributed accelerate launch -m oumi evaluate")
 
         config_path = test_config.config_path
         # Overriding nested fields using OmegaConf's dot-list syntax is complicated,
@@ -281,6 +286,7 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
             num_samples=20,
             interactive_logs=False,
             skip=False,
+            use_simple_oumi_evaluate_command=True,
         ),
         EvalTestConfig(
             test_name="eval_text_deepseek_r1_distill_llama8b_multi_gpu",
