@@ -72,7 +72,12 @@ def test_train_native_pt_model_from_api():
 
         tokenizer = build_tokenizer(config.model)
 
-        dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+        dataset = build_dataset_mixture(
+            config.data,
+            tokenizer,
+            DatasetSplit.TRAIN,
+            seq_length=config.model.model_max_length,
+        )
 
         model = build_model(model_params=config.model)
 
