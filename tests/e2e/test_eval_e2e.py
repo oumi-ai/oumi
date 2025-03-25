@@ -285,7 +285,6 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "70b_eval.yaml"
             ),
             num_samples=20,
-            skip=False,
         ),
         EvalTestConfig(
             test_name="eval_text_deepseek_r1_distill_llama8b_multi_gpu",
