@@ -257,6 +257,28 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
+        generation_params_dict = {
+            "max_completion_tokens": generation_params.max_new_tokens,
+            "seed": generation_params.seed,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
+            "frequency_penalty": generation_params.frequency_penalty,
+            "presence_penalty": generation_params.presence_penalty,
+            "logit_bias": generation_params.logit_bias,
+        }
+        if generation_params.stop_strings:
+            generation_params_dict["stop"] = generation_params.stop_strings
+        if generation_params.stop_token_ids:
+            generation_params_dict["stop_token_ids"] = generation_params.stop_token_ids
+        if generation_params.min_p:
+            generation_params_dict["min_p"] = generation_params.min_p
+
+        # Remove any keys that are not supported.
+        unsupported_keys = generation_params_dict.keys() - self.get_supported_params()
+        for key in unsupported_keys:
+            logger.warning(f"Removing unsupported key `{key}` from API call")
+            del generation_params_dict[key]
+
         api_input = {
             "model": self._model,
             "messages": [
@@ -266,62 +288,47 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 }
                 for message in conversation.messages
             ],
-            "max_completion_tokens": generation_params.max_new_tokens,
-            "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
-            "frequency_penalty": generation_params.frequency_penalty,
-            "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
-            "seed": generation_params.seed,
-            "logit_bias": generation_params.logit_bias,
+            **generation_params_dict,
         }
-
-        if generation_params.stop_strings:
-            api_input["stop"] = generation_params.stop_strings
 
         if generation_params.guided_decoding:
             json_schema = generation_params.guided_decoding.json
 
-            if json_schema is not None:
-                if isinstance(json_schema, type) and issubclass(
-                    json_schema, pydantic.BaseModel
-                ):
-                    schema_name = json_schema.__name__
-                    schema_value = json_schema.model_json_schema()
-                elif isinstance(json_schema, dict):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    schema_value = json_schema
-                elif isinstance(json_schema, str):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    # Try to parse as JSON string
-                    schema_value = json.loads(json_schema)
-                else:
-                    raise ValueError(
-                        f"Got unsupported JSON schema type: {type(json_schema)}"
-                        "Please provide a Pydantic model or a JSON schema as a "
-                        "string or dict."
-                    )
-
-                api_input["response_format"] = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema_name,
-                        "schema": schema_value,
-                    },
-                }
-            else:
+            if json_schema is None:
                 raise ValueError(
                     "Only JSON schema guided decoding is supported, got '%s'",
                     generation_params.guided_decoding,
                 )
 
-        # Remove any keys that are not supported when subclassing the engine.
-        unsupported_keys: set[str] = api_input.keys() - self.get_supported_params()
-        for key in unsupported_keys:
-            logger.warning(f"Removing unsupported key `{key}` from API call")
-            del api_input[key]
+            if isinstance(json_schema, type) and issubclass(
+                json_schema, pydantic.BaseModel
+            ):
+                schema_name = json_schema.__name__
+                schema_value = json_schema.model_json_schema()
+            elif isinstance(json_schema, dict):
+                # Use a generic name if no schema is provided.
+                schema_name = "Response"
+                schema_value = json_schema
+            elif isinstance(json_schema, str):
+                # Use a generic name if no schema is provided.
+                schema_name = "Response"
+                # Try to parse as JSON string
+                schema_value = json.loads(json_schema)
+            else:
+                raise ValueError(
+                    f"Got unsupported JSON schema type: {type(json_schema)}"
+                    "Please provide a Pydantic model or a JSON schema as a "
+                    "string or dict."
+                )
+
+            api_input["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": schema_value,
+                },
+            }
 
         return api_input
 
@@ -538,24 +545,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "model",
-            "messages",
+            "max_completion_tokens",
             "seed",
             "temperature",
             "top_p",
-            "n",
-            "max_new_tokens",
-            "max_completion_tokens",
-            "stop",
-            "stop_strings",
-            "presence_penalty",
             "frequency_penalty",
-            "guided_decoding",
-            "response_format",
+            "presence_penalty",
             "logit_bias",
-            # Note for the future: Consider adding the following here:
-            # 1) "stop_token_ids"
-            # 2) "min_p"
+            "stop",
+            "stop_token_ids",
+            "min_p",
+            "guided_decoding",
         }
 
     #
