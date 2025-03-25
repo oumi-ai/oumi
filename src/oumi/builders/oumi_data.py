@@ -28,14 +28,14 @@ from oumi.core.configs import (
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
-    TrainingConfig,
 )
+from oumi.core.configs.params.data_params import DataParams
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
 
 
 def build_dataset_mixture(
-    config: TrainingConfig,
+    data_params: DataParams,
     tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
@@ -43,7 +43,7 @@ def build_dataset_mixture(
     """Builds a dataset for the specified split.
 
     Args:
-        config: The training config.
+        data_params: The data params.
         tokenizer: The tokenizer object to use for preprocessing.
         dataset_split: The split of the dataset to load.
         seed: If specified, a seed used for random sampling.
@@ -51,7 +51,7 @@ def build_dataset_mixture(
     Returns:
         dataset: The built dataset for `dataset_split`.
     """
-    dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
+    dataset_split_params: DatasetSplitParams = data_params.get_split(dataset_split)
 
     if len(dataset_split_params.datasets) == 0:
         raise ValueError("No datasets specified in the split.")
@@ -123,8 +123,9 @@ def build_dataset_mixture(
 
     # Apply packing if needed
     # TODO: handle pre-packed datasets, non-iterable datasets
+    # Need to add `seq_length as an argument passed in from build_dataset_mixture
     # if dataset_split_params.pack:
-    #     combined_datapipe = combined_datapipe.batch(config.model.model_max_length)
+    #     combined_datapipe = combined_datapipe.batch(seq_length)
     #     combined_datapipe = combined_datapipe.map(
     #         functools.partial(pack_tokens, tokenizer=tokenizer)
     #     )

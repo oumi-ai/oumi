@@ -17,7 +17,6 @@ from oumi.core.configs import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
-    TrainingConfig,
 )
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
@@ -261,30 +260,28 @@ def test_build_dataset_mixture(
 ):
     """Test building a mixture of datasets with specified proportions."""
     # Create config with dataset mixture
-    config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                datasets=[
-                    DatasetParams(
-                        dataset_name="text_sft_jsonl",
-                        dataset_path=str(sample_conversations_jsonl),
-                        mixture_proportion=0.7,
-                    ),
-                    DatasetParams(
-                        dataset_name="text_sft",
-                        dataset_path=str(sample_conversations_jsonl),
-                        mixture_proportion=0.3,
-                    ),
-                ],
-                mixture_strategy="all_exhausted",
-                seed=42,
-                stream=stream,
-            )
+    data_params = DataParams(
+        train=DatasetSplitParams(
+            datasets=[
+                DatasetParams(
+                    dataset_name="text_sft_jsonl",
+                    dataset_path=str(sample_conversations_jsonl),
+                    mixture_proportion=0.7,
+                ),
+                DatasetParams(
+                    dataset_name="text_sft",
+                    dataset_path=str(sample_conversations_jsonl),
+                    mixture_proportion=0.3,
+                ),
+            ],
+            mixture_strategy="all_exhausted",
+            seed=42,
+            stream=stream,
         )
     )
 
     dataset = build_dataset_mixture(
-        config=config,
+        data_params=data_params,
         tokenizer=gpt2_tokenizer,
         dataset_split=DatasetSplit.TRAIN,
     )

@@ -212,7 +212,11 @@ def test_load_dataset_huggingface(tokenizer, monkeypatch):
 
 def test_build_dataset_mixture_single(tokenizer):
     config = create_training_config([create_dataset_params("small_map_dataset")])
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    result = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+    )
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 11
 
@@ -227,7 +231,11 @@ def test_build_dataset_mixture_multiple(tokenizer):
         ]
     )
     assert config.data.train.mixture_strategy == MixtureStrategy.FIRST_EXHAUSTED
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    result = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+    )
     assert isinstance(result, IterDataPipe)
     # It's 18 (9*2), not 20 (11+9) because of FIRST_EXHAUSTED strategy
     assert len(list(result)) == 18
@@ -238,7 +246,11 @@ def test_build_dataset_mixture_sampling(tokenizer):
     dataset_params.sample_count = 5
     dataset_params.shuffle_buffer_size = 10
     config = create_training_config([dataset_params])
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    result = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+    )
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 5
 
@@ -252,7 +264,7 @@ def test_build_dataset_mixture(tokenizer):
     )
     config.data.train.datasets[0].mixture_proportion = 0.7
     config.data.train.datasets[1].mixture_proportion = 0.3
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN, seed=42)
+    result = build_dataset_mixture(config.data, tokenizer, DatasetSplit.TRAIN, seed=42)
     assert isinstance(result, IterDataPipe)
     samples = list(result)
     assert len(samples) == 20
