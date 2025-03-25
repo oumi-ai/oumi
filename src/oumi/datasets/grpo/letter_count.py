@@ -17,6 +17,7 @@ from typing_extensions import override
 
 from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
+from oumi.core.types.conversation import Conversation
 
 
 @register_dataset("oumi-ai/oumi-letter-count")
@@ -45,3 +46,19 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
             "prompt": sample["messages"],
             "letter_count": sample["metadata"]["letter_count_integer"],
         }
+
+    @override
+    def transform_conversation(self, example: pd.Series) -> Conversation:
+        """Preprocesses the inputs of the example and returns a dictionary.
+
+        Args:
+            example (dict): The example containing the input and instruction.
+
+        Returns:
+            dict: The preprocessed inputs as a dictionary.
+
+        """
+        example_dict = example.to_dict()
+        # Convert messages from np.ndarray to list.
+        example_dict["messages"] = example_dict["messages"].tolist()
+        return Conversation.from_dict(example_dict)

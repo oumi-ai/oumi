@@ -6,6 +6,7 @@ from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.evaluation import EvaluationResult
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
 from oumi.core.registry import register_evaluation_function
+from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 
 
 def _extract_prediction(response: str) -> Optional[int]:
@@ -26,11 +27,17 @@ def count_letters(
     task_params: EvaluationTaskParams,
     config: EvaluationConfig,
     inference_engine: BaseInferenceEngine,
-    dataset,
 ):
     """Custom evaluation function registered as `count_letters`."""
-    num_samples = task_params.num_samples
-    dataset = dataset[:num_samples]
+    dataset = LetterCountGrpoDataset()
+    # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501
+    # dataset = build_dataset("oumi-ai/berrybench-v0.1.0", tokenizer=None, sample_count=10)  # noqa: E501
+    # num_samples = task_params.num_samples
+    # dataset = dataset[:num_samples]
+    print(dataset)
+    print(next(iter(dataset)))
+    print(type(dataset))
+    print(dataset.conversations())
     conversations = inference_engine.infer(dataset.conversations())
 
     count = 0
