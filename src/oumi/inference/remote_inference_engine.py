@@ -342,7 +342,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not inference_config:
             return
 
-        super()._update_internal_params(inference_config)
+        if inference_config.generation:
+            self._generation_params = copy.deepcopy(inference_config.generation)
+            self._check_unsupported_params(self._generation_params)
 
         if inference_config.remote_params:
             self._remote_params = copy.deepcopy(inference_config.remote_params)
@@ -351,6 +353,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             if not self._remote_params.api_key_env_varname:
                 self._remote_params.api_key_env_varname = self.api_key_env_varname
             self._remote_params.finalize_and_validate()
+
+        if inference_config.model and inference_config.model.model_name:
+            self._model_params = copy.deepcopy(inference_config.model)
+            self._model = self._model_params.model_name
+            self._adapter_model = self._model_params.adapter_model
 
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
