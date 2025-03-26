@@ -19,7 +19,6 @@ import pandas as pd
 from typing_extensions import override
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
-from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Conversation
 
 _PROMPT_KEY = "prompt"
@@ -39,8 +38,6 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         dataset_name: Optional[str] = None,
         dataset_path: Optional[str] = None,
         split: Optional[str] = None,
-        tokenizer: Optional[BaseTokenizer] = None,
-        return_tensors: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseExperimentalGrpoDataset class."""
@@ -51,14 +48,6 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
             **kwargs,
         )
 
-        if return_tensors:
-            raise NotImplementedError(
-                "return_tensors=True is not implemented for this class"
-            )
-
-        self._tokenizer = tokenizer
-        self._return_tensors = return_tensors
-
         self._data = self._load_data()
 
     @staticmethod
@@ -67,7 +56,7 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         # of text values. Let's strip them.
         return s.strip() if s else ""
 
-    def transform_grpo_example(self, example: Union[dict, pd.Series]) -> dict:
+    def _transform_grpo_example(self, example: Union[dict, pd.Series]) -> dict:
         """Validate and transform the GRPO sample into Python `dict`."""
         for required_key in (_PROMPT_KEY, _COMPLETION_KEY):
             if required_key not in example:
@@ -97,7 +86,7 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
-        return self.transform_grpo_example(sample)
+        return self._transform_grpo_example(sample)
 
     def conversation(self, idx: int) -> Conversation:
         """Returns the conversation at the specified index.

@@ -64,6 +64,7 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
             dict: The preprocessed inputs as a dictionary.
 
         """
+        # Example is already in conversation format and only needs light processing.
         example_dict = example.to_dict()
         # Convert messages from np.ndarray to list.
         example_dict["messages"] = example_dict["messages"].tolist()

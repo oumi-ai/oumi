@@ -29,27 +29,44 @@ def count_letters(
     inference_engine: BaseInferenceEngine,
 ):
     """Custom evaluation function registered as `count_letters`."""
-    dataset = LetterCountGrpoDataset()
+    dataset = LetterCountGrpoDataset(split="test")
+    # TODO: OPE-1155: Add support for using Oumi dataset code to create the dataset.
     # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501
     # dataset = build_dataset("oumi-ai/berrybench-v0.1.0", tokenizer=None, sample_count=10)  # noqa: E501
-    # num_samples = task_params.num_samples
-    # dataset = dataset[:num_samples]
+    num_samples = task_params.num_samples
+    if num_samples is not None:
+        input_conversations = [dataset.conversation(i) for i in range(num_samples)]
+    else:
+        input_conversations = dataset.conversations()
     print(dataset)
+    print(input_conversations)
     print(next(iter(dataset)))
     print(type(dataset))
-    print(dataset.conversations())
-    conversations = inference_engine.infer(dataset.conversations())
+    conversations = inference_engine.infer(input_conversations)
+    print(conversations)
 
     count = 0
     total = 0
     for i, conversation in enumerate(conversations):
         total += 1
         response = conversation.last_message()
+        print(i)
+        print(response)
         prediction = _extract_prediction(response.content)  # type: ignore
+        print(prediction)
         if (
             prediction is not None
             and prediction == conversation.metadata["letter_count_integer"]
         ):
             count += 1
+            print("count up")
 
-    return EvaluationResult(task_result={"accuracy": count / total})
+    res = EvaluationResult(
+        task_name="count_letters",
+        # We currently need to wrap the results in another dict with the "results" key,
+        # and the task name, to match the format used by LM Harness/Alpaca Eval. See
+        # src/oumi/cli/evaluate.py.
+        task_result={"results": {"count_letters": {"accuracy": count / total}}},
+    )
+    print(res.to_dict())
+    return res
