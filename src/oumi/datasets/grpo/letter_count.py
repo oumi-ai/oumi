@@ -25,7 +25,13 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
 
     A sample from the dataset:
     {
-        "prompt": "Can you let me know how many 'r's are in 'pandered'?",
+        "conversation_id": "oumi_letter_count_0",
+        "messages": [
+            {
+                "content": "Can you let me know how many 'r's are in 'pandered'?",
+                "role": "user",
+            }
+        ],
         "metadata": {
             "letter": "r",
             "letter_count_integer": 1,
