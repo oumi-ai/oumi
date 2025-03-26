@@ -216,10 +216,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params: Remote server params.
             **kwargs: Additional keyword arguments.
         """
-        super().__init__(model_params=model_params, generation_params=generation_params)
-
         self._model = model_params.model_name
         self._adapter_model = model_params.adapter_model
+
+        super().__init__(model_params=model_params, generation_params=generation_params)
 
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
