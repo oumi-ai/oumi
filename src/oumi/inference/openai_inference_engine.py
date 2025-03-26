@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+import copy
+from typing import Any, Optional
 
 from typing_extensions import override
 
+from oumi.core.configs import GenerationParams
+from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
@@ -35,12 +38,25 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
         return "OPENAI_API_KEY"
 
     @override
-    def get_supported_params(self) -> set[str]:
-        """Returns a set of supported generation parameters for this engine."""
-        supported_params = super().get_supported_params()
+    def _convert_conversation_to_api_input(
+        self, conversation: Conversation, generation_params: GenerationParams
+    ) -> dict[str, Any]:
+        """Converts a conversation to an OpenAI input.
 
+        Documentation: https://platform.openai.com/docs/api-reference/chat/create
+
+        Args:
+            conversation: The conversation to convert.
+            generation_params: Parameters for generation during inference.
+
+        Returns:
+            Dict[str, Any]: A dictionary representing the OpenAI input.
+        """
         # o1-preview does NOT support logit_bias.
         if self._model and self._model == "o1-preview":
-            supported_params.remove("logit_bias")
+            generation_params = copy.deepcopy(generation_params)
+            generation_params.logit_bias = {}
 
-        return supported_params
+        return super()._convert_conversation_to_api_input(
+            conversation=conversation, generation_params=generation_params
+        )

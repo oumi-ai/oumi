@@ -264,15 +264,6 @@ def test_supported_params_exist_in_config(
 
         supported_params = engine.get_supported_params()
 
-        # The base remote engine has different names for a few generation params.
-        if engine_class == RemoteInferenceEngine:
-            # `max_completion_tokens` instead of `max_new_tokens`
-            generation_params_fields.remove("max_new_tokens")
-            generation_params_fields.add("max_completion_tokens")
-            # `stop` instead of `stop_strings`
-            generation_params_fields.remove("stop_strings")
-            generation_params_fields.add("stop")
-
         # Additional check that all expected params exist in GenerationParams
         invalid_params = supported_params - generation_params_fields
 
@@ -464,18 +455,7 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
             engine.infer([sample_conversation], inference_config)
 
         # Get params that were supported but never accessed
-        supported_params = engine.get_supported_params()
-
-        # The base remote engine has different names for a few generation params.
-        if engine_class == RemoteInferenceEngine:
-            # `max_completion_tokens` instead of `max_new_tokens`
-            supported_params.add("max_new_tokens")
-            supported_params.remove("max_completion_tokens")
-            # `stop` instead of `stop_strings`
-            supported_params.add("stop_strings")
-            supported_params.remove("stop")
-
-        unused_params = supported_params - tracked_params.accessed_params
+        unused_params = engine.get_supported_params() - tracked_params.accessed_params
 
         assert not unused_params, (
             f"{engine_class.__name__} claims to support these parameters "
@@ -483,7 +463,9 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         )
 
         # Get params that were accessed but not marked as supported
-        unregistered_params = tracked_params.accessed_params - supported_params
+        unregistered_params = (
+            tracked_params.accessed_params - engine.get_supported_params()
+        )
         unregistered_params.remove("accessed_params")  # Test param, ignore
 
         assert not unregistered_params, (

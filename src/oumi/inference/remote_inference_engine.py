@@ -48,7 +48,6 @@ from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
 )
-from oumi.utils.logging import logger
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -216,10 +215,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params: Remote server params.
             **kwargs: Additional keyword arguments.
         """
+        super().__init__(model_params=model_params, generation_params=generation_params)
+
         self._model = model_params.model_name
         self._adapter_model = model_params.adapter_model
-
-        super().__init__(model_params=model_params, generation_params=generation_params)
 
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
@@ -257,6 +256,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
+        # Mandatory generation parameters.
         generation_params_dict = {
             "max_completion_tokens": generation_params.max_new_tokens,
             "seed": generation_params.seed,
@@ -264,20 +264,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "top_p": generation_params.top_p,
             "frequency_penalty": generation_params.frequency_penalty,
             "presence_penalty": generation_params.presence_penalty,
-            "logit_bias": generation_params.logit_bias,
         }
+
+        # Optional generation parameters.
+        if generation_params.logit_bias:
+            generation_params_dict["logit_bias"] = generation_params.logit_bias
         if generation_params.stop_strings:
             generation_params_dict["stop"] = generation_params.stop_strings
         if generation_params.stop_token_ids:
             generation_params_dict["stop_token_ids"] = generation_params.stop_token_ids
         if generation_params.min_p:
             generation_params_dict["min_p"] = generation_params.min_p
-
-        # Remove any keys that are not supported.
-        unsupported_keys = generation_params_dict.keys() - self.get_supported_params()
-        for key in unsupported_keys:
-            logger.warning(f"Removing unsupported key `{key}` from API call")
-            del generation_params_dict[key]
 
         api_input = {
             "model": self._model,
@@ -545,14 +542,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "max_completion_tokens",
+            "max_new_tokens",
             "seed",
             "temperature",
             "top_p",
             "frequency_penalty",
             "presence_penalty",
             "logit_bias",
-            "stop",
+            "stop_strings",
             "stop_token_ids",
             "min_p",
             "guided_decoding",
