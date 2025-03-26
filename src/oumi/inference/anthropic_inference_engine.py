@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, RemoteParams
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 from oumi.utils.logging import logger
@@ -55,7 +55,10 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an Anthropic API input.
 
@@ -68,6 +71,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The Oumi Conversation object to convert.
             generation_params: Parameters for text generation.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary containing the formatted input for the
@@ -98,7 +102,7 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
         # Build request body
         # See https://docs.anthropic.com/claude/reference/messages_post
         body = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": self._get_list_of_message_json_dicts(
                 messages, group_adjacent_same_role_turns=True
             ),

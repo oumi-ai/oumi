@@ -200,6 +200,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     api_key_env_varname: Optional[str] = None
     """The environment variable name for the API key."""
 
+    _remote_params: RemoteParams
+    """Parameters for running inference against a remote API."""
+
     def __init__(
         self,
         model_params: ModelParams,
@@ -216,9 +219,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             **kwargs: Additional keyword arguments.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
-
-        self._model = model_params.model_name
-        self._adapter_model = model_params.adapter_model
 
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
@@ -243,7 +243,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         )
 
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
@@ -252,6 +255,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
@@ -277,7 +281,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             generation_params_dict["min_p"] = generation_params.min_p
 
         api_input = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": [
                 {
                     "content": convert_message_to_json_content_list(message),
@@ -328,36 +332,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             }
 
         return api_input
-
-    @override
-    def _update_internal_params(
-        self,
-        inference_config: Optional[InferenceConfig],
-    ) -> None:
-        """Updates internal parameters based on a new inference config.
-
-        Args:
-            inference_config: The inference config.
-        """
-        if not inference_config:
-            return
-
-        if inference_config.generation:
-            self._generation_params = copy.deepcopy(inference_config.generation)
-            self._check_unsupported_params(self._generation_params)
-
-        if inference_config.remote_params:
-            self._remote_params = copy.deepcopy(inference_config.remote_params)
-            if not self._remote_params.api_url:
-                self._remote_params.api_url = self.base_url
-            if not self._remote_params.api_key_env_varname:
-                self._remote_params.api_key_env_varname = self.api_key_env_varname
-            self._remote_params.finalize_and_validate()
-
-        if inference_config.model and inference_config.model.model_name:
-            self._model_params = copy.deepcopy(inference_config.model)
-            self._model = self._model_params.model_name
-            self._adapter_model = self._model_params.adapter_model
 
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
@@ -439,10 +413,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if inference_config is None:
             remote_params = self._remote_params
             generation_params = self._generation_params
+            model_params = self._model_params
             output_path = None
         else:
             remote_params = inference_config.remote_params or self._remote_params
             generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
             output_path = inference_config.output_path
 
         self._set_required_fields_for_inference(remote_params)
@@ -450,7 +426,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             raise ValueError("API URL is required for remote inference.")
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params
+                conversation, generation_params, model_params
             )
             headers = self._get_request_headers(remote_params)
             retries = 0
@@ -619,10 +595,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             str: The batch job ID
         """
-        generation_params = (
-            inference_config.generation if inference_config else self._generation_params
+        if inference_config:
+            generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
+        else:
+            generation_params = self._generation_params
+            model_params = self._model_params
+
+        return safe_asyncio_run(
+            self._create_batch(conversations, generation_params, model_params)
         )
-        return safe_asyncio_run(self._create_batch(conversations, generation_params))
 
     def get_batch_status(
         self,
@@ -733,12 +715,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         conversations: list[Conversation],
         generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> str:
         """Creates a new batch job.
 
         Args:
             conversations: List of conversations to process in batch
             generation_params: Generation parameters
+            model_params: Model parameters
 
         Returns:
             str: The batch job ID
@@ -746,7 +730,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Prepare batch requests
         batch_requests = []
         for i, conv in enumerate(conversations):
-            api_input = self._convert_conversation_to_api_input(conv, generation_params)
+            api_input = self._convert_conversation_to_api_input(
+                conv, generation_params, model_params
+            )
             batch_requests.append(
                 {
                     "custom_id": f"request-{i}",

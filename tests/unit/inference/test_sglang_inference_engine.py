@@ -94,7 +94,7 @@ def test_convert_conversation_to_api_input(
     guided_decoding: Optional[GuidedDecodingParams],
     num_images: Optional[int],
 ):
-    is_vision_language: bool = "llava" in engine._model.lower()
+    is_vision_language: bool = "llava" in engine._model_params.model_name.lower()
     num_images = num_images or (1 if is_vision_language else 0)
 
     pil_image = PIL.Image.new(mode="RGB", size=(32, 48))
@@ -137,11 +137,15 @@ def test_convert_conversation_to_api_input(
 
     if num_images > 1 and is_vision_language and not engine._supports_multiple_images:
         with pytest.raises(ValueError, match="A conversation contains too many images"):
-            engine._convert_conversation_to_api_input(conversation, generation_params)
+            engine._convert_conversation_to_api_input(
+                conversation, generation_params, ModelParams()
+            )
 
         return
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, ModelParams()
+    )
 
     assert isinstance(
         engine._tokenizer.bos_token, str

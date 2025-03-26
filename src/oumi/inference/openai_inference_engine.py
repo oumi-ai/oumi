@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
@@ -39,7 +39,10 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
@@ -48,15 +51,18 @@ class OpenAIInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
         # o1-preview does NOT support logit_bias.
-        if self._model and self._model == "o1-preview":
+        if model_params.model_name == "o1-preview":
             generation_params = copy.deepcopy(generation_params)
             generation_params.logit_bias = {}
 
         return super()._convert_conversation_to_api_input(
-            conversation=conversation, generation_params=generation_params
+            conversation=conversation,
+            generation_params=generation_params,
+            model_params=model_params,
         )
