@@ -66,7 +66,7 @@ def test_gemini_convert_conversation(gemini_engine, generation_params):
     )
 
     api_input = gemini_engine._convert_conversation_to_api_input(
-        conversation, generation_params
+        conversation, generation_params, gemini_engine._model_params
     )
 
     assert api_input["model"] == "gemini-model"
@@ -94,7 +94,7 @@ def test_gemini_convert_conversation_with_guided_decoding(
     )
 
     api_input = gemini_engine._convert_conversation_to_api_input(
-        conversation, generation_params
+        conversation, generation_params, gemini_engine._model_params
     )
 
     assert "response_format" in api_input
@@ -122,7 +122,7 @@ def test_gemini_convert_conversation_with_json_schema_variations(
     )
 
     api_input = gemini_engine._convert_conversation_to_api_input(
-        conversation, generation_params
+        conversation, generation_params, gemini_engine._model_params
     )
 
     assert "response_format" in api_input
@@ -141,7 +141,7 @@ def test_gemini_convert_conversation_invalid_schema(gemini_engine, generation_pa
 
     with pytest.raises(ValueError) as exc_info:
         gemini_engine._convert_conversation_to_api_input(
-            conversation, generation_params
+            conversation, generation_params, gemini_engine._model_params
         )
 
     assert "unsupported JSON schema type" in str(exc_info.value)
