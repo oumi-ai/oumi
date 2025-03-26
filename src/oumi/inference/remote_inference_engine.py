@@ -329,6 +329,29 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         return api_input
 
+    @override
+    def _update_internal_params(
+        self,
+        inference_config: Optional[InferenceConfig],
+    ) -> None:
+        """Updates internal parameters based on a new inference config.
+
+        Args:
+            inference_config: The inference config.
+        """
+        if not inference_config:
+            return
+
+        super()._update_internal_params(inference_config)
+
+        if inference_config.remote_params:
+            self._remote_params = copy.deepcopy(inference_config.remote_params)
+            if not self._remote_params.api_url:
+                self._remote_params.api_url = self.base_url
+            if not self._remote_params.api_key_env_varname:
+                self._remote_params.api_key_env_varname = self.api_key_env_varname
+            self._remote_params.finalize_and_validate()
+
     def _convert_api_output_to_conversation(
         self, response: dict[str, Any], original_conversation: Conversation
     ) -> Conversation:

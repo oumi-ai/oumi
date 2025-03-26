@@ -79,11 +79,7 @@ class BaseInferenceEngine(ABC):
                 "Only one of input or inference_config.input_path should be provided."
             )
 
-        if inference_config and inference_config.generation:
-            generation_params = inference_config.generation
-            self._check_unsupported_params(generation_params)
-        else:
-            generation_params = self._generation_params
+        self._update_internal_params(inference_config)
 
         if input is not None:
             return self.infer_online(input, inference_config)
@@ -92,6 +88,34 @@ class BaseInferenceEngine(ABC):
         else:
             raise ValueError(
                 "One of input or inference_config.input_path must be provided."
+            )
+
+    def _update_internal_params(
+        self,
+        inference_config: Optional[InferenceConfig],
+    ) -> None:
+        """Updates internal parameters based on a new inference config.
+
+        Args:
+            inference_config: The inference config.
+        """
+        if not inference_config:
+            return
+
+        if inference_config.generation:
+            self._generation_params = copy.deepcopy(inference_config.generation)
+            self._check_unsupported_params(self._generation_params)
+
+        if (
+            inference_config.model
+            and inference_config.model.model_name
+            and inference_config.model != self._model_params
+        ):
+            raise RuntimeError(
+                "Changing the model parameters during inference is not supported. "
+                "Please instantiate a new inference engine with the new model "
+                f"parameters. Existing parameters: {self._model_params}. Requested "
+                f"parameters: {inference_config.model}."
             )
 
     def _read_conversations(self, input_filepath: str) -> list[Conversation]:
