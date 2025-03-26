@@ -8,7 +8,6 @@ from typing_extensions import override
 
 from oumi.builders.data import (
     build_dataset,
-    build_dataset_from_params,
     build_dataset_mixture,
 )
 from oumi.builders.models import build_tokenizer
@@ -17,7 +16,6 @@ from oumi.core.configs import (
     DatasetParams,
     DatasetSplit,
     DatasetSplitParams,
-    TrainingConfig,
 )
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
@@ -95,17 +93,16 @@ class CustomProxyIterableDataset(BaseIterableDataset):
         elif len(kwargs) > 0:
             raise ValueError(f"`kwargs` must be empty. Actual: {kwargs}")
 
-        self._inner_dataset = build_dataset_from_params(
-            DatasetParams(
-                dataset_name=dataset_name,
-                dataset_path=dataset_path,
-                subset=subset,
-                split=split,
-                trust_remote_code=trust_remote_code,
-                transform_num_workers=transform_num_workers,
-            ),
-            stream=True,
+        self._inner_dataset = build_dataset(
+            dataset_name=dataset_name,
             tokenizer=tokenizer,
+            stream=True,
+            # DatasetParams kwargs below
+            dataset_path=dataset_path,
+            subset=subset,
+            split=split,
+            trust_remote_code=trust_remote_code,
+            transform_num_workers=transform_num_workers,
         )
 
     @override
@@ -184,56 +181,49 @@ def test_build_dataset_conversations(
 
 
 def test_load_dataset_map(gpt2_tokenizer):
-    result = build_dataset_from_params(
-        DatasetParams(
-            dataset_name="small_map_dataset_for_build_data_testing", split="train"
-        ),
-        stream=False,
+    result = build_dataset(
+        dataset_name="small_map_dataset_for_build_data_testing",
         tokenizer=gpt2_tokenizer,
+        split="train",
     )
     assert isinstance(result, datasets.Dataset), f"Type: {type(result)}"
     assert len(list(result)) == 11
 
 
 def test_load_dataset_iterable(gpt2_tokenizer):
-    result = build_dataset_from_params(
-        DatasetParams(
-            dataset_name="small_iterable_dataset_for_build_data_testing", split="train"
-        ),
-        stream=True,
+    result = build_dataset(
+        dataset_name="small_iterable_dataset_for_build_data_testing",
         tokenizer=gpt2_tokenizer,
+        stream=True,
+        split="train",
     )
     assert isinstance(result, datasets.IterableDataset), f"Type: {type(result)}"
     assert len(list(result)) == 9
 
 
 def test_load_custom_proxy_map_dataset_using_name_override(gpt2_tokenizer):
-    result = build_dataset_from_params(
-        DatasetParams(
-            dataset_name="custom_proxy_dataset_for_build_data_testing",
-            split="train",
-            dataset_kwargs={
-                "dataset_name_override": "small_map_dataset_for_build_data_testing"
-            },
-        ),
-        stream=True,
+    result = build_dataset(
+        dataset_name="custom_proxy_dataset_for_build_data_testing",
         tokenizer=gpt2_tokenizer,
+        stream=True,
+        split="train",
+        dataset_kwargs={
+            "dataset_name_override": "small_map_dataset_for_build_data_testing"
+        },
     )
     assert isinstance(result, datasets.IterableDataset), f"Type: {type(result)}"
     assert len(list(result)) == 11
 
 
 def test_load_custom_proxy_iterable_dataset_using_name_override(gpt2_tokenizer):
-    result = build_dataset_from_params(
-        DatasetParams(
-            dataset_name="custom_proxy_dataset_for_build_data_testing",
-            split="train",
-            dataset_kwargs={
-                "dataset_name_override": "small_iterable_dataset_for_build_data_testing"
-            },
-        ),
-        stream=True,
+    result = build_dataset(
+        dataset_name="custom_proxy_dataset_for_build_data_testing",
         tokenizer=gpt2_tokenizer,
+        stream=True,
+        split="train",
+        dataset_kwargs={
+            "dataset_name_override": "small_iterable_dataset_for_build_data_testing"
+        },
     )
     assert isinstance(result, datasets.IterableDataset), f"Type: {type(result)}"
     assert len(list(result)) == 9
@@ -261,30 +251,28 @@ def test_build_dataset_mixture(
 ):
     """Test building a mixture of datasets with specified proportions."""
     # Create config with dataset mixture
-    config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                datasets=[
-                    DatasetParams(
-                        dataset_name="text_sft_jsonl",
-                        dataset_path=str(sample_conversations_jsonl),
-                        mixture_proportion=0.7,
-                    ),
-                    DatasetParams(
-                        dataset_name="text_sft",
-                        dataset_path=str(sample_conversations_jsonl),
-                        mixture_proportion=0.3,
-                    ),
-                ],
-                mixture_strategy="all_exhausted",
-                seed=42,
-                stream=stream,
-            )
+    data_params = DataParams(
+        train=DatasetSplitParams(
+            datasets=[
+                DatasetParams(
+                    dataset_name="text_sft_jsonl",
+                    dataset_path=str(sample_conversations_jsonl),
+                    mixture_proportion=0.7,
+                ),
+                DatasetParams(
+                    dataset_name="text_sft",
+                    dataset_path=str(sample_conversations_jsonl),
+                    mixture_proportion=0.3,
+                ),
+            ],
+            mixture_strategy="all_exhausted",
+            seed=42,
+            stream=stream,
         )
     )
 
     dataset = build_dataset_mixture(
-        config=config,
+        data_params=data_params,
         tokenizer=gpt2_tokenizer,
         dataset_split=DatasetSplit.TRAIN,
     )

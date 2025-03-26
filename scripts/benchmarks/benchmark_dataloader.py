@@ -14,6 +14,7 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
 
 from oumi.builders import build_dataset_mixture, build_tokenizer
+from oumi.core.configs import DatasetSplit, TrainingConfig
 from oumi.core.distributed import (
     cleanup_distributed,
     init_distributed,
@@ -21,7 +22,6 @@ from oumi.core.distributed import (
     is_local_process_zero,
     is_world_process_zero,
 )
-from oumi.core.types import DatasetSplit, TrainingConfig
 from oumi.datasets.debug import DebugPretrainingDataset
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import logger, update_logger_level
@@ -70,7 +70,7 @@ def main(args):
 
         tokenizer = build_tokenizer(config.model)
         init_time, dataset = _load_dataset(
-            build_dataset_mixture, config, tokenizer, DatasetSplit.TRAIN
+            build_dataset_mixture, config.data, tokenizer, DatasetSplit.TRAIN
         )
 
         # Anything that's useful for debugging / slicing plots.

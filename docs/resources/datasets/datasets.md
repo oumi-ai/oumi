@@ -32,6 +32,7 @@ The fastest way to get started is using one of our pre-built datasets. These dat
 
 ::::{tab-set}
 :::{tab-item} YAML Config
+
 ```yaml
 data:
   train:
@@ -39,9 +40,11 @@ data:
       - dataset_name: tatsu-lab/alpaca
         split: train
 ```
+
 :::
 
 :::{tab-item} Python API
+
 ```python
 from oumi.builders import build_dataset
 from oumi.core.configs import DatasetSplit
@@ -60,6 +63,7 @@ for batch in dataloader:
     # Your training code here
     pass
 ```
+
 :::
 ::::
 
@@ -69,6 +73,7 @@ For more complex training scenarios, you might want to combine multiple datasets
 
 ::::{tab-set}
 :::{tab-item} YAML Config
+
 ```yaml
 data:
   train:
@@ -80,15 +85,19 @@ data:
     mixture_strategy: first_exhausted  # Strategy for combining multiple datasets
     collator_name: text_with_padding
 ```
+
 :::
 
 :::{tab-item} Python API
-```python
-from oumi.core.configs import DataParams, DatasetParams
-from oumi.builders import build_dataset_mixture
 
+```python
+from oumi.builders import build_dataset_mixture
+from oumi.core.configs import DataParams, DatasetParams, DatasetSplit, DatasetSplitParams
+from oumi.core.tokenizers import BaseTokenizer
+
+tokenizer: BaseTokenizer = ...
 # Build a mixture of datasets
-config = DataParams(
+data_params = DataParams(
     train=DatasetSplitParams(
         datasets=[
             DatasetParams(dataset_name="tatsu-lab/alpaca"),
@@ -99,10 +108,12 @@ config = DataParams(
 )
 
 dataset = build_dataset_mixture(
-    config=config,
-    split=DatasetSplit.TRAIN
+    data_params=data_params,
+    tokenizer=tokenizer,
+    dataset_split=DatasetSplit.TRAIN
 )
 ```
+
 :::
 ::::
 
@@ -138,6 +149,7 @@ data:
 ```
 
 This separation between the dataset class and data source makes it easy to:
+
 - Use the same processing logic with different data sources.
   - For example, the {py:class}`~oumi.datasets.sft.alpaca.AlpacaDataset` class can be used with both the default Alpaca data (`"tatsu-lab/alpaca"`), or one of the cleaned verions (`yahma/alpaca-cleaned`), or any other file that follows the same format.
 - Apply consistent formatting across your own datasets
