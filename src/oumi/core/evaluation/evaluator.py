@@ -170,15 +170,19 @@ class Evaluator:
                 task_params=task_params,
                 config=config,
             )
-            evaluation_result = evaluation_fn(**custom_kwargs)
+            results_dict = evaluation_fn(**custom_kwargs)
 
-            if not isinstance(evaluation_result, EvaluationResult):
+            if not isinstance(results_dict, dict):
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
-                    "return an `EvaluationResult` object, but it's currently returning "
-                    f"`{type(evaluation_result)}`. Please ensure that the function "
-                    "returns the correct object "
+                    "return a `dict` object but, instead, it's currently returning "
+                    "an object of type `{type(results_dict)}`. Please ensure that the "
+                    "function returns the correct object."
                 )
+            evaluation_result = EvaluationResult(
+                task_name=task_params.task_name,
+                task_result={"results": {task_params.task_name: results_dict}},
+            )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 

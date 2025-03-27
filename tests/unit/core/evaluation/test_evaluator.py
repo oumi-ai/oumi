@@ -157,21 +157,19 @@ def test_evaluate_custom_task(
         generation=GenerationParams(),
         inference_engine=InferenceEngineType.NATIVE,
     )
+    eval_result = {"test_metric": 1.0}
 
     def evaluation_fn(
         task_params: EvaluationTaskParams,
         config: EvaluationConfig,
         optional_param_1: str,
         optional_param_2: str,
-    ) -> EvaluationResult:
+    ) -> dict:
         assert task_params.evaluation_backend == EvaluationBackend.CUSTOM.value
         assert task_params.task_name == "evaluation_fn_reg_name"
         assert optional_param_1 == "optional_param_1_value"
         assert optional_param_2 == "optional_param_2_value"
-        return EvaluationResult(
-            task_name=task_params.task_name,
-            task_result={"test_metric": 1.0},
-        )
+        return eval_result
 
     # Mocks.
     mock_build_inference_engine.return_value = MagicMock()
@@ -192,7 +190,8 @@ def test_evaluate_custom_task(
     mock_get_evaluation_function.assert_called_once()
     assert len(result) == 1
     assert result[0].task_name == "evaluation_fn_reg_name"
-    assert result[0].task_result == {"test_metric": 1.0}
+    assert result[0].get_results() == eval_result
+    assert result[0].task_result["results"]["evaluation_fn_reg_name"] == eval_result
 
 
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
@@ -205,9 +204,11 @@ def test_evaluate_custom_task_with_no_evaluation_fn_args(
     mock_check_prerequisites,
     mock_get_evaluation_function,
 ):
+    eval_result = {"test_metric": 1.0}
+
     # Custom evaluation function with NO input arguments.
-    def evaluation_fn() -> EvaluationResult:
-        return EvaluationResult(task_result={"test_metric": 1.0})
+    def evaluation_fn() -> dict:
+        return eval_result
 
     # Mocks.
     mock_build_inference_engine.return_value = MagicMock()
@@ -234,8 +235,9 @@ def test_evaluate_custom_task_with_no_evaluation_fn_args(
     mock_check_prerequisites.assert_called_once()
     mock_get_evaluation_function.assert_called_once()
     assert len(result) == 1
-    assert result[0].task_name is None
-    assert result[0].task_result == {"test_metric": 1.0}
+    assert result[0].task_name == "evaluation_fn_reg_name"
+    assert result[0].get_results() == eval_result
+    assert result[0].task_result["results"]["evaluation_fn_reg_name"] == eval_result
 
 
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
@@ -258,13 +260,14 @@ def test_evaluate_custom_task_with_inference(
         inference_engine=InferenceEngineType.OPENAI,
         inference_remote_params=RemoteParams(api_url="my_api_url"),
     )
+    eval_result = {"test_metric": 1.0}
 
     def evaluation_fn(
         task_params: EvaluationTaskParams,
         config: EvaluationConfig,
         inference_engine: BaseInferenceEngine,
         optional_param: str,
-    ) -> EvaluationResult:
+    ) -> dict:
         assert optional_param == "optional_param_value"
 
         # Validate the `task_params`.
@@ -282,10 +285,7 @@ def test_evaluate_custom_task_with_inference(
         assert open_ai_inference_engine._model_params.model_name == "test_model"
         assert open_ai_inference_engine._generation_params.max_new_tokens == 8
 
-        return EvaluationResult(
-            task_name=task_params.task_name,
-            task_result={"test_metric": 1.0},
-        )
+        return eval_result
 
     # Mocks.
     mock_save_evaluation_output.return_value = None
@@ -305,7 +305,8 @@ def test_evaluate_custom_task_with_inference(
 
     assert len(result) == 1
     assert result[0].task_name == "evaluation_fn_reg_name"
-    assert result[0].task_result == {"test_metric": 1.0}
+    assert result[0].get_results() == eval_result
+    assert result[0].task_result["results"]["evaluation_fn_reg_name"] == eval_result
 
 
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
@@ -531,7 +532,7 @@ def test_evaluate_custom_task_duplicate_optional_param(
     evaluation_config = EvaluationConfig(tasks=[task_params])
 
     def evaluation_fn(task_params, config):
-        pass
+        raise RuntimeError("This function should not be called.")
 
     # Mocks.
     mock_build_inference_engine.return_value = MagicMock()
