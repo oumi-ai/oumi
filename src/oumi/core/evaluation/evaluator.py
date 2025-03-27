@@ -176,7 +176,7 @@ class Evaluator:
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
                     "return a `dict` object but, instead, it's currently returning "
-                    "an object of type `{type(results_dict)}`. Please ensure that the "
+                    f"an object of type `{type(results_dict)}`. Please ensure that the "
                     "function returns the correct object."
                 )
             evaluation_result = EvaluationResult(
