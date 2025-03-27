@@ -27,6 +27,7 @@ from oumi.core.configs import (
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
+from oumi.core.distributed import is_world_process_zero
 from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
@@ -169,15 +170,19 @@ class Evaluator:
                 task_params=task_params,
                 config=config,
             )
-            evaluation_result = evaluation_fn(**custom_kwargs)
+            results_dict = evaluation_fn(**custom_kwargs)
 
-            if not isinstance(evaluation_result, EvaluationResult):
+            if not isinstance(results_dict, dict):
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
-                    "return an `EvaluationResult` object, but it's currently returning "
-                    f"`{type(evaluation_result)}`. Please ensure that the function "
-                    "returns the correct object "
+                    "return a `dict` object but, instead, it's currently returning "
+                    f"an object of type `{type(results_dict)}`. Please ensure that the "
+                    "function returns the correct object."
                 )
+            evaluation_result = EvaluationResult(
+                task_name=task_params.task_name,
+                task_result={"results": {task_params.task_name: results_dict}},
+            )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 
@@ -186,7 +191,7 @@ class Evaluator:
         evaluation_result.start_time = start_time_str
 
         # Save the output, if an output directory has been provided.
-        if config.output_dir:
+        if config.output_dir and is_world_process_zero():
             self.save_output(
                 task_params=task_params,
                 evaluation_result=evaluation_result,
