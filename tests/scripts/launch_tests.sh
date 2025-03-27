@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 E2E_TEST_CONFIG="${SCRIPT_DIR}/gcp_e2e_tests_job.yaml"
@@ -26,6 +26,6 @@ do
       --config "${E2E_TEST_CONFIG}" \
       --resources.accelerators="${CURR_GPU_NAME}" \
       "${USE_SPOT_ARG}" \
-      --cluster "${CLUSTER_NAME}"
-   oumi launch stop --cluster "${CLUSTER_NAME}"
+      --cluster "${CLUSTER_NAME}" \
+      --detach
 done
