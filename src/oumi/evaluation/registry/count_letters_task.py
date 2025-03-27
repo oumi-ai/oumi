@@ -11,7 +11,7 @@ from oumi.utils.logging import logger
 
 
 def _extract_prediction(response: str) -> Optional[int]:
-    r"""Extracts the numeric answer from within `\boxed{...}`, or None."""
+    r"""Returns the numeric answer extracted from `\boxed{...}`, or returns None."""
     regex_result = re.findall(r"\\boxed\{(\d+)\}", response)
     if not regex_result or len(regex_result) != 1:
         return None
@@ -35,10 +35,9 @@ def count_letters(
     # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501
     # dataset = build_dataset("oumi-ai/berrybench-v0.1.0", tokenizer=None, sample_count=10)  # noqa: E501
     num_samples = task_params.num_samples
-    if num_samples is not None:
-        input_conversations = [dataset.conversation(i) for i in range(num_samples)]
-    else:
-        input_conversations = dataset.conversations()
+    if num_samples is None:
+        num_samples = len(dataset)
+    input_conversations = [dataset.conversation(i) for i in range(num_samples)]
     conversations = inference_engine.infer(input_conversations)
     logger.info(f"Finished inference on {len(conversations)} conversations!")
     if len(conversations) > 0:
@@ -49,7 +48,9 @@ def count_letters(
     for i, conversation in enumerate(conversations):
         total += 1
         response = conversation.last_message()
-        prediction = _extract_prediction(response.content)  # type: ignore
+        if not response or not isinstance(response.content, str):
+            continue
+        prediction = _extract_prediction(response.content)
         if (
             prediction is not None
             and prediction == conversation.metadata["letter_count_integer"]

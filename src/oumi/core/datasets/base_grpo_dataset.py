@@ -109,14 +109,14 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
     # Abstract Methods
     #
     @abstractmethod
-    def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
-        """Preprocesses the inputs of the example and returns a dictionary.
+    def transform_conversation(self, sample: Union[dict, pd.Series]) -> Conversation:
+        """Converts the input sample to a Conversation.
 
         Args:
-            example (dict): The example containing the input and instruction.
+            sample (Union[dict, pd.Series]): The input example.
 
         Returns:
-            dict: The preprocessed inputs as a dictionary.
+            Conversation: The resulting conversation.
 
         """
         raise NotImplementedError

@@ -54,9 +54,8 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
-        messages = sample["messages"].tolist()
-        messages.append({"content": _SYSTEM_PROMPT, "role": "system"})
-        sample["messages"] = messages
+        # TODO: OPE-1122: Add system prompt to training.
+        # OPE-1158 seems to affect this, as the type of the input isn't consistent.
         return {
             "prompt": sample["messages"],
             "letter_count": sample["metadata"]["letter_count_integer"],
@@ -77,5 +76,6 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
         sample_dict = sample.to_dict()
         # Convert messages from np.ndarray to list.
         sample_dict["messages"] = sample_dict["messages"].tolist()
+        # Add system prompt.
         sample_dict["messages"].append({"content": _SYSTEM_PROMPT, "role": "system"})
         return Conversation.from_dict(sample_dict)
