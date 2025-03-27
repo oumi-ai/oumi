@@ -24,18 +24,19 @@ working_dir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
-  MODEL_CHECKPOINT_DIR: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+  MODEL_CHECKPOINT_DIR: deepseek-ai/DeepSeek-R1-Distill-Llama-8B #deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
   WANDB_PROJECT: oumi-eval
   OUMI_RUN_NAME: letter-counting.eval
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu,evaluation]
+  pip install uv && uv pip install oumi[gpu,evaluation] vllm>=0.7.3,<0.8.0
 
 run: |
   set -e  # Exit if any command failed.
@@ -51,7 +52,7 @@ run: |
 
   accelerate launch \
     -m oumi evaluate \
-    -c oumi://configs/examples/letter_counting/evaluation/eval.yaml \
+    -c configs/examples/letter_counting/evaluation/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"
 

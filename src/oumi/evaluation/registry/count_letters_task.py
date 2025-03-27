@@ -7,6 +7,7 @@ from oumi.core.evaluation import EvaluationResult
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
 from oumi.core.registry import register_evaluation_function
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
+from oumi.utils.logging import logger
 
 
 def _extract_prediction(response: str) -> Optional[int]:
@@ -38,35 +39,27 @@ def count_letters(
         input_conversations = [dataset.conversation(i) for i in range(num_samples)]
     else:
         input_conversations = dataset.conversations()
-    print(dataset)
-    print(input_conversations)
-    print(next(iter(dataset)))
-    print(type(dataset))
     conversations = inference_engine.infer(input_conversations)
-    print(conversations)
+    logger.info(f"Finished inference on {len(conversations)} conversations!")
+    if len(conversations) > 0:
+        logger.info(f"Sample conversation: {conversations[0]}")
 
     count = 0
     total = 0
     for i, conversation in enumerate(conversations):
         total += 1
         response = conversation.last_message()
-        print(i)
-        print(response)
         prediction = _extract_prediction(response.content)  # type: ignore
-        print(prediction)
         if (
             prediction is not None
             and prediction == conversation.metadata["letter_count_integer"]
         ):
             count += 1
-            print("count up")
 
-    res = EvaluationResult(
+    return EvaluationResult(
         task_name="count_letters",
         # We currently need to wrap the results in another dict with the "results" key,
         # and the task name, to match the format used by LM Harness/Alpaca Eval. See
         # src/oumi/cli/evaluate.py.
         task_result={"results": {"count_letters": {"accuracy": count / total}}},
     )
-    print(res.to_dict())
-    return res
