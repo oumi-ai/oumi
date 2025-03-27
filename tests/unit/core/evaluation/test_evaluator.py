@@ -313,6 +313,57 @@ def test_evaluate_custom_task_with_inference(
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
 @patch("oumi.core.evaluation.evaluator.build_inference_engine")
+def test_evaluate_custom_task_wrong_return_type(
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    # Inputs.
+    task_params = EvaluationTaskParams(
+        task_name="evaluation_fn_reg_name",
+        evaluation_backend=EvaluationBackend.CUSTOM.value,
+    )
+    evaluation_config = EvaluationConfig(
+        tasks=[task_params],
+        model=ModelParams(model_name="test_model"),
+        generation=GenerationParams(),
+        inference_engine=InferenceEngineType.NATIVE,
+    )
+
+    def evaluation_fn():
+        return 1.0  # Wrong return type (float, instead of dict).
+
+    # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+    with pytest.raises(
+        ValueError,
+        match=(
+            "The custom evaluation function `evaluation_fn_reg_name` must "
+            "return a `dict` object but, instead, it's currently returning "
+            "an object of type `<class 'float'>`. Please ensure that the "
+            "function returns the correct object."
+        ),
+    ):
+        evaluator.evaluate(evaluation_config)
+
+    # Check the results.
+    mock_build_inference_engine.assert_not_called()
+    mock_save_evaluation_output.assert_not_called()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
 def test_evaluate_custom_task_unregistered_fn(
     mock_build_inference_engine,
     mock_save_evaluation_output,
