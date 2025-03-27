@@ -1,9 +1,7 @@
 import re
-from typing import Optional
+from typing import Any, Optional
 
-from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
-from oumi.core.evaluation import EvaluationResult
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
 from oumi.core.registry import register_evaluation_function
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
@@ -26,9 +24,8 @@ def _extract_prediction(response: str) -> Optional[int]:
 @register_evaluation_function("count_letters")
 def count_letters(
     task_params: EvaluationTaskParams,
-    config: EvaluationConfig,
     inference_engine: BaseInferenceEngine,
-):
+) -> dict[str, Any]:
     """Custom evaluation function registered as `count_letters`."""
     dataset = LetterCountGrpoDataset(split="test")
     # TODO: OPE-1155: Add support for using Oumi dataset code to create the dataset.
@@ -57,10 +54,4 @@ def count_letters(
         ):
             count += 1
 
-    return EvaluationResult(
-        task_name="count_letters",
-        # We currently need to wrap the results in another dict with the "results" key,
-        # and the task name, to match the format used by LM Harness/Alpaca Eval. See
-        # src/oumi/cli/evaluate.py.
-        task_result={"results": {"count_letters": {"accuracy": count / total}}},
-    )
+    return {"accuracy": count / total}
