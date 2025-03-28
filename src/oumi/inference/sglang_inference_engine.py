@@ -237,7 +237,10 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to SGLang Native API input.
 
@@ -246,6 +249,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The Oumi Conversation object to convert.
             generation_params: Parameters for text generation.
+            model_params: Ignored.
 
         Returns:
             Dict[str, Any]: A dictionary containing the formatted input for the

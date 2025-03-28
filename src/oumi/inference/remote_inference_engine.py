@@ -200,6 +200,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     api_key_env_varname: Optional[str] = None
     """The environment variable name for the API key."""
 
+    _remote_params: RemoteParams
+    """Parameters for running inference against a remote API."""
+
     def __init__(
         self,
         model_params: ModelParams,
@@ -216,9 +219,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             **kwargs: Additional keyword arguments.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
-
-        self._model = model_params.model_name
-        self._adapter_model = model_params.adapter_model
 
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
@@ -243,7 +243,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         )
 
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
@@ -252,12 +255,33 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
+        # Mandatory generation parameters.
+        generation_params_dict = {
+            "max_completion_tokens": generation_params.max_new_tokens,
+            "seed": generation_params.seed,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
+            "frequency_penalty": generation_params.frequency_penalty,
+            "presence_penalty": generation_params.presence_penalty,
+        }
+
+        # Optional generation parameters.
+        if generation_params.logit_bias:
+            generation_params_dict["logit_bias"] = generation_params.logit_bias
+        if generation_params.stop_strings:
+            generation_params_dict["stop"] = generation_params.stop_strings
+        if generation_params.stop_token_ids:
+            generation_params_dict["stop_token_ids"] = generation_params.stop_token_ids
+        if generation_params.min_p:
+            generation_params_dict["min_p"] = generation_params.min_p
+
         api_input = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": [
                 {
                     "content": convert_message_to_json_content_list(message),
@@ -265,56 +289,47 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 }
                 for message in conversation.messages
             ],
-            "max_completion_tokens": generation_params.max_new_tokens,
-            "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
-            "frequency_penalty": generation_params.frequency_penalty,
-            "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
-            "seed": generation_params.seed,
-            "logit_bias": generation_params.logit_bias,
+            **generation_params_dict,
         }
-
-        if generation_params.stop_strings:
-            api_input["stop"] = generation_params.stop_strings
 
         if generation_params.guided_decoding:
             json_schema = generation_params.guided_decoding.json
 
-            if json_schema is not None:
-                if isinstance(json_schema, type) and issubclass(
-                    json_schema, pydantic.BaseModel
-                ):
-                    schema_name = json_schema.__name__
-                    schema_value = json_schema.model_json_schema()
-                elif isinstance(json_schema, dict):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    schema_value = json_schema
-                elif isinstance(json_schema, str):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    # Try to parse as JSON string
-                    schema_value = json.loads(json_schema)
-                else:
-                    raise ValueError(
-                        f"Got unsupported JSON schema type: {type(json_schema)}"
-                        "Please provide a Pydantic model or a JSON schema as a "
-                        "string or dict."
-                    )
-
-                api_input["response_format"] = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema_name,
-                        "schema": schema_value,
-                    },
-                }
-            else:
+            if json_schema is None:
                 raise ValueError(
                     "Only JSON schema guided decoding is supported, got '%s'",
                     generation_params.guided_decoding,
                 )
+
+            if isinstance(json_schema, type) and issubclass(
+                json_schema, pydantic.BaseModel
+            ):
+                schema_name = json_schema.__name__
+                schema_value = json_schema.model_json_schema()
+            elif isinstance(json_schema, dict):
+                # Use a generic name if no schema is provided.
+                schema_name = "Response"
+                schema_value = json_schema
+            elif isinstance(json_schema, str):
+                # Use a generic name if no schema is provided.
+                schema_name = "Response"
+                # Try to parse as JSON string
+                schema_value = json.loads(json_schema)
+            else:
+                raise ValueError(
+                    f"Got unsupported JSON schema type: {type(json_schema)}"
+                    "Please provide a Pydantic model or a JSON schema as a "
+                    "string or dict."
+                )
+
+            api_input["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": schema_value,
+                },
+            }
 
         return api_input
 
@@ -398,10 +413,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if inference_config is None:
             remote_params = self._remote_params
             generation_params = self._generation_params
+            model_params = self._model_params
             output_path = None
         else:
             remote_params = inference_config.remote_params or self._remote_params
             generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
             output_path = inference_config.output_path
 
         self._set_required_fields_for_inference(remote_params)
@@ -409,7 +426,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             raise ValueError("API URL is required for remote inference.")
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params
+                conversation, generation_params, model_params
             )
             headers = self._get_request_headers(remote_params)
             retries = 0
@@ -535,9 +552,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "guided_decoding",
             "logit_bias",
             "max_new_tokens",
+            "min_p",
             "presence_penalty",
             "seed",
             "stop_strings",
+            "stop_token_ids",
             "temperature",
             "top_p",
         }
@@ -576,10 +595,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             str: The batch job ID
         """
-        generation_params = (
-            inference_config.generation if inference_config else self._generation_params
+        if inference_config:
+            generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
+        else:
+            generation_params = self._generation_params
+            model_params = self._model_params
+
+        return safe_asyncio_run(
+            self._create_batch(conversations, generation_params, model_params)
         )
-        return safe_asyncio_run(self._create_batch(conversations, generation_params))
 
     def get_batch_status(
         self,
@@ -690,12 +715,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         conversations: list[Conversation],
         generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> str:
         """Creates a new batch job.
 
         Args:
             conversations: List of conversations to process in batch
             generation_params: Generation parameters
+            model_params: Model parameters
 
         Returns:
             str: The batch job ID
@@ -703,7 +730,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Prepare batch requests
         batch_requests = []
         for i, conv in enumerate(conversations):
-            api_input = self._convert_conversation_to_api_input(conv, generation_params)
+            api_input = self._convert_conversation_to_api_input(
+                conv, generation_params, model_params
+            )
             batch_requests.append(
                 {
                     "custom_id": f"request-{i}",
