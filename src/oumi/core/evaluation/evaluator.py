@@ -182,9 +182,9 @@ class Evaluator:
             else:
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
-                    "return a `dict` object but, instead, it's currently returning "
-                    f"an object of type `{type(evaluation_output)}`. Please ensure "
-                    "that the function returns the correct object."
+                    "return either a `dict` or an `EvaluationResult` object, but it is "
+                    f"currently returning an object of type `{type(evaluation_output)}`"
+                    ". Please ensure that the function returns the correct object."
                 )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")

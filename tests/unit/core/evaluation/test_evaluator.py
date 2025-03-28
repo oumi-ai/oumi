@@ -346,9 +346,9 @@ def test_evaluate_custom_task_wrong_return_type(
         ValueError,
         match=(
             "The custom evaluation function `evaluation_fn_reg_name` must "
-            "return a `dict` object but, instead, it's currently returning "
-            "an object of type `<class 'float'>`. Please ensure that the "
-            "function returns the correct object."
+            "return either a `dict` or an `EvaluationResult` object, but it is "
+            "currently returning an object of type `<class 'float'>`. "
+            "Please ensure that the function returns the correct object."
         ),
     ):
         evaluator.evaluate(evaluation_config)
