@@ -238,6 +238,8 @@ class Evaluator:
                 "task name, which should be corresponding to a registered evaluation "
                 "function, using the decorator `@register_evaluation_function`."
             )
+        # Import to ensure custom evaluation functions are added to REGISTRY.
+        import oumi.evaluation.registry as evaluation_registry  # noqa: F401
 
         if evaluation_fn := REGISTRY.get_evaluation_function(task_name):
             return evaluation_fn
