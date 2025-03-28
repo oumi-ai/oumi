@@ -26,7 +26,7 @@ def test_convert_conversation_to_api_input(anthropic_engine):
     generation_params = GenerationParams(max_new_tokens=100)
 
     result = anthropic_engine._convert_conversation_to_api_input(
-        conversation, generation_params
+        conversation, generation_params, anthropic_engine._model_params
     )
 
     assert result["model"] == "claude-3"

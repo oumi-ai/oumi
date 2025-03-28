@@ -439,7 +439,7 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
             # the conversation to the API input. This should access most of the
             # parameters.
             engine._convert_conversation_to_api_input(
-                sample_conversation, tracked_params
+                sample_conversation, tracked_params, model_params
             )
         elif engine_class == LlamaCppInferenceEngine:
             with patch.object(engine, "_llm") as mock_llm:

@@ -222,7 +222,7 @@ def test_remote_engine_config_overrides_constructor_params(engine_class):
             model_params=init_model_params,
             remote_params=init_remote_params,
         )
-    assert engine._model == "init-model"
+    assert engine._model_params.model_name == "init-model"
     assert engine._remote_params.api_url == "http://init.com"
 
     # Create config with different params
