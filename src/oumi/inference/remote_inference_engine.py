@@ -548,17 +548,17 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
-            "max_new_tokens",
-            "seed",
-            "temperature",
-            "top_p",
             "frequency_penalty",
-            "presence_penalty",
+            "guided_decoding",
             "logit_bias",
+            "max_new_tokens",
+            "min_p",
+            "presence_penalty",
+            "seed",
             "stop_strings",
             "stop_token_ids",
-            "min_p",
-            "guided_decoding",
+            "temperature",
+            "top_p",
         }
 
     #
