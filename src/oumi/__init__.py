@@ -69,9 +69,26 @@ See Also:
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any
 
 from oumi.utils import logging
+
+
+def _is_help_call():
+    """Detect if the CLI was invoked with a help flag or no arguments.
+
+    This function is used to prevent importing `unsloth` when the user
+    is only requesting help information.
+    """
+    return "--help" in sys.argv or "-h" in sys.argv
+
+
+if not _is_help_call():
+    try:
+        import unsloth
+    except:
+        unsloth = None
 
 if TYPE_CHECKING:
     from oumi.core.configs import (

@@ -34,6 +34,7 @@ from oumi.builders import (
     build_tokenizer,
     build_trainer,
     build_training_callbacks,
+    build_unsloth_model_tokenizer,
     is_image_text_llm,
 )
 from oumi.core.configs import (
@@ -43,6 +44,7 @@ from oumi.core.configs import (
 )
 from oumi.core.configs.internal.supported_models import (
     is_custom_model,
+    is_unsloth_model,
 )
 from oumi.core.distributed import (
     barrier,
@@ -387,11 +389,18 @@ def train(
     use_peft = config.training.use_peft and config.peft
 
     # Build model.
-    model = build_model(
-        model_params=config.model,
-        peft_params=config.peft if use_peft else None,
-        **(additional_model_kwargs or {}),
-    )
+    if is_unsloth_model(config.model.model_name):
+        model, tokenizer = build_unsloth_model_tokenizer(
+            model_params=config.model,
+            peft_params=config.peft if use_peft else None,
+            **(additional_model_kwargs or {}),
+        )
+    else:
+        model = build_model(
+            model_params=config.model,
+            peft_params=config.peft if use_peft else None,
+            **(additional_model_kwargs or {}),
+        )
 
     if use_peft:
         logger.info("Building PEFT model...")

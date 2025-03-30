@@ -16,11 +16,12 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
+from inspect import signature
 from typing import NamedTuple, Optional
 
 import transformers
 
-from oumi.core.configs import ModelParams
+from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import (
     InternalFeatureFirstDimAction,
     InternalFeatureSpec,
@@ -381,6 +382,76 @@ def is_custom_model(model_name: str) -> bool:
         name=model_name, type=RegistryType.MODEL
     )
     return result
+
+
+def is_unsloth_model(model_name: str) -> bool:
+    """Determines whether the model is an unsloth model."""
+    result: bool = model_name.startswith("unsloth/")
+    return result
+
+
+def get_unsloth_model_args(
+    unsloth_model: type, model_params: ModelParams, peft_params: Optional[PeftParams]
+) -> dict:
+    """Converts oumi's model and peft parameters to unsloth's model parameters."""
+    unsloth_params = signature(unsloth_model.from_pretrained).parameters
+    model_args = {
+        name: val.default
+        for name, val in unsloth_params.items()
+        if name not in ("args", "kwargs")
+    }
+    oumi_params = {
+        "dtype": model_params.torch_dtype,
+        "device_map": model_params.device_map,
+        "trust_remote_code": model_params.trust_remote_code,
+    }
+    if model_params.model_name != ModelParams.model_name:
+        oumi_params["model_name"] = model_params.model_name
+    if peft_params is not None and peft_params.q_lora:
+        oumi_params["load_in_4bit"] = peft_params.q_lora_bits == 4
+        oumi_params["load_in_8bit"] = peft_params.q_lora_bits == 8
+    for param in oumi_params:
+        if param in model_args:
+            model_args[param] = oumi_params[param]
+    model_kwargs = model_params.model_kwargs.copy()
+    if "peft" in model_kwargs:
+        del model_kwargs["peft"]
+    if "unsloth_model" in model_kwargs:
+        del model_kwargs["unsloth_model"]
+    model_args = {**model_args, **model_kwargs}
+    return model_args
+
+
+def get_unsloth_peft_model_args(
+    unsloth_model: type, model_params: ModelParams, peft_params: Optional[PeftParams]
+) -> dict:
+    """Converts oumi's model and peft parameters to unsloth's peft parameters."""
+    unsloth_params = signature(unsloth_model.get_peft_model).parameters
+    peft_model_args = {
+        name: val.default
+        for name, val in unsloth_params.items()
+        if name not in ("model", "kwargs")
+    }
+    if peft_params is not None:
+        oumi_params = {
+            "r": peft_params.lora_r,
+            "target_modules": peft_params.lora_target_modules,
+            "lora_alpha": peft_params.lora_alpha,
+            "lora_dropout": peft_params.lora_dropout,
+            "bias": peft_params.lora_bias,
+            "modules_to_save": peft_params.lora_modules_to_save,
+            "init_lora_weights": peft_params.lora_init_weights
+            != LoraWeightInitialization.RANDOM,
+            "task_type": peft_params.lora_task_type,
+        }
+        if model_params.model_max_length is not None:
+            oumi_params["max_seq_length"] = model_params.model_max_length
+
+        for param in oumi_params:
+            if param in peft_model_args:
+                peft_model_args[param] = oumi_params[param]
+    peft_model_args = {**peft_model_args, **model_params.model_kwargs.get("peft", {})}
+    return peft_model_args
 
 
 def find_internal_model_config_using_model_name(

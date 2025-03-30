@@ -3,7 +3,7 @@ import tempfile
 
 import pytest
 
-from oumi import train
+from oumi import train, unsloth
 from oumi.core.configs import (
     DataParams,
     DatasetParams,
@@ -194,6 +194,45 @@ def test_train_dpo():
                 enable_mlflow=False,
                 output_dir=output_training_dir,
                 try_resume_from_last_checkpoint=False,
+                save_final_model=True,
+            ),
+        )
+
+        train(config)
+
+
+def test_train_unsloth():
+    if unsloth is None:
+        pytest.skip("Unsloth is not installed.")
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
+        config: TrainingConfig = TrainingConfig(
+            data=DataParams(
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="yahma/alpaca-cleaned",
+                        )
+                    ],
+                ),
+            ),
+            model=ModelParams(
+                model_name="unsloth/gemma-3-1b-it",
+                model_max_length=1024,
+                tokenizer_pad_token="<|endoftext|>",
+                torch_dtype_str="bfloat16",
+            ),
+            training=TrainingParams(
+                use_peft=True,
+                trainer_type=TrainerType.TRL_SFT,
+                max_steps=3,
+                logging_steps=3,
+                log_model_summary=True,
+                enable_wandb=False,
+                enable_tensorboard=False,
+                enable_mlflow=False,
+                output_dir=output_training_dir,
+                try_resume_from_last_checkpoint=True,
                 save_final_model=True,
             ),
         )

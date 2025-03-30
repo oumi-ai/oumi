@@ -34,6 +34,7 @@ from oumi.builders.models import (
     build_model,
     build_peft_model,
     build_tokenizer,
+    build_unsloth_model_tokenizer,
     is_image_text_llm,
 )
 from oumi.builders.optimizers import build_optimizer
@@ -48,6 +49,7 @@ __all__ = [
     "build_data_collator",
     "build_metrics_function",
     "build_model",
+    "build_unsloth_model_tokenizer",
     "build_optimizer",
     "build_peft_model",
     "build_processor",
