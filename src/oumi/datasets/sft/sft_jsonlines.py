@@ -15,6 +15,7 @@
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import numpy as np
 import pandas as pd
 from typing_extensions import override
 
@@ -111,19 +112,29 @@ class TextSftJsonLinesDataset(BaseSftDataset):
             data_frame = pd.DataFrame({self._data_column: data})
 
         elif self._dataset_path is not None:
-            if self._dataset_path.suffix.lower() == ".jsonl":
-                data = load_jsonlines(self._dataset_path)
-
-            elif self._dataset_path.suffix.lower() == ".json":
-                data = load_json(self._dataset_path)
+            if str(self._dataset_path).startswith("hf:"):
+                hf_path = str(self._dataset_path).replace("hf:", "")
+                self.dataset_name = hf_path
+                self.dataset_subset = kwargs.get("dataset_subset", self.default_subset)
+                self.split = kwargs.get("split", None)
+                self.trust_remote_code = kwargs.get("trust_remote_code", False)
+                hf_dataset = self._load_hf_hub_dataset().to_dict(orient="records")
+                data_frame = pd.DataFrame({self._data_column: hf_dataset})
 
             else:
-                raise ValueError(
-                    f"Unsupported file format: {self._dataset_path.suffix}. "
-                    "Use .jsonl or .json file extensions."
-                )
+                if self._dataset_path.suffix.lower() == ".jsonl":
+                    data = load_jsonlines(self._dataset_path)
 
-            data_frame = pd.DataFrame({self._data_column: data})
+                elif self._dataset_path.suffix.lower() == ".json":
+                    data = load_json(self._dataset_path)
+
+                else:
+                    raise ValueError(
+                        f"Unsupported file format: {self._dataset_path.suffix}. "
+                        "Use .jsonl or .json file extensions."
+                    )
+
+                data_frame = pd.DataFrame({self._data_column: data})
 
         else:
             raise ValueError("Dataset path or data must be provided")
@@ -163,7 +174,10 @@ class TextSftJsonLinesDataset(BaseSftDataset):
             )
 
         if "messages" in first_item:
-            if isinstance(first_item["messages"], list) and all(
+            if (
+                isinstance(first_item["messages"], list)
+                or isinstance(first_item["messages"], np.ndarray)
+            ) and all(
                 isinstance(m, dict) and "role" in m and "content" in m
                 for m in first_item["messages"]
             ):
