@@ -21,6 +21,7 @@ from oumi.datasets.sft.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.sft.dolly import ArgillaDollyDataset
 from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
 from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
+from oumi.datasets.sft.oumi_conversation import OumiConversationDataset
 from oumi.datasets.sft.prompt_response import PromptResponseDataset
 from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
 from oumi.datasets.sft.tulu3_sft_mixture import Tulu3MixtureDataset
@@ -37,6 +38,7 @@ __all__ = [
     "ChatRAGBenchDataset",
     "MagpieProDataset",
     "OpenO1SFTDataset",
+    "OumiConversationDataset",
     "PromptResponseDataset",
     "TextSftJsonLinesDataset",
     "Tulu3MixtureDataset",
