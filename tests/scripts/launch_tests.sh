@@ -8,7 +8,8 @@ echo "Using test config: ${E2E_TEST_CONFIG}"
 export E2E_CLUSTER_PREFIX="oumi-${USER}-e2e-tests"
 export E2E_USE_SPOT_VM=0 # Whether to use Spot VMs.
 
-declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
+# declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
+declare -a accelerators_arr=("A100:1" )
 
 for CURR_GPU_NAME in "${accelerators_arr[@]}"
 do
