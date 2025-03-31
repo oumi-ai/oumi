@@ -23,7 +23,7 @@ from oumi.utils.logging import logger
 
 
 def _extract_prediction(response: str) -> Optional[int]:
-    r"""Returns the numeric answer extracted from `\boxed{...}`, or returns None."""
+    r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
     regex_result = re.findall(r"\\boxed\{(\d+)\}", response)
     if not regex_result or len(regex_result) != 1:
         return None
@@ -54,18 +54,33 @@ def count_letters(
     if len(conversations) > 0:
         logger.info(f"Sample conversation: {conversations[0]}")
 
-    count = 0
-    total = 0
+    count = 0  # The number of examples with correct answers extracted.
+    total = 0  # All examples.
+    valid_count = 0  # The number of examples with valid answers extracted.
     for i, conversation in enumerate(conversations):
         total += 1
+        # Grab the model's response
         response = conversation.last_message()
+        # Ignore cases where model didn't respond or it's a multimodal response.
+        # For now, we focus on text-only responses.
         if not response or not isinstance(response.content, str):
             continue
+        # Count the example as correct if the extracted prediction is correct.
         prediction = _extract_prediction(response.content)
-        if (
-            prediction is not None
-            and prediction == conversation.metadata["letter_count_integer"]
-        ):
+        if prediction is None:
+            continue
+        valid_count += 1
+        if prediction == conversation.metadata["letter_count_integer"]:
             count += 1
 
-    return {"accuracy": count / total}
+    return {
+        # Accuracy across all examples.
+        "accuracy": count / total,
+        # Accuracy when only counting examples with properly extracted answers.
+        "properly_extracted_accuracy": count / valid_count,
+        "num_samples": num_samples,
+        # These three values sum up to num_samples.
+        "num_correct_answers": count,
+        "num_incorrect_answers": valid_count - count,
+        "num_invalid_answers": total - valid_count,
+    }

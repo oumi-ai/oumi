@@ -1,7 +1,8 @@
 # Config to eval an LLM's ability to count letters in words.
 #
 # Requirements:
-#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install vllm`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi evaluate -c oumi://configs/examples/letter_counting/evaluation/eval.yaml
@@ -21,7 +22,7 @@ model:
 
 generation:
   max_new_tokens: 2048
-  # This isn't used by vLLM, but is used for the native inference engine.
+  # This isn't used by vLLM, but is used for the NATIVE inference engine.
   batch_size: 4
 
 tasks:
@@ -29,6 +30,6 @@ tasks:
     task_name: count_letters
     num_samples: 1000
 
-inference_engine: VLLM # Can also use NATIVE
+inference_engine: VLLM # Can also use NATIVE if not running on GPUs
 
 output_dir: "output/letter_counting/evaluation"
