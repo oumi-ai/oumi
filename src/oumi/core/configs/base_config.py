@@ -86,7 +86,7 @@ class BaseConfig:
         return cast(T, config)
 
     @classmethod
-    def from_yaml_str(cls: type[T], config_str: str) -> T:
+    def from_str(cls: type[T], config_str: str) -> T:
         """Loads a configuration from a YAML string.
 
         Args:
