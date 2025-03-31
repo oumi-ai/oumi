@@ -35,6 +35,22 @@ def test_config_serialization():
         assert original_config == loaded_config
 
 
+def test_config_loading_from_str():
+    yaml_str = """
+            model:
+                model_name: "my_test_model"
+
+            data:
+                train:
+                    datasets:
+                    - dataset_name: "my_test_dataset"
+        """
+    loaded_config = TrainingConfig.from_str(yaml_str)
+    assert loaded_config.model.model_name == "my_test_model"
+    assert len(loaded_config.data.train.datasets) == 1
+    assert loaded_config.data.train.datasets[0].dataset_name == "my_test_dataset"
+
+
 def test_config_equality():
     config_a = TrainingConfig()
     config_b = TrainingConfig()

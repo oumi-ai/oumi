@@ -86,6 +86,23 @@ class BaseConfig:
         return cast(T, config)
 
     @classmethod
+    def from_str(cls: type[T], config_str: str) -> T:
+        """Loads a configuration from a YAML string.
+
+        Args:
+            config_str: The YAML string.
+
+        Returns:
+            BaseConfig: The configuration object.
+        """
+        schema = OmegaConf.structured(cls)
+        file_config = OmegaConf.create(config_str)
+        config = OmegaConf.to_object(OmegaConf.merge(schema, file_config))
+        if not isinstance(config, cls):
+            raise TypeError(f"config is not {cls}")
+        return cast(T, config)
+
+    @classmethod
     def from_yaml_and_arg_list(
         cls: type[T],
         config_path: Optional[str],
