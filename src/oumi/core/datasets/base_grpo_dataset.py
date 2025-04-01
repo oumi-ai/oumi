@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import abstractmethod
 from typing import Optional, Union
 
 import pandas as pd
@@ -105,10 +104,6 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
         indexes = range(len(self))
         return [self.conversation(index) for index in indexes]
 
-    #
-    # Abstract Methods
-    #
-    @abstractmethod
     def transform_conversation(self, sample: Union[dict, pd.Series]) -> Conversation:
         """Converts the input sample to a Conversation.
 
@@ -119,4 +114,18 @@ class BaseExperimentalGrpoDataset(BaseMapDataset):
             Conversation: The resulting conversation.
 
         """
-        raise NotImplementedError
+        # Contains prompt and completion.
+        example_dict = self._transform_grpo_example(sample)
+        conversation_dict = {
+            "messages": [
+                {
+                    "content": example_dict[_PROMPT_KEY],
+                    "role": "user",
+                },
+                {
+                    "content": example_dict[_COMPLETION_KEY],
+                    "role": "assistant",
+                },
+            ],
+        }
+        return Conversation.from_dict(conversation_dict)
