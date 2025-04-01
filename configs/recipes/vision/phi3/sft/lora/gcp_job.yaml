@@ -36,7 +36,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: phi3.lora.trl
+  OUMI_RUN_NAME: phi3.sft.lora
 
 setup: |
   set -e
