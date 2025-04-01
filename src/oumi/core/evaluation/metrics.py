@@ -43,11 +43,15 @@ class Metric:
         self.value = value
         self.ci = ci
 
+    def __str__(self):
+        """Return a string representation of the Metric instance."""
+        return f"Metric(name={self.name}, value={self.value}, ci={self.ci})"
+
 
 def bootstrap(
-    metric: Callable[[list[float], list[float]], float],
-    y_true: list[float],
-    y_pred: list[float],
+    y_true: list[int],
+    y_pred: list[int],
+    metric: Callable[..., float],
     alpha: float = 0.95,
     n_iter: int = 1000,
     sample_prop=1.0,
@@ -55,10 +59,10 @@ def bootstrap(
     """Perform bootstrap resampling to calculate confidence intervals for a metric.
 
     Args:
-        metric (callable): A function that computes a performance metric. The required
-            signature is `metric(y_true: list[float], y_pred: list[float]) -> float`.
         y_true (list): True labels.
         y_pred (list): Predicted labels.
+        metric (callable): A function that computes a performance metric. The required
+            signature is `metric(y_true: list[float], y_pred: list[float]) -> float`.
         alpha (float): Confidence level (default is 0.95 for 95% confidence interval)
         n_iter (int): Number of bootstrap iterations (default is 1000).
         sample_prop (float): Proportion of the data to sample in each iteration
@@ -93,7 +97,7 @@ def bootstrap(
             continue
         labels = [sample[0] for sample in samples]
         predictions = [sample[1] for sample in samples]
-        score = metric(labels, predictions)
+        score = metric(y_true=labels, y_pred=predictions)
         stats.append(score)
 
     # Calculate confidence interval.
@@ -108,8 +112,8 @@ def bootstrap(
 
 
 def f1_score(
-    y_true: list[float],
-    y_pred: list[float],
+    y_true: list[int],
+    y_pred: list[int],
     average: str = "macro",
     pos_label: int = 1,
     populate_ci: bool = True,
@@ -132,11 +136,11 @@ def f1_score(
     if n_iter <= 0:
         raise ValueError("`n_iter` must be a positive integer.")
 
-    def f1_fn(y_true: list[float], y_pred: list[float]) -> float:
+    def f1_fn(y_true: list[int], y_pred: list[int]) -> float:
         return float(
             sklearn_f1_score(
-                y_true,
-                y_pred,
+                y_true=y_true,
+                y_pred=y_pred,
                 pos_label=pos_label,
                 average=average,
             )
@@ -145,9 +149,9 @@ def f1_score(
     # Calculate F1 score
     if populate_ci:
         f1, ci = bootstrap(
-            metric=f1_fn,
             y_true=y_true,
             y_pred=y_pred,
+            metric=f1_fn,
             alpha=alpha,
             n_iter=n_iter,
             sample_prop=sample_prop,
@@ -159,9 +163,9 @@ def f1_score(
     return Metric(name="F1 Score", value=f1, ci=ci)
 
 
-def bacc(
-    y_true: list[float],
-    y_pred: list[float],
+def bacc_score(
+    y_true: list[int],
+    y_pred: list[int],
     populate_ci: bool = True,
     alpha: float = 0.95,
     n_iter: int = 1000,
@@ -183,9 +187,9 @@ def bacc(
     if populate_ci:
         # Calculate balanced accuracy score with bootstrap
         bacc, ci = bootstrap(
-            metric=balanced_accuracy_score,
             y_true=y_true,
             y_pred=y_pred,
+            metric=balanced_accuracy_score,
             alpha=alpha,
             n_iter=n_iter,
             sample_prop=sample_prop,
