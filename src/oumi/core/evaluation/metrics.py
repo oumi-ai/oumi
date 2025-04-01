@@ -51,7 +51,7 @@ class Metric:
 def bootstrap(
     y_true: list[int],
     y_pred: list[int],
-    metric: Callable[..., float],
+    metric_fn: Callable[..., float],
     alpha: float = 0.95,
     n_iter: int = 1000,
     sample_prop=1.0,
@@ -61,12 +61,13 @@ def bootstrap(
     Args:
         y_true (list): True labels.
         y_pred (list): Predicted labels.
-        metric (callable): A function that computes a performance metric. The required
-            signature is `metric(y_true: list[float], y_pred: list[float]) -> float`.
-        alpha (float): Confidence level (default is 0.95 for 95% confidence interval)
+        metric_fn (callable): A function that computes a performance metric. The
+            required signature for this function is:
+            `metric_fn(y_true: list[int], y_pred: list[int]) -> float`.
+        alpha (float): Confidence level (default is 0.95 for 95% confidence interval).
         n_iter (int): Number of bootstrap iterations (default is 1000).
         sample_prop (float): Proportion of the data to sample in each iteration
-            (default 1.0, meaning same size as original)
+            (default 1.0, meaning same size as original).
 
     Returns:
         tuple: Midpoint and half-width of the confidence interval.
@@ -78,10 +79,10 @@ def bootstrap(
         raise ValueError("`y_true` and `y_pred` must have the same length.")
     if not (0 < alpha < 1):
         raise ValueError("`alpha` must be between 0 and 1.")
-    if not (0 < sample_prop <= 1):
-        raise ValueError("sample_prop must be between 0 and 1.")
     if n_iter <= 0:
-        raise ValueError("n_iter must be a positive integer.")
+        raise ValueError("`n_iter` must be a positive integer.")
+    if not (0 < sample_prop <= 1):
+        raise ValueError("`sample_prop` must be between 0 and 1.")
 
     # Combine the true values and predictions into paired data points.
     data = list(zip(y_true, y_pred))
@@ -97,10 +98,10 @@ def bootstrap(
             continue
         labels = [sample[0] for sample in samples]
         predictions = [sample[1] for sample in samples]
-        score = metric(y_true=labels, y_pred=predictions)
+        score = metric_fn(y_true=labels, y_pred=predictions)
         stats.append(score)
 
-    # Calculate confidence interval.
+    # Calculate the confidence interval.
     lower_percentile = ((1.0 - alpha) / 2.0) * 100
     upper_percentile = (alpha + ((1.0 - alpha) / 2.0)) * 100
 
@@ -131,10 +132,10 @@ def f1_score(
         raise ValueError("Invalid value for `average`.")
     if not (0 < alpha < 1):
         raise ValueError("`alpha` must be between 0 and 1.")
-    if not (0 < sample_prop <= 1):
-        raise ValueError("`sample_prop` must be between 0 and 1.")
     if n_iter <= 0:
         raise ValueError("`n_iter` must be a positive integer.")
+    if not (0 < sample_prop <= 1):
+        raise ValueError("`sample_prop` must be between 0 and 1.")
 
     def f1_fn(y_true: list[int], y_pred: list[int]) -> float:
         return float(
@@ -151,13 +152,16 @@ def f1_score(
         f1, ci = bootstrap(
             y_true=y_true,
             y_pred=y_pred,
-            metric=f1_fn,
+            metric_fn=f1_fn,
             alpha=alpha,
             n_iter=n_iter,
             sample_prop=sample_prop,
         )
     else:
-        f1 = f1_fn(y_true, y_pred)
+        f1 = f1_fn(
+            y_true=y_true,
+            y_pred=y_pred,
+        )
         ci = None
 
     return Metric(name="F1 Score", value=f1, ci=ci)
@@ -179,23 +183,26 @@ def bacc_score(
         raise ValueError("`y_true` and `y_pred` must have the same length.")
     if not (0 < alpha < 1):
         raise ValueError("`alpha` must be between 0 and 1.")
-    if not (0 < sample_prop <= 1):
-        raise ValueError("`sample_prop` must be between 0 and 1.")
     if n_iter <= 0:
         raise ValueError("`n_iter` must be a positive integer.")
+    if not (0 < sample_prop <= 1):
+        raise ValueError("`sample_prop` must be between 0 and 1.")
 
     if populate_ci:
         # Calculate balanced accuracy score with bootstrap
         bacc, ci = bootstrap(
             y_true=y_true,
             y_pred=y_pred,
-            metric=balanced_accuracy_score,
+            metric_fn=balanced_accuracy_score,
             alpha=alpha,
             n_iter=n_iter,
             sample_prop=sample_prop,
         )
     else:
-        bacc = balanced_accuracy_score(y_true, y_pred)
+        bacc = balanced_accuracy_score(
+            y_true=y_true,
+            y_pred=y_pred,
+        )
         ci = None
 
     return Metric(name="Balanced Accuracy", value=bacc, ci=ci)
