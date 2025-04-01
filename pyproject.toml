@@ -68,7 +68,7 @@ dependencies = [
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.48.0,<4.49",
+    "transformers>=4.49.0,<4.50",
     # >=0.14.0 is needed for GRPOTrainer.
     "trl>=0.15.0,<0.16",
     "typer",               # Used by CLI

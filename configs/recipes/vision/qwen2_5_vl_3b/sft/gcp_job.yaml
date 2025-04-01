@@ -41,17 +41,10 @@ setup: |
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2.5-VL-3B-Instruct
 
-  # Note: Qwen2.5 is integrated on the latest transformers dev version (as of 02/05/25):
-  # Specifically, Oumi has tested this model with transformers 4.49.0.dev0
-  # Updating to this version below can break other Oumi utilities.
-  set +e
-  pip install "transformers>=4.49.0"
-
   # Also, if you want to try it with a more efficient attention implementation,
   # you can install the `flash_attention_2` package and set `attn_implementation:
   # "flash_attention_2"` in the model config.
   #  pip install -U flash-attn --no-build-isolation
-
 
 run: |
   set -e  # Exit if any command failed.
