@@ -1,0 +1,35 @@
+# Config to eval an LLM's ability to count letters in words.
+#
+# Requirements:
+#   - Run `pip install vllm`
+#   - Log into HF: `huggingface-cli login`
+#
+# Usage:
+#   oumi evaluate -c oumi://configs/examples/letter_counting/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  # This isn't used by vLLM, but is used for the NATIVE inference engine.
+  batch_size: 4
+
+tasks:
+  - evaluation_backend: custom
+    task_name: count_letters
+    num_samples: 1000
+
+inference_engine: VLLM # Can also use NATIVE if not running on GPUs
+
+output_dir: "output/letter_counting/evaluation"

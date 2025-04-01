@@ -65,6 +65,7 @@ from oumi.datasets.sft.aya import AyaDataset
 from oumi.datasets.sft.chatqa import ChatqaDataset, ChatqaTatqaDataset
 from oumi.datasets.sft.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.sft.dolly import ArgillaDollyDataset
+from oumi.datasets.sft.huggingface import HuggingFaceDataset
 from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
 from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
 from oumi.datasets.sft.prompt_response import PromptResponseDataset
@@ -97,6 +98,7 @@ __all__ = [
     "FalconRefinedWebDataset",
     "FineWebEduDataset",
     "Flickr30kDataset",
+    "HuggingFaceDataset",
     "LetterCountGrpoDataset",
     "LlavaInstructMixVsftDataset",
     "MagpieProDataset",

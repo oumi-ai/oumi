@@ -2,6 +2,7 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi train -c oumi://configs/examples/letter_counting/grpo/train.yaml

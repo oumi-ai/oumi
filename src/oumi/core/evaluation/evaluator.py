@@ -170,19 +170,22 @@ class Evaluator:
                 task_params=task_params,
                 config=config,
             )
-            results_dict = evaluation_fn(**custom_kwargs)
+            evaluation_output = evaluation_fn(**custom_kwargs)
 
-            if not isinstance(results_dict, dict):
+            if isinstance(evaluation_output, EvaluationResult):
+                evaluation_result = evaluation_output
+            elif isinstance(evaluation_output, dict):
+                evaluation_result = EvaluationResult(
+                    task_name=task_params.task_name,
+                    task_result={"results": {task_params.task_name: evaluation_output}},
+                )
+            else:
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
-                    "return a `dict` object but, instead, it's currently returning "
-                    f"an object of type `{type(results_dict)}`. Please ensure that the "
-                    "function returns the correct object."
+                    "return either a `dict` or an `EvaluationResult` object, but it is "
+                    f"currently returning an object of type `{type(evaluation_output)}`"
+                    ". Please ensure that the function returns the correct object."
                 )
-            evaluation_result = EvaluationResult(
-                task_name=task_params.task_name,
-                task_result={"results": {task_params.task_name: results_dict}},
-            )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 
@@ -235,6 +238,8 @@ class Evaluator:
                 "task name, which should be corresponding to a registered evaluation "
                 "function, using the decorator `@register_evaluation_function`."
             )
+        # Import to ensure custom evaluation functions are added to REGISTRY.
+        import oumi.evaluation.registry as evaluation_registry  # noqa: F401
 
         if evaluation_fn := REGISTRY.get_evaluation_function(task_name):
             return evaluation_fn
