@@ -115,7 +115,7 @@ def bootstrap(
 def f1_score(
     y_true: list[int],
     y_pred: list[int],
-    average: str = "macro",
+    average: str = "binary",
     pos_label: int = 1,
     populate_ci: bool = True,
     alpha: float = 0.95,
