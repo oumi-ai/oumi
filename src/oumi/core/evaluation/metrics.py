@@ -91,7 +91,7 @@ def bootstrap(
     n_size = int(len(data) * sample_prop)
 
     # Run bootstrap.
-    stats = []  # Metric scores calculated during the bootstrap iterations.
+    scores = []  # Metric scores calculated during the bootstrap iterations.
     for _ in range(n_iter):
         samples = resample(data, n_samples=n_size)
         if not samples:  # samples should never be None.
@@ -99,14 +99,14 @@ def bootstrap(
         labels = [sample[0] for sample in samples]
         predictions = [sample[1] for sample in samples]
         score = metric_fn(y_true=labels, y_pred=predictions)
-        stats.append(score)
+        scores.append(score)
 
     # Calculate the confidence interval.
     lower_percentile = ((1.0 - alpha) / 2.0) * 100
     upper_percentile = (alpha + ((1.0 - alpha) / 2.0)) * 100
 
-    lower_bound = max(0.0, float(np.percentile(stats, lower_percentile)))
-    upper_bound = min(1.0, float(np.percentile(stats, upper_percentile)))
+    lower_bound = max(0.0, float(np.percentile(scores, lower_percentile)))
+    upper_bound = min(1.0, float(np.percentile(scores, upper_percentile)))
     midpoint = (upper_bound + lower_bound) / 2.0
 
     return midpoint, upper_bound - midpoint
