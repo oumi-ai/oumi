@@ -59,7 +59,7 @@ def compute_letter_count_reward(completion: str, target_count: int) -> int:
 
 @register("count_letters", RegistryType.REWARD_FUNCTION)
 def _count_letters(
-    completions: list[list[dict[str, Any]]],
+    completions: list[str],
     letter_count: list[int],
     **kwargs: dict[str, Any],
 ) -> list[int]:
@@ -78,8 +78,7 @@ def _count_letters(
         absolute difference between the count and the target count. The count is assumed
         to be the last group of consecutive digits in the completion string.
     """
-    completions_strs = [c[0]["content"] for c in completions]
+    # completions_strs = [c[0]["content"] for c in completions]
     return [
-        compute_letter_count_reward(c, t)
-        for c, t in zip(completions_strs, letter_count)
+        compute_letter_count_reward(c, t) for c, t in zip(completions, letter_count)
     ]

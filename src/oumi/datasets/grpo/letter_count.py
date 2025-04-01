@@ -57,7 +57,7 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
         # TODO: OPE-1122: Add system prompt to training.
         # OPE-1158 seems to affect this, as the type of the input isn't consistent.
         return {
-            "prompt": sample["messages"],
+            "prompt": sample["messages"][0]["content"],
             "letter_count": sample["metadata"]["letter_count_integer"],
         }
 

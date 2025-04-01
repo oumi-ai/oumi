@@ -333,6 +333,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
                 config.training.trainer_kwargs["dataset_kwargs"][
                     "skip_prepare_dataset"
                 ] = True
+    logger.info(f"potato dataset: {next(iter(dataset))}")
 
     # Train model
     trainer_type: Final[TrainerType] = config.training.trainer_type
