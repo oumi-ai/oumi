@@ -28,12 +28,33 @@ from oumi.core.types.conversation import Conversation, Message, Role
 
 @register_dataset("HuggingFaceDataset")
 class HuggingFaceDataset(BaseSftDataset):
-    """Converts HuggingFace Datasets with messages to Oumi Message format.
+    """Converts a HuggingFace dataset to Oumi message format.
 
-    Example:
+    This class supports HF datasets in two formats:
+
+    1) Messages format:
+        Each example contains a `messages_column` in the following format:
+        [
+            {'role': 'user', 'content': ...},
+            {'role': 'assistant', 'content': ...}
+        ]
+
+    Sample code to load the dataset:
         dataset = HuggingFaceDataset(
             hf_dataset_path="oumi-ai/oumi-synthetic-document-claims",
-            message_column="messages"
+            message_column="messages",
+            split="validation",
+        )
+
+    2) Prompt format:
+        Each example contains a `prompt_column` that corresponds to a user prompt:
+        <the prompt to an assistant>
+
+    Sample code:
+        dataset = HuggingFaceDataset(
+            hf_dataset_path="oumi-ai/oumi-document-hallucination-benchmark",
+            prompt_column="gpt_4o prompt",
+            split="test",
         )
     """
 
@@ -41,6 +62,7 @@ class HuggingFaceDataset(BaseSftDataset):
         self,
         *,
         hf_dataset_path: str = "",
+        prompt_column: str = "",
         messages_column: str = "messages",
         exclude_final_assistant_message: bool = False,
         **kwargs,
@@ -48,8 +70,12 @@ class HuggingFaceDataset(BaseSftDataset):
         """Initializes a new instance of the OumiDataset class."""
         if not hf_dataset_path:
             raise ValueError("The `hf_dataset_path` parameter must be provided.")
-        if not messages_column:
-            raise ValueError("The `messages_column` parameter must be provided.")
+        if not messages_column and not prompt_column:
+            raise ValueError(
+                "Either the `messages_column` parameter or the `prompt_column`"
+                "parameter must be provided."
+            )
+        self.prompt_column = prompt_column
         self.messages_column = messages_column
         self.exclude_final_assistant_message = exclude_final_assistant_message
         kwargs["dataset_name"] = hf_dataset_path
@@ -64,14 +90,23 @@ class HuggingFaceDataset(BaseSftDataset):
         Returns:
             Conversation: A Conversation object containing the messages.
         """
-        messages = []
+        # Prompt format.
+        if self.prompt_column:
+            if self.prompt_column not in example:
+                raise ValueError(
+                    f"The column '{self.prompt_column}' is not present in the example."
+                )
+            prompt = str(example[self.prompt_column])
+            return Conversation(messages=[Message(role=Role.USER, content=prompt)])
 
+        # Messages format.
         if self.messages_column not in example:
             raise ValueError(
                 f"The column '{self.messages_column}' is not present in the example."
             )
         example_messages = example[self.messages_column]
 
+        oumi_messages = []
         for message in example_messages:
             if "role" not in message or "content" not in message:
                 raise ValueError(
@@ -86,9 +121,12 @@ class HuggingFaceDataset(BaseSftDataset):
                     f"Invalid role '{message['role']}'. Expected 'user' or 'assistant'."
                 )
             content = message["content"] or ""
-            messages.append(Message(role=role, content=content))
+            oumi_messages.append(Message(role=role, content=content))
 
-        if self.exclude_final_assistant_message and messages[-1].role == Role.ASSISTANT:
-            messages = messages[:-1]
+        if (
+            self.exclude_final_assistant_message
+            and oumi_messages[-1].role == Role.ASSISTANT
+        ):
+            oumi_messages = oumi_messages[:-1]
 
-        return Conversation(messages=messages)
+        return Conversation(messages=oumi_messages)
