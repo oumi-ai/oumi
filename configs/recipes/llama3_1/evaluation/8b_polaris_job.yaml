@@ -52,8 +52,7 @@ run: |
 
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
   set -x
-  oumi distributed accelerate launch \
-    -m oumi evaluate \
+  oumi evaluate \
     -c configs/recipes/llama3_1/evaluation/8b_eval.yaml \
     --run_name "polaris.llama8b.eval.${OUMI_JOBNUM}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"

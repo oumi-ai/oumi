@@ -204,6 +204,7 @@ def _test_eval_impl(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
             ),
             num_samples=10,
+            use_simple_oumi_evaluate_command=True,
         ),
         EvalTestConfig(
             test_name="eval_text_llama32_3b_single_gpu",
