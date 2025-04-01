@@ -26,28 +26,30 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
-@register_dataset("OumiConversationDataset")
-class OumiConversationDataset(BaseSftDataset):
+@register_dataset("HuggingFaceDataset")
+class HuggingFaceDataset(BaseSftDataset):
     """Converts HuggingFace Datasets with messages to Oumi Message format.
 
     Example:
-        dataset = OumiConversationDataset(
+        dataset = HuggingFaceDataset(
             hf_dataset_path="oumi-ai/oumi-synthetic-document-claims",
             message_column="messages"
         )
     """
 
-    default_dataset = "oumi-ai/oumi-synthetic-document-claims"
-
     def __init__(
         self,
         *,
-        hf_dataset_path: str = "oumi-ai/oumi-synthetic-document-claims",
+        hf_dataset_path: str = "",
         messages_column: str = "messages",
         exclude_final_assistant_message: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the OumiDataset class."""
+        if not hf_dataset_path:
+            raise ValueError("The `hf_dataset_path` parameter must be provided.")
+        if not messages_column:
+            raise ValueError("The `messages_column` parameter must be provided.")
         self.messages_column = messages_column
         self.exclude_final_assistant_message = exclude_final_assistant_message
         kwargs["dataset_name"] = hf_dataset_path
@@ -57,22 +59,36 @@ class OumiConversationDataset(BaseSftDataset):
         """Preprocesses the inputs of the example and returns a dictionary.
 
         Args:
-            example (dict or Pandas Series): An example containing `messages` entries.
+            example: An example containing `messages` entries.
 
         Returns:
-            dict: The input example converted to messages dictionary format.
-
+            Conversation: A Conversation object containing the messages.
         """
         messages = []
 
+        if self.messages_column not in example:
+            raise ValueError(
+                f"The column '{self.messages_column}' is not present in the example."
+            )
         example_messages = example[self.messages_column]
+
         for message in example_messages:
-            role = Role.USER if message["role"] == "user" else Role.ASSISTANT
-            content = message["content"]
+            if "role" not in message or "content" not in message:
+                raise ValueError(
+                    "The message format is invalid. Expected keys: 'role', 'content'."
+                )
+            if message["role"] == "user":
+                role = Role.USER
+            elif message["role"] == "assistant":
+                role = Role.ASSISTANT
+            else:
+                raise ValueError(
+                    f"Invalid role '{message['role']}'. Expected 'user' or 'assistant'."
+                )
+            content = message["content"] or ""
             messages.append(Message(role=role, content=content))
 
-        if self.exclude_final_assistant_message:
-            if messages[-1].role == Role.ASSISTANT:
-                messages = messages[:-1]
+        if self.exclude_final_assistant_message and messages[-1].role == Role.ASSISTANT:
+            messages = messages[:-1]
 
         return Conversation(messages=messages)
