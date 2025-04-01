@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -25,6 +26,7 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
+from oumi.core.configs.params.verl_params import VerlParams
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -66,6 +68,15 @@ class TrainerType(Enum):
 
     This is a custom trainer implementation specific to the Oumi project,
     designed to provide additional flexibility and features.
+    """
+
+    VERL_PPO = "verl_ppo"
+    """VERL PPO Trainer for efficient RL training.
+    
+    Integrates the Volcano Engine Reinforcement Learning (VERL) framework's
+    PPO implementation for efficient distributed reinforcement learning.
+    Supports multi-GPU training, various advantage estimators (GAE, GRPO, etc.),
+    and flexible rollout engines (vLLM, SGLang, HuggingFace).
     """
 
 
@@ -153,7 +164,17 @@ class TrainingParams(BaseParams):
     - HF: HuggingFace's Trainer
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
+    - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
+    - VERL_PPO: VERL's PPO Trainer
+    """
+
+    verl_params: VerlParams = field(default_factory=VerlParams)
+    """Parameters for VERL PPO training.
+    
+    This field contains configuration options specific to the VERL PPO trainer,
+    including advantage estimation method, training strategy, and rollout engine.
+    Only used when trainer_type is TrainerType.VERL_PPO.
     """
 
     enable_gradient_checkpointing: bool = False
@@ -803,6 +824,19 @@ class TrainingParams(BaseParams):
             raise ValueError(
                 "`include_performance_metrics` is not supported for TRL_GRPO trainer."
             )
+
+        # Validate VERL params if using VERL PPO trainer
+        if self.trainer_type == TrainerType.VERL_PPO:
+            if not hasattr(self, "verl_params") or self.verl_params is None:
+                raise ValueError(
+                    "verl_params must be specified when using the VERL_PPO trainer."
+                )
+            # Ensure Ray environment variables are set
+            if "RAY_ADDRESS" not in os.environ and self.verl_params.nnodes > 1:
+                logger.warning(
+                    "RAY_ADDRESS environment variable not set. "
+                    "Multi-node training may not work properly."
+                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:

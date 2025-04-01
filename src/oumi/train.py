@@ -208,7 +208,18 @@ def _create_optional_training_kwargs(
 
 
 def train(config: TrainingConfig, **kwargs) -> None:
-    """Trains a model using the provided configuration."""
+    """Trains a model using the provided configuration.
+    
+    Args:
+        config: The training configuration
+        **kwargs: Additional keyword arguments to pass to the trainer
+        
+    Raises:
+        NotImplementedError: If using a trainer that's not fully implemented, like VERL_PPO 
+            when the underlying implementation is incomplete
+        ValueError: If the configuration is invalid
+        RuntimeError: For other training errors
+    """
     _START_TIME = time.time()
 
     if is_distributed():
@@ -367,14 +378,25 @@ def train(config: TrainingConfig, **kwargs) -> None:
         with torch.profiler.record_function("create_trainer"):
             callbacks = build_training_callbacks(config, model, profiler)
 
-            trainer = create_trainer_fn(
-                model=model,
-                args=config.training,
-                train_dataset=dataset,
-                eval_dataset=eval_dataset,
-                callbacks=callbacks,
-                **training_kwargs,
-            )
+            try:
+                trainer = create_trainer_fn(
+                    model=model,
+                    args=config.training,
+                    train_dataset=dataset,
+                    eval_dataset=eval_dataset,
+                    callbacks=callbacks,
+                    **training_kwargs,
+                )
+            except NotImplementedError as e:
+                if config.training.trainer_type == TrainerType.VERL_PPO:
+                    logger.error(
+                        "The VERL PPO trainer couldn't be initialized. This likely means "
+                        "the VERL implementation is incomplete or not compatible with "
+                        "your current setup. Try using a different trainer type or check "
+                        "for updates to the VERL package."
+                    )
+                # Re-raise with original traceback
+                raise
 
         with torch.profiler.record_function("log_and_verify"):
             log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")

@@ -22,7 +22,7 @@ import trl
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.trainers import BaseTrainer, HuggingFaceTrainer
+from oumi.core.trainers import BaseTrainer, HuggingFaceTrainer, VerlPpoTrainer
 from oumi.core.trainers import Trainer as OumiTrainer
 from oumi.utils.logging import logger
 
@@ -94,6 +94,21 @@ def build_trainer(
 
         return _init_oumi_trainer
 
+    def _create_verl_ppo_builder_fn() -> Callable[..., BaseTrainer]:
+        def _init_verl_ppo_trainer(*args, **kwargs) -> BaseTrainer:
+            kwargs_processor = kwargs.get("processor", None)
+            if processor is not None:
+                if kwargs_processor is None:
+                    kwargs["processor"] = processor
+                elif id(kwargs_processor) != id(processor):
+                    raise ValueError(
+                        "Different processor instances passed to VerlPpoTrainer, "
+                        "and build_trainer()."
+                    )
+            return VerlPpoTrainer(*args, **kwargs)
+
+        return _init_verl_ppo_trainer
+
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
@@ -108,5 +123,8 @@ def build_trainer(
             "Prefer to use HF trainer when possible."
         )
         return _create_oumi_builder_fn()
+    elif trainer_type == TrainerType.VERL_PPO:
+        logger.info("Using VERL PPO Trainer for efficient reinforcement learning.")
+        return _create_verl_ppo_builder_fn()
 
     raise NotImplementedError(f"Trainer type {trainer_type} not supported.")
