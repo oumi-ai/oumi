@@ -4,9 +4,7 @@ We are excited to introduce HallOumi, a truly open-source claim verification (ha
 
 ![HallOumi Performance](./img/halloumi_table.png)
 
-To try it out (without installation), please visit our web demo page:
-
-https://oumi.ai/halloumi-demo
+To try it out (without installation), please visit our [web demo page](https://oumi.ai/halloumi-demo).
 
 ## 🛠 Setup
 ```bash
