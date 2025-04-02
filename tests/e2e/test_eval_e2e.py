@@ -18,7 +18,7 @@ from tests.markers import requires_gpus
 class EvalTestConfig(NamedTuple):
     test_name: str
     config_path: Path
-    skip: bool = True  # False
+    skip: bool = False
     interactive_logs: bool = True
 
     use_simple_oumi_evaluate_command: bool = False

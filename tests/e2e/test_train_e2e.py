@@ -19,6 +19,25 @@ from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
 
 
+class TrainTestConfig(NamedTuple):
+    test_name: str
+    config_path: Path
+    max_steps: int
+    is_lora: bool = False
+    skip: bool = False
+    interactive_logs: bool = True
+
+    trainer_type: Optional[TrainerType] = None
+    model_max_length: Optional[int] = None
+    batch_size: Optional[int] = None
+    gradient_accumulation_steps: Optional[int] = None
+    dataloader_num_workers: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = None
+    save_steps: Optional[int] = None
+    save_final_model: Optional[bool] = None
+    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
+
+
 def _check_checkpoint_dir(
     dir_path: Path, *, is_lora: bool, validate_extra_files: bool = False
 ):
@@ -136,25 +155,6 @@ def _check_checkpoint_dir(
             assert len(rng_state_shards) > 1
             for file in rng_state_shards:
                 assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
-
-
-class TrainTestConfig(NamedTuple):
-    test_name: str
-    config_path: Path
-    max_steps: int
-    is_lora: bool = False
-    skip: bool = True  # False
-    interactive_logs: bool = True
-
-    trainer_type: Optional[TrainerType] = None
-    model_max_length: Optional[int] = None
-    batch_size: Optional[int] = None
-    gradient_accumulation_steps: Optional[int] = None
-    dataloader_num_workers: Optional[int] = None
-    dataloader_prefetch_factor: Optional[int] = None
-    save_steps: Optional[int] = None
-    save_final_model: Optional[bool] = None
-    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
 
 
 def get_train_test_id_fn(val):
@@ -541,7 +541,6 @@ def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path:
             config_path=(get_configs_dir() / "examples" / "grpo_tldr" / "train.yaml"),
             max_steps=3,
             save_steps=3,
-            skip=False,
         ),
         # TODO: Enable once the "oumi-ai/oumi-letter-count" dataset is fixed.
         # TrainTestConfig(
