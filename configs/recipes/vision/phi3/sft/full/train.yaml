@@ -1,4 +1,4 @@
-# Phi 3 vision full fine-tune training config.
+# Phi 3 Vision full fine-tune training config.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
