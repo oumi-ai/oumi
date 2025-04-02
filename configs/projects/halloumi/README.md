@@ -13,6 +13,9 @@ Example of Oumi fine-tuning:
 ```bash
 # train HallOumi-8B
 oumi train -c 8b_train.yaml
+
+# train HallOumi-8B with GCP
+oumi launch up -c configs/projects/halloumi/gcp_job.yaml --cluster halloumi-8b-sft
 ```
 
 ## 🚀 Inference
