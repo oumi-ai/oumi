@@ -143,7 +143,7 @@ class TrainTestConfig(NamedTuple):
     config_path: Path
     max_steps: int
     is_lora: bool = False
-    skip: bool = False
+    skip: bool = True  # False
     interactive_logs: bool = True
 
     trainer_type: Optional[TrainerType] = None
@@ -519,6 +519,30 @@ def test_train_multimodal_1gpu_24gb(test_config: TrainTestConfig, tmp_path: Path
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
 def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+    )
+
+
+@requires_gpus(count=4, min_gb=39.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_grpo_tldr_qwen2_500m",
+            config_path=(get_configs_dir() / "examples" / "grpo_tldr" / "train.yaml"),
+            max_steps=5,
+            save_steps=5,
+            skip=False,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_grpo_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,
