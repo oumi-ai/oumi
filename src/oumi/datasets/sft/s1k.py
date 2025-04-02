@@ -30,21 +30,18 @@ class S1KDataset(BaseSftDataset):
     )
     
     default_dataset = "simplescaling/s1K"
-    QUERY_TEMPLATE_NOANSWER = """{Question}""".strip()
 
     def transform_conversation(self, example: Union[dict, pd.Series]) -> Conversation:
         """Transform a dataset example into a Conversation object."""
 
         thinking_trajectory: str = example.get("thinking_trajectories", None) or ""
-        cot_type: str = example.get("cot_type", None) or ""
         question: str = example.get("question", None) or ""
         answer: str = example.get("attempt", None) or ""
-        user_prompt = f"### Question Type:\n{cot_type}\n\n### Question:\n{question}"
-        answer = "Answer: " + answer if "Answer:" not in answer else answer
         
         messages = [
-            Message(role=Role.USER, content=user_prompt),
-            Message(role=Role.ASSISTANT, content="<|im_start|>think\n" + "\n".join(thinking_trajectory).strip() + "\n<|im_start|>answer\n" + answer.strip())
+            Message(role=Role.SYSTEM, content=self.system_prompt),
+            Message(role=Role.USER, content=question),
+            Message(role=Role.ASSISTANT, content="<think>\n" + "\n".join(thinking_trajectory).strip() + "\n</think>\n<answer>\n" + answer.strip() + "\n</answer>")
         ]
 
         return Conversation(messages=messages)
