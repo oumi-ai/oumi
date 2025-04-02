@@ -65,10 +65,12 @@ class DefaultProcessor(BaseProcessor):
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
 
-        # If the worker processor has a different chat template, then update it.
-        # This also prevents runtime errors when the worker's processor template
-        # is a read-only attribute and identical to tokenizer's template.
-        if self._worker_processor.chat_template != tokenizer.chat_template:
+        # If the worker processor does not have a chat template, or has a different
+        # one, then equate it to tokenizer's.
+        if (
+            not hasattr(self._worker_processor, "chat_template")
+            or self._worker_processor.chat_template != tokenizer.chat_template
+        ):
             self._worker_processor.chat_template = tokenizer.chat_template
 
         self._image_processor: Optional[BaseImageProcessor] = None

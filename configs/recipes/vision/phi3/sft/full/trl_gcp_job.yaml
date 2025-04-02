@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/phi3/sft/trl_gcp_job.yaml --cluster phi3-vision
+#   oumi launch up --config configs/recipes/vision/phi3/sft/full/trl_gcp_job.yaml --cluster phi3-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -54,7 +54,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/phi3/sft/train.yaml \
+      -c configs/recipes/vision/phi3/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type=TRL_SFT \
       --training.dataloader_main_process_only=false \

@@ -84,7 +84,7 @@ You can also check out the `README.md` in each recipe's directory for more detai
 | LLaVA 7B | `recipes/vision/llava_7b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/sft/train.yaml>` {gh}`configs/recipes/vision/llava_7b/sft/train.yaml` |
 | | `recipes/vision/llava_7b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/inference/infer.yaml>` {gh}`configs/recipes/vision/llava_7b/inference/infer.yaml` |
 | | `recipes/vision/llava_7b/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/llava_7b/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/llava_7b/inference/vllm_infer.yaml` |
-| Phi3 Vision | `recipes/vision/phi3/sft/train.yaml` | {download}`Download </../configs/recipes/vision/phi3/sft/train.yaml>` {gh}`configs/recipes/vision/phi3/sft/train.yaml` |
+| Phi3 Vision | `recipes/vision/phi3/sft/full/train.yaml` | {download}`Download </../configs/recipes/vision/phi3/sft/full/train.yaml>` {gh}`configs/recipes/vision/phi3/sft/full/train.yaml` |
 | | `recipes/vision/phi3/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/phi3/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/phi3/inference/vllm_infer.yaml` |
 | Qwen2-VL 2B | `recipes/vision/qwen2_vl_2b/sft/train.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/sft/train.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/sft/train.yaml` |
 | | `recipes/vision/qwen2_vl_2b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml>` {gh}`configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml` |
