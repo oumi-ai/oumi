@@ -2,7 +2,7 @@
 
 We are excited to introduce HallOumi, a truly open-source claim verification (hallucination detection) model, outperforming DeepSeek R1, OpenAI o1, Google Gemini 1.5 Pro, Llama 3.1 405B, and Claude Sonnet 3.5 at only 8B parameters. For more details, please see our [blog post](https://oumi.ai/blog/posts/introducing-halloumi)!
 
-![HallOumi Performance](/FIXME/halloumi_table.png)
+![HallOumi Performance](./img/halloumi_table.png)
 
 To try it out (without installation), please visit our web demo page:
 
