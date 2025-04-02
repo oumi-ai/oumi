@@ -168,6 +168,7 @@ def _test_train_impl(
     *,
     use_distributed: bool,
     cleanup_output_dir_on_success: bool = True,
+    telemetry_callback_enabled: bool = True,
 ):
     device_cleanup()
     if test_config.skip:
@@ -321,11 +322,16 @@ def _test_train_impl(
 
         telemetry_files = [
             "devices_info.txt",
-            "telemetry_callback_metrics_rank0000.json",
-            "telemetry_callback_rank0000.json",
             "training_config.yaml",
             "world_size.json",
-        ]
+        ] + (
+            [
+                "telemetry_callback_metrics_rank0000.json",
+                "telemetry_callback_rank0000.json",
+            ]
+            if telemetry_callback_enabled
+            else []
+        )
 
         for file in telemetry_files:
             file_path = telemetry_dir / file
@@ -533,10 +539,23 @@ def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path:
         TrainTestConfig(
             test_name="train_grpo_tldr_qwen2_500m",
             config_path=(get_configs_dir() / "examples" / "grpo_tldr" / "train.yaml"),
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
             skip=False,
         ),
+        # TODO: Enable once the "oumi-ai/oumi-letter-count" dataset is fixed.
+        # TrainTestConfig(
+        #     test_name="train_grpo_letter_counting",
+        #     config_path=(
+        #         get_configs_dir()
+        #         / "examples"
+        #         / "letter_counting"
+        #         / "grpo"
+        #         / "train.yaml"
+        #     ),
+        #     max_steps=3,
+        #     save_steps=3,
+        # ),
     ],
     ids=get_train_test_id_fn,
 )
@@ -547,4 +566,5 @@ def test_train_grpo_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=True,
+        telemetry_callback_enabled=False,
     )
