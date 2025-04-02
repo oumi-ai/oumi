@@ -20,6 +20,10 @@ For more information on running inference, please see our demo on GitHub:
 
 https://github.com/oumi-ai/halloumi-demo
 
+To try out without installation, see our web demo:
+
+https://oumi.ai/halloumi-demo
+
 ## ❗️ License
 This model is licensed under [Creative Commons NonCommercial (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/legalcode).
 
