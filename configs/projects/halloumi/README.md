@@ -69,7 +69,7 @@ https://github.com/oumi-ai/halloumi-demo
 
 
 ## 🚀 Evaluation
-We have evaluated HallOumi’s performance against multiple State-of-the-Art models, including DeepSeek R1, OpenAI o1, Google Gemini 1.5 Pro, Llama 3.1 405B, and Claude Sonnet 3.5, using Oumi's [Groundedness Benchmark](https://huggingface.co/datasets/oumi-ai/oumi-groundedness-benchmark).
+We have evaluated HallOumi’s performance against multiple state-of-the-art models, including DeepSeek R1, OpenAI o1, Google Gemini 1.5 Pro, Llama 3.1 405B, and Claude Sonnet 3.5, using Oumi's [Groundedness Benchmark](https://huggingface.co/datasets/oumi-ai/oumi-groundedness-benchmark).
 
 We are releasing a notebook that demonstrates how to run end-to-end comparative evaluations, using Oumi's custom evaluation framework. The notebook details how, given the set of prompts, you can run inference, extract model predictions from free-form text model responses, and calculate any relevant metrics you want (e.g., F1 and Balanced Accuracy) for any closed or open source model (including HallOumi).
 
