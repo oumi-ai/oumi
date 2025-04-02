@@ -11,7 +11,7 @@
 #   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
-#   oumi train -c configs/recipes/vision/phi4/sft/train.yaml
+#   oumi train -c configs/recipes/vision/phi4/sft/full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
