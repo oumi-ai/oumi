@@ -1,6 +1,19 @@
-# Config to full fine-tune Llama 3.1 8B Instruct on 1 GCP node.
-# Example command:
-# oumi launch up -c configs/projects/halloumi/gcp_job.yaml --cluster halloumi-8b-sft
+# Job config to full fine-tune Llama 3.1 8B Instruct on the HallOumi dataset.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi launch up -c oumi://configs/projects/halloumi/gcp_job.yaml --cluster halloumi-8b-sft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: halloumi-8b-sft
 
@@ -8,28 +21,22 @@ num_nodes: 1
 resources:
   cloud: gcp
   accelerators: "A100-80GB:8"
-  use_spot: False
+  use_spot: false
   disk_size: 400 # Disk size in GBs
 
 working_dir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: halloumi.8b.sft
-  ACCELERATE_LOG_LEVEL: info
-  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
-  TOKENIZERS_PARALLELISM: false
+  OUMI_RUN_NAME: halloumi.8b.fft
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
-  pip install liger-kernel
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-8B-Instruct --exclude original/*
@@ -39,10 +46,9 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  uv pip install --upgrade --no-deps --force-reinstall '.[gpu]'
   oumi distributed torchrun \
     -m oumi train \
-    -c configs/projects/halloumi/8b_train.yaml \
+    -c oumi://configs/projects/halloumi/8b_train.yaml \
     --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
