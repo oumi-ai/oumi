@@ -185,9 +185,9 @@ def _sample_dataset(
     """Samples the specified dataset."""
     if dataset_params.sample_count is None:
         # No sampling.
-        dataset = cast(DatasetType, dataset)
         if dataset_params.shuffle:
             dataset = dataset.shuffle(dataset_params.seed)
+        dataset = cast(DatasetType, dataset)
         return dataset
     if stream:
         dataset = cast(datasets.IterableDataset, dataset)
