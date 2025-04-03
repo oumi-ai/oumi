@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/qwen2_5_vl_3b/sft/gcp_job.yaml --cluster qwen2_5-vl-vision
+#   oumi launch up --config configs/recipes/vision/qwen2_5_vl_3b/sft/full/gcp_job.yaml --cluster qwen2_5-vl-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -18,7 +18,7 @@ name: qwen2_5-vl-sft-oumi-train
 
 resources:
   cloud: gcp
-  accelerators: "A100:4" # You can also train it with a single (A100:1) GPU
+  accelerators: "A100:4"
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -32,7 +32,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: qwen2_5-vl.fft.oumi
+  OUMI_RUN_NAME: qwen2_5-vl.fft
 
 setup: |
   set -e
@@ -52,7 +52,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/qwen2_5_vl_3b/sft/train.yaml \
+      -c configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.max_steps 10 \
       --training.save_steps 0 \
