@@ -130,6 +130,7 @@ def _create_training_config() -> TrainingConfig:
             log_model_summary=True,
             enable_wandb=False,
             enable_tensorboard=False,
+            enable_mlflow=False,
             try_resume_from_last_checkpoint=True,
             save_final_model=True,
         ),
