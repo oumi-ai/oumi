@@ -1,6 +1,12 @@
-# HallOumi
+# 🧀 Introducing HallOumi: a State-of-the-Art Claim Verification Model
 
-We are excited to introduce HallOumi, a truly open-source claim verification (hallucination detection) model, outperforming Claude Sonnet, OpenAI o1, DeepSeek R1, Llama 405B, and Gemini Pro at only 8B parameters. For more details, please see our [blog post](https://oumi.ai/blog/posts/introducing-halloumi)!
+[![Paper](https://img.shields.io/badge/arXiv-Paper-red.svg)](https://arxiv.org/abs/2502.08820)
+[![Made with Oumi](https://badgen.net/badge/Made%20with/Oumi/%23085CFF?icon=https%3A%2F%2Foumi.ai%2Flogo_dark.svg)](https://github.com/oumi-ai/oumi)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+[![Model on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/model-on-hf-sm-dark.svg)](https://huggingface.co/oumi-ai/HallOumi-8B)
+[![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-sm-dark.svg)](https://huggingface.co/collections/oumi-ai/halloumi-67ecccf60fa98a079ea41ea1)
+
+We are excited to announce HallOumi, a truly open-source claim verification (hallucination detection) model, outperforming Claude Sonnet, OpenAI o1, DeepSeek R1, Llama 405B, and Gemini Pro at only 8B parameters. For more details, please see our [technical overview](https://oumi.ai/blog/posts/introducing-halloumi)!
 
 | Model | Macro F1 Score | Balanced Accuracy | Open or Closed? | Model Size |
 |-------|----------------|-------------------|----------------|------------|
@@ -11,7 +17,7 @@ We are excited to introduce HallOumi, a truly open-source claim verification (ha
 | Llama 3.1 405B | 58.8% ± 2.4% | 58.7% ± 1.7% | Open Weights | 405B |
 | Google Gemini 1.5 Pro | 48.2% ± 1.8% | 52.9% ± 1.0% | Closed | Unknown |
 
-To try it out (without installation), please visit our [web demo page](https://oumi.ai/halloumi-demo).
+To try it out (without installation), please visit our [web demo](https://oumi.ai/halloumi-demo).
 
 ## 🛠 Setup
 
@@ -19,7 +25,7 @@ To try it out (without installation), please visit our [web demo page](https://o
 pip install oumi
 ```
 
-## ⚙️ Training
+## 🚀 Training
 
 Example of Oumi fine-tuning:
 
@@ -32,7 +38,7 @@ oumi train -c oumi://configs/projects/halloumi/8b_train.yaml
 oumi launch up -c oumi://configs/projects/halloumi/gcp_job.yaml --cluster halloumi-8b-sft
 ```
 
-## 🚀 Prompt Formatting
+## 🔄 Prompt Formatting
 
 To construct a prompt to query HallOumi, you will need the following:
 
@@ -64,7 +70,7 @@ For optimal efficiency, HallOumi requires the `context` and `response` to be bro
 
 Code sample: Please see the `create_prompt` helper function of our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_inference_notebook.ipynb).
 
-## 🚀 Inference
+## 🤖 Inference
 
 ### Local Inference
 
@@ -72,11 +78,25 @@ If you want to call our HallOumi API, or download HallOumi locally and run infer
 
 ### Inference Server
 
-If you want to create your own local inference server for HallOumi, please see our demo on GitHub:
+You can easily host both the generative and classifier versions of HallOumi using SGLang:
 
+#### Hosting HallOumi-8B (generative)
+```shell
+pip install sglang
+python3 -m sglang.launch_server --model-path oumi-ai/HallOumi-8B --port 8000 --dtype auto --mem-fraction-static 0.9 --trust-remote-code
+```
+
+#### Hosting HallOumi-8B-classifier
+
+```shell
+pip install sglang
+python3 -m sglang.launch_server --model-path oumi-ai/HallOumi-8B-classifier --port 8001 --dtype auto --mem-fraction-static 0.9 --trust-remote-code --is-embedding
+```
+
+Alternatively, you can self-host a version of our open-source web demo:
 https://github.com/oumi-ai/halloumi-demo
 
-## 🚀 Evaluation
+## 📊 Evaluation
 
 We have evaluated HallOumi’s performance against multiple state-of-the-art models, including DeepSeek R1, OpenAI o1, Google Gemini 1.5 Pro, Llama 3.1 405B, and Claude Sonnet 3.5, using Oumi's [Groundedness Benchmark](https://huggingface.co/datasets/oumi-ai/oumi-groundedness-benchmark).
 
@@ -84,9 +104,13 @@ We are releasing a notebook that demonstrates how to run end-to-end comparative 
 
 Notebook for evaluation: [Evaluating LLMs as Hallucination Classifiers](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_eval_notebook.ipynb)
 
-## ❗️ License
+## 🏛️ License
 
 This model is licensed under [Creative Commons NonCommercial (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/legalcode).
+
+**NOTE**: This model was trained with the [ANLI subset](https://huggingface.co/datasets/oumi-ai/oumi-anli-subset), which requires the [Creative Commons NonCommercial (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/legalcode) license. You can [retrain the model](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/8b_train.yaml) without this subset to avoid this restriction.
+
+
 
 ## 📖 Citation
 
