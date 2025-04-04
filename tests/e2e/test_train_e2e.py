@@ -542,19 +542,18 @@ def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path:
             max_steps=3,
             save_steps=3,
         ),
-        # TODO: Enable once the "oumi-ai/oumi-letter-count" dataset is fixed.
-        # TrainTestConfig(
-        #     test_name="train_grpo_letter_counting",
-        #     config_path=(
-        #         get_configs_dir()
-        #         / "examples"
-        #         / "letter_counting"
-        #         / "grpo"
-        #         / "train.yaml"
-        #     ),
-        #     max_steps=3,
-        #     save_steps=3,
-        # ),
+        TrainTestConfig(
+            test_name="train_grpo_letter_counting",
+            config_path=(
+                get_configs_dir()
+                / "examples"
+                / "letter_counting"
+                / "grpo"
+                / "train.yaml"
+            ),
+            max_steps=3,
+            save_steps=3,
+        ),
     ],
     ids=get_train_test_id_fn,
 )
