@@ -46,7 +46,7 @@ oumi launch up -c oumi://configs/projects/halloumi/gcp_job.yaml --cluster hallou
 
 ### HallOumi-8B
 
-To construct a prompt for querying the [HallOumi-8B](https://huggingface.co/oumi-ai/HallOumi-8B), you will need the following:
+To construct a prompt for querying [HallOumi-8B](https://huggingface.co/oumi-ai/HallOumi-8B), you will need the following:
 
 - `context` (`str`): A context document that serves as the premise (or ground truth).
 - `request` (`str`): A request or question to a language model.
