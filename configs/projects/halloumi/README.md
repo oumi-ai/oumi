@@ -62,15 +62,13 @@ For optimal efficiency, HallOumi requires the `context` and `response` to be bro
 
 <!-- FIXME: HF prompt formatting does not seem up-to-date: https://huggingface.co/datasets/oumi-ai/oumi-groundedness-benchmark -->
 
-Code samples: Please see our inference notebook _(coming up soon!)_ <!-- TBA: Add link to generative HallOumi inference notebook (owner: Kostas) -->
+Code sample: Please see the `create_prompt` helper function of our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_inference_notebook.ipynb).
 
 ## 🚀 Inference
 
 ### Local Inference
 
-If you want to download HallOumi locally and run inference, please see our inference notebook.
-
-Notebook for inference: _(coming up soon!)_ <!-- TBA: Add link to generative HallOumi inference notebook (owner: Kostas) -->
+If you want to call our HallOumi API, or download HallOumi locally and run inference, please see our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_inference_notebook.ipynb).
 
 ### Inference Server
 
