@@ -18,7 +18,7 @@ name: qwen2_5-vl-sft-oumi-train
 
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100:4" # Adjust (e.g., reduce) the number of GPUs based on your needs.
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 

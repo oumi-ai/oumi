@@ -18,7 +18,7 @@ name: qwen2_5-vl-sft-lora-train
 
 resources:
   cloud: gcp
-  accelerators: "A100:1"
+  accelerators: "A100:1" # Bump up the GPUs if you need to for faster training.
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
