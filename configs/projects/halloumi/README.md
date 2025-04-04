@@ -15,8 +15,13 @@ We are excited to announce HallOumi, a truly open-source claim verification (hal
 | DeepSeek R1 | 61.6% ± 2.5% | 60.7% ± 2.1% | Open Weights | 671B |
 | Llama 3.1 405B | 58.8% ± 2.4% | 58.7% ± 1.7% | Open Weights | 405B |
 | Google Gemini 1.5 Pro | 48.2% ± 1.8% | 52.9% ± 1.0% | Closed | Unknown |
+<br>
 
-To try it out (without installation), please visit our [web demo](https://oumi.ai/halloumi-demo).
+We are open-sourcing two versions of the HallOumi model:
+- [HallOumi-8B](https://huggingface.co/oumi-ai/HallOumi-8B): A generative model that provides per-sentence classifications, breaks down claims into subclaims, and offers citations and rationale for its classifications.
+- [HallOumi-8B-classifier](https://huggingface.co/oumi-ai/HallOumi-8B-classifier): A classifier model that operates at the claim level, delivering predictions along with confidence scores. This model is more computationally efficient, making it ideal for scenarios where compute resources and latency are a concern.
+
+To try these out (without installation), please visit our [web demo](https://oumi.ai/halloumi-demo).
 
 ## 🛠 Setup
 
@@ -39,7 +44,9 @@ oumi launch up -c oumi://configs/projects/halloumi/gcp_job.yaml --cluster hallou
 
 ## 🔄 Prompt Formatting
 
-To construct a prompt to query HallOumi, you will need the following:
+### HallOumi-8B
+
+To construct a prompt for querying [HallOumi-8B](https://huggingface.co/oumi-ai/HallOumi-8B), you will need the following:
 
 - `context` (`str`): A context document that serves as the premise (or ground truth).
 - `request` (`str`): A request or question to a language model.
@@ -69,15 +76,38 @@ For optimal efficiency, HallOumi requires the `context` and `response` to be bro
 
 Code sample: Please see the `create_prompt` helper function of our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_inference_notebook.ipynb).
 
+### HallOumi-8B-classifier
+
+To construct a prompt for querying [HallOumi-8B-classifier](https://huggingface.co/oumi-ai/HallOumi-8B-classifier), you will need the following:
+
+- `context` (`str`): A context document that serves as the premise (or ground truth).
+- `claim` (`str`): A claim that must be validated or grounded in the context.
+
+The prompt should be formatted as follows:
+
+```
+<context>
+The context.
+</context>
+
+<claims>
+A claim to be validated.
+</claims>
+```
+
+Code sample: Please see our [classifier inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_classifier_inference_notebook.ipynb).
+
 ## 🤖 Inference
 
 ### Local Inference
 
-If you want to call our HallOumi API, or download HallOumi locally and run inference, please see our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_inference_notebook.ipynb).
+If you want to call our HallOumi API, or download HallOumi locally and run inference:
+- [HallOumi-8B](https://huggingface.co/oumi-ai/HallOumi-8B): See our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_inference_notebook.ipynb).
+- [HallOumi-8B-classifier](https://huggingface.co/oumi-ai/HallOumi-8B-classifier): See our [inference notebook](https://github.com/oumi-ai/oumi/blob/main/configs/projects/halloumi/halloumi_classifier_inference_notebook.ipynb).
 
 ### Inference Server
 
-You can easily host both the generative and classifier versions of HallOumi using SGLang:
+You can easily host both models using SGLang:
 
 #### Hosting HallOumi-8B (generative)
 ```shell
@@ -97,7 +127,7 @@ https://github.com/oumi-ai/halloumi-demo
 
 ## 📊 Evaluation
 
-We have evaluated HallOumi’s performance against multiple state-of-the-art models, including DeepSeek R1, OpenAI o1, Google Gemini 1.5 Pro, Llama 3.1 405B, and Claude Sonnet 3.5, using Oumi's [Groundedness Benchmark](https://huggingface.co/datasets/oumi-ai/oumi-groundedness-benchmark).
+We have evaluated HallOumi-8B’s performance against multiple state-of-the-art models, including DeepSeek R1, OpenAI o1, Google Gemini 1.5 Pro, Llama 3.1 405B, and Claude Sonnet 3.5, using Oumi's [Groundedness Benchmark](https://huggingface.co/datasets/oumi-ai/oumi-groundedness-benchmark).
 
 We are releasing a notebook that demonstrates how to run end-to-end comparative evaluations, using Oumi's custom evaluation framework. The notebook details how, given the set of prompts, you can run inference, extract model predictions from free-form text model responses, and calculate any relevant metrics you want (e.g., F1 and Balanced Accuracy) for any closed or open source model (including HallOumi).
 
