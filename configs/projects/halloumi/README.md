@@ -78,7 +78,7 @@ Code sample: Please see the `create_prompt` helper function of our [inference no
 
 ### HallOumi-8B-classifier
 
-To construct a prompt for querying the [HallOumi-8B-classifier](https://huggingface.co/oumi-ai/HallOumi-8B-classifier), you will need the following:
+To construct a prompt for querying [HallOumi-8B-classifier](https://huggingface.co/oumi-ai/HallOumi-8B-classifier), you will need the following:
 
 - `context` (`str`): A context document that serves as the premise (or ground truth).
 - `claim` (`str`): A claim that must be validated or grounded in the context.
