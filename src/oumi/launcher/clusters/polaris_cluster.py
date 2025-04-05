@@ -257,7 +257,7 @@ class PolarisCluster(BaseCluster):
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "pip install -e '.[gpu]' vllm",  # TODO Re-enable uv OPE-670
+            "pip install -e '.[gpu]'",  # TODO Re-enable uv OPE-670
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.
