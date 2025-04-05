@@ -46,7 +46,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] vllm>=0.7.3
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.
