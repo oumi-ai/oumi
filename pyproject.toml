@@ -111,11 +111,12 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 
-# Dependencies that require a GPU to install
+# Dependencies that are useful when running on GPU
 gpu = [
     "liger-kernel>=0.5.0,<0.6",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
+    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
 ]
 
 # Targets for supported cloud providers
@@ -163,7 +164,6 @@ ci_cpu = [
 # gpu actions runner, so we skip it for now
 ci_gpu = [
     "oumi[dev,docs,gcp,gpu]",
-    "vllm>=0.7.3,<0.8.0",
     "alpaca-eval>=0.6.6,<0.7",
 ]
 
