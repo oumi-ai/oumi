@@ -1,7 +1,6 @@
 # Job config to FSDP full fine-tune Llama 4 Scout Instruct on a single GCP node.
 #
 # Requirements:
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 4: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct
@@ -14,7 +13,6 @@
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
 #   - Config class: oumi.core.configs.JobConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
-#   - Other job configs: configs/**/*job.yaml
 
 name: llama4-scout-instruct-fsdp
 
@@ -45,7 +43,9 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer[hf_xet]
+  uv pip install transformers>=4.51.0  # Required for llama4
+
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-4-Scout-17B-16E-Instruct --exclude original/*
