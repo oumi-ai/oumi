@@ -36,7 +36,7 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "sgd"
+  optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
   warmup_ratio: 0.02
 
@@ -52,6 +52,8 @@ training:
   include_performance_metrics: True
   enable_wandb: True
 
+  use_peft: True
+
 fsdp:
   enable_fsdp: True
   cpu_offload: True
@@ -61,3 +63,17 @@ fsdp:
   state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "Llama4TextDecoderLayer"
+
+peft:
+  q_lora: False
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
