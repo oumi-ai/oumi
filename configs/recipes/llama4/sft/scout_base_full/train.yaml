@@ -6,8 +6,7 @@
 #   - Request access to Llama4: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E
 #
 # Usage:
-#   oumi distributed torchrun -m \
-#     oumi train -c configs/recipes/llama4/sft/scout_base_full/train.yaml
+#   oumi distributed torchrun -m oumi train -c configs/recipes/llama4/sft/scout_base_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -18,7 +17,7 @@ model:
   model_name: meta-llama/Llama-4-Scout-17B-16E
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
-  attn_implementation: flex_attention
+  attn_implementation: sdpa # as of 04/05/2025, flex_attention is not working
   load_pretrained_weights: True
   trust_remote_code: True
 
@@ -32,8 +31,8 @@ training:
   trainer_type: "TRL_SFT"
   save_steps: 200
   num_train_epochs: 3
-  per_device_train_batch_size: 2
-
+  per_device_train_batch_size: 1
+  compile: True
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False

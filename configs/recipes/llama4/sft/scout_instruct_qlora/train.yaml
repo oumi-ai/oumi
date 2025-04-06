@@ -61,3 +61,23 @@ fsdp:
   state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "Llama4TextDecoderLayer"
+
+peft:
+  q_lora: True
+  # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
+  bnb_4bit_quant_type: "nf4"
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
+  bnb_4bit_quant_storage: "bfloat16"
+  bnb_4bit_compute_dtype: "bfloat16"
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
