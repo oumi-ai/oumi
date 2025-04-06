@@ -1,4 +1,4 @@
-# Eval config for Llama 4 Scout-17B-16E Instruct 
+# Eval config for Llama 4 Scout-17B-16E Instruct
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
