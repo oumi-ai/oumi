@@ -8,6 +8,7 @@ import typer
 from typer.testing import CliRunner
 
 import oumi
+import oumi.cli.alias
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.evaluate import evaluate
 from oumi.core.configs import (
@@ -24,6 +25,12 @@ runner = CliRunner()
 def mock_fetch():
     with patch("oumi.cli.cli_utils.resolve_and_fetch_config") as m_fetch:
         yield m_fetch
+
+
+@pytest.fixture
+def mock_alias():
+    with patch("oumi.cli.evaluate.try_get_config_name_for_alias") as try_alias:
+        yield try_alias
 
 
 def _create_eval_config() -> EvaluationConfig:
@@ -66,6 +73,21 @@ def test_evaluate_runs(app, mock_evaluate):
         config: EvaluationConfig = _create_eval_config()
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["--config", yaml_path])
+        mock_evaluate.assert_has_calls([call(config)])
+
+
+def test_evaluate_calls_alias(app, mock_evaluate, mock_alias):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "eval.yaml")
+        mock_alias.return_value = yaml_path
+        config: EvaluationConfig = _create_eval_config()
+        config.to_yaml(yaml_path)
+        _ = runner.invoke(app, ["--config", "an_alias"])
+        mock_alias.assert_has_calls(
+            [
+                call("an_alias", oumi.cli.alias.AliasType.EVAL),
+            ]
+        )
         mock_evaluate.assert_has_calls([call(config)])
 
 
