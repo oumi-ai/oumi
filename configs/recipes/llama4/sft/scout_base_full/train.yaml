@@ -26,7 +26,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-    target_col: "prompt"
     use_async_dataset: True
 
 training:
@@ -34,7 +33,6 @@ training:
   save_steps: 200
   num_train_epochs: 3
   per_device_train_batch_size: 2
-  max_grad_norm: null
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -62,4 +60,4 @@ fsdp:
   sharding_strategy: "FULL_SHARD"
   state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "LlamaDecoderLayer"
+  transformer_layer_cls: "Llama4TextDecoderLayer"

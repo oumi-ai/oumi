@@ -26,18 +26,14 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-    target_col: "prompt"
     use_async_dataset: True
-    chat_template: "llama-4-instruct" # Using Llama 4 specific chat template
 
 training:
   trainer_type: "TRL_SFT"
   save_steps: 200
   num_train_epochs: 3
-  per_device_train_batch_size: 2
-  max_grad_norm: null
-
-  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1
+  enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
@@ -63,4 +59,4 @@ fsdp:
   sharding_strategy: "FULL_SHARD"
   state_dict_type: "SHARDED_STATE_DICT"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "LlamaDecoderLayer"
+  transformer_layer_cls: "Llama4TextDecoderLayer"
