@@ -1,7 +1,7 @@
 # Config to eval an LLM's ability to count letters in words.
 #
 # Requirements:
-#   - Run `pip install vllm`
+#   - Run `pip install oumi[gpu]`
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
