@@ -15,7 +15,7 @@
 
 model:
   model_name: meta-llama/Llama-4-Scout-17B-16E-Instruct
-  model_max_length: 128
+  model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: sdpa # as of 04/05/2025, flex_attention is not working
   load_pretrained_weights: True
@@ -36,7 +36,7 @@ training:
   gradient_checkpointing_kwargs:
     use_reentrant: False
   ddp_find_unused_parameters: False
-  optimizer: "sgd"
+  optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
   warmup_ratio: 0.02
 
@@ -51,6 +51,8 @@ training:
   output_dir: "output/llama4-scout-17b-16e-instruct.fft"
   include_performance_metrics: True
   enable_wandb: True
+
+  use_peft: True
 
 fsdp:
   enable_fsdp: True
