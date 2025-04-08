@@ -57,7 +57,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/llama4/sft/scout_base_full/train.yaml \
+      -c oumi://configs/recipes/llama4/sft/scout_base_full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
