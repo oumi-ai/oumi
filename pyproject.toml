@@ -42,9 +42,11 @@ dependencies = [
     "aiohttp>=3.10,<3.12",          # Used by inference engine
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
+    "backoff>=2.2.1,<2.3",
     "datasets>=3.2.0,<3.3",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
+    "mlflow>=2.21.2,<2.22.0",       # Logging to MLflow
     "numpy>=1.26.4,<2.0",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
@@ -54,7 +56,7 @@ dependencies = [
     "pandas>=2.0.3,<3",
     "peft>=0.14.0,<0.15",
     "pexpect>=4.8.0,<4.9",       # Used by Polaris client
-    "pillow>=10.3.0,<10.4",      # Used by image datasets
+    "pillow>=11.1.0,<11.2",      # Used by image datasets
     "protobuf>=5.29.0",
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
@@ -67,7 +69,7 @@ dependencies = [
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.48.0,<4.49",
+    "transformers>=4.49.0,<4.50",
     # >=0.14.0 is needed for GRPOTrainer.
     "trl>=0.15.0,<0.16",
     "typer",               # Used by CLI
@@ -109,11 +111,12 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 
-# Dependencies that require a GPU to install
+# Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.5.0,<0.6",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
+    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
 ]
 
 # Targets for supported cloud providers
@@ -161,7 +164,6 @@ ci_cpu = [
 # gpu actions runner, so we skip it for now
 ci_gpu = [
     "oumi[dev,docs,gcp,gpu]",
-    "vllm>=0.7.3,<0.8.0",
     "alpaca-eval>=0.6.6,<0.7",
 ]
 

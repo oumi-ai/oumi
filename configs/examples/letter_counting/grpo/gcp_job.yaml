@@ -3,9 +3,10 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/examples/grpo_letter_counting/gcp_job.yaml --cluster letter-counting-grpo
+#   oumi launch up -c oumi://configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -32,7 +33,8 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] vllm
+  # vLLM needed for vLLM-powered generation during GRPO training.
+  pip install uv && uv pip install oumi[gpu]
   pip install -U flash-attn --no-build-isolation
 
 run: |
@@ -42,7 +44,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c oumi://configs/examples/grpo_letter_counting/train.yaml \
+      -c oumi://configs/examples/letter_counting/grpo/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

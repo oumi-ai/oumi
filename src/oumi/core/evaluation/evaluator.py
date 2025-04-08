@@ -27,6 +27,7 @@ from oumi.core.configs import (
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
+from oumi.core.distributed import is_world_process_zero
 from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
@@ -169,14 +170,21 @@ class Evaluator:
                 task_params=task_params,
                 config=config,
             )
-            evaluation_result = evaluation_fn(**custom_kwargs)
+            evaluation_output = evaluation_fn(**custom_kwargs)
 
-            if not isinstance(evaluation_result, EvaluationResult):
+            if isinstance(evaluation_output, EvaluationResult):
+                evaluation_result = evaluation_output
+            elif isinstance(evaluation_output, dict):
+                evaluation_result = EvaluationResult(
+                    task_name=task_params.task_name,
+                    task_result={"results": {task_params.task_name: evaluation_output}},
+                )
+            else:
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
-                    "return an `EvaluationResult` object, but it's currently returning "
-                    f"`{type(evaluation_result)}`. Please ensure that the function "
-                    "returns the correct object "
+                    "return either a `dict` or an `EvaluationResult` object, but it is "
+                    f"currently returning an object of type `{type(evaluation_output)}`"
+                    ". Please ensure that the function returns the correct object."
                 )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
@@ -186,7 +194,7 @@ class Evaluator:
         evaluation_result.start_time = start_time_str
 
         # Save the output, if an output directory has been provided.
-        if config.output_dir:
+        if config.output_dir and is_world_process_zero():
             self.save_output(
                 task_params=task_params,
                 evaluation_result=evaluation_result,
@@ -230,6 +238,8 @@ class Evaluator:
                 "task name, which should be corresponding to a registered evaluation "
                 "function, using the decorator `@register_evaluation_function`."
             )
+        # Import to ensure custom evaluation functions are added to REGISTRY.
+        import oumi.evaluation.registry as evaluation_registry  # noqa: F401
 
         if evaluation_fn := REGISTRY.get_evaluation_function(task_name):
             return evaluation_fn

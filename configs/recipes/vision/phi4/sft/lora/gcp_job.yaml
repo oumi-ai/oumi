@@ -1,12 +1,11 @@
-# Phi3 vision full fine-tune training job config, with the Oumi trainer.
+# Phi4 multimodal 5.6B LoRA fine-tune training job config.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/phi3/sft/oumi_gcp_job.yaml --cluster phi3-vision
+#   oumi launch up --config configs/recipes/vision/phi4/sft/lora/gcp_job.yaml --cluster phi4-multimodal
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -14,15 +13,11 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: phi3-sft-oumi-train
+name: phi4-mm-sft-lora-train
 
 resources:
   cloud: gcp
-  accelerators: "A100-80GB:4"
-  # If you don't have quota for a non-spot VM, try setting use_spot to true.
-  # However, make sure you are saving your output to a mounted cloud storage in case of
-  # preemption. For more information, see:
-  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  accelerators: "A100:1"
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -36,29 +31,30 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: phi3.fft.oumi
+  OUMI_RUN_NAME: phi4-vl.lora
 
 setup: |
   set -e
+
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-4-multimodal-instruct
 
+  # The model requires flash_attention_2! Install it here.
   pip install -U flash-attn --no-build-isolation
+
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
-
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/phi3/sft/train.yaml \
-      --training.run_name="${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.trainer_type=OUMI \
-      --training.max_steps=20 \
-      --training.save_steps=0 \
-      --training.save_final_model=false
+      -c configs/recipes/vision/phi4/sft/lora/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.max_steps 25 \
+      --training.save_steps 0 \
+      --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
