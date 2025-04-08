@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
 def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
     """Returns the sky.Cloud object from the JobConfig."""
+    # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
     import sky
 
     if job.resources.cloud == SkyClient.SupportedClouds.GCP.value:
@@ -45,6 +46,7 @@ def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
 
 def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, "sky.data.Storage"]:
     """Returns the sky.StorageMount objects from the JobConfig."""
+    # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
     import sky.data
 
     sky_mounts = {}
@@ -132,6 +134,7 @@ class SkyClient:
 
     def __init__(self):
         """Initializes a new instance of the SkyClient class."""
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
         import sky
 
         self._sky_lib = sky
