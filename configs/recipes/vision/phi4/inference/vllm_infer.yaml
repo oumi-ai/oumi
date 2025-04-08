@@ -1,7 +1,7 @@
 # Phi-4-multimodal-instruct 5.6B vLLM inference config.
 #
 # Requirements:
-#   - Run `pip install vllm`
+#   - Run `pip install oumi[gpu]`
 #   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:

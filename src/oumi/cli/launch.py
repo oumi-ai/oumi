@@ -25,6 +25,7 @@ from rich.table import Table
 from rich.text import Text
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.git_utils import get_git_root_dir
 from oumi.utils.logging import logger
 from oumi.utils.version_utils import is_dev_build
@@ -324,7 +325,7 @@ def run(
 
     config = str(
         cli_utils.resolve_and_fetch_config(
-            config,
+            try_get_config_name_for_alias(config, AliasType.JOB),
         )
     )
 
@@ -490,7 +491,7 @@ def up(
 
     config = str(
         cli_utils.resolve_and_fetch_config(
-            config,
+            try_get_config_name_for_alias(config, AliasType.JOB),
         )
     )
 

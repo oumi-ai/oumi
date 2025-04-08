@@ -8,6 +8,7 @@ import typer
 from typer.testing import CliRunner
 
 import oumi
+from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
@@ -30,6 +31,12 @@ def mock_fetch():
     with patch("oumi.cli.cli_utils.resolve_and_fetch_config") as m_fetch:
         m_fetch.side_effect = lambda x: x
         yield m_fetch
+
+
+@pytest.fixture
+def mock_alias():
+    with patch("oumi.cli.launch.try_get_config_name_for_alias") as try_alias:
+        yield try_alias
 
 
 runner = CliRunner()
@@ -130,6 +137,7 @@ def _create_training_config() -> TrainingConfig:
             log_model_summary=True,
             enable_wandb=False,
             enable_tensorboard=False,
+            enable_mlflow=False,
             try_resume_from_last_checkpoint=True,
             save_final_model=True,
         ),
@@ -198,6 +206,52 @@ def test_launch_up_job(
         )
         mock_fetch.assert_called_once_with(job_yaml_path)
         mock_cluster.get_job.assert_has_calls([call("job_id")])
+        assert logger.level == logging.DEBUG
+
+
+def test_launch_up_job_with_alias(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch, mock_alias
+):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        mock_alias.return_value = job_yaml_path
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        _ = runner.invoke(
+            app,
+            [
+                "up",
+                "--config",
+                "some_alias",
+                "--log-level",
+                "DEBUG",
+            ],
+        )
+        mock_fetch.assert_called_once_with(job_yaml_path)
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
+        mock_alias.assert_called_once_with("some_alias", AliasType.JOB)
         assert logger.level == logging.DEBUG
 
 
@@ -556,6 +610,62 @@ def test_launch_run_job(
             [call("cluster_id"), call("cluster_id")]
         )
         mock_fetch.assert_called_once_with(job_yaml_path)
+        assert logger.level == logging.CRITICAL
+
+
+def test_launch_run_job_with_alias(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch, mock_alias
+):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        mock_alias.return_value = job_yaml_path
+        job_config = _create_job_config(train_yaml_path)
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_cloud = Mock()
+        mock_launcher.run.return_value = job_status
+        mock_launcher.get_cloud.side_effect = [mock_cloud, mock_cloud]
+        mock_cloud.get_cluster.side_effect = [mock_cluster, mock_cluster]
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        _ = runner.invoke(
+            app,
+            [
+                "run",
+                "--config",
+                "some_alias",
+                "--cluster",
+                "cluster_id",
+                "-log",
+                "CRITICAL",
+            ],
+        )
+        mock_cluster.get_job.assert_has_calls([call("job_id"), call("job_id")])
+        mock_launcher.run.assert_called_once_with(job_config, "cluster_id")
+        mock_launcher.get_cloud.assert_has_calls([call("aws"), call("aws")])
+        mock_cloud.get_cluster.assert_has_calls(
+            [call("cluster_id"), call("cluster_id")]
+        )
+        mock_fetch.assert_called_once_with(job_yaml_path)
+        mock_alias.assert_called_once_with("some_alias", AliasType.JOB)
         assert logger.level == logging.CRITICAL
 
 

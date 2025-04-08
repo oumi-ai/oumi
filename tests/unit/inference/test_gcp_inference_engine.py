@@ -122,7 +122,7 @@ def test_get_request_headers(gcp_engine, remote_params):
 def test_convert_conversation_to_api_input_text(gcp_engine, inference_config):
     conversation = create_test_text_only_conversation()
     api_input = gcp_engine._convert_conversation_to_api_input(
-        conversation, inference_config.generation
+        conversation, inference_config.generation, gcp_engine._model_params
     )
     assert api_input["model"] == "gcp-model"
     assert len(conversation.messages) == 3
@@ -138,7 +138,7 @@ def test_convert_conversation_to_api_input_text(gcp_engine, inference_config):
 def test_convert_conversation_to_api_input_multimodal(gcp_engine, inference_config):
     conversation = create_test_multimodal_text_image_conversation()
     api_input = gcp_engine._convert_conversation_to_api_input(
-        conversation, inference_config.generation
+        conversation, inference_config.generation, gcp_engine._model_params
     )
     assert api_input["model"] == "gcp-model"
     assert len(conversation.messages) == 3

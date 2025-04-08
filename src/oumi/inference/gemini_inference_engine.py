@@ -16,7 +16,7 @@ from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.gcp_inference_engine import (
     _convert_guided_decoding_config_to_api_input,
@@ -37,7 +37,10 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an Gemini API input.
 
@@ -46,12 +49,13 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the Gemini input.
         """
         api_input = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),

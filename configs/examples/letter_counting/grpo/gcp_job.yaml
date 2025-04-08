@@ -3,6 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi launch up -c oumi://configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
@@ -33,7 +34,7 @@ envs:
 setup: |
   set -e
   # vLLM needed for vLLM-powered generation during GRPO training.
-  pip install uv && uv pip install oumi[gpu] vllm
+  pip install uv && uv pip install oumi[gpu]
   pip install -U flash-attn --no-build-isolation
 
 run: |
