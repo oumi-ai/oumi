@@ -175,8 +175,7 @@ class SkyClient:
                     "No idle_minutes_to_autostop provided. "
                     f"Defaulting to {idle_minutes_to_autostop} minutes."
                 )
-        except Exception as e:
-            logger.warning(e)
+        except Exception:
             logger.info(
                 f"{sky_cloud._REPR} does not support stopping clusters. "
                 "Will not set autostop."
