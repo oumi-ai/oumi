@@ -24,7 +24,6 @@ from oumi.utils.str_utils import try_str_to_bool
 if TYPE_CHECKING:
     import sky
     import sky.data
-    from sky.clouds import CloudImplementationFeatures
 
 
 def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
@@ -83,6 +82,7 @@ def _get_use_spot_vm_override() -> Optional[bool]:
 
 def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     """Converts a JobConfig to a sky.Task."""
+    # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
     import sky
 
     sky_cloud = _get_sky_cloud_from_job(job)
@@ -159,7 +159,10 @@ class SkyClient:
             sky_resources = next(iter(sky_task.resources))
             # This will raise an exception if the cloud does not support stopping.
             sky_cloud.check_features_are_supported(
-                sky_resources, requested_features={CloudImplementationFeatures.STOP}
+                sky_resources,
+                requested_features={
+                    self._sky_lib.clouds.CloudImplementationFeatures.STOP
+                },
             )
             autostop_kw = "idle_minutes_to_autostop"
             # Default to 60 minutes.
@@ -172,7 +175,8 @@ class SkyClient:
                     "No idle_minutes_to_autostop provided. "
                     f"Defaulting to {idle_minutes_to_autostop} minutes."
                 )
-        except Exception:
+        except Exception as e:
+            logger.warning(e)
             logger.info(
                 f"{sky_cloud._REPR} does not support stopping clusters. "
                 "Will not set autostop."
