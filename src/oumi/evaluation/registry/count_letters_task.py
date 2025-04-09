@@ -50,9 +50,9 @@ def count_letters(
         num_samples = len(dataset)
     input_conversations = [dataset.conversation(i) for i in range(num_samples)]
     conversations = inference_engine.infer(input_conversations)
-    logger.info(f"Finished inference on {len(conversations)} conversations!")
+    logger.debug(f"Finished inference on {len(conversations)} conversations!")
     if len(conversations) > 0:
-        logger.info(f"Sample conversation: {conversations[0]}")
+        logger.debug(f"Sample conversation: {conversations[0]}")
 
     count = 0  # The number of examples with correct answers extracted.
     total = 0  # All examples.
