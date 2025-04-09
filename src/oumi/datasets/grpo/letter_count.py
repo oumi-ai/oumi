@@ -54,9 +54,9 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
-        # Convert messages from np.ndarray to list.
-        messages = sample["messages"].tolist()
-        messages.insert(0, {"content": _SYSTEM_PROMPT, "role": "system"})
+        # Add system prompt before user prompt.
+        system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
+        messages = [system_message, sample["messages"][0]]
         return {
             "prompt": messages,
             "letter_count": sample["metadata"]["letter_count_integer"],
@@ -75,8 +75,10 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
         """
         # Example is already in conversation format and only needs light processing.
         sample_dict = sample.to_dict()
-        # Convert messages from np.ndarray to list.
-        sample_dict["messages"] = sample_dict["messages"].tolist()
+        # Add system prompt before user prompt.
+        system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
+        messages = [system_message, sample["messages"][0]]
+        sample_dict["messages"] = messages
         # Add system prompt.
         sample_dict["messages"].insert(0, {"content": _SYSTEM_PROMPT, "role": "system"})
         return Conversation.from_dict(sample_dict)
