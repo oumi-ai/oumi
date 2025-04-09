@@ -36,7 +36,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu,evaluation]
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.
@@ -50,8 +50,7 @@ run: |
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
   set -x
 
-  accelerate launch \
-    -m oumi evaluate \
+  oumi evaluate \
     -c oumi://configs/examples/letter_counting/evaluation/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"
