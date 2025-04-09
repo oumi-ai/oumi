@@ -1,3 +1,4 @@
+from multiprocessing import Process, set_start_method
 from unittest.mock import Mock, patch
 
 import pytest
@@ -1165,3 +1166,25 @@ def test_launcher_export_methods(mock_registry):
     assert LAUNCHER.stop == stop
     assert LAUNCHER.get_cloud == get_cloud
     assert LAUNCHER.which_clouds == which_clouds
+
+
+def _verify_no_extra_import(extra_module: str):
+    """Verifies that extra modules are not imported."""
+    import sys
+
+    import oumi.launcher  # noqa
+
+    assert extra_module not in sys.modules, f"{extra_module} was imported."
+
+
+def test_launcher_no_sky_dependency():
+    # Ensure that sky is lazy loaded so it doesn't cause DB contention in multinode
+    # jobs: https://github.com/oumi-ai/oumi/issues/1605
+
+    set_start_method("spawn", force=True)
+    process = Process(target=_verify_no_extra_import, args=["sky"])
+    process.start()
+    process.join()
+    assert (
+        process.exitcode == 0
+    ), "Sky was imported as part of the launcher module. This is a regression."
