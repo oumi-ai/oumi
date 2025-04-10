@@ -9,6 +9,7 @@ except ImportError:
 @dataclass
 class Claim:
     """A claim extracted by HallOumi from the model's response with metadata."""
+
     claim_id: int = -1
     claim_string: str = ""
     subclaims: list[str] = field(default_factory=list)
