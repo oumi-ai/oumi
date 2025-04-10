@@ -78,6 +78,11 @@ from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
 from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
     LlavaInstructMixVsftDataset,
 )
+from oumi.datasets.vision_language.pixmo_ask_model_anything import (
+    PixmoAskModelAnythingDataset,
+)
+from oumi.datasets.vision_language.pixmo_cap import PixmoCapDataset
+from oumi.datasets.vision_language.pixmo_cap_qa import PixmoCapQADataset
 from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 
 __all__ = [
@@ -105,6 +110,9 @@ __all__ = [
     "OpenO1SFTDataset",
     "OrpoDpoMix40kDataset",
     "PileV1Dataset",
+    "PixmoAskModelAnythingDataset",
+    "PixmoCapDataset",
+    "PixmoCapQADataset",
     "PromptResponseDataset",
     "RedPajamaDataV1Dataset",
     "RedPajamaDataV2Dataset",
