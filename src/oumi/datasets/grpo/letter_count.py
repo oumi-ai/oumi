@@ -79,6 +79,4 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
         system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
         messages = [system_message, sample["messages"][0]]
         sample_dict["messages"] = messages
-        # Add system prompt.
-        sample_dict["messages"].insert(0, {"content": _SYSTEM_PROMPT, "role": "system"})
         return Conversation.from_dict(sample_dict)
