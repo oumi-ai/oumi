@@ -24,7 +24,7 @@ from oumi.utils.logging import logger
 
 def _extract_prediction(response: str) -> Optional[int]:
     r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
-    regex_result = re.findall(r"\\boxed\{(\d+)\}", response)
+    regex_result = re.findall(r"\\boxed\{([-+]?\d+)\}", response)
     if not regex_result or len(regex_result) != 1:
         return None
     number_str = regex_result[0]

@@ -20,9 +20,9 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
 _SYSTEM_PROMPT = (
-    "Your final answer should be written as digits and formatted as "
+    "Your final answer should be an integer written as digits and formatted as "
     r'"\boxed{your_answer}". For example, if the answer is 42, '
-    r'make sure to output "\boxed{42}".'
+    r'you should output "\boxed{42}".'
 )
 
 
