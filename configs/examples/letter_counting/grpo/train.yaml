@@ -29,12 +29,12 @@ data:
 training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
-  max_steps: 500
+  num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
   learning_rate: 5e-5
   lr_scheduler_type: "cosine"
-  warmup_steps: 20
+  warmup_ratio: 0.02
 
   reward_functions: ["count_letters"]
 

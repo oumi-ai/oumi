@@ -15,6 +15,8 @@
 import re
 from typing import Any, Optional
 
+import numpy as np
+
 from oumi.core.registry import RegistryType, register
 
 
@@ -52,10 +54,18 @@ def compute_letter_count_reward(completion: str, target_count: int) -> float:
         consecutive digits in the completion string.
     """
     count = _extract_prediction(completion)
-    formatting_reward = 0.1 if count is not None else 0
     if count is None:
-        count = 0
-    return -abs(count - target_count) + formatting_reward
+        return -2
+    if count != target_count:
+        return -1
+    return 0
+
+    count = _extract_prediction(completion)
+    if count is None:
+        return -2
+    delta = abs(count - target_count)
+    # 0 if correct, asymptotically goes to -2 the more incorrect the answer is.
+    return -2 * (1 - np.exp(-delta / 2))
 
 
 @register("count_letters", RegistryType.REWARD_FUNCTION)
