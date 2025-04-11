@@ -25,7 +25,7 @@ class GenerationParams(BaseParams):
     """The maximum number of new tokens to generate.
 
     This limits the length of the generated text to prevent excessively long outputs.
-    Default is 256 tokens.
+    Default is 1024 tokens.
     """
 
     batch_size: Optional[int] = 1
