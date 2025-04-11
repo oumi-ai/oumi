@@ -43,6 +43,6 @@ run: |
   oumi distributed torchrun \
       -m oumi train \
       -c configs/examples/letter_counting/grpo/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}.reward210"
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}.rewardexponential"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

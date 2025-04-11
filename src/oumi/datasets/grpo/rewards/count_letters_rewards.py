@@ -53,12 +53,12 @@ def compute_letter_count_reward(completion: str, target_count: int) -> float:
         the count and the target count. The count is assumed to be the last group of
         consecutive digits in the completion string.
     """
-    count = _extract_prediction(completion)
-    if count is None:
-        return -2
-    if count != target_count:
-        return -1
-    return 0
+    # count = _extract_prediction(completion)
+    # if count is None:
+    #     return -2
+    # if count != target_count:
+    #     return -1
+    # return 0
 
     count = _extract_prediction(completion)
     if count is None:
