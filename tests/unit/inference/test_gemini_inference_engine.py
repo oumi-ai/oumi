@@ -194,3 +194,11 @@ def test_gemini_batch_prediction_disabled(gemini_engine, inference_config):
 
     with pytest.raises(NotImplementedError):
         gemini_engine.infer_batch([conversation], inference_config)
+
+
+def test_remote_params_defaults():
+    gemini_engine = GoogleGeminiInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+    )
+    assert gemini_engine._remote_params.num_workers == 2
+    assert gemini_engine._remote_params.politeness_policy == 60.0

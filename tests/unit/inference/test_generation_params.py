@@ -231,7 +231,7 @@ def test_generation_params_defaults_used_in_inference(
 
         mock_infer.assert_called_once()
         called_params = mock_infer.call_args[0][1].generation
-        assert called_params.max_new_tokens == 256
+        assert called_params.max_new_tokens == 1024
         assert called_params.temperature == 0.0
         assert called_params.top_p == 1.0
         assert called_params.frequency_penalty == 0.0
