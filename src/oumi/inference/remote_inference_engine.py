@@ -223,7 +223,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
         else:
-            remote_params = RemoteParams()
+            remote_params = self._default_remote_params()
 
         if not remote_params.api_url:
             remote_params.api_url = self.base_url
@@ -231,6 +231,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params.api_key_env_varname = self.api_key_env_varname
         self._remote_params = remote_params
         self._remote_params.finalize_and_validate()
+
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams()
 
     @staticmethod
     def _get_list_of_message_json_dicts(

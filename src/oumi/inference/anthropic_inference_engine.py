@@ -151,3 +151,8 @@ class AnthropicInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams(num_workers=5, politeness_policy=60.0)

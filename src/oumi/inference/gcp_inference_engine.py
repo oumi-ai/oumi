@@ -72,6 +72,11 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return headers
 
     @override
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams(num_workers=10, politeness_policy=60.0)
+
+    @override
     def _convert_conversation_to_api_input(
         self,
         conversation: Conversation,
