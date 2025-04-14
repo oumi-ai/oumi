@@ -108,6 +108,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                 self._model_params.model_name,
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
+                processor_kwargs=self._model_params.processor_kwargs,
             )
             internal_model_config = find_internal_model_config_using_model_name(
                 self._model_params.model_name,

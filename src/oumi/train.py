@@ -273,6 +273,7 @@ def train(
             config.model.model_name,
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
+            processor_kwargs=config.model.processor_kwargs,
         )
 
     use_peft = config.training.use_peft and config.peft
