@@ -19,22 +19,16 @@ from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
-_SYSTEM_PROMPT = (
-    "Your final answer should be formatted as "
-    r'"\boxed{your_answer}". For example, if the answer is 42, '
-    r'you should output "\boxed{42}".'
-)
-
 
 @register_dataset("oumi-ai/berrybench-v0.1.1")
-class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
+class BerryBenchGrpoDataset(BaseExperimentalGrpoDataset):
     r"""Dataset class for the `oumi-ai/berrybench-v0.1.1` dataset.
 
     A sample from the dataset:
     {
         "messages": [
             {
-                "content": "sReturn a JSON object showing the frequency of each character in the word '黒い'. Only include characters that appear in the word.",
+                "content": "Return a JSON object showing the frequency of each character in the word '黒い'. Only include characters that appear in the word.",
                 "role": "user",
             }
         ],
@@ -48,18 +42,15 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     }
     """  # noqa: E501
 
-    default_dataset = "oumi-ai/oumi-letter-count"
+    default_dataset = "oumi-ai/berrybench-v0.1.1"
 
     @override
     def transform(self, sample: pd.Series) -> dict:
-        """Validate and transform the sample into Python `dict`."""
-        # Add system prompt before user prompt.
-        system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
-        messages = [system_message, sample["messages"][0]]
-        return {
-            "prompt": messages,
-            "letter_count": sample["metadata"]["letter_count_integer"],
-        }
+        """Transform the sample into Python `dict`."""
+        sample_dict = sample.to_dict()
+        # Change messages type from np array to list.
+        sample_dict["messages"] = sample_dict["messages"].tolist()
+        return sample_dict
 
     @override
     def transform_conversation(self, sample: pd.Series) -> Conversation:
@@ -72,10 +63,5 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
             Conversation: The resulting conversation.
 
         """
-        # Example is already in conversation format and only needs light processing.
         sample_dict = sample.to_dict()
-        # Add system prompt before user prompt.
-        system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
-        messages = [system_message, sample["messages"][0]]
-        sample_dict["messages"] = messages
         return Conversation.from_dict(sample_dict)
