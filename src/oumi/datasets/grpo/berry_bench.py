@@ -20,31 +20,30 @@ from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
 _SYSTEM_PROMPT = (
-    "Your final answer should be an integer written as digits and formatted as "
+    "Your final answer should be formatted as "
     r'"\boxed{your_answer}". For example, if the answer is 42, '
     r'you should output "\boxed{42}".'
 )
 
 
-@register_dataset("oumi-ai/oumi-letter-count")
+@register_dataset("oumi-ai/berrybench-v0.1.1")
 class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
-    """Dataset class for the `oumi-ai/oumi-letter-count` dataset.
+    r"""Dataset class for the `oumi-ai/berrybench-v0.1.1` dataset.
 
     A sample from the dataset:
     {
-        "conversation_id": "oumi_letter_count_0",
         "messages": [
             {
-                "content": "Can you let me know how many 'r's are in 'pandered'?",
+                "content": "sReturn a JSON object showing the frequency of each character in the word '黒い'. Only include characters that appear in the word.",
                 "role": "user",
             }
         ],
         "metadata": {
-            "letter": "r",
-            "letter_count_integer": 1,
-            "letter_count_string": "one",
-            "unformatted_prompt": "Can you let me know how many {letter}s are in {word}?",
-            "word": "pandered",
+            "character_count": 2,
+            "difficulty": 3,
+            "expected_response": '{"\\u9ed2": 1, "\\u3044": 1}',
+            "language": "japanese",
+            "word": "黒い",
         },
     }
     """  # noqa: E501
