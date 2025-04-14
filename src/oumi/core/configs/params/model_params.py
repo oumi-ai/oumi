@@ -69,6 +69,14 @@ class ModelParams(BaseParams):
     covered by other fields in ModelParams.
     """
 
+    processor_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the processor's constructor.
+
+    Processors are used in Oumi for vision-language models to process image and
+    text inputs. This field is optional and can be left empty for text-only models,
+    or if not needed.
+    """
+
     model_max_length: Optional[int] = None
     """The maximum sequence length the model can handle.
 
