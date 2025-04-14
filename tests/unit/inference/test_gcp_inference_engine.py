@@ -181,3 +181,11 @@ def test_infer_from_file(gcp_engine, conversation, inference_config, tmp_path):
 
     assert len(results) == 1
     assert results[0] == conversation
+
+
+def test_remote_params_defaults():
+    gcp_engine = GoogleVertexInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+    )
+    assert gcp_engine._remote_params.num_workers == 10
+    assert gcp_engine._remote_params.politeness_policy == 60.0

@@ -36,7 +36,7 @@ class RemoteParams(BaseParams):
     max_retries: int = 3
     """Maximum number of retries to attempt when calling an API."""
 
-    connection_timeout: float = 20.0
+    connection_timeout: float = 300.0
     """Timeout in seconds for a request to an API."""
 
     num_workers: int = 1

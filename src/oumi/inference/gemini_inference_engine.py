@@ -16,7 +16,7 @@ from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, ModelParams
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.gcp_inference_engine import (
     _convert_guided_decoding_config_to_api_input,
@@ -100,3 +100,8 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
             str: The batch ID.
         """
         raise NotImplementedError("Batch inference is not supported for Gemini API.")
+
+    @override
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams(num_workers=2, politeness_policy=60.0)
