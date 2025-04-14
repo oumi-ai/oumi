@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Optional
 
@@ -197,6 +197,17 @@ class ModelParams(BaseParams):
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
+
+        if len(self.processor_kwargs) > 0:
+            conflicting_keys = {f.name for f in fields(self)}.intersection(
+                self.processor_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "processor_kwargs attempts to override the following "
+                    f"reserved fields: {conflicting_keys}. "
+                    "Use properties of ModelParams instead."
+                )
 
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""
