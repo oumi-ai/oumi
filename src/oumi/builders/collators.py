@@ -111,9 +111,11 @@ def build_data_collator(
         processor_name = kwargs.pop("processor_name", None)
         if not processor_name:
             raise ValueError(f"Empty processor_name for '{collator_name}'")
+        processor_kwargs = kwargs.pop("processor_kwargs", None)
         return VisionLanguageSftCollator(
             tokenizer=tokenizer,
             processor_name=processor_name,
+            processor_kwargs=processor_kwargs,
             max_length=max_length,
             truncation=enable_truncation,
             label_ignore_index=label_ignore_index,
