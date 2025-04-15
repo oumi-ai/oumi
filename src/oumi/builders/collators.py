@@ -175,6 +175,7 @@ def build_collator_from_config(
         if not processor_name:
             raise ValueError(f"Processor name must be provided for '{collator_name}'!")
         collator_kwargs["processor_name"] = processor_name
+        collator_kwargs["processor_kwargs"] = config.model.processor_kwargs
 
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
