@@ -106,6 +106,33 @@ def _get_all_sft_vision_dataset_infos() -> list[LoadDatasetInfo]:
             max_rows=64,
             expected_rows=64,
         ),
+        LoadDatasetInfo(
+            dataset_name="allenai/pixmo-ask-model-anything",
+            model_name=_DEFAULT_MODEL_NAME,
+            dataset_split="train[10:20]",  # 404 error for some image URLs
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=64,
+            expected_rows=None,
+        ),
+        LoadDatasetInfo(
+            dataset_name="allenai/pixmo-cap",
+            model_name=_DEFAULT_MODEL_NAME,
+            dataset_split="train[50:51]",  # 429 error for some image URLs
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=64,
+            expected_rows=None,
+        ),
+        LoadDatasetInfo(
+            dataset_name="allenai/pixmo-cap-qa",
+            model_name=_DEFAULT_MODEL_NAME,
+            dataset_split="train[10:20]",  # 404 error for some image URLs
+            chat_template=_DEFAULT_CHAT_TEMPLATE,
+            trust_remote_code=True,
+            max_rows=64,
+            expected_rows=None,
+        ),
     ]
 
     all_excluded_dataset_names_normalized = set(

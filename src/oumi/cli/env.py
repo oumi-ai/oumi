@@ -104,6 +104,7 @@ def env():
             "typer",
             "vllm",
             "wandb",
+            "mlflow",
         ]
     )
     package_versions = {

@@ -109,6 +109,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                     f"Ignoring processor_name: {processor_name}"
                 )
         elif processor_name:
+            # TODO OPE-1185 Add plumbing for processor_kwargs
             processor = build_processor(
                 processor_name, tokenizer, trust_remote_code=trust_remote_code
             )

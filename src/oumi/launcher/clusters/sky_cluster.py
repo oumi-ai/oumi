@@ -14,8 +14,6 @@
 
 from typing import Any, Optional
 
-import sky.exceptions
-
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.sky_client import SkyClient
@@ -26,6 +24,10 @@ class SkyCluster(BaseCluster):
 
     def __init__(self, name: str, client: SkyClient) -> None:
         """Initializes a new instance of the SkyCluster class."""
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky.exceptions
+
+        self._sky_exceptions = sky.exceptions
         self._name = name
         self._client = client
 
@@ -78,7 +80,7 @@ class SkyCluster(BaseCluster):
                 self._convert_sky_job_to_status(job)
                 for job in self._client.queue(self.name())
             ]
-        except sky.exceptions.ClusterNotUpError:
+        except self._sky_exceptions.ClusterNotUpError:
             return []
 
     def cancel_job(self, job_id: str) -> JobStatus:

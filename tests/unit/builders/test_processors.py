@@ -1,5 +1,5 @@
 import base64
-from typing import Final
+from typing import Any, Final, Optional
 
 import numpy as np
 import PIL.Image
@@ -39,12 +39,24 @@ def test_build_processor_empty_name(trust_remote_code, mock_tokenizer):
         build_processor("", mock_tokenizer, trust_remote_code=trust_remote_code)
 
 
-def test_build_processor_basic_gpt2_success(mock_tokenizer):
+@pytest.mark.parametrize(
+    "processor_kwargs",
+    [
+        None,
+        {},
+    ],
+)
+def test_build_processor_basic_gpt2_success(
+    processor_kwargs: Optional[dict[str, Any]], mock_tokenizer
+):
     test_chat_template: Final[str] = build_chat_template(template_name="default")
 
     model_params = ModelParams(model_name="openai-community/gpt2")
     processor = build_processor(
-        model_params.model_name, mock_tokenizer, trust_remote_code=False
+        model_params.model_name,
+        mock_tokenizer,
+        trust_remote_code=False,
+        processor_kwargs=processor_kwargs,
     )
     assert callable(processor)
 

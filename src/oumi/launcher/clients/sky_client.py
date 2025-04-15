@@ -14,20 +14,23 @@
 
 import os
 from enum import Enum
-from typing import Any, Optional
-
-import sky
-import sky.data
-from sky.clouds import CloudImplementationFeatures
+from typing import TYPE_CHECKING, Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import try_str_to_bool
 
+if TYPE_CHECKING:
+    import sky
+    import sky.data
 
-def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
+
+def _get_sky_cloud_from_job(job: JobConfig) -> "sky.clouds.Cloud":
     """Returns the sky.Cloud object from the JobConfig."""
+    # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+    import sky
+
     if job.resources.cloud == SkyClient.SupportedClouds.GCP.value:
         return sky.clouds.GCP()
     elif job.resources.cloud == SkyClient.SupportedClouds.RUNPOD.value:
@@ -41,8 +44,11 @@ def _get_sky_cloud_from_job(job: JobConfig) -> sky.clouds.Cloud:
     raise ValueError(f"Unsupported cloud: {job.resources.cloud}")
 
 
-def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, sky.data.Storage]:
+def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, "sky.data.Storage"]:
     """Returns the sky.StorageMount objects from the JobConfig."""
+    # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+    import sky.data
+
     sky_mounts = {}
     for k, v in job.storage_mounts.items():
         storage_mount = sky.data.Storage(
@@ -76,8 +82,11 @@ def _get_use_spot_vm_override() -> Optional[bool]:
     raise ValueError(f"{_ENV_VAR_NAME} has unsupported value: '{s}'.")
 
 
-def _convert_job_to_task(job: JobConfig) -> sky.Task:
+def _convert_job_to_task(job: JobConfig) -> "sky.Task":
     """Converts a JobConfig to a sky.Task."""
+    # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+    import sky
+
     sky_cloud = _get_sky_cloud_from_job(job)
     use_spot_vm = _get_use_spot_vm_override()
     if use_spot_vm is None:
@@ -123,6 +132,13 @@ class SkyClient:
         RUNPOD = "runpod"
         LAMBDA = "lambda"
 
+    def __init__(self):
+        """Initializes a new instance of the SkyClient class."""
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky
+
+        self._sky_lib = sky
+
     def launch(
         self, job: JobConfig, cluster_name: Optional[str] = None, **kwargs
     ) -> JobStatus:
@@ -146,7 +162,10 @@ class SkyClient:
             sky_resources = next(iter(sky_task.resources))
             # This will raise an exception if the cloud does not support stopping.
             sky_cloud.check_features_are_supported(
-                sky_resources, requested_features={CloudImplementationFeatures.STOP}
+                sky_resources,
+                requested_features={
+                    self._sky_lib.clouds.CloudImplementationFeatures.STOP
+                },
             )
             autostop_kw = "idle_minutes_to_autostop"
             # Default to 60 minutes.
@@ -165,7 +184,7 @@ class SkyClient:
                 "Will not set autostop."
             )
 
-        job_id, resource_handle = sky.launch(
+        job_id, resource_handle = self._sky_lib.launch(
             sky_task,
             cluster_name=cluster_name,
             detach_run=True,
@@ -188,7 +207,7 @@ class SkyClient:
         Returns:
             A list of dictionaries, each containing the status of a cluster.
         """
-        return sky.status()
+        return self._sky_lib.status()
 
     def queue(self, cluster_name: str) -> list[dict]:
         """Gets the job queue of a cluster.
@@ -199,7 +218,7 @@ class SkyClient:
         Returns:
             A list of dictionaries, each containing the metadata of a cluster.
         """
-        return sky.queue(cluster_name)
+        return self._sky_lib.queue(cluster_name)
 
     def cancel(self, cluster_name: str, job_id: str) -> None:
         """Gets the job queue of a cluster.
@@ -208,7 +227,7 @@ class SkyClient:
             cluster_name: The name of the cluster to cancel the job on.
             job_id: The ID of the job to cancel.
         """
-        sky.cancel(cluster_name, int(job_id))
+        self._sky_lib.cancel(cluster_name, int(job_id))
 
     def exec(self, job: JobConfig, cluster_name: str) -> str:
         """Executes the specified job on the target cluster.
@@ -220,7 +239,9 @@ class SkyClient:
         Returns:
             The ID of the job that was created.
         """
-        job_id, _ = sky.exec(_convert_job_to_task(job), cluster_name, detach_run=True)
+        job_id, _ = self._sky_lib.exec(
+            _convert_job_to_task(job), cluster_name, detach_run=True
+        )
         if job_id is None:
             raise RuntimeError("Failed to submit job.")
         return str(job_id)
@@ -231,7 +252,7 @@ class SkyClient:
         Args:
             cluster_name: The name of the cluster to stop.
         """
-        sky.stop(cluster_name)
+        self._sky_lib.stop(cluster_name)
 
     def down(self, cluster_name: str) -> None:
         """Tears down the target cluster.
@@ -239,4 +260,4 @@ class SkyClient:
         Args:
             cluster_name: The name of the cluster to tear down.
         """
-        sky.down(cluster_name)
+        self._sky_lib.down(cluster_name)

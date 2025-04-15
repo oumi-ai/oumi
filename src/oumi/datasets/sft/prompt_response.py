@@ -66,10 +66,10 @@ class PromptResponseDataset(BaseSftDataset):
         messages = []
 
         user_prompt = str(example[self.prompt_column])
-        model_output = str(example[self.response_column])
-
-        # Create message list
         messages.append(Message(role=Role.USER, content=user_prompt))
-        messages.append(Message(role=Role.ASSISTANT, content=model_output))
+
+        if self.response_column:
+            model_output = str(example[self.response_column])
+            messages.append(Message(role=Role.ASSISTANT, content=model_output))
 
         return Conversation(messages=messages)

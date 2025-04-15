@@ -65,6 +65,7 @@ from oumi.datasets.sft.aya import AyaDataset
 from oumi.datasets.sft.chatqa import ChatqaDataset, ChatqaTatqaDataset
 from oumi.datasets.sft.chatrag_bench import ChatRAGBenchDataset
 from oumi.datasets.sft.dolly import ArgillaDollyDataset
+from oumi.datasets.sft.huggingface import HuggingFaceDataset
 from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset, MagpieProDataset
 from oumi.datasets.sft.openo1_sft import OpenO1SFTDataset
 from oumi.datasets.sft.prompt_response import PromptResponseDataset
@@ -77,6 +78,11 @@ from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
 from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
     LlavaInstructMixVsftDataset,
 )
+from oumi.datasets.vision_language.pixmo_ask_model_anything import (
+    PixmoAskModelAnythingDataset,
+)
+from oumi.datasets.vision_language.pixmo_cap import PixmoCapDataset
+from oumi.datasets.vision_language.pixmo_cap_qa import PixmoCapQADataset
 from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 
 __all__ = [
@@ -97,12 +103,16 @@ __all__ = [
     "FalconRefinedWebDataset",
     "FineWebEduDataset",
     "Flickr30kDataset",
+    "HuggingFaceDataset",
     "LetterCountGrpoDataset",
     "LlavaInstructMixVsftDataset",
     "MagpieProDataset",
     "OpenO1SFTDataset",
     "OrpoDpoMix40kDataset",
     "PileV1Dataset",
+    "PixmoAskModelAnythingDataset",
+    "PixmoCapDataset",
+    "PixmoCapQADataset",
     "PromptResponseDataset",
     "RedPajamaDataV1Dataset",
     "RedPajamaDataV2Dataset",

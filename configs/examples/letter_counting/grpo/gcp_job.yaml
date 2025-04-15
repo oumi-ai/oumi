@@ -33,9 +33,7 @@ envs:
 
 setup: |
   set -e
-  # vLLM needed for vLLM-powered generation during GRPO training.
-  pip install uv && uv pip install oumi[gpu] "vllm>=0.7.3,<0.8.0"
-  pip install -U flash-attn --no-build-isolation
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.

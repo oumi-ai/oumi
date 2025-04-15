@@ -151,7 +151,7 @@ data:
 This separation between the dataset class and data source makes it easy to:
 
 - Use the same processing logic with different data sources.
-  - For example, the {py:class}`~oumi.datasets.sft.alpaca.AlpacaDataset` class can be used with both the default Alpaca data (`"tatsu-lab/alpaca"`), or one of the cleaned verions (`yahma/alpaca-cleaned`), or any other file that follows the same format.
+  - For example, the {py:class}`~oumi.datasets.sft.alpaca.AlpacaDataset` class can be used with both the default Alpaca data (`"tatsu-lab/alpaca"`), or one of the cleaned versions (`yahma/alpaca-cleaned`), or any other file that follows the same format.
 - Apply consistent formatting across your own datasets
 - Mix and match different dataset types in training
 

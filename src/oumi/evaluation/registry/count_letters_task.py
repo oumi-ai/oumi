@@ -24,7 +24,7 @@ from oumi.utils.logging import logger
 
 def _extract_prediction(response: str) -> Optional[int]:
     r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
-    regex_result = re.findall(r"\\boxed\{(\d+)\}", response)
+    regex_result = re.findall(r"\\boxed\{([-+]?\d+)\}", response)
     if not regex_result or len(regex_result) != 1:
         return None
     number_str = regex_result[0]
@@ -44,7 +44,6 @@ def count_letters(
     dataset = LetterCountGrpoDataset(split="test")
     # TODO: OPE-1155: Add support for using Oumi dataset code to create the dataset.
     # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501
-    # dataset = build_dataset("oumi-ai/berrybench-v0.1.0", tokenizer=None, sample_count=10)  # noqa: E501
     num_samples = task_params.num_samples
     if num_samples is None:
         num_samples = len(dataset)
@@ -75,9 +74,9 @@ def count_letters(
 
     return {
         # Accuracy across all examples.
-        "accuracy": count / total,
+        "accuracy": count / total if total > 0 else 0,
         # Accuracy when only counting examples with properly extracted answers.
-        "properly_extracted_accuracy": count / valid_count,
+        "properly_extracted_accuracy": count / valid_count if valid_count > 0 else 0,
         "num_samples": num_samples,
         # These three values sum up to num_samples.
         "num_correct_answers": count,

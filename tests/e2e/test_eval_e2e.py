@@ -204,6 +204,7 @@ def _test_eval_impl(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
             ),
             num_samples=10,
+            use_simple_oumi_evaluate_command=True,
         ),
         EvalTestConfig(
             test_name="eval_text_llama32_3b_single_gpu",
@@ -297,6 +298,7 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "eval.yaml"
             ),
             num_samples=20,
+            use_simple_oumi_evaluate_command=True,
         ),
         EvalTestConfig(
             test_name="eval_text_deepseek_r1_distill_llama70b_multi_gpu",

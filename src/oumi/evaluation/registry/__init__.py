@@ -14,8 +14,10 @@
 
 """Evaluation registry module."""
 
+from oumi.evaluation.registry.berry_bench_task import berry_bench
 from oumi.evaluation.registry.count_letters_task import count_letters
 
 __all__ = [
+    "berry_bench",
     "count_letters",
 ]

@@ -21,6 +21,11 @@ from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
     LlavaInstructMixVsftDataset,
 )
 from oumi.datasets.vision_language.mnist_sft import MnistSftDataset
+from oumi.datasets.vision_language.pixmo_ask_model_anything import (
+    PixmoAskModelAnythingDataset,
+)
+from oumi.datasets.vision_language.pixmo_cap import PixmoCapDataset
+from oumi.datasets.vision_language.pixmo_cap_qa import PixmoCapQADataset
 from oumi.datasets.vision_language.the_cauldron import TheCauldronDataset
 from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 from oumi.datasets.vision_language.vqav2_small import Vqav2SmallDataset
@@ -31,6 +36,9 @@ __all__ = [
     "Flickr30kDataset",
     "LlavaInstructMixVsftDataset",
     "MnistSftDataset",
+    "PixmoAskModelAnythingDataset",
+    "PixmoCapDataset",
+    "PixmoCapQADataset",
     "VLJsonlinesDataset",
     "Vqav2SmallDataset",
     "TheCauldronDataset",
