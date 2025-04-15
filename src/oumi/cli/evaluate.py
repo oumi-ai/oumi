@@ -114,10 +114,18 @@ def evaluate(
                     # Clean up metric name
                     clean_metric = base_name.replace("_", " ").title()
 
+                    if isinstance(value, float):
+                        if value > 1:
+                            value_str = f"{value:.2f}"
+                        else:
+                            value_str = f"{value:.2%}"
+                    else:
+                        # Includes ints
+                        value_str = str(value)
                     table.add_row(
                         benchmark_name,
                         clean_metric,
-                        f"{value:.2%}" if value <= 1 else f"{value:.2f}",
+                        value_str,
                         stderr_display,
                     )
         cli_utils.CONSOLE.print(table)

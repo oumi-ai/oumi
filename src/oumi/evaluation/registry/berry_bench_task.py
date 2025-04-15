@@ -12,38 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import re
 from typing import Any, Optional
 
 from oumi.core.configs.params.evaluation_params import EvaluationTaskParams
 from oumi.core.inference.base_inference_engine import BaseInferenceEngine
 from oumi.core.registry import register_evaluation_function
-from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
+from oumi.datasets.grpo.berry_bench import BerryBenchGrpoDataset
 from oumi.utils.logging import logger
 
 
-def _extract_prediction(response: str) -> Optional[int]:
-    r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
-    regex_result = re.findall(r"\\boxed\{([-+]?\d+)\}", response)
+def _extract_json(response: str) -> Optional[dict]:
+    r"""Returns the json answer extracted from ```json ...```, or None otherwise."""
+    logger.info(f"response: {response}")
+    # re.DOTALL lets '.' match newlines. Most LLMs use newlines in their JSON outputs.
+    regex_result = re.findall("```json(.*)```", response, re.DOTALL)
+    logger.info(f"result: {regex_result}")
     if not regex_result or len(regex_result) != 1:
         return None
-    number_str = regex_result[0]
-    # Except clause shouldn't trigger because the regex should only find ints.
+    json_str = regex_result[0]
     try:
-        return int(number_str)
-    except ValueError:
+        return json.loads(json_str)
+    except json.decoder.JSONDecodeError:
         return None
 
 
-@register_evaluation_function("count_letters")
-def count_letters(
+@register_evaluation_function("berry_bench")
+def berry_bench(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
 ) -> dict[str, Any]:
-    """Custom evaluation function registered as `count_letters`."""
-    dataset = LetterCountGrpoDataset(split="test")
-    # TODO: OPE-1155: Add support for using Oumi dataset code to create the dataset.
-    # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501
+    """Custom evaluation function registered as `berry_bench`."""
+    dataset = BerryBenchGrpoDataset(split="test")
     num_samples = task_params.num_samples
     if num_samples is None:
         num_samples = len(dataset)
@@ -65,11 +66,13 @@ def count_letters(
         if not response or not isinstance(response.content, str):
             continue
         # Count the example as correct if the extracted prediction is correct.
-        prediction = _extract_prediction(response.content)
+        prediction = _extract_json(response.content)
         if prediction is None:
             continue
         valid_count += 1
-        if prediction == conversation.metadata["letter_count_integer"]:
+        expected_json_str = conversation.metadata["expected_response"]
+        expected_json = json.loads(expected_json_str)
+        if prediction == expected_json:
             count += 1
 
     return {
