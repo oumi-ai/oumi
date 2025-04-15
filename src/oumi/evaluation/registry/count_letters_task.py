@@ -75,9 +75,9 @@ def count_letters(
 
     return {
         # Accuracy across all examples.
-        "accuracy": count / total,
+        "accuracy": count / total if total > 0 else 0,
         # Accuracy when only counting examples with properly extracted answers.
-        "properly_extracted_accuracy": count / valid_count,
+        "properly_extracted_accuracy": count / valid_count if valid_count > 0 else 0,
         "num_samples": num_samples,
         # These three values sum up to num_samples.
         "num_correct_answers": count,

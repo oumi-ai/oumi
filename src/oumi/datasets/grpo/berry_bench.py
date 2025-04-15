@@ -21,8 +21,8 @@ from oumi.core.types.conversation import Conversation
 
 _SYSTEM_PROMPT = (
     "Your final answer should be formatted as "
-    r'`\boxed{your_answer}`. For example, if the answer is {"a": 1}, '
-    r'you should output `\boxed{{"a": 1}}`.'
+    r'```json YOUR_ANSWER```. For example, if the answer is {"a": 1}, '
+    r'you should output ```json {"a": 1}}```.'
 )
 
 

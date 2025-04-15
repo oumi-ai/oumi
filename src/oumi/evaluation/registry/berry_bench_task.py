@@ -24,8 +24,11 @@ from oumi.utils.logging import logger
 
 
 def _extract_json(response: str) -> Optional[dict]:
-    r"""Returns the numeric answer extracted from `\boxed{...}`, or None otherwise."""
-    regex_result = re.findall(r"\\boxed\{(.*)\}", response)
+    r"""Returns the json answer extracted from ```json ...```, or None otherwise."""
+    logger.info(f"response: {response}")
+    # re.DOTALL lets '.' match newlines. Most LLMs use newlines in their JSON outputs.
+    regex_result = re.findall("```json(.*)```", response, re.DOTALL)
+    logger.info(f"result: {regex_result}")
     if not regex_result or len(regex_result) != 1:
         return None
     json_str = regex_result[0]
@@ -36,7 +39,7 @@ def _extract_json(response: str) -> Optional[dict]:
 
 
 @register_evaluation_function("berry_bench")
-def count_letters(
+def berry_bench(
     task_params: EvaluationTaskParams,
     inference_engine: BaseInferenceEngine,
 ) -> dict[str, Any]:
@@ -74,9 +77,9 @@ def count_letters(
 
     return {
         # Accuracy across all examples.
-        "accuracy": count / total,
+        "accuracy": count / total if total > 0 else 0,
         # Accuracy when only counting examples with properly extracted answers.
-        "properly_extracted_accuracy": count / valid_count,
+        "properly_extracted_accuracy": count / valid_count if valid_count > 0 else 0,
         "num_samples": num_samples,
         # These three values sum up to num_samples.
         "num_correct_answers": count,
