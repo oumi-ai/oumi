@@ -25,7 +25,6 @@ from oumi.core.types.conversation import (
     Conversation,
 )
 from oumi.utils.conversation_utils import remove_excessive_images_from_conversation
-from oumi.utils.logging import logger
 
 
 class VisionLanguageSftDataset(BaseSftDataset, ABC):
@@ -102,8 +101,6 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         super().__init__(tokenizer=tokenizer, **kwargs)
 
         self._max_images = max_images
-
-        logger.info(f"processor_kwargs: {processor_kwargs}")
 
         self._feature_generator = (
             None
