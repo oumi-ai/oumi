@@ -47,14 +47,9 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  if [[ "${MULTI_GPU,,}" == "true" ]]; then
-    RUN_COMMAND="oumi distributed torchrun -m oumi train"
-  else
-    RUN_COMMAND="oumi train"
-  fi
-
   set -x
-    ${RUN_COMMAND}\
+   oumi distributed torchrun \
+      -m oumi train \
       -c configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.max_steps 20 \
