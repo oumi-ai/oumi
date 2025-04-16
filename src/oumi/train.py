@@ -196,16 +196,15 @@ def _create_optional_training_kwargs(
         kwargs["config"] = config
 
     # TODO: What to do for VERL?
-    if trainer_type != TrainerType.TRL_GRPO:
-        kwargs["compute_metrics"] = metrics_function
-        kwargs["data_collator"] = collator
-    else:
-        assert trainer_type == TrainerType.TRL_GRPO
+    if trainer_type in {TrainerType.TRL_GRPO, TrainerType.VERL_PPO}:
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
+    else:
+        kwargs["compute_metrics"] = metrics_function
+        kwargs["data_collator"] = collator
     kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 

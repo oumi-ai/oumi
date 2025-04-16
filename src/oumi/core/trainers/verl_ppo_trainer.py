@@ -30,7 +30,7 @@ Note:
 
 import copy
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import ray
 from datasets import Dataset
@@ -59,6 +59,7 @@ class VerlPpoTrainer(BaseTrainer):
         self,
         processing_class: Optional[BaseTokenizer],
         args: TrainingParams,
+        reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Optional[Dataset] = None,
         **kwargs,
@@ -68,12 +69,15 @@ class VerlPpoTrainer(BaseTrainer):
         Args:
             processing_class: The tokenizer for the model
             args: Training parameters
+            reward_funcs: List of reward functions to use
             train_dataset: Training dataset
             eval_dataset: Optional evaluation dataset
             **kwargs: Additional keyword arguments
         """
         self.processing_class = processing_class
         self.params = copy.deepcopy(args)
+        assert len(reward_funcs) <= 1, "We only support up to one reward function."
+        self.reward_funcs = reward_funcs
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
 
@@ -206,11 +210,15 @@ class VerlPpoTrainer(BaseTrainer):
         )
 
         # Create reward function manager
-        # TODO: Set compute_score to reward fn from registry
-        reward_fn = NaiveRewardManager(tokenizer=tokenizer, num_examine=0)
+        compute_score = self.reward_funcs[0] if self.reward_funcs else None
+        reward_fn = NaiveRewardManager(
+            tokenizer=tokenizer, num_examine=0, compute_score=compute_score
+        )
         # TODO: Different reward calculation for validation?
         # Could use TinyZero's RewardManager instead.
-        val_reward_fn = NaiveRewardManager(tokenizer=tokenizer, num_examine=1)
+        val_reward_fn = NaiveRewardManager(
+            tokenizer=tokenizer, num_examine=1, compute_score=compute_score
+        )
 
         self.verl_trainer = RayPPOTrainer(
             config=self.verl_config,
