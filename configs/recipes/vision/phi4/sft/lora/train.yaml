@@ -24,9 +24,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
   trust_remote_code: True
-  processor_kwargs:
-    min_pixels: 1000
-    max_pixels": 111140000
   attn_implementation: "flash_attention_2" # The model requires Flash Attention.
 
 
