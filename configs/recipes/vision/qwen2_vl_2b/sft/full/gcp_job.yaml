@@ -48,7 +48,7 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-   oumi distributed torchrun \
+  oumi distributed torchrun \
       -m oumi train \
       -c configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
