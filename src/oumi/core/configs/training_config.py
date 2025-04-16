@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -151,7 +152,11 @@ class TrainingConfig(BaseConfig):
         # one column: 'conversation_json' (JSON-encoded `Conversation`)!
         collator_name: Final[str] = self.data.train.collator_name or ""
         if collator_name == "vision_language_sft":
-            for dataset_params in self.data.train.datasets:
+            for dataset_params in itertools.chain(
+                self.data.train.datasets,
+                self.data.validation.datasets,
+                self.data.test.datasets,
+            ):
                 if not dataset_params.dataset_kwargs.get("return_conversations", True):
                     raise ValueError(
                         "`return_conversations` must be True "
@@ -179,7 +184,11 @@ class TrainingConfig(BaseConfig):
             model_processor_name: Final[str] = (
                 self.model.tokenizer_name or self.model.model_name
             )
-            for dataset_params in self.data.train.datasets:
+            for dataset_params in itertools.chain(
+                self.data.train.datasets,
+                self.data.validation.datasets,
+                self.data.test.datasets,
+            ):
                 if (
                     "processor_name" not in dataset_params.dataset_kwargs
                     or "processor_kwargs" in dataset_params.dataset_kwargs
