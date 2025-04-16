@@ -53,11 +53,11 @@ run: |
   fi
 
   set -x
-    ${RUN_COMMAND}\
-      -c configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.max_steps 20 \
-      --training.save_steps 0 \
-      --training.save_final_model false
+  ${RUN_COMMAND}\
+    -c configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml \
+    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --training.max_steps 20 \
+    --training.save_steps 0 \
+    --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
