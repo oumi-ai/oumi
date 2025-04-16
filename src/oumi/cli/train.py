@@ -17,6 +17,7 @@ from typing import Annotated
 import typer
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.logging import logger
 
 
@@ -41,7 +42,7 @@ def train(
 
     config = str(
         cli_utils.resolve_and_fetch_config(
-            config,
+            try_get_config_name_for_alias(config, AliasType.TRAIN),
         )
     )
     with cli_utils.CONSOLE.status(

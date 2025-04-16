@@ -223,6 +223,7 @@ def test_generate_lm_harness_model_args(
             model_params.model_name,
             mock_build_tokenizer.return_value,
             trust_remote_code=model_params.trust_remote_code,
+            processor_kwargs={},
         )
     else:
         mock_build_tokenizer.assert_not_called()

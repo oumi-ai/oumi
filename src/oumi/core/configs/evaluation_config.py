@@ -63,6 +63,7 @@ class EvaluationConfig(BaseConfig):
 
     enable_wandb: bool = False
     """Whether to enable Weights & Biases (wandb) logging.
+    Currently, this is only supported for LM Harness evaluation.
     If True, wandb will be used for experiment tracking and visualization.
     After enabling, you must set the `WANDB_API_KEY` environment variable.
     Alternatively, you can use the `wandb login` command to authenticate.

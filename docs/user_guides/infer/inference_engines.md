@@ -112,6 +112,9 @@ First, make sure to install the vLLM package:
 
 ```bash
 pip install vllm
+# Alternatively, install all Oumi GPU dependencies, which takes care of installing a
+# vLLM version compatible with your current Oumi version.
+pip install oumi[gpu]
 ```
 
 **Basic Usage**

@@ -1376,7 +1376,9 @@ def test_convert_conversation_to_api_input_with_json_schema():
         guided_decoding=GuidedDecodingParams(json=ResponseSchema),
     )
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert result["response_format"] == {
         "type": "json_schema",
@@ -1404,7 +1406,9 @@ def test_convert_conversation_to_api_input_without_guided_decoding():
     )
 
     generation_params = GenerationParams(max_new_tokens=5)
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert "response_format" not in result
 
@@ -1433,7 +1437,9 @@ def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
     with pytest.raises(
         ValueError, match="Only JSON schema guided decoding is supported"
     ):
-        engine._convert_conversation_to_api_input(conversation, generation_params)
+        engine._convert_conversation_to_api_input(
+            conversation, generation_params, _get_default_model_params()
+        )
 
 
 def test_convert_conversation_to_api_input_with_dict_schema():
@@ -1466,7 +1472,9 @@ def test_convert_conversation_to_api_input_with_dict_schema():
         guided_decoding=GuidedDecodingParams(json=schema_dict),
     )
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert result["response_format"] == {
         "type": "json_schema",
@@ -1507,7 +1515,9 @@ def test_convert_conversation_to_api_input_with_json_string_schema():
         guided_decoding=GuidedDecodingParams(json=schema_str),
     )
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert result["response_format"] == {
         "type": "json_schema",
@@ -1549,7 +1559,9 @@ def test_convert_conversation_to_api_input_with_invalid_json_string():
     )
 
     with pytest.raises(json.JSONDecodeError):
-        engine._convert_conversation_to_api_input(conversation, generation_params)
+        engine._convert_conversation_to_api_input(
+            conversation, generation_params, _get_default_model_params()
+        )
 
 
 def test_convert_conversation_to_api_input_with_unsupported_schema_type():
@@ -1580,7 +1592,9 @@ def test_convert_conversation_to_api_input_with_unsupported_schema_type():
         ValueError,
         match="Got unsupported JSON schema type",
     ):
-        engine._convert_conversation_to_api_input(conversation, generation_params)
+        engine._convert_conversation_to_api_input(
+            conversation, generation_params, _get_default_model_params()
+        )
 
 
 def test_get_request_headers_no_remote_params():
@@ -1688,6 +1702,7 @@ async def test_create_batch():
             batch_id = await engine._create_batch(
                 [conversation],
                 _get_default_inference_config().generation,
+                _get_default_model_params(),
             )
             assert batch_id == "batch-456"
 

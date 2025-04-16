@@ -14,8 +14,6 @@
 
 from typing import Optional, TypeVar
 
-import sky
-
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
 from oumi.core.registry import register_cloud_builder
@@ -28,13 +26,25 @@ T = TypeVar("T")
 class SkyCloud(BaseCloud):
     """A resource pool capable of creating clusters using Sky Pilot."""
 
-    def __init__(self, cloud_name: str, client: SkyClient):
+    @property
+    def _client(self) -> SkyClient:
+        """Returns the SkyClient instance."""
+        # Instantiating a SkyClient imports sky.
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        if not self._sky_client:
+            self._sky_client = SkyClient()
+        return self._sky_client
+
+    def __init__(self, cloud_name: str):
         """Initializes a new instance of the SkyCloud class."""
         self._cloud_name = cloud_name
-        self._client = client
+        self._sky_client: Optional[SkyClient] = None
 
     def _get_clusters_by_class(self, cloud_class: type[T]) -> list[BaseCluster]:
         """Gets the appropriate clusters of type T."""
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky
+
         return [
             SkyCluster(cluster["name"], self._client)
             for cluster in self._client.status()
@@ -62,6 +72,9 @@ class SkyCloud(BaseCloud):
 
     def list_clusters(self) -> list[BaseCluster]:
         """Lists the active clusters on this cloud."""
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky
+
         if self._cloud_name == SkyClient.SupportedClouds.GCP.value:
             return self._get_clusters_by_class(sky.clouds.GCP)
         elif self._cloud_name == SkyClient.SupportedClouds.RUNPOD.value:
@@ -78,28 +91,28 @@ class SkyCloud(BaseCloud):
 @register_cloud_builder("runpod")
 def runpod_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for runpod."""
-    return SkyCloud(SkyClient.SupportedClouds.RUNPOD.value, SkyClient())
+    return SkyCloud(SkyClient.SupportedClouds.RUNPOD.value)
 
 
 @register_cloud_builder("gcp")
 def gcp_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Google Cloud Platform."""
-    return SkyCloud(SkyClient.SupportedClouds.GCP.value, SkyClient())
+    return SkyCloud(SkyClient.SupportedClouds.GCP.value)
 
 
 @register_cloud_builder("lambda")
 def lambda_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Lambda."""
-    return SkyCloud(SkyClient.SupportedClouds.LAMBDA.value, SkyClient())
+    return SkyCloud(SkyClient.SupportedClouds.LAMBDA.value)
 
 
 @register_cloud_builder("aws")
 def aws_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for AWS."""
-    return SkyCloud(SkyClient.SupportedClouds.AWS.value, SkyClient())
+    return SkyCloud(SkyClient.SupportedClouds.AWS.value)
 
 
 @register_cloud_builder("azure")
 def azure_cloud_builder() -> SkyCloud:
     """Builds a SkyCloud instance for Azure."""
-    return SkyCloud(SkyClient.SupportedClouds.AZURE.value, SkyClient())
+    return SkyCloud(SkyClient.SupportedClouds.AZURE.value)

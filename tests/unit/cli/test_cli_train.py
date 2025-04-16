@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 import oumi
 import oumi.core.distributed
 import oumi.utils.torch_utils
+from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.train import train
 from oumi.core.configs import (
@@ -50,6 +51,7 @@ def _create_training_config() -> TrainingConfig:
             log_model_summary=True,
             enable_wandb=False,
             enable_tensorboard=False,
+            enable_mlflow=False,
             try_resume_from_last_checkpoint=True,
             save_final_model=True,
         ),
@@ -102,6 +104,12 @@ def mock_fetch():
         yield m_fetch
 
 
+@pytest.fixture
+def mock_alias():
+    with patch("oumi.cli.train.try_get_config_name_for_alias") as try_alias:
+        yield try_alias
+
+
 def test_train_runs(
     app,
     mock_train,
@@ -118,6 +126,28 @@ def test_train_runs(
         mock_train.assert_has_calls([call(config)])
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
+        assert logger.level == logging.ERROR
+
+
+def test_train_with_alias_runs(
+    app,
+    mock_train,
+    mock_limit_per_process_memory,
+    mock_device_cleanup,
+    mock_set_random_seeds,
+    mock_alias,
+):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
+        mock_alias.return_value = train_yaml_path
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        _ = runner.invoke(app, ["--config", "random_alias", "--log-level", "ERROR"])
+        mock_limit_per_process_memory.assert_called_once()
+        mock_train.assert_has_calls([call(config)])
+        mock_device_cleanup.assert_has_calls([call(), call()])
+        mock_set_random_seeds.assert_called_once()
+        mock_alias.assert_called_once_with("random_alias", AliasType.TRAIN)
         assert logger.level == logging.ERROR
 
 

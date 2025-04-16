@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import functools
-from typing import Optional
+from typing import Any, Optional
 
 import transformers
 
@@ -27,13 +27,20 @@ from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 
 
 def build_processor(
-    processor_name: str, tokenizer: BaseTokenizer, *, trust_remote_code: bool = False
+    processor_name: str,
+    tokenizer: BaseTokenizer,
+    *,
+    processor_kwargs: Optional[dict[str, Any]] = None,
+    trust_remote_code: bool = False,
 ) -> BaseProcessor:
     """Builds a processor.
 
     Args:
         processor_name: A name of the processor (usually, equals to a model name).
         tokenizer: A tokenizer to use with the processor.
+        processor_kwargs: A dictionary of processor-specific parameters.
+            These parameters are passed to the processor constructor.
+            They can override model-specific parameters.
         trust_remote_code: Whether to allow loading remote code for this processor
             Some processors come with downloadable executable Python files,
             which can be a potential security risk, unless it's from a trusted source.
@@ -51,19 +58,23 @@ def build_processor(
     # Initialize model-specific params.
     label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
     ignore_features: Optional[list[str]] = None
-    processor_kwargs = {}
+    effective_processor_kwargs = {}
     if model_config is not None:
         label_ignore_index = model_config.label_ignore_index
         ignore_features = model_config.ignore_features
-        processor_kwargs.update(model_config.processor_kwargs)
+        effective_processor_kwargs.update(model_config.processor_kwargs)
+
+    if processor_kwargs is not None and len(processor_kwargs) > 0:
+        # Override model-specific params with user-defined ones.
+        effective_processor_kwargs.update(processor_kwargs)
 
     create_processor_fn = functools.partial(
         transformers.AutoProcessor.from_pretrained,
         processor_name,
         trust_remote_code=trust_remote_code,
     )
-    if len(processor_kwargs) > 0:
-        worker_processor = create_processor_fn(**processor_kwargs)
+    if len(effective_processor_kwargs) > 0:
+        worker_processor = create_processor_fn(**effective_processor_kwargs)
     else:
         worker_processor = create_processor_fn()
 

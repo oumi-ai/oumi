@@ -134,7 +134,7 @@ def test_build_chat_template_removes_indentation_and_newlines():
         ("llava-hf/llava-1.5-7b-hf", False, True),
         ("Salesforce/blip2-opt-2.7b", False, True),
         ("microsoft/Phi-3-vision-128k-instruct", True, True),
-        # ("HuggingFaceTB/SmolVLM-Instruct", False, True), # requires transformers>=4.46
+        ("HuggingFaceTB/SmolVLM-Instruct", False, True),
     ],
 )
 def test_is_image_text_llm(

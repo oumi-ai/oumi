@@ -18,7 +18,7 @@ from typing import Any, Optional
 import pydantic
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams, RemoteParams
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
@@ -72,8 +72,16 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         return headers
 
     @override
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams(num_workers=10, politeness_policy=60.0)
+
+    @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
@@ -82,12 +90,13 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the Vertex input.
         """
         api_input = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),

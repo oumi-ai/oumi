@@ -12,6 +12,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | Model | Size | Paper | HF Hub  | License  | Open [^1] | Recommended Parameters |
 |-------|------|-------|---------|----------|------|------------------------|
 | ✅ SmolLM-Instruct | 135M/360M/1.7B | [Blog](https://huggingface.co/blog/smollm) | [Hub](https://huggingface.co/HuggingFaceTB/SmolLM-135M-Instruct) | Apache 2.0 | ✅ | |
+| ✅ DeepSeek R1 Family | 1.5B/8B/32B/70B/671B | [Blog](https://api-docs.deepseek.com/news/news250120) | [Hub](https://huggingface.co/deepseek-ai/DeepSeek-R1) | MIT | ❌ | |
 | ✅ Llama 3.1 Instruct | 8B/70B/405B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.1-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ Llama 3.2 Instruct | 1B/3B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.2-3b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
 | ✅ Llama 3.3 Instruct | 70B | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-3.3-70b-instruct) | [License](https://llama.meta.com/llama3/license/) | ❌  | |
@@ -24,6 +25,8 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | Gemma 2 Instruct | 2B/9B | [Blog](https://ai.google.dev/gemma) | [Hub](https://huggingface.co/google/gemma-2-2b-it) | [License](https://ai.google.dev/gemma/terms) | ❌ | |
 | DBRX-Instruct | 130B MoE | [Blog](https://www.databricks.com/blog/introducing-dbrx-new-state-art-open-llm) | [Hub](https://huggingface.co/databricks/dbrx-instruct) | Apache 2.0 | ❌ | |
 | Falcon-Instruct | 7B/40B | [Paper](https://arxiv.org/abs/2306.01116) | [Hub](https://huggingface.co/tiiuae/falcon-7b-instruct) | Apache 2.0 | ❌  | |
+| ✅ Llama 4 Scout Instruct | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
+| ✅ Llama 4 Maverick Instruct | 17B (Activated) 400B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Maverick-17B-128E-Instruct) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
 
 ### Vision-Language Models
 
@@ -53,6 +56,7 @@ Models prefixed with a checkmark (✅) have been thoroughly tested and validated
 | Mixtral | 8x7B/8x22B | [Blog](https://mistral.ai/news/mixtral-of-experts/) | [Hub](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1) | Apache 2.0 | ❌  | |
 | MPT | 7B | [Blog](https://www.mosaicml.com/blog/mpt-7b) | [Hub](https://huggingface.co/mosaicml/mpt-7b) | Apache 2.0 | ✅ | |
 | OLMo | 1B/7B | [Paper](https://arxiv.org/abs/2402.00838) | [Hub](https://huggingface.co/allenai/OLMo-7B-hf) | Apache 2.0 | ✅ | |
+| ✅ Llama 4 Scout | 17B (Activated) 109B (Total) | [Paper](https://arxiv.org/abs/2407.21783) | [Hub](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E) | [License](https://llama.meta.com/llama4/license/) | ❌  | |
 
 ### Reasoning Models
 

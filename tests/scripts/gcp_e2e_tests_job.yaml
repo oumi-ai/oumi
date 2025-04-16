@@ -31,7 +31,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install ".[ci_gpu]" hf_transfer
+  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer
   pip install -U flash-attn --no-build-isolation
 
 run: |
@@ -45,7 +45,7 @@ run: |
 
   nvidia-smi
 
-  pip install -e ".[ci_gpu]"
+  pip install -U -e ".[ci_gpu]"
   echo "$(oumi env)"
 
   GPU_MULTIPLICITY_MARKER="single_gpu"

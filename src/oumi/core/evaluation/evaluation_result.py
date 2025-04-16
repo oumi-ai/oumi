@@ -55,3 +55,16 @@ class EvaluationResult:
             "start_time": self.start_time,
             "elapsed_time_sec": self.elapsed_time_sec,
         }
+
+    def get_results(self) -> dict[str, Any]:
+        """Retrieves the dict of results."""
+        if not self.task_result:
+            return {}
+
+        if (
+            "results" not in self.task_result
+            or self.task_name not in self.task_result["results"]
+        ):
+            raise ValueError("Unknown `task_result` format.")
+
+        return self.task_result["results"][self.task_name]

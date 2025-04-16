@@ -240,11 +240,19 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
     return oumi.judge.judge_dataset(config, dataset)
 
 
-def train(config: TrainingConfig, **kwargs) -> None:
+def train(
+    config: TrainingConfig,
+    additional_model_kwargs: dict[str, Any] | None = None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
+) -> None:
     """Trains a model using the provided configuration."""
     import oumi.train
 
-    return oumi.train.train(config, *kwargs)
+    return oumi.train.train(
+        config,
+        additional_model_kwargs=additional_model_kwargs,
+        additional_trainer_kwargs=additional_trainer_kwargs,
+    )
 
 
 __all__ = [

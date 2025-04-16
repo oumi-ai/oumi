@@ -18,6 +18,7 @@ import typer
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.logging import logger
 
 
@@ -42,7 +43,7 @@ def evaluate(
 
     config = str(
         cli_utils.resolve_and_fetch_config(
-            config,
+            try_get_config_name_for_alias(config, AliasType.EVAL),
         )
     )
     with cli_utils.CONSOLE.status(
@@ -113,10 +114,18 @@ def evaluate(
                     # Clean up metric name
                     clean_metric = base_name.replace("_", " ").title()
 
+                    if isinstance(value, float):
+                        if value > 1:
+                            value_str = f"{value:.2f}"
+                        else:
+                            value_str = f"{value:.2%}"
+                    else:
+                        # Includes ints
+                        value_str = str(value)
                     table.add_row(
                         benchmark_name,
                         clean_metric,
-                        f"{value:.2%}" if value <= 1 else f"{value:.2f}",
+                        value_str,
                         stderr_display,
                     )
         cli_utils.CONSOLE.print(table)

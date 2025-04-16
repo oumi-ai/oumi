@@ -16,6 +16,7 @@ model:
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
+  shard_for_eval: True
 
 generation:
   batch_size: 4

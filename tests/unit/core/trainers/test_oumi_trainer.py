@@ -80,6 +80,7 @@ def mock_params():
     args.enable_gradient_checkpointing = False
     args.enable_tensorboard = False
     args.enable_wandb = False
+    args.enable_mlflow = False
     args.eval_steps = 50
     args.eval_strategy = "steps"
     args.gradient_accumulation_steps = 1

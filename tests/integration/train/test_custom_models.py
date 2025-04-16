@@ -56,6 +56,7 @@ def _get_default_config(output_temp_dir):
             logging_steps=1,
             enable_wandb=False,
             enable_tensorboard=False,
+            enable_mlflow=False,
             output_dir=output_temp_dir,
             include_performance_metrics=False,
             include_alternative_mfu_metrics=True,

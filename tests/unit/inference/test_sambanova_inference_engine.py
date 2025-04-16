@@ -32,7 +32,7 @@ def test_convert_conversation_to_api_input(sambanova_engine):
     )
 
     result = sambanova_engine._convert_conversation_to_api_input(
-        conversation, generation_params
+        conversation, generation_params, sambanova_engine._model_params
     )
 
     # Verify the API input format

@@ -1,0 +1,61 @@
+# Qwen 2.5 VL 3B LoRA fine-tune training job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#
+# Usage:
+#   oumi launch up --config configs/recipes/vision/qwen2_5_vl_3b/sft/lora/gcp_job.yaml --cluster qwen2_5-vl-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: qwen2_5-vl-sft-lora-train
+
+resources:
+  cloud: gcp
+  accelerators: "A100:1" # Bump up the GPUs if you need to for faster training.
+  use_spot: false
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: qwen2_5-vl.lora
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2.5-VL-3B-Instruct
+
+  # Also, if you want to try it with a more efficient attention implementation,
+  # you can install the `flash_attention_2` package and set `attn_implementation:
+  # "flash_attention_2"` in the model config.
+  # pip install -U flash-attn --no-build-isolation
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/vision/qwen2_5_vl_3b/sft/lora/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.max_steps 10 \
+      --training.save_steps 0 \
+      --training.save_final_model false
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,7 +1,7 @@
 # Inference config for Llama 3.3 70B Instruct with VLLM.
 #
 # Requirements:
-#   - Run `pip install vllm`
+#   - Run `pip install oumi[gpu]`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
 #

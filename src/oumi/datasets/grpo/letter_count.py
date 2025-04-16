@@ -17,6 +17,13 @@ from typing_extensions import override
 
 from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
+from oumi.core.types.conversation import Conversation
+
+_SYSTEM_PROMPT = (
+    "Your final answer should be an integer written as digits and formatted as "
+    r'"\boxed{your_answer}". For example, if the answer is 42, '
+    r'you should output "\boxed{42}".'
+)
 
 
 @register_dataset("oumi-ai/oumi-letter-count")
@@ -25,7 +32,13 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
 
     A sample from the dataset:
     {
-        "prompt": "Can you let me know how many 'r's are in 'pandered'?",
+        "conversation_id": "oumi_letter_count_0",
+        "messages": [
+            {
+                "content": "Can you let me know how many 'r's are in 'pandered'?",
+                "role": "user",
+            }
+        ],
         "metadata": {
             "letter": "r",
             "letter_count_integer": 1,
@@ -41,7 +54,29 @@ class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
+        # Add system prompt before user prompt.
+        system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
+        messages = [system_message, sample["messages"][0]]
         return {
-            "prompt": sample["messages"],
+            "prompt": messages,
             "letter_count": sample["metadata"]["letter_count_integer"],
         }
+
+    @override
+    def transform_conversation(self, sample: pd.Series) -> Conversation:
+        """Converts the input sample to a Conversation.
+
+        Args:
+            sample (dict): The input example.
+
+        Returns:
+            Conversation: The resulting conversation.
+
+        """
+        # Example is already in conversation format and only needs light processing.
+        sample_dict = sample.to_dict()
+        # Add system prompt before user prompt.
+        system_message = {"content": _SYSTEM_PROMPT, "role": "system"}
+        messages = [system_message, sample["messages"][0]]
+        sample_dict["messages"] = messages
+        return Conversation.from_dict(sample_dict)

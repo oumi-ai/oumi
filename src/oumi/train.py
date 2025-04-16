@@ -189,6 +189,7 @@ def _create_optional_training_kwargs(
     metrics_function: Optional[Callable],
     reward_functions: list[Callable],
     collator: Optional[Callable],
+    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"processing_class": tokenizer}
     if trainer_type == TrainerType.OUMI:
@@ -204,22 +205,16 @@ def _create_optional_training_kwargs(
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
+    kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 
 
-def train(config: TrainingConfig, **kwargs) -> None:
-    """Trains a model using the provided configuration.
-    
-    Args:
-        config: The training configuration
-        **kwargs: Additional keyword arguments to pass to the trainer
-        
-    Raises:
-        NotImplementedError: If using a trainer that's not fully implemented, like VERL_PPO 
-            when the underlying implementation is incomplete
-        ValueError: If the configuration is invalid
-        RuntimeError: For other training errors
-    """
+def train(
+    config: TrainingConfig,
+    additional_model_kwargs: Optional[dict[str, Any]] = None,
+    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+) -> None:
+    """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
     if is_distributed():
@@ -278,6 +273,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.model.model_name,
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
+            processor_kwargs=config.model.processor_kwargs,
         )
 
     use_peft = config.training.use_peft and config.peft
@@ -286,7 +282,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     model = build_model(
         model_params=config.model,
         peft_params=config.peft if use_peft else None,
-        *kwargs,
+        **(additional_model_kwargs or {}),
     )
 
     if use_peft:
@@ -365,6 +361,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         metrics_function,
         reward_functions,
         collator,
+        additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
     # Reclaim memory before training starts.
@@ -378,25 +375,14 @@ def train(config: TrainingConfig, **kwargs) -> None:
         with torch.profiler.record_function("create_trainer"):
             callbacks = build_training_callbacks(config, model, profiler)
 
-            try:
-                trainer = create_trainer_fn(
-                    model=model,
-                    args=config.training,
-                    train_dataset=dataset,
-                    eval_dataset=eval_dataset,
-                    callbacks=callbacks,
-                    **training_kwargs,
-                )
-            except NotImplementedError as e:
-                if config.training.trainer_type == TrainerType.VERL_PPO:
-                    logger.error(
-                        "The VERL PPO trainer couldn't be initialized. This likely means "
-                        "the VERL implementation is incomplete or not compatible with "
-                        "your current setup. Try using a different trainer type or check "
-                        "for updates to the VERL package."
-                    )
-                # Re-raise with original traceback
-                raise
+            trainer = create_trainer_fn(
+                model=model,
+                args=config.training,
+                train_dataset=dataset,
+                eval_dataset=eval_dataset,
+                callbacks=callbacks,
+                **training_kwargs,
+            )
 
         with torch.profiler.record_function("log_and_verify"):
             log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")

@@ -170,14 +170,21 @@ class Evaluator:
                 task_params=task_params,
                 config=config,
             )
-            evaluation_result = evaluation_fn(**custom_kwargs)
+            evaluation_output = evaluation_fn(**custom_kwargs)
 
-            if not isinstance(evaluation_result, EvaluationResult):
+            if isinstance(evaluation_output, EvaluationResult):
+                evaluation_result = evaluation_output
+            elif isinstance(evaluation_output, dict):
+                evaluation_result = EvaluationResult(
+                    task_name=task_params.task_name,
+                    task_result={"results": {task_params.task_name: evaluation_output}},
+                )
+            else:
                 raise ValueError(
                     f"The custom evaluation function `{task_params.task_name}` must "
-                    "return an `EvaluationResult` object, but it's currently returning "
-                    f"`{type(evaluation_result)}`. Please ensure that the function "
-                    "returns the correct object "
+                    "return either a `dict` or an `EvaluationResult` object, but it is "
+                    f"currently returning an object of type `{type(evaluation_output)}`"
+                    ". Please ensure that the function returns the correct object."
                 )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
@@ -231,6 +238,8 @@ class Evaluator:
                 "task name, which should be corresponding to a registered evaluation "
                 "function, using the decorator `@register_evaluation_function`."
             )
+        # Import to ensure custom evaluation functions are added to REGISTRY.
+        import oumi.evaluation.registry as evaluation_registry  # noqa: F401
 
         if evaluation_fn := REGISTRY.get_evaluation_function(task_name):
             return evaluation_fn

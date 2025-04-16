@@ -1,10 +1,7 @@
 # Qwen 2.5 VL 3B vLLM inference config.
 #
 # Requirements:
-#   - Run `pip install vllm`
-#
-#   !Important! this model also requires the latest (dev) version of transformers.
-#   Please read more at qwen2_5_vl_3b/README.md
+#   - Run `pip install oumi[gpu]`
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml \

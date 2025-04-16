@@ -169,6 +169,7 @@ def _generate_lm_harness_model_args(
                 model_params.model_name,
                 tokenizer,
                 trust_remote_code=model_params.trust_remote_code,
+                processor_kwargs=model_params.processor_kwargs,
             )
             if image_token := processor.image_token:
                 model_args_dict["image_string"] = image_token

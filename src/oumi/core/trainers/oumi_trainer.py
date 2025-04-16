@@ -29,6 +29,7 @@ import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 
+import mlflow  # isort: skip
 import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
@@ -257,6 +258,9 @@ class Trainer(BaseTrainer):
             f"Training finished! Global step: {self.state.global_step} "
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
+
+        if self.params.enable_mlflow:
+            mlflow.end_run()
 
     @contextmanager
     def _telemetry_block(self, name: str):
@@ -655,6 +659,9 @@ class Trainer(BaseTrainer):
             )
         else:
             self.tensorboard_writer = None
+
+        if self.params.enable_mlflow:
+            self.mlflow_run = mlflow.start_run()
 
     #
     # Data loading

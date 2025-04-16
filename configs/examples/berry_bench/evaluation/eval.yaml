@@ -1,0 +1,36 @@
+# Config to evaluate an LLM on the Oumi BerryBench dataset.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+#
+# Usage:
+#   oumi evaluate -c oumi://configs/examples/berry_bench/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "meta-llama/Llama-3.2-3B-Instruct"
+  model_max_length: 131072
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  # This isn't used by vLLM, but is used for the NATIVE inference engine.
+  batch_size: 4
+
+tasks:
+  - evaluation_backend: custom
+    task_name: berry_bench
+    num_samples: 1000
+
+inference_engine: VLLM # Can also use NATIVE if not running on GPUs
+
+output_dir: "output/berry_bench/evaluation"

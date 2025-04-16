@@ -19,6 +19,25 @@ from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
 
 
+class TrainTestConfig(NamedTuple):
+    test_name: str
+    config_path: Path
+    max_steps: int
+    is_lora: bool = False
+    skip: bool = False
+    interactive_logs: bool = True
+
+    trainer_type: Optional[TrainerType] = None
+    model_max_length: Optional[int] = None
+    batch_size: Optional[int] = None
+    gradient_accumulation_steps: Optional[int] = None
+    dataloader_num_workers: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = None
+    save_steps: Optional[int] = None
+    save_final_model: Optional[bool] = None
+    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
+
+
 def _check_checkpoint_dir(
     dir_path: Path, *, is_lora: bool, validate_extra_files: bool = False
 ):
@@ -138,25 +157,6 @@ def _check_checkpoint_dir(
                 assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
 
 
-class TrainTestConfig(NamedTuple):
-    test_name: str
-    config_path: Path
-    max_steps: int
-    is_lora: bool = False
-    skip: bool = False
-    interactive_logs: bool = True
-
-    trainer_type: Optional[TrainerType] = None
-    model_max_length: Optional[int] = None
-    batch_size: Optional[int] = None
-    gradient_accumulation_steps: Optional[int] = None
-    dataloader_num_workers: Optional[int] = None
-    dataloader_prefetch_factor: Optional[int] = None
-    save_steps: Optional[int] = None
-    save_final_model: Optional[bool] = None
-    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
-
-
 def get_train_test_id_fn(val):
     assert isinstance(val, TrainTestConfig), f"{type(val)}: {val}"
     return val.test_name
@@ -168,6 +168,7 @@ def _test_train_impl(
     *,
     use_distributed: bool,
     cleanup_output_dir_on_success: bool = True,
+    telemetry_callback_enabled: bool = True,
 ):
     device_cleanup()
     if test_config.skip:
@@ -321,11 +322,16 @@ def _test_train_impl(
 
         telemetry_files = [
             "devices_info.txt",
-            "telemetry_callback_metrics_rank0000.json",
-            "telemetry_callback_rank0000.json",
             "training_config.yaml",
             "world_size.json",
-        ]
+        ] + (
+            [
+                "telemetry_callback_metrics_rank0000.json",
+                "telemetry_callback_rank0000.json",
+            ]
+            if telemetry_callback_enabled
+            else []
+        )
 
         for file in telemetry_files:
             file_path = telemetry_dir / file
@@ -523,4 +529,40 @@ def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path:
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=True,
+    )
+
+
+@requires_gpus(count=4, min_gb=39.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_grpo_tldr_qwen2_500m",
+            config_path=(get_configs_dir() / "examples" / "grpo_tldr" / "train.yaml"),
+            max_steps=3,
+            save_steps=3,
+        ),
+        TrainTestConfig(
+            test_name="train_grpo_letter_counting",
+            config_path=(
+                get_configs_dir()
+                / "examples"
+                / "letter_counting"
+                / "grpo"
+                / "train.yaml"
+            ),
+            max_steps=3,
+            save_steps=3,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_grpo_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+        telemetry_callback_enabled=False,
     )
