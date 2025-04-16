@@ -18,7 +18,7 @@ name: qwen2-vl-sft-lora-train
 
 resources:
   cloud: gcp
-  accelerators: "A100:1" # Feel free to use more than one GPUs.
+  accelerators: "A100:1" # Feel free to use more GPUs (see `envs` section below).
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -33,13 +33,11 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: qwen2-vl.lora.sft
-  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
-  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+  MULTI_GPU: false # Set to true if you are using multiple GPUs (!).
 
 setup: |
   set -e
-  # pip install uv && uv pip install oumi[gpu] hf_transfer
-  pip install uv && uv pip install ".[gpu]" hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
@@ -48,9 +46,14 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  if [[ "${MULTI_GPU,,}" == "true" ]]; then
+    RUN_COMMAND="oumi distributed torchrun -m oumi train"
+  else
+    RUN_COMMAND="oumi train"
+  fi
+
   set -x
-  oumi distributed torchrun \
-      -m oumi train \
+    ${RUN_COMMAND}\
       -c configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.max_steps 20 \
