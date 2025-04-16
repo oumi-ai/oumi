@@ -534,7 +534,7 @@ def test_infer_no_api_key():
         match=(
             r"An API key is required for remote inference with the "
             r"`RemoteInferenceEngine` inference engine. Please set the environment "
-            r"variable `MY_API_KEY` as follows: `os\.environ\['MY_API_KEY'\] = <value>`"
+            r"variable `MY_API_KEY`."
         ),
     ):
         engine = RemoteInferenceEngine(

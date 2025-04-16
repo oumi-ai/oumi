@@ -437,8 +437,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "An API key is required for remote inference with the "
                     f"`{self.__class__.__name__}` inference engine. "
                     "Please set the environment variable "
-                    f"`{remote_params.api_key_env_varname}` as follows: "
-                    f"`os.environ['{remote_params.api_key_env_varname}'] = <value>`"
+                    f"`{remote_params.api_key_env_varname}`."
                 )
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
