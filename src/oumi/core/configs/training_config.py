@@ -174,3 +174,23 @@ class TrainingConfig(BaseConfig):
                 dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
                 dataset_kwargs["skip_prepare_dataset"] = True
                 self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
+
+        if len(self.model.processor_kwargs) > 0:
+            model_processor_name: Final[str] = (
+                self.model.tokenizer_name or self.model.model_name
+            )
+            for dataset_params in self.data.train.datasets:
+                if (
+                    "processor_name" not in dataset_params.dataset_kwargs
+                    or "processor_kwargs" in dataset_params.dataset_kwargs
+                ):
+                    continue
+                dataset_processor_name: str = dataset_params.dataset_kwargs[
+                    "processor_name"
+                ]
+                if dataset_processor_name == model_processor_name:
+                    # Copy processor kwargs from the model if processor names match
+                    # and the dataset doesn't override them.
+                    dataset_params.dataset_kwargs["processor_kwargs"] = {
+                        **self.model.processor_kwargs
+                    }

@@ -112,7 +112,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             if processor_kwargs is not None and len(processor_kwargs) > 0:
                 logger.warning(
                     "Both processor and processor_kwargs are provided. "
-                    f"Ignoring processor_name: {processor_name}"
+                    f"Ignoring processor_kwargs: {processor_kwargs}"
                 )
         elif processor_name:
             # TODO OPE-1185 Add plumbing for processor_kwargs
