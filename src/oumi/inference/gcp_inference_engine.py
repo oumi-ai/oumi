@@ -98,13 +98,12 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
                 region = os.getenv(self._region_env_key)
             else:
                 raise ValueError(
-                    "The GCP inference engine requires that either the `api_url` is "
-                    "set or that both the `project_id` and `region` are set. "
-                    "You can set the `api_url` in `RemoteParams`. "
-                    "Alternatively, you can set the `project_id` and `region` when "
-                    "constructing the inference engine (GoogleVertexInferenceEngine), "
+                    "This inference engine requires that either `api_url` is "
+                    "set in `RemoteParams` or that both `project_id` and `region` are set. "
+                    "You can set the `project_id` and `region` when "
+                    "constructing a GoogleVertexInferenceEngine, "
                     f"or as environment variables: `{self._project_id_env_key}` and "
-                    f"`{self._region_env_key}`, respectively."
+                    f"`{self._region_env_key}`."
                 )
 
             remote_params.api_url = self._API_URL_TEMPLATE.format(
