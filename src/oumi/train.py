@@ -195,6 +195,7 @@ def _create_optional_training_kwargs(
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
+    # TODO: What to do for VERL?
     if trainer_type != TrainerType.TRL_GRPO:
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator

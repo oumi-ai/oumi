@@ -26,7 +26,6 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
-from oumi.core.configs.params.verl_params import VerlParams
 from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
@@ -168,14 +167,6 @@ class TrainingParams(BaseParams):
     - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
     - VERL_PPO: VERL's PPO Trainer
-    """
-
-    verl_params: VerlParams = field(default_factory=VerlParams)
-    """Parameters for VERL PPO training.
-
-    This field contains configuration options specific to the VERL PPO trainer,
-    including advantage estimation method, training strategy, and rollout engine.
-    Only used when trainer_type is TrainerType.VERL_PPO.
     """
 
     enable_gradient_checkpointing: bool = False
@@ -840,12 +831,9 @@ class TrainingParams(BaseParams):
 
         # Validate VERL params if using VERL PPO trainer
         if self.trainer_type == TrainerType.VERL_PPO:
-            if not hasattr(self, "verl_params") or self.verl_params is None:
-                raise ValueError(
-                    "verl_params must be specified when using the VERL_PPO trainer."
-                )
             # Ensure Ray environment variables are set
-            if "RAY_ADDRESS" not in os.environ and self.verl_params.nnodes > 1:
+            # TODO: Is this needed?
+            if "RAY_ADDRESS" not in os.environ:  #  and self.verl_params.nnodes > 1
                 logger.warning(
                     "RAY_ADDRESS environment variable not set. "
                     "Multi-node training may not work properly."

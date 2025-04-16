@@ -71,7 +71,7 @@ class GSM8KGrpoDataset(BaseExperimentalGrpoDataset):
 
         try:
             # Extract the numerical answer for potential reward calculation
-            extracted_answer = self.extract_answer(answer)
+            extracted_answer = self.extract_answer(answer)  # type: ignore
         except ValueError:
             # Use empty string if extraction fails
             extracted_answer = ""
