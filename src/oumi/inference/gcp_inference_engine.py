@@ -73,6 +73,13 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
             generation_params=generation_params,
             remote_params=remote_params,
         )
+        if project_id and project_id_env_key:
+            raise ValueError(
+                "You cannot set both `project_id` and `project_id_env_key`."
+            )
+        if region and region_env_key:
+            raise ValueError("You cannot set both `region` and `region_env_key`.")
+
         self._project_id_env_key = (
             project_id_env_key or self._DEFAULT_PROJECT_ID_ENV_KEY
         )
@@ -98,8 +105,8 @@ class GoogleVertexInferenceEngine(RemoteInferenceEngine):
                 region = os.getenv(self._region_env_key)
             else:
                 raise ValueError(
-                    "This inference engine requires that either `api_url` is "
-                    "set in `RemoteParams` or that both `project_id` and `region` are set. "
+                    "This inference engine requires that either `api_url` is set in "
+                    "`RemoteParams` or that both `project_id` and `region` are set. "
                     "You can set the `project_id` and `region` when "
                     "constructing a GoogleVertexInferenceEngine, "
                     f"or as environment variables: `{self._project_id_env_key}` and "

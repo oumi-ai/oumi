@@ -269,9 +269,8 @@ def test_not_setting_api_url_failure():
     with pytest.raises(ValueError) as exception_info:
         gcp_engine._set_required_fields_for_inference(RemoteParams())
     assert str(exception_info.value) == (
-        "The GCP inference engine requires that either the `api_url` is set or that "
-        "both the `project_id` and `region` are set. You can set the `api_url` in "
-        "`RemoteParams`. Alternatively, you can set the `project_id` and `region` when "
-        "constructing the inference engine (GoogleVertexInferenceEngine), or as "
-        "environment variables: `PROJECT_ID` and `REGION`, respectively."
+        "This inference engine requires that either `api_url` is set in `RemoteParams` "
+        "or that both `project_id` and `region` are set. You can set the `project_id` "
+        "and `region` when constructing a GoogleVertexInferenceEngine, or as "
+        "environment variables: `PROJECT_ID` and `REGION`."
     )
