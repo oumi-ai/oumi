@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/smolvlm/sft/gcp_job.yaml --cluster smolvlm-vision
+#   oumi launch up --config configs/recipes/vision/smolvlm/sft/full/gcp_job.yaml --cluster smolvlm-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -50,7 +50,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/smolvlm/sft/train.yaml \
+      -c configs/recipes/vision/smolvlm/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type OUMI \
       --training.max_steps 20 \
