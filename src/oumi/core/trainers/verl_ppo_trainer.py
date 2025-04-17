@@ -85,17 +85,17 @@ class VerlPpoTrainer(BaseTrainer):
         self.val_filepath = None
 
         # Initialize Ray if not already initialized
-        if not ray.is_initialized():
-            logger.info("Initializing Ray cluster...")
-            ray.init(
-                runtime_env={
-                    "env_vars": {
-                        "TOKENIZERS_PARALLELISM": "true",
-                        "NCCL_DEBUG": "WARN",
-                        "VLLM_LOGGING_LEVEL": "WARN",
-                    }
-                }
-            )
+        # if not ray.is_initialized():
+        #     logger.info("Initializing Ray cluster...")
+        #     ray.init(
+        #         runtime_env={
+        #             "env_vars": {
+        #                 "TOKENIZERS_PARALLELISM": "true",
+        #                 "NCCL_DEBUG": "WARN",
+        #                 "VLLM_LOGGING_LEVEL": "WARN",
+        #             }
+        #         }
+        #     )
 
         self._create_dataset_files()
         self._setup_verl_trainer()

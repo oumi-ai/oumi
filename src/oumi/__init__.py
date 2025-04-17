@@ -71,6 +71,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import ray
+
 from oumi.utils import logging
 
 if TYPE_CHECKING:
@@ -240,6 +242,7 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
     return oumi.judge.judge_dataset(config, dataset)
 
 
+@ray.remote
 def train(
     config: TrainingConfig,
     additional_model_kwargs: dict[str, Any] | None = None,
