@@ -174,3 +174,12 @@ class TrainingConfig(BaseConfig):
                 dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
                 dataset_kwargs["skip_prepare_dataset"] = True
                 self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
+
+        # Verl will error without a validation dataset.
+        if (
+            self.training.trainer_type == TrainerType.VERL_PPO
+            and not self.data.validation.datasets
+        ):
+            raise ValueError(
+                "At least one validation dataset is required for VERL PPO training."
+            )

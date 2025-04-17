@@ -110,7 +110,7 @@ class VerlPpoTrainer(BaseTrainer):
             Tuple of (train_file_path, val_file_path)
         """
         # TODO: Add Subfolder for dataset
-        self.cache_dir = Path.home() / ".cache" / "oumi" / "datasets"
+        self.cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
 
         train_file = self.cache_dir / "train.parquet"
         self.train_dataset.to_parquet(train_file)
@@ -167,10 +167,6 @@ class VerlPpoTrainer(BaseTrainer):
         config.trainer.project_name = "Countdown-cognitive-behaviors"
         config.trainer.experiment_name = "oumi-verl-test"
         config.trainer.total_epochs = 1
-
-        # TODO: Remove
-        config.data.train_files = "/Users/wizeng/Documents/TinyZero/train.parquet"
-        config.data.val_files = "/Users/wizeng/Documents/TinyZero/test.parquet"
 
         if config.actor_rollout_ref.actor.strategy == "fsdp":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy

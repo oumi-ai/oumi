@@ -25,7 +25,10 @@ data:
     datasets:
       - dataset_name: "d1shs0ap/countdown"
         split: "train"
-        dataset_kwargs: {}
+  validation:
+    datasets:
+      - dataset_name: "d1shs0ap/countdown"
+        split: "test"
 
 training:
   trainer_type: "VERL_PPO"
