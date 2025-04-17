@@ -52,6 +52,7 @@ from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 
 
+@ray.remote(num_gpus=2)
 class VerlPpoTrainer(BaseTrainer):
     """VERL PPO Trainer."""
 
@@ -83,6 +84,7 @@ class VerlPpoTrainer(BaseTrainer):
 
         self.train_filepath = None
         self.val_filepath = None
+        logger.info(f"Potato available resources: {ray.available_resources()}")
 
         # Initialize Ray if not already initialized
         # if not ray.is_initialized():

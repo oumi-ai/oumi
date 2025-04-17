@@ -14,7 +14,6 @@
 
 from typing import Annotated
 
-import ray
 import typer
 
 import oumi.cli.cli_utils as cli_utils
@@ -72,20 +71,7 @@ def train(
         parsed_config.training.seed, parsed_config.training.use_deterministic
     )
 
-    if not ray.is_initialized():
-        logger.info("Initializing Ray cluster...")
-        ray.init(
-            runtime_env={
-                "env_vars": {
-                    "TOKENIZERS_PARALLELISM": "true",
-                    "NCCL_DEBUG": "WARN",
-                    "VLLM_LOGGING_LEVEL": "WARN",
-                }
-            }
-        )
-    logger.info(f"Ray available resources: {ray.available_resources()}")
     # Run training
-    ray.get(oumi_train.remote(parsed_config))
-    # oumi_train(parsed_config)
+    oumi_train(parsed_config)
 
     device_cleanup()

@@ -18,6 +18,7 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
+import ray
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
@@ -367,6 +368,18 @@ def train(
     # Reclaim memory before training starts.
     device_cleanup()
 
+    if not ray.is_initialized():
+        logger.info("Initializing Ray cluster...")
+        ray.init(
+            runtime_env={
+                "env_vars": {
+                    "TOKENIZERS_PARALLELISM": "true",
+                    "NCCL_DEBUG": "WARN",
+                    "VLLM_LOGGING_LEVEL": "WARN",
+                }
+            }
+        )
+    logger.info(f"Available resources: {ray.available_resources()}")
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
@@ -423,7 +436,7 @@ def train(
                 f"({config.training.trainer_type}, "
                 f"transformers: {transformers.__version__})"
             )
-            trainer.train(resume_from_checkpoint=checkpoint_location)
+            ray.get(trainer.train.remote(resume_from_checkpoint=checkpoint_location))
 
     logger.info("Training is Complete.")
 
@@ -433,12 +446,12 @@ def train(
     # Save final checkpoint & training state.
     if config.training.save_final_model:
         logger.info("Saving final state...")
-        trainer.save_state()
+        trainer.save_state.remote()
 
         barrier()
 
         logger.info("Saving final model...")
-        trainer.save_model(config=config)
+        trainer.save_model.remote(config=config)
 
     barrier()
 
