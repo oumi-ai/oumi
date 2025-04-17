@@ -189,3 +189,88 @@ def test_remote_params_defaults():
     )
     assert gcp_engine._remote_params.num_workers == 10
     assert gcp_engine._remote_params.politeness_policy == 60.0
+
+
+def test_setting_api_url_via_constructor_region_and_project_id():
+    gcp_engine = GoogleVertexInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+        project_id="test_project_id",
+        region="test_region",
+    )
+
+    # The method `_set_required_fields_for_inference` is called right before querying
+    # the remote API (with `_query_api`) to validate/update the remote params.
+    remote_params = RemoteParams()
+    gcp_engine._set_required_fields_for_inference(remote_params)
+
+    expected_api_url = (
+        "https://test_region-aiplatform.googleapis.com/v1beta1/projects/"
+        "test_project_id/locations/test_region/endpoints/openapi/chat/completions"
+    )
+    assert remote_params.api_url == expected_api_url
+
+
+@patch("os.getenv")
+def test_setting_api_url_via_env_region_and_project_id(mock_getenv):
+    def mock_getenv_fn(key):
+        return {"PROJECT_ID": "test_project_id", "REGION": "test_region"}.get(key)
+
+    mock_getenv.side_effect = mock_getenv_fn
+
+    gcp_engine = GoogleVertexInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+    )
+
+    # The method `_set_required_fields_for_inference` is called right before querying
+    # the remote API (with `_query_api`) to validate/update the remote params.
+    remote_params = RemoteParams()
+    gcp_engine._set_required_fields_for_inference(remote_params)
+
+    expected_api_url = (
+        "https://test_region-aiplatform.googleapis.com/v1beta1/projects/"
+        "test_project_id/locations/test_region/endpoints/openapi/chat/completions"
+    )
+    assert remote_params.api_url == expected_api_url
+
+
+@patch("os.getenv")
+def test_setting_api_url_via_env_region_and_project_id_custom_keys(mock_getenv):
+    def mock_getenv_fn(key):
+        return {
+            "CUSTOM_PROJECT_ID_KEY": "test_project_id",
+            "CUSTOM_REGION_KEY": "test_region",
+        }.get(key)
+
+    mock_getenv.side_effect = mock_getenv_fn
+
+    gcp_engine = GoogleVertexInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+        project_id_env_key="CUSTOM_PROJECT_ID_KEY",
+        region_env_key="CUSTOM_REGION_KEY",
+    )
+
+    # The method `_set_required_fields_for_inference` is called right before querying
+    # the remote API (with `_query_api`) to validate/update the remote params.
+    remote_params = RemoteParams()
+    gcp_engine._set_required_fields_for_inference(remote_params)
+
+    expected_api_url = (
+        "https://test_region-aiplatform.googleapis.com/v1beta1/projects/"
+        "test_project_id/locations/test_region/endpoints/openapi/chat/completions"
+    )
+    assert remote_params.api_url == expected_api_url
+
+
+def test_not_setting_api_url_failure():
+    gcp_engine = GoogleVertexInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+    )
+
+    with pytest.raises(ValueError) as exception_info:
+        gcp_engine._set_required_fields_for_inference(RemoteParams())
+    assert str(exception_info.value) == (
+        "This inference engine requires that either `api_url` is set in `RemoteParams` "
+        "or that both `project_id` and `region` are set. You can set the `project_id` "
+        "and `region` when constructing a GoogleVertexInferenceEngine, or as "
+        "environment variables: `PROJECT_ID` and `REGION`."
+    )
