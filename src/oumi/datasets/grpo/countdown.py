@@ -19,7 +19,6 @@ from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
-# TODO: Support Qwen prompt as well
 _PROMPT_TEMPLATE = """A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer.
 User: Using the numbers {nums}, create an equation that equals {target}. You can use basic arithmetic operations (+, -, *, /) and each number can only be used once. Show your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <answer> (1 + 2) / 3 </answer>.
 Assistant: Let me solve this step by step.
@@ -47,11 +46,7 @@ class CountdownGrpoDataset(BaseExperimentalGrpoDataset):
             "target": target,
             "numbers": nums,
         }
-        # TODO: Is extra_info.index needed?
         return {
-            # TODO: Are target and nums directly used?
-            "target": target,
-            "nums": nums,
             "data_source": "countdown",
             "prompt": [
                 {
