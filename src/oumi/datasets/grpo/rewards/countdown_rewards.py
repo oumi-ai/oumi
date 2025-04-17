@@ -1,4 +1,4 @@
-# Copyright 2025 - Oumi
+# Copyright 2025 - Jiayi Pan
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""Derived from https://github.com/Jiayi-Pan/TinyZero/blob/main/verl/utils/reward_score/countdown.py.
+
+This file was slightly modified to be an Oumi reward registry function.
+"""
 
 import re
 from typing import Any, Optional
@@ -95,7 +100,6 @@ def countdown_reward(
     """Custom reward function for the Countdown task.
 
     Currently, this function only works with the VERL_PPO trainer.
-    Derived from https://github.com/Jiayi-Pan/TinyZero/blob/main/verl/utils/reward_score/countdown.py.
 
     Args:
         data_source: The data source.
