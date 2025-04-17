@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import copy
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
 import torch
@@ -68,6 +68,7 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
+        processor_kwargs: Optional[dict[str, Any]] = None,
         trust_remote_code: bool = False,
         return_tensors: Optional[str] = None,
         max_length: Optional[int] = None,
@@ -108,10 +109,18 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                     "Both processor and processor_name are provided. "
                     f"Ignoring processor_name: {processor_name}"
                 )
+            if processor_kwargs is not None and len(processor_kwargs) > 0:
+                logger.warning(
+                    "Both processor and processor_kwargs are provided. "
+                    f"Ignoring processor_kwargs: {processor_kwargs}"
+                )
         elif processor_name:
             # TODO OPE-1185 Add plumbing for processor_kwargs
             processor = build_processor(
-                processor_name, tokenizer, trust_remote_code=trust_remote_code
+                processor_name,
+                tokenizer,
+                trust_remote_code=trust_remote_code,
+                processor_kwargs=processor_kwargs,
             )
         else:
             raise ValueError(
