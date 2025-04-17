@@ -96,7 +96,7 @@ def build_trainer(
 
     def _create_verl_ppo_builder_fn() -> Callable[..., BaseTrainer]:
         def _init_verl_ppo_trainer(*args, **kwargs) -> BaseTrainer:
-            return VerlPpoTrainer.remote(*args, **kwargs)
+            return VerlPpoTrainer(*args, **kwargs)
 
         return _init_verl_ppo_trainer
 

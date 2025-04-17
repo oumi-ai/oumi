@@ -217,6 +217,18 @@ def train(
 ) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
+    if not ray.is_initialized():
+        logger.info("Initializing Ray cluster...")
+        ray.init(
+            runtime_env={
+                "env_vars": {
+                    "TOKENIZERS_PARALLELISM": "true",
+                    "NCCL_DEBUG": "WARN",
+                    "VLLM_LOGGING_LEVEL": "WARN",
+                }
+            }
+        )
+    logger.info(f"Available resources: {ray.available_resources()}")
 
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
@@ -368,18 +380,6 @@ def train(
     # Reclaim memory before training starts.
     device_cleanup()
 
-    if not ray.is_initialized():
-        logger.info("Initializing Ray cluster...")
-        ray.init(
-            runtime_env={
-                "env_vars": {
-                    "TOKENIZERS_PARALLELISM": "true",
-                    "NCCL_DEBUG": "WARN",
-                    "VLLM_LOGGING_LEVEL": "WARN",
-                }
-            }
-        )
-    logger.info(f"Available resources: {ray.available_resources()}")
     with torch_profile(
         config.training.profiler,
         training_output_dir=config.training.output_dir,
@@ -436,7 +436,7 @@ def train(
                 f"({config.training.trainer_type}, "
                 f"transformers: {transformers.__version__})"
             )
-            ray.get(trainer.train.remote(resume_from_checkpoint=checkpoint_location))
+            trainer.train(resume_from_checkpoint=checkpoint_location)
 
     logger.info("Training is Complete.")
 
@@ -446,12 +446,12 @@ def train(
     # Save final checkpoint & training state.
     if config.training.save_final_model:
         logger.info("Saving final state...")
-        trainer.save_state.remote()
+        trainer.save_state()
 
         barrier()
 
         logger.info("Saving final model...")
-        trainer.save_model.remote(config=config)
+        trainer.save_model(config=config)
 
     barrier()
 
