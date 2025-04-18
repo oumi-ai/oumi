@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -68,6 +68,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
         tokenizer: Optional[BaseTokenizer] = None,
         processor: Optional[BaseProcessor] = None,
         processor_name: Optional[str] = None,
+        processor_kwargs: Optional[dict[str, Any]] = None,
         limit: Optional[int] = None,
         trust_remote_code: bool = False,
         max_images: Optional[int] = None,
@@ -85,6 +86,9 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
             tokenizer: A tokenizer for encoding text data.
             processor: An optional processor object for generating features.
             processor_name: The name of the processor to use for feature generation.
+            processor_kwargs: A dictionary of processor-specific parameters.
+                These parameters are passed to the processor constructor.
+                They can override model-specific parameters.
             limit: An optional limit on the number of examples to load.
             trust_remote_code: Whether to trust remote code execution for the processor.
             return_conversations: Whether to return raw `Conversation` objects.
@@ -105,6 +109,7 @@ class VisionLanguageSftDataset(BaseSftDataset, ABC):
                 tokenizer=tokenizer,
                 processor=processor,
                 processor_name=processor_name,
+                processor_kwargs=processor_kwargs,
                 trust_remote_code=trust_remote_code,
                 return_tensors=self._return_tensors,
             )

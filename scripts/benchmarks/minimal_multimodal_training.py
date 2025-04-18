@@ -307,6 +307,7 @@ def test_multimodal_trainer(
     collator_kwargs = {}
     if collator_name == "vision_language_sft":
         collator_kwargs["processor_name"] = model_name.value
+        collator_kwargs["processor_kwargs"] = model_params.processor_kwargs
         collator_kwargs["trust_remote_code"] = model_params.trust_remote_code
 
     # Initialize trainer with custom collator

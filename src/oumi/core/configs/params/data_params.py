@@ -316,7 +316,7 @@ class DataParams(BaseParams):
 
     def __finalize_and_validate__(self):
         """Verifies params."""
-        if not self.train.datasets:
+        if len(self.train.datasets) == 0:
             raise ValueError("At least one training dataset is required.")
 
         all_collators = set()

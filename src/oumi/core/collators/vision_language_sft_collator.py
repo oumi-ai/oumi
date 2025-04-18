@@ -28,6 +28,7 @@ class VisionLanguageSftCollator:
         tokenizer: BaseTokenizer,
         processor_name: str,
         *,
+        processor_kwargs: Optional[dict[str, Any]] = None,
         max_length: Optional[int] = None,
         truncation: bool = False,
         truncation_side: str = "right",
@@ -40,6 +41,9 @@ class VisionLanguageSftCollator:
         Args:
             tokenizer: The tokenizer used for encoding the data.
             processor_name: The name of the processor to use for feature generation.
+            processor_kwargs: A dictionary of processor-specific parameters.
+                These parameters are passed to the processor constructor.
+                They can override model-specific parameters.
             max_length: Padding length.
             truncation: Whether to truncate long inputs to `max_length`.
                 If False, the long inputs are preserved as is even if they exceed
@@ -60,6 +64,7 @@ class VisionLanguageSftCollator:
             VisionLanguageConversationFeatureGenerator(
                 tokenizer=tokenizer,
                 processor_name=processor_name,
+                processor_kwargs=processor_kwargs,
                 trust_remote_code=trust_remote_code,
                 return_tensors="pt",
                 truncation=truncation,
