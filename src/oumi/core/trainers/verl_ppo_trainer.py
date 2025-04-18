@@ -235,8 +235,11 @@ class VerlPpoTrainer(BaseTrainer):
         # TODO: Support resuming from checkpoint. May need to pass this parameter
         # into RayPPOTrainer creation.
 
+        logger.info("Initializing workers...")
         self.verl_trainer.init_workers()
+        logger.info("Starting verl training...")
         self.verl_trainer.fit()
+        logger.info("Done!")
 
     def save_state(self) -> None:
         """Save the Trainer state using VERL's checkpoint handling."""
