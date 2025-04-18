@@ -16,6 +16,7 @@ import re
 from typing import Any, Optional
 
 from oumi.core.registry import RegistryType, register
+from oumi.utils.logging import logger
 
 
 def _extract_prediction(response: str) -> Optional[int]:
@@ -51,11 +52,13 @@ def compute_letter_count_reward(completion: str, target_count: int) -> float:
         the count and the target count. The count is assumed to be the last group of
         consecutive digits in the completion string.
     """
+    logger.info(f"Completion: {completion}")
     count = _extract_prediction(completion)
-    formatting_reward = 0.1 if count is not None else 0
     if count is None:
-        count = 0
-    return -abs(count - target_count) + formatting_reward
+        return -3.0
+
+    delta = abs(count - target_count)
+    return (1 / (delta + 0.5)) - 2
 
 
 @register("count_letters", RegistryType.REWARD_FUNCTION)

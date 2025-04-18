@@ -84,6 +84,13 @@ class GrpoParams(BaseParams):
     during initialization.
     """
 
+    epsilon: float = 0.2
+    scale_rewards: bool = True
+    beta: float = 0.04
+    loss_type: str = "grpo"
+    mask_truncated_completions: bool = False
+    log_completions: bool = False
+
     vllm_dtype: Optional[str] = None
     """Data type to use for vLLM generation.
 
@@ -138,6 +145,13 @@ class GrpoParams(BaseParams):
             result["max_completion_length"] = self.max_completion_length
         if self.num_generations is not None:
             result["num_generations"] = self.num_generations
+
+        result["epsilon"] = self.epsilon
+        result["scale_rewards"] = self.scale_rewards
+        result["loss_type"] = self.loss_type
+        result["mask_truncated_completions"] = self.mask_truncated_completions
+        result["log_completions"] = self.log_completions
+        result["beta"] = self.beta
 
         already_processed_keys: set[str] = set(
             {

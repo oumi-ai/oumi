@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
+#   oumi launch up -c ./configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -34,15 +34,19 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu]
+  pip install git+https://github.com/huggingface/trl.git
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  pip install uv && uv pip install .[gpu]
+  pip install git+https://github.com/huggingface/trl.git
+
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c oumi://configs/examples/letter_counting/grpo/train.yaml \
+      -c ./configs/examples/letter_counting/grpo/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
