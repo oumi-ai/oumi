@@ -245,6 +245,16 @@ def _create_phi4_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_internvl_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
+    config.chat_template = "internvl_2_5"
+    return config
+
+
 def _create_idefics3_vlm_config() -> InternalModelConfig:
     config = _create_default_vlm_config(
         supports_multiple_images=True, pixel_values_variable_shape=True
@@ -370,6 +380,11 @@ def get_all_models_map() -> (
             model_type="phi4mm",
             model_class=transformers.AutoModelForCausalLM,
             config=_create_phi4_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="internvl_chat",
+            model_class=transformers.AutoModelForCausalLM,
+            config=_create_internvl_config(),
         ),
     ]
 
