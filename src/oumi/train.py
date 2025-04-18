@@ -16,7 +16,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Callable, Final, Optional, Union
+from typing import Any, Callable, Final, Optional, Union
 
 import torch
 import transformers
@@ -72,6 +72,7 @@ from oumi.utils.torch_utils import (
     get_torch_dtype,
     log_devices_info,
     log_model_summary,
+    log_number_of_model_parameters,
     log_peak_gpu_memory,
     log_versioning_info,
 )
@@ -172,10 +173,10 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
         if num_generations is not None and global_batch_size % num_generations != 0:
             logger.warning(
                 f"For {config.training.trainer_type}, "
-                f"global batch size ({global_batch_size}) should be divisible "
+                f"global batch size ({global_batch_size}) should be evenly divisible "
                 f"by `grpo.num_generations` ({num_generations}). It's not! "
-                f"World size: {world_size} "
-                f"Per-device batch size: {batch_size}"
+                f"World size: {world_size}. "
+                f"Per-device batch size: {batch_size}."
             )
 
     return config
@@ -188,13 +189,13 @@ def _create_optional_training_kwargs(
     metrics_function: Optional[Callable],
     reward_functions: list[Callable],
     collator: Optional[Callable],
-):
-    kwargs = {}
+    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"processing_class": tokenizer}
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
     if trainer_type != TrainerType.TRL_GRPO:
-        kwargs["tokenizer"] = tokenizer
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
     else:
@@ -203,13 +204,16 @@ def _create_optional_training_kwargs(
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
-
-        kwargs["processing_class"] = tokenizer
         kwargs["reward_funcs"] = reward_functions
+    kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 
 
-def train(config: TrainingConfig, **kwargs) -> None:
+def train(
+    config: TrainingConfig,
+    additional_model_kwargs: Optional[dict[str, Any]] = None,
+    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
@@ -269,6 +273,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.model.model_name,
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
+            processor_kwargs=config.model.processor_kwargs,
         )
 
     use_peft = config.training.use_peft and config.peft
@@ -277,7 +282,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     model = build_model(
         model_params=config.model,
         peft_params=config.peft if use_peft else None,
-        *kwargs,
+        **(additional_model_kwargs or {}),
     )
 
     if use_peft:
@@ -286,17 +291,55 @@ def train(config: TrainingConfig, **kwargs) -> None:
             model, config.training.enable_gradient_checkpointing, config.peft
         )
 
-    if config.training.log_model_summary and is_local_process_zero():
-        log_model_summary(
-            model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
-        )
+    if is_local_process_zero():
+        log_number_of_model_parameters(model)
+        if config.training.log_model_summary:
+            log_model_summary(
+                model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
+            )
 
     # Load data & preprocessing
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
 
     eval_dataset = None
     if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
-        eval_dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
+        eval_dataset = build_dataset_mixture(
+            config.data,
+            tokenizer,
+            DatasetSplit.VALIDATION,
+            seq_length=config.model.model_max_length,
+        )
+
+    # trl's SFTTrainer has its own dataset processing code. We should skip it if
+    # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
+    # field. This generally occurs if the dataset is:
+    # 1. In the Oumi registry and thus is processed by the `BasePretrainingDataset` or
+    # `BaseSftDataset` classes
+    # 2. Packing is requested, and thus is processed by the
+    # `PretrainingAsyncTextDataset` class
+    # See OPE-1108 for more details.
+    if config.training.trainer_type == TrainerType.TRL_SFT:
+        example = next(iter(dataset))
+        if "input_ids" in example:
+            logger.info(
+                "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
+                "already processed."
+            )
+            if "dataset_kwargs" not in config.training.trainer_kwargs:
+                config.training.trainer_kwargs["dataset_kwargs"] = {}
+            # Skip preparing dataset if `skip_prepare_dataset` isn't already set.
+            if (
+                "skip_prepare_dataset"
+                not in config.training.trainer_kwargs["dataset_kwargs"]
+            ):
+                config.training.trainer_kwargs["dataset_kwargs"][
+                    "skip_prepare_dataset"
+                ] = True
 
     # Train model
     trainer_type: Final[TrainerType] = config.training.trainer_type
@@ -318,6 +361,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         metrics_function,
         reward_functions,
         collator,
+        additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
     # Reclaim memory before training starts.

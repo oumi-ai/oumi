@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""GRPO datasets module."""
+"""GRPO reward functions module."""
 
 from oumi.datasets.grpo.rewards.completion_length_rewards import (
     compute_sharp_target_token_length_reward,
     compute_soft_target_token_length_reward,
 )
+from oumi.datasets.grpo.rewards.count_letters_rewards import compute_letter_count_reward
 
 __all__ = [
+    "compute_letter_count_reward",
     "compute_soft_target_token_length_reward",
     "compute_sharp_target_token_length_reward",
 ]

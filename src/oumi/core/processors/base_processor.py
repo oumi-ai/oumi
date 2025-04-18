@@ -87,6 +87,12 @@ class BaseProcessor(abc.ABC):
         """Returns a label ignore index."""
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def ignore_features(self) -> list[str]:
+        """Returns a list of keys of features to ignore from feeding the model."""
+        raise NotImplementedError
+
     @abc.abstractmethod
     def __call__(
         self,
@@ -127,4 +133,24 @@ class BaseProcessor(abc.ABC):
     @abc.abstractmethod
     def save_config(self, output_dir: Union[Path, str]) -> None:
         """Saves processor config to the directory."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def truncate_text(
+        self,
+        text: str,
+        *,
+        max_tokens: int,
+        truncation_side: str = "right",
+    ) -> tuple[str, int]:
+        """Truncates text to `max_length` in tokens.
+
+        Args:
+            text: A text prompt.
+            max_tokens: Maximum number of tokens to keep.
+            truncation_side: The side to truncate the tokens ("right" or "left").
+
+        Returns:
+            A tuple containing truncated text prompt and the number of tokens.
+        """
         raise NotImplementedError

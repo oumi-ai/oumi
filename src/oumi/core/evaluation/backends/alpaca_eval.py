@@ -24,21 +24,23 @@ except ImportError:
 
 import pandas as pd
 
-from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
     AlpacaEvalTaskParams,
     EvaluationConfig,
-    InferenceConfig,
 )
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.evaluation.evaluation_result import EvaluationResult
+from oumi.core.inference import BaseInferenceEngine
 from oumi.datasets.evaluation import AlpacaEvalDataset, utils
 from oumi.utils.logging import logger
+
+ALPACA_EVAL_TASK_NAME = "alpaca_eval"
 
 
 def evaluate(
     task_params: AlpacaEvalTaskParams,
     config: EvaluationConfig,
+    inference_engine: BaseInferenceEngine,
 ) -> EvaluationResult:
     """Evaluates a model using the Alpaca Eval framework.
 
@@ -48,6 +50,7 @@ def evaluate(
     Args:
         task_params: The AlpacaEval parameters to use for evaluation.
         config: The desired configuration for evaluation.
+        inference_engine: The inference engine to use for generating responses.
 
     Returns:
         The evaluation result (including metrics and their values).
@@ -96,25 +99,13 @@ def evaluate(
         alpaca_dataset = alpaca_dataset[: task_params.num_samples]
 
     # Run inference for the alpaca_dataset.
-    logger.info("Running inference with {inference_engine_type}.")
-    logger.info(f"\tAlpacaEval inference `model_params`:\n{pformat(config.model)}")
     logger.info(
-        f"\tAlpacaEval inference `generation_params`:\n{pformat(config.generation)}"
+        "\tAlpacaEval inference `model_params`:\n"
+        f"{pformat(inference_engine._model_params)}\n"
+        "\tAlpacaEval inference `generation_params`:\n"
+        f"{pformat(inference_engine._generation_params)}"
     )
-    inference_config = InferenceConfig(
-        model=config.model,
-        generation=config.generation,
-        engine=config.inference_engine,
-        remote_params=config.inference_remote_params,
-    )
-    inference_engine = build_inference_engine(
-        engine_type=config.inference_engine,
-        model_params=config.model,
-        remote_params=config.inference_remote_params,
-    )
-    responses = inference_engine.infer(
-        input=alpaca_dataset, inference_config=inference_config
-    )
+    responses = inference_engine.infer(input=alpaca_dataset)
 
     # Convert the model responses from Oumi format to Alpaca format.
     generator_display_name = config.run_name or start_time_str  # No run name? use time.
@@ -159,11 +150,13 @@ def evaluate(
         "fn_metric": fn_metric,
         "max_instances": task_params.num_samples,
         "other_params": task_params.eval_kwargs,
-        "model_outputs": responses_json,
     }
+
+    if task_params.log_samples:
+        backend_task_config["model_outputs"] = responses_json
 
     return EvaluationResult(
         task_name=task_params.task_name,
-        task_result={"results": metric_dict},
+        task_result={"results": {ALPACA_EVAL_TASK_NAME: metric_dict}},
         backend_config=backend_task_config,
     )

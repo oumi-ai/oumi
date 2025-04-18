@@ -15,8 +15,6 @@ from oumi.core.configs import (
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
-    ModelParams,
-    TrainingConfig,
 )
 from oumi.core.datasets import BaseIterableDataset, BaseMapDataset
 from oumi.core.registry import register_dataset
@@ -130,10 +128,8 @@ def create_hf_dataset(size=10):
     )
 
 
-def create_training_config(datasets):
-    config = TrainingConfig()
-    config.data = DataParams(train=DatasetSplitParams(datasets=datasets))
-    return config
+def create_data_params(datasets):
+    return DataParams(train=DatasetSplitParams(datasets=datasets))
 
 
 # Helper function to create a DatasetParams object
@@ -153,14 +149,11 @@ def tokenizer() -> BaseTokenizer:
 
 
 @pytest.fixture
-def base_config():
-    return TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                datasets=[DatasetParams(dataset_name="dummy", split="train")]
-            )
-        ),
-        model=ModelParams(model_name="MlpEncoder", tokenizer_name="gpt2"),
+def base_data_params():
+    return DataParams(
+        train=DatasetSplitParams(
+            datasets=[DatasetParams(dataset_name="dummy", split="train")]
+        )
     )
 
 
@@ -211,8 +204,12 @@ def test_load_dataset_huggingface(tokenizer, monkeypatch):
 
 
 def test_build_dataset_mixture_single(tokenizer):
-    config = create_training_config([create_dataset_params("small_map_dataset")])
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    data_params = create_data_params([create_dataset_params("small_map_dataset")])
+    result = build_dataset_mixture(
+        data_params,
+        tokenizer,
+        DatasetSplit.TRAIN,
+    )
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 11
 
@@ -220,14 +217,18 @@ def test_build_dataset_mixture_single(tokenizer):
 def test_build_dataset_mixture_multiple(tokenizer):
     dataset_params1 = create_dataset_params("small_map_dataset")
     dataset_params2 = create_dataset_params("small_iterable_dataset")
-    config = create_training_config(
+    data_params = create_data_params(
         [
             dataset_params1,
             dataset_params2,
         ]
     )
-    assert config.data.train.mixture_strategy == MixtureStrategy.FIRST_EXHAUSTED
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    assert data_params.train.mixture_strategy == MixtureStrategy.FIRST_EXHAUSTED
+    result = build_dataset_mixture(
+        data_params,
+        tokenizer,
+        DatasetSplit.TRAIN,
+    )
     assert isinstance(result, IterDataPipe)
     # It's 18 (9*2), not 20 (11+9) because of FIRST_EXHAUSTED strategy
     assert len(list(result)) == 18
@@ -237,37 +238,41 @@ def test_build_dataset_mixture_sampling(tokenizer):
     dataset_params = create_dataset_params("small_map_dataset")
     dataset_params.sample_count = 5
     dataset_params.shuffle_buffer_size = 10
-    config = create_training_config([dataset_params])
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    data_params = create_data_params([dataset_params])
+    result = build_dataset_mixture(
+        data_params,
+        tokenizer,
+        DatasetSplit.TRAIN,
+    )
     assert isinstance(result, IterDataPipe)
     assert len(list(result)) == 5
 
 
 def test_build_dataset_mixture(tokenizer):
-    config = create_training_config(
+    data_params = create_data_params(
         [
             create_dataset_params("small_map_dataset"),
             create_dataset_params("small_iterable_dataset"),
         ]
     )
-    config.data.train.datasets[0].mixture_proportion = 0.7
-    config.data.train.datasets[1].mixture_proportion = 0.3
-    result = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN, seed=42)
+    data_params.train.datasets[0].mixture_proportion = 0.7
+    data_params.train.datasets[1].mixture_proportion = 0.3
+    result = build_dataset_mixture(data_params, tokenizer, DatasetSplit.TRAIN, seed=42)
     assert isinstance(result, IterDataPipe)
     samples = list(result)
     assert len(samples) == 20
 
 
-def test_build_dataset_mixture_with_no_datasets(base_config, tokenizer):
-    base_config.data.train.datasets = []
+def test_build_dataset_mixture_with_no_datasets(base_data_params, tokenizer):
+    base_data_params.train.datasets = []
     with pytest.raises(ValueError):
-        build_dataset_mixture(base_config, tokenizer, DatasetSplit.TRAIN)
+        build_dataset_mixture(base_data_params, tokenizer, DatasetSplit.TRAIN)
 
 
 def test_build_dataset_mixture_with_multiple_datasets_different_sizes(
-    base_config, tokenizer
+    base_data_params, tokenizer
 ):
-    base_config.data.train.datasets = [
+    base_data_params.train.datasets = [
         DatasetParams(
             dataset_name="small_map_dataset",
             split="train",
@@ -282,11 +287,11 @@ def test_build_dataset_mixture_with_multiple_datasets_different_sizes(
         ),
     ]
     # The first dataset will be exhausted first
-    base_config.data.train.mixture_strategy = "first_exhausted"
-    dataset = build_dataset_mixture(base_config, tokenizer, DatasetSplit.TRAIN)
+    base_data_params.train.mixture_strategy = "first_exhausted"
+    dataset = build_dataset_mixture(base_data_params, tokenizer, DatasetSplit.TRAIN)
     assert len(list(dataset)) == 200
 
     # All datasets will be exhausted
-    base_config.data.train.mixture_strategy = "all_exhausted"
-    dataset = build_dataset_mixture(base_config, tokenizer, DatasetSplit.TRAIN)
+    base_data_params.train.mixture_strategy = "all_exhausted"
+    dataset = build_dataset_mixture(base_data_params, tokenizer, DatasetSplit.TRAIN)
     assert len(list(dataset)) == 300

@@ -169,6 +169,7 @@ def _generate_lm_harness_model_args(
                 model_params.model_name,
                 tokenizer,
                 trust_remote_code=model_params.trust_remote_code,
+                processor_kwargs=model_params.processor_kwargs,
             )
             if image_token := processor.image_token:
                 model_args_dict["image_string"] = image_token
@@ -345,11 +346,12 @@ def evaluate(
     lm = lm_class(**lm_harness_model_params)
 
     logger.info("Starting evaluation...")
+
     lm_eval_output = lm_harness_evaluate(
         lm=lm,
         task_dict=task_dict,
+        log_samples=task_params.log_samples or False,
         limit=task_params.num_samples,
-        log_samples=False,  # Set to `True` to log all responses or logits.
         apply_chat_template=is_multimodal,
         **task_params.eval_kwargs,  # type: ignore
     )

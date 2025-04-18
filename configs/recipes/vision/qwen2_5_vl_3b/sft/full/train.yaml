@@ -4,11 +4,8 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - (optional) If you want to use flash attention, run `pip install -U flash-attn --no-build-isolation`
 #
-# !Important! this model requires the latest (dev) version of transformers.
-# Please read more at qwen2_5_vl_3b/README.md
-#
 # Usage:
-#   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/sft/train.yaml
+#   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html

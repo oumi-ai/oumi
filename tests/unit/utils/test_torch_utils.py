@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from oumi.utils.torch_utils import (
+    ModelParameterCount,
     convert_to_list_of_tensors,
     create_ones_like,
     estimate_sample_dict_size_in_bytes,
@@ -17,6 +18,55 @@ from oumi.utils.torch_utils import (
     pad_sequences_right_side,
     pad_to_max_dim_and_stack,
 )
+
+
+def test_valid_model_parameter_count():
+    mpc = ModelParameterCount(
+        all_params=1000, trainable_params=800, embedding_params=200
+    )
+    assert mpc.trainable_params_percent == 80.0
+    assert mpc.frozen_params_percent == 20.0
+
+
+def test_model_parameter_count_zero_params():
+    mpc = ModelParameterCount(all_params=0, trainable_params=0, embedding_params=0)
+    assert mpc.trainable_params_percent == 0.0
+    assert mpc.frozen_params_percent == 100.0
+
+
+@pytest.mark.parametrize(
+    "all_params, trainable_params, embedding_params, error_field",
+    [
+        (-1, 0, 0, "all_params"),
+        (100, -5, 0, "trainable_params"),
+        (100, 0, -3, "embedding_params"),
+    ],
+)
+def test_model_parameter_count_negative_values(
+    all_params, trainable_params, embedding_params, error_field
+):
+    with pytest.raises(ValueError, match=rf"`{error_field}`.*must be >= 0\."):
+        ModelParameterCount(all_params, trainable_params, embedding_params)
+
+
+def test_model_parameter_relative_sizes():
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"`trainable_params` \(200\) cannot be greater than "
+            r"`all_params` \(100\)\."
+        ),
+    ):
+        ModelParameterCount(all_params=100, trainable_params=200, embedding_params=50)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"`embedding_params` \(150\) cannot be greater than "
+            r"`all_params` \(100\)\."
+        ),
+    ):
+        ModelParameterCount(all_params=100, trainable_params=80, embedding_params=150)
 
 
 def test_convert_to_list_of_tensors_empty_list():

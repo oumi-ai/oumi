@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 E2E_TEST_CONFIG="${SCRIPT_DIR}/gcp_e2e_tests_job.yaml"
@@ -9,6 +9,9 @@ export E2E_CLUSTER_PREFIX="oumi-${USER}-e2e-tests"
 export E2E_USE_SPOT_VM=0 # Whether to use Spot VMs.
 
 declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
+
+# Reset the variable to make sure that CLI `--resources.use_spot` arg is not ignored.
+OUMI_USE_SPOT_VM=""
 
 for CURR_GPU_NAME in "${accelerators_arr[@]}"
 do
@@ -26,6 +29,6 @@ do
       --config "${E2E_TEST_CONFIG}" \
       --resources.accelerators="${CURR_GPU_NAME}" \
       "${USE_SPOT_ARG}" \
-      --cluster "${CLUSTER_NAME}"
-   oumi launch stop --cluster "${CLUSTER_NAME}"
+      --cluster "${CLUSTER_NAME}" \
+      --detach
 done

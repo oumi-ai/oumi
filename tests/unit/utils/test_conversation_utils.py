@@ -1,12 +1,15 @@
 import copy
 import tempfile
 from pathlib import Path
-from typing import Final
+from typing import Final, Optional
 
 import PIL.Image
 import pytest
 import responses
 
+from oumi.builders import build_tokenizer
+from oumi.core.configs import ModelParams
+from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Conversation, Message, Role, Type
 from oumi.utils.conversation_utils import (
     base64encode_content_item_image_bytes,
@@ -15,6 +18,8 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
     load_image_bytes_to_content_item,
     load_pil_image_from_content_item,
+    remove_excessive_images_from_conversation,
+    truncate_text_in_content_items,
 )
 from oumi.utils.image_utils import (
     create_png_bytes_from_image,
@@ -24,14 +29,32 @@ from tests import get_testdata_dir
 _TEST_IMAGE_DIR: Final[Path] = get_testdata_dir() / "images"
 
 
+@pytest.fixture
+def gpt2_tokenizer():
+    tokenizer = build_tokenizer(
+        ModelParams(
+            model_name="openai-community/gpt2",
+            torch_dtype_str="float16",
+            trust_remote_code=False,
+            chat_template="default",
+            tokenizer_pad_token="<|endoftext|>",
+        )
+    )
+    assert tokenizer.pad_token_id is not None
+    assert isinstance(tokenizer.pad_token_id, int)
+    return tokenizer
+
+
 def create_test_text_only_conversation():
     return Conversation(
+        conversation_id="text_convo",
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(content="Hello", role=Role.USER),
             Message(content="Hi there!", role=Role.ASSISTANT),
             Message(content="How are you?", role=Role.USER),
-        ]
+        ],
+        metadata={"foo": "bar_text"},
     )
 
 
@@ -50,6 +73,7 @@ def create_test_png_image_base64_str() -> str:
 def create_test_multimodal_text_image_conversation():
     png_bytes = create_test_png_image_bytes()
     return Conversation(
+        conversation_id="mm_convo",
         messages=[
             Message(content="You are an assistant!", role=Role.SYSTEM),
             Message(
@@ -82,7 +106,8 @@ def create_test_multimodal_text_image_conversation():
                     ),
                 ],
             ),
-        ]
+        ],
+        metadata={"foo": "bar_mm"},
     )
 
 
@@ -514,3 +539,266 @@ def test_load_pil_image_from_content_item():
         )
         assert pil_image.mode == "RGBA"
         assert pil_image.size == test_pil_image.size
+
+
+def test_remove_excessive_images_from_conversation():
+    png_bytes = create_test_png_image_bytes()
+
+    input = create_test_multimodal_text_image_conversation()
+    assert len(input.messages) == 4
+
+    output = remove_excessive_images_from_conversation(input, max_images=-1)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=100)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=3)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=2)
+    assert output == Conversation(
+        conversation_id="mm_convo",
+        metadata={"foo": "bar_mm"},
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content=[
+                    ContentItem(content="Greetings!", type=Type.TEXT),
+                    ContentItem(
+                        content="http://oumi.ai/test.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            ),
+            Message(role=Role.USER, content="Describe this image"),
+        ],
+    )
+
+    output = remove_excessive_images_from_conversation(input, max_images=1)
+    assert output == Conversation(
+        conversation_id="mm_convo",
+        metadata={"foo": "bar_mm"},
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(binary=png_bytes, type=Type.IMAGE_BINARY),
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(role=Role.ASSISTANT, content="Greetings!"),
+            Message(role=Role.USER, content="Describe this image"),
+        ],
+    )
+
+    output = remove_excessive_images_from_conversation(input, max_images=0)
+    assert output == Conversation(
+        conversation_id="mm_convo",
+        metadata={"foo": "bar_mm"},
+        messages=[
+            Message(content="You are an assistant!", role=Role.SYSTEM),
+            Message(
+                role=Role.USER,
+                content=[
+                    ContentItem(content="Hello", type=Type.TEXT),
+                    ContentItem(content="there", type=Type.TEXT),
+                ],
+            ),
+            Message(
+                role=Role.ASSISTANT,
+                content="Greetings!",
+            ),
+            Message(role=Role.USER, content="Describe this image"),
+        ],
+    )
+
+    input = create_test_text_only_conversation()
+    assert len(input.messages) == 4
+    output = remove_excessive_images_from_conversation(input, max_images=-1)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=100)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=3)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=1)
+    assert output == input
+    output = remove_excessive_images_from_conversation(input, max_images=0)
+    assert output == input
+
+
+@pytest.mark.parametrize(
+    "messages,max_tokens,truncation_side,expected_messages",
+    [
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            100,
+            "right",
+            None,
+        ),
+        (
+            [
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.TEXT, content="Hello")],
+                ),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            100,
+            "right",
+            None,
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            2,
+            "right",
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonder"),
+            ],
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.TEXT, content="Wonderful World!")],
+                ),
+            ],
+            2,
+            "right",
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[ContentItem(type=Type.TEXT, content="Wonder")],
+                ),
+            ],
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Wonderful World!"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+            2,
+            "right",
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Wonder"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+        ),
+        (
+            [
+                Message(role=Role.USER, content="Hello"),
+                Message(role=Role.USER, content="Wonderful World!"),
+            ],
+            2,
+            "left",
+            [
+                Message(role=Role.USER, content=""),
+                Message(role=Role.USER, content=" World!"),
+            ],
+        ),
+        (
+            [
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, content=""),
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/x.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Hello"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/x.png"),
+                        ContentItem(type=Type.TEXT, content=""),
+                    ],
+                ),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content="Wonderful World!"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+            2,
+            "left",
+            [
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(type=Type.TEXT, content=""),
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/x.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content=""),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/x.png"),
+                        ContentItem(type=Type.TEXT, content=""),
+                    ],
+                ),
+                Message(
+                    role=Role.USER,
+                    content=[
+                        ContentItem(
+                            type=Type.IMAGE_URL, content="https://oumi.ai/z.png"
+                        ),
+                        ContentItem(type=Type.TEXT, content=" World!"),
+                        ContentItem(type=Type.IMAGE_PATH, content="/a/b.png"),
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+def test_truncate_text_in_content_items(
+    messages: list[Message],
+    max_tokens: int,
+    truncation_side: str,
+    expected_messages: Optional[list[Message]],
+    gpt2_tokenizer: BaseTokenizer,
+):
+    truncated_messages = truncate_text_in_content_items(
+        messages,
+        tokenizer=gpt2_tokenizer,
+        max_tokens=max_tokens,
+        truncation_side=truncation_side,
+    )
+    if expected_messages is not None:
+        assert truncated_messages == expected_messages
+    else:
+        assert truncated_messages == messages

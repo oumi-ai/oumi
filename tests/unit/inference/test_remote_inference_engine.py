@@ -528,6 +528,27 @@ def test_infer_no_remote_params_api_url():
         )
 
 
+def test_infer_no_api_key():
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"An API key is required for remote inference with the "
+            r"`RemoteInferenceEngine` inference engine. Please set the environment "
+            r"variable `MY_API_KEY`."
+        ),
+    ):
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                api_key_env_varname="MY_API_KEY",  # Indicates that API key is required.
+            ),
+        )
+        engine.infer(
+            input=[Conversation(messages=[])],
+        )
+
+
 def test_infer_online_empty():
     engine = RemoteInferenceEngine(
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
@@ -1376,7 +1397,9 @@ def test_convert_conversation_to_api_input_with_json_schema():
         guided_decoding=GuidedDecodingParams(json=ResponseSchema),
     )
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert result["response_format"] == {
         "type": "json_schema",
@@ -1404,7 +1427,9 @@ def test_convert_conversation_to_api_input_without_guided_decoding():
     )
 
     generation_params = GenerationParams(max_new_tokens=5)
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert "response_format" not in result
 
@@ -1433,7 +1458,9 @@ def test_convert_conversation_to_api_input_with_invalid_guided_decoding():
     with pytest.raises(
         ValueError, match="Only JSON schema guided decoding is supported"
     ):
-        engine._convert_conversation_to_api_input(conversation, generation_params)
+        engine._convert_conversation_to_api_input(
+            conversation, generation_params, _get_default_model_params()
+        )
 
 
 def test_convert_conversation_to_api_input_with_dict_schema():
@@ -1466,7 +1493,9 @@ def test_convert_conversation_to_api_input_with_dict_schema():
         guided_decoding=GuidedDecodingParams(json=schema_dict),
     )
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert result["response_format"] == {
         "type": "json_schema",
@@ -1507,7 +1536,9 @@ def test_convert_conversation_to_api_input_with_json_string_schema():
         guided_decoding=GuidedDecodingParams(json=schema_str),
     )
 
-    result = engine._convert_conversation_to_api_input(conversation, generation_params)
+    result = engine._convert_conversation_to_api_input(
+        conversation, generation_params, _get_default_model_params()
+    )
 
     assert result["response_format"] == {
         "type": "json_schema",
@@ -1549,7 +1580,9 @@ def test_convert_conversation_to_api_input_with_invalid_json_string():
     )
 
     with pytest.raises(json.JSONDecodeError):
-        engine._convert_conversation_to_api_input(conversation, generation_params)
+        engine._convert_conversation_to_api_input(
+            conversation, generation_params, _get_default_model_params()
+        )
 
 
 def test_convert_conversation_to_api_input_with_unsupported_schema_type():
@@ -1580,7 +1613,9 @@ def test_convert_conversation_to_api_input_with_unsupported_schema_type():
         ValueError,
         match="Got unsupported JSON schema type",
     ):
-        engine._convert_conversation_to_api_input(conversation, generation_params)
+        engine._convert_conversation_to_api_input(
+            conversation, generation_params, _get_default_model_params()
+        )
 
 
 def test_get_request_headers_no_remote_params():
@@ -1598,6 +1633,15 @@ def test_get_request_headers_with_api_key():
     )
     headers = engine._get_request_headers(remote_params)
     assert headers == {"Authorization": "Bearer test-key"}
+
+
+def test_get_request_headers_without_api_key():
+    remote_params = RemoteParams(api_url=_TARGET_SERVER)
+    engine = RemoteInferenceEngine(
+        _get_default_model_params(), remote_params=remote_params
+    )
+    headers = engine._get_request_headers(remote_params)
+    assert headers == {}
 
 
 def test_get_request_headers_with_env_var():
@@ -1623,7 +1667,7 @@ def test_get_request_headers_missing_env_var():
             remote_params=remote_params,
         )
         headers = engine._get_request_headers(remote_params)
-        assert headers == {"Authorization": "Bearer None"}
+        assert headers == {}
 
 
 @pytest.mark.asyncio
@@ -1688,6 +1732,7 @@ async def test_create_batch():
             batch_id = await engine._create_batch(
                 [conversation],
                 _get_default_inference_config().generation,
+                _get_default_model_params(),
             )
             assert batch_id == "batch-456"
 

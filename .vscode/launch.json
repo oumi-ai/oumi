@@ -90,6 +90,18 @@
             "justMyCode": false
         },
         {
+            "name": "Oumi - Evaluate - Alpaca Eval",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "evaluate",
+                "-c",
+                "configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml"
+            ],
+            "justMyCode": false
+        },
+        {
             "name": "Oumi - Inference - Interactive",
             "type": "debugpy",
             "request": "launch",

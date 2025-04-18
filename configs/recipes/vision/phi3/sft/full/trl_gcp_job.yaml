@@ -1,4 +1,4 @@
-# Qwen 2.5 VL 3B full fine-tune training job config.
+# Phi3 vision full fine-tune training job config, with the TRL trainer.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/qwen2_5_vl_3b/sft/gcp_job.yaml --cluster qwen2_5-vl-vision
+#   oumi launch up --config configs/recipes/vision/phi3/sft/full/trl_gcp_job.yaml --cluster phi3-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -14,11 +14,15 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: qwen2_5-vl-sft-oumi-train
+name: phi3-sft-trl-train
 
 resources:
   cloud: gcp
-  accelerators: "A100:4" # You can also train it with a single (A100:1) GPU
+  accelerators: "A100-80GB:4"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -32,37 +36,31 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: qwen2_5-vl.fft.oumi
+  OUMI_RUN_NAME: phi3.fft.trl
 
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2.5-VL-3B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
 
-  # Note: Qwen2.5 is integrated on the latest transformers dev version (as of 02/05/25):
-  # Specifically, Oumi has tested this model with transformers 4.49.0.dev0
-  # Updating to this version below can break other Oumi utilities.
-  set +e
-  pip install git+https://github.com/huggingface/transformers.git
-
-  # Also, if you want to try it with a more efficient attention implementation,
-  # you can install the `flash_attention_2` package and set `attn_implementation:
-  # "flash_attention_2"` in the model config.
-  #  pip install -U flash-attn --no-build-isolation
-
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
+
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/qwen2_5_vl_3b/sft/train.yaml \
+      -c configs/recipes/vision/phi3/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.max_steps 10 \
-      --training.save_steps 0 \
-      --training.save_final_model false
+      --training.trainer_type=TRL_SFT \
+      --training.dataloader_main_process_only=false \
+      --training.dataloader_num_workers=2 \
+      --training.max_steps=20 \
+      --training.save_steps=0 \
+      --training.save_final_model=false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

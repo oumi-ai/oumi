@@ -180,10 +180,7 @@ class DatasetParams(BaseParams):
 @dataclass
 class DatasetSplitParams(BaseParams):
     datasets: list[DatasetParams] = field(default_factory=list)
-    """The input datasets used for training.
-
-    This will later be split into train, test, and validation.
-    """
+    """The datasets in this split."""
 
     collator_name: Optional[str] = None
     """Name of Oumi data collator.
@@ -261,28 +258,8 @@ class DatasetSplitParams(BaseParams):
     If set to `None`, this setting may be auto-inferred.
     """
 
-    # EXPERIMENTAL PARAMS -------------------------
-
-    # END EXPERIMENTAL PARAMS --------------------
-
     def __post_init__(self):
         """Verifies params."""
-        if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
-            if not all(
-                [dataset.mixture_proportion is not None for dataset in self.datasets]
-            ):
-                raise ValueError(
-                    "If `mixture_proportion` is specified it must be "
-                    " specified for all datasets"
-                )
-            mix_sum = sum(
-                filter(None, [dataset.mixture_proportion for dataset in self.datasets])
-            )
-            if not self._is_sum_normalized(mix_sum):
-                raise ValueError(
-                    "The sum of `mixture_proportion` must be 1.0. "
-                    f"The current sum is {mix_sum} ."
-                )
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]

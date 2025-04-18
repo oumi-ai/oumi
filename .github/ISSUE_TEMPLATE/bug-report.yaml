@@ -46,5 +46,6 @@ body:
         - Oumi version
         - PyTorch version
         - Any other relevant system information
+      render: shell
     validations:
       required: true
