@@ -18,7 +18,7 @@ name: smolvlm-sft-lora-train-oumi
 
 resources:
   cloud: gcp
-  accelerators: "A100:1" # Feel free to use more GPUs (see `envs` section below).
+  accelerators: "A100:1" # Feel free to use more GPUs.
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -33,7 +33,6 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: smolvlm.lora.sft
-  MULTI_GPU: false # Set to true if you are using multiple GPUs (!).
 
 setup: |
   set -e
@@ -48,7 +47,7 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  if [[ "${MULTI_GPU,,}" == "true" ]]; then
+  if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
     RUN_COMMAND="oumi distributed torchrun -m oumi train"
   else
     RUN_COMMAND="oumi train"
