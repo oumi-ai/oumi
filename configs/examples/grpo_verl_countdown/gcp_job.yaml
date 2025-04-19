@@ -40,8 +40,7 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi distributed torchrun \
-      -m oumi train \
+  oumi train \
       -c configs/examples/grpo_verl_countdown/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
