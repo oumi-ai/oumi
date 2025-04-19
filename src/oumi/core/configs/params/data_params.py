@@ -298,7 +298,7 @@ class DataParams(BaseParams):
     """The input datasets used for training."""
 
     test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
-    """The input datasets used for testing."""
+    """The input datasets used for testing. This field is currently unused."""
 
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     """The input datasets used for validation."""
@@ -314,8 +314,11 @@ class DataParams(BaseParams):
         else:
             raise ValueError(f"Received invalid split: {split}.")
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
+        if len(self.train.datasets) == 0:
+            raise ValueError("At least one training dataset is required.")
+
         all_collators = set()
         if self.train.collator_name:
             all_collators.add(self.train.collator_name)
