@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import os
 from typing import Any, Optional
 
 import pydantic
@@ -26,6 +27,98 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 class GoogleVertexInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against Google Vertex AI."""
+
+    _API_URL_TEMPLATE = (
+        "https://{region}-aiplatform.googleapis.com/v1beta1/projects/"
+        "{project_id}/locations/{region}/endpoints/openapi/chat/completions"
+    )
+    """The API URL template for the GCP project. Used when no `api_url` is provided."""
+
+    _DEFAULT_PROJECT_ID_ENV_KEY: str = "PROJECT_ID"
+    """The default project ID environment key for the GCP project."""
+
+    _DEFAULT_REGION_ENV_KEY: str = "REGION"
+    """The default region environment key for the GCP project."""
+
+    _project_id: Optional[str] = None
+    """The project ID for the GCP project."""
+
+    _region: Optional[str] = None
+    """The region for the GCP project."""
+
+    def __init__(
+        self,
+        model_params: ModelParams,
+        *,
+        generation_params: Optional[GenerationParams] = None,
+        remote_params: Optional[RemoteParams] = None,
+        project_id_env_key: Optional[str] = None,
+        region_env_key: Optional[str] = None,
+        project_id: Optional[str] = None,
+        region: Optional[str] = None,
+    ):
+        """Initializes the inference Engine.
+
+        Args:
+            model_params: The model parameters to use for inference.
+            generation_params: The generation parameters to use for inference.
+            remote_params: The remote parameters to use for inference.
+            project_id_env_key: The environment variable key name for the project ID.
+            region_env_key: The environment variable key name for the region.
+            project_id: The project ID to use for inference.
+            region: The region to use for inference.
+        """
+        super().__init__(
+            model_params=model_params,
+            generation_params=generation_params,
+            remote_params=remote_params,
+        )
+        if project_id and project_id_env_key:
+            raise ValueError(
+                "You cannot set both `project_id` and `project_id_env_key`."
+            )
+        if region and region_env_key:
+            raise ValueError("You cannot set both `region` and `region_env_key`.")
+
+        self._project_id_env_key = (
+            project_id_env_key or self._DEFAULT_PROJECT_ID_ENV_KEY
+        )
+        self._region_env_key = region_env_key or self._DEFAULT_REGION_ENV_KEY
+        self._project_id = project_id
+        self._region = region
+
+    @override
+    def _set_required_fields_for_inference(self, remote_params: RemoteParams) -> None:
+        """Set required fields for inference."""
+        if (
+            not remote_params.api_url
+            and not self._remote_params.api_url
+            and not self.base_url
+        ):
+            if self._project_id and self._region:
+                project_id = self._project_id
+                region = self._region
+            elif os.getenv(self._project_id_env_key) and os.getenv(
+                self._region_env_key
+            ):
+                project_id = os.getenv(self._project_id_env_key)
+                region = os.getenv(self._region_env_key)
+            else:
+                raise ValueError(
+                    "This inference engine requires that either `api_url` is set in "
+                    "`RemoteParams` or that both `project_id` and `region` are set. "
+                    "You can set the `project_id` and `region` when "
+                    "constructing a GoogleVertexInferenceEngine, "
+                    f"or as environment variables: `{self._project_id_env_key}` and "
+                    f"`{self._region_env_key}`."
+                )
+
+            remote_params.api_url = self._API_URL_TEMPLATE.format(
+                project_id=project_id,
+                region=region,
+            )
+
+        super()._set_required_fields_for_inference(remote_params)
 
     @override
     def _get_api_key(self, remote_params: RemoteParams) -> str:
