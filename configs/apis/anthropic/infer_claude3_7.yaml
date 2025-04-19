@@ -1,4 +1,0 @@
-model:
-  model_name: "claude-3-7-sonnet-20250219"
-
-engine: ANTHROPIC
