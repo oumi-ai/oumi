@@ -2,7 +2,6 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
 #
 # Usage:
 #   oumi train -c configs/examples/grpo_verl_countdown/train.yaml
@@ -18,7 +17,7 @@ model:
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  trust_remote_code: true
+  trust_remote_code: True
 
 data:
   train:
@@ -31,20 +30,25 @@ data:
         split: "test"
 
 training:
+  # Only include params that affect VERL.
   trainer_type: "VERL_PPO"
   save_steps: 500
+  max_steps: 500
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 1
 
-  enable_gradient_checkpointing: true
+  optimizer: "adamw_torch_fused"
+  learning_rate: 5.0e-5
+  lr_scheduler_type: "cosine"
+  warmup_steps: 20
+
+  reward_functions: ["countdown"]
+
+  enable_gradient_checkpointing: False
   gradient_checkpointing_kwargs:
-    use_reentrant: false
-  ddp_find_unused_parameters: false
-  optimizer: "adamw_torch"
-  learning_rate: 5.0e-7
-  empty_device_cache_steps: 1
-  max_steps: 500
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+
   logging_steps: 5
-  log_model_summary: false
   output_dir: "output/grpo_verl_countdown"
-  enable_wandb: true
+  enable_wandb: True

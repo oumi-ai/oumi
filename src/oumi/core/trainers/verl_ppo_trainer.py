@@ -136,7 +136,8 @@ class VerlPpoTrainer(BaseTrainer):
         config.data.max_prompt_length = 256
         config.data.max_response_length = 1024
         config.actor_rollout_ref.model.path = (
-            "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
+            "meta-llama/Llama-3.2-3B"
+            # "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
         )
         config.actor_rollout_ref.actor.optim.lr = 1e-6
         config.actor_rollout_ref.model.use_remove_padding = True
