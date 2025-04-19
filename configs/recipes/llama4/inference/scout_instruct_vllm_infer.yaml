@@ -1,7 +1,7 @@
-# Inference config for Llama 4 Scout-17B-16E Instruct with a NATIVE engine.
+# vLLM Inference config for Llama 4 Scout-17B-16E Instruct.
 #
 # Requirements:
-#   - Run `pip install vllm`
+#   - Run `pip install oumi[gpu]`
 #   - Log into HF: `huggingface-cli login`
 #   - Request access to Llama 4: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct
 #

@@ -19,9 +19,11 @@ from oumi.datasets.grpo.rewards.completion_length_rewards import (
     compute_soft_target_token_length_reward,
 )
 from oumi.datasets.grpo.rewards.count_letters_rewards import compute_letter_count_reward
+from oumi.datasets.grpo.rewards.countdown_rewards import countdown_reward
 
 __all__ = [
     "compute_letter_count_reward",
     "compute_soft_target_token_length_reward",
     "compute_sharp_target_token_length_reward",
+    "countdown_reward",
 ]
