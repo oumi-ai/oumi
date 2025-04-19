@@ -47,31 +47,31 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
         AliasType.INFER: "oumi://configs/recipes/llama4/inference/maverick_instruct_together_infer.yaml",
     },
     # Hosted models.
-    "claude_3_5_sonnet": {
+    "claude-3-5-sonnet": {
         AliasType.INFER: "oumi://configs/apis/anthropic/infer_claude_3_5_sonnet.yaml",
         AliasType.EVAL: "oumi://configs/apis/anthropic/eval_claude_3_5_sonnet.yaml",
     },
-    "claude_3_7_sonnet": {
+    "claude-3-7-sonnet": {
         AliasType.INFER: "oumi://configs/apis/anthropic/infer_claude_3_7_sonnet.yaml",
         AliasType.EVAL: "oumi://configs/apis/anthropic/eval_claude_3_7_sonnet.yaml",
     },
-    "gemini_1_5_pro": {
+    "gemini-1-5-pro": {
         AliasType.INFER: "oumi://configs/apis/gemini/infer_gemini_1_5_pro.yaml",
         AliasType.EVAL: "oumi://configs/apis/gemini/eval_gemini_1_5_pro.yaml",
     },
-    "gpt_4o": {
+    "gpt-4o": {
         AliasType.INFER: "oumi://configs/apis/openai/infer_gpt_4o.yaml",
         AliasType.EVAL: "oumi://configs/apis/openai/eval_gpt_4o.yaml",
     },
-    "gpt_o1_preview": {
+    "gpt-o1-preview": {
         AliasType.INFER: "oumi://configs/apis/openai/infer_gpt_o1_preview.yaml",
         AliasType.EVAL: "oumi://configs/apis/openai/eval_gpt_o1_preview.yaml",
     },
-    "llama_3_3_70b": {
+    "llama-3-3-70b": {
         AliasType.INFER: "oumi://configs/apis/vertex/infer_llama_3_3_70b.yaml",
         AliasType.EVAL: "oumi://configs/apis/vertex/eval_llama_3_3_70b.yaml",
     },
-    "llama_3_1_405b": {
+    "llama-3-1-405b": {
         AliasType.INFER: "oumi://configs/apis/vertex/infer_llama_3_1_405b.yaml",
         AliasType.EVAL: "oumi://configs/apis/vertex/eval_llama_3_1_405b.yaml",
     },
