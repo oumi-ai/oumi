@@ -57,14 +57,14 @@ class VerlPpoTrainer(BaseTrainer):
         eval_dataset: Dataset,
         **kwargs,
     ):
-        """Initializes the verl PPO trainer.
+        """Initializes the verl trainer.
 
         Args:
             processing_class: The tokenizer for the model.
             args: Training parameters.
             reward_funcs: List of reward functions to use.
             train_dataset: Training dataset.
-            eval_dataset: Evaluation dataset. This is required by verl.
+            eval_dataset: Validation dataset. This is required by verl.
             **kwargs: Additional keyword arguments.
         """
         self.processing_class = processing_class
@@ -110,7 +110,7 @@ class VerlPpoTrainer(BaseTrainer):
         return config
 
     def _setup_verl_trainer(self):
-        """Sets up the verl PPO trainer."""
+        """Sets up verl's RayPPOTrainer."""
         self.verl_config = self._create_config()
         logger.info(f"verl config: {self.verl_config}")
 
@@ -147,6 +147,7 @@ class VerlPpoTrainer(BaseTrainer):
         reward_fn = NaiveRewardManager(
             tokenizer=tokenizer, num_examine=0, compute_score=compute_score
         )
+        # num_examine=1 means to print 1 example per batch for analysis.
         val_reward_fn = NaiveRewardManager(
             tokenizer=tokenizer, num_examine=1, compute_score=compute_score
         )
@@ -161,7 +162,7 @@ class VerlPpoTrainer(BaseTrainer):
         )
 
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
-        """Trains the model using verl PPO.
+        """Trains the model using verl's RayPPOTrainer.
 
         Args:
             resume_from_checkpoint: Optional path to a checkpoint to resume from.
@@ -178,11 +179,11 @@ class VerlPpoTrainer(BaseTrainer):
     # already handle saving models, including the final checkpoint.
 
     def save_state(self) -> None:
-        """Saves the Trainer."""
+        """Saves the training state."""
         pass
 
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
-        """Saves the model to the specified output directory.
+        """Saves the model.
 
         Args:
             config: The Oumi training config.
