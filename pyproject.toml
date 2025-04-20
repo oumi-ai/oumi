@@ -74,6 +74,7 @@ dependencies = [
     "trl>=0.16.0,<0.17",
     "typer",               # Used by CLI
     "typing_extensions",   # Backports of typing updates to python 3.9
+    "verl>=0.3.0,<0.4", # Used for the VERL_PPO trainer.
     "wandb>=0.19.3,<0.20", # Logging to Weights and Biases.
 ]
 
