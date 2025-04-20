@@ -1,0 +1,8 @@
+model:
+  model_name: "gpt-4o"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0
