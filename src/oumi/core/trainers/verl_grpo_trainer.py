@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Volcano Engine Reinforcement Learning (verl) PPO Trainer."""
+"""Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
 from pathlib import Path
@@ -21,16 +21,22 @@ from typing import Callable, Optional, cast
 import ray
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
-from verl.trainer.ppo.ray_trainer import (
-    RayPPOTrainer,
-    ResourcePoolManager,
-    Role,
-)
-from verl.workers.fsdp_workers import (
-    ActorRolloutRefWorker,
-    CriticWorker,
-)
-from verl.workers.reward_manager import NaiveRewardManager
+
+try:
+    import verl
+    from verl.trainer.ppo.ray_trainer import (
+        RayPPOTrainer,
+        ResourcePoolManager,
+        Role,
+    )
+    from verl.workers.fsdp_workers import (
+        ActorRolloutRefWorker,
+        CriticWorker,
+    )
+    from verl.workers.reward_manager import NaiveRewardManager
+except ModuleNotFoundError:
+    verl = None
+
 
 from oumi.core.configs import TrainingConfig, TrainingParams
 from oumi.core.tokenizers import BaseTokenizer
@@ -38,13 +44,13 @@ from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 
 
-class VerlPpoTrainer(BaseTrainer):
-    """verl PPO Trainer.
+class VerlGrpoTrainer(BaseTrainer):
+    """verl GRPO Trainer.
 
-    Note that the name of the class is misleading, as it can support other algorithms
-    like GRPO. Currently, we only support GRPO.
+    This class wraps verl's RayPPOTrainer. This class' name is misleading as it supports
+    other RL algorithms as well, including GRPO, which we use here.
 
-    For documentation on the underlying verl PPO trainer, see
+    For documentation on the underlying verl RayPPOTrainer, see
     https://verl.readthedocs.io/en/latest/examples/config.html.
     """
 
@@ -67,8 +73,17 @@ class VerlPpoTrainer(BaseTrainer):
             eval_dataset: Validation dataset. This is required by verl.
             **kwargs: Additional keyword arguments.
         """
+        if verl is None:
+            raise RuntimeError(
+                "verl is not installed. "
+                "Please install it with 'pip install `oumi[gpu]`'."
+            )
+        logger.warning(
+            "VerlGrpoTrainer is experimental, and the interface is subject to change."
+        )
         self.processing_class = processing_class
         self.params = copy.deepcopy(args)
+        # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
         self.reward_funcs = reward_funcs
@@ -85,19 +100,19 @@ class VerlPpoTrainer(BaseTrainer):
 
         The Parquet files are saved to the Oumi cache directory.
         """
-        self.cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
+        self._cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
 
-        train_file = self.cache_dir / "train.parquet"
+        train_file = self._cache_dir / "train.parquet"
         self.train_dataset.to_parquet(train_file)
         self.train_filepath = str(train_file)
 
-        val_file = self.cache_dir / "val.parquet"
+        val_file = self._cache_dir / "val.parquet"
         self.eval_dataset.to_parquet(val_file)
         self.val_filepath = str(val_file)
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
-        yaml_path = Path(__file__).parent / "verl_ppo_trainer.yaml"
+        yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
         # Read verl default dict config from YAML.
         config = OmegaConf.load(yaml_path)
         config = cast(DictConfig, config)
