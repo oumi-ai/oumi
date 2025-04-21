@@ -1,0 +1,69 @@
+# Full fine-tune config for SmolVLM Instruct, with the TRL trainer.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/smolvlm/sft/full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "HuggingFaceTB/SmolVLM-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 3072
+  trust_remote_code: True
+  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
+  chat_template: "llava"
+  freeze_layers:
+    - "vision_model"
+
+data:
+  train:
+    collator_name: "vision_language_with_padding"
+    use_torchdata: True
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        trust_remote_code: True
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "HuggingFaceTB/SmolVLM-Instruct"
+          # limit: 4096 # Uncomment to limit dataset size!
+          return_tensors: True
+
+training:
+  output_dir: "output/vlm_finetuned"
+  trainer_type: "TRL_SFT" # Or "OUMI".
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features.
+  gradient_accumulation_steps: 16
+  max_steps: 20
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 2
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 5
+  save_steps: 0
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: True

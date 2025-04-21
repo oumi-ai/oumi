@@ -1,4 +1,4 @@
-# Job config to full fine-tune SmolVLM Instruct, with the Oumi trainer.
+# Job config to full fine-tune SmolVLM Instruct, with the *Oumi* trainer.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/smolvlm/sft/gcp_job.yaml --cluster smolvlm-vision
+#   oumi launch up --config configs/recipes/vision/smolvlm/sft/full/gcp_job.yaml --cluster smolvlm-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -14,7 +14,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: smolvlm-sft-trl-train
+name: smolvlm-sft-train-oumi
 
 resources:
   cloud: gcp
@@ -50,7 +50,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/smolvlm/sft/train.yaml \
+      -c configs/recipes/vision/smolvlm/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.trainer_type OUMI \
       --training.max_steps 20 \
