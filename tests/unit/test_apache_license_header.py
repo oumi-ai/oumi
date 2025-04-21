@@ -78,6 +78,6 @@ def _get_all_source_file_paths(exclude_prefixes: list[str] = []) -> list[str]:
 def test_python_source_files_start_with_apache_header(py_source_path: str):
     with open(py_source_path) as f:
         file_contents = f.read()
-    assert file_contents.startswith(
-        _APACHE_LICENSE
-    ), f"File {py_source_path} does not start with Apache license header."
+    assert file_contents.startswith(_APACHE_LICENSE), (
+        f"File {py_source_path} does not start with Apache license header."
+    )

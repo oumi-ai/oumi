@@ -94,13 +94,11 @@ class LlavaInstructMixVsftDataset(VisionLanguageSftDataset):
 
         if len(text_items) != 1:
             raise ValueError(
-                f"{role}'s turn must include 1 text question. "
-                f"Actual: {len(text_items)}"
+                f"{role}'s turn must include 1 text question. Actual: {len(text_items)}"
             )
         if len(image_items) > 1:
             raise ValueError(
-                f"{role}'s turn must include max 1 image. "
-                f"Actual: {len(image_items)}"
+                f"{role}'s turn must include max 1 image. Actual: {len(image_items)}"
             )
 
         # Add image messages before text messages!
