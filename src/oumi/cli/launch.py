@@ -504,8 +504,7 @@ def up(
         target_cluster = target_cloud.get_cluster(cluster)
         if target_cluster:
             cli_utils.CONSOLE.print(
-                "Found an existing cluster: "
-                f"[yellow]{target_cluster.name()}[/yellow]."
+                f"Found an existing cluster: [yellow]{target_cluster.name()}[/yellow]."
             )
             run(ctx, config, cluster, detach)
             return

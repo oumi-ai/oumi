@@ -38,13 +38,7 @@ def test_openai_init_default_params():
 
 
 @pytest.mark.parametrize(
-    (
-        "model_name,"
-        "logit_bias,"
-        "temperature,"
-        "expected_logit_bias,"
-        "expected_temperature,"
-    ),
+    ("model_name,logit_bias,temperature,expected_logit_bias,expected_temperature,"),
     [
         ("some_model", {"token": 0.0}, 0.0, {"token": 0.0}, 0.0),
         ("o1-preview", {"token": 0.0}, 0.0, {}, 1.0),
