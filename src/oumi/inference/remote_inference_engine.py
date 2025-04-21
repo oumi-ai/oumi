@@ -223,7 +223,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
         else:
-            remote_params = RemoteParams()
+            remote_params = self._default_remote_params()
 
         if not remote_params.api_url:
             remote_params.api_url = self.base_url
@@ -231,6 +231,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params.api_key_env_varname = self.api_key_env_varname
         self._remote_params = remote_params
         self._remote_params.finalize_and_validate()
+
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams()
 
     @staticmethod
     def _get_list_of_message_json_dicts(
@@ -378,7 +382,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not remote_params:
             return headers
 
-        headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
+        api_key = self._get_api_key(remote_params)
+        if api_key:
+            headers[_AUTHORIZATION_KEY] = f"Bearer {api_key}"
+
         return headers
 
     def _set_required_fields_for_inference(self, remote_params: RemoteParams):
@@ -424,6 +431,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self._set_required_fields_for_inference(remote_params)
         if not remote_params.api_url:
             raise ValueError("API URL is required for remote inference.")
+        if not self._get_api_key(remote_params):
+            if remote_params.api_key_env_varname:
+                raise ValueError(
+                    "An API key is required for remote inference with the "
+                    f"`{self.__class__.__name__}` inference engine. "
+                    "Please set the environment variable "
+                    f"`{remote_params.api_key_env_varname}`."
+                )
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params, model_params

@@ -74,3 +74,11 @@ def test_get_request_headers(anthropic_engine):
     assert result["Content-Type"] == "application/json"
     assert result["anthropic-version"] == AnthropicInferenceEngine.anthropic_version
     assert result["X-API-Key"] == "test_api_key"
+
+
+def test_remote_params_defaults():
+    anthropic_engine = AnthropicInferenceEngine(
+        model_params=ModelParams(model_name="some_model"),
+    )
+    assert anthropic_engine._remote_params.num_workers == 5
+    assert anthropic_engine._remote_params.politeness_policy == 60.0

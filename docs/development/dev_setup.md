@@ -114,6 +114,7 @@ Llama models are gated on HF Hub. To gain access, sign the agreement on your des
 - [Llama 3.1](https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct)
 - [Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-90B-Vision-Instruct)
 - [Llama 3.3](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
+- [Llama 4](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct)
 
 (optional-set-up-weights-and-biases)=
 

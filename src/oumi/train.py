@@ -189,6 +189,7 @@ def _create_optional_training_kwargs(
     metrics_function: Optional[Callable],
     reward_functions: list[Callable],
     collator: Optional[Callable],
+    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"processing_class": tokenizer}
     if trainer_type == TrainerType.OUMI:
@@ -204,10 +205,15 @@ def _create_optional_training_kwargs(
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
+    kwargs.update(additional_trainer_kwargs or {})
     return kwargs
 
 
-def train(config: TrainingConfig, **kwargs) -> None:
+def train(
+    config: TrainingConfig,
+    additional_model_kwargs: Optional[dict[str, Any]] = None,
+    additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
@@ -267,6 +273,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
             config.model.model_name,
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
+            processor_kwargs=config.model.processor_kwargs,
         )
 
     use_peft = config.training.use_peft and config.peft
@@ -275,7 +282,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
     model = build_model(
         model_params=config.model,
         peft_params=config.peft if use_peft else None,
-        *kwargs,
+        **(additional_model_kwargs or {}),
     )
 
     if use_peft:
@@ -354,6 +361,7 @@ def train(config: TrainingConfig, **kwargs) -> None:
         metrics_function,
         reward_functions,
         collator,
+        additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
     # Reclaim memory before training starts.
