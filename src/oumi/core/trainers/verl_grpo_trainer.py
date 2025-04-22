@@ -16,24 +16,26 @@
 
 import copy
 from pathlib import Path
-from typing import Callable, Optional, cast
+from typing import Callable, Optional, Union, cast
 
 import ray
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 try:
-    import verl
-    from verl.trainer.ppo.ray_trainer import (
+    import verl  # pyright: ignore[reportMissingImports]
+    from verl.trainer.ppo.ray_trainer import (  # pyright: ignore[reportMissingImports]
         RayPPOTrainer,
         ResourcePoolManager,
         Role,
     )
-    from verl.workers.fsdp_workers import (
+    from verl.workers.fsdp_workers import (  # pyright: ignore[reportMissingImports]
         ActorRolloutRefWorker,
         CriticWorker,
     )
-    from verl.workers.reward_manager import NaiveRewardManager
+    from verl.workers.reward_manager import (  # pyright: ignore[reportMissingImports]
+        NaiveRewardManager,
+    )
 except ModuleNotFoundError:
     verl = None
 
@@ -61,6 +63,7 @@ class VerlGrpoTrainer(BaseTrainer):
         reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Dataset,
+        cache_dir: Union[str, Path] = Path.home() / ".cache" / "oumi" / "verl_datasets",
         **kwargs,
     ):
         """Initializes the verl trainer.
@@ -71,6 +74,7 @@ class VerlGrpoTrainer(BaseTrainer):
             reward_funcs: List of reward functions to use.
             train_dataset: Training dataset.
             eval_dataset: Validation dataset. This is required by verl.
+            cache_dir: Directory to cache verl Parquet datasets.
             **kwargs: Additional keyword arguments.
         """
         if verl is None:
@@ -88,6 +92,7 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
+        self._cache_dir = Path(cache_dir)
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         # Sets self._train_filepath and self._val_filepath.
@@ -100,8 +105,6 @@ class VerlGrpoTrainer(BaseTrainer):
 
         The Parquet files are saved to the Oumi cache directory.
         """
-        self._cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
-
         train_file = self._cache_dir / "train.parquet"
         self._train_dataset.to_parquet(train_file)
         self._train_filepath = str(train_file)
