@@ -12,39 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""VERL PPO Trainer integration for Oumi.
-
-This trainer adapts the Volcano Engine Reinforcement Learning (VERL) PPO implementation
-for use with Oumi. VERL is a flexible, efficient and production-ready RL training
-library for LLMs that supports efficient multi-GPU training scenarios.
-
-Note:
-    The current implementation depends on VERL's `RayPPOTrainer`, which may not be fully
-    implemented or stable in all VERL releases. If you encounter a NotImplementedError,
-    consider:
-
-    1. Checking that your VERL installation is complete and up-to-date
-    2. Using a different trainer type until VERL integration is more stable
-    3. Consulting the VERL documentation or contacting the VERL team for support
-"""
+"""Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Union, cast
 
 import ray
 from datasets import Dataset
-from omegaconf import OmegaConf
-from verl.trainer.ppo.ray_trainer import (
-    RayPPOTrainer,
-    ResourcePoolManager,
-    Role,
-)
-from verl.workers.fsdp_workers import (
-    ActorRolloutRefWorker,
-    CriticWorker,
-)
-from verl.workers.reward_manager import NaiveRewardManager
+from omegaconf import DictConfig, OmegaConf
+
+try:
+    import verl  # pyright: ignore[reportMissingImports]
+    from verl.trainer.ppo.ray_trainer import (  # pyright: ignore[reportMissingImports]
+        RayPPOTrainer,
+        ResourcePoolManager,
+        Role,
+    )
+    from verl.workers.fsdp_workers import (  # pyright: ignore[reportMissingImports]
+        ActorRolloutRefWorker,
+        CriticWorker,
+    )
+    from verl.workers.reward_manager import (  # pyright: ignore[reportMissingImports]
+        NaiveRewardManager,
+    )
+except ModuleNotFoundError:
+    verl = None
+
 
 from oumi.core.configs import TrainingConfig, TrainingParams
 from oumi.core.tokenizers import BaseTokenizer
@@ -53,7 +47,14 @@ from oumi.utils.logging import logger
 
 
 class VerlGrpoTrainer(BaseTrainer):
-    """VERL GRPO Trainer."""
+    """verl GRPO Trainer.
+
+    This class wraps verl's RayPPOTrainer. This class' name is misleading as it supports
+    other RL algorithms as well, including GRPO, which we use here.
+
+    For documentation on the underlying verl RayPPOTrainer, see
+    https://verl.readthedocs.io/en/latest/examples/config.html.
+    """
 
     def __init__(
         self,
@@ -61,83 +62,75 @@ class VerlGrpoTrainer(BaseTrainer):
         args: TrainingParams,
         reward_funcs: list[Callable],
         train_dataset: Dataset,
-        eval_dataset: Optional[Dataset] = None,
+        eval_dataset: Dataset,
+        cache_dir: Union[str, Path] = Path.home() / ".cache" / "oumi" / "verl_datasets",
         **kwargs,
     ):
-        """Initialize the VERL GRPO trainer.
+        """Initializes the verl trainer.
 
         Args:
-            processing_class: The tokenizer for the model
-            args: Training parameters
-            reward_funcs: List of reward functions to use
-            train_dataset: Training dataset
-            eval_dataset: Optional evaluation dataset
-            **kwargs: Additional keyword arguments
+            processing_class: The tokenizer for the model.
+            args: Training parameters.
+            reward_funcs: List of reward functions to use.
+            train_dataset: Training dataset.
+            eval_dataset: Validation dataset. This is required by verl.
+            cache_dir: Directory to cache verl Parquet datasets.
+            **kwargs: Additional keyword arguments.
         """
-        self.processing_class = processing_class
-        self.params = copy.deepcopy(args)
-        assert len(reward_funcs) <= 1, "We only support up to one reward function."
-        self.reward_funcs = reward_funcs
-        self.train_dataset = train_dataset
-        self.eval_dataset = eval_dataset
+        if verl is None:
+            raise RuntimeError(
+                "verl is not installed. "
+                "Please install it with 'pip install `oumi[gpu]`'."
+            )
+        logger.warning(
+            "VerlGrpoTrainer is experimental, and the interface is subject to change."
+        )
+        self._processing_class = processing_class
+        self._params = copy.deepcopy(args)
+        # TODO: OPE-1192 - Support multiple reward functions.
+        if len(reward_funcs) > 1:
+            raise ValueError("We only support up to one reward function.")
+        self._reward_funcs = reward_funcs
 
-        self.train_filepath = None
-        self.val_filepath = None
-        logger.info(f"In trainer, available resources: {ray.available_resources()}")
-
-        # Initialize Ray if not already initialized
-        # if not ray.is_initialized():
-        #     logger.info("Initializing Ray cluster...")
-        #     ray.init(
-        #         runtime_env={
-        #             "env_vars": {
-        #                 "TOKENIZERS_PARALLELISM": "true",
-        #                 "NCCL_DEBUG": "WARN",
-        #                 "VLLM_LOGGING_LEVEL": "WARN",
-        #             }
-        #         }
-        #     )
-
+        self._cache_dir = Path(cache_dir)
+        self._train_dataset = train_dataset
+        self._eval_dataset = eval_dataset
+        # Sets self._train_filepath and self._val_filepath.
         self._create_dataset_files()
+
         self._setup_verl_trainer()
 
     def _create_dataset_files(self) -> None:
-        """Create dataset files for VERL in Parquet format.
+        """Creates dataset files for verl in Parquet format.
 
-        Args:
-            num_examples: Number of examples to include in the dummy datasets
-
-        Returns:
-            Tuple of (train_file_path, val_file_path)
+        The Parquet files are saved to the Oumi cache directory.
         """
-        # TODO: Add Subfolder for dataset
-        self.cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
+        train_file = self._cache_dir / "train.parquet"
+        self._train_dataset.to_parquet(train_file)
+        self._train_filepath = str(train_file)
 
-        train_file = self.cache_dir / "train.parquet"
-        self.train_dataset.to_parquet(train_file)
-        self.train_filepath = str(train_file)
+        val_file = self._cache_dir / "val.parquet"
+        self._eval_dataset.to_parquet(val_file)
+        self._val_filepath = str(val_file)
 
-        if self.eval_dataset:
-            val_file = self.cache_dir / "val.parquet"
-            self.eval_dataset.to_parquet(val_file)
-            self.val_filepath = str(val_file)
-        else:
-            self.val_filepath = []
-
-    def _create_config(self):
+    def _create_config(self) -> DictConfig:
+        """Creates a verl config."""
         yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
+        # Read verl default dict config from YAML.
         config = OmegaConf.load(yaml_path)
-        # TODO: Fill in the config with the actual parameters
+        config = cast(DictConfig, config)
         config.algorithm.adv_estimator = "grpo"
-        config.data.train_files = self.train_filepath
-        config.data.val_files = self.val_filepath
+        config.data.train_files = self._train_filepath
+        config.data.val_files = self._val_filepath
+
+        # TODO: Fill in the config with the actual parameters
         config.data.train_batch_size = 64
         config.data.val_batch_size = 640
         config.data.max_prompt_length = 256
         config.data.max_response_length = 1024
         config.actor_rollout_ref.model.path = (
-            "meta-llama/Llama-3.2-3B"
-            # "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
+            # "meta-llama/Llama-3.2-3B"
+            "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
         )
         config.actor_rollout_ref.actor.optim.lr = 1e-6
         config.actor_rollout_ref.model.use_remove_padding = True
@@ -175,11 +168,11 @@ class VerlGrpoTrainer(BaseTrainer):
         return config
 
     def _setup_verl_trainer(self):
-        """Set up the VERL PPO trainer."""
-        self.verl_config = self._create_config()
-        logger.info(f"VERL config: {self.verl_config}")
+        """Sets up verl's RayPPOTrainer."""
+        self._verl_config = self._create_config()
+        logger.info(f"verl config: {self._verl_config}")
 
-        tokenizer = self.processing_class
+        tokenizer = self._processing_class
 
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
@@ -189,8 +182,8 @@ class VerlGrpoTrainer(BaseTrainer):
         # Create resource pool manager
         global_pool_id = "global_pool"
         resource_pool_spec = {
-            global_pool_id: [self.verl_config.trainer.n_gpus_per_node]
-            * self.verl_config.trainer.nnodes,
+            global_pool_id: [self._verl_config.trainer.n_gpus_per_node]
+            * self._verl_config.trainer.nnodes,
         }
         mapping = {
             Role.ActorRollout: global_pool_id,
@@ -198,8 +191,8 @@ class VerlGrpoTrainer(BaseTrainer):
         }
 
         if (
-            self.verl_config.algorithm.use_kl_in_reward
-            or self.verl_config.actor_rollout_ref.actor.use_kl_loss
+            self._verl_config.algorithm.use_kl_in_reward
+            or self._verl_config.actor_rollout_ref.actor.use_kl_loss
         ):
             role_worker_mapping[Role.RefPolicy] = ray.remote(ActorRolloutRefWorker)
             mapping[Role.RefPolicy] = global_pool_id
@@ -208,18 +201,17 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
         # Create reward function manager
-        compute_score = self.reward_funcs[0] if self.reward_funcs else None
+        compute_score = self._reward_funcs[0] if self._reward_funcs else None
         reward_fn = NaiveRewardManager(
             tokenizer=tokenizer, num_examine=0, compute_score=compute_score
         )
-        # TODO: Different reward calculation for validation?
-        # Could use TinyZero's RewardManager instead.
+        # num_examine=1 means to print 1 example per batch for analysis.
         val_reward_fn = NaiveRewardManager(
             tokenizer=tokenizer, num_examine=1, compute_score=compute_score
         )
 
-        self.verl_trainer = RayPPOTrainer(
-            config=self.verl_config,
+        self._verl_trainer = RayPPOTrainer(
+            config=self._verl_config,
             tokenizer=tokenizer,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
@@ -228,29 +220,31 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
-        """Train the model using VERL PPO.
+        """Trains the model using verl's RayPPOTrainer.
 
         Args:
             resume_from_checkpoint: Optional path to a checkpoint to resume from.
         """
-        # TODO: Support resuming from checkpoint. May need to pass this parameter
-        # into RayPPOTrainer creation.
+        if resume_from_checkpoint:
+            raise NotImplementedError("Resuming from checkpoint is not implemented.")
 
-        logger.info("Initializing workers...")
-        self.verl_trainer.init_workers()
+        logger.info("Initializing verl trainer workers...")
+        self._verl_trainer.init_workers()
         logger.info("Starting verl training...")
-        self.verl_trainer.fit()
-        logger.info("Done!")
+        self._verl_trainer.fit()
+
+    # TODO: OPE-1192 - Implement saving model/trainer state. verl training should
+    # already handle saving models, including the final checkpoint.
 
     def save_state(self) -> None:
-        """Save the Trainer state using VERL's checkpoint handling."""
-        # TODO: Implement
+        """Saves the training state."""
+        pass
 
     def save_model(self, config: TrainingConfig, final: bool = True) -> None:
-        """Save the model to the specified output directory.
+        """Saves the model.
 
         Args:
             config: The Oumi training config.
             final: Whether this is the final model being saved during training.
         """
-        # TODO: Implement
+        pass

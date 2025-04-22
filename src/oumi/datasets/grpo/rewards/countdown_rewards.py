@@ -19,13 +19,19 @@ This file was slightly modified to be an Oumi reward registry function.
 
 import random
 import re
-from typing import Any
+from typing import Any, Optional
 
 from oumi.core.registry import RegistryType, register
 
 
-def _extract_solution(solution_str):
-    """Extract the equation from the solution string."""
+def _extract_solution(solution_str: str) -> Optional[str]:
+    """Extracts the equation from the solution string.
+
+    Args:
+        solution_str: The response from the LLM.
+    Returns:
+        The equation from the solution string, or None if not found.
+    """
     # Remove everything before the first "Assistant:"
     if "Assistant:" in solution_str:
         solution_str = solution_str.split("Assistant:", 1)[1]
@@ -45,8 +51,16 @@ def _extract_solution(solution_str):
     return final_answer
 
 
-def _validate_equation(equation_str, available_numbers):
-    """Validate that equation only uses available numbers and each number once."""
+def _validate_equation(equation_str: str, available_numbers: list[int]) -> bool:
+    """Validates that equation only uses available numbers and each number once.
+
+    Args:
+        equation_str: The equation to validate.
+        available_numbers: The list of available numbers.
+
+    Returns:
+        True if the equation uses each available number exactly once, else False.
+    """
     try:
         # Extract all numbers from the equation
         numbers_in_eq = [int(n) for n in re.findall(r"\d+", equation_str)]
