@@ -219,7 +219,7 @@ class PolarisClient:
         Args:
             commands: The commands to run.
         """
-        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov " " << 'EOF'"
+        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@polaris.alcf.anl.gov  << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()

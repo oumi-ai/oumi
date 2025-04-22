@@ -121,9 +121,9 @@ def get_hf_chat_template(
         tokenizer_name, trust_remote_code=trust_remote_code
     )
     if tokenizer.chat_template:
-        assert isinstance(
-            tokenizer.chat_template, str
-        ), f"tokenizer_name: {tokenizer_name}"
+        assert isinstance(tokenizer.chat_template, str), (
+            f"tokenizer_name: {tokenizer_name}"
+        )
         return tokenizer.chat_template
     return None
 
@@ -232,9 +232,9 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
                 f"prompt ({test_spec.chat_template_name}):\n=====\n{prompt}\n====="
             )
             for text_piece in test_convo_tuple.unique_text_pieces:
-                assert (
-                    text_piece in prompt
-                ), f"Text piece '{text_piece}' not found in '{prompt}' ({debug_tag})"
+                assert text_piece in prompt, (
+                    f"Text piece '{text_piece}' not found in '{prompt}' ({debug_tag})"
+                )
 
                 if include_image and test_spec.image_placeholder:
                     assert test_spec.image_placeholder in prompt, (
@@ -251,9 +251,9 @@ def test_chat_template(test_spec: ChatTemplateTestSpec):
             )
 
             for text_piece in test_convo_tuple.unique_text_pieces:
-                assert (
-                    text_piece in prompt
-                ), f"Text piece '{text_piece}' not found in '{prompt}' ({debug_tag})"
+                assert text_piece in prompt, (
+                    f"Text piece '{text_piece}' not found in '{prompt}' ({debug_tag})"
+                )
 
                 if include_image and test_spec.image_placeholder:
                     assert test_spec.image_placeholder in prompt, (
@@ -320,9 +320,9 @@ def test_phi3_chat_template(model_name: str, is_vision: bool):
         )
         expected = "\n".join(expected_lines)
         assert oumi_result == expected, debug_tag
-        assert hf_result.startswith(
-            expected
-        ), f"{debug_tag}\n\n{hf_result}\n\n{expected}"
+        assert hf_result.startswith(expected), (
+            f"{debug_tag}\n\n{hf_result}\n\n{expected}"
+        )
         if not is_vision:
             # Why the difference for text-only Phi3?
             hf_result.endswith("\n<|endoftext|>")
@@ -428,12 +428,12 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
             ),
         ] + (["", ""] if add_generation_prompt else [])
         expected = "\n".join(expected_lines)
-        assert (
-            hf_result == expected
-        ), f"{debug_tag}\nHF result:\n{hf_result}\nExpected:\n{expected}"
-        assert (
-            oumi_result == expected
-        ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
+        assert hf_result == expected, (
+            f"{debug_tag}\nHF result:\n{hf_result}\nExpected:\n{expected}"
+        )
+        assert oumi_result == expected, (
+            f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
+        )
 
     if is_vision:  # With images.
         test_convo_tuple: ConversationTuple = create_test_conversation(
@@ -465,9 +465,9 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
                 ),
             ] + (["", ""] if add_generation_prompt else [])
             expected = "\n".join(expected_lines)
-            assert (
-                oumi_result == expected
-            ), f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
+            assert oumi_result == expected, (
+                f"{debug_tag}\nOUMI result:\n{oumi_result}\nExpected:\n{expected}"
+            )
 
 
 @pytest.mark.parametrize(
@@ -531,9 +531,9 @@ def test_qwen2_chat_template(model_name: str, is_vision: bool):
         )
         expected = "\n".join(expected_lines)
         assert oumi_result == expected, debug_tag
-        assert hf_result.startswith(
-            expected
-        ), f"{debug_tag}\n\n{hf_result}\n\n{expected}"
+        assert hf_result.startswith(expected), (
+            f"{debug_tag}\n\n{hf_result}\n\n{expected}"
+        )
 
     # With images.
     test_convo_tuple: ConversationTuple = create_test_conversation(3, num_with_images=2)

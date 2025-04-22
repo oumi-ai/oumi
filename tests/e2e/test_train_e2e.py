@@ -63,9 +63,9 @@ def _check_checkpoint_dir(
     model_safetensors = dir_path / f"{model_basename}.safetensors"
 
     if model_safetensors.exists():
-        assert (
-            model_safetensors.is_file()
-        ), f"Exists but not a file: {model_safetensors}"
+        assert model_safetensors.is_file(), (
+            f"Exists but not a file: {model_safetensors}"
+        )
         assert is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
     else:
         # The model is sharded. Let's validate model shards.
@@ -77,9 +77,9 @@ def _check_checkpoint_dir(
         model_shards = list(
             sorted(dir_path.glob(f"{model_basename}-*-of-*.safetensors"))
         )
-        assert (
-            len(model_shards) > 0
-        ), f"No '{model_basename}-*-of-*.safetensors' files found under {dir_path}"
+        assert len(model_shards) > 0, (
+            f"No '{model_basename}-*-of-*.safetensors' files found under {dir_path}"
+        )
         for model_shard in model_shards:
             assert (model_shard).is_file(), f"Missing {model_shard}"
             assert is_file_not_empty(model_shard), f"Empty {model_shard}"
@@ -89,9 +89,9 @@ def _check_checkpoint_dir(
         index_shards = {
             (dir_path / shard) for shard in set(index_dict["weight_map"].values())
         }
-        assert index_shards == set(
-            model_shards
-        ), "Shards defined in model index are inconsistent with shards on file system"
+        assert index_shards == set(model_shards), (
+            "Shards defined in model index are inconsistent with shards on file system"
+        )
 
     if is_lora:
         config = load_json(dir_path / "adapter_config.json")
@@ -139,9 +139,9 @@ def _check_checkpoint_dir(
         for file in optimizer_files:
             optimizer_file = dir_path / file
             if optimizer_file.exists():
-                assert is_file_not_empty(
-                    optimizer_file
-                ), f"Empty {optimizer_file} in checkpoint"
+                assert is_file_not_empty(optimizer_file), (
+                    f"Empty {optimizer_file} in checkpoint"
+                )
                 num_valid_optimizer_files += 1
         assert num_valid_optimizer_files == 1, (
             f"Exactly one of {optimizer_files} must exist. "
@@ -185,12 +185,12 @@ def _test_train_impl(
 
     try:
         # Copy config file to output directory
-        assert (
-            test_config.config_path.exists()
-        ), f"{test_tag} Path doesn't exist: {test_config.config_path}"
-        assert (
-            test_config.config_path.is_file()
-        ), f"{test_tag} Path is not a file: {test_config.config_path}"
+        assert test_config.config_path.exists(), (
+            f"{test_tag} Path doesn't exist: {test_config.config_path}"
+        )
+        assert test_config.config_path.is_file(), (
+            f"{test_tag} Path is not a file: {test_config.config_path}"
+        )
 
         # Verify the config is loadable
         try:
@@ -279,9 +279,9 @@ def _test_train_impl(
         # Check output directory exists
         train_output_dir = output_dir / "train"
         assert train_output_dir.exists(), f"{test_tag} Output directory was not created"
-        assert (
-            train_output_dir.is_dir()
-        ), f"{test_tag} Output directory is not a directory"
+        assert train_output_dir.is_dir(), (
+            f"{test_tag} Output directory is not a directory"
+        )
 
         # If saving is disabled, then return early.
         if (test_config.save_steps is not None and test_config.save_steps <= 0) and (
@@ -309,16 +309,16 @@ def _test_train_impl(
         num_ranks = len(rank_logs)
         assert num_ranks > 0, f"{test_tag} No rank logs found"
         for idx in range(num_ranks):
-            assert is_file_not_empty(
-                rank_logs[idx]
-            ), f"{test_tag} Empty rank log file: {rank_logs[idx]}"
+            assert is_file_not_empty(rank_logs[idx]), (
+                f"{test_tag} Empty rank log file: {rank_logs[idx]}"
+            )
 
         # Check telemetry directory
         telemetry_dir = train_output_dir / "telemetry"
         assert telemetry_dir.exists(), f"{test_tag} Telemetry directory not found"
-        assert (
-            telemetry_dir.is_dir()
-        ), f"{test_tag} Telemetry directory  is not a directory"
+        assert telemetry_dir.is_dir(), (
+            f"{test_tag} Telemetry directory  is not a directory"
+        )
 
         telemetry_files = [
             "devices_info.txt",
@@ -341,19 +341,19 @@ def _test_train_impl(
         # Verify telemetry content
         with open(telemetry_dir / "training_config.yaml") as f:
             training_config = yaml.safe_load(f)
-            assert (
-                "model" in training_config
-            ), f"{test_tag} Invalid training config: {training_config}"
-            assert (
-                "training" in training_config
-            ), f"{test_tag} Invalid training config: {training_config}"
+            assert "model" in training_config, (
+                f"{test_tag} Invalid training config: {training_config}"
+            )
+            assert "training" in training_config, (
+                f"{test_tag} Invalid training config: {training_config}"
+            )
 
         with open(telemetry_dir / "world_size.json") as f:
             world_size = json.load(f)
             assert "WORLD_SIZE" in world_size
-            assert (
-                world_size.get("WORLD_SIZE", None) == num_ranks
-            ), f"{test_tag} World size is inconsistent with: {num_ranks}"
+            assert world_size.get("WORLD_SIZE", None) == num_ranks, (
+                f"{test_tag} World size is inconsistent with: {num_ranks}"
+            )
 
     except Exception as e:
         duration_sec = time.perf_counter() - _START_TIME

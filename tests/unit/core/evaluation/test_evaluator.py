@@ -445,7 +445,7 @@ def test_evaluate_custom_task_without_task_name(
 
 
 @pytest.mark.parametrize(
-    ("kwargs," "eval_kwargs," "expected_error_message"),
+    ("kwargs,eval_kwargs,expected_error_message"),
     [
         (
             {"expected_param_1": 1, "inference_engine": "my_inference_engine"},

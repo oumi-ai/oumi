@@ -686,9 +686,7 @@ def test_slurm_cluster_run_job_no_pbs(mock_datetime, mock_slurm_client):
             call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
-    job_script = (
-        "#!/bin/bash\n\n" "export var1=val1\n\n" "small setup\n./hello_world.sh\n"
-    )
+    job_script = "#!/bin/bash\n\nexport var1=val1\n\nsmall setup\n./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
         job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
@@ -744,7 +742,7 @@ def test_slurm_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
             call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
         ]
     )
-    job_script = "#!/bin/bash\n\n" "export var1=val1\n\n" "./hello_world.sh\n"
+    job_script = "#!/bin/bash\n\nexport var1=val1\n\n./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
         job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )

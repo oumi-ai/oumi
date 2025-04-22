@@ -266,12 +266,10 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
 
 
 @functools.cache
-def get_all_models_map() -> (
-    Mapping[
-        str,  # model type
-        _ModelTypeInfo,
-    ]
-):
+def get_all_models_map() -> Mapping[
+    str,  # model type
+    _ModelTypeInfo,
+]:
     """Creates a map of all supported VLMs with related configs."""
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 

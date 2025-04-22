@@ -260,9 +260,9 @@ class BaseMapDataset(MapDataPipe, Sized, ABC):
                     # Limit the max number of sub-processes.
                     num_proc = min(8, num_proc)
 
-        assert (
-            num_proc is None or num_proc > 0
-        ), f"transform_num_workers: {self.transform_num_workers}"
+        assert num_proc is None or num_proc > 0, (
+            f"transform_num_workers: {self.transform_num_workers}"
+        )
 
         num_proc = max(1, num_proc if num_proc is not None else 1)
         assert num_proc >= 1

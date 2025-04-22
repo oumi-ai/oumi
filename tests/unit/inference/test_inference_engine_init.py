@@ -333,9 +333,9 @@ def test_engine_config_partial_override(engine_class):
 def test_all_inference_engine_types_in_engine_map():
     """Test that all InferenceEngineType values are present in ENGINE_MAP."""
     for engine_type in InferenceEngineType:
-        assert (
-            engine_type in ENGINE_MAP
-        ), f"Missing engine type {engine_type} in ENGINE_MAP"
+        assert engine_type in ENGINE_MAP, (
+            f"Missing engine type {engine_type} in ENGINE_MAP"
+        )
 
 
 def test_build_all_inference_engines():

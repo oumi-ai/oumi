@@ -61,12 +61,12 @@ def _test_eval_impl(
 
     try:
         # Copy config file to output directory
-        assert (
-            test_config.config_path.exists()
-        ), f"{test_tag} Path doesn't exist: {test_config.config_path}"
-        assert (
-            test_config.config_path.is_file()
-        ), f"{test_tag} Path is not a file: {test_config.config_path}"
+        assert test_config.config_path.exists(), (
+            f"{test_tag} Path doesn't exist: {test_config.config_path}"
+        )
+        assert test_config.config_path.is_file(), (
+            f"{test_tag} Path is not a file: {test_config.config_path}"
+        )
 
         # Verify the config is loadable
         try:

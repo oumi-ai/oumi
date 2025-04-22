@@ -127,9 +127,9 @@ def test_convert_conversation_to_api_input_text(gcp_engine, inference_config):
     assert api_input["model"] == "gcp-model"
     assert len(conversation.messages) == 3
     assert len(api_input["messages"]) == 3
-    assert all(
-        [isinstance(m["content"], str) for m in api_input["messages"]]
-    ), api_input["messages"]
+    assert all([isinstance(m["content"], str) for m in api_input["messages"]]), (
+        api_input["messages"]
+    )
     assert api_input["max_completion_tokens"] == 100
     assert api_input["temperature"] == 0.7
     assert api_input["top_p"] == 0.9

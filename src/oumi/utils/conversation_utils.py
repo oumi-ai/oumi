@@ -158,9 +158,9 @@ def convert_message_content_item_to_json_dict(
             _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: b64_image},
         }
 
-    assert (
-        item.type == Type.IMAGE_URL
-    ), f"Unexpected message type: {item.type}. Must be a code bug."
+    assert item.type == Type.IMAGE_URL, (
+        f"Unexpected message type: {item.type}. Must be a code bug."
+    )
     return {
         _JSON_DICT_KEY_TYPE: Type.IMAGE_URL.value,
         _JSON_DICT_KEY_IMAGE_URL: {_JSON_DICT_KEY_URL: item.content or ""},

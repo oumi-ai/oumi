@@ -1358,13 +1358,13 @@ def test_get_list_of_message_json_dicts_multimodal_no_grouping(
                             )
                         )
                         assert len(expected_base64_bytes_str) == len(image_url["url"])
-                        assert image_url == {
-                            "url": expected_base64_bytes_str
-                        }, debug_info
+                        assert image_url == {"url": expected_base64_bytes_str}, (
+                            debug_info
+                        )
                     elif item.type == Type.IMAGE_URL:
-                        assert json_item["image_url"] == {
-                            "url": item.content
-                        }, debug_info
+                        assert json_item["image_url"] == {"url": item.content}, (
+                            debug_info
+                        )
                     elif item.type == Type.IMAGE_PATH:
                         assert json_item["image_url"]["url"].startswith(
                             "data:image/png;base64,"

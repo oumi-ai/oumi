@@ -95,7 +95,7 @@ You can also check out the `README.md` in each recipe's directory for more detai
 | Qwen2.5-VL 3B | `recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml` | {download}`Download </../configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml>` {gh}`configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml` |
 | | `recipes/vision/qwen2_5_vl_3b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml>` {gh}`configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml` |
 | | `recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml` |
-| SmolVLM | `recipes/vision/smolvlm/sft/train.yaml` | {download}`Download </../configs/recipes/vision/smolvlm/sft/train.yaml>` {gh}`configs/recipes/vision/smolvlm/sft/train.yaml` |
+| SmolVLM | `recipes/vision/smolvlm/sft/full/train.yaml` | {download}`Download </../configs/recipes/vision/smolvlm/sft/full/train.yaml>` {gh}`configs/recipes/vision/smolvlm/sft/full/train.yaml` |
 
 ### 🎯 Training Techniques
 
