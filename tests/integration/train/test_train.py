@@ -199,3 +199,45 @@ def test_train_dpo():
         )
 
         train(config)
+
+
+def test_train_kto():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        output_training_dir = str(pathlib.Path(output_temp_dir) / "train")
+        config: TrainingConfig = TrainingConfig(
+            data=DataParams(
+                train=DatasetSplitParams(
+                    datasets=[
+                        DatasetParams(
+                            dataset_name="debug_kto",
+                        )
+                    ],
+                ),
+            ),
+            model=ModelParams(
+                model_name="openai-community/gpt2",
+                model_max_length=1024,
+                trust_remote_code=True,
+                tokenizer_pad_token="<|endoftext|>",
+            ),
+            training=TrainingParams(
+                per_device_train_batch_size=2,
+                trainer_type=TrainerType.TRL_KTO,
+                max_steps=3,
+                logging_steps=3,
+                log_model_summary=True,
+                enable_wandb=False,
+                enable_tensorboard=False,
+                output_dir=output_training_dir,
+                try_resume_from_last_checkpoint=False,
+                save_final_model=True,
+                trainer_kwargs={
+                    "max_length": 512,
+                    "max_prompt_length": 128,
+                    "remove_unused_columns": False,
+                    "desirable_weight": 0.8,
+                },
+            ),
+        )
+
+        train(config)
