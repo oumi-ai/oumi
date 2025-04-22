@@ -81,16 +81,16 @@ class VerlGrpoTrainer(BaseTrainer):
         logger.warning(
             "VerlGrpoTrainer is experimental, and the interface is subject to change."
         )
-        self.processing_class = processing_class
-        self.params = copy.deepcopy(args)
+        self._processing_class = processing_class
+        self._params = copy.deepcopy(args)
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
-        self.reward_funcs = reward_funcs
+        self._reward_funcs = reward_funcs
 
-        self.train_dataset = train_dataset
-        self.eval_dataset = eval_dataset
-        # Sets self.train_filepath and self.val_filepath.
+        self._train_dataset = train_dataset
+        self._eval_dataset = eval_dataset
+        # Sets self._train_filepath and self._val_filepath.
         self._create_dataset_files()
 
         self._setup_verl_trainer()
@@ -103,12 +103,12 @@ class VerlGrpoTrainer(BaseTrainer):
         self._cache_dir = Path.home() / ".cache" / "oumi" / "verl_datasets"
 
         train_file = self._cache_dir / "train.parquet"
-        self.train_dataset.to_parquet(train_file)
-        self.train_filepath = str(train_file)
+        self._train_dataset.to_parquet(train_file)
+        self._train_filepath = str(train_file)
 
         val_file = self._cache_dir / "val.parquet"
-        self.eval_dataset.to_parquet(val_file)
-        self.val_filepath = str(val_file)
+        self._eval_dataset.to_parquet(val_file)
+        self._val_filepath = str(val_file)
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
@@ -117,8 +117,8 @@ class VerlGrpoTrainer(BaseTrainer):
         config = OmegaConf.load(yaml_path)
         config = cast(DictConfig, config)
         config.algorithm.adv_estimator = "grpo"
-        config.data.train_files = self.train_filepath
-        config.data.val_files = self.val_filepath
+        config.data.train_files = self._train_filepath
+        config.data.val_files = self._val_filepath
 
         if config.actor_rollout_ref.actor.strategy == "fsdp":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
@@ -126,10 +126,10 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _setup_verl_trainer(self):
         """Sets up verl's RayPPOTrainer."""
-        self.verl_config = self._create_config()
-        logger.info(f"verl config: {self.verl_config}")
+        self._verl_config = self._create_config()
+        logger.info(f"verl config: {self._verl_config}")
 
-        tokenizer = self.processing_class
+        tokenizer = self._processing_class
 
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
@@ -139,8 +139,8 @@ class VerlGrpoTrainer(BaseTrainer):
         # Create resource pool manager
         global_pool_id = "global_pool"
         resource_pool_spec = {
-            global_pool_id: [self.verl_config.trainer.n_gpus_per_node]
-            * self.verl_config.trainer.nnodes,
+            global_pool_id: [self._verl_config.trainer.n_gpus_per_node]
+            * self._verl_config.trainer.nnodes,
         }
         mapping = {
             Role.ActorRollout: global_pool_id,
@@ -148,8 +148,8 @@ class VerlGrpoTrainer(BaseTrainer):
         }
 
         if (
-            self.verl_config.algorithm.use_kl_in_reward
-            or self.verl_config.actor_rollout_ref.actor.use_kl_loss
+            self._verl_config.algorithm.use_kl_in_reward
+            or self._verl_config.actor_rollout_ref.actor.use_kl_loss
         ):
             role_worker_mapping[Role.RefPolicy] = ray.remote(ActorRolloutRefWorker)
             mapping[Role.RefPolicy] = global_pool_id
@@ -158,7 +158,7 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
         # Create reward function manager
-        compute_score = self.reward_funcs[0] if self.reward_funcs else None
+        compute_score = self._reward_funcs[0] if self._reward_funcs else None
         reward_fn = NaiveRewardManager(
             tokenizer=tokenizer, num_examine=0, compute_score=compute_score
         )
@@ -167,8 +167,8 @@ class VerlGrpoTrainer(BaseTrainer):
             tokenizer=tokenizer, num_examine=1, compute_score=compute_score
         )
 
-        self.verl_trainer = RayPPOTrainer(
-            config=self.verl_config,
+        self._verl_trainer = RayPPOTrainer(
+            config=self._verl_config,
             tokenizer=tokenizer,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
@@ -186,9 +186,9 @@ class VerlGrpoTrainer(BaseTrainer):
             raise NotImplementedError("Resuming from checkpoint is not implemented.")
 
         logger.info("Initializing verl trainer workers...")
-        self.verl_trainer.init_workers()
+        self._verl_trainer.init_workers()
         logger.info("Starting verl training...")
-        self.verl_trainer.fit()
+        self._verl_trainer.fit()
 
     # TODO: OPE-1192 - Implement saving model/trainer state. verl training should
     # already handle saving models, including the final checkpoint.
