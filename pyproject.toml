@@ -74,7 +74,6 @@ dependencies = [
     "trl>=0.16.0,<0.17",
     "typer",               # Used by CLI
     "typing_extensions",   # Backports of typing updates to python 3.9
-    "verl>=0.3.0,<0.4", # Used for the VERL_PPO trainer.
     "wandb>=0.19.3,<0.20", # Logging to Weights and Biases.
 ]
 
@@ -117,6 +116,7 @@ gpu = [
     "liger-kernel>=0.5.0,<0.6",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
+    "verl>=0.3.0,<0.4", # Used for the VERL_GRPO trainer.
     "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
 ]
 
