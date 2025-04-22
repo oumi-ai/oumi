@@ -203,3 +203,12 @@ class TrainingConfig(BaseConfig):
                     dataset_params.dataset_kwargs["processor_kwargs"] = {
                         **self.model.processor_kwargs
                     }
+
+        # Verl will error without a validation dataset.
+        if (
+            self.training.trainer_type == TrainerType.VERL_GRPO
+            and not self.data.validation.datasets
+        ):
+            raise ValueError(
+                "At least one validation dataset is required for VERL GRPO training."
+            )

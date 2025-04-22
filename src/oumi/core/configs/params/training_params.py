@@ -68,6 +68,15 @@ class TrainerType(Enum):
     designed to provide additional flexibility and features.
     """
 
+    VERL_GRPO = "verl_grpo"
+    """Group Relative Policy Optimization trainer from `verl` library.
+
+    This trainer implements the Group Relative Policy Optimization algorithm
+    introduced in the paper https://arxiv.org/pdf/2402.03300
+    for fine-tuning language models.
+    Optionally, supports user-defined reward functions.
+    """
+
 
 class SchedulerType(str, Enum):
     """Enum representing the supported learning rate schedulers.
@@ -153,7 +162,9 @@ class TrainingParams(BaseParams):
     - HF: HuggingFace's Trainer
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
+    - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
+    - VERL_GRPO: verl's GRPO Trainer
     """
 
     enable_gradient_checkpointing: bool = False
@@ -312,8 +323,14 @@ class TrainingParams(BaseParams):
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
-    Only supported with the TRL_GRPO trainer currently. Refer to
-    https://huggingface.co/docs/trl/main/en/grpo_trainer
+    Only supported with the TRL_GRPO and VERL_GRPO trainers currently. Currently,
+    VERL_GRPO only supports specifying a single reward function.
+
+    For TRL_GRPO, refer to https://huggingface.co/docs/trl/main/en/grpo_trainer
+    for documentation about the function signature.
+
+    For VERL_GRPO, refer to
+    https://verl.readthedocs.io/en/latest/preparation/reward_function.html
     for documentation about the function signature.
     """
 
@@ -798,14 +815,21 @@ class TrainingParams(BaseParams):
 
         if (
             self.trainer_type != TrainerType.TRL_GRPO
+            and self.trainer_type != TrainerType.VERL_GRPO
             and self.reward_functions is not None
         ):
             function_names = [name for name in self.reward_functions if name]
             if len(function_names) > 0:
                 raise ValueError(
-                    "reward_functions may only be defined for the TRL_GRPO trainer. "
-                    f"Actual: {self.trainer_type}"
+                    "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
+                    f"trainers. Actual: {self.trainer_type}"
                 )
+            if self.trainer_type == TrainerType.VERL_GRPO:
+                if len(function_names) > 1:
+                    raise ValueError(
+                        "VERL_GRPO only supports a single reward function. "
+                        f"Actual: {function_names}"
+                    )
 
         # TODO: #1540 - Remove when TRL bug is fixed.
         if (
