@@ -31,7 +31,7 @@ data:
 
 training:
   # Only include params that affect VERL.
-  trainer_type: "VERL_PPO"
+  trainer_type: "VERL_GRPO"
   save_steps: 500
   max_steps: 500
   per_device_train_batch_size: 4

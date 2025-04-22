@@ -206,7 +206,7 @@ class TrainingConfig(BaseConfig):
 
         # Verl will error without a validation dataset.
         if (
-            self.training.trainer_type == TrainerType.VERL_PPO
+            self.training.trainer_type == TrainerType.VERL_GRPO
             and not self.data.validation.datasets
         ):
             raise ValueError(

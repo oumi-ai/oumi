@@ -89,7 +89,7 @@ def countdown_reward(
 ) -> float:
     """Custom reward function for the Countdown task.
 
-    Currently, this function only works with the VERL_PPO trainer.
+    Currently, this function only works with the VERL_GRPO trainer.
     Derived from https://github.com/Jiayi-Pan/TinyZero/blob/main/verl/utils/reward_score/countdown.py.
 
     Args:

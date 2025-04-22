@@ -189,7 +189,7 @@ def _create_optional_training_kwargs(
         kwargs["config"] = config
 
     # TODO: What to do for VERL?
-    if trainer_type in {TrainerType.TRL_GRPO, TrainerType.VERL_PPO}:
+    if trainer_type in {TrainerType.TRL_GRPO, TrainerType.VERL_GRPO}:
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
