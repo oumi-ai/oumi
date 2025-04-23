@@ -116,8 +116,9 @@ gpu = [
     "liger-kernel>=0.5.0,<0.6",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
-    "verl>=0.3.0,<0.4", # Used for the VERL_GRPO trainer.
-    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
+    "verl>=0.3.0,<0.4",                # Used for the VERL_GRPO trainer.
+    "ray[default]",                    # Used for the VERL_GRPO trainer.
+    "vllm>=0.7.3,<0.8.0",              # For VLLMInferenceEngine
 ]
 
 # Targets for supported cloud providers
@@ -163,10 +164,7 @@ ci_cpu = [
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = [
-    "oumi[dev,docs,gcp,gpu]",
-    "alpaca-eval>=0.6.6,<0.7",
-]
+ci_gpu = ["oumi[dev,docs,gcp,gpu]", "alpaca-eval>=0.6.6,<0.7"]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
