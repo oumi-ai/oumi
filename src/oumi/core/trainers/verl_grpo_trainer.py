@@ -18,11 +18,11 @@ import copy
 from pathlib import Path
 from typing import Callable, Optional, Union, cast
 
-import ray
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 try:
+    import ray  # pyright: ignore[reportMissingImports]
     import verl  # pyright: ignore[reportMissingImports]
     from verl.trainer.ppo.ray_trainer import (  # pyright: ignore[reportMissingImports]
         RayPPOTrainer,
@@ -38,6 +38,7 @@ try:
     )
 except ModuleNotFoundError:
     verl = None
+    ray = None
 
 
 from oumi.core.configs import TrainingConfig, TrainingParams
@@ -129,6 +130,11 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _setup_verl_trainer(self):
         """Sets up verl's RayPPOTrainer."""
+        if ray is None:
+            raise RuntimeError(
+                "ray is not installed. "
+                "Please install it with 'pip install `oumi[gpu]`'."
+            )
         self._verl_config = self._create_config()
         logger.info(f"verl config: {self._verl_config}")
 
