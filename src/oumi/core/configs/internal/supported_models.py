@@ -251,17 +251,14 @@ def _create_internvl_config() -> InternalModelConfig:
         # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
         supports_multiple_images=False,
     )
-
     config.chat_template = "internvl3"
 
     # Add to processor to return key-values pairs (e.g., "pixel_values": torch.Tensor):
     config.processor_kwargs.update({"return_dict": True})
-
     assert (
         config.model_input_features["pixel_values"].first_dim_action
-        == InternalFeatureFirstDimAction.DROP_IF_DUMMY.value
+        == InternalFeatureFirstDimAction.DROP_IF_DUMMY
     )
-
     return config
 
 

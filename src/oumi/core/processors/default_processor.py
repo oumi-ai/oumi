@@ -197,6 +197,10 @@ class DefaultProcessor(BaseProcessor):
                 padding=padding,
                 return_tensors=return_tensors,
             )
+            import torch  # TEMP - needs a perm. solution.
+
+            result = result.to(dtype=torch.bfloat16)  # TEMP FIXES THE ISSUE WITH DTYPE
+
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):

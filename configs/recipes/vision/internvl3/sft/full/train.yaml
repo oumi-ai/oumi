@@ -6,9 +6,10 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#     TODO: ADD MoRE
-#   - Run `pip install -U flash-attn --no-build-isolation`
+#     FIXME: ADD ALL
 #   - Run `pip install timm`
+#   - Optional:
+#   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/internvl3/sft/full/train.yaml
@@ -21,10 +22,12 @@
 
 model:
   model_name: "OpenGVLab/InternVL3-1B-hf"
-  torch_dtype_str: "bfloat16"
+  torch_dtype_str: "bfloat16"   # if you define this, we must manually call .to(dtype=torch.bfloat16) on the result of processor.apply_chat_template because otherwise the model will be in bfloat16 but its input (output) of apply_chat_template will be in float32.
+  # unfortunately, transformers.processing_utils.AllKwargsForChatTemplate
+  # doesn't support this hyperpameter yet.
   model_max_length: 8192
   trust_remote_code: True
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa" # or "flash_attention_2" for improved performance
   chat_template: "internvl3"
   freeze_layers:
     - "vision_tower"
@@ -32,7 +35,7 @@ model:
 
 data:
   train:
-    collator_name: "vision_language_with_padding"
+    collator_name: "vision_language_sft"
     use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
