@@ -427,18 +427,19 @@ def test_train_text_1gpu_24gb(
     _test_train_impl(test_config=test_config, tmp_path=tmp_path, use_distributed=False)
 
 
-@requires_gpus(count=1, min_gb=24.0)
+@requires_gpus(count=4, min_gb=40.0)
 @pytest.mark.parametrize(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_mm_qwen2_vl_2b_trl_sft",
+            test_name="train_mm_qwen2_vl_2b_trl_sft_fft",
             config_path=(
                 get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "qwen2_vl_2b"
                 / "sft"
+                / "full"
                 / "train.yaml"
             ),
             trainer_type=TrainerType.TRL_SFT,
@@ -446,13 +447,14 @@ def test_train_text_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_mm_qwen2_vl_2b_oumi",
+            test_name="train_mm_qwen2_vl_2b_oumi_fft",
             config_path=(
                 get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "qwen2_vl_2b"
                 / "sft"
+                / "full"
                 / "train.yaml"
             ),
             trainer_type=TrainerType.OUMI,
@@ -464,8 +466,40 @@ def test_train_text_1gpu_24gb(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_multimodal_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+    )
+
+
+@requires_gpus(count=1, min_gb=40.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_mm_qwen2_vl_2b_trl_sft_lora",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "lora"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_train_multimodal_1gpu_24gb(test_config: TrainTestConfig, tmp_path: Path):
+def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,
