@@ -124,6 +124,46 @@ class VerlGrpoTrainer(BaseTrainer):
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
 
+        # TODO: Delete
+        config.data.train_batch_size = 64
+        config.data.val_batch_size = 640
+        config.data.max_prompt_length = 256
+        config.data.max_response_length = 1024
+        config.actor_rollout_ref.model.path = (
+            # "meta-llama/Llama-3.2-3B"
+            "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
+        )
+        config.actor_rollout_ref.actor.optim.lr = 1e-6
+        config.actor_rollout_ref.model.use_remove_padding = True
+        config.actor_rollout_ref.actor.ppo_mini_batch_size = 16
+        config.actor_rollout_ref.actor.ppo_micro_batch_size = 4
+        config.actor_rollout_ref.actor.use_kl_loss = True
+        config.actor_rollout_ref.actor.kl_loss_coef = 0.001
+        config.actor_rollout_ref.actor.kl_loss_type = "low_var_kl"
+        config.actor_rollout_ref.model.enable_gradient_checkpointing = True
+        config.actor_rollout_ref.actor.fsdp_config.param_offload = False
+        config.actor_rollout_ref.actor.fsdp_config.grad_offload = False
+        config.actor_rollout_ref.actor.fsdp_config.optimizer_offload = False
+        config.actor_rollout_ref.rollout.log_prob_micro_batch_size = 4
+        config.actor_rollout_ref.rollout.tensor_model_parallel_size = 2
+        config.actor_rollout_ref.rollout.name = "vllm"
+        config.actor_rollout_ref.rollout.gpu_memory_utilization = 0.4
+        config.actor_rollout_ref.rollout.n = 16
+        config.actor_rollout_ref.ref.log_prob_micro_batch_size = 2
+        config.actor_rollout_ref.ref.fsdp_config.param_offload = True
+        config.algorithm.kl_ctrl.kl_coef = 0.001
+        config.trainer.critic_warmup = 0
+        config.trainer.logger = ["wandb"]
+        config.trainer.val_before_train = False
+        config.trainer.n_gpus_per_node = 2
+        config.trainer.nnodes = 1
+        config.trainer.save_freq = -1
+        config.trainer.test_freq = 50
+        config.trainer.default_local_dir = "output"
+        config.trainer.project_name = "Countdown-cognitive-behaviors"
+        config.trainer.experiment_name = "oumi-verl-test"
+        config.trainer.total_epochs = 1
+
         if config.actor_rollout_ref.actor.strategy == "fsdp":
             assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
         return config

@@ -18,6 +18,10 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
+try:
+    import ray  # pyright: ignore[reportMissingImports]
+except ModuleNotFoundError:
+    ray = None
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
@@ -118,7 +122,7 @@ def _ensure_dir_exists(output_dir: Union[str, Path], human_readable_name: str) -
 
 
 def _create_training_dirs(config: TrainingConfig) -> None:
-    """Creates misc directoris referenced in config."""
+    """Creates misc directories referenced in config."""
     _ensure_dir_exists(config.training.output_dir, "training.output_dir")
     telemetry_dir = config.training.telemetry_dir
     if telemetry_dir:
@@ -195,18 +199,62 @@ def _create_optional_training_kwargs(
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
-    if trainer_type != TrainerType.TRL_GRPO:
-        kwargs["compute_metrics"] = metrics_function
-        kwargs["data_collator"] = collator
-    else:
-        assert trainer_type == TrainerType.TRL_GRPO
+    if trainer_type in {TrainerType.TRL_GRPO, TrainerType.VERL_GRPO}:
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
+    else:
+        kwargs["compute_metrics"] = metrics_function
+        kwargs["data_collator"] = collator
     kwargs.update(additional_trainer_kwargs or {})
     return kwargs
+
+
+def _verl_train(tokenizer, config, dataset, eval_dataset, reward_functions):
+    if ray is None:
+        raise RuntimeError(
+            "ray is not installed. Please install it with 'pip install `oumi[gpu]`'."
+        )
+    ray.shutdown()
+    if not ray.is_initialized():
+        logger.info("Initializing Ray cluster...")
+        ray.init(
+            runtime_env={
+                "env_vars": {
+                    "TOKENIZERS_PARALLELISM": "true",
+                    "NCCL_DEBUG": "WARN",
+                    "VLLM_LOGGING_LEVEL": "WARN",
+                }
+            }
+        )
+
+    @ray.remote
+    def _run_verl_train(tokenizer, config, dataset, eval_dataset, reward_functions):
+        trainer_type: Final[TrainerType] = config.training.trainer_type
+        create_trainer_fn = build_trainer(trainer_type, processor=None)
+
+        trainer = create_trainer_fn(
+            processing_class=tokenizer,
+            args=config.training,
+            reward_funcs=reward_functions,
+            train_dataset=dataset,
+            eval_dataset=eval_dataset,
+        )
+        trainer.train(resume_from_checkpoint=None)
+
+        logger.info("Training is Complete.")
+
+    ray.get(
+        _run_verl_train.remote(
+            tokenizer, config, dataset, eval_dataset, reward_functions
+        )
+    )
+    logger.info(
+        "\n\n» We're always looking for feedback. "
+        "What's one thing we can improve? https://oumi.ai/feedback"
+    )
 
 
 def train(
@@ -217,11 +265,8 @@ def train(
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
 
-    if is_distributed():
-        init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
-
     _create_training_dirs(config)
-    _log_training_info(config)
+    # _log_training_info(config)
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
@@ -236,24 +281,6 @@ def train(
         logger.info(f"TrainingConfig:\n{pformat(config)}")
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
-
-    # We support running FSDP Oumi training without being invoked from the Accelerate
-    # launcher. We detect this with the following:
-    # 1. Accelerate's environment variables aren't set
-    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO, TRL_GRPO)
-    # 3. FSDP is enabled in the Oumi config
-    # In this case, we mimic an Accelerate launcher run by setting the necessary
-    # environment variables.
-    # Note that normal Accelerate launcher runs won't be affected.
-    if (
-        not is_using_accelerate()
-        and config.training.trainer_type != TrainerType.OUMI
-        and config.fsdp.enable_fsdp
-    ):
-        accelerate_env_vars = prepare_accelerate_fsdp_run(config)
-        logger.info(
-            f"Set Accelerate environment variables for FSDP: {accelerate_env_vars}"
-        )
 
     # Initialize model and tokenizer.
     tokenizer: Optional[BaseTokenizer] = None
@@ -274,6 +301,66 @@ def train(
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
             processor_kwargs=config.model.processor_kwargs,
+        )
+
+    # Load data & preprocessing
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
+
+    eval_dataset = None
+    if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
+        eval_dataset = build_dataset_mixture(
+            config.data,
+            tokenizer,
+            DatasetSplit.VALIDATION,
+            seq_length=config.model.model_max_length,
+        )
+
+    trainer_type: Final[TrainerType] = config.training.trainer_type
+    metrics_function: Optional[Callable] = build_metrics_function(config.training)
+    reward_functions: list[Callable] = build_reward_functions(config.training)
+    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
+        logger.warning(f"No reward_function specified for {trainer_type}!")
+
+    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
+
+    training_kwargs = _create_optional_training_kwargs(
+        config,
+        tokenizer,
+        trainer_type,
+        metrics_function,
+        reward_functions,
+        collator,
+        additional_trainer_kwargs=additional_trainer_kwargs,
+    )
+
+    if config.training.trainer_type == TrainerType.VERL_GRPO:
+        _verl_train(tokenizer, config, dataset, eval_dataset, reward_functions)
+        return
+
+    if is_distributed():
+        init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
+
+    # We support running FSDP Oumi training without being invoked from the Accelerate
+    # launcher. We detect this with the following:
+    # 1. Accelerate's environment variables aren't set
+    # 2. We are running with a HF-family trainer (HF, TRL_SFT, TRL_DPO, TRL_GRPO)
+    # 3. FSDP is enabled in the Oumi config
+    # In this case, we mimic an Accelerate launcher run by setting the necessary
+    # environment variables.
+    # Note that normal Accelerate launcher runs won't be affected.
+    if (
+        not is_using_accelerate()
+        and config.training.trainer_type != TrainerType.OUMI
+        and config.fsdp.enable_fsdp
+    ):
+        accelerate_env_vars = prepare_accelerate_fsdp_run(config)
+        logger.info(
+            f"Set Accelerate environment variables for FSDP: {accelerate_env_vars}"
         )
 
     use_peft = config.training.use_peft and config.peft
@@ -297,23 +384,6 @@ def train(
             log_model_summary(
                 model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
             )
-
-    # Load data & preprocessing
-    dataset = build_dataset_mixture(
-        config.data,
-        tokenizer,
-        DatasetSplit.TRAIN,
-        seq_length=config.model.model_max_length,
-    )
-
-    eval_dataset = None
-    if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
-        eval_dataset = build_dataset_mixture(
-            config.data,
-            tokenizer,
-            DatasetSplit.VALIDATION,
-            seq_length=config.model.model_max_length,
-        )
 
     # trl's SFTTrainer has its own dataset processing code. We should skip it if
     # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
@@ -342,26 +412,8 @@ def train(
                 ] = True
 
     # Train model
-    trainer_type: Final[TrainerType] = config.training.trainer_type
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
         trainer_type, processor=processor
-    )
-
-    metrics_function: Optional[Callable] = build_metrics_function(config.training)
-    reward_functions: list[Callable] = build_reward_functions(config.training)
-    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
-        logger.warning(f"No reward_function specified for {trainer_type}!")
-
-    collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
-
-    training_kwargs = _create_optional_training_kwargs(
-        config,
-        tokenizer,
-        trainer_type,
-        metrics_function,
-        reward_functions,
-        collator,
-        additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
     # Reclaim memory before training starts.
