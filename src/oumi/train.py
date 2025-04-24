@@ -215,7 +215,7 @@ def _create_optional_training_kwargs(
 def _verl_train(tokenizer, config, dataset, eval_dataset, reward_functions):
     if ray is None:
         raise RuntimeError(
-            "ray is not installed. Please install it with 'pip install `oumi[gpu]`'."
+            "ray is not installed. Please install it with `pip install 'oumi[gpu]'`."
         )
     ray.shutdown()
     if not ray.is_initialized():

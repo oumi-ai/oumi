@@ -81,7 +81,7 @@ class VerlGrpoTrainer(BaseTrainer):
         if verl is None:
             raise RuntimeError(
                 "verl is not installed. "
-                "Please install it with 'pip install `oumi[gpu]`'."
+                "Please install it with `pip install 'oumi[gpu]'`."
             )
         logger.warning(
             "VerlGrpoTrainer is experimental, and the interface is subject to change."
@@ -173,7 +173,7 @@ class VerlGrpoTrainer(BaseTrainer):
         if ray is None:
             raise RuntimeError(
                 "ray is not installed. "
-                "Please install it with 'pip install `oumi[gpu]`'."
+                "Please install it with `pip install 'oumi[gpu]'`."
             )
         self._verl_config = self._create_config()
         logger.info(f"verl config: {self._verl_config}")
