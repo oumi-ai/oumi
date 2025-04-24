@@ -19,10 +19,6 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
-try:
-    import ray  # pyright: ignore[reportMissingImports]
-except ModuleNotFoundError:
-    ray = None
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
@@ -199,7 +195,7 @@ def _create_optional_training_kwargs(
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
-    if trainer_type in {TrainerType.TRL_GRPO, TrainerType.VERL_GRPO}:
+    if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO):
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
@@ -212,6 +208,14 @@ def _create_optional_training_kwargs(
     return kwargs
 
 
+def _log_feedback_request():
+    """Logs a feedback request for the platform."""
+    logger.info(
+        "\n\n» We're always looking for feedback. "
+        "What's one thing we can improve? https://oumi.ai/feedback"
+    )
+
+
 def _verl_train(
     partial_trainer: Callable[[], BaseTrainer], checkpoint_location: Optional[str]
 ):
@@ -220,6 +224,10 @@ def _verl_train(
     This function initializes Ray, and then initializes and kicks off the trainer in a
     remote Ray function.
     """
+    try:
+        import ray  # pyright: ignore[reportMissingImports]
+    except ModuleNotFoundError:
+        ray = None
     if ray is None:
         raise RuntimeError(
             "ray is not installed. Please install it with `pip install 'oumi[gpu]'`."
@@ -249,10 +257,7 @@ def _verl_train(
         logger.info("Training is Complete.")
 
     ray.get(_run_verl_train.remote(partial_trainer, checkpoint_location))
-    logger.info(
-        "\n\n» We're always looking for feedback. "
-        "What's one thing we can improve? https://oumi.ai/feedback"
-    )
+    _log_feedback_request()
 
 
 def train(
@@ -508,7 +513,4 @@ def train(
 
     if is_distributed():
         cleanup_distributed()
-    logger.info(
-        "\n\n» We're always looking for feedback. "
-        "What's one thing we can improve? https://oumi.ai/feedback"
-    )
+    _log_feedback_request()
