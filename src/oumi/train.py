@@ -18,6 +18,11 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
+from oumi.builders.data import DatasetType
+from oumi.core.datasets.pretraining_async_text_dataset import (
+    PretrainingAsyncTextDataset,
+)
+
 try:
     import ray  # pyright: ignore[reportMissingImports]
 except ModuleNotFoundError:
@@ -212,7 +217,13 @@ def _create_optional_training_kwargs(
     return kwargs
 
 
-def _verl_train(tokenizer, config, dataset, eval_dataset, reward_functions):
+def _verl_train(
+    tokenizer: Optional[BaseTokenizer],
+    config: TrainingConfig,
+    dataset: Union[DatasetType, PretrainingAsyncTextDataset],
+    eval_dataset: Optional[Union[DatasetType, PretrainingAsyncTextDataset]],
+    reward_functions: list[Callable],
+):
     if ray is None:
         raise RuntimeError(
             "ray is not installed. Please install it with `pip install 'oumi[gpu]'`."
@@ -231,7 +242,13 @@ def _verl_train(tokenizer, config, dataset, eval_dataset, reward_functions):
         )
 
     @ray.remote
-    def _run_verl_train(tokenizer, config, dataset, eval_dataset, reward_functions):
+    def _run_verl_train(
+        tokenizer: Optional[BaseTokenizer],
+        config: TrainingConfig,
+        dataset: Union[DatasetType, PretrainingAsyncTextDataset],
+        eval_dataset: Optional[Union[DatasetType, PretrainingAsyncTextDataset]],
+        reward_functions: list[Callable],
+    ):
         trainer_type: Final[TrainerType] = config.training.trainer_type
         create_trainer_fn = build_trainer(trainer_type, processor=None)
 

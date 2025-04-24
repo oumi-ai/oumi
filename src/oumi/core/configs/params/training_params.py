@@ -323,7 +323,7 @@ class TrainingParams(BaseParams):
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
-    Only supported with the TRL_GRPO and VERL_GRPO trainers currently. Currently,
+    Only supported with the TRL_GRPO and VERL_GRPO trainers. Currently,
     VERL_GRPO only supports specifying a single reward function.
 
     For TRL_GRPO, refer to https://huggingface.co/docs/trl/main/en/grpo_trainer
