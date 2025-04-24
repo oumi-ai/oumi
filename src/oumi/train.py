@@ -12,16 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
-
-from oumi.builders.data import DatasetType
-from oumi.core.datasets.pretraining_async_text_dataset import (
-    PretrainingAsyncTextDataset,
-)
 
 try:
     import ray  # pyright: ignore[reportMissingImports]
@@ -193,14 +189,13 @@ def _finalize_training_config(config: TrainingConfig) -> TrainingConfig:
 
 def _create_optional_training_kwargs(
     config: TrainingConfig,
-    tokenizer: Optional[BaseTokenizer],
     trainer_type: TrainerType,
     metrics_function: Optional[Callable],
     reward_functions: list[Callable],
     collator: Optional[Callable],
     additional_trainer_kwargs: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {"processing_class": tokenizer}
+    kwargs: dict[str, Any] = {}
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
@@ -218,17 +213,17 @@ def _create_optional_training_kwargs(
 
 
 def _verl_train(
-    tokenizer: Optional[BaseTokenizer],
-    config: TrainingConfig,
-    dataset: Union[DatasetType, PretrainingAsyncTextDataset],
-    eval_dataset: Optional[Union[DatasetType, PretrainingAsyncTextDataset]],
-    reward_functions: list[Callable],
+    partial_trainer: Callable[[], BaseTrainer], checkpoint_location: Optional[str]
 ):
+    """Runs verl training.
+
+    This function initializes Ray, and then initializes and kicks off the trainer in a
+    remote Ray function.
+    """
     if ray is None:
         raise RuntimeError(
             "ray is not installed. Please install it with `pip install 'oumi[gpu]'`."
         )
-    ray.shutdown()
     if not ray.is_initialized():
         logger.info("Initializing Ray cluster...")
         ray.init(
@@ -241,33 +236,19 @@ def _verl_train(
             }
         )
 
+    # We define the remote function as a sub function so that the `@ray.remote`
+    # decorator is only run if this function is run. This function should only be run
+    # if ray is installed, preventing errors when it isn't.
     @ray.remote
     def _run_verl_train(
-        tokenizer: Optional[BaseTokenizer],
-        config: TrainingConfig,
-        dataset: Union[DatasetType, PretrainingAsyncTextDataset],
-        eval_dataset: Optional[Union[DatasetType, PretrainingAsyncTextDataset]],
-        reward_functions: list[Callable],
+        partial_trainer: Callable[[], BaseTrainer], checkpoint_location: Optional[str]
     ):
-        trainer_type: Final[TrainerType] = config.training.trainer_type
-        create_trainer_fn = build_trainer(trainer_type, processor=None)
-
-        trainer = create_trainer_fn(
-            processing_class=tokenizer,
-            args=config.training,
-            reward_funcs=reward_functions,
-            train_dataset=dataset,
-            eval_dataset=eval_dataset,
-        )
-        trainer.train(resume_from_checkpoint=None)
+        trainer = partial_trainer()
+        trainer.train(resume_from_checkpoint=checkpoint_location)
 
         logger.info("Training is Complete.")
 
-    ray.get(
-        _run_verl_train.remote(
-            tokenizer, config, dataset, eval_dataset, reward_functions
-        )
-    )
+    ray.get(_run_verl_train.remote(partial_trainer, checkpoint_location))
     logger.info(
         "\n\n» We're always looking for feedback. "
         "What's one thing we can improve? https://oumi.ai/feedback"
@@ -283,7 +264,7 @@ def train(
     _START_TIME = time.time()
 
     _create_training_dirs(config)
-    # _log_training_info(config)
+    _log_training_info(config)
 
     # Configure logging to file
     log_dir = Path(config.training.output_dir) / "logs"
@@ -299,7 +280,7 @@ def train(
         if telemetry_dir and is_world_process_zero():
             config.to_yaml(str(telemetry_dir / "training_config.yaml"))
 
-    # Initialize model and tokenizer.
+    # Initialize tokenizer and processor.
     tokenizer: Optional[BaseTokenizer] = None
     if is_custom_model(config.model.model_name) and not config.model.tokenizer_name:
         # Keep tokenizer as None for custom models unless `tokenizer_name` is specified.
@@ -320,7 +301,7 @@ def train(
             processor_kwargs=config.model.processor_kwargs,
         )
 
-    # Load data & preprocessing
+    # Load datasets.
     dataset = build_dataset_mixture(
         config.data,
         tokenizer,
@@ -347,7 +328,6 @@ def train(
 
     training_kwargs = _create_optional_training_kwargs(
         config,
-        tokenizer,
         trainer_type,
         metrics_function,
         reward_functions,
@@ -355,8 +335,29 @@ def train(
         additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
+    checkpoint_location = _find_checkpoint_to_resume_from(
+        config.training.resume_from_checkpoint,
+        config.training.try_resume_from_last_checkpoint,
+        config.training.output_dir,
+    )
+
+    # verl training is handled separately because:
+    # 1. It uses Ray
+    # 2. Some of the setup below is not applicable.
     if config.training.trainer_type == TrainerType.VERL_GRPO:
-        _verl_train(tokenizer, config, dataset, eval_dataset, reward_functions)
+        create_trainer_fn = build_trainer(trainer_type, processor=None)
+
+        # We don't initialize the trainer here because it needs to run in a remote Ray
+        # function.
+        partial_trainer = functools.partial(
+            create_trainer_fn,
+            processing_class=tokenizer,
+            args=config.training,
+            train_dataset=dataset,
+            eval_dataset=eval_dataset,
+            **training_kwargs,
+        )
+        _verl_train(partial_trainer, checkpoint_location)
         return
 
     if is_distributed():
@@ -446,6 +447,7 @@ def train(
 
             trainer = create_trainer_fn(
                 model=model,
+                processing_class=tokenizer,
                 args=config.training,
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
@@ -456,13 +458,6 @@ def train(
         with torch.profiler.record_function("log_and_verify"):
             log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")
             verify_torch_distributed_initialized_if_needed()
-
-        with torch.profiler.record_function("find_checkpoint_to_resume_from"):
-            checkpoint_location = _find_checkpoint_to_resume_from(
-                config.training.resume_from_checkpoint,
-                config.training.try_resume_from_last_checkpoint,
-                config.training.output_dir,
-            )
 
         # TODO: OPE-577 - Remove when the issue is resolved.
         # QLoRA FSDP training currently has an issue where some submodules of the model
