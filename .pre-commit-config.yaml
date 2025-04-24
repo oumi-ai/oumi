@@ -31,7 +31,7 @@ repos:
         args: [--branch, deploy, --branch, main]
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.10
+    rev: v0.11.6
     hooks:
       - id: ruff
         types_or: [python, pyi, jupyter]
@@ -50,12 +50,12 @@ repos:
         pass_filenames: false
         args: [--warnings]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.16.0
+    rev: v3.19.1
     hooks:
       - id: pyupgrade
         args: [--py39-plus]
         exclude: src/oumi/models/experimental/cambrian
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.16.1
+    rev: v8.24.3
     hooks:
       - id: gitleaks

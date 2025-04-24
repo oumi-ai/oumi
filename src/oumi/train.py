@@ -265,9 +265,9 @@ def train(
 
     processor: Optional[BaseProcessor] = None
     if is_image_text_llm(config.model):
-        assert (
-            tokenizer is not None
-        ), "Tokenizer can't be None because all VLM-s are non-custom currently"
+        assert tokenizer is not None, (
+            "Tokenizer can't be None because all VLM-s are non-custom currently"
+        )
         # Only create `processor` for VLM-s for now.
         processor = build_processor(
             config.model.model_name,

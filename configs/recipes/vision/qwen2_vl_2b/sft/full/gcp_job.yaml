@@ -1,4 +1,4 @@
-# Job config to full fine-tune SmolVLM Instruct, with the Oumi trainer.
+# Job config to full fine-tune Qwen2 VL 2B Instruct on GCP.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/smolvlm/sft/gcp_job.yaml --cluster smolvlm-vision
+#   oumi launch up --config configs/recipes/vision/qwen2_vl_2b/sft/full/gcp_job.yaml --cluster qwen2-vl-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -14,7 +14,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: smolvlm-sft-trl-train
+name: qwen2-vl-sft-oumi-train
 
 resources:
   cloud: gcp
@@ -32,16 +32,16 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: smolvlm.fft.oumi
+  OUMI_RUN_NAME: qwen2-vl.fft.oumi
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
 
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceTB/SmolVLM-Instruct --exclude "onnx/*" "runs/*"
-
-  pip install -U flash-attn --no-build-isolation
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -50,9 +50,8 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/vision/smolvlm/sft/train.yaml \
+      -c configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.trainer_type OUMI \
       --training.max_steps 20 \
       --training.save_steps 0 \
       --training.save_final_model false

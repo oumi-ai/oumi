@@ -1,11 +1,10 @@
-# Full fine-tune config for SmolVLM Instruct, with the TRL trainer.
+# LoRA fine-tune config for Qwen2 VL 2B Instruct.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
-#   oumi train -c configs/recipes/vision/smolvlm/sft/train.yaml
+#   oumi train -c configs/recipes/vision/qwen2_vl_2b/sft/lora/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -14,14 +13,14 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "HuggingFaceTB/SmolVLM-Instruct"
+  model_name: "Qwen/Qwen2-VL-2B-Instruct"
   torch_dtype_str: "bfloat16"
-  model_max_length: 3072
+  model_max_length: 4096
   trust_remote_code: True
-  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
-  chat_template: "llava"
+  attn_implementation: "sdpa"
+  chat_template: "qwen2-vl-instruct"
   freeze_layers:
-    - "vision_model"
+    - "visual"
 
 data:
   train:
@@ -32,26 +31,39 @@ data:
         split: "validation"
         shuffle: True
         seed: 42
-        trust_remote_code: True
         transform_num_workers: "auto"
         dataset_kwargs:
-          processor_name: "HuggingFaceTB/SmolVLM-Instruct"
-          # limit: 4096 # Uncomment to limit dataset size!
+          processor_name: "Qwen/Qwen2-VL-2B-Instruct"
           return_tensors: True
+          # limit: 4096 # Uncomment to limit dataset size!
+          # return_conversations: True
+
+      # Below are examples of other vision SFT datasets
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+      #     return_tensors: True
 
 training:
   output_dir: "output/vlm_finetuned"
-  trainer_type: "TRL_SFT"
+  trainer_type: "TRL_SFT" # or "OUMI"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features.
-  gradient_accumulation_steps: 16
-  max_steps: 20
+  gradient_accumulation_steps: 32
+  max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
+  # num_train_epochs: 1
+  use_peft: True
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
+  max_grad_norm: 0.5 # For vqav2-small this results in more stable training.
   ddp_find_unused_parameters: False
-  empty_device_cache_steps: 2
+  empty_device_cache_steps: 1
   compile: False
 
   optimizer: "adamw_torch_fused"
@@ -62,8 +74,24 @@ training:
 
   logging_steps: 5
   save_steps: 0
+  dataloader_main_process_only: False
   dataloader_num_workers: 2
   dataloader_prefetch_factor: 8
   include_performance_metrics: True
   log_model_summary: False
   enable_wandb: True
+
+peft:
+  q_lora: False
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "o_proj"
+    - "k_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  lora_init_weights: DEFAULT
