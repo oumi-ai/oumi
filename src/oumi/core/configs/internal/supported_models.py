@@ -251,7 +251,17 @@ def _create_internvl_config() -> InternalModelConfig:
         # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
         supports_multiple_images=False,
     )
-    config.chat_template = "internvl_2_5"
+
+    config.chat_template = "internvl3"
+
+    # Add to processor to return key-values pairs (e.g., "pixel_values": torch.Tensor):
+    config.processor_kwargs.update({"return_dict": True})
+
+    assert (
+        config.model_input_features["pixel_values"].first_dim_action
+        == InternalFeatureFirstDimAction.DROP_IF_DUMMY.value
+    )
+
     return config
 
 
@@ -382,8 +392,8 @@ def get_all_models_map() -> (
             config=_create_phi4_vlm_config(),
         ),
         _ModelTypeInfo(
-            model_type="internvl_chat",
-            model_class=transformers.AutoModelForCausalLM,
+            model_type="internvl",
+            model_class=transformers.AutoModelForImageTextToText,
             config=_create_internvl_config(),
         ),
     ]

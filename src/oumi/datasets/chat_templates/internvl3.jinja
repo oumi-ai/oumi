@@ -1,0 +1,20 @@
+{% for message in messages %}
+    {{'<|im_start|>' + message['role'] + ' '}}
+    {% if message['content'] is string %}
+        {{ message['content'] }}
+    {% else %}
+        {% for content in message['content'] %}
+            {% if content['type'].startswith('image') %}
+                {{ '<image>' }}
+            {% elif content['type'] == 'video' %}
+                {{ raise_exception('Video data are not yet supported by Oumi for this model.') }}
+            {% elif content['type'] == 'text' %}
+                {{ content['text'] }}
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    {{'<|im_end|>'}}
+{% endfor %}
+{% if add_generation_prompt %}
+    {{'<|im_start|>assistant' }}
+{% endif %}

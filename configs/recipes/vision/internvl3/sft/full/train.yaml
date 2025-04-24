@@ -1,13 +1,17 @@
-# Full fine-tune config for InternVL 2.5 1B.
+# Full fine-tune config for InternVL 3.0 1B.
+#
+# Some hyperparameters were inspired by: https://github.com/OpenGVLab/InternVL/blob/main/internvl_chat/shell/internvl2.5/2nd_finetune/internvl2_5_1b_dynamic_res_2nd_finetune_full.sh
 #
 # See README.md for more details.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#     TODO: ADD MoRE
 #   - Run `pip install -U flash-attn --no-build-isolation`
+#   - Run `pip install timm`
 #
 # Usage:
-#   oumi train -c configs/recipes/vision/internvl2_5/sft/full/train.yaml
+#   oumi train -c configs/recipes/vision/internvl3/sft/full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -16,16 +20,15 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "OpenGVLab/InternVL2_5-1B"
+  model_name: "OpenGVLab/InternVL3-1B-hf"
   torch_dtype_str: "bfloat16"
-  model_max_length: 4096
+  model_max_length: 8192
   trust_remote_code: True
-  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
-  chat_template: "qwen2-vl-instruct"
-  # tokenizer_kwargs:
-  #   use_fast: False
+  attn_implementation: "flash_attention_2"
+  chat_template: "internvl3"
   freeze_layers:
-    - "vision_model"
+    - "vision_tower"
+    # Optionally, you can might also want to freeze "multi_modal_projector"
 
 data:
   train:
@@ -39,7 +42,7 @@ data:
         trust_remote_code: True
         transform_num_workers: "auto"
         dataset_kwargs:
-          processor_name: "OpenGVLab/InternVL2_5-1B"
+          processor_name: "OpenGVLab/InternVL3-1B-hf"
           return_tensors: True
           # limit: 4096 # Uncomment to limit dataset size!
           # return_conversations: True
@@ -51,7 +54,7 @@ data:
       #   seed: 42
       #   transform_num_workers: "auto"
       #   dataset_kwargs:
-      #     processor_name: "OpenGVLab/InternVL2_5-1B"
+      #     processor_name: "OpenGVLab/InternVL3-1B-hf"
       #     return_tensors: True
 
 training:
@@ -59,20 +62,23 @@ training:
   trainer_type: "TRL_SFT" # or "OUMI"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 32
+
+  # TODO MULTI-GPU
+  # gradient_accumulation_steps: 16 # With 8 GPUS => effective batch size = 128
+
+  gradient_accumulation_steps: 2 # With 8 GPUS => effective batch size = 128
   max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
   # num_train_epochs: 1
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  # max_grad_norm: 0.5 # For vqav2-small this results in more stable training.
   # ddp_find_unused_parameters: False
   empty_device_cache_steps: 1
   compile: False
 
   optimizer: "adamw_torch_fused"
-  learning_rate: 2e-5
+  learning_rate: 4e-5
   warmup_ratio: 0.03
   lr_scheduler_type: "cosine"
 

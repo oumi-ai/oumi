@@ -1,4 +1,4 @@
-# Job config to full fine-tune InternVL 2.5 1B on GCP.
+# Job config to full fine-tune InternVL 3.0 1B on GCP.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up --config configs/recipes/vision/internvl2_5/sft/full/gcp_job.yaml --cluster internvl2_5
+#   oumi launch up --config configs/recipes/vision/internvl3/sft/full/gcp_job.yaml --cluster internvl3
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -14,10 +14,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: internvl2_5-sft-oumi-train
-
-
-# 💡 Fine-tuning the full LLM requires 8x 32G/40G GPUs, whereas fine-tuning the LoRA requires 2x 32G/40G GPUs. TODO ADD REMARK
+name: internvl3-sft-oumi-train
 
 resources:
   cloud: gcp
@@ -35,40 +32,52 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: internvl2_5.fft.oumi
+  OUMI_RUN_NAME: internvl3.fft.oumi
 
 setup: |
   set -e
-  # pip install uv && uv pip install oumi[gpu] hf_transfer
+
+  # pip install uv && uv pip install oumi[gpu] hf_transfer # TODO Use this
   pip install uv && uv pip install ".[gpu]" hf_transfer
+
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download OpenGVLab/InternVL2_5-1B
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download OpenGVLab/InternVL3-1B-hf
+
+  # Use transformers latest version (4.52.0.dev0)
+  # Use this with caution, as it might break some of Oumi's features which is as of
+  # today (April 23rd 2025) is using transformers <4.52.
+
+  pip install git+https://github.com/huggingface/transformers.git
 
   # Extra requirements for this model:
   pip install timm
   pip install -U flash-attn --no-build-isolation
 
 
-run: |
 
+run: |
   # TODO remove.
   pip install uv && uv pip install ".[gpu]" hf_transfer
-  pip install transformers==4.48.3
+  pip install git+https://github.com/huggingface/transformers.git
   pip install timm
   pip install -U flash-attn --no-build-isolation
-
 
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
+    RUN_COMMAND="oumi distributed torchrun -m oumi train"
+  else
+    RUN_COMMAND="oumi train"
+  fi
+
   set -x
-  oumi distributed torchrun \
-      -m oumi train \
-      -c configs/recipes/vision/internvl2_5/sft/full/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.max_steps 20 \
-      --training.save_steps 0 \
-      --training.save_final_model false
+  ${RUN_COMMAND}\
+    -c configs/recipes/vision/internvl3/sft/full/train.yaml \
+    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --training.max_steps 20 \
+    --training.save_steps 0 \
+    --training.save_final_model false
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
