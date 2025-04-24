@@ -8,7 +8,9 @@ echo "Using test config: ${E2E_TEST_CONFIG}"
 export E2E_CLUSTER_PREFIX="oumi-${USER}-e2e-tests"
 export E2E_USE_SPOT_VM=0 # Whether to use Spot VMs.
 
-declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
+# An alternative to H100 is A100-80GB, if they are available.
+# However, A100-80GB:4 isn't available in Lambda.
+declare -a accelerators_arr=("A100:1" "A100:4" "H100:4")
 
 # Reset the variable to make sure that CLI `--resources.use_spot` arg is not ignored.
 OUMI_USE_SPOT_VM=""
