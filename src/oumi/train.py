@@ -227,8 +227,6 @@ def _verl_train(
     try:
         import ray  # pyright: ignore[reportMissingImports]
     except ModuleNotFoundError:
-        ray = None
-    if ray is None:
         raise RuntimeError(
             "ray is not installed. Please install it with `pip install 'oumi[gpu]'`."
         )
