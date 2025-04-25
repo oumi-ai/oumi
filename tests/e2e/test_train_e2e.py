@@ -427,7 +427,7 @@ def test_train_text_1gpu_24gb(
     _test_train_impl(test_config=test_config, tmp_path=tmp_path, use_distributed=False)
 
 
-@requires_gpus(count=4, min_gb=40.0)
+@requires_gpus(count=4, min_gb=39.0)
 @pytest.mark.parametrize(
     "test_config",
     [
@@ -475,7 +475,7 @@ def test_train_multimodal_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path
     )
 
 
-@requires_gpus(count=1, min_gb=40.0)
+@requires_gpus(count=1, min_gb=39.0)
 @pytest.mark.parametrize(
     "test_config",
     [

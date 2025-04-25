@@ -7,6 +7,7 @@ echo "Using test config: ${E2E_TEST_CONFIG}"
 
 export E2E_CLUSTER_PREFIX="oumi-${USER}-e2e-tests"
 export E2E_USE_SPOT_VM=0 # Whether to use Spot VMs.
+export E2E_CLUSTER="" # Cloud provider to use (e.g., "lambda", "aws", etc.)
 
 # An alternative to H100 is A100-80GB, if they are available.
 # However, A100-80GB:4 isn't available in Lambda.
@@ -27,10 +28,20 @@ do
       CLUSTER_SUFFIX="${CLUSTER_SUFFIX}-spot"
    fi
    CLUSTER_NAME="${E2E_CLUSTER_PREFIX}-${CLUSTER_SUFFIX}"
+
+   CLOUD_ARG=""
+   if [ -n "$E2E_CLUSTER" ]; then
+      CLOUD_ARG="--resources.cloud=${E2E_CLUSTER}"
+   else
+      CLOUD_ARG="--resources.cloud=lambda"
+   fi
+
+   set -x
    oumi launch up \
       --config "${E2E_TEST_CONFIG}" \
       --resources.accelerators="${CURR_GPU_NAME}" \
       "${USE_SPOT_ARG}" \
+      "${CLOUD_ARG}" \
       --cluster "${CLUSTER_NAME}" \
       --detach
 done
