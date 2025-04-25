@@ -56,7 +56,12 @@ class GrpoParams(BaseParams):
     If you use a custom reward function that requires any column other than `"prompts"`
     and `"completions"`, you should set it to `False`.
     """
-
+    
+    repetition_penalty: Optional[float] = 1.0
+    """Float that penalizes new tokens based on whether they appear in the prompt and the generated text so far.
+    Values > 1.0 encourage the model to use new tokens, while values < 1.0 encourage the model to repeat tokens.
+    """
+    
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
 
