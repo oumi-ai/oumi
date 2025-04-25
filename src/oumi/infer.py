@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+import time
+import oumi.cli.cli_utils as cli_utils
+
+from typing import Any, Callable, Optional
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
@@ -24,6 +27,7 @@ from oumi.core.types.conversation import (
     Role,
     Type,
 )
+from multiprocessing.pool import Pool
 from oumi.utils.logging import logger
 
 
@@ -38,6 +42,32 @@ def _get_engine(config: InferenceConfig) -> BaseInferenceEngine:
         model_params=config.model,
         remote_params=config.remote_params,
     )
+
+
+def _print_and_wait(
+    message: str, task: Callable[..., object], asynchronous=True, **kwargs
+) -> Any:
+    """Prints a message with a loading spinner until the provided task completes.
+
+    Args:
+        message (str): Message to display while waiting.
+        task (Callable[..., object]): Task function that returns any result.
+        asynchronous (bool, optional): Whether to run the task asynchronously. Defaults to True.
+        **kwargs: Additional keyword arguments passed to the task function.
+
+    Returns:
+        object: The result returned by the task function.
+    """
+    with cli_utils.CONSOLE.status(message):
+        if asynchronous:
+            with Pool(processes=1) as worker_pool:
+                worker_result = worker_pool.apply_async(task, kwds=kwargs)
+                worker_result.wait()
+                return worker_result.get()  # Fetch and return actual result
+        else:
+            result = task(**kwargs)  # Just call the task and get result
+            return result
+                
 
 
 def infer_interactive(
@@ -55,15 +85,27 @@ def infer_interactive(
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
-        model_response = infer(
+        # model_response = infer(
+        #     config=config,
+        #     inputs=[
+        #         input_text,
+        #     ],
+        #     system_prompt=system_prompt,
+        #     input_image_bytes=input_image_bytes,
+        #     inference_engine=inference_engine,
+        # )
+
+        model_response = _print_and_wait(
+            "Running inference...",
+            task=infer,
+            asynchronous=False,
             config=config,
-            inputs=[
-                input_text,
-            ],
+            inputs=[input_text],
             system_prompt=system_prompt,
             input_image_bytes=input_image_bytes,
             inference_engine=inference_engine,
-        )
+        )      
+
         for g in model_response:
             print("------------")
             print(repr(g))
