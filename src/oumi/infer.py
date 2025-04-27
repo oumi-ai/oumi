@@ -85,15 +85,6 @@ def infer_interactive(
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             print("\nExiting...")
             return
-        # model_response = infer(
-        #     config=config,
-        #     inputs=[
-        #         input_text,
-        #     ],
-        #     system_prompt=system_prompt,
-        #     input_image_bytes=input_image_bytes,
-        #     inference_engine=inference_engine,
-        # )
 
         model_response = _print_and_wait(
             "Running inference...",
