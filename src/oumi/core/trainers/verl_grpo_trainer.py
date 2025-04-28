@@ -162,7 +162,7 @@ class VerlGrpoTrainer(BaseTrainer):
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
 
-        # 4. Validate config.s
+        # 4. Validate config.
         if (
             config.actor_rollout_ref.actor.strategy == "fsdp"
             and config.actor_rollout_ref.actor.strategy != config.critic.strategy
