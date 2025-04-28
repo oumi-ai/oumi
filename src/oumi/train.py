@@ -355,7 +355,7 @@ def train(
         partial_trainer = functools.partial(
             create_trainer_fn,
             processing_class=tokenizer,
-            args=config.training,
+            config=config,
             train_dataset=dataset,
             eval_dataset=eval_dataset,
             **training_kwargs,
