@@ -208,7 +208,7 @@ trainer:
   balance_batch: True
   total_epochs: 30
   total_training_steps: null
-  project_name: oum_verl
+  project_name: oumi_verl
   experiment_name: null
   logger: [ 'console', 'wandb' ]
   log_val_generations: 0
