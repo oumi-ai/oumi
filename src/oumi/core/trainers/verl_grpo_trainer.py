@@ -117,10 +117,12 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
+        # 1. Read verl default dict config from YAML.
         yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
-        # Read verl default dict config from YAML.
         config = OmegaConf.load(yaml_path)
         config = cast(DictConfig, config)
+
+        # 2. Set config values, ex. from Oumi config values
         config.algorithm.adv_estimator = "grpo"
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
@@ -156,16 +158,18 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = training_params.output_dir
 
-        # Could be auto-set
-        config.trainer.n_gpus_per_node = 2
-        config.trainer.nnodes = 1
-
-        # Apply user overrides
+        # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
 
-        if config.actor_rollout_ref.actor.strategy == "fsdp":
-            assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
+        # 4. Validate config.s
+        if (
+            config.actor_rollout_ref.actor.strategy == "fsdp"
+            and config.actor_rollout_ref.actor.strategy != config.critic.strategy
+        ):
+            raise ValueError(
+                "Actor and critic must use the same strategy when using FSDP."
+            )
         return config
 
     def _setup_verl_trainer(self):
