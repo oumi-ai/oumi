@@ -313,7 +313,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 **batch, generation_config=generation_config, tokenizer=self._tokenizer
             )
 
-            # For each batch, remove the prepended prompts from all model reponses.
+            # For each batch, remove the prepended prompts from all model responses.
             if generation_params.exclude_prompt_from_response:
                 new_batch_data = []
                 for response_index, response in enumerate(output_batch.data):
