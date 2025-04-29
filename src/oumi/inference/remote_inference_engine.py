@@ -17,6 +17,7 @@ import copy
 import json
 import os
 import tempfile
+import time
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
@@ -439,6 +440,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
+            
+        # Track token usage and request timestamps
+        input_token_usage = 0
+        output_token_usage = 0
+        request_timestamps = []
+        
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params, model_params
@@ -456,6 +463,24 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 ) as response:
                     response_json = await response.json()
                     if response.status == 200:
+                        # Extract token usage from the response
+                        input_tokens = response_json.get("usage", {}).get("prompt_tokens", 0)
+                        output_tokens = response_json.get("usage", {}).get("completion_tokens", 0)
+
+                        # Update token usage and request timestamps
+                        input_token_usage += input_tokens
+                        output_token_usage += output_tokens
+                        request_timestamps.append(time.time())
+
+                        # Enforce rate limits
+                        await self._enforce_rate_limits(
+                            remote_params,
+                            input_token_usage,
+                            output_token_usage,
+                            request_timestamps,
+                        )
+
+                        # Process the result
                         result = self._convert_api_output_to_conversation(
                             response_json, conversation
                         )
@@ -465,7 +490,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 result,
                                 self._get_scratch_filepath(output_path),
                             )
-                        await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
                         if isinstance(response_json, list):
@@ -477,11 +501,44 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             else None
                         )
                         retries += 1
-                        await asyncio.sleep(remote_params.politeness_policy)
             raise RuntimeError(
                 f"Failed to query API after {remote_params.max_retries} retries. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
+
+    async def _enforce_rate_limits(
+        self,
+        remote_params: RemoteParams,
+        input_token_usage: int,
+        output_token_usage: int,
+        request_timestamps: list[float],
+    ) -> None:
+        """Enforces rate limits for requests and tokens.
+
+        Args:
+            remote_params: The remote parameters containing rate limits.
+            input_token_usage: The total input tokens used so far.
+            output_token_usage: The total output tokens used so far.
+            request_timestamps: A list of timestamps for recent requests.
+        """
+        current_time = time.time()
+
+        # Enforce requests per minute limit
+        if len(request_timestamps) > remote_params.requests_per_min:
+            oldest_request = request_timestamps.pop(0)
+            time_since_oldest_request = current_time - oldest_request
+            if time_since_oldest_request < 60:
+                await asyncio.sleep(60 - time_since_oldest_request)
+
+        # Enforce input token limit
+        if remote_params.input_token_limit and input_token_usage > remote_params.input_token_limit:
+            await asyncio.sleep(60)  # Wait for a full minute to reset token usage
+            input_token_usage = 0  # Reset input token usage after the delay
+
+        # Enforce output token limit
+        if remote_params.output_token_limit and output_token_usage > remote_params.output_token_limit:
+            await asyncio.sleep(60)  # Wait for a full minute to reset token usage
+            output_token_usage = 0  # Reset output token usage after the delay
 
     async def _infer(
         self,
