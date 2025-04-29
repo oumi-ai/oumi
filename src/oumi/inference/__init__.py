@@ -22,6 +22,7 @@ from oumi.inference.deepseek_inference_engine import DeepSeekInferenceEngine
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
+from oumi.inference.meta_inference_engine import MetaInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
 from oumi.inference.parasail_inference_engine import ParasailInferenceEngine
@@ -38,6 +39,7 @@ __all__ = [
     "GoogleGeminiInferenceEngine",
     "GoogleVertexInferenceEngine",
     "LlamaCppInferenceEngine",
+    "MetaInferenceEngine",
     "NativeTextInferenceEngine",
     "OpenAIInferenceEngine",
     "ParasailInferenceEngine",
@@ -47,5 +49,4 @@ __all__ = [
     "SGLangInferenceEngine",
     "TogetherInferenceEngine",
     "VLLMInferenceEngine",
-    "SambanovaInferenceEngine",
 ]
