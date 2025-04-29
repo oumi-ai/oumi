@@ -1,4 +1,4 @@
-# Job config to full fine-tune InternVL 3.0 1B on GCP.
+# Job config to full fine-tune InternVL 3.0 1B on GCP on a single GPU.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -18,7 +18,7 @@ name: internvl3-sft-oumi-train
 
 resources:
   cloud: gcp
-  accelerators: "A100:1"
+  accelerators: "A100:1" # Model has been tested with a single GPU only.
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
@@ -52,17 +52,8 @@ setup: |
 
   # Extra requirements for this model:
   pip install timm
-  pip install -U flash-attn --no-build-isolation
-
-
 
 run: |
-  # TODO remove.
-  pip install uv && uv pip install ".[gpu]" hf_transfer
-  pip install git+https://github.com/huggingface/transformers.git
-  pip install timm
-  pip install -U flash-attn --no-build-isolation
-
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 

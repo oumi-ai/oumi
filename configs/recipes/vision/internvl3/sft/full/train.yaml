@@ -5,11 +5,11 @@
 # See README.md for more details.
 #
 # Requirements:
-#   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#     FIXME: ADD ALL
 #   - Run `pip install timm`
-#   - Optional:
-#   - Run `pip install -U flash-attn --no-build-isolation`
+#   Latest version of `transformers` (4.52.0.dev0) is required for this model.
+#     - `pip install git+https://github.com/huggingface/transformers.git`
+#
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/internvl3/sft/full/train.yaml
@@ -22,12 +22,9 @@
 
 model:
   model_name: "OpenGVLab/InternVL3-1B-hf"
-  torch_dtype_str: "bfloat16"   # if you define this, we must manually call .to(dtype=torch.bfloat16) on the result of processor.apply_chat_template because otherwise the model will be in bfloat16 but its input (output) of apply_chat_template will be in float32.
-  # unfortunately, transformers.processing_utils.AllKwargsForChatTemplate
-  # doesn't support this hyperpameter yet.
   model_max_length: 8192
   trust_remote_code: True
-  attn_implementation: "sdpa" # or "flash_attention_2" for improved performance
+  attn_implementation: "sdpa"
   chat_template: "internvl3"
   freeze_layers:
     - "vision_tower"
@@ -65,18 +62,13 @@ training:
   trainer_type: "TRL_SFT" # or "OUMI"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1
-
-  # TODO MULTI-GPU
-  # gradient_accumulation_steps: 16 # With 8 GPUS => effective batch size = 128
-
-  gradient_accumulation_steps: 2 # With 8 GPUS => effective batch size = 128
+  gradient_accumulation_steps: 8
   max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
   # num_train_epochs: 1
 
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
-  # ddp_find_unused_parameters: False
   empty_device_cache_steps: 1
   compile: False
 
