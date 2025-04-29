@@ -60,6 +60,7 @@ dependencies = [
     "protobuf>=5.29.0",
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
+    "rich>=13.4.0,<14.0",        # Used for CLI styling and pretty output
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
     "torch>=2.5.0,<2.6.0",

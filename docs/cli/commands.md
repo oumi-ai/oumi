@@ -120,7 +120,47 @@ For a detailed guide on distributed training, see {doc}`/user_guides/train/train
 This command is a great tool for debugging!
 
 `oumi env` will list relevant details of your environment setup, including python
-version, package versions, and Oumi environment variables.
+version, package versions, CLI styling level, and Oumi environment variables.
+
+### CLI Styling
+
+Oumi's CLI supports two styling modes to make the output more visually appealing and informative:
+
+- **full**: Full styling with colors, animations, spinners, enhanced logging, and advanced formatting (default)
+- **none**: No styling at all (plain text for compatibility with all terminals)
+
+When using the **full** styling mode, log messages are also enhanced with colors and better formatting:
+
+#### Setting the Style Level
+
+You can set the CLI styling mode using:
+
+```bash
+oumi env --styling full   # Enable full styling (default)
+oumi env --styling none   # Disable all styling
+```
+
+Or by setting environment variables:
+
+```bash
+# Disable all styling regardless of other settings
+export OUMI_NO_STYLE=1  
+
+# Set a specific style level
+export OUMI_STYLE_LEVEL=full  # Options: full, none
+```
+
+The CLI will automatically detect whether to use styling based on the terminal capabilities (non-interactive terminals default to no styling), but you can override this behavior with these settings.
+
+#### Testing Log Styling
+
+To see examples of how log messages will look with the current styling settings, use:
+
+```bash
+oumi env --test-logs
+```
+
+This will display sample log messages at different levels (DEBUG, INFO, WARNING, ERROR, etc.) with the appropriate styling.
 
 ```{typer} oumi.cli.main.app.env
   :prog: oumi env

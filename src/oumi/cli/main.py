@@ -14,8 +14,10 @@
 
 import os
 import sys
+from typing import Optional
 
 import typer
+from rich.panel import Panel
 
 from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.distributed_run import accelerate, torchrun
@@ -27,6 +29,7 @@ from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.train import train
+from oumi.utils.cli_styling import StyleLevel, get_style_level
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -36,20 +39,63 @@ _ASCII_LOGO = r"""
  | |__| | |__| | |  | |_| |_
   \____/ \____/|_|  |_|_____|"""
 
+_FANCY_LOGO = r"""
+  ██████╗ ██╗   ██╗███╗   ███╗██╗
+ ██╔═══██╗██║   ██║████╗ ████║██║
+ ██║   ██║██║   ██║██╔████╔██║██║
+ ██║   ██║██║   ██║██║╚██╔╝██║██║
+ ╚██████╔╝╚██████╔╝██║ ╚═╝ ██║██║
+  ╚═════╝  ╚═════╝ ╚═╝     ╚═╝╚═╝"""
+
 
 def _oumi_welcome(ctx: typer.Context):
-    if ctx.invoked_subcommand == "distributed":
+    # Skip logo for distributed subcommand or non-primary ranks
+    if ctx.invoked_subcommand == "distributed" or int(os.environ.get("RANK", 0)) > 0:
         return
-    # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
-    if int(os.environ.get("RANK", 0)) > 0:
-        return
-    CONSOLE.print(_ASCII_LOGO, style="green", highlight=False)
+
+    # Get version information for display
+    version = ctx.obj.get("version") if ctx.obj else None
+    version_text = f" v{version}" if version else ""
+
+    # Select logo style based on styling setting
+    if get_style_level() == StyleLevel.NONE:
+        CONSOLE.print(_ASCII_LOGO)
+    else:
+        # Create fancy panel with logo for FULL styling mode
+        CONSOLE.print(
+            Panel(
+                _FANCY_LOGO,
+                title=f"Oumi{version_text}",
+                title_align="center",
+                subtitle="AI Model Platform",
+                subtitle_align="center",
+                border_style="primary",
+                padding=(1, 2),
+            )
+        )
 
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
     app = typer.Typer(pretty_exceptions_enable=False)
-    app.callback()(_oumi_welcome)
+
+    @app.callback()
+    def callback(ctx: typer.Context):
+        # Initialize ctx.obj if it doesn't exist
+        if ctx.obj is None:
+            ctx.obj = {}
+
+        # Get version from package
+        try:
+            from oumi.utils.version_utils import get_version
+
+            ctx.obj["version"] = get_version()
+        except ImportError:
+            ctx.obj["version"] = "unknown"
+
+        # Display welcome message
+        _oumi_welcome(ctx)
+
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",

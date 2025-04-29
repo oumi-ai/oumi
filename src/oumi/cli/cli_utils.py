@@ -22,8 +22,13 @@ import requests
 import typer
 import yaml
 from requests.exceptions import RequestException
-from rich.console import Console
 
+from oumi.utils.cli_styling import (
+    create_styled_console,
+    print_result,
+    styled_header,
+    with_spinner,
+)
 from oumi.utils.logging import logger
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
@@ -32,19 +37,18 @@ OUMI_FETCH_DIR = "~/.oumi/fetch"
 OUMI_GITHUB_RAW = "https://raw.githubusercontent.com/oumi-ai/oumi/main"
 _OUMI_PREFIX = "oumi://"
 
-CONSOLE = Console()
+# Create a globally shared console object with proper styling
+CONSOLE = create_styled_console()
 
 
-def section_header(title, console: Console = CONSOLE):
+def section_header(title, console=CONSOLE):
     """Print a section header with the given title.
 
     Args:
         title: The title text to display in the header.
         console: The Console object to use for printing.
     """
-    console.print(f"\n[blue]{'━' * console.width}[/blue]")
-    console.print(f"[yellow]   {title}[/yellow]")
-    console.print(f"[blue]{'━' * console.width}[/blue]\n")
+    styled_header(title, console)
 
 
 def parse_extra_cli_args(ctx: typer.Context) -> list[str]:
@@ -210,27 +214,35 @@ def resolve_and_fetch_config(
             logger.error(msg)
             raise RuntimeError(msg)
 
-        # Fetch from GitHub
         github_url = f"{OUMI_GITHUB_RAW}/{new_config_path.lstrip('/')}"
-        response = requests.get(github_url)
-        response.raise_for_status()
-        config_content = response.text
 
-        # Validate YAML
-        yaml.safe_load(config_content)
+        # Use spinner while fetching
+        with with_spinner(f"Fetching configuration from {github_url}", CONSOLE):
+            # Fetch from GitHub
+            response = requests.get(github_url)
+            response.raise_for_status()
+            config_content = response.text
 
-        # Save to destination
-        if local_path.exists():
-            logger.warning(f"Overwriting existing config at {local_path}")
-        local_path.parent.mkdir(parents=True, exist_ok=True)
+            # Validate YAML
+            yaml.safe_load(config_content)
 
-        with open(local_path, "w") as f:
-            f.write(config_content)
+            # Save to destination
+            if local_path.exists():
+                logger.warning(f"Overwriting existing config at {local_path}")
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(local_path, "w") as f:
+                f.write(config_content)
+
+        # Show success message
+        print_result(f"Configuration downloaded to {local_path}", True, CONSOLE)
         logger.info(f"Successfully downloaded config to {local_path}")
     except RequestException as e:
+        print_result(f"Failed to download config: {e}", False, CONSOLE)
         logger.error(f"Failed to download config from GitHub: {e}")
         raise
     except yaml.YAMLError:
+        print_result("Invalid YAML configuration", False, CONSOLE)
         logger.error("Invalid YAML configuration")
         raise
 

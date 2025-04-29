@@ -14,12 +14,17 @@
 
 import importlib.metadata
 import importlib.util
+import logging
 import os
 import platform
+from typing import Annotated, Optional
 
+import typer
 from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.utils.cli_styling import StyleLevel, get_style_level, print_result
+from oumi.utils.logging import logger
 
 
 def _get_package_version(package_name: str, version_fallback: str) -> str:
@@ -39,8 +44,37 @@ def _get_package_version(package_name: str, version_fallback: str) -> str:
         return version_fallback
 
 
-def env():
-    """Prints information about the current environment."""
+def env(
+    styling: Annotated[
+        Optional[str],
+        typer.Option(
+            "--styling",
+            help="Set the CLI styling level (none, full)",
+        ),
+    ] = None,
+    test_logs: Annotated[
+        bool,
+        typer.Option(
+            "--test-logs",
+            help="Display sample log messages at each level to test formatting",
+        ),
+    ] = False,
+):
+    """Prints information about the current environment and controls CLI styling."""
+
+    # Handle styling option if provided
+    if styling is not None:
+        valid_levels = [level.value for level in StyleLevel]
+        styling = styling.lower()
+
+        if styling in valid_levels:
+            os.environ["OUMI_STYLE_LEVEL"] = styling
+            print_result(f"CLI styling set to '{styling}' for this session", True)
+        else:
+            print_result(
+                f"Invalid styling level '{styling}'. Must be one of: {', '.join(valid_levels)}",
+                False,
+            )
     # Delayed imports
     from oumi.utils.torch_utils import format_cudnn_version
     # End imports
@@ -60,7 +94,9 @@ def env():
             "LOCAL_RANK",
             "LOCAL_WORLD_SIZE",
             "OUMI_EXTRA_DEPS_FILE",
+            "OUMI_NO_STYLE",
             "OUMI_SLURM_CONNECTIONS",
+            "OUMI_STYLE_LEVEL",
             "OUMI_FORCE_EDITABLE_INSTALL",
             "OUMI_USE_SPOT_VM",
             "RANK",
@@ -117,6 +153,11 @@ def env():
     env_table.add_row("Oumi version", _get_package_version("oumi", version_fallback))
     env_table.add_row("Python version", platform.python_version())
     env_table.add_row("Platform", platform.platform())
+
+    # Add CLI styling information
+    current_style = get_style_level()
+    env_table.add_row("CLI styling", current_style.value)
+
     cli_utils.CONSOLE.print(env_table)
     cli_utils.section_header("Installed dependencies:")
     deps_table = Table(show_header=True, show_lines=False)
@@ -152,3 +193,15 @@ def env():
             )
             cuda_table.add_row("GPU memory", f"{total_memory_gb:.1f}GB")
         cli_utils.CONSOLE.print(cuda_table)
+
+    # Test log formatting if requested
+    if test_logs:
+        from oumi.utils.logging import show_log_formatting
+
+        cli_utils.section_header("Log Formatting Test:")
+
+        # Temporarily set to DEBUG level to show all message types
+        original_level = logger.level
+        logger.setLevel(logging.DEBUG)
+        show_log_formatting()
+        logger.setLevel(original_level)

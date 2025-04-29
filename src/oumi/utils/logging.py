@@ -19,6 +19,30 @@ import warnings
 from pathlib import Path
 from typing import Optional, Union
 
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.theme import Theme
+
+from oumi.utils.cli_styling import StyleLevel, get_style_level
+
+# Define log colors theme
+LOG_THEME = Theme(
+    {
+        "logging.level.debug": "dim cyan",
+        "logging.level.info": "bright_blue",
+        "logging.level.warning": "bright_yellow",
+        "logging.level.error": "bright_red",
+        "logging.level.critical": "bold bright_white on red",
+        "logging.time": "dim bright_white",
+        "logging.file": "dim bright_magenta",
+        "logging.line": "dim bright_white",
+        "logging.rank": "bright_cyan",
+        "logging.thread": "dim green",
+        "logging.pid": "dim blue",
+        "logging.name": "green",
+    }
+)
+
 
 def get_logger(
     name: str,
@@ -78,24 +102,48 @@ def configure_logger(
 
     device_rank = _detect_rank()
 
-    formatter = logging.Formatter(
-        "[%(asctime)s][%(name)s]"
-        f"[rank{device_rank}]"
-        "[pid:%(process)d][%(threadName)s]"
-        "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
-    )
-
-    # Add a console handler to the logger for only global leader.
+    # Add console handler for primary rank only
     if device_rank == 0:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        console_handler.setLevel(level.upper())
-        logger.addHandler(console_handler)
+        # Standard formatter used for all log modes
+        std_formatter = logging.Formatter(
+            "[%(asctime)s][%(name)s]"
+            f"[rank{device_rank}]"
+            "[pid:%(process)d][%(threadName)s]"
+            "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
+        )
 
-    # Add a file handler if log_dir is provided
+        # Determine whether to use rich logging based on style level
+        if get_style_level() == StyleLevel.FULL:
+            console = Console(theme=LOG_THEME)
+            handler = RichHandler(
+                console=console,
+                rich_tracebacks=True,
+                markup=True,
+                show_time=True,
+                show_level=True,
+                show_path=True,
+                enable_link_path=True,
+                log_time_format="%Y-%m-%d %H:%M:%S",
+            )
+        else:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(std_formatter)
+
+        handler.setLevel(level.upper())
+        logger.addHandler(handler)
+
+    # Add a file handler if log_dir is provided (for all ranks)
     if log_dir:
         log_dir = Path(log_dir)
         log_dir.mkdir(parents=True, exist_ok=True)
+
+        # For file logging, always use standard formatter
+        formatter = logging.Formatter(
+            "[%(asctime)s][%(name)s]"
+            f"[rank{device_rank}]"
+            "[pid:%(process)d][%(threadName)s]"
+            "[%(levelname)s]][%(filename)s:%(lineno)s] %(message)s"
+        )
 
         file_handler = logging.FileHandler(log_dir / f"rank_{device_rank:04d}.log")
         file_handler.setFormatter(formatter)
@@ -148,3 +196,23 @@ def configure_dependency_warnings(level: Union[str, int] = "info") -> None:
 
 # Default logger for the package
 logger = get_logger("oumi")
+
+
+def show_log_formatting() -> None:
+    """
+    Display examples of each log level to demonstrate the formatting.
+    Useful for testing the log colors and styling.
+    """
+    # Show a sample of each log level with descriptive messages
+    logger.debug("DEBUG level: Detailed information for debugging purposes")
+    logger.info("INFO level: General information about program operation")
+    logger.warning("WARNING level: Indication of a potential problem")
+    logger.error("ERROR level: An issue that needs attention")
+
+    # Show traceback formatting
+    try:
+        1 / 0
+    except Exception as e:
+        logger.exception(f"EXCEPTION with traceback: {e}")
+
+    logger.critical("CRITICAL level: A serious error affecting program operation")
