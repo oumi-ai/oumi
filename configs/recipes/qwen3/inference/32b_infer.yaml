@@ -1,0 +1,33 @@
+# Inference config for Qwen3 32B.
+#
+# Requirements:
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/qwen3/inference/32b_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen3-32B"
+  model_max_length: 32768
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 32768
+  # Set based on recommended Qwen3 best practices for thinking model:
+  # https://huggingface.co/Qwen/Qwen3-235B-A22B#best-practices.
+  temperature: 0.6
+  top_p: 0.95
+  min_p: 0.0
+  use_sampling: True
+  # If repetitions are still present, consider increasing this value (up to 2.0).
+  presence_penalty: 0.0
+
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
