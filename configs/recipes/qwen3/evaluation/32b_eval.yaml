@@ -15,7 +15,7 @@
 
 model:
   model_name: "Qwen/Qwen3-32B"
-  model_max_length: 131072
+  model_max_length: 32768
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True

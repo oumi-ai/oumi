@@ -4,7 +4,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml
+#   oumi distributed torchrun -m oumi train -c oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -14,7 +14,7 @@
 
 model:
   model_name: "Qwen/Qwen3-32B"
-  model_max_length: 2048
+  model_max_length: 32768
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
