@@ -12,12 +12,60 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A unified interface for multiple inference engines and models."""
+"""A unified interface for multiple inference engines and models.
+
+The MetaInferenceEngine provides a simplified interface to run inference across
+different models and inference engines without needing to create separate
+configurations for each model. It automatically selects the appropriate engine
+based on the model name.
+
+Examples:
+    Basic usage with multiple models:
+
+    ```python
+    from oumi.inference import MetaInferenceEngine
+    from oumi.core.types.conversation import Conversation, Message, Role
+
+    # Create a simple conversation
+    conversation = Conversation(messages=[
+        Message(role=Role.USER, content="Explain quantum computing in simple terms.")
+    ])
+
+    # Initialize the engine with generation parameters
+    engine = MetaInferenceEngine(temperature=0.7, max_tokens=1000)
+
+    # Run inference with different models
+    for model_name in ["gpt-4o", "claude-3-sonnet", "gemini-pro"]:
+        response = engine.infer([conversation], model_name=model_name)
+        print(f"\\n=== {model_name} response ===")
+        print(response[0].messages[-1].content)
+    ```
+
+    With custom API keys:
+
+    ```python
+    # For models requiring API keys
+    engine = MetaInferenceEngine(temperature=0.7)
+
+    # For OpenAI
+    response = engine.infer(
+        [conversation],
+        model_name="gpt-4",
+        remote_params={"api_key": "your-openai-key"}
+    )
+
+    # For Anthropic
+    response = engine.infer(
+        [conversation],
+        model_name="claude-3-opus",
+        remote_params={"api_key": "your-anthropic-key"}
+    )
+    ```
+"""
 
 import re
 from typing import Any, Optional
 
-from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -48,8 +96,12 @@ class MetaInferenceEngine:
 
         Args:
             **generation_kwargs: Keyword arguments to configure generation parameters
-                (e.g., temperature, max_tokens, top_p, etc.)
+                (e.g., temperature, max_new_tokens, top_p, etc.)
         """
+        # Convert common API parameter names to Oumi parameters
+        if "max_tokens" in generation_kwargs:
+            generation_kwargs["max_new_tokens"] = generation_kwargs.pop("max_tokens")
+
         self.generation_params = GenerationParams(**generation_kwargs)
         self._engines: dict[str, BaseInferenceEngine] = {}
 
@@ -85,6 +137,8 @@ class MetaInferenceEngine:
             remote_params = RemoteParams(**engine_kwargs.get("remote_params", {}))
 
         # Build the engine
+        from oumi.builders.inference_engines import build_inference_engine
+
         engine = build_inference_engine(
             engine_type=engine_type,
             model_params=model_params,
@@ -171,6 +225,9 @@ class MetaInferenceEngine:
 
             # Get or create engine for this model using the config
             engine_type = config.engine or self._select_engine_type(model_name)
+
+            from oumi.builders.inference_engines import build_inference_engine
+
             engine = build_inference_engine(
                 engine_type=engine_type,
                 model_params=config.model,
