@@ -10,7 +10,7 @@
 
 This model has been integrated in Oumi with significant *limitations*.
 
-1. It requires the latest transformers  version (4.52.0.dev0), which you can install with:
+1. It requires the latest transformers version (4.52.0.dev0), which you can install with:
 ```sh
     pip install git+https://github.com/huggingface/transformers.git
 ```
