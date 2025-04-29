@@ -22,4 +22,4 @@ model:
 generation:
   max_new_tokens: 2048
 
-engine: NATIVE # Can also use VLLM for faster inference on GPUs.
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
