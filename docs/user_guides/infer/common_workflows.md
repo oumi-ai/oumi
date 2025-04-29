@@ -227,7 +227,32 @@ for conv in results:
 
 For more examples and detailed API documentation, see the [OpenAI Batch API documentation](https://platform.openai.com/docs/api-reference/batch).
 
+## Using MetaInferenceEngine
+
+For a simplified interface that automatically selects the appropriate inference engine based on the model name:
+
+```python
+from oumi.inference import MetaInferenceEngine
+from oumi.core.types.conversation import Conversation, Message, Role
+
+conversation = Conversation(messages=[
+    Message(role=Role.USER, content="Explain quantum computing in simple terms.")
+])
+
+# Create engine with common generation parameters
+engine = MetaInferenceEngine(temperature=0.7, max_tokens=1000)
+
+# Run with different models, the engine will automatically select the right provider
+for model_name in ["gpt-4o", "claude-3-sonnet", "gemini-pro"]:
+    response = engine.infer([conversation], model_name=model_name)
+    print(f"\n=== {model_name} response ===")
+    print(response[0].messages[-1].content)
+```
+
+See {doc}`meta_inference_engine` for more details on this simplified interface.
+
 ## See Also
 
 - {doc}`configuration` for configuration options
 - {doc}`inference_engines` for local and remote inference engines
+- {doc}`meta_inference_engine` for simplified multi-provider inference
