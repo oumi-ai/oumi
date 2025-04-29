@@ -36,8 +36,6 @@ envs:
 
 setup: |
   set -e
-
-  # pip install uv && uv pip install oumi[gpu] hf_transfer # TODO Use this
   pip install uv && uv pip install ".[gpu]" hf_transfer
 
   # Install model from HF Hub. This tool increases download speed compared to
@@ -47,7 +45,6 @@ setup: |
   # Use transformers latest version (4.52.0.dev0)
   # Use this with caution, as it might break some of Oumi's features which is as of
   # today (April 23rd 2025) is using transformers <4.52.
-
   pip install git+https://github.com/huggingface/transformers.git
 
   # Extra requirements for this model:
