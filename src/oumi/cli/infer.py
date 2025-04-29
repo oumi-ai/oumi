@@ -13,16 +13,104 @@
 # limitations under the License.
 
 import os
-from typing import Annotated, Final, Optional
+from typing import Annotated, Final, Optional, Dict, Tuple, List
 
 import typer
+from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 import oumi.cli.cli_utils as cli_utils
 from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.logging import logger
 
 _DEFAULT_CLI_PDF_DPI: Final[int] = 200
+
+
+def check(
+    ctx: typer.Context,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
+):
+    """Check which inference engines are supported in the current environment.
+    
+    This command displays a list of all available inference engines and indicates
+    which ones are compatible with the current environment. For each engine,
+    it shows specific compatibility information such as:
+    - For remote engines: If API keys are properly configured
+    - For local engines: If required hardware (e.g., GPU) is available
+    
+    Args:
+        ctx: The Typer context object.
+        level: The logging level for the specified command.
+    """
+    # Import here to avoid circular imports
+    from oumi.core.configs import InferenceEngineType
+    from oumi.builders.inference_engines import ENGINE_MAP
+    
+    # Use rich for pretty formatting
+    console = Console()
+    
+    console.print("Checking inference engine compatibility...", style="bold blue")
+    
+    # Create table for the results
+    table = Table(
+        title="Inference Engine Compatibility",
+        title_style="bold magenta",
+        show_edge=False,
+        show_lines=True,
+    )
+    
+    table.add_column("Engine", style="cyan")
+    table.add_column("Type", style="blue")
+    table.add_column("Compatible", style="green")
+    table.add_column("Details", style="yellow")
+    
+    # Check each engine
+    all_engines = list(InferenceEngineType)
+    all_engines.sort(key=lambda x: x.value)
+    
+    for engine_type in all_engines:
+        engine_name = engine_type.value
+        
+        # Skip REMOTE type as it's a generic type and not directly used
+        if engine_type == InferenceEngineType.REMOTE:
+            continue
+            
+        if engine_type in ENGINE_MAP:
+            engine_class = ENGINE_MAP[engine_type]
+            
+            # Categorize engines
+            if any(remote_name in engine_class.__name__ for remote_name in ["OpenAI", "Anthropic", "Google", "Remote"]):
+                engine_category = "Remote API"
+            elif engine_class.__name__ in ["VLLMInferenceEngine", "SGLangInferenceEngine"]:
+                engine_category = "GPU-based"
+            elif engine_class.__name__ == "LlamaCppInferenceEngine":
+                engine_category = "CPU/GPU"
+            else:
+                engine_category = "Local"
+            
+            # Check compatibility
+            is_compatible, message = engine_class.check()
+            
+            # Format compatibility status
+            status_text = Text("✓ Yes") if is_compatible else Text("✗ No")
+            status_text.stylize("bold green" if is_compatible else "bold red")
+            
+            table.add_row(
+                engine_name,
+                engine_category,
+                status_text,
+                message
+            )
+        else:
+            table.add_row(
+                engine_name, 
+                "Unknown",
+                Text("? Unknown", style="bold yellow"),
+                "Engine implementation not found in ENGINE_MAP"
+            )
+    
+    console.print(table)
 
 
 def infer(
@@ -33,10 +121,17 @@ def infer(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
         ),
-    ],
+    ] = "",
     interactive: Annotated[
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
+    ] = False,
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check", 
+            help="Check which inference engines are compatible with the current environment.",
+        ),
     ] = False,
     image: Annotated[
         Optional[str],
@@ -72,10 +167,86 @@ def infer(
         output_dir: Directory to save configs
         (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
+        check: Whether to check inference engine compatibility.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
     """
+    # If --check flag is used, run the engine compatibility check
+    if check:
+        # Import here to avoid circular imports
+        from oumi.core.configs import InferenceEngineType
+        from oumi.builders.inference_engines import ENGINE_MAP
+        
+        # Use rich for pretty formatting
+        console = Console()
+        
+        console.print("Checking inference engine compatibility...", style="bold blue")
+        
+        # Create table for the results
+        table = Table(
+            title="Inference Engine Compatibility",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
+        )
+        
+        table.add_column("Engine", style="cyan")
+        table.add_column("Type", style="blue")
+        table.add_column("Compatible", style="green")
+        table.add_column("Details", style="yellow")
+        
+        # Check each engine
+        all_engines = list(InferenceEngineType)
+        all_engines.sort(key=lambda x: x.value)
+        
+        for engine_type in all_engines:
+            engine_name = engine_type.value
+            
+            # Skip REMOTE type as it's a generic type and not directly used
+            if engine_type == InferenceEngineType.REMOTE:
+                continue
+                
+            if engine_type in ENGINE_MAP:
+                engine_class = ENGINE_MAP[engine_type]
+                
+                # Categorize engines
+                if any(remote_name in engine_class.__name__ for remote_name in ["OpenAI", "Anthropic", "Google", "Remote"]):
+                    engine_category = "Remote API"
+                elif engine_class.__name__ in ["VLLMInferenceEngine", "SGLangInferenceEngine"]:
+                    engine_category = "GPU-based"
+                elif engine_class.__name__ == "LlamaCppInferenceEngine":
+                    engine_category = "CPU/GPU"
+                else:
+                    engine_category = "Local"
+                
+                # Check compatibility
+                try:
+                    is_compatible, message = engine_class.check()
+                except Exception as e:
+                    is_compatible = False
+                    message = f"Error checking compatibility: {str(e)}"
+                
+                # Format compatibility status
+                status_text = Text("✓ Yes") if is_compatible else Text("✗ No")
+                status_text.stylize("bold green" if is_compatible else "bold red")
+                
+                table.add_row(
+                    engine_name,
+                    engine_category,
+                    status_text,
+                    message
+                )
+            else:
+                table.add_row(
+                    engine_name, 
+                    "Unknown",
+                    Text("? Unknown", style="bold yellow"),
+                    "Engine implementation not found in ENGINE_MAP"
+                )
+        
+        console.print(table)
+        return
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     config = str(

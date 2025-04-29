@@ -15,7 +15,7 @@
 import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple, ClassVar, Type
 
 import jsonlines
 from tqdm import tqdm
@@ -37,6 +37,21 @@ class BaseInferenceEngine(ABC):
 
     _generation_params: GenerationParams
     """The generation parameters."""
+    
+    @classmethod
+    def check(cls) -> Tuple[bool, str]:
+        """Checks if the inference engine is compatible with the current environment.
+        
+        This method should be used to check whether the engine can be successfully initialized
+        without actually creating an instance. For example, it should verify:
+        - For remote engines: if the API key is correctly configured
+        - For local engines: if the required hardware is available
+        
+        Returns:
+            Tuple[bool, str]: A tuple with the result (True if compatible, False otherwise)
+                             and a string message explaining the result
+        """
+        return (True, "This engine does not implement specific compatibility checks")
 
     def __init__(
         self,

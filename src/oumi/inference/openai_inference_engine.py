@@ -13,7 +13,8 @@
 # limitations under the License.
 
 import copy
-from typing import Any, Optional
+import os
+from typing import Any, Optional, Tuple
 
 from typing_extensions import override
 
@@ -24,6 +25,30 @@ from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 class OpenAIInferenceEngine(RemoteInferenceEngine):
     """Engine for running inference against the OpenAI API."""
+    
+    @classmethod
+    @override
+    def check(cls) -> Tuple[bool, str]:
+        """Checks if the OpenAI API credentials are configured.
+        
+        Verifies:
+        1. If the OPENAI_API_KEY environment variable is set
+        2. If the API key looks valid (basic format check)
+        
+        Returns:
+            Tuple[bool, str]: Whether OpenAI API is properly configured and why
+        """
+        # Use hardcoded env var name instead of the class property
+        api_key = os.environ.get("OPENAI_API_KEY")
+        
+        if not api_key:
+            return (False, "OpenAI API key not found. Set the OPENAI_API_KEY environment variable.")
+        
+        # Basic format check - OpenAI keys usually start with "sk-" and are ~51 chars
+        if not api_key.startswith("sk-") or len(api_key) < 40:
+            return (False, "OpenAI API key format appears invalid. Keys should start with 'sk-'.")
+        
+        return (True, "OpenAI API key is configured")
 
     @property
     @override

@@ -18,6 +18,7 @@ import copy
 import math
 
 import torch
+from typing import Tuple
 from typing_extensions import override
 
 from oumi.builders import build_tokenizer
@@ -47,6 +48,50 @@ except ModuleNotFoundError:
 
 class VLLMInferenceEngine(BaseInferenceEngine):
     """Engine for running vLLM inference locally."""
+    
+    @classmethod
+    @override
+    def check(cls) -> Tuple[bool, str]:
+        """Checks if vLLM can be used in the current environment.
+        
+        Verifies:
+        1. If vLLM is installed
+        2. If GPU is available
+        
+        Returns:
+            Tuple[bool, str]: Whether vLLM is compatible and why
+        """
+        # Check if vLLM is installed
+        try:
+            import vllm
+        except (ImportError, ModuleNotFoundError):
+            return (False, "vLLM is not installed. Please install the GPU dependencies for this package.")
+        
+        # Check if required vLLM components are available
+        try:
+            from vllm.sampling_params import SamplingParams
+        except (ImportError, ModuleNotFoundError):
+            return (False, "vLLM installed but missing required components. Please reinstall or update vLLM.")
+        
+        # Check GPU availability
+        try:
+            if not torch.cuda.is_available():
+                return (False, "No CUDA-compatible GPU detected. vLLM requires a GPU to run.")
+        except Exception:
+            return (False, "Could not check GPU availability. PyTorch CUDA support may be missing.")
+        
+        # Check GPU memory
+        try:
+            gpu_count = torch.cuda.device_count()
+            gpu_details = []
+            for i in range(gpu_count):
+                props = torch.cuda.get_device_properties(i)
+                memory_gb = round(props.total_memory / (1024**3), 2)
+                gpu_details.append(f"{props.name} ({memory_gb} GB)")
+            
+            return (True, f"Found {gpu_count} GPU(s): {', '.join(gpu_details)}")
+        except Exception as e:
+            return (True, f"GPU available but could not get details: {str(e)}")
 
     def __init__(
         self,

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, ClassVar
 
 import aiofiles
 import aiohttp
@@ -202,6 +202,42 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     _remote_params: RemoteParams
     """Parameters for running inference against a remote API."""
+    
+    @classmethod
+    @override
+    def check(cls) -> Tuple[bool, str]:
+        """Checks if the remote API is properly configured.
+        
+        Verifies:
+        1. If the appropriate API key environment variable is set
+        2. If the base_url is defined
+        
+        Returns:
+            Tuple[bool, str]: Whether the remote API is properly configured and why
+        """
+        # For subclasses that define api_key_env_varname as a property method
+        # we need to get the default class variable instead
+        env_var_name = getattr(cls, "api_key_env_varname", None)
+        base_url = getattr(cls, "base_url", None)
+        
+        # Skip check for the abstract base class
+        if cls.__name__ == "RemoteInferenceEngine":
+            return (False, "This is a base class and not meant to be used directly")
+        
+        # Check if API key env var is defined
+        if not isinstance(env_var_name, str):
+            return (False, "No API key environment variable defined for this engine")
+            
+        # Check if API key env var is set
+        api_key = os.environ.get(env_var_name)
+        if not api_key:
+            return (False, f"API key not found. Set the {env_var_name} environment variable.")
+        
+        # Check if base_url is defined
+        if not isinstance(base_url, str):
+            return (False, "No base URL defined for this engine")
+            
+        return (True, f"API key found in {env_var_name} environment variable")
 
     def __init__(
         self,
