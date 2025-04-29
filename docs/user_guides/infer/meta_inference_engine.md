@@ -34,7 +34,35 @@ for model_name in ["gpt-4o", "claude-3-sonnet", "gemini-pro"]:
 
 ## Supported Models
 
-The `MetaInferenceEngine` automatically selects the appropriate engine based on model name pattern:
+The `MetaInferenceEngine` supports three ways to specify models:
+
+### 1. Fully Qualified Names
+
+You can explicitly specify the engine using the format `engine/model`:
+
+```python
+# Using VLLM engine with Llama-3.1-8B model
+response = engine.infer(conversations, model_name="vllm/llama3.1-8b")
+
+# Using Together API with Llama-3.1-70B model
+response = engine.infer(conversations, model_name="together/llama3.1-70b")
+```
+
+### 2. CLI Aliases
+
+You can use the same model aliases defined in Oumi's CLI:
+
+```python
+# Using predefined Claude model configuration
+response = engine.infer(conversations, model_name="claude-3-7-sonnet")
+
+# Using predefined Llama model 
+response = engine.infer(conversations, model_name="llama4-scout-instruct")
+```
+
+### 3. Automatic Engine Selection
+
+For plain model names, the engine is automatically selected based on the model name pattern:
 
 | Model Pattern | Engine |
 |---------------|--------|

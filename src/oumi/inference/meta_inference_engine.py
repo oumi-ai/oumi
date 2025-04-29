@@ -41,6 +41,17 @@ Examples:
         print(response[0].messages[-1].content)
     ```
 
+    Using fully qualified model names and CLI aliases:
+
+    ```python
+    # Using specific engines with fully qualified names
+    vllm_response = engine.infer([conversation], model_name="vllm/llama3.1-8b")
+    together_response = engine.infer([conversation], model_name="together/llama3.1-70b")
+
+    # Using CLI aliases defined in oumi.cli.alias
+    alias_response = engine.infer([conversation], model_name="claude-3-7-sonnet")
+    ```
+
     With custom API keys:
 
     ```python
@@ -111,7 +122,7 @@ class MetaInferenceEngine:
         """Get or create an inference engine for the specified model.
 
         Args:
-            model_name: The name of the model to use
+            model_name: The name of the model to use (can be fully qualified: "engine/model")
             **engine_kwargs: Additional configuration parameters for the engine
 
         Returns:
@@ -123,8 +134,18 @@ class MetaInferenceEngine:
         # Determine appropriate engine based on model name pattern
         engine_type = self._select_engine_type(model_name)
 
+        # Extract the actual model name if using fully qualified format
+        actual_model_name = model_name
+        if "/" in model_name and not (
+            model_name.startswith("meta-llama/")
+            or model_name.startswith("huggingface/")
+            or model_name.startswith("mistralai/")
+        ):
+            # Extract the actual model name part
+            _, actual_model_name = model_name.split("/", 1)
+
         # Create model params
-        model_params = ModelParams(model_name=model_name)
+        model_params = ModelParams(model_name=actual_model_name)
 
         # Create remote params if needed
         remote_params = None
@@ -132,7 +153,9 @@ class MetaInferenceEngine:
             InferenceEngineType.ANTHROPIC,
             InferenceEngineType.OPENAI,
             InferenceEngineType.GOOGLE_GEMINI,
+            InferenceEngineType.GOOGLE_VERTEX,
             InferenceEngineType.TOGETHER,
+            InferenceEngineType.REMOTE,
         ]:
             remote_params = RemoteParams(**engine_kwargs.get("remote_params", {}))
 
@@ -153,12 +176,63 @@ class MetaInferenceEngine:
     def _select_engine_type(self, model_name: str) -> InferenceEngineType:
         """Select the appropriate engine type based on the model name.
 
+        Supports three formats:
+        1. Fully qualified name: "engine_type/model_name" (e.g., "vllm/llama3.1-8b")
+        2. CLI aliases: Names defined in oumi/cli/alias.py (e.g., "llama4-scout-instruct")
+        3. Plain model names: Automatically selects based on model name pattern
+
         Args:
             model_name: The name of the model
 
         Returns:
             The most appropriate inference engine type for the model
         """
+        # Check for fully qualified name in format "engine_type/model_name"
+        if "/" in model_name and not (
+            model_name.startswith("meta-llama/")
+            or model_name.startswith("huggingface/")
+            or model_name.startswith("mistralai/")
+        ):
+            engine_part, _ = model_name.split("/", 1)
+            engine_part = engine_part.upper()
+
+            # Try to match with InferenceEngineType
+            try:
+                return InferenceEngineType(engine_part)
+            except ValueError:
+                # If not a direct match, try some common mappings
+                engine_mappings = {
+                    "OPENAI": InferenceEngineType.OPENAI,
+                    "ANTHROPIC": InferenceEngineType.ANTHROPIC,
+                    "CLAUDE": InferenceEngineType.ANTHROPIC,
+                    "GEMINI": InferenceEngineType.GOOGLE_GEMINI,
+                    "GOOGLE": InferenceEngineType.GOOGLE_GEMINI,
+                    "TOGETHER": InferenceEngineType.TOGETHER,
+                    "LOCAL": InferenceEngineType.NATIVE,
+                    "NATIVE": InferenceEngineType.NATIVE,
+                }
+                if engine_part in engine_mappings:
+                    return engine_mappings[engine_part]
+
+        # Check for CLI aliases in oumi.cli.alias module
+        from oumi.cli.alias import _ALIASES, AliasType
+
+        if model_name in _ALIASES and AliasType.INFER in _ALIASES[model_name]:
+            # We have an alias for inference, but we need to determine the engine type
+            # Let's look at the string pattern in the YAML file
+            yaml_path = _ALIASES[model_name][AliasType.INFER]
+
+            # Map YAML paths to engine types
+            if "apis/anthropic" in yaml_path:
+                return InferenceEngineType.ANTHROPIC
+            elif "apis/openai" in yaml_path:
+                return InferenceEngineType.OPENAI
+            elif "apis/gemini" in yaml_path:
+                return InferenceEngineType.GOOGLE_GEMINI
+            elif "apis/vertex" in yaml_path:
+                return InferenceEngineType.GOOGLE_VERTEX
+
+        # Fall back to pattern matching for the model name
         model_name_lower = model_name.lower()
 
         # OpenAI models
@@ -177,6 +251,10 @@ class MetaInferenceEngine:
         # Google models
         if "gemini" in model_name_lower:
             return InferenceEngineType.GOOGLE_GEMINI
+
+        # Together models
+        if "together" in model_name_lower:
+            return InferenceEngineType.TOGETHER
 
         # LLaMA models - prefer VLLM for local inference
         if (
