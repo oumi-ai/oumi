@@ -1,8 +1,8 @@
-# Qwen 3
+# Qwen3
 
 ## Summary
 
-Configs for Alibaba's Qwen 3 model family. See the [blog post](https://qwenlm.github.io/blog/qwen3/) for more information. Models in this family include:
+Configs for Alibaba's Qwen3 model family. See the [blog post](https://qwenlm.github.io/blog/qwen3/) for more information. Models in this family include:
 
 - Mixture of Experts
   - [Qwen/Qwen3-235B-A22B](https://huggingface.co/Qwen/Qwen3-235B-A22B)
@@ -20,7 +20,7 @@ Configs for Alibaba's Qwen 3 model family. See the [blog post](https://qwenlm.gi
 1. Follow our [quickstart](https://oumi.ai/docs/en/latest/get_started/quickstart.html) for installation.
 2. (Optional) if you wish to kick off jobs on a remote cluster, follow our [job launcher setup guide](https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup).
 3. Run your desired oumi command (examples below)!
-   - Note that installing the Oumi repository is **not required** to run the commands, as we will fetch the config remotely from GitHub thanks to the `oumi://` prefix.
+   - Note that installing the Oumi repository is **not required** to run the commands. We fetch the latest Oumi config remotely from GitHub thanks to the `oumi://` prefix.
 4. (Optional) If you with to do deeper experimentation, follow our [instructions](https://oumi.ai/docs/en/latest/development/dev_setup.html) to clone the Oumi repository locally.
    - Make sure to delete the `oumi://` prefix when running Oumi commands, to disable fetching the latest configs from GitHub!
 
