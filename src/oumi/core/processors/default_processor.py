@@ -197,7 +197,6 @@ class DefaultProcessor(BaseProcessor):
                 padding=padding,
                 return_tensors=return_tensors,
             )
-
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):
