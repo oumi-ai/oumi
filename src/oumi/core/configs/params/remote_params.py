@@ -55,6 +55,21 @@ class RemoteParams(BaseParams):
     Only used for batch inference.
     """
 
+    input_token_limit: Optional[int] = 20000
+    """Rate token for input requests to the API.
+    If greater than zero, this is the maximum number of input tokens per minute.
+    """
+
+    output_token_limit: Optional[int] = 8000
+    """Rate token for output requests to the API.
+    If greater than zero, this is the maximum number of output tokens per minute.
+    """
+
+    requests_per_min: int = 50
+    """Rate limit for requests to the API.
+    If greater than zero, this is the maximum number of requests per minute.
+    """
+
     def __post_init__(self):
         """Validate the remote parameters."""
         if self.num_workers < 1:
@@ -63,6 +78,8 @@ class RemoteParams(BaseParams):
             )
         if self.politeness_policy < 0:
             raise ValueError("Politeness policy must be greater than or equal to 0.")
+        if self.requests_per_min is not None and self.requests_per_min < 0:
+            raise ValueError("Requests Per Minute must be greater than or equal to 0.")
         if self.connection_timeout < 0:
             raise ValueError("Connection timeout must be greater than or equal to 0.")
         if not np.isfinite(self.politeness_policy):
