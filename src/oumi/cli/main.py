@@ -22,7 +22,7 @@ from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
-from oumi.cli.infer import infer, check
+from oumi.cli.infer import infer
 from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
@@ -67,10 +67,6 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Run inference on a model.",
     )(infer)
-    app.command(
-        name="check-engines",
-        help="Check which inference engines are supported in the current environment.",
-    )(check)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
