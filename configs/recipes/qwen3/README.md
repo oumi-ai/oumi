@@ -8,7 +8,7 @@ Configs for Alibaba's Qwen3 model family. See the [blog post](https://qwenlm.git
   - [Qwen/Qwen3-235B-A22B](https://huggingface.co/Qwen/Qwen3-235B-A22B)
   - [Qwen/Qwen3-30B-A3B](https://huggingface.co/Qwen/Qwen3-30B-A3B)
 - Dense
-  - [Qwen/Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B)
+  - [Qwen/Qwen3-30b-a3b](https://huggingface.co/Qwen/Qwen3-30b-a3b)
   - [Qwen/Qwen3-14B](https://huggingface.co/Qwen/Qwen3-14B)
   - [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
   - [Qwen/Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B)
@@ -28,48 +28,48 @@ Configs for Alibaba's Qwen3 model family. See the [blog post](https://qwenlm.git
 
 ### Training
 
-To launch Qwen3 32B LoRA training locally:
+To launch Qwen3 30B A3B LoRA training locally:
 
 ```shell
-oumi train -c oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml
+oumi train -c oumi://configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml
 ```
 
-To launch Qwen3 32B LoRA training on a remote GCP 4x A100 cluster:
+To launch Qwen3 30B A3B LoRA training on a remote GCP 4x A100 cluster:
 
 ```shell
-oumi launch up -c oumi://configs/recipes/qwen3/sft/32b_lora/gcp_job.yaml --cluster qwen3-32b-lora
+oumi launch up -c oumi://configs/recipes/qwen3/sft/30b_a3b_lora/gcp_job.yaml --cluster qwen3-30b-a3b-lora
 ```
 
 ### Evaluation
 
-To evaluate Qwen3 32B locally:
+To evaluate Qwen3 30B A3B locally:
 
 ```shell
-oumi evaluate -c oumi://configs/recipes/qwen3/evaluation/32b_eval.yaml
+oumi evaluate -c oumi://configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml
 ```
 
 To instead use the vLLM engine for inference during evaluation:
 
 ```shell
-oumi evaluate -c oumi://configs/recipes/qwen3/evaluation/32b_eval.yaml --inference_engine VLLM
+oumi evaluate -c oumi://configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml --inference_engine VLLM
 ```
 
-To evaluate Qwen3 32B on a remote GCP 4x A100 cluster:
+To evaluate Qwen3 30B A3B on a remote GCP 4x A100 cluster:
 
 ```shell
-oumi launch up -c oumi://configs/recipes/qwen3/evaluation/32b_gcp_job.yaml --cluster qwen3-32b-eval
+oumi launch up -c oumi://configs/recipes/qwen3/evaluation/30b_a3b_gcp_job.yaml --cluster qwen3-30b-a3b-eval
 ```
 
 ### Inference
 
-To run interactive inference on Qwen3 32B locally:
+To run interactive inference on Qwen3 30B A3B locally:
 
 ```shell
-oumi infer -i -c oumi://configs/recipes/qwen3/inference/32b_infer.yaml
+oumi infer -i -c oumi://configs/recipes/qwen3/inference/30b_a3b_infer.yaml
 ```
 
 To instead use the vLLM engine for inference:
 
 ```shell
-oumi infer -i -c oumi://configs/recipes/qwen3/inference/32b_infer.yaml --engine VLLM
+oumi infer -i -c oumi://configs/recipes/qwen3/inference/30b_a3b_infer.yaml --engine VLLM
 ```
