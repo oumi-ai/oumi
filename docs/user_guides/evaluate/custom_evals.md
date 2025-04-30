@@ -4,13 +4,13 @@ With Oumi, custom evaluations are effortless and powerful, giving you complete c
 
 ## Custom Evaluations Step-by-Step
 
-Running custom evaluation involves three simple steps. First, define the evaluation configuration using a `YAML` file. Next, register your custom evaluation function to compute the metrics that matter to you. Finally, execute the evaluation using Oumi's {py:class}`~oumi.core.evaluation.Evaluator`, which orchestrates the entire process.
+Running a custom evaluation involves three simple steps. First, define the evaluation configuration using a `YAML` file. Next, register your custom evaluation function to compute the metrics that matter to you. Finally, execute the evaluation using Oumi's {py:class}`~oumi.core.evaluation.Evaluator`, which orchestrates the entire process.
 
 ### Step 1: Defining Evaluation Configuration
 
 The evaluation configuration is defined in a `YAML` file and parsed into a {py:class}`~oumi.core.configs.EvaluationTaskParams` object. Below is a simple example for evaluating GPT-4o. You can evaluate most open models (Llama, DeepSeek, Qwen, Phi, and others), closed models (Gemini, Claude, OpenAI), and cloud-hosted models (Vertex AI, Together, SambaNova, etc.) by simply updating the `model_name` and `inference_engine` fields. Example configurations for popular APIs are available at {gh}`src/oumi/configs/apis/`.
 
-For custom evaluations, set `evaluation_backend` to `custom`, and assign `task_name` to the name of your registered custom evaluation function (see Step 2). For more details on setting the configuration file for evaluations, including custom models, refer to our {doc}`documentation </user_guides/evaluate/evaluation_config>`.
+For custom evaluations, always set `evaluation_backend` to `custom`, and assign `task_name` to the name of your registered custom evaluation function (see Step 2). For more details on setting the configuration file for evaluations, including evaluating custom models, refer to our {doc}`documentation </user_guides/evaluate/evaluation_config>`.
 
 ```yaml
 model:
@@ -36,6 +36,8 @@ To define a custom evaluation function, simply register a Python function using 
 - `inference_engine` ({py:class}`~oumi.core.inference.BaseInferenceEngine`): An automatically generated engine for the model specified in the evaluation configuration (by `model_name`). Use its {py:obj}`infer() <oumi.core.inference.BaseInferenceEngine.infer>` method to run inference on a list of examples formatted as {class}`~oumi.core.types.conversation.Conversation`.
 - User-defined inputs (e.g. `my_input`): You may also include any number of additional parameters of any type. These are passed in during execution (see Step 3).
 
+Your custom evaluation function is expected to return a dictionary where each key is a metric name and each value is the corresponding computed result.
+
 ```python
 from oumi.core.registry import register_evaluation_function
 from oumi.core.configs import EvaluationConfig, EvaluationTaskParams
@@ -50,15 +52,13 @@ def my_custom_evaluation(
 ) -> dict[str, Any]
 ```
 
-Your custom evaluation function is expected to return a dictionary where each key is a metric name and each value is the corresponding computed result.
-
 ### Step 3: Executing the Evaluation
 
 Once you've defined your `YAML` configuration and registered the custom evaluation function (as specified by the `task_name` in your config), you can run the evaluation using the code snippet below.
 
-The {py:class}`~oumi.core.evaluation.Evaluator`'s `evaluate` method requires the evaluation configuration ({py:class}`~oumi.core.configs.EvaluationConfig`) and also supports any number of user-defined variables passed as keyword arguments (e.g., `my_input` in the example below). These variable names must exactly match the parameters defined in your custom evaluation function's signature. Otherwise, a runtime error will occur.
+The {py:class}`~oumi.core.evaluation.Evaluator`'s `evaluate` method requires the evaluation configuration (`config` of type {py:class}`~oumi.core.configs.EvaluationConfig`) to be passed in. It also supports any number of user-defined variables passed as keyword arguments (e.g., `my_input` in the example below). These variable names must exactly match the parameters defined in your custom evaluation function's signature. Otherwise, a runtime error will occur.
 
-The `evaluate` method returns a list of {py:class}`~oumi.core.evaluation.evaluation_result.EvaluationResult` objects, one for each task defined in the `tasks` section of your `YAML` file. Each result includes the dictionary returned by your evaluation function (`task_result`), along with useful metadata such as `start_time`, `elapsed_time_sec`, and more.
+The `evaluate` method returns a list of {py:class}`~oumi.core.evaluation.evaluation_result.EvaluationResult` objects, one for each task defined in the `tasks` section of your `YAML` file. Each result includes the dictionary returned by the custom evaluation function (`result.task_result`), along with useful metadata such as `result.start_time`, `result.elapsed_time_sec`, and more.
 
 ```python
 from oumi.core.configs import EvaluationConfig
@@ -70,7 +70,7 @@ results = Evaluator().evaluate(config, my_input=<user_input>)
 
 ## Walk-through Example
 
-This section walks through a simple example to demonstrate how to use custom evaluations in practice. Suppose you want to assess response verbosity (i.e., the average length of a model's responses, measured in number of characters) across multiple models.
+This section walks through a simple example to demonstrate how to use custom evaluations in practice. Suppose you want to assess response verbosity (i.e., the average length of model responses, measured in number of characters) across multiple models.
 
 To do this, assume you’ve prepared a dataset of user queries. A toy dataset (`my_conversations`) with two examples is shown below, formatted as a list of {class}`~oumi.core.types.conversation.Conversation` objects.
 
@@ -110,9 +110,9 @@ gpt_4o_config = """
 
 ### Step 2: Defining Custom Evaluation Function
 
-Next, define the evaluation function. Start by using the provided `inference_engine` to run inference and generate model responses. For each example, the engine appends a response (i.e., a {class}`~oumi.core.types.conversation.Message` with role {py:obj}`~oumi.core.types.conversation.Role`=`ASSISTANT`) to the end of the corresponding {class}`~oumi.core.types.conversation.Conversation`.
+Next, define the evaluation function. Start by using the provided `inference_engine` to run inference and generate model responses. During inference, the engine appends a response (i.e., a {class}`~oumi.core.types.conversation.Message` with role {py:obj}`~oumi.core.types.conversation.Role`=`ASSISTANT`) to the end of each {class}`~oumi.core.types.conversation.Conversation`.
 
-You can retrieve the model response from each `conversation` using the `last_message()` method, then compute the average character length across all responses, as shown in the example below.
+You can retrieve the model response from each {class}`~oumi.core.types.conversation.Conversation` using the `last_message()` method, then compute the average character length across all responses, as shown in the example below.
 
 ```python
 from oumi.core.registry import register_evaluation_function
