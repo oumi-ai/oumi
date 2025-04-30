@@ -69,4 +69,4 @@ fsdp:
   forward_prefetch: True
   sharding_strategy: "FULL_SHARD"
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "Qwen3DecoderLayer"
+  transformer_layer_cls: "Qwen3MoeDecoderLayer"
