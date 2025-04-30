@@ -8,7 +8,7 @@ Running a custom evaluation involves three simple steps. First, define the evalu
 
 ### Step 1: Defining Evaluation Configuration
 
-The evaluation configuration is defined in a `YAML` file and parsed into a {py:class}`~oumi.core.configs.EvaluationTaskParams` object. Below is a simple example for evaluating GPT-4o. You can evaluate most open models (Llama, DeepSeek, Qwen, Phi, and others), closed models (Gemini, Claude, OpenAI), and cloud-hosted models (Vertex AI, Together, SambaNova, etc.) by simply updating the `model_name` and `inference_engine` fields. Example configurations for popular APIs are available at {gh}`src/oumi/configs/apis/`.
+The evaluation configuration is defined in a `YAML` file and parsed into a {py:class}`~oumi.core.configs.EvaluationTaskParams` object. Below is a simple example for evaluating GPT-4o. You can evaluate most open models (Llama, DeepSeek, Qwen, Phi, and others), closed models (Gemini, Claude, OpenAI), and cloud-hosted models (Vertex AI, Together, SambaNova, etc.) by simply updating the `model_name` and `inference_engine` fields. Example configurations for popular APIs are available at [Oumi's repo](https://github.com/oumi-ai/oumi/tree/main/configs/apis).
 
 For custom evaluations, always set `evaluation_backend` to `custom`, and assign `task_name` to the name of your registered custom evaluation function (see Step 2). For more details on setting the configuration file for evaluations, including evaluating custom models, refer to our {doc}`documentation </user_guides/evaluate/evaluation_config>`.
 
