@@ -36,6 +36,7 @@ envs:
 
 setup: |
   set -e
+  # pip install uv && uv pip install oumi[gpu] hf_transfer
   pip install uv && uv pip install ".[gpu]" hf_transfer
 
   # Install model from HF Hub. This tool increases download speed compared to
@@ -51,6 +52,11 @@ setup: |
   pip install timm
 
 run: |
+
+  pip install uv && uv pip install ".[gpu]" hf_transfer
+  pip install git+https://github.com/huggingface/transformers.git
+  pip install timm
+
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 

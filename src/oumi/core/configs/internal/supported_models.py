@@ -259,6 +259,7 @@ def _create_internvl_config() -> InternalModelConfig:
         config.model_input_features["pixel_values"].first_dim_action
         == InternalFeatureFirstDimAction.DROP_IF_DUMMY
     )
+    config.processor_force_dtype = True
     return config
 
 

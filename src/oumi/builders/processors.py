@@ -15,6 +15,7 @@
 import functools
 from typing import Any, Optional
 
+import torch
 import transformers
 
 import oumi.core.constants as constants
@@ -32,6 +33,7 @@ def build_processor(
     *,
     processor_kwargs: Optional[dict[str, Any]] = None,
     trust_remote_code: bool = False,
+    expected_dtype: Optional[torch.dtype] = None,
 ) -> BaseProcessor:
     """Builds a processor.
 
@@ -44,6 +46,7 @@ def build_processor(
         trust_remote_code: Whether to allow loading remote code for this processor
             Some processors come with downloadable executable Python files,
             which can be a potential security risk, unless it's from a trusted source.
+        expected_dtype: TODO.
 
     Returns:
         BaseProcessor: The newly created processor.
@@ -59,10 +62,13 @@ def build_processor(
     label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX
     ignore_features: Optional[list[str]] = None
     effective_processor_kwargs = {}
+    processor_output_dtype = None
     if model_config is not None:
         label_ignore_index = model_config.label_ignore_index
         ignore_features = model_config.ignore_features
         effective_processor_kwargs.update(model_config.processor_kwargs)
+        if model_config.processor_force_dtype:
+            processor_output_dtype = expected_dtype
 
     if processor_kwargs is not None and len(processor_kwargs) > 0:
         # Override model-specific params with user-defined ones.
@@ -77,11 +83,12 @@ def build_processor(
         worker_processor = create_processor_fn(**effective_processor_kwargs)
     else:
         worker_processor = create_processor_fn()
-
+    print("ya", processor_output_dtype)
     return DefaultProcessor(
         processor_name,
         worker_processor,
         tokenizer,
         label_ignore_index=label_ignore_index,
         ignore_features=ignore_features,
+        output_dtype=processor_output_dtype,
     )

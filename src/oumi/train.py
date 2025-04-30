@@ -302,6 +302,7 @@ def train(
             tokenizer,
             trust_remote_code=config.model.trust_remote_code,
             processor_kwargs=config.model.processor_kwargs,
+            expected_dtype=config.model.torch_dtype,
         )
 
     # Load datasets.

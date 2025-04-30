@@ -23,6 +23,7 @@
 model:
   model_name: "OpenGVLab/InternVL3-1B-hf"
   model_max_length: 8192
+  torch_dtype_str: "bfloat16"
   trust_remote_code: True
   attn_implementation: "sdpa"
   chat_template: "internvl3"

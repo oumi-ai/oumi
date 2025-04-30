@@ -139,6 +139,9 @@ class InternalModelConfig(BaseConfig):
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Extra params to pass to processor constructor."""
 
+    processor_force_dtype: Optional[bool] = None
+    """Whether to explicitly force the processor to use the same dtype as the model."""
+
     ignore_features: list[str] = field(default_factory=list)
     """Features from processing the input to ignore in the model's forward method."""
 
