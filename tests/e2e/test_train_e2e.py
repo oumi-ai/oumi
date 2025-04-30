@@ -432,6 +432,37 @@ def test_train_text_1gpu_24gb(
     "test_config",
     [
         TrainTestConfig(
+            test_name="train_text_qwen3_30b_a3b_trl_sft_lora",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "qwen3"
+                / "sft"
+                / "30b_a3b_lora"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_text_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+    )
+
+
+@requires_gpus(count=4, min_gb=39.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
             test_name="train_mm_qwen2_vl_2b_trl_sft_fft",
             config_path=(
                 get_configs_dir()
