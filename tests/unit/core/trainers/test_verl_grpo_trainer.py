@@ -17,7 +17,7 @@ def test_init_without_verl():
         with pytest.raises(RuntimeError, match="verl is not installed"):
             VerlGrpoTrainer(
                 processing_class=MagicMock(),
-                args=MagicMock(),
+                config=MagicMock(),
                 reward_funcs=[MagicMock()],
                 train_dataset=MagicMock(),
                 eval_dataset=MagicMock(),
@@ -29,7 +29,7 @@ def test_init_with_multiple_reward_funcs():
     with pytest.raises(ValueError, match="We only support up to one reward function"):
         VerlGrpoTrainer(
             processing_class=MagicMock(),
-            args=MagicMock(),
+            config=MagicMock(),
             reward_funcs=[MagicMock(), MagicMock()],
             train_dataset=MagicMock(),
             eval_dataset=MagicMock(),

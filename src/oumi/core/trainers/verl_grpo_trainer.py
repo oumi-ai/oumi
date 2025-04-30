@@ -15,6 +15,7 @@
 """Volcano Engine Reinforcement Learning (verl) GRPO Trainer."""
 
 import copy
+import os
 from pathlib import Path
 from typing import Callable, Optional, Union, cast
 
@@ -41,7 +42,7 @@ except ModuleNotFoundError:
     ray = None
 
 
-from oumi.core.configs import TrainingConfig, TrainingParams
+from oumi.core.configs import TrainingConfig
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
@@ -60,7 +61,7 @@ class VerlGrpoTrainer(BaseTrainer):
     def __init__(
         self,
         processing_class: Optional[BaseTokenizer],
-        args: TrainingParams,
+        config: TrainingConfig,
         reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Dataset,
@@ -71,7 +72,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
         Args:
             processing_class: The tokenizer for the model.
-            args: Training parameters.
+            config: Training config.
             reward_funcs: List of reward functions to use.
             train_dataset: Training dataset.
             eval_dataset: Validation dataset. This is required by verl.
@@ -87,7 +88,7 @@ class VerlGrpoTrainer(BaseTrainer):
             "VerlGrpoTrainer is experimental, and the interface is subject to change."
         )
         self._processing_class = processing_class
-        self._params = copy.deepcopy(args)
+        self._oumi_config = copy.deepcopy(config)
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -116,16 +117,59 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
+        # 1. Read verl default dict config from YAML.
         yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
-        # Read verl default dict config from YAML.
         config = OmegaConf.load(yaml_path)
         config = cast(DictConfig, config)
+
+        # 2. Set config values, ex. from Oumi config values
         config.algorithm.adv_estimator = "grpo"
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
 
-        if config.actor_rollout_ref.actor.strategy == "fsdp":
-            assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
+        grpo_params = self._oumi_config.training.grpo
+        model_params = self._oumi_config.model
+        training_params = self._oumi_config.training
+
+        config.data.max_response_length = grpo_params.max_completion_length
+        config.actor_rollout_ref.model.path = model_params.model_name
+        config.actor_rollout_ref.actor.optim.lr = training_params.learning_rate
+        config.actor_rollout_ref.model.enable_gradient_checkpointing = (
+            training_params.enable_gradient_checkpointing
+        )
+        if grpo_params.use_vllm:
+            config.actor_rollout_ref.rollout.name = "vllm"
+        else:
+            config.actor_rollout_ref.rollout.name = "hf"
+        config.actor_rollout_ref.rollout.temperature = grpo_params.temperature
+        config.actor_rollout_ref.rollout.gpu_memory_utilization = (
+            grpo_params.vllm_gpu_memory_utilization
+        )
+
+        if not training_params.save_epoch:
+            config.trainer.save_freq = training_params.save_steps
+        if training_params.eval_strategy == "steps":
+            config.trainer.test_freq = training_params.eval_steps
+        config.trainer.total_epochs = training_params.num_train_epochs
+
+        if training_params.enable_wandb:
+            config.trainer.logger = ["wandb"]
+        config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
+        config.trainer.experiment_name = training_params.run_name
+        config.trainer.default_local_dir = training_params.output_dir
+
+        # 3. Apply user overrides
+        overrides_config = OmegaConf.create(training_params.verl_config_overrides)
+        config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
+
+        # 4. Validate config.
+        if (
+            config.actor_rollout_ref.actor.strategy == "fsdp"
+            and config.actor_rollout_ref.actor.strategy != config.critic.strategy
+        ):
+            raise ValueError(
+                "Actor and critic must use the same strategy when using FSDP."
+            )
         return config
 
     def _setup_verl_trainer(self):
