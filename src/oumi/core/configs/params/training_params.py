@@ -681,8 +681,11 @@ class TrainingParams(BaseParams):
     Refer to the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
     for more details.
 
-    If unspecified (`None`), then the default value may be used based
-    on model-specific preferences configured in Oumi.
+    If unspecified (`None`), then the default model-specific preferences
+    configured in Oumi may be used.
+
+    Users should only set `label_ignore_index` if the default behavior is
+    not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
     def to_hf(self):

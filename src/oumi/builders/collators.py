@@ -149,9 +149,13 @@ def build_collator_from_config(
     model_config = find_internal_model_config(config.model)
 
     label_ignore_index: Optional[int] = (
-        model_config.label_ignore_index
-        if model_config is not None
-        else constants.LABEL_IGNORE_INDEX
+        config.training.label_ignore_index
+        if config.training.label_ignore_index is not None
+        else (
+            model_config.label_ignore_index
+            if model_config is not None
+            else constants.LABEL_IGNORE_INDEX
+        )
     )
 
     collator_kwargs = {}
