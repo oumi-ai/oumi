@@ -146,11 +146,16 @@ class VerlGrpoTrainer(BaseTrainer):
             grpo_params.vllm_gpu_memory_utilization
         )
 
-        if not training_params.save_epoch:
-            config.trainer.save_freq = training_params.save_steps
+        # Normally, training steps is determined by the number of epochs.
+        # If max_steps is set, it will override this.
+        config.trainer.total_epochs = training_params.num_train_epochs
+        if training_params.max_steps != -1:
+            config.trainer.total_training_steps = training_params.max_steps
+
         if training_params.eval_strategy == "steps":
             config.trainer.test_freq = training_params.eval_steps
-        config.trainer.total_epochs = training_params.num_train_epochs
+        if not training_params.save_epoch:
+            config.trainer.save_freq = training_params.save_steps
 
         if training_params.enable_wandb:
             config.trainer.logger = ["wandb"]
