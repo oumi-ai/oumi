@@ -86,7 +86,7 @@ def _is_help_call():
 
 if not _is_help_call():
     try:
-        import unsloth
+        import unsloth  # pyright: ignore
     except:
         unsloth = None
 
