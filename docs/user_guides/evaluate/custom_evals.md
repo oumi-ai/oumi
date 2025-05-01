@@ -8,7 +8,7 @@ Running a custom evaluation involves three simple steps. First, define the evalu
 
 ### Step 1: Defining Evaluation Configuration
 
-The evaluation configuration is defined in a `YAML` file and parsed into a {py:class}`~oumi.core.configs.EvaluationTaskParams` object. Below is a simple example for evaluating GPT-4o. You can evaluate most open models (Llama, DeepSeek, Qwen, Phi, and others), closed models (Gemini, Claude, OpenAI), and cloud-hosted models (Vertex AI, Together, SambaNova, etc.) by simply updating the `model_name` and `inference_engine` fields. Example configurations for popular APIs are available at [Oumi's repo](https://github.com/oumi-ai/oumi/tree/main/configs/apis).
+The evaluation configuration is defined in a `YAML` file and parsed into an {py:class}`~oumi.core.configs.EvaluationConfig` object. Below is a simple example for evaluating GPT-4o. You can evaluate most open models (Llama, DeepSeek, Qwen, Phi, and others), closed models (Gemini, Claude, OpenAI), and cloud-hosted models (Vertex AI, Together, SambaNova, etc.) by simply updating the `model_name` and `inference_engine` fields. Example configurations for popular APIs are available at [Oumi's repo](https://github.com/oumi-ai/oumi/tree/main/configs/apis).
 
 For custom evaluations, always set `evaluation_backend` to `custom`, and assign `task_name` to the name of your registered custom evaluation function (see Step 2). For more details on setting the configuration file for evaluations, including evaluating custom models, refer to our {doc}`documentation </user_guides/evaluate/evaluation_config>`.
 
@@ -54,7 +54,7 @@ def my_custom_evaluation(
 
 ### Step 3: Executing the Evaluation
 
-Once you've defined your `YAML` configuration and registered the custom evaluation function (as specified by the `task_name` in your config), you can run the evaluation using the code snippet below.
+Once you have defined your `YAML` configuration and registered the custom evaluation function (as specified by the `task_name` in your configuration), you can run the evaluation using the code snippet below.
 
 The {py:class}`~oumi.core.evaluation.Evaluator`'s `evaluate` method requires the evaluation configuration (`config` of type {py:class}`~oumi.core.configs.EvaluationConfig`) to be passed in. It also supports any number of user-defined variables passed as keyword arguments (e.g., `my_input` in the example below). These variable names must exactly match the parameters defined in your custom evaluation function's signature. Otherwise, a runtime error will occur.
 
@@ -70,9 +70,9 @@ results = Evaluator().evaluate(config, my_input=<user_input>)
 
 ## Walk-through Example
 
-This section walks through a simple example to demonstrate how to use custom evaluations in practice. Suppose you want to assess response verbosity (i.e., the average length of model responses, measured in number of characters) across multiple models.
+This section walks through a simple example to demonstrate how to use custom evaluations in practice. If you are interested in a more realistic walk-through, see our {gh}`hallucination classifier <notebooks/Oumi - Build your own Custom Evaluation (Hallucination Classifier).ipynb>` notebook.
 
-To do this, assume you’ve prepared a dataset of user queries. A toy dataset (`my_conversations`) with two examples is shown below, formatted as a list of {class}`~oumi.core.types.conversation.Conversation` objects.
+Suppose you want to assess response verbosity (i.e., the average length of model responses, measured in number of characters) across multiple models. To do this, assume you’ve prepared a dataset of user queries. A toy dataset (`my_conversations`) with two examples is shown below, formatted as a list of {class}`~oumi.core.types.conversation.Conversation` objects.
 
 ```python
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -93,7 +93,7 @@ my_conversations = [
 
 ### Step 1: Defining the Evaluation Configuration
 
-Start by defining a `YAML` configuration for each model you want to evaluate. The configuration specifies the model, inference engine, and links to the custom evaluation function via the `task_name`.
+Start by defining a `YAML` configuration for each model you want to evaluate. The configuration specifies the model, inference engine, and a link to the custom evaluation function via the `task_name`.
 
 ```python
 gpt_4o_config = """
@@ -110,7 +110,7 @@ gpt_4o_config = """
 
 ### Step 2: Defining Custom Evaluation Function
 
-Next, define the evaluation function. Start by using the provided `inference_engine` to run inference and generate model responses. During inference, the engine appends a response (i.e., a {class}`~oumi.core.types.conversation.Message` with role {py:obj}`~oumi.core.types.conversation.Role`=`ASSISTANT`) to the end of each {class}`~oumi.core.types.conversation.Conversation`.
+Next, define the evaluation function. Start by using the provided `inference_engine` to run inference and generate model responses. During inference, the engine appends a response (i.e., a {class}`~oumi.core.types.conversation.Message` with role {py:obj}`~oumi.core.types.conversation.Role`=`ASSISTANT`) at the end of each `conversation` (type: {class}`~oumi.core.types.conversation.Conversation`) of the list `conversations`.
 
 You can retrieve the model response from each {class}`~oumi.core.types.conversation.Conversation` using the `last_message()` method, then compute the average character length across all responses, as shown in the example below.
 
@@ -125,7 +125,7 @@ def model_verboseness_evaluation(inference_engine, conversations):
     aggregate_response_length = 0
     for conversation in conversations:
         # Extract the assistant's (model's) response from the conversation.
-        response = conversation.last_message().content
+        response: str = conversation.last_message().content
 
         # Update the sum of lengths for all model responses.
         aggregate_response_length += len(response)
@@ -135,7 +135,7 @@ def model_verboseness_evaluation(inference_engine, conversations):
 
 ### Step 3: Executing the Evaluation
 
-Finally, run the evaluation using the code snippet below. This will execute inference and compute the verbosity metric based on your custom evaluation function.
+Finally, run the evaluation using the code snippet below. This will execute inference and compute the verbosity metric based on your custom evaluation function. Note that `conversations` is a user-defined variable, intended to pass the dataset into the evaluation function.
 
 ```python
 from oumi.core.configs import EvaluationConfig
@@ -146,7 +146,7 @@ results = Evaluator().evaluate(config, conversations=my_conversations)
 ```
 
 
-The response length can be retrieved from `results` as shown below. Since this walkthrough assumes a single task defined in the `tasks` section of the `YAML` config, we only examine the first item in the `results` list.
+The average response length can be retrieved from `results` as shown below. Since this walkthrough assumes a single task (defined in the `tasks` section of the `YAML` config), we only examine the first (`[0]`) item in the `results` list.
 
 ```python
 result_dict = results[0].get_results()
