@@ -29,6 +29,7 @@ training:
   trainer_type: "VERL_GRPO"
   num_train_epochs: 1
   save_steps: -1
+  eval_strategy: "steps"
   eval_steps: 50
 
   learning_rate: 1.0e-6
