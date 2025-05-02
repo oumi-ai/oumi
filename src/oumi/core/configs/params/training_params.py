@@ -675,6 +675,19 @@ class TrainingParams(BaseParams):
     which is 10min.
     """
 
+    label_ignore_index: Optional[int] = None
+    """Tokens with this label value don't contribute to the loss computation.
+    For example, this can be `PAD`, or image tokens. `-100` is the PyTorch convention.
+    Refer to the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
+    for more details.
+
+    If unspecified (`None`), then the default model-specific preferences
+    configured in Oumi may be used.
+
+    Users should only set `label_ignore_index` if the default behavior is
+    not satisfactory, or for new models not yet fully-integrated by Oumi.
+    """
+
     def to_hf(self):
         """Converts Oumi config to HuggingFace's TrainingArguments."""
         save_strategy: str = "no"

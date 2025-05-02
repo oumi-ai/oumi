@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +12,7 @@ from oumi.core.configs import (
     DatasetSplitParams,
     ModelParams,
     TrainingConfig,
+    TrainingParams,
 )
 
 
@@ -119,7 +121,10 @@ def test_build_data_collator_vision_language_sft(mock_tokenizer):
     assert callable(collator)
 
 
-def test_build_collator_from_config_with_collator(mock_tokenizer):
+@pytest.mark.parametrize("label_ignore_index", [None, -100])
+def test_build_collator_from_config_with_collator(
+    label_ignore_index: Optional[int], mock_tokenizer
+):
     training_config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -129,6 +134,9 @@ def test_build_collator_from_config_with_collator(mock_tokenizer):
         ),
         model=ModelParams(
             model_name="MlpEncoder", tokenizer_name="gpt2", model_max_length=64
+        ),
+        training=TrainingParams(
+            label_ignore_index=label_ignore_index,
         ),
     )
 
