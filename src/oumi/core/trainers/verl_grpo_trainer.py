@@ -17,7 +17,6 @@
 import copy
 import os
 from pathlib import Path
-from pprint import pformat
 from typing import Callable, Optional, Union, cast
 
 from datasets import Dataset
@@ -186,7 +185,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 "Please install it with 'pip install `oumi[gpu]`'."
             )
         self._verl_config = self._create_config()
-        logger.info(f"verl config: {pformat(self._verl_config)}")
+        logger.info(f"verl config: {self._verl_config}")
 
         tokenizer = self._processing_class
 
