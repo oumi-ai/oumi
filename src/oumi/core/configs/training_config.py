@@ -210,5 +210,5 @@ class TrainingConfig(BaseConfig):
             and not self.data.validation.datasets
         ):
             raise ValueError(
-                "At least one validation dataset is required for VERL PPO training."
+                "At least one validation dataset is required for VERL_GRPO training."
             )

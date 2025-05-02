@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import functools
 import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
-import ray
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
@@ -28,10 +27,13 @@ from oumi.builders import (
     build_collator_from_config,
     build_dataset_mixture,
     build_metrics_function,
+    build_model,
+    build_peft_model,
     build_processor,
     build_reward_functions,
     build_tokenizer,
     build_trainer,
+    build_training_callbacks,
     is_image_text_llm,
 )
 from oumi.core.configs import (
@@ -47,10 +49,12 @@ from oumi.core.distributed import (
     cleanup_distributed,
     estimate_dataloader_num_workers,
     get_device_rank_info,
+    init_distributed,
     is_distributed,
     is_local_process_zero,
     is_world_process_zero,
     prepare_accelerate_fsdp_run,
+    verify_torch_distributed_initialized_if_needed,
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
@@ -59,13 +63,17 @@ from oumi.performance.torch_profiler_utils import torch_profile
 from oumi.utils.device_utils import (
     log_nvidia_gpu_runtime_info,
 )
-from oumi.utils.distributed_utils import is_using_accelerate
+from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
 from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
+    coerce_model_to_dtype,
     device_cleanup,
+    get_torch_dtype,
     log_devices_info,
+    log_model_summary,
+    log_number_of_model_parameters,
     log_peak_gpu_memory,
     log_versioning_info,
 )
@@ -187,16 +195,12 @@ def _create_optional_training_kwargs(
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
 
-    # TODO: What to do for VERL?
-    if trainer_type in {TrainerType.TRL_GRPO, TrainerType.VERL_GRPO}:
+    if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO):
         if metrics_function:
             raise ValueError(f"metrics_function isn't supported for {trainer_type}")
         if collator:
             raise ValueError(f"collator isn't supported for {trainer_type}")
         kwargs["reward_funcs"] = reward_functions
-    else:
-        kwargs["compute_metrics"] = metrics_function
-        kwargs["data_collator"] = collator
     else:
         kwargs["compute_metrics"] = metrics_function
         kwargs["data_collator"] = collator
@@ -261,25 +265,6 @@ def train(
 ) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
-    os.environ["ENSURE_CUDA_VISIBLE_DEVICES"] = os.environ.get(
-        "CUDA_VISIBLE_DEVICES", ""
-    )
-    # ray.shutdown()
-    # if not ray.is_initialized():
-    #     logger.info("Initializing Ray cluster...")
-    #     ray.init(
-    #         runtime_env={
-    #             "env_vars": {
-    #                 "TOKENIZERS_PARALLELISM": "true",
-    #                 "NCCL_DEBUG": "WARN",
-    #                 "VLLM_LOGGING_LEVEL": "WARN",
-    #             }
-    #         }
-    #     )
-    logger.info(f"Available resources: {ray.available_resources()}")
-
-    # if is_distributed():
-    # init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
 
     _create_training_dirs(config)
     _log_training_info(config)
@@ -402,42 +387,24 @@ def train(
     use_peft = config.training.use_peft and config.peft
 
     # Build model.
-    model = None
-    # model = build_model(
-    #     model_params=config.model,
-    #     peft_params=config.peft if use_peft else None,
-    #     **(additional_model_kwargs or {}),
-    # )
-
-    # if use_peft:
-    #     logger.info("Building PEFT model...")
-    #     model = build_peft_model(
-    #         model, config.training.enable_gradient_checkpointing, config.peft
-    #     )
-
-    # if is_local_process_zero():
-    #     log_number_of_model_parameters(model)
-    #     if config.training.log_model_summary:
-    #         log_model_summary(
-    #             model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
-    #         )
-
-    # Load data & preprocessing
-    dataset = build_dataset_mixture(
-        config.data,
-        tokenizer,
-        DatasetSplit.TRAIN,
-        seq_length=config.model.model_max_length,
+    model = build_model(
+        model_params=config.model,
+        peft_params=config.peft if use_peft else None,
+        **(additional_model_kwargs or {}),
     )
 
-    eval_dataset = None
-    if len(config.data.get_split(DatasetSplit.VALIDATION).datasets) != 0:
-        eval_dataset = build_dataset_mixture(
-            config.data,
-            tokenizer,
-            DatasetSplit.VALIDATION,
-            seq_length=config.model.model_max_length,
+    if use_peft:
+        logger.info("Building PEFT model...")
+        model = build_peft_model(
+            model, config.training.enable_gradient_checkpointing, config.peft
         )
+
+    if is_local_process_zero():
+        log_number_of_model_parameters(model)
+        if config.training.log_model_summary:
+            log_model_summary(
+                model, telemetry_dir / "model_summary.txt" if telemetry_dir else None
+            )
 
     # trl's SFTTrainer has its own dataset processing code. We should skip it if
     # the dataset is already processed, i.e. it's tokenized and has an `input_ids`
@@ -479,44 +446,38 @@ def train(
         record_function_name="oumi.train",
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
-            # callbacks = build_training_callbacks(config, model, profiler)
+            callbacks = build_training_callbacks(config, model, profiler)
 
             trainer = create_trainer_fn(
-                # model=model,
+                model=model,
+                processing_class=tokenizer,
                 args=config.training,
                 train_dataset=dataset,
                 eval_dataset=eval_dataset,
-                # callbacks=callbacks,
+                callbacks=callbacks,
                 **training_kwargs,
             )
 
-        # with torch.profiler.record_function("log_and_verify"):
-        #     log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")
-        #     verify_torch_distributed_initialized_if_needed()
-
-        with torch.profiler.record_function("find_checkpoint_to_resume_from"):
-            checkpoint_location = _find_checkpoint_to_resume_from(
-                config.training.resume_from_checkpoint,
-                config.training.try_resume_from_last_checkpoint,
-                config.training.output_dir,
-            )
+        with torch.profiler.record_function("log_and_verify"):
+            log_nvidia_gpu_runtime_info(log_prefix="GPU Metrics Before Training:")
+            verify_torch_distributed_initialized_if_needed()
 
         # TODO: OPE-577 - Remove when the issue is resolved.
         # QLoRA FSDP training currently has an issue where some submodules of the model
         # are float32 instead of the requested dtype. As a workaround, we coerce all
         # modules to the desired dtype. See:
         # https://github.com/huggingface/accelerate/issues/1620#issuecomment-2407102051
-        # if is_using_accelerate_fsdp() and config.peft.q_lora:
-        #     # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage
-        #     quant_storage_dtype = get_torch_dtype(config.peft.bnb_4bit_quant_storage)
-        #     if quant_storage_dtype != config.model.torch_dtype:
-        #         raise ValueError(
-        #             f"BnB 4-bit quantization storage dtype must match model dtype. "
-        #             f"Instead got {config.peft.bnb_4bit_quant_storage} and "
-        #             f"{config.model.torch_dtype}."
-        #         )
-        #     coerce_model_to_dtype(model, config.model.torch_dtype)
-        #     logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
+        if is_using_accelerate_fsdp() and config.peft.q_lora:
+            # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage
+            quant_storage_dtype = get_torch_dtype(config.peft.bnb_4bit_quant_storage)
+            if quant_storage_dtype != config.model.torch_dtype:
+                raise ValueError(
+                    f"BnB 4-bit quantization storage dtype must match model dtype. "
+                    f"Instead got {config.peft.bnb_4bit_quant_storage} and "
+                    f"{config.model.torch_dtype}."
+                )
+            coerce_model_to_dtype(model, config.model.torch_dtype)
+            logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
 
         with torch.profiler.record_function("wait_for_all_ranks"):
             # Make sure all workers start training at the same time.

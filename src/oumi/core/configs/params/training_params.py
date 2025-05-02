@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import copy
-import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -26,7 +25,6 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
-from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -71,12 +69,12 @@ class TrainerType(Enum):
     """
 
     VERL_GRPO = "verl_grpo"
-    """VERL GRPO Trainer for efficient RL training.
+    """Group Relative Policy Optimization trainer from `verl` library.
 
-    Integrates the Volcano Engine Reinforcement Learning (VERL) framework's
-    PPO implementation for efficient distributed reinforcement learning.
-    Supports multi-GPU training, various advantage estimators (GAE, GRPO, etc.),
-    and flexible rollout engines (vLLM, SGLang, HuggingFace).
+    This trainer implements the Group Relative Policy Optimization algorithm
+    introduced in the paper https://arxiv.org/pdf/2402.03300
+    for fine-tuning language models.
+    Optionally, supports user-defined reward functions.
     """
 
 
@@ -165,9 +163,8 @@ class TrainingParams(BaseParams):
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
     - TRL_GRPO: TRL's GRPO Trainer
-    - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
-    - VERL_GRPO: VERL's PPO Trainer
+    - VERL_GRPO: verl's GRPO Trainer
     """
 
     enable_gradient_checkpointing: bool = False
@@ -326,7 +323,7 @@ class TrainingParams(BaseParams):
     """The names of the reward function in the Oumi registry to use for reinforcement
     learning.
 
-    Only supported with the TRL_GRPO and VERL_GRPO trainers currently. Currently,
+    Only supported with the TRL_GRPO and VERL_GRPO trainers. Currently,
     VERL_GRPO only supports specifying a single reward function.
 
     For TRL_GRPO, refer to https://huggingface.co/docs/trl/main/en/grpo_trainer
@@ -853,21 +850,11 @@ class TrainingParams(BaseParams):
         if (
             self.trainer_type != TrainerType.TRL_GRPO
             and self.trainer_type != TrainerType.VERL_GRPO
-            and self.trainer_type != TrainerType.VERL_GRPO
             and self.reward_functions is not None
         ):
             function_names = [name for name in self.reward_functions if name]
             if len(function_names) > 0:
                 raise ValueError(
-                    "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
-                    f"trainers. Actual: {self.trainer_type}"
-                )
-            if self.trainer_type == TrainerType.VERL_GRPO:
-                if len(function_names) > 1:
-                    raise ValueError(
-                        "VERL_GRPO only supports a single reward function. "
-                        f"Actual: {function_names}"
-                    )
                     "reward_functions may only be defined for the TRL_GRPO or VERL_GRPO"
                     f"trainers. Actual: {self.trainer_type}"
                 )
@@ -886,16 +873,6 @@ class TrainingParams(BaseParams):
             raise ValueError(
                 "`include_performance_metrics` is not supported for TRL_GRPO trainer."
             )
-
-        # Validate VERL params if using VERL PPO trainer
-        if self.trainer_type == TrainerType.VERL_GRPO:
-            # Ensure Ray environment variables are set
-            # TODO: Is this needed?
-            if "RAY_ADDRESS" not in os.environ:  #  and self.verl_params.nnodes > 1
-                logger.warning(
-                    "RAY_ADDRESS environment variable not set. "
-                    "Multi-node training may not work properly."
-                )
 
     @property
     def telemetry_dir(self) -> Optional[Path]:
