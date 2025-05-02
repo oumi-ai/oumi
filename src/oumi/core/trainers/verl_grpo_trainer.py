@@ -18,11 +18,11 @@ import copy
 from pathlib import Path
 from typing import Callable, Optional, Union, cast
 
-import ray
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 try:
+    import ray  # pyright: ignore[reportMissingImports]
     import verl  # pyright: ignore[reportMissingImports]
     from verl.trainer.ppo.ray_trainer import (  # pyright: ignore[reportMissingImports]
         RayPPOTrainer,
@@ -38,9 +38,10 @@ try:
     )
 except ModuleNotFoundError:
     verl = None
+    ray = None
 
 
-from oumi.core.configs import TrainingConfig, TrainingParams
+from oumi.core.configs import TrainingConfig
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
@@ -59,7 +60,7 @@ class VerlGrpoTrainer(BaseTrainer):
     def __init__(
         self,
         processing_class: Optional[BaseTokenizer],
-        args: TrainingParams,
+        config: TrainingConfig,
         reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Dataset,
@@ -70,7 +71,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
         Args:
             processing_class: The tokenizer for the model.
-            args: Training parameters.
+            config: Training config.
             reward_funcs: List of reward functions to use.
             train_dataset: Training dataset.
             eval_dataset: Validation dataset. This is required by verl.
@@ -86,7 +87,7 @@ class VerlGrpoTrainer(BaseTrainer):
             "VerlGrpoTrainer is experimental, and the interface is subject to change."
         )
         self._processing_class = processing_class
-        self._params = copy.deepcopy(args)
+        self._oumi_config = copy.deepcopy(config)
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -115,10 +116,12 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
+        # 1. Read verl default dict config from YAML.
         yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
-        # Read verl default dict config from YAML.
         config = OmegaConf.load(yaml_path)
         config = cast(DictConfig, config)
+
+        # 2. Set config values, ex. from Oumi config values
         config.algorithm.adv_estimator = "grpo"
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
@@ -169,6 +172,11 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _setup_verl_trainer(self):
         """Sets up verl's RayPPOTrainer."""
+        if ray is None:
+            raise RuntimeError(
+                "ray is not installed. "
+                "Please install it with 'pip install `oumi[gpu]`'."
+            )
         self._verl_config = self._create_config()
         logger.info(f"verl config: {self._verl_config}")
 

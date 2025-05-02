@@ -2,11 +2,11 @@
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
 # Sample command:
-# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
+# oumi launch up --config tests/scripts/lambda_e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
 name: oumi-e2e-tests
 
 resources:
-  cloud: gcp
+  cloud: lambda
   accelerators: "A100:4" # "A100:1", "A100-80GB:1", "A100-80GB:4"
   use_spot: false
   disk_size: 1000 # Disk size in GBs

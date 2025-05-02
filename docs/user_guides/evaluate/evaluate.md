@@ -9,6 +9,7 @@ evaluation_config
 standardized_benchmarks
 generative_benchmarks
 leaderboards
+custom_evals
 ```
 
 ## Overview

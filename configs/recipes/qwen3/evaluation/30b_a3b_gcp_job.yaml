@@ -1,0 +1,61 @@
+# Job config to eval Qwen3 30B A3B (MoE model with 3B activated params).
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c oumi://configs/recipes/qwen3/evaluation/30b_a3b_gcp_job.yaml --cluster qwen3-30b-a3b-eval
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: qwen3-30b-a3b-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: false
+  disk_size: 400 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
+  MODEL_CHECKPOINT_DIR: Qwen/Qwen3-30B-A3B
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: qwen3-30b-a3b.eval
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during eval.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen3-30B-A3B
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  set -x
+
+  oumi evaluate \
+    -c oumi://configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

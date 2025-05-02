@@ -27,9 +27,10 @@ class AliasType(str, Enum):
 
 
 _ALIASES: dict[str, dict[AliasType, str]] = {
+    # Llama 4 family.
     "llama4-scout": {
         AliasType.TRAIN: "oumi://configs/recipes/llama4/sft/scout_base_full/train.yaml",
-        AliasType.JOB: "oumi://configs/recipes/llama4/sft/scout_base_full/train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/llama4/sft/scout_base_full/gcp_job.yaml",
     },
     "llama4-scout-instruct-lora": {
         AliasType.TRAIN: "oumi://configs/recipes/llama4/sft/scout_instruct_lora/train.yaml",
@@ -45,6 +46,23 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "llama4-maverick": {
         AliasType.INFER: "oumi://configs/recipes/llama4/inference/maverick_instruct_together_infer.yaml",
+    },
+    # Qwen3 family.
+    "qwen3-30b-a3b": {
+        AliasType.INFER: "oumi://configs/recipes/qwen3/inference/30b_a3b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml",
+    },
+    "qwen3-30b-a3b-lora": {
+        AliasType.TRAIN: "oumi://configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/qwen3/sft/30b_a3b_lora/gcp_job.yaml",
+    },
+    "qwen3-32b": {
+        AliasType.INFER: "oumi://configs/recipes/qwen3/inference/32b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/qwen3/evaluation/32b_eval.yaml",
+    },
+    "qwen3-32b-lora": {
+        AliasType.TRAIN: "oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/qwen3/sft/32b_lora/gcp_job.yaml",
     },
     # Hosted models.
     "claude-3-5-sonnet": {
