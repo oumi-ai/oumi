@@ -50,11 +50,12 @@ training:
     actor_rollout_ref:
       model:
         use_remove_padding: True
-        ppo_mini_batch_size: 16
-        ppo_micro_batch_size: 4
+      actor:
         use_kl_loss: True
         kl_loss_coef: 0.001
         kl_loss_type: "low_var_kl"
+        ppo_mini_batch_size: 16
+        ppo_micro_batch_size: 4
       rollout:
         log_prob_micro_batch_size: 4
         tensor_model_parallel_size: 2

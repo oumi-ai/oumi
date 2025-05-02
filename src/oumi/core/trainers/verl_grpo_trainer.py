@@ -17,6 +17,7 @@
 import copy
 import os
 from pathlib import Path
+from pprint import pformat
 from typing import Callable, Optional, Union, cast
 
 from datasets import Dataset
@@ -185,13 +186,14 @@ class VerlGrpoTrainer(BaseTrainer):
                 "Please install it with 'pip install `oumi[gpu]`'."
             )
         self._verl_config = self._create_config()
-        logger.info(f"verl config: {self._verl_config}")
+        logger.info(f"verl config: {pformat(self._verl_config)}")
 
         tokenizer = self._processing_class
 
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
             Role.Critic: ray.remote(CriticWorker),
+            Role.RefPolicy: ray.remote(ActorRolloutRefWorker),
         }
 
         # Create resource pool manager
@@ -203,14 +205,9 @@ class VerlGrpoTrainer(BaseTrainer):
         mapping = {
             Role.ActorRollout: global_pool_id,
             Role.Critic: global_pool_id,
+            Role.RefPolicy: global_pool_id,
         }
 
-        if (
-            self._verl_config.algorithm.use_kl_in_reward
-            or self._verl_config.actor_rollout_ref.actor.use_kl_loss
-        ):
-            role_worker_mapping[Role.RefPolicy] = ray.remote(ActorRolloutRefWorker)
-            mapping[Role.RefPolicy] = global_pool_id
         resource_pool_manager = ResourcePoolManager(
             resource_pool_spec=resource_pool_spec, mapping=mapping
         )
