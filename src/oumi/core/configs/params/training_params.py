@@ -613,11 +613,32 @@ class TrainingParams(BaseParams):
     """
 
     trainer_kwargs: dict[str, Any] = field(default_factory=dict)
-    """Additional keyword arguments to pass to the Trainer.
+    """Additional keyword arguments to pass to the HF/TRL Trainer.
 
     This allows for customization of the Trainer beyond the standard parameters
     defined in this class. Any key-value pairs added here will be passed directly
-    to the Trainer's constructor.
+    to the Trainer's constructor. Note that this field is only used for
+    HuggingFace and TRL trainers (TRL_SFT, TRL_DPO, TRL_GRPO, HF).
+    """
+
+    verl_config_overrides: dict[str, Any] = field(default_factory=dict)
+    """Values to override in the verl config.
+
+    This field is only used for the `VERL_GRPO` trainer.
+    To see supported params in verl, see:
+    https://verl.readthedocs.io/en/latest/examples/config.html
+
+    The verl config is a nested dict, so the kwargs should be structured accordingly.
+    For example, to set `actor_rollout_ref.actor.use_kl_loss` to `True`, you can use:
+    `{"actor_rollout_ref": {"actor": {"use_kl_loss": True}}}`.
+
+    The priority of setting verl config params, from highest to lowest, is:
+    1. Values specified by this field.
+    2. Values automatically set by Oumi in
+        `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()` for verl params
+        which have corresponding Oumi params. For example,
+        Oumi's `training.output_dir` -> verl's `trainer.default_local_dir`
+    3. Default verl config values in `src/oumi/core/trainers/verl_trainer_config.yaml`.
     """
 
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
@@ -652,6 +673,19 @@ class TrainingParams(BaseParams):
 
     If unset, will use the default value of `torch.distributed.init_process_group`
     which is 10min.
+    """
+
+    label_ignore_index: Optional[int] = None
+    """Tokens with this label value don't contribute to the loss computation.
+    For example, this can be `PAD`, or image tokens. `-100` is the PyTorch convention.
+    Refer to the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
+    for more details.
+
+    If unspecified (`None`), then the default model-specific preferences
+    configured in Oumi may be used.
+
+    Users should only set `label_ignore_index` if the default behavior is
+    not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
     def to_hf(self):

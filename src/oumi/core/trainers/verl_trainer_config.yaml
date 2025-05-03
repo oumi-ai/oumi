@@ -1,6 +1,10 @@
 # Default Verl PPO trainer config.
 # Copied from https://github.com/volcengine/verl/blob/25b0f2262ffb668b0a183fd21433adeca76b46f5/verl/trainer/config/ppo_trainer.yaml
 # For documentation, see https://verl.readthedocs.io/en/latest/examples/config.html
+#
+# Changes:
+# - Changed trainer.project_name to "oumi_verl"
+# - Changed trainer.experiment_name to null
 
 data:
   tokenizer: null
@@ -204,8 +208,8 @@ trainer:
   balance_batch: True
   total_epochs: 30
   total_training_steps: null
-  project_name: verl_examples
-  experiment_name: gsm8k
+  project_name: oumi_verl
+  experiment_name: null
   logger: [ 'console', 'wandb' ]
   log_val_generations: 0
   nnodes: 1
