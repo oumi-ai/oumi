@@ -36,7 +36,10 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # pip install uv && uv pip install oumi[gpu] hf_transfer
+
+  # Extra requirements for this model:
+  pip install timm
 
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
@@ -46,9 +49,6 @@ setup: |
   # Use this with caution, as it might break some of Oumi's features which is as of
   # today (April 23rd 2025) is using transformers <4.52.
   pip install git+https://github.com/huggingface/transformers.git
-
-  # Extra requirements for this model:
-  pip install timm
 
 run: |
   set -e  # Exit if any command failed.
