@@ -5,7 +5,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/phi4/sft/reasoning_plus_lora_train.yaml --cluster phi-4-reasoning-plus-lora
+#   oumi launch up -c oumi://configs/recipes/phi4/sft/reasoning_plus_lora_gcp_job.yaml --cluster phi-4-reasoning-plus-lora
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -17,7 +17,7 @@ name: phi-4-reasoning-plus-lora
 
 resources:
   cloud: gcp
-  accelerators: "A100:2"
+  accelerators: "A100:4"
   use_spot: false
   disk_size: 400 # Disk size in GBs
 
@@ -44,7 +44,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/recipes/phi4/sft/reasoning_plus_lora_train.yaml \
+      -c oumi://configs/recipes/phi4/sft/reasoning_plus_lora_train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
