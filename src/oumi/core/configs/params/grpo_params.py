@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import math
 from dataclasses import dataclass, field, fields
 from typing import Any, Optional
@@ -56,14 +57,14 @@ class GrpoParams(BaseParams):
     If you use a custom reward function that requires any column other than `"prompts"`
     and `"completions"`, you should set it to `False`.
     """
-    
+
     repetition_penalty: Optional[float] = 1.0
     """Float that penalizes new tokens if they appear in the prompt/response so far.
 
     Values > 1.0 encourage the model to use new tokens, while values < 1.0 encourage
     the model to repeat tokens.
     """
-    
+
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
 
