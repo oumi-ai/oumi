@@ -4,7 +4,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c configs/recipes/phi4/sft/reasoning_plus_lora_train.yaml
+#   oumi train -c oumi://configs/recipes/phi4/sft/reasoning_plus/lora_train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
