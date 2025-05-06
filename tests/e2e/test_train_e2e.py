@@ -524,6 +524,7 @@ def test_train_multimodal_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path
             trainer_type=TrainerType.TRL_SFT,
             max_steps=5,
             save_steps=5,
+            is_lora=True,
         ),
     ],
     ids=get_train_test_id_fn,
