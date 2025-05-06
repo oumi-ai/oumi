@@ -146,11 +146,16 @@ class VerlGrpoTrainer(BaseTrainer):
             grpo_params.vllm_gpu_memory_utilization
         )
 
-        if not training_params.save_epoch:
-            config.trainer.save_freq = training_params.save_steps
+        # Normally, training steps is determined by the number of epochs.
+        # If max_steps is set, it will override this.
+        config.trainer.total_epochs = training_params.num_train_epochs
+        if training_params.max_steps != -1:
+            config.trainer.total_training_steps = training_params.max_steps
+
         if training_params.eval_strategy == "steps":
             config.trainer.test_freq = training_params.eval_steps
-        config.trainer.total_epochs = training_params.num_train_epochs
+        if not training_params.save_epoch:
+            config.trainer.save_freq = training_params.save_steps
 
         if training_params.enable_wandb:
             config.trainer.logger = ["wandb"]
@@ -187,6 +192,7 @@ class VerlGrpoTrainer(BaseTrainer):
         role_worker_mapping = {
             Role.ActorRollout: ray.remote(ActorRolloutRefWorker),
             Role.Critic: ray.remote(CriticWorker),
+            Role.RefPolicy: ray.remote(ActorRolloutRefWorker),
         }
 
         # Create resource pool manager
@@ -198,14 +204,9 @@ class VerlGrpoTrainer(BaseTrainer):
         mapping = {
             Role.ActorRollout: global_pool_id,
             Role.Critic: global_pool_id,
+            Role.RefPolicy: global_pool_id,
         }
 
-        if (
-            self._verl_config.algorithm.use_kl_in_reward
-            or self._verl_config.actor_rollout_ref.actor.use_kl_loss
-        ):
-            role_worker_mapping[Role.RefPolicy] = ray.remote(ActorRolloutRefWorker)
-            mapping[Role.RefPolicy] = global_pool_id
         resource_pool_manager = ResourcePoolManager(
             resource_pool_spec=resource_pool_spec, mapping=mapping
         )
