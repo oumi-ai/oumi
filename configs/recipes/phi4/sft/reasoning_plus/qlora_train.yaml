@@ -1,10 +1,10 @@
-# QLoRA config for QwQ (based on Qwen2.5 32B).
+# QLoRA config for Phi-4-reasoning-plus (14B params).
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi train -c configs/recipes/qwq/sft/qlora_train.yaml
+#   oumi train -c oumi://configs/recipes/phi4/sft/reasoning_plus/qlora_train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -13,7 +13,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "Qwen/QwQ-32B"
+  model_name: "microsoft/Phi-4-reasoning-plus"
   model_max_length: 2048
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
@@ -32,7 +32,8 @@ training:
   save_steps: 200
   num_train_epochs: 1
   per_device_train_batch_size: 2
-  gradient_accumulation_steps: 1
+  gradient_accumulation_steps: 8
+  max_grad_norm: null
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -50,7 +51,7 @@ training:
 
   logging_steps: 100
   empty_device_cache_steps: 50
-  output_dir: "output/qwq.qlora"
+  output_dir: "output/phi_4_reasoning_plus.qlora"
   include_performance_metrics: True
   enable_wandb: True
 
@@ -62,21 +63,12 @@ peft:
   # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
   bnb_4bit_quant_storage: "bfloat16"
   bnb_4bit_compute_dtype: "bfloat16"
-  lora_r: 16
-  lora_alpha: 32
+  lora_r: 8
+  lora_alpha: 16
   lora_dropout: 0.0
   lora_target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
+    - "qkv_proj"
     - "o_proj"
     - "gate_proj"
     - "up_proj"
     - "down_proj"
-
-fsdp:
-  enable_fsdp: True
-  forward_prefetch: True
-  sharding_strategy: "FULL_SHARD"
-  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "Qwen2DecoderLayer"
