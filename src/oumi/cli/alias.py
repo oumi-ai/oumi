@@ -66,12 +66,18 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     # Phi family.
     "phi4-reasoning-plus": {
+        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus/full_train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus/full_gcp_job.yaml",
         AliasType.INFER: "oumi://configs/recipes/phi4/inference/reasoning_plus_infer.yaml",
         AliasType.EVAL: "oumi://configs/recipes/phi4/evaluation/reasoning_plus_eval.yaml",
     },
     "phi4-reasoning-plus-lora": {
-        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus_lora_train.yaml",
-        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus_lora_gcp_job.yaml",
+        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus/lora_train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus/lora_gcp_job.yaml",
+    },
+    "phi4-reasoning-plus-qlora": {
+        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus/qlora_train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus/qlora_gcp_job.yaml",
     },
     # Hosted models.
     "claude-3-5-sonnet": {
