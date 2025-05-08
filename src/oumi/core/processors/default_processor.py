@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 import PIL.Image
+import torch
 import transformers
 from typing_extensions import override
 
@@ -43,6 +44,7 @@ class DefaultProcessor(BaseProcessor):
         *,
         label_ignore_index: Optional[int],
         ignore_features: Optional[list[str]] = None,
+        output_dtype: Optional[torch.dtype] = None,
     ):
         """Initializes the processor."""
         if not processor_name:
@@ -64,6 +66,7 @@ class DefaultProcessor(BaseProcessor):
         self._worker_processor: Callable = worker_processor
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
+        self._output_dtype: Optional[torch.dtype] = output_dtype
 
         # If the worker processor does not have a chat template, or has a different
         # one, then equate it to tokenizer's.
@@ -197,6 +200,8 @@ class DefaultProcessor(BaseProcessor):
                 padding=padding,
                 return_tensors=return_tensors,
             )
+        if self._output_dtype is not None and result is not None:
+            result = result.to(self._output_dtype)
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):
@@ -208,6 +213,9 @@ class DefaultProcessor(BaseProcessor):
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors
             )
+            # TODO: check if needed for other models besides InternVL:
+            # if self._output_dtype is not None:
+            #     result = result.to(self._output_dtype)
         elif not isinstance(result, transformers.BatchEncoding):
             raise RuntimeError(
                 "Processor returned an object that is not a BatchEncoding. "
