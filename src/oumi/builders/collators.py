@@ -40,6 +40,7 @@ def build_data_collator(
     *,
     max_length: Optional[int],
     label_ignore_index: Optional[int] = constants.LABEL_IGNORE_INDEX,
+    debug: bool = False,
     **kwargs,
 ) -> Callable:
     """Builds a data collator based on the given collator name.
@@ -62,6 +63,7 @@ def build_data_collator(
             PyTorch convention is to use -100 as the `ignore_index` label. Refer to
             the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
             for more details.
+        debug: If True, logs a single example for debugging purposes.
         **kwargs: Additional keyword arguments to pass to the collator constructor.
 
     Returns:
@@ -91,16 +93,18 @@ def build_data_collator(
                 + f" tokenizer's model maximum length ({tokenizer.model_max_length})"
             )
 
+    collator = None
     if collator_name == "text_with_padding":
-        return TextCollatorWithPadding(
+        collator = TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=enable_truncation,
             label_ignore_index=label_ignore_index,
+            debug=debug,
             **kwargs,
         )
     elif collator_name == "vision_language_with_padding":
-        return VisionLanguageCollatorWithPadding(
+        collator = VisionLanguageCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=enable_truncation,
@@ -112,7 +116,7 @@ def build_data_collator(
         if not processor_name:
             raise ValueError(f"Empty processor_name for '{collator_name}'")
         processor_kwargs = kwargs.pop("processor_kwargs", None)
-        return VisionLanguageSftCollator(
+        collator = VisionLanguageSftCollator(
             tokenizer=tokenizer,
             processor_name=processor_name,
             processor_kwargs=processor_kwargs,
@@ -122,17 +126,20 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        return TextCompletionsCollatorWithPadding(
+        collator = TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
             response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
+            debug=debug,
         )
 
-    raise ValueError(f"Unknown data collator name: '{collator_name}'")
+    if collator is None:
+        raise ValueError(f"Unknown data collator name: '{collator_name}'")
+    return collator
 
 
 def build_collator_from_config(
-    config: TrainingConfig, tokenizer: Optional[BaseTokenizer]
+    config: TrainingConfig, tokenizer: Optional[BaseTokenizer], debug: bool = False
 ) -> Optional[Callable]:
     """Creates data collator if specified in config."""
     train_split = config.data.get_split(DatasetSplit.TRAIN)
@@ -190,5 +197,6 @@ def build_collator_from_config(
         tokenizer=tokenizer,
         max_length=config.model.model_max_length,
         label_ignore_index=label_ignore_index,
+        debug=debug,
         **collator_kwargs,
     )
