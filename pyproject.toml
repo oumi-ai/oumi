@@ -43,6 +43,7 @@ dependencies = [
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
+    "click < 8.2.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2.0,<3.3",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
@@ -118,8 +119,8 @@ gpu = [
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.3.0,<0.4",                # Used for the VERL_GRPO trainer.
-    "vllm>=0.7.3,<0.8.0",              # For VLLMInferenceEngine
+    "verl>=0.3.0,<0.4",   # Used for the VERL_GRPO trainer.
+    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
 ]
 
 # Targets for supported cloud providers
