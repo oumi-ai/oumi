@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy, yaml, enum
+import copy
 from pathlib import Path
 from typing import Any, Optional
 
@@ -77,28 +77,6 @@ def _find_non_existing_output_dir_from_base_dir(base_dir: Path) -> Path:
     return new_dir
 
 
-def _convert_to_serializable(obj):
-    """Recursively convert object to dict if possible and handle Enums properly."""
-    if isinstance(obj, dict):
-        return {k: _convert_to_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_convert_to_serializable(v) for v in obj]
-    elif isinstance(obj, enum.Enum):
-        return obj.value  # convert Enum values
-    elif hasattr(obj, "to_dict"):
-        return _convert_to_serializable(obj.to_dict())
-    elif hasattr(obj, "__dict__"):
-        return _convert_to_serializable(vars(obj))
-    elif isinstance(obj, (str, int, float, bool, type(None))):
-        return obj
-    else:
-        # fallback to string representation if nothing else works
-        return str(obj)
-    
-def save_yaml_file(path: Path, data: Any) -> None:
-    with open(path, "w") as yaml_out:
-        yaml.safe_dump(data, yaml_out, default_flow_style=False, sort_keys=False)
-
 def save_evaluation_output(
     backend_name: str,
     task_params: EvaluationTaskParams,
@@ -158,11 +136,10 @@ def save_evaluation_output(
     # Save all relevant Oumi configurations.
     if config:
         try:
-            config_dict = _convert_to_serializable(config)
-            save_yaml_file(output_dir / OUTPUT_FILENAME_EVALUATION_CONFIG_YAML, config_dict)
+            config.to_yaml(output_dir / OUTPUT_FILENAME_EVALUATION_CONFIG_YAML)
         except Exception as e:
             logger.error(f"Failed to save EvaluationConfig as YAML: {e}")
-            
+
         if config.model:
             _save_to_file(output_dir / OUTPUT_FILENAME_MODEL_PARAMS, config.model)
         if config.generation:
