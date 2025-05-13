@@ -157,8 +157,11 @@ class VerlGrpoTrainer(BaseTrainer):
         if not training_params.save_epoch:
             config.trainer.save_freq = training_params.save_steps
 
+        config.trainer.logger = []
+        if training_params.logging_strategy != "no":
+            config.trainer.logger.append("console")
         if training_params.enable_wandb:
-            config.trainer.logger = ["wandb"]
+            config.trainer.logger.append("wandb")
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = training_params.output_dir
@@ -167,7 +170,13 @@ class VerlGrpoTrainer(BaseTrainer):
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
         config = cast(DictConfig, OmegaConf.merge(config, overrides_config))
 
-        # 4. Validate config.
+        # 4. Finalize and validate config.
+
+        # Resolves the value of all interpolation fields in the config.
+        # ex. `prompt_length: ${data.max_prompt_length}`
+        # https://omegaconf.readthedocs.io/en/2.3_branch/usage.html#omegaconf-resolve
+        OmegaConf.resolve(config)
+
         if (
             config.actor_rollout_ref.actor.strategy == "fsdp"
             and config.actor_rollout_ref.actor.strategy != config.critic.strategy
