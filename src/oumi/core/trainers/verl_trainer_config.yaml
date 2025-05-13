@@ -5,6 +5,7 @@
 # Changes:
 # - Changed trainer.project_name to "oumi_verl"
 # - Changed trainer.experiment_name to null
+# - Changed trainer.logger to []
 
 data:
   tokenizer: null
@@ -189,7 +190,7 @@ trainer:
   total_training_steps: null
   project_name: oumi_verl
   experiment_name: null
-  logger: [ 'console', 'wandb' ]
+  logger: []
   val_generations_to_log_to_wandb: 0
   nnodes: 1
   n_gpus_per_node: 8
