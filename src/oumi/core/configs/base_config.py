@@ -18,7 +18,7 @@ import re
 from collections.abc import Iterator
 from io import StringIO
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Union, cast
+from typing import Any, Optional, TypeVar, Union, cast, Set
 
 from omegaconf import OmegaConf
 
@@ -27,6 +27,60 @@ from oumi.core.configs.params.base_params import BaseParams
 T = TypeVar("T", bound="BaseConfig")
 
 _CLI_IGNORED_PREFIXES = ["--local-rank"]
+
+# Set of primitive types that OmegaConf can handle directly
+_PRIMITIVE_TYPES = {str, int, float, bool, type(None)}
+
+def _is_primitive_type(value: Any) -> bool:
+    """Check if a value is a primitive type that OmegaConf can handle.
+    
+    Args:
+        value: The value to check
+        
+    Returns:
+        bool: True if the value is a primitive type, False otherwise
+    """
+    if type(value) in _PRIMITIVE_TYPES:
+        return True
+    if isinstance(value, (list, dict)):
+        return True
+    return False
+
+def _handle_non_primitives(config: Any, path: str = "", removed_paths: Optional[Set[str]] = None) -> Any:
+    """Recursively process config object to handle non-primitive values.
+    
+    Args:
+        config: The config object to process
+        path: The current path in the config (for logging)
+        removed_paths: Set to track paths of removed non-primitive values
+        
+    Returns:
+        The processed config with non-primitive values removed
+    """
+    if removed_paths is None:
+        removed_paths = set()
+        
+    if _is_primitive_type(config):
+        return config
+        
+    if isinstance(config, list):
+        return [_handle_non_primitives(item, f"{path}[{i}]", removed_paths) 
+                for i, item in enumerate(config)]
+                
+    if isinstance(config, dict):
+        result = {}
+        for key, value in config.items():
+            current_path = f"{path}.{key}" if path else key
+            if _is_primitive_type(value):
+                result[key] = value
+            else:
+                removed_paths.add(current_path)
+                result[key] = None
+        return result
+        
+    # For any other type, remove it and track the path
+    removed_paths.add(path)
+    return None
 
 
 def _filter_ignored_args(arg_list: list[str]) -> list[str]:
@@ -57,8 +111,26 @@ def _read_config_without_interpolation(config_path: str) -> str:
 @dataclasses.dataclass
 class BaseConfig:
     def to_yaml(self, config_path: Union[str, Path, StringIO]) -> None:
-        """Saves the configuration to a YAML file."""
-        OmegaConf.save(config=self, f=config_path)
+        """Saves the configuration to a YAML file.
+        
+        Non-primitive values are removed and warnings are logged.
+        
+        Args:
+            config_path: Path to save the config to
+        """
+        config_dict = OmegaConf.to_container(self, resolve=True)
+        removed_paths = set()
+        processed_config = _handle_non_primitives(config_dict, removed_paths=removed_paths)
+        
+        # Log warnings for removed values
+        if removed_paths:
+            logging.warning(
+                "The following non-primitive values were removed from the config "
+                "as they cannot be saved to YAML:\n" + 
+                "\n".join(f"- {path}" for path in sorted(removed_paths))
+            )
+        
+        OmegaConf.save(config=processed_config, f=config_path)
 
     @classmethod
     def from_yaml(
