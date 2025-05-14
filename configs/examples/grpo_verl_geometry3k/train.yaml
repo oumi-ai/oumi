@@ -106,7 +106,7 @@ training:
         fsdp_config:
           param_offload: True
     trainer:
-      n_gpus_per_node: 8
+      n_gpus_per_node: 4
       nnodes: 1
 
   output_dir: "output/grpo-verl-vlm-geom3k"

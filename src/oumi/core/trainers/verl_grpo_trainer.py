@@ -207,6 +207,9 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
+        model_params = self._oumi_config.model
+        model_name = model_params.model_name
+
         # 1. Read verl default dict config from YAML.
         yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
         config = OmegaConf.load(yaml_path)
@@ -217,12 +220,16 @@ class VerlGrpoTrainer(BaseTrainer):
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
 
+        ### NEW
+        config.data.tokenizer = model_name
+        config.critic.model.path = model_name
+        ###
+
         grpo_params = self._oumi_config.training.grpo
-        model_params = self._oumi_config.model
         training_params = self._oumi_config.training
 
         config.data.max_response_length = grpo_params.max_completion_length
-        config.actor_rollout_ref.model.path = model_params.model_name
+        config.actor_rollout_ref.model.path = model_name
         config.actor_rollout_ref.actor.optim.lr = training_params.learning_rate
         config.actor_rollout_ref.model.enable_gradient_checkpointing = (
             training_params.enable_gradient_checkpointing
@@ -313,20 +320,12 @@ class VerlGrpoTrainer(BaseTrainer):
 
         # Create reward function manager
         compute_score = self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
-        reward_fn = (
-            NaiveRewardManager(
-                tokenizer=tokenizer, num_examine=0, compute_score=compute_score
-            )
-            if compute_score is not None
-            else None
+        reward_fn = NaiveRewardManager(
+            tokenizer=tokenizer, num_examine=0, compute_score=compute_score
         )
         # num_examine=1 means to print 1 example per batch for analysis.
-        val_reward_fn = (
-            NaiveRewardManager(
-                tokenizer=tokenizer, num_examine=1, compute_score=compute_score
-            )
-            if compute_score is not None
-            else None
+        val_reward_fn = NaiveRewardManager(
+            tokenizer=tokenizer, num_examine=1, compute_score=compute_score
         )
 
         self._verl_trainer = RayPPOTrainer(
