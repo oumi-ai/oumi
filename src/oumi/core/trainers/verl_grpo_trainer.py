@@ -103,17 +103,30 @@ class VerlGrpoTrainer(BaseTrainer):
 
         self._setup_verl_trainer()
 
-    def _create_dataset_files(self) -> None:
+    def _create_dataset_files(
+        self, process_fn: Optional[Callable[[dict, int], dict]] = None
+    ) -> None:
         """Creates dataset files for verl in Parquet format.
 
         The Parquet files are saved to the Oumi cache directory.
         """
         train_file = self._cache_dir / "train.parquet"
-        self._train_dataset.to_parquet(train_file)
+        train_dataset = self._train_dataset
+        if process_fn is not None:
+            train_dataset = train_dataset.map(
+                function=process_fn, with_indices=True, num_proc=8
+            )
+
+        train_dataset.to_parquet(train_file)
         self._train_filepath = str(train_file)
 
         val_file = self._cache_dir / "val.parquet"
-        self._eval_dataset.to_parquet(val_file)
+        eval_dataset = self._eval_dataset
+        if process_fn is not None:
+            eval_dataset = eval_dataset.map(
+                function=process_fn, with_indices=True, num_proc=8
+            )
+        eval_dataset.to_parquet(val_file)
         self._val_filepath = str(val_file)
 
     def _create_config(self) -> DictConfig:
