@@ -21,7 +21,7 @@ from oumi.utils.torch_utils import count_model_parameters
 # TODO: Confirm this number
 # The number of VRAM bytes used by CUDA.
 # See: https://discuss.pytorch.org/t/what-is-the-initial-1-3gb-allocated-vram-when-first-using-cuda/122079/2
-_CUDA_BYTES = 1.3e9
+_CUDA_BYTES = 1.3e9  # 1.3 GB
 # TODO: Confirm this number
 # Torch dtype for a token in the input batch.
 _TOKEN_DTYPE = torch.int32
@@ -121,8 +121,9 @@ def get_data_bytes(
 # TODO: Find a static way to calculate this
 def get_model_bytes(model: torch.nn.Module, bytes_per_unit: int) -> int:
     """Gets the total number of bytes used by the loaded model."""
-    model_parameter_count = count_model_parameters(model)
-    return model_parameter_count.all_params * bytes_per_unit
+    num_total_params = count_model_parameters(model).all_params
+    print(f"- Model parameter count: {num_total_params:,}")
+    return num_total_params * bytes_per_unit
 
 
 # TODO: Support more optimizers
@@ -144,13 +145,18 @@ def get_optim_bytes(config: TrainingConfig, model_bytes: int) -> int:
 
 def get_gradient_bytes(config: TrainingConfig, model_bytes: int) -> int:
     """Gets the total number of bytes used by gradients."""
+    print("- The size of the gradient is the same as that for model weights.")
     if config.training.gradient_accumulation_steps > 1:
+        print(
+            "- If gradient accumulation is used, a buffer to store gradients is "
+            "required. The buffer is the same size as the gradients."
+        )
         return model_bytes * 2
     return model_bytes
 
 
 def get_activation_bytes(
-    config: TrainingConfig, model_config: ModelConfig, data_bytes: int
+    config: TrainingConfig, model_config: ModelConfig, bytes_per_unit: int
 ) -> int:
     """Gets the total number of bytes used by activations."""
     vocab_size = model_config.vocab_size
@@ -163,7 +169,10 @@ def get_activation_bytes(
     lm_head_bytes = vocab_size
     transformer_bytes = num_layers * (14 * hidden_dim + seq_len * num_kv_heads)
     total = embedding_bytes + lm_head_bytes + transformer_bytes
-    return total * data_bytes
+
+    batch_size = config.training.per_device_train_batch_size
+    model_max_length = get_seq_len(config, model_config)
+    return total * batch_size * model_max_length * bytes_per_unit
 
 
 def main() -> None:
@@ -201,12 +210,12 @@ def main() -> None:
     print(f"Bytes per memory unit: {bytes_per_unit}")
     print("Bytes used by different parts of the training process:")
     print(f"Base memory usage: {bytes_to_str(_CUDA_BYTES)}")
-    print("This includes loading CUDA, GPU kernels, cuDNN/cuBLAS, etc.")
+    print("- This includes loading CUDA, GPU kernels, cuDNN/cuBLAS, etc.")
     data_bytes = get_data_bytes(config, model_config, bytes_per_unit)
     print(f"Data (input batches of token ids): {bytes_to_str(data_bytes)}")
     model_bytes = get_model_bytes(model, bytes_per_unit)
     print(f"Model weights: {bytes_to_str(model_bytes)}")
-    activation_bytes = get_activation_bytes(config, model_config, data_bytes)
+    activation_bytes = get_activation_bytes(config, model_config, bytes_per_unit)
     print(f"Model activations: {bytes_to_str(activation_bytes)}")
     gradient_bytes = get_gradient_bytes(config, model_bytes)
     print(f"Model gradients: {bytes_to_str(gradient_bytes)}")
