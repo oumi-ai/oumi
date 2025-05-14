@@ -17,6 +17,7 @@
 import copy
 import os
 from pathlib import Path
+from pprint import pformat
 from typing import Callable, Optional, Union, cast
 
 from datasets import Dataset
@@ -184,6 +185,7 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError(
                 "Actor and critic must use the same strategy when using FSDP."
             )
+        logger.info(f"VERL config:\n\n{pformat(config)}\n\n")
         return config
 
     def _setup_verl_trainer(self):
