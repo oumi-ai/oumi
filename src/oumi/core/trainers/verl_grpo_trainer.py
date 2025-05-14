@@ -107,8 +107,8 @@ class VerlGrpoTrainer(BaseTrainer):
         self._setup_verl_trainer()
 
     @staticmethod
-    def _extract_question_images_answer_from_conversation(
-        example,
+    def _extract_question_images_answer_from_simple_conversation(
+        example: dict,
     ) -> tuple[str, list, str]:
         if "conversation_json" not in example:
             raise ValueError(
@@ -139,18 +139,52 @@ class VerlGrpoTrainer(BaseTrainer):
         answer: str = assistant_message.text_content_items[-1].content or ""
         return (prompt, images, answer)
 
+    @staticmethod
+    def _create_verl_data_entry_from_simple_conversation(
+        example: dict, idx: int, data_source: str, split: str
+    ) -> dict:
+        prompt, images, answer = (
+            VerlGrpoTrainer._extract_question_images_answer_from_simple_conversation(
+                example
+            )
+        )
+        data = {
+            "data_source": data_source,
+            "prompt": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "images": images,
+            "ability": "math",
+            "reward_model": {"style": "rule", "ground_truth": answer},
+            "extra_info": {
+                "split": split,
+                "index": idx,
+                "answer": answer,
+                "question": prompt,  # TODO: extract problem
+            },
+        }
+        return data
+
     def _create_dataset_files(
-        self, process_fn: Optional[Callable[[dict, int], dict]] = None
+        self, process_fn: Optional[Callable[[dict, int, str, str], dict]] = None
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
         The Parquet files are saved to the Oumi cache directory.
         """
+        data_source: str = "hiyouga/geometry3k"
         train_file = self._cache_dir / "train.parquet"
         train_dataset = self._train_dataset
         if process_fn is not None:
             train_dataset = train_dataset.map(
-                function=process_fn, with_indices=True, num_proc=8
+                function=lambda example, idx: process_fn(
+                    example, idx, data_source, "train"
+                ),
+                with_indices=True,
+                num_proc=8,
             )
 
         train_dataset.to_parquet(train_file)
@@ -160,7 +194,11 @@ class VerlGrpoTrainer(BaseTrainer):
         eval_dataset = self._eval_dataset
         if process_fn is not None:
             eval_dataset = eval_dataset.map(
-                function=process_fn, with_indices=True, num_proc=8
+                function=lambda example, idx: process_fn(
+                    example, idx, data_source, "validation"
+                ),
+                with_indices=True,
+                num_proc=8,
             )
         eval_dataset.to_parquet(val_file)
         self._val_filepath = str(val_file)
