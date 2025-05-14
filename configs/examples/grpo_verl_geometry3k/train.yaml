@@ -24,6 +24,7 @@ data:
         seed: 42
         transform_num_workers: "auto"
         dataset_kwargs:
+          return_conversations: True
           processor_name: "Qwen/Qwen2.5-VL-7B-Instruct"
           # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
@@ -35,6 +36,7 @@ data:
         seed: 42
         transform_num_workers: "auto"
         dataset_kwargs:
+          return_conversations: True
           processor_name: "Qwen/Qwen2.5-VL-7B-Instruct"
           # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
