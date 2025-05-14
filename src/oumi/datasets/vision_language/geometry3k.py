@@ -84,7 +84,7 @@ class Geometry3kDataset(VisionLanguageSftDataset):
                 content=[
                     ContentItem(
                         type=Type.IMAGE_BINARY,
-                        binary=image,
+                        binary=image["bytes"],
                     ),
                     ContentItem(type=Type.TEXT, content=input_text),
                 ],

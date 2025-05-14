@@ -28,7 +28,7 @@ data:
     collator_name: "vision_language_with_padding"
     use_torchdata: True
     datasets:
-      - dataset_name: "hiyouga/geometry3k" # "merve/vqav2-small"
+      - dataset_name: "merve/vqav2-small"
         split: "validation"
         shuffle: True
         seed: 42
