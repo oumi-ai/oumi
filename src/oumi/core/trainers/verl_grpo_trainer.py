@@ -102,7 +102,9 @@ class VerlGrpoTrainer(BaseTrainer):
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         # Sets self._train_filepath and self._val_filepath.
-        self._create_dataset_files()
+        self._create_dataset_files(
+            VerlGrpoTrainer._create_verl_data_entry_from_simple_conversation
+        )
 
         self._setup_verl_trainer()
 
