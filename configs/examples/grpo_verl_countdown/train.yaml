@@ -45,8 +45,8 @@ training:
 
   verl_config_overrides:
     data:
-      train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
-      val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
+      train_files: "/home/gcpuser/countdown-curriculum/data/countdown/train-3-3.parquet"
+      val_files: "/home/gcpuser/countdown-curriculum/data/countdown/test-3-10.parquet"
       train_batch_size: 128
       val_batch_size: 256
       max_prompt_length: 256
