@@ -18,12 +18,12 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "d1shs0ap/countdown-final"
+      - dataset_name: "hiyouga/geometry3k"
         split: "train"
   validation:
     datasets:
-      - dataset_name: "d1shs0ap/countdown-final"
-        split: "test"
+      - dataset_name: "hiyouga/geometry3k"
+        split: "validation"
 
 training:
   trainer_type: "VERL_GRPO"
@@ -43,26 +43,34 @@ training:
     temperature: 0.6
     vllm_gpu_memory_utilization: 0.7
 
+  # from https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen2_5_vl-7b.sh
   verl_config_overrides:
     data:
-      train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
-      val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
-      train_batch_size: 128
-      val_batch_size: 256
-      max_prompt_length: 256
-      max_extrapolation_length: 2048
-      shuffle: False
+      # train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
+      # val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
+      train_batch_size: 512
+      val_batch_size: 512
+      max_prompt_length: 1024
+      # max_extrapolation_length: 2048
+      # shuffle: False
+      max_response_length: 2048
+      filter_overlong_prompts: True
+      truncation: "error"
+      image_key: "images"
     actor_rollout_ref:
       model:
         use_remove_padding: True
       actor:
-        ppo_mini_batch_size: 32
-        use_dynamic_bsz: True
-        gradients: "normal"
+        ppo_mini_batch_size: 128
+        ppo_micro_batch_size_per_gpu: 10
         use_kl_loss: True
-        kl_loss_coef: 0.001
+        kl_loss_coef: 0.01
         kl_loss_type: "low_var_kl"
         entropy_coeff: 0
+        param_offload: False
+        optimizer_offload: False
+        # use_dynamic_bsz: True
+        # gradients: "normal"
       rollout:
         tensor_model_parallel_size: 2
         n: 8
