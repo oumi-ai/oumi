@@ -16,7 +16,7 @@ from oumi.core.configs import TrainingConfig
 from oumi.core.configs.internal.supported_models import (
     find_model_hf_config,
 )
-from oumi.utils.torch_utils import count_model_parameters
+from oumi.utils.torch_utils import count_model_parameters, get_dtype_size_in_bytes
 
 # TODO: Confirm this number
 # The number of VRAM bytes used by CUDA.
@@ -47,26 +47,8 @@ class ModelConfig:
     """The number of key value (KV) heads for the attention layer."""
 
 
-def get_bytes_per_unit(dtype: torch.dtype) -> int:
-    """Gets the number of bytes used per memory unit given the torch dtype.
-
-    A memory unit is essentially a number in memory, such as a parameter, gradient, or
-    activation.
-    """
-    if dtype == torch.float64 or dtype == torch.int64:
-        return 8
-    elif dtype == torch.float32 or dtype == torch.int32:
-        return 4
-    elif dtype == torch.bfloat16 or dtype == torch.float16 or dtype == torch.int16:
-        return 2
-    elif dtype == torch.uint8:
-        return 1
-    else:
-        raise ValueError(f"Unsupported torch dtype: {dtype}")
-
-
-def bytes_to_str(bytes: Union[int, float]) -> str:
-    """Converts a number of bytes to a human-readable string."""
+def num_bytes_to_str(bytes: Union[int, float]) -> str:
+    """Returns a human-readable string for a number of bytes."""
     if bytes < 1000:
         return f"{bytes} B"
     elif bytes < 1e6:
@@ -115,7 +97,7 @@ def get_data_bytes(
     """Gets the total number of bytes used by the data batch."""
     batch_size = config.training.per_device_train_batch_size
     model_max_length = get_seq_len(config, model_config)
-    return batch_size * model_max_length * get_bytes_per_unit(_TOKEN_DTYPE)
+    return batch_size * model_max_length * get_dtype_size_in_bytes(_TOKEN_DTYPE)
 
 
 # TODO: Find a static way to calculate this
@@ -204,23 +186,23 @@ def main() -> None:
         peft_params=config.peft if config.training.use_peft else None,
     )
 
-    bytes_per_unit = get_bytes_per_unit(config.model.torch_dtype)
+    bytes_per_unit = get_dtype_size_in_bytes(config.model.torch_dtype)
     print()
     print("-" * 80)
     print(f"Bytes per memory unit: {bytes_per_unit}")
     print("Bytes used by different parts of the training process:")
-    print(f"Base memory usage: {bytes_to_str(_CUDA_BYTES)}")
+    print(f"Base memory usage: {num_bytes_to_str(_CUDA_BYTES)}")
     print("- This includes loading CUDA, GPU kernels, cuDNN/cuBLAS, etc.")
     data_bytes = get_data_bytes(config, model_config, bytes_per_unit)
-    print(f"Data (input batches of token ids): {bytes_to_str(data_bytes)}")
+    print(f"Data (input batches of token ids): {num_bytes_to_str(data_bytes)}")
     model_bytes = get_model_bytes(model, bytes_per_unit)
-    print(f"Model weights: {bytes_to_str(model_bytes)}")
+    print(f"Model weights: {num_bytes_to_str(model_bytes)}")
     activation_bytes = get_activation_bytes(config, model_config, bytes_per_unit)
-    print(f"Model activations: {bytes_to_str(activation_bytes)}")
+    print(f"Model activations: {num_bytes_to_str(activation_bytes)}")
     gradient_bytes = get_gradient_bytes(config, model_bytes)
-    print(f"Model gradients: {bytes_to_str(gradient_bytes)}")
+    print(f"Model gradients: {num_bytes_to_str(gradient_bytes)}")
     optim_bytes = get_optim_bytes(config, model_bytes)
-    print(f"Optimizer state: {bytes_to_str(optim_bytes)}")
+    print(f"Optimizer state: {num_bytes_to_str(optim_bytes)}")
 
     total_bytes = (
         _CUDA_BYTES
@@ -230,7 +212,7 @@ def main() -> None:
         + gradient_bytes
         + optim_bytes
     )
-    print(f"Total bytes: {bytes_to_str(total_bytes)}")
+    print(f"Total bytes: {num_bytes_to_str(total_bytes)}")
 
     # TODO: Print config fields used
 
