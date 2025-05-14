@@ -1,5 +1,17 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to DDP pretrain the FineWeb ablation model on GCP.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/examples/fineweb_ablation_pretraining/ddp/gcp_job.yaml --cluster fineweb-ddp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: fineweb-ddp
 
@@ -8,10 +20,8 @@ resources:
   accelerators: "A100:4"
   use_spot: false
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
 
@@ -21,7 +31,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.

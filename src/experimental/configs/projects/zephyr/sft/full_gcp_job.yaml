@@ -1,5 +1,19 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Zephyr full fine-tune job config.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
+#
+# Usage:
+#   oumi launch up -c src/experimental/configs/projects/zephyr/sft/full_gcp_job.yaml --cluster zephyr-7b-fft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: zephyr-7b-fft
 
@@ -11,17 +25,16 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 200  # Disk size in GB
   # region: us-west1  # Uncomment this line to only consider a specific region.
 
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -29,7 +42,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.

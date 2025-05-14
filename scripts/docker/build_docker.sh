@@ -3,11 +3,15 @@
 
 set -xe
 
-DOCKER_HUB="TBD" # OPE-251
-VERSION=latest
+OUMI_TAG=oumi:latest
 
-echo "Building docker image $DOCKER_HUB:$VERSION"
-docker build -t $DOCKER_HUB/oumi:$VERSION .
+echo "Building image..."
+docker build -t $OUMI_TAG .
 
-echo "Pushing docker image $DOCKER_HUB:$VERSION"
-docker push $DOCKER_HUB/oumi:$VERSION
+echo "Running basic tests..."
+docker run --rm $OUMI_TAG oumi env
+
+# echo "Pushing docker image"
+# docker push $DOCKER_HUB/$OUMI_TAG
+
+echo "Build complete!"

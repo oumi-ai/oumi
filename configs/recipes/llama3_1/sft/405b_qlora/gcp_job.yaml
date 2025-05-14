@@ -1,9 +1,20 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to FSDP QLoRA tune Llama 3.1 405B Instruct.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-405B-Instruct
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to FSDP QLoRA tune Llama 3.1 405B Instruct.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_1/sft/405b_qlora/gcp_job.yaml --cluster llama405b-qlora-fsdp
 name: llama405b-qlora-fsdp
 
 resources:
@@ -12,7 +23,7 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 4000 # Disk size in GBs
 
@@ -20,25 +31,20 @@ working_dir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama405b.qlora.fsdp
-  ACCELERATE_LOG_LEVEL: info
-  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
-  TOKENIZERS_PARALLELISM: false
   # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
   PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Download the model from HF.
   # We exclude original/* because it contains two redundant copies of the model weights.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-405B-Instruct --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-405B-Instruct --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.

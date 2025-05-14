@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from pathlib import Path
 from typing import Literal, Optional, Union, cast
 
@@ -9,7 +23,6 @@ from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_t
 from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
-    find_internal_model_config,
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_models_map,
@@ -151,6 +164,15 @@ def build_oumi_model(
     return model
 
 
+def _disable_cache_in_model_config(model: nn.Module):
+    # Required for FSDP.
+    # Context: https://github.com/huggingface/transformers/issues/28499
+    model.config.use_cache = False
+    if hasattr(model.config, "text_config"):
+        # This may be needed for VLM-s.
+        model.config.text_config.use_cache = False
+
+
 def build_huggingface_model(
     model_params: ModelParams,
     peft_params: Optional[PeftParams] = None,
@@ -226,9 +248,7 @@ def build_huggingface_model(
             **kwargs,
         )
 
-    # Required for FSDP.
-    # Context: https://github.com/huggingface/transformers/issues/28499
-    model.config.use_cache = False
+    _disable_cache_in_model_config(model)
 
     # TODO Find a better way to handle it
 
@@ -334,9 +354,7 @@ def build_cambrian_model(
         model_path, None, model_name, device_map=(device_map or "auto")
     )
 
-    # Required for FSDP.
-    # Context: https://github.com/huggingface/transformers/issues/28499
-    model.config.use_cache = False
+    _disable_cache_in_model_config(model)
 
     # TODO Find a better way to handle it
 
@@ -366,19 +384,46 @@ def build_tokenizer(
         # If no specific tokenizer is defined, fall back to model's default.
         tokenizer_name = model_params.model_name
 
+    # String for logging
+    if tokenizer_name != model_params.model_name:
+        tokenizer_id_str = (
+            f"tokenizer '{tokenizer_name}' and model '{model_params.model_name}'"
+        )
+    else:
+        tokenizer_id_str = f"model '{model_params.model_name}'"
+
+    internal_config: Optional[InternalModelConfig] = (
+        find_internal_model_config_using_model_name(
+            model_name=tokenizer_name,
+            trust_remote_code=model_params.trust_remote_code,
+        )
+    )
+
+    tokenizer_kwargs = {**model_params.tokenizer_kwargs}
+    if internal_config is not None:
+        if (
+            "padding_side" not in tokenizer_kwargs
+            and internal_config.padding_side is not None
+        ):
+            padding_side = str(internal_config.padding_side.value)
+            logger.info(
+                f"Setting tokenizer to use the '{padding_side}' padding side "
+                f"for {tokenizer_id_str}. "
+                f"The '{padding_side}' padding side is configured as the default value "
+                "for this model type."
+            )
+            tokenizer_kwargs["padding_side"] = padding_side
+
     # Download and build the tokenizer from the HuggingFace Hub.
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         tokenizer_name,
         trust_remote_code=model_params.trust_remote_code,
-        **model_params.tokenizer_kwargs,
+        **tokenizer_kwargs,
     )
 
     tokenizer_pad_token = model_params.tokenizer_pad_token
     if not tokenizer_pad_token:
         # Try to find the default `tokenizer_pad_token` by model type.
-        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
-            model_params
-        )
         if internal_config is not None and internal_config.tokenizer_pad_token:
             tokenizer_pad_token = internal_config.tokenizer_pad_token
 
@@ -409,32 +454,33 @@ def build_tokenizer(
     if model_params.chat_template:
         logger.info(
             f"Using the chat template '{model_params.chat_template}' "
-            "specified in model config!"
+            f"specified in model config for {tokenizer_id_str}. "
         )
         template_name = model_params.chat_template
     else:
         # Try to find the default chat template by model type.
-        internal_config: Optional[InternalModelConfig] = find_internal_model_config(
-            model_params
-        )
         if internal_config is not None and internal_config.chat_template:
             template_name = internal_config.chat_template
             logger.info(
                 f"Using the chat template '{template_name}', which is the default "
-                f"for model '{model_params.model_name}'."
+                f"for {tokenizer_id_str}. "
             )
         elif not tokenizer.chat_template:
             template_name = "default"
             logger.warning(
-                "No chat template found for tokenizer. "
+                f"No chat template found for tokenizer for {tokenizer_id_str}. "
                 "Please specify a chat template using the `chat_template` field. "
                 "This will be required in future versions of Oumi."
             )
             logger.warning(
                 "Setting tokenizer to use the 'default' chat template "
-                f"for model '{model_params.model_name}'. "
+                f"for {tokenizer_id_str}. "
                 "The 'default' template does not use any special tokens, "
                 "and is unlikely to yield good results."
+            )
+        else:
+            logger.info(
+                f"Using the model's built-in chat template for {tokenizer_id_str}."
             )
 
     if template_name:
@@ -443,7 +489,7 @@ def build_tokenizer(
     return tokenizer
 
 
-def _convert_init_lora_weights_to_lora_config(
+def _convert_lora_init_weights_to_lora_config(
     param: LoraWeightInitialization,
 ) -> Union[
     bool,
@@ -486,7 +532,7 @@ def build_peft_model(
         bias=peft_params.lora_bias,  # type: ignore
         task_type=peft_params.lora_task_type,
         init_lora_weights=(
-            _convert_init_lora_weights_to_lora_config(peft_params.init_lora_weights)
+            _convert_lora_init_weights_to_lora_config(peft_params.lora_init_weights)
         ),
     )
 

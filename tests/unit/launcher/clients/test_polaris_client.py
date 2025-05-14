@@ -53,7 +53,7 @@ def _get_test_data(file_name: str) -> str:
 def _run_commands_template(commands: list[str]) -> str:
     user = "user"
     ctrl_path = "-S ~/.ssh/control-%h-%p-%r"
-    ssh_cmd = f"ssh {ctrl_path} {user}@polaris.alcf.anl.gov " " << 'EOF'"
+    ssh_cmd = f"ssh {ctrl_path} {user}@polaris.alcf.anl.gov  << 'EOF'"
     eof_suffix = "EOF"
     return "\n".join([ssh_cmd, *commands, eof_suffix])
 

@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import contextlib
 import copy
 import math
@@ -15,6 +29,7 @@ import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 
+import mlflow  # isort: skip
 import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
@@ -47,7 +62,6 @@ from oumi.models.layers.ring_attention import (
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import log_trainable_parameters
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
@@ -63,7 +77,7 @@ class Trainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        tokenizer: Optional[BaseTokenizer],
+        processing_class: Optional[BaseTokenizer],
         args: TrainingParams,
         train_dataset: Dataset,
         processor: Optional[BaseProcessor] = None,
@@ -82,7 +96,7 @@ class Trainer(BaseTrainer):
         self.start_time = time.perf_counter()
         self.collator_fn = data_collator
 
-        self.tokenizer = tokenizer
+        self.processing_class = processing_class
         self._processor = processor
         self.params = copy.deepcopy(args)
         self.train_dataset = train_dataset
@@ -189,9 +203,6 @@ class Trainer(BaseTrainer):
             with torch.profiler.record_function("load_from_checkpoint"):
                 self._load_from_checkpoint(resume_from_checkpoint)
 
-        if is_local_process_zero():
-            log_trainable_parameters(self.model)
-
         total_steps = self._estimate_total_training_steps()
 
         self.start_time = time.perf_counter()
@@ -248,6 +259,9 @@ class Trainer(BaseTrainer):
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
 
+        if self.params.enable_mlflow:
+            mlflow.end_run()
+
     @contextmanager
     def _telemetry_block(self, name: str):
         with (
@@ -303,10 +317,10 @@ class Trainer(BaseTrainer):
 
                 # Count tokens on CPU.
                 with self._telemetry_block("computing tokens"):
-                    if self.tokenizer is not None and "input_ids" in batch:
+                    if self.processing_class is not None and "input_ids" in batch:
                         num_tokens = (
                             batch["input_ids"]
-                            .ne(self.tokenizer.pad_token_id)
+                            .ne(self.processing_class.pad_token_id)
                             .sum()
                             .item()
                         )
@@ -645,6 +659,9 @@ class Trainer(BaseTrainer):
             )
         else:
             self.tensorboard_writer = None
+
+        if self.params.enable_mlflow:
+            self.mlflow_run = mlflow.start_run()
 
     #
     # Data loading

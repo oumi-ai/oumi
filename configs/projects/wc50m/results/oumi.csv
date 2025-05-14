@@ -1,0 +1,12 @@
+Metric,Value
+MTBench,5.2313
+Alpaca Eval (LC),1.6157
+BBH,0.4861
+GPQA,0.2903
+MATH,0.0552
+MUSR,0.4116
+"IFEval (Prompt Level, Strict)",0.1978
+"IFEval (Instance Level, Loose)",0.3501
+MMLU Pro,0.3118
+MixEval,0.5935
+MBPP,0.372

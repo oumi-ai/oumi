@@ -1,0 +1,47 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# GCP Config for WC50M reproduction of UltraChat baseline.
+
+name: llama8b-ultrachat-sft
+
+num_nodes: 1
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:4"
+  use_spot: false
+  disk_size: 2000 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  # Mount HF token, which is needed to download locked-down models from HF Hub.
+  # This is created on the local machine by running `huggingface-cli login`.
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama8b-ultrachat
+  OUMI_USER_NAME: penfever
+  ACCELERATE_LOG_LEVEL: info
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+setup: |
+  set -e
+  pip install uv && uv pip install -e .[gpu,evaluation] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B --exclude original/*
+  pip install -U flash-attn --no-build-isolation
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+    -m oumi train \
+    -c configs/recipes/llama3_1/sft/8b_full/base_ultrachat.yaml \
+    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

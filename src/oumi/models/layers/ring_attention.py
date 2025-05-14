@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Optional
 
 import torch
@@ -104,12 +118,14 @@ def new_decoder_forward(
     **kwargs,
 ) -> tuple[torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]]:
     """New decoder forward."""
+    # Was originally LlamaFlashAttention2, but this was deleted in transformers 4.48.0.
     assert isinstance(
         self.self_attn,
-        transformers_models.llama.modeling_llama.LlamaFlashAttention2,
+        transformers_models.llama.modeling_llama.LlamaAttention,
+        # Ditto but with MistralFlashAttention2.
     ) or isinstance(
         self.self_attn,
-        transformers_models.mistral.modeling_mistral.MistralFlashAttention2,
+        transformers_models.mistral.modeling_mistral.MistralAttention,
     ), (
         "Please toggle on the Flash Attention 2 implementation "
         "when using zigzag ring attention monkey patch."

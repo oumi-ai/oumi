@@ -1,9 +1,18 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to eval Qwen2 VL 2B Instruct on GCP.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/gcp_job.yaml --cluster qwen2-vl-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to eval Qwen2 VL 2B Instruct on GCP.
-# Example command:
-# oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/gcp_job.yaml --cluster qwen2-vl-eval
 name: qwen2-vl-eval
 
 resources:
@@ -12,15 +21,11 @@ resources:
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
@@ -32,10 +37,12 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  pip install -U flash-attn --no-build-isolation
+
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -45,6 +52,8 @@ run: |
     echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
     exit 1
   fi
+
+  pip install -U flash-attn --no-build-isolation
 
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
 

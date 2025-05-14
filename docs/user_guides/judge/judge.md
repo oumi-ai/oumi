@@ -12,6 +12,8 @@ custom_infer
 
 As Large Language Models (LLMs) continue to evolve, traditional evaluation benchmarks, which focus primarily on task-specific metrics, are increasingly inadequate for capturing the full scope of a model's generative potential. In real-world applications, LLM capabilities such as creativity, coherence, and the ability to effectively handle nuanced and open-ended queries are critical and cannot be fully assessed through standardized metrics alone. While human raters are often employed to evaluate these aspects, the process is costly and time-consuming. As a result, the use of LLM-based evaluation systems, or "LLM judges", has gained traction as a more scalable and efficient alternative.
 
+Oumi provides a versatile LLM Judge framework that enables the automation of pointwise and pairwise **model evaluations**, **dataset curation**, and **quality assurance** for model deployment. You can easily customize the {doc}`evaluation prompts and criteria </user_guides/judge/custom_prompt>`, select {doc}`any underlying judge LLM </user_guides/judge/custom_infer>` (open-source or proprietary), and locally host or access it remotely via an API.
+
 ## Overview
 
 In LLM-based evaluations, an **LLM Judge** is utilized to assess the performance of a **Language Model** according to a predefined set of criteria.
@@ -57,9 +59,10 @@ from oumi.judges import OumiXmlJudge
 from oumi.judges import oumi_v1_xml_local_judge as judge_local
 from oumi.judges import oumi_v1_xml_gpt4o_judge as judge_gpt4o
 from oumi.judges import oumi_v1_xml_claude_sonnet_judge as judge_sonnet
+from oumi.judges import oumi_v1_xml_deepseek_r1_judge as judge_deepseek_r1
 
 # Instantiate the judge.
-judge = OumiXmlJudge(judge_local()) # alternatives: judge_gpt4o(), judge_sonnet()
+judge = OumiXmlJudge(judge_local()) # alternatives: judge_gpt4o(), judge_sonnet(), judge_deepseek_r1()
 
 # Define the `conversations` to be judged.
 conversations = [
@@ -99,4 +102,4 @@ This section provides an overview of the available customization options.
 
 The LLM Judge framework offers a range of customization options to tailor the evaluation process to your specific needs. You can modify the judgment prompts and their corresponding few-shot examples, as well as choose the type of judgment the underlying model will provide (`bool`, `categorical`, or `likert-5`). For a comprehensive guide on these options, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page.
 
-Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`. Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.
+Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate {py:obj}`~oumi.core.configs.inference_engine_type.InferenceEngineType`. Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.

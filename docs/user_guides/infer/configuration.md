@@ -1,4 +1,4 @@
-# Configuration Reference
+# Inference Configuration
 
 ## Introduction
 
@@ -23,7 +23,7 @@ A typical configuration file has this structure:
 
 ```yaml
 model:  # Model settings
-  model_name: "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
   trust_remote_code: true
   model_kwargs:
     device_map: "auto"
@@ -52,32 +52,32 @@ Configure the model architecture and loading using the {py:obj}`~oumi.core.confi
 ```yaml
 model:
   # Required
-  model_name: "meta-llama/Llama-2-7b-hf"    # Model ID or path (REQUIRED)
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"    # Model ID or path (REQUIRED)
 
   # Model loading
-  adapter_model: null                        # Path to adapter model (auto-detected if model_name is adapter)
-  tokenizer_name: null                       # Custom tokenizer name/path (defaults to model_name)
-  tokenizer_pad_token: null                  # Override pad token
-  tokenizer_kwargs: {}                       # Additional tokenizer args
-  model_max_length: null                     # Max sequence length (positive int or null)
-  load_pretrained_weights: true              # Load pretrained weights
-  trust_remote_code: false                   # Allow remote code execution (use with trusted models only)
+  adapter_model: null                                # Path to adapter model (auto-detected if model_name is adapter)
+  tokenizer_name: null                               # Custom tokenizer name/path (defaults to model_name)
+  tokenizer_pad_token: null                          # Override pad token
+  tokenizer_kwargs: {}                               # Additional tokenizer args
+  model_max_length: null                             # Max sequence length (positive int or null)
+  load_pretrained_weights: true                      # Load pretrained weights
+  trust_remote_code: false                           # Allow remote code execution (use with trusted models only)
 
   # Model precision and hardware
-  torch_dtype_str: "float32"                 # Model precision (float32/float16/bfloat16/float64)
-  device_map: "auto"                         # Device placement strategy (auto/null)
-  compile: false                             # JIT compile model
+  torch_dtype_str: "float32"                         # Model precision (float32/float16/bfloat16/float64)
+  device_map: "auto"                                 # Device placement strategy (auto/null)
+  compile: false                                     # JIT compile model
 
   # Attention and optimization
-  attn_implementation: null                  # Attention impl (null/sdpa/flash_attention_2/eager)
-  enable_liger_kernel: false                 # Enable Liger CUDA kernel for potential speedup
+  attn_implementation: null                          # Attention impl (null/sdpa/flash_attention_2/eager)
+  enable_liger_kernel: false                         # Enable Liger CUDA kernel for potential speedup
 
   # Model behavior
-  chat_template: null                        # Chat formatting template
-  freeze_layers: []                          # Layer names to freeze during training
+  chat_template: null                                # Chat formatting template
+  freeze_layers: []                                  # Layer names to freeze during training
 
   # Additional settings
-  model_kwargs: {}                           # Additional model constructor args
+  model_kwargs: {}                                   # Additional model constructor args
 ```
 
 ### Generation Configuration
@@ -105,10 +105,10 @@ generation:
 ```
 
 ```{note}
-Not all inference engines support all generation parameters. Each engine has its own set of supported parameters which can be checked via the `supported_params` attribute of the engine class. For example:
-- {py:obj}`~oumi.inference.NativeTextInferenceEngine.supported_params`
-- {py:obj}`~oumi.inference.VLLMInferenceEngine.supported_params`
-- {py:obj}`~oumi.inference.RemoteInferenceEngine.supported_params`
+Not all inference engines support all generation parameters. Each engine has its own set of supported parameters which can be checked via the `get_supported_params` attribute of the engine class. For example:
+- {py:obj}`NativeTextInferenceEngine <oumi.inference.NativeTextInferenceEngine.get_supported_params>`
+- {py:obj}`VLLMInferenceEngine <oumi.inference.VLLMInferenceEngine.get_supported_params>`
+- {py:obj}`RemoteInferenceEngine <oumi.inference.RemoteInferenceEngine.get_supported_params>`
 
 Please refer to the specific engine's documentation for details on supported parameters.
 ```
@@ -131,15 +131,22 @@ remote_params:
 
 ### Engine Selection
 
-The `engine` parameter specifies which inference engine to use. Available options from {py:obj}`~oumi.core.configs.inference_config.InferenceEngineType`:
+The `engine` parameter specifies which inference engine to use. Available options from {py:obj}`~oumi.core.configs.inference_engine_type.InferenceEngineType`:
 
-- `NATIVE`: Use native PyTorch inference via {py:obj}`~oumi.inference.NativeTextInferenceEngine`
-- `VLLM`: Use vLLM for optimized inference via {py:obj}`~oumi.inference.VLLMInferenceEngine`
-- `REMOTE_VLLM`: Use external vLLM server via {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine`
-- `SGLANG`: Use SGLang inference engine via {py:obj}`~oumi.inference.SGLangInferenceEngine`
-- `LLAMACPP`: Use llama.cpp for CPU inference via {py:obj}`~oumi.inference.LlamaCppInferenceEngine`
-- `REMOTE`: Use OpenAI-compatible API via {py:obj}`~oumi.inference.RemoteInferenceEngine`
 - `ANTHROPIC`: Use Anthropic's API via {py:obj}`~oumi.inference.AnthropicInferenceEngine`
+- `DEEPSEEK`: Use DeepSeek Platform API via {py:obj}`~oumi.inference.DeepSeekInferenceEngine`
+- `GOOGLE_GEMINI`: Use Google Gemini via {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`
+- `GOOGLE_VERTEX`: Use Google Vertex AI via {py:obj}`~oumi.inference.GoogleVertexInferenceEngine`
+- `LLAMACPP`: Use llama.cpp for CPU inference via {py:obj}`~oumi.inference.LlamaCppInferenceEngine`
+- `NATIVE`: Use native PyTorch inference via {py:obj}`~oumi.inference.NativeTextInferenceEngine`
+- `OPENAI`: Use OpenAI API via {py:obj}`~oumi.inference.OpenAIInferenceEngine`
+- `PARASAIL`: Use Parasail API via {py:obj}`~oumi.inference.ParasailInferenceEngine`
+- `REMOTE_VLLM`: Use external vLLM server via {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine`
+- `REMOTE`: Use any OpenAI-compatible API via {py:obj}`~oumi.inference.RemoteInferenceEngine`
+- `SAMBANOVA`: Use SambaNova API via {py:obj}`~oumi.inference.SambanovaInferenceEngine`
+- `SGLANG`: Use SGLang inference engine via {py:obj}`~oumi.inference.SGLangInferenceEngine`
+- `TOGETHER`: Use Together API via {py:obj}`~oumi.inference.TogetherInferenceEngine`
+- `VLLM`: Use vLLM for optimized local inference via {py:obj}`~oumi.inference.VLLMInferenceEngine`
 
 ### Additional Configuration
 

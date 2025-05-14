@@ -1,4 +1,19 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import io
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Final, Optional, Union
 
@@ -12,6 +27,7 @@ from oumi.utils.logging import logger
 DEFAULT_IMAGE_MODE: Final[str] = "RGB"
 
 _FILE_URL_PREFIX: Final[str] = "file://"
+_DEFAULT_PDF_DPI: Final[int] = 200
 
 
 def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
@@ -30,6 +46,18 @@ def create_png_bytes_from_image(pil_image: PIL.Image.Image) -> bytes:
     except Exception:
         logger.error("Failed to convert an image to PNG bytes.")
         raise
+
+
+def create_png_bytes_from_image_list(pil_images: list[PIL.Image.Image]) -> list[bytes]:
+    """Encodes PIL images into PNG format, and returns PNG image bytes.
+
+    Args:
+        pil_images: A list of input images.
+
+    Returns:
+        A list of PNG-encoded images.
+    """
+    return [create_png_bytes_from_image(image) for image in pil_images]
 
 
 def convert_pil_image_mode(
@@ -155,6 +183,134 @@ def load_pil_image_from_bytes(
         )
         raise
     return pil_image
+
+
+def _check_pdf2image_dependency():
+    if not find_spec("pdf2image"):
+        raise RuntimeError(
+            "Failed to find the required dependency package: 'pdf2image'. "
+            "Run `pip install oumi[file_formats]`, and try again."
+        )
+
+
+def load_pdf_pages_from_path(
+    input_pdf_filepath: Union[str, Path],
+    *,
+    dpi: int = _DEFAULT_PDF_DPI,
+    mode: str = DEFAULT_IMAGE_MODE,
+) -> list[PIL.Image.Image]:
+    """Loads PDF pages as PIL images from a path.
+
+    Args:
+        input_pdf_filepath: A file path of an PDF document.
+        dpi: Resolution to use for PDF page images (dots per inch).
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        PDF pages as PIL images (PIL.Image.Image).
+    """
+    if not input_pdf_filepath:
+        raise ValueError("Empty PDF file path.")
+
+    if isinstance(input_pdf_filepath, str) and input_pdf_filepath.lower().startswith(
+        _FILE_URL_PREFIX
+    ):
+        input_pdf_filepath = input_pdf_filepath[len(_FILE_URL_PREFIX) :]
+
+    input_filepath = Path(input_pdf_filepath)
+    if not input_filepath.is_file():
+        raise ValueError(
+            f"PDF path is not a file: {input_filepath}"
+            if input_filepath.exists()
+            else f"PDF path doesn't exist: {input_filepath}"
+        )
+
+    _check_pdf2image_dependency()
+    import pdf2image  # pyright: ignore[reportMissingImports]
+
+    page_images = pdf2image.convert_from_path(input_filepath, dpi=dpi)
+    num_pages = len(page_images)
+    for page_idx in range(num_pages):
+        try:
+            page_images[page_idx] = convert_pil_image_mode(
+                page_images[page_idx], mode=mode
+            )
+        except Exception:
+            logger.error(
+                "Failed to convert image mode for PDF page "
+                f"{page_idx + 1} of {num_pages}: {input_filepath}"
+            )
+            raise
+    return page_images
+
+
+def load_pdf_pages_from_bytes(
+    pdf_bytes: Optional[bytes],
+    *,
+    dpi: int = _DEFAULT_PDF_DPI,
+    mode: str = DEFAULT_IMAGE_MODE,
+) -> list[PIL.Image.Image]:
+    """Loads PDF pages as PIL images from raw PDF file bytes.
+
+    Args:
+        pdf_bytes: PDF file content.
+        dpi: Resolution to use for PDF page images (dots per inch).
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        PDF pages as PIL images (PIL.Image.Image).
+    """
+    if pdf_bytes is None or len(pdf_bytes) == 0:
+        raise ValueError("No PDF bytes.")
+
+    _check_pdf2image_dependency()
+    import pdf2image  # pyright: ignore[reportMissingImports]
+
+    page_images = pdf2image.convert_from_bytes(pdf_bytes, dpi=dpi)
+    num_pages = len(page_images)
+    for page_idx in range(num_pages):
+        try:
+            page_images[page_idx] = convert_pil_image_mode(
+                page_images[page_idx], mode=mode
+            )
+        except Exception:
+            logger.error(
+                "Failed to convert image mode for PDF page "
+                f"{page_idx + 1} or {num_pages}"
+            )
+            raise
+    return page_images
+
+
+def load_pdf_pages_from_url(
+    pdf_url: str, *, dpi: int = _DEFAULT_PDF_DPI, mode: str = DEFAULT_IMAGE_MODE
+) -> list[PIL.Image.Image]:
+    """Loads PDF pages as PIL images from from PDF URL.
+
+    Args:
+        pdf_url: A PDF URL.
+        dpi: Resolution to use for PDF page images (dots per inch).
+        mode: The requested image mode e.g., "RGB", "HSV", "RGBA",
+            "P" (8-bit pixels, using a color palette).
+            For details, see https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
+
+    Returns:
+        PDF pages as PIL images (PIL.Image.Image).
+    """
+    if not pdf_url:
+        raise ValueError("Empty PDF URL!")
+
+    try:
+        response = requests.get(pdf_url, stream=True)
+        response.raise_for_status()
+    except requests.exceptions.RequestException:
+        logger.exception(f"Failed to download PDF: '{pdf_url}'")
+        raise
+    return load_pdf_pages_from_bytes(response.content, dpi=dpi, mode=mode)
 
 
 def create_png_bytes_from_image_bytes(

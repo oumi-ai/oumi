@@ -54,9 +54,9 @@ def test_dataset_conversation(dataset_fixture):
             f"Conversation at index {idx} is not a Conversation object. "
             f"Type: {type(conversation)}"
         )
-        assert (
-            len(conversation.messages) > 0
-        ), f"Conversation at index {idx} has no messages"
+        assert len(conversation.messages) > 0, (
+            f"Conversation at index {idx} has no messages"
+        )
 
         # Check that each message in the conversation has the expected structure
         for msg_idx, message in enumerate(conversation.messages):
@@ -102,7 +102,7 @@ def test_dataset_prompt_generation(dataset_fixture):
     for idx in range(len(dataset)):
         prompt = dataset.prompt(idx)
         assert isinstance(prompt, str), (
-            f"Prompt at index {idx} is not a string. " f"Type: {type(prompt)}"
+            f"Prompt at index {idx} is not a string. Type: {type(prompt)}"
         )
         assert len(prompt) > 0, f"Prompt at index {idx} is empty"
 

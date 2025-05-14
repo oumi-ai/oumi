@@ -1,9 +1,23 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import gc
 import math
 import os
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Sized
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, Union, cast
 
@@ -11,7 +25,7 @@ import datasets
 import pandas as pd
 from torch.utils.data import MapDataPipe
 
-from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import estimate_sample_dict_size_in_bytes, get_shape_as_list
 
@@ -41,7 +55,7 @@ class _InferredFeatureMap(NamedTuple):
     """Whether the features are multimodal."""
 
 
-class BaseMapDataset(MapDataPipe, ABC):
+class BaseMapDataset(MapDataPipe, Sized, ABC):
     """Abstract base class for map datasets."""
 
     _data: pd.DataFrame
@@ -65,10 +79,6 @@ class BaseMapDataset(MapDataPipe, ABC):
     ) -> None:
         """Initializes a new instance of the BaseDataset class."""
         dataset_type_name = self.__class__.__name__
-        logger.info(
-            f"Creating map dataset (type: {dataset_type_name}) "
-            f"dataset_name: '{dataset_name}', dataset_path: '{dataset_path}'..."
-        )
         if len(kwargs) > 0:
             logger.debug(
                 f"Unknown arguments: {', '.join(kwargs.keys())}. "
@@ -78,6 +88,11 @@ class BaseMapDataset(MapDataPipe, ABC):
 
         dataset_name = dataset_name or self.default_dataset
 
+        logger.info(
+            f"Creating map dataset (type: {dataset_type_name})..."
+            + (f" dataset_name: '{dataset_name}'" if dataset_name else "")
+            + (f" dataset_path: '{dataset_path}'" if dataset_path else "")
+        )
         if dataset_name is None:
             raise ValueError(
                 "Please specify a dataset_name or "
@@ -245,9 +260,9 @@ class BaseMapDataset(MapDataPipe, ABC):
                     # Limit the max number of sub-processes.
                     num_proc = min(8, num_proc)
 
-        assert (
-            num_proc is None or num_proc > 0
-        ), f"transform_num_workers: {self.transform_num_workers}"
+        assert num_proc is None or num_proc > 0, (
+            f"transform_num_workers: {self.transform_num_workers}"
+        )
 
         num_proc = max(1, num_proc if num_proc is not None else 1)
         assert num_proc >= 1

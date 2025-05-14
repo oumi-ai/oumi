@@ -206,7 +206,7 @@ def _create_test_data() -> MyDatasets:
             dataset_name="npz_file",
             tokenizer=None,
             split="train",
-            experimental_use_torch_datapipes=True,
+            use_torchdata=True,
             dataset_path=npz_filename,
         )
         assert _get_dataset_length(train_dataset) == 10 * train_samples_per_digit
@@ -215,7 +215,7 @@ def _create_test_data() -> MyDatasets:
             dataset_name="npz_file",
             tokenizer=None,
             split="validation",
-            experimental_use_torch_datapipes=True,
+            use_torchdata=True,
             dataset_path=npz_filename,
         )
         assert (
@@ -226,7 +226,7 @@ def _create_test_data() -> MyDatasets:
             dataset_name="npz_file",
             tokenizer=None,
             split="test",
-            experimental_use_torch_datapipes=True,
+            use_torchdata=True,
             dataset_path=npz_filename,
         )
         assert _get_dataset_length(test_dataset) == 10 * test_samples_per_digit
@@ -302,7 +302,7 @@ def test_basic_training_and_prediction():
 
         trainer = Trainer(
             model=model,
-            tokenizer=None,  # No tokenizer! The custom model is non-textual
+            processing_class=None,  # No tokenizer! The custom model is non-textual
             args=training_params,
             train_dataset=test_data.train_dataset,
             dataloader_num_workers=2,

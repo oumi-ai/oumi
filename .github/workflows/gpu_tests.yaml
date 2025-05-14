@@ -1,6 +1,9 @@
 name: "GPU Tests"
 
 on:
+  schedule:
+    - cron: '0 */8 * * *' # Every 8 hours
+  workflow_dispatch:
   pull_request:
     paths-ignore:
       - 'docs/**'
@@ -11,6 +14,8 @@ on:
 
 jobs:
   gpu-tests:
+    permissions:
+      contents: 'read'
     runs-on: linux-gpu-runner
 
     steps:
@@ -35,7 +40,11 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_gpu]' --system --prerelease=allow
+        uv pip install -e '.[ci_gpu]' hf_transfer --system
+
+    - name: Download Test Data
+      run: |
+        ./tests/scripts/predownload_for_github_gpu_tests.sh
 
     - name: Run GPU tests
       run: |

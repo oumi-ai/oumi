@@ -1,9 +1,33 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, NamedTuple, Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.constants import LABEL_IGNORE_INDEX
+
+
+class InternalPaddingSide(Enum):
+    """Enum representing how to do padding for the model."""
+
+    PAD_LEFT = "left"
+    """Left padding."""
+
+    PAD_RIGHT = "right"
+    """Right padding."""
 
 
 class InternalFeatureFirstDimAction(Enum):
@@ -41,9 +65,21 @@ class InternalFeatureSpec(NamedTuple):
     )
     """Action to apply to the first feature dimension."""
 
+    image_dependent: bool = False
+    """Whether the feature depends on image data.
+
+    For example, `pixel_values`, `cross_attention_mask`.
+    """
+
 
 @dataclass
 class InternalVisualModelConfig(BaseConfig):
+    main_image_feature: str = "pixel_values"
+    """The key corresponding to the main image feature consumed by the model.
+
+    E.g., raw pixels, transformed image patches, etc. resulting from data
+    preprocessing and consumed by the underlying model."""
+
     variable_shape_image_features: bool = False
     """Whether image features can be of variable shape.
 
@@ -81,6 +117,9 @@ class InternalModelConfig(BaseConfig):
     in `ModelParams.tokenizer_pad_token`, then this value will be used.
     """
 
+    padding_side: Optional[InternalPaddingSide] = None
+    """Padding side for the model."""
+
     model_input_features: dict[str, InternalFeatureSpec] = field(
         default_factory=_default_model_input_features_factory
     )
@@ -99,6 +138,9 @@ class InternalModelConfig(BaseConfig):
 
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Extra params to pass to processor constructor."""
+
+    ignore_features: list[str] = field(default_factory=list)
+    """Features from processing the input to ignore in the model's forward method."""
 
     visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""

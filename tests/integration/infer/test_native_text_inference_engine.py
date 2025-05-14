@@ -1,3 +1,4 @@
+import itertools
 import tempfile
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
+from tests.integration.infer import get_default_device_map_for_inference
 from tests.markers import requires_cuda_initialized
 
 
@@ -23,6 +25,7 @@ def _get_default_text_model_params() -> ModelParams:
         trust_remote_code=True,
         chat_template="gpt2",
         tokenizer_pad_token="<|endoftext|>",
+        device_map=get_default_device_map_for_inference(),
     )
 
 
@@ -32,6 +35,7 @@ def _get_default_image_model_params() -> ModelParams:
         model_max_length=1024,
         trust_remote_code=True,
         chat_template="qwen2-vl-instruct",
+        device_map=get_default_device_map_for_inference(),
     )
 
 
@@ -343,30 +347,42 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
         )
         input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
         _setup_input_conversations(str(input_path), [conversation_1, conversation_2])
-        expected_result = [
-            Conversation(
-                messages=[
-                    *conversation_1.messages,
-                    Message(
-                        content="A detailed Japanese print depicting",
-                        role=Role.ASSISTANT,
+
+        expected_results = []
+        for response1, response2 in itertools.product(
+            [
+                "A traditional Japanese painting of",
+                "A detailed Japanese print depicting",
+                "A Japanese print depicting a",
+            ],
+            ["The image features a black"],
+        ):
+            expected_results.append(
+                [
+                    Conversation(
+                        messages=[
+                            *conversation_1.messages,
+                            Message(
+                                content=response1,
+                                role=Role.ASSISTANT,
+                            ),
+                        ],
+                        metadata={"foo": "bar"},
+                        conversation_id="123",
                     ),
-                ],
-                metadata={"foo": "bar"},
-                conversation_id="123",
-            ),
-            Conversation(
-                messages=[
-                    *conversation_2.messages,
-                    Message(
-                        content="The image features a black",
-                        role=Role.ASSISTANT,
+                    Conversation(
+                        messages=[
+                            *conversation_2.messages,
+                            Message(
+                                content=response2,
+                                role=Role.ASSISTANT,
+                            ),
+                        ],
+                        metadata={"umi": "bar"},
+                        conversation_id="133",
                     ),
-                ],
-                metadata={"umi": "bar"},
-                conversation_id="133",
-            ),
-        ]
+                ]
+            )
 
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
@@ -376,12 +392,13 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
             [conversation_1, conversation_2],
             inference_config,
         )
-        assert result == expected_result
+        assert result in expected_results
+        idx = expected_results.index(result)
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:
                 parsed_conversations.append(Conversation.from_json(line))
-            assert expected_result == parsed_conversations
+            assert expected_results[idx] == parsed_conversations
 
 
 def test_unsupported_model_raises_error():

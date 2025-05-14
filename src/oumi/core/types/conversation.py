@@ -1,10 +1,27 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import base64
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from enum import Enum
-from typing import Any, NamedTuple, Optional, Union
+from types import MappingProxyType
+from typing import Any, Callable, Final, NamedTuple, Optional, Union
 
 import pydantic
 from jinja2 import Template
+
+import oumi.core.types.proto.generated.conversation_pb2 as pb2
 
 
 class Role(str, Enum):
@@ -31,6 +48,35 @@ class Role(str, Enum):
         return self.value
 
 
+_ROLE_TO_PROTO_ROLE_MAP: Final[Mapping[Role, pb2.Role]] = MappingProxyType(
+    {
+        Role.SYSTEM: pb2.Role.SYSTEM,
+        Role.USER: pb2.Role.USER,
+        Role.ASSISTANT: pb2.Role.ASSISTANT,
+        Role.TOOL: pb2.Role.TOOL,
+    }
+)
+_PROTO_ROLE_TO_ROLE_MAP: Final[Mapping[pb2.Role, Role]] = MappingProxyType(
+    {v: k for k, v in _ROLE_TO_PROTO_ROLE_MAP.items()}
+)
+
+
+def _convert_role_to_proto_role(role: Role) -> pb2.Role:
+    """Converts a Role enum to Protocol Buffer format."""
+    result: pb2.Role = _ROLE_TO_PROTO_ROLE_MAP.get(role, pb2.Role.ROLE_UNSPECIFIED)
+    if result == pb2.Role.ROLE_UNSPECIFIED:
+        raise ValueError(f"Invalid role: {role}")
+    return result
+
+
+def _convert_proto_role_to_role(role: pb2.Role) -> Role:
+    """Converts a Protocol Buffer role format to role."""
+    result: Optional[Role] = _PROTO_ROLE_TO_ROLE_MAP.get(role, None)
+    if result is None:
+        raise ValueError(f"Invalid role: {role}")
+    return result
+
+
 class Type(str, Enum):
     """Type of the message."""
 
@@ -53,6 +99,41 @@ class Type(str, Enum):
             str: The string value of the Type enum.
         """
         return self.value
+
+
+_CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP: Final[Mapping[Type, pb2.ContentPart.Type]] = (
+    MappingProxyType(
+        {
+            Type.TEXT: pb2.ContentPart.TEXT,
+            Type.IMAGE_PATH: pb2.ContentPart.IMAGE_PATH,
+            Type.IMAGE_URL: pb2.ContentPart.IMAGE_URL,
+            Type.IMAGE_BINARY: pb2.ContentPart.IMAGE_BINARY,
+        }
+    )
+)
+_CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP: Final[Mapping[pb2.ContentPart.Type, Type]] = (
+    MappingProxyType({v: k for k, v in _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.items()})
+)
+
+
+def _convert_type_to_proto_type(content_type: Type) -> pb2.ContentPart.Type:
+    """Converts a type enum to Protocol Buffer format."""
+    result: pb2.ContentPart.Type = _CONTENT_ITEM_TYPE_TO_PROTO_TYPE_MAP.get(
+        content_type, pb2.ContentPart.TYPE_UNSPECIFIED
+    )
+    if result == pb2.ContentPart.TYPE_UNSPECIFIED:
+        raise ValueError(f"Invalid type: {content_type}")
+    return result
+
+
+def _convert_proto_type_to_type(content_type: pb2.ContentPart.Type) -> Type:
+    """Converts a Protocol Buffer type format to type."""
+    result: Optional[Type] = _CONTENT_ITEM_PROTO_TYPE_TO_TYPE_MAP.get(
+        content_type, None
+    )
+    if result is None:
+        raise ValueError(f"Invalid type: {content_type}")
+    return result
 
 
 class ContentItemCounts(NamedTuple):
@@ -148,8 +229,7 @@ class ContentItem(pydantic.BaseModel):
                 self.binary is None or len(self.binary) == 0
             ):
                 raise ValueError(
-                    "No image bytes in message content item "
-                    f"(Item type: {self.type})."
+                    f"No image bytes in message content item (Item type: {self.type})."
                 )
             if self.type in (Type.IMAGE_PATH, Type.IMAGE_URL) and (
                 self.content is None or len(self.content) == 0
@@ -158,9 +238,35 @@ class ContentItem(pydantic.BaseModel):
         else:
             if self.binary is not None:
                 raise ValueError(
-                    "Binary can only be provided for images "
-                    f"(Item type: {self.type})."
+                    f"Binary can only be provided for images (Item type: {self.type})."
                 )
+
+    @staticmethod
+    def from_proto(item_proto: pb2.ContentPart) -> "ContentItem":
+        """Converts a Protocol Buffer to a content item."""
+        if item_proto.HasField("blob") and item_proto.blob:
+            return ContentItem(
+                type=_convert_proto_type_to_type(item_proto.type),
+                binary=item_proto.blob.binary_data,
+                content=(item_proto.content or None),
+            )
+        return ContentItem(
+            type=_convert_proto_type_to_type(item_proto.type),
+            content=item_proto.content,
+        )
+
+    def to_proto(self) -> pb2.ContentPart:
+        """Converts a content item to Protocol Buffer format."""
+        if self.binary is not None and len(self.binary) > 0:
+            return pb2.ContentPart(
+                type=_convert_type_to_proto_type(self.type),
+                blob=pb2.DataBlob(binary_data=self.binary),
+                content=(self.content or None),
+            )
+        return pb2.ContentPart(
+            type=_convert_type_to_proto_type(self.type),
+            content=(self.content or None),
+        )
 
     def __repr__(self) -> str:
         """Returns a string representation of the message item."""
@@ -311,6 +417,32 @@ class Message(pydantic.BaseModel):
         counts = self.count_content_items()
         return counts.image_items == 1 and counts.image_items == counts.total_items
 
+    @staticmethod
+    def from_proto(message_proto: pb2.Message) -> "Message":
+        """Converts a Protocol Buffer to a message."""
+        if (len(message_proto.parts) == 1) and (
+            message_proto.parts[0].type == pb2.ContentPart.TEXT
+        ):
+            return Message(
+                id=(message_proto.id or None),
+                role=_convert_proto_role_to_role(message_proto.role),
+                content=message_proto.parts[0].content,
+            )
+
+        return Message(
+            id=(message_proto.id or None),
+            role=_convert_proto_role_to_role(message_proto.role),
+            content=[ContentItem.from_proto(part) for part in message_proto.parts],
+        )
+
+    def to_proto(self) -> pb2.Message:
+        """Converts a message to Protocol Buffer format."""
+        return pb2.Message(
+            id=self.id,
+            role=_convert_role_to_proto_role(self.role),
+            parts=[item.to_proto() for item in self.content_items],
+        )
+
     def __repr__(self) -> str:
         """Returns a string representation of the message."""
         id_str = ""
@@ -363,7 +495,7 @@ class Conversation(pydantic.BaseModel):
             Optional[Message]: The first message matching the criteria,
                 or None if no messages are found.
         """
-        messages = self.filter_messages(role)
+        messages = self.filter_messages(role=role)
         return messages[0] if len(messages) > 0 else None
 
     def last_message(self, role: Optional[Role] = None) -> Optional[Message]:
@@ -377,15 +509,23 @@ class Conversation(pydantic.BaseModel):
             Optional[Message]: The last message matching the criteria,
                 or None if no messages are found.
         """
-        messages = self.filter_messages(role)
+        messages = self.filter_messages(role=role)
         return messages[-1] if len(messages) > 0 else None
 
-    def filter_messages(self, role: Optional[Role] = None) -> list[Message]:
+    def filter_messages(
+        self,
+        *,
+        role: Optional[Role] = None,
+        filter_fn: Optional[Callable[[Message], bool]] = None,
+    ) -> list[Message]:
         """Gets all messages in the conversation, optionally filtered by role.
 
         Args:
-            role: The role to filter messages by.
-                If None, returns all messages.
+            role (Optional): The role to filter messages by. If None, no filtering
+                by role is applied.
+            filter_fn (Optional): A predicate to filter messages by. If the predicate
+                returns True for a message, then the message is returned.
+                Otherwise, the message is excluded.
 
         Returns:
             List[Message]: A list of all messages matching the criteria.
@@ -394,6 +534,10 @@ class Conversation(pydantic.BaseModel):
             messages = [message for message in self.messages if role == message.role]
         else:
             messages = self.messages
+
+        if filter_fn is not None:
+            messages = [message for message in messages if filter_fn(message)]
+
         return messages
 
     def to_dict(self):
@@ -428,6 +572,28 @@ class Conversation(pydantic.BaseModel):
     def from_json(cls, data: str) -> "Conversation":
         """Converts a JSON string to a conversation."""
         return cls.model_validate_json(data)
+
+    @staticmethod
+    def from_proto(conversation_proto: pb2.Conversation) -> "Conversation":
+        """Converts a conversation from Protocol Buffer format."""
+        result: Conversation = Conversation(
+            conversation_id=(conversation_proto.conversation_id or None),
+            messages=[Message.from_proto(m) for m in conversation_proto.messages],
+        )
+        for key, value in conversation_proto.metadata.items():
+            result.metadata[key] = str(value)
+        return result
+
+    def to_proto(self) -> pb2.Conversation:
+        """Converts a conversation to Protocol Buffer format."""
+        result = pb2.Conversation(
+            conversation_id=self.conversation_id,
+            messages=[m.to_proto() for m in self.messages],
+        )
+        if self.metadata is not None:
+            for key, value in self.metadata.items():
+                result.metadata[key] = str(value)
+        return result
 
     def __repr__(self) -> str:
         """Returns a string representation of the conversation."""

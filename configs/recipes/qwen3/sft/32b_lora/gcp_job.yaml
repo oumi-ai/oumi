@@ -1,0 +1,50 @@
+# Job config to LoRA tune Qwen3 32B.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c oumi://configs/recipes/qwen3/sft/32b_lora/gcp_job.yaml --cluster qwen3-32b-lora
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: qwen3-32b-lora
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: false
+  disk_size: 400 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: qwen3-32b.lora
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen3-32B
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

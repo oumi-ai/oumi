@@ -1,9 +1,30 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from dataclasses import dataclass, field
 from typing import Optional
 
 from omegaconf import MISSING
+from typing_extensions import override
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.utils.logging import logger
+from oumi.utils.str_utils import (
+    get_editable_install_override_env_var,
+    set_oumi_install_editable,
+)
+from oumi.utils.version_utils import is_dev_build
 
 
 @dataclass
@@ -86,11 +107,19 @@ class JobResources:
     Ignored by Polaris.
     """
 
-    disk_tier: Optional[str] = "medium"
+    disk_tier: Optional[str] = None
     """Disk tier to use for OS (optional).
 
-    For sky-based clouds this Could be one of 'low', 'medium', 'high' or 'best'
-    (default: 'medium').
+    For sky-based clouds this Could be one of 'low', 'medium', 'high', 'ultra', or
+    'best' (default: None). As of Feb '25, only AWS, Azure, GCP, and OCI support
+    disk tiers.
+    """
+
+    image_id: Optional[str] = None
+    """The image id used to boot the instances (optional).
+
+    You can specify a docker by using the format `docker:<image_id>`.
+    This field is not applicable for all clouds.
     """
 
 
@@ -146,3 +175,27 @@ class JobConfig(BaseConfig):
 
     run: str = MISSING
     """The script to run on every node. Required. Runs after `setup`."""
+
+    @override
+    def __finalize_and_validate__(self):
+        """Finalizes and validates the configuration."""
+        # (experimental) If the OUMI_FORCE_EDITABLE_INSTALL env var is set to a truthy
+        # value, and we're running a dev build of oumi, attempt to modify the setup/run
+        # scripts in the job config to install Oumi in editable mode from source, as
+        # opposed to installing from PyPI.
+        # This is intended for developers who are modifying Oumi source code and need to
+        # test their changes in a remote job; by default, all of our job configs install
+        # Oumi from PyPI.
+        if get_editable_install_override_env_var() and is_dev_build():
+            logger.info("-" * 80)
+            logger.info(
+                "OUMI_FORCE_EDITABLE_INSTALL detected! Attempting to modify job "
+                "config to install Oumi in editable mode from source..."
+            )
+            if self.setup:
+                logger.info("Modifying setup script...")
+                self.setup = set_oumi_install_editable(self.setup)
+            if self.run:
+                logger.info("Modifying run script...")
+                self.run = set_oumi_install_editable(self.run)
+            logger.info("-" * 80)

@@ -66,7 +66,7 @@
             ]
         },
         {
-            "name": "Oumi - Evaluate - LM Harness",
+            "name": "Oumi - Evaluate - LM Harness - text",
             "type": "debugpy",
             "request": "launch",
             "module": "oumi",
@@ -74,6 +74,30 @@
                 "evaluate",
                 "-c",
                 "configs/recipes/smollm/evaluation/135m/eval.yaml"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Oumi - Evaluate - LM Harness - vision",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "evaluate",
+                "-c",
+                "configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Oumi - Evaluate - Alpaca Eval",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "oumi",
+            "args": [
+                "evaluate",
+                "-c",
+                "configs/recipes/smollm/evaluation/135m/quickstart_alpaca_v2_eval.yaml"
             ],
             "justMyCode": false
         },

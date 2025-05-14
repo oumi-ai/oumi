@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Any, Optional
 
 import torch
@@ -9,9 +23,11 @@ from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallba
 from oumi.core.callbacks.profiler_step_callback import ProfilerStepCallback
 from oumi.core.callbacks.telemetry_callback import TelemetryCallback
 from oumi.core.configs import TrainerType, TrainingConfig
+from oumi.performance.mfu import _get_device_flops
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import (
     count_model_parameters,
+    get_device_name,
 )
 
 
@@ -53,6 +69,16 @@ def build_training_callbacks(
     elif not config.data.train.pack:
         logger.warning("MFU logging requires packed datasets. Skipping MFU callbacks.")
         add_mfu_callbacks = False
+    else:
+        device_name = get_device_name()
+        try:
+            _get_device_flops(device_name, model.dtype)
+        except NotImplementedError:
+            logger.warning(
+                f"MFU logging is currently not supported for device {device_name}. "
+                "Skipping MFU callbacks."
+            )
+            add_mfu_callbacks = False
 
     if add_mfu_callbacks:
         if config.model.model_max_length is not None and (
@@ -76,12 +102,12 @@ def build_training_callbacks(
                 "model_max_length must be set to log MFU performance information."
             )
 
-        if (
-            config.training.include_alternative_mfu_metrics
-            and config.training.trainer_type
+        if config.training.include_alternative_mfu_metrics and (
+            config.training.trainer_type
             in (
                 TrainerType.TRL_SFT,
                 TrainerType.TRL_DPO,
+                TrainerType.TRL_GRPO,
                 TrainerType.HF,
             )
         ):

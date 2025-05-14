@@ -23,6 +23,7 @@ from oumi.inference import (
     ParasailInferenceEngine,
     RemoteInferenceEngine,
     RemoteVLLMInferenceEngine,
+    SambanovaInferenceEngine,
     SGLangInferenceEngine,
     TogetherInferenceEngine,
     VLLMInferenceEngine,
@@ -30,14 +31,14 @@ from oumi.inference import (
 
 # Check if optional dependencies are available
 try:
-    import vllm  # noqa: F401
+    import vllm  # noqa: F401 # pyright: ignore[reportMissingImports]
 
     vllm_import_failed = False
 except ImportError:
     vllm_import_failed = True
 
 try:
-    import llama_cpp  # noqa: F401
+    import llama_cpp  # noqa: F401 # pyright: ignore[reportMissingImports]
 
     llama_cpp_import_failed = False
 except ImportError:
@@ -63,6 +64,7 @@ REMOTE_API_ENGINES = [
     GoogleVertexInferenceEngine,
     OpenAIInferenceEngine,
     ParasailInferenceEngine,
+    SambanovaInferenceEngine,
     TogetherInferenceEngine,
 ]
 
@@ -220,7 +222,7 @@ def test_remote_engine_config_overrides_constructor_params(engine_class):
             model_params=init_model_params,
             remote_params=init_remote_params,
         )
-    assert engine._model == "init-model"
+    assert engine._model_params.model_name == "init-model"
     assert engine._remote_params.api_url == "http://init.com"
 
     # Create config with different params
@@ -331,9 +333,9 @@ def test_engine_config_partial_override(engine_class):
 def test_all_inference_engine_types_in_engine_map():
     """Test that all InferenceEngineType values are present in ENGINE_MAP."""
     for engine_type in InferenceEngineType:
-        assert (
-            engine_type in ENGINE_MAP
-        ), f"Missing engine type {engine_type} in ENGINE_MAP"
+        assert engine_type in ENGINE_MAP, (
+            f"Missing engine type {engine_type} in ENGINE_MAP"
+        )
 
 
 def test_build_all_inference_engines():

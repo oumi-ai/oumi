@@ -1,0 +1,23 @@
+# Inference config for Deepseek R1 Distill Qwen2.5 1.5B.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  batch_size: 4
+
+engine: NATIVE

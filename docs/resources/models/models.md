@@ -17,7 +17,7 @@ This guide provides a quick overview of Oumi’s unified interface, demonstratin
 
 ## Main Model Interface
 
-Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer`, you can robustly create models and handle textual input across diverse architectures. To further configure and customize a model, you can use the {py:class}`oumi.core.configs.ModelParams` class.
+Using the functions {py:func}`oumi.builders.build_model` and {py:func}`oumi.builders.build_tokenizer`, you can instantiate models and tokenizers, regardless of their architecture. To further configure and customize a model, you can use the {py:class}`oumi.core.configs.ModelParams` class.
 
 ```python
 # Example using Oumi's main model interface

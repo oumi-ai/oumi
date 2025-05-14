@@ -23,7 +23,7 @@ def test_parasail_init_with_custom_params():
         model_params=model_params,
         remote_params=remote_params,
     )
-    assert engine._model == "parasail-model"
+    assert engine._model_params.model_name == "parasail-model"
     assert engine._remote_params.api_url == "custom-url"
     assert engine._remote_params.api_key == "custom-key"
 
@@ -32,8 +32,8 @@ def test_parasail_init_default_params():
     """Test initialization with default parameters."""
     model_params = ModelParams(model_name="parasail-model")
     engine = ParasailInferenceEngine(model_params=model_params)
-    assert engine._model == "parasail-model"
+    assert engine._model_params.model_name == "parasail-model"
     assert (
-        engine._remote_params.api_url == "https://api.parasail.com/v1/chat/completions"
+        engine._remote_params.api_url == "https://api.parasail.io/v1/chat/completions"
     )
     assert engine._remote_params.api_key_env_varname == "PARASAIL_API_KEY"

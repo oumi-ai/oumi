@@ -1,8 +1,22 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Any
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams
+from oumi.core.configs import GenerationParams, ModelParams, RemoteParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.gcp_inference_engine import (
     _convert_guided_decoding_config_to_api_input,
@@ -23,7 +37,10 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an Gemini API input.
 
@@ -32,12 +49,13 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the Gemini input.
         """
         api_input = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),
@@ -67,3 +85,23 @@ class GoogleGeminiInferenceEngine(RemoteInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    @override
+    def infer_batch(
+        self, conversations: list[Conversation], inference_config: dict[str, Any]
+    ) -> str:
+        """Run inference on a batch of conversations.
+
+        Args:
+            conversations: The batch of conversations to infer on.
+            inference_config: The inference configuration.
+
+        Returns:
+            str: The batch ID.
+        """
+        raise NotImplementedError("Batch inference is not supported for Gemini API.")
+
+    @override
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams(num_workers=2, politeness_policy=60.0)

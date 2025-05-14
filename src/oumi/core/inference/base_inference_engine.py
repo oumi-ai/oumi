@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import copy
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -65,11 +79,20 @@ class BaseInferenceEngine(ABC):
                 "Only one of input or inference_config.input_path should be provided."
             )
 
-        if inference_config and inference_config.generation:
-            generation_params = inference_config.generation
-            self._check_unsupported_params(generation_params)
-        else:
-            generation_params = self._generation_params
+        # Ensure the inference config has up-to-date generation parameters.
+        if inference_config:
+            if inference_config.generation:
+                self._check_unsupported_params(inference_config.generation)
+            elif self._generation_params:
+                inference_config = copy.deepcopy(inference_config)
+                inference_config.generation = self._generation_params
+
+                # Warn the user: They provided an inference config without generation
+                # params, so what was the point of providing it in the first place?
+                logger.warning(
+                    "No generation parameters provided in the inference config. Using "
+                    "the generation parameters that the engine was initialized with."
+                )
 
         if input is not None:
             return self.infer_online(input, inference_config)

@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Configuration module for the Oumi (Open Universal Machine Intelligence) library.
 
 This module provides various configuration classes and parameters used throughout
@@ -13,7 +27,7 @@ The configurations are organized into different categories:
 - Generation and Inference:
     - :class:`~oumi.core.configs.params.generation_params.GenerationParams`
     - :class:`~oumi.core.configs.inference_config.InferenceConfig`
-    - :class:`~oumi.core.configs.inference_config.InferenceEngineType`
+    - :class:`~oumi.core.configs.inference_engine_type.InferenceEngineType`
 - Job Management:
     - :class:`~oumi.core.configs.job_config.JobConfig`
     - :class:`~oumi.core.configs.job_config.JobResources`
@@ -36,6 +50,7 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.training_params.TrainerType`
     - :class:`~oumi.core.configs.params.peft_params.LoraWeightInitialization`
     - :class:`~oumi.core.configs.params.peft_params.PeftSaveMode`
+    - :class:`~oumi.core.configs.params.grpo_params.GrpoParams`
 - Profiling:
     - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
 - Telemetry:
@@ -64,7 +79,8 @@ Note:
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
-from oumi.core.configs.inference_config import InferenceConfig, InferenceEngineType
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import (
     JudgeAttribute,
@@ -80,8 +96,7 @@ from oumi.core.configs.params.data_params import (
 )
 from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
-    CustomEvaluationParams,
-    EvaluationPlatform,
+    EvaluationBackend,
     EvaluationTaskParams,
     LMHarnessTaskParams,
 )
@@ -93,6 +108,7 @@ from oumi.core.configs.params.fsdp_params import (
     StateDictType,
 )
 from oumi.core.configs.params.generation_params import GenerationParams
+from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import (
@@ -117,16 +133,16 @@ __all__ = [
     "AutoWrapPolicy",
     "BackwardPrefetch",
     "BaseConfig",
-    "CustomEvaluationParams",
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
     "EvaluationTaskParams",
     "EvaluationConfig",
-    "EvaluationPlatform",
+    "EvaluationBackend",
     "FSDPParams",
     "GenerationParams",
+    "GrpoParams",
     "GuidedDecodingParams",
     "InferenceConfig",
     "InferenceEngineType",

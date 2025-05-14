@@ -1,8 +1,18 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Llava 7B full fine-tune training job config, with the Oumi trainer.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up --config configs/recipes/vision/llava_7b/sft/oumi_gcp_job.yaml --cluster llava-7b-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Sample command:
-# oumi launch up --config configs/recipes/vision/llava_7b/sft/oumi_gcp_job.yaml --cluster my-oumi-cluster
 name: llava-7b-sft-oumi-train
 
 resources:
@@ -11,28 +21,24 @@ resources:
   # If you don't have quota for a non-spot VM, try setting use_spot to true.
   # However, make sure you are saving your output to a mounted cloud storage in case of
   # preemption. For more information, see:
-  # https://oumi.ai/docs/latest/user_guides/launch/launch.html#mount-cloud-storage
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
   disk_size: 1000 # Disk size in GBs
 
 num_nodes: 1 # Set it to N for multi-node training.
 
-# Upload working directory to remote ~/sky_workdir.
 working_dir: .
 
-# Mount local files.
 file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
 
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llava.7b.fft.oumi
-  ACCELERATE_LOG_LEVEL: info
-  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]' hf_transfer
+  pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download llava-hf/llava-1.5-7b-hf

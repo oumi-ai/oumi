@@ -9,10 +9,10 @@ Here's a quick comparison:
 
 | Method | Use Case | Data Required | Compute | Key Features |
 |--------|----------|---------------|---------|--------------|
-| [Supervised Fine-Tuning (SFT)](#supervised-fine-tuning-sft) | Task adaptation | Input-output pairs | Moderate | Fine-tunes pre-trained models on specific tasks by providing labeled conversations. |
-| [Vision-Language SFT](#vision-language-sft) | Multimodal tasks | Image-text pairs | High | Extends SFT to handle both images and text, enabling image understanding problems. |
+| [Supervised Fine-Tuning (SFT)](#supervised-fine-tuning-sft) | Task adaptation | Input-output pairs | Low | Fine-tunes pre-trained models on specific tasks by providing labeled conversations. |
+| [Vision-Language SFT](#vision-language-sft) | Multimodal tasks | Image-text pairs | Moderate | Extends SFT to handle both images and text, enabling image understanding problems. |
 | [Pretraining](#pretraining) | Domain adaptation | Raw text | Very High | Trains a language model from scratch or adapts it to a new domain using large amounts of unlabeled text. |
-| [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Moderate | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
+| [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Low | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
 
 (supervised-fine-tuning-sft)=
 ## Supervised Fine-Tuning (SFT)
@@ -25,7 +25,7 @@ Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trai
 - **Agent development:** Training language models to act as agents that can interact with their environment and perform tasks autonomously. This involves fine-tuning the model on data that demonstrates how to complete tasks, communicate effectively, and make decisions.
 - **Tool use:** Fine-tuning models to effectively use external tools (e.g., calculators, APIs, databases) to augment their capabilities. This involves training on data that shows how to call tools, interpret their outputs, and integrate them into problem-solving.
 - **Structured data extraction:** Training models to extract structured information from unstructured text. This can be used to extract entities, relationships, or key events from documents, enabling automated data analysis and knowledge base construction.
-- **Text generation:** Generating coherent text, code, scripts, email, etc based on a prompt.
+- **Text generation:** Generating coherent text, code, scripts, email, etc. based on a prompt.
 
 ### Data Format
 SFT uses the {class}`~oumi.core.types.conversation.Conversation` format, which represents a conversation between a user and an assistant. Each turn in the conversation is represented by a message with a role ("user" or "assistant") and content.
@@ -63,6 +63,7 @@ data:
 training:
   trainer_type: "TRL_SFT"
 ```
+See the {gh}`🔧 Model Finetuning Guide <notebooks/Oumi - Finetuning Tutorial.ipynb>` notebook for a complete example.
 
 (vision-language-sft)=
 ## Vision-Language SFT
@@ -153,6 +154,9 @@ data:
 training:
   trainer_type: "TRL_SFT"
 ```
+
+See the {gh}`🖼️ Oumi Multimodal <notebooks/Oumi - Vision Language Models.ipynb>` notebook for a complete example.
+
 (pretraining)=
 ## Pretraining
 

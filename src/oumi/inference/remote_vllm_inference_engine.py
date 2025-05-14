@@ -1,8 +1,22 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Any, Optional
 
 from typing_extensions import override
 
-from oumi.core.configs import GenerationParams
+from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.conversation import Conversation
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
@@ -43,7 +57,10 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
@@ -52,12 +69,18 @@ class RemoteVLLMInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
+        if model_params.adapter_model:
+            model = model_params.adapter_model
+        else:
+            model = model_params.model_name
+
         api_input = {
-            "model": (self._adapter_model if self._adapter_model else self._model),
+            "model": model,
             "messages": self._get_list_of_message_json_dicts(
                 conversation.messages, group_adjacent_same_role_turns=True
             ),

@@ -1,5 +1,16 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# Llava 7B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/llava_7b/sft/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "llava-hf/llava-1.5-7b-hf"
@@ -14,7 +25,7 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding"
-    experimental_use_torch_datapipes: False
+    use_torchdata: True
     datasets:
       - dataset_name: "merve/vqav2-small"
         split: "validation"
@@ -23,7 +34,7 @@ data:
         transform_num_workers: "auto"
         dataset_kwargs:
           processor_name: "llava-hf/llava-1.5-7b-hf"
-          limit: 8192
+          # limit: 8192 # Uncomment to limit dataset size!
           return_tensors: True
 
       # Below are examples of other vision SFT datasets

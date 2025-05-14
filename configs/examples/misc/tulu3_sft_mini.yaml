@@ -1,0 +1,46 @@
+# This is an example of using the allenai/tulu-3-sft-mixture dataset
+# for supervised fine tuning and is based on a single GPU debug run for
+# Tülu 3 models. It servers as a demonstration of using the dataset
+# and is not intended to produce a high performing model.
+#
+# For details on how to accurately repduce the Tülu 3 models, please see
+# Tulu 3: Pushing Frontiers in Open Language Model Post-Training - Lambert, et. al.
+# arXiv:2411.15124
+# https://github.com/allenai/open-instruct/blob/main/docs/tulu3.md
+
+model:
+  model_name: "EleutherAI/pythia-14m"
+  tokenizer_name: "EleutherAI/pythia-14m"
+  tokenizer_pad_token:  "<|padding|>"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "allenai/tulu-3-sft-mixture"
+
+training:
+  trainer_type: TRL_SFT
+  save_final_model: True
+  save_steps: 100
+  max_steps: 10
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch"
+  learning_rate: 5.0e-06
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 1
+  log_model_summary: False
+  empty_device_cache_steps: 50
+  output_dir: "output/mini_tulu3"
+  include_performance_metrics: True

@@ -1,8 +1,23 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import asyncio
 import copy
 import json
 import os
 import tempfile
+import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -185,6 +200,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     api_key_env_varname: Optional[str] = None
     """The environment variable name for the API key."""
 
+    _remote_params: RemoteParams
+    """Parameters for running inference against a remote API."""
+
     def __init__(
         self,
         model_params: ModelParams,
@@ -202,13 +220,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
-        self._model = model_params.model_name
-        self._adapter_model = model_params.adapter_model
-
         if remote_params:
             remote_params = copy.deepcopy(remote_params)
         else:
-            remote_params = RemoteParams()
+            remote_params = self._default_remote_params()
 
         if not remote_params.api_url:
             remote_params.api_url = self.base_url
@@ -216,6 +231,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params.api_key_env_varname = self.api_key_env_varname
         self._remote_params = remote_params
         self._remote_params.finalize_and_validate()
+
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams()
 
     @staticmethod
     def _get_list_of_message_json_dicts(
@@ -228,7 +247,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         )
 
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to an OpenAI input.
 
@@ -237,12 +259,33 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             conversation: The conversation to convert.
             generation_params: Parameters for generation during inference.
+            model_params: Model parameters to use during inference.
 
         Returns:
             Dict[str, Any]: A dictionary representing the OpenAI input.
         """
+        # Mandatory generation parameters.
+        generation_params_dict = {
+            "max_completion_tokens": generation_params.max_new_tokens,
+            "seed": generation_params.seed,
+            "temperature": generation_params.temperature,
+            "top_p": generation_params.top_p,
+            "frequency_penalty": generation_params.frequency_penalty,
+            "presence_penalty": generation_params.presence_penalty,
+        }
+
+        # Optional generation parameters.
+        if generation_params.logit_bias:
+            generation_params_dict["logit_bias"] = generation_params.logit_bias
+        if generation_params.stop_strings:
+            generation_params_dict["stop"] = generation_params.stop_strings
+        if generation_params.stop_token_ids:
+            generation_params_dict["stop_token_ids"] = generation_params.stop_token_ids
+        if generation_params.min_p:
+            generation_params_dict["min_p"] = generation_params.min_p
+
         api_input = {
-            "model": self._model,
+            "model": model_params.model_name,
             "messages": [
                 {
                     "content": convert_message_to_json_content_list(message),
@@ -250,56 +293,47 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 }
                 for message in conversation.messages
             ],
-            "max_completion_tokens": generation_params.max_new_tokens,
-            "temperature": generation_params.temperature,
-            "top_p": generation_params.top_p,
-            "frequency_penalty": generation_params.frequency_penalty,
-            "presence_penalty": generation_params.presence_penalty,
             "n": 1,  # Number of completions to generate for each prompt.
-            "seed": generation_params.seed,
-            "logit_bias": generation_params.logit_bias,
+            **generation_params_dict,
         }
-
-        if generation_params.stop_strings:
-            api_input["stop"] = generation_params.stop_strings
 
         if generation_params.guided_decoding:
             json_schema = generation_params.guided_decoding.json
 
-            if json_schema is not None:
-                if isinstance(json_schema, type) and issubclass(
-                    json_schema, pydantic.BaseModel
-                ):
-                    schema_name = json_schema.__name__
-                    schema_value = json_schema.model_json_schema()
-                elif isinstance(json_schema, dict):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    schema_value = json_schema
-                elif isinstance(json_schema, str):
-                    # Use a generic name if no schema is provided.
-                    schema_name = "Response"
-                    # Try to parse as JSON string
-                    schema_value = json.loads(json_schema)
-                else:
-                    raise ValueError(
-                        f"Got unsupported JSON schema type: {type(json_schema)}"
-                        "Please provide a Pydantic model or a JSON schema as a "
-                        "string or dict."
-                    )
-
-                api_input["response_format"] = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema_name,
-                        "schema": schema_value,
-                    },
-                }
-            else:
+            if json_schema is None:
                 raise ValueError(
                     "Only JSON schema guided decoding is supported, got '%s'",
                     generation_params.guided_decoding,
                 )
+
+            if isinstance(json_schema, type) and issubclass(
+                json_schema, pydantic.BaseModel
+            ):
+                schema_name = json_schema.__name__
+                schema_value = json_schema.model_json_schema()
+            elif isinstance(json_schema, dict):
+                # Use a generic name if no schema is provided.
+                schema_name = "Response"
+                schema_value = json_schema
+            elif isinstance(json_schema, str):
+                # Use a generic name if no schema is provided.
+                schema_name = "Response"
+                # Try to parse as JSON string
+                schema_value = json.loads(json_schema)
+            else:
+                raise ValueError(
+                    f"Got unsupported JSON schema type: {type(json_schema)}"
+                    "Please provide a Pydantic model or a JSON schema as a "
+                    "string or dict."
+                )
+
+            api_input["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": schema_value,
+                },
+            }
 
         return api_input
 
@@ -348,8 +382,22 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not remote_params:
             return headers
 
-        headers[_AUTHORIZATION_KEY] = f"Bearer {self._get_api_key(remote_params)}"
+        api_key = self._get_api_key(remote_params)
+        if api_key:
+            headers[_AUTHORIZATION_KEY] = f"Bearer {api_key}"
+
         return headers
+
+    def _set_required_fields_for_inference(self, remote_params: RemoteParams):
+        """Set required fields for inference."""
+        if not remote_params.api_url:
+            remote_params.api_url = self._remote_params.api_url or self.base_url
+        if not remote_params.api_key_env_varname:
+            remote_params.api_key_env_varname = (
+                self._remote_params.api_key_env_varname or self.api_key_env_varname
+            )
+        if not remote_params.api_key:
+            remote_params.api_key = self._remote_params.api_key
 
     async def _query_api(
         self,
@@ -372,16 +420,28 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if inference_config is None:
             remote_params = self._remote_params
             generation_params = self._generation_params
+            model_params = self._model_params
             output_path = None
         else:
             remote_params = inference_config.remote_params or self._remote_params
             generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
             output_path = inference_config.output_path
 
-        assert remote_params.api_url
+        self._set_required_fields_for_inference(remote_params)
+        if not remote_params.api_url:
+            raise ValueError("API URL is required for remote inference.")
+        if not self._get_api_key(remote_params):
+            if remote_params.api_key_env_varname:
+                raise ValueError(
+                    "An API key is required for remote inference with the "
+                    f"`{self.__class__.__name__}` inference engine. "
+                    "Please set the environment variable "
+                    f"`{remote_params.api_key_env_varname}`."
+                )
         async with semaphore:
             api_input = self._convert_conversation_to_api_input(
-                conversation, generation_params
+                conversation, generation_params, model_params
             )
             headers = self._get_request_headers(remote_params)
             retries = 0
@@ -408,6 +468,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
                         return result
                     else:
+                        if isinstance(response_json, list):
+                            # If the response is a list, it is likely an error message.
+                            response_json = response_json[0]
                         failure_reason = (
                             response_json.get("error").get("message")
                             if response_json and response_json.get("error")
@@ -504,9 +567,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "guided_decoding",
             "logit_bias",
             "max_new_tokens",
+            "min_p",
             "presence_penalty",
             "seed",
             "stop_strings",
+            "stop_token_ids",
             "temperature",
             "top_p",
         }
@@ -514,6 +579,23 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     #
     # Batch inference
     #
+
+    def get_file_api_url(self) -> str:
+        """Returns the URL for the file API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/v1/files")
+            .geturl()
+        )
+
+    def get_batch_api_url(self) -> str:
+        """Returns the URL for the batch API."""
+        return str(
+            urllib.parse.urlparse(self._remote_params.api_url)
+            ._replace(path="/v1/batches")
+            .geturl()
+        )
+
     def infer_batch(
         self,
         conversations: list[Conversation],
@@ -528,10 +610,16 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             str: The batch job ID
         """
-        generation_params = (
-            inference_config.generation if inference_config else self._generation_params
+        if inference_config:
+            generation_params = inference_config.generation or self._generation_params
+            model_params = inference_config.model or self._model_params
+        else:
+            generation_params = self._generation_params
+            model_params = self._model_params
+
+        return safe_asyncio_run(
+            self._create_batch(conversations, generation_params, model_params)
         )
-        return safe_asyncio_run(self._create_batch(conversations, generation_params))
 
     def get_batch_status(
         self,
@@ -624,7 +712,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 form.add_field("purpose", _BATCH_PURPOSE)
 
                 async with session.post(
-                    f"{self._remote_params.api_url}/files",
+                    self.get_file_api_url(),
                     data=form,
                     headers=headers,
                 ) as response:
@@ -642,12 +730,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         self,
         conversations: list[Conversation],
         generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> str:
         """Creates a new batch job.
 
         Args:
             conversations: List of conversations to process in batch
             generation_params: Generation parameters
+            model_params: Model parameters
 
         Returns:
             str: The batch job ID
@@ -655,7 +745,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Prepare batch requests
         batch_requests = []
         for i, conv in enumerate(conversations):
-            api_input = self._convert_conversation_to_api_input(conv, generation_params)
+            api_input = self._convert_conversation_to_api_input(
+                conv, generation_params, model_params
+            )
             batch_requests.append(
                 {
                     "custom_id": f"request-{i}",
@@ -673,13 +765,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.post(
-                f"{self._remote_params.api_url}/batches",
+                self.get_batch_api_url(),
                 json={
                     "input_file_id": file_id,
                     "endpoint": _BATCH_ENDPOINT,
-                    "batch_completion_window": (
-                        self._remote_params.batch_completion_window
-                    ),
+                    "completion_window": (self._remote_params.batch_completion_window),
                 },
                 headers=headers,
             ) as response:
@@ -706,7 +796,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{self._remote_params.api_url}/batches/{batch_id}",
+                f"{self.get_batch_api_url()}/{batch_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -741,7 +831,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 params["limit"] = str(limit)
 
             async with session.get(
-                f"{self._remote_params.api_url}/batches",
+                self.get_batch_api_url(),
                 headers=headers,
                 params=params,
             ) as response:
@@ -885,7 +975,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 params["after"] = after
 
             async with session.get(
-                f"{self._remote_params.api_url}/files",
+                self.get_file_api_url(),
                 headers=headers,
                 params=params,
             ) as response:
@@ -925,7 +1015,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{self._remote_params.api_url}/files/{file_id}",
+                f"{self.get_file_api_url()}/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -956,7 +1046,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.delete(
-                f"{self._remote_params.api_url}/files/{file_id}",
+                f"{self.get_file_api_url()}/{file_id}",
                 headers=headers,
             ) as response:
                 if response.status != 200:
@@ -983,7 +1073,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         async with aiohttp.ClientSession(connector=connector) as session:
             headers = self._get_request_headers(self._remote_params)
             async with session.get(
-                f"{self._remote_params.api_url}/files/{file_id}/content",
+                f"{self.get_file_api_url()}/{file_id}/content",
                 headers=headers,
             ) as response:
                 if response.status != 200:

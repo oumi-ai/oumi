@@ -114,7 +114,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${POLARIS_USER}@polaris.alcf.anl.gov" "bash -s $
 
   if (test "$QSUB_RESULT" -ne 0) || [ -z "$JOB_ID" ]
   then
-      echo "Job submission ('qsub') failed with eror code: $QSUB_RESULT"
+      echo "Job submission ('qsub') failed with error code: $QSUB_RESULT"
       exit 1
   fi
   echo "Job id: ${JOB_ID}"

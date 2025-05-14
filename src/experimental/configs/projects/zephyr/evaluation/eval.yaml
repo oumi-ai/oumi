@@ -1,19 +1,31 @@
-# Class: oumi.core.configs.EvaluationConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+# Eval config for Zephyr.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
+#
+# Usage:
+#   oumi evaluate -c src/experimental/configs/projects/zephyr/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
 
 model:
-  # Note: update model_name or adapter_model with your checkpoint directories
+  # Note: Update with your FFT or LoRA checkpoint
   model_name: "mistralai/Mistral-7B-v0.1"
-  adapter_model: "your-checkpoint-dir"
   trust_remote_code: True
-  #TODO currently below are not passed in LM_HARNESS
+  # TODO: currently below are not passed in LM_HARNESS
   torch_dtype_str: "bfloat16"
   model_max_length: 2048
   chat_template: "zephyr"
   attn_implementation: "sdpa"
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu
     eval_kwargs:
       num_fewshot: 5

@@ -90,19 +90,19 @@ def test_dataset_structure(dataset_fixture):
         assert "rejected" in item, f"'rejected' not found in item at index {idx}"
 
         # Check that the values are strings and not empty
-        assert isinstance(
-            item["prompt"], str
-        ), f"'prompt' is not a string at index {idx}"
+        assert isinstance(item["prompt"], str), (
+            f"'prompt' is not a string at index {idx}"
+        )
         assert len(item["prompt"]) > 0, f"'prompt' is empty at index {idx}"
 
-        assert isinstance(
-            item["chosen"], str
-        ), f"'chosen' is not a string at index {idx}"
+        assert isinstance(item["chosen"], str), (
+            f"'chosen' is not a string at index {idx}"
+        )
         assert len(item["chosen"]) > 0, f"'chosen' is empty at index {idx}"
 
-        assert isinstance(
-            item["rejected"], str
-        ), f"'rejected' is not a string at index {idx}"
+        assert isinstance(item["rejected"], str), (
+            f"'rejected' is not a string at index {idx}"
+        )
         if len(item["rejected"]) == 0:
             if not is_known_dataset_issue(dataset_name, idx):
                 pytest.fail(f"'rejected' is empty at index {idx}")
@@ -117,6 +117,6 @@ def test_dataset_structure(dataset_fixture):
                     f"and this is not a known issue."
                 )
         else:
-            assert (
-                item["chosen"] != item["rejected"]
-            ), f"'chosen' and 'rejected' are identical at index {idx}"
+            assert item["chosen"] != item["rejected"], (
+                f"'chosen' and 'rejected' are identical at index {idx}"
+            )

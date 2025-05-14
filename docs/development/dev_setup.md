@@ -13,6 +13,7 @@ make install-miniconda
 Alternatively, install Miniconda from the [Anaconda website](https://docs.anaconda.com/free/miniconda/miniconda-install/).
 
 (set-up-oumi)=
+
 ## 2. Set up Oumi
 
 ### 2.1 Fork the Oumi repository
@@ -20,9 +21,11 @@ Alternatively, install Miniconda from the [Anaconda website](https://docs.anacon
 You can create a fork of Oumi by clicking the [Fork button](https://github.com/oumi-ai/oumi/fork) in the upper right of the repository. This will create a fork of Oumi associated with your GitHub account.
 
 (clone-repository)=
+
 ### 2.2 Clone your fork of the Oumi repository
 
 Now you're ready to clone your fork to your local disk and set up the original repository as a remote:
+
 ```shell
 git clone git@github.com:<your Github handle>/oumi.git
 cd oumi
@@ -80,6 +83,14 @@ oumi-conda
 
 The Oumi launcher can be used to launch jobs on remote clusters. Our launcher integrates with SkyPilot to launch jobs on popular cloud providers (GCP, Lambda, etc.). To enable the Oumi launcher to run on your preferred cloud, make sure to follow the setup instructions in our [launch guide](../user_guides/launch/launch.md).
 
+### 3.1 [optional] Force all job configs to do Oumi editable install
+
+If you're making changes to the Oumi codebase which you can't test locally (ex. training of large 8B+ models), you can use the Oumi launcher to launch remote jobs on GPU clusters and test your changes there. By default, most Oumi configs in the [`configs` directory](https://github.com/oumi-ai/oumi/tree/main/configs) install oumi from PyPI (i.e. `pip install oumi`). However, for the remote job to pick up your local changes, you need to install from your local copy of the repo (i.e. `pip install -e .`).
+
+To automate this process, you can set the `OUMI_FORCE_EDITABLE_INSTALL` environment variable to `"true"`. This experimental feature will automatically detect and modify oumi PyPI installs to instead install in editable mode from source using regex.
+
+(optional-set-up-huggingface)=
+
 ## 4. [optional] Set up HuggingFace
 
 Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. While most models and datasets are publicly accessible, some like Llama are gated, requiring you to be logged in and be approved for access.
@@ -103,6 +114,9 @@ Llama models are gated on HF Hub. To gain access, sign the agreement on your des
 - [Llama 3.1](https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct)
 - [Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-90B-Vision-Instruct)
 - [Llama 3.3](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
+- [Llama 4](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct)
+
+(optional-set-up-weights-and-biases)=
 
 ## 5. [optional] Set up Weights and Biases
 

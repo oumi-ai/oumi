@@ -1,9 +1,20 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-
-# SFT config for Llama 3.3v 70B.
+# FFT config for Llama 3.3 70B.
 # Some param values are inspired by the following recipe:
 # https://github.com/pytorch/torchtune/blob/main/recipes/configs/llama3_3/70B_full.yaml
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
+#
+# Usage:
+#   oumi train -c configs/recipes/llama3_3/sft/70b_full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "meta-llama/Llama-3.3-70B-Instruct"
@@ -23,8 +34,8 @@ data:
 
 training:
   trainer_type: "TRL_SFT"
-  max_steps: 20
-  save_steps: 0
+  save_steps: 200
+  num_train_epochs: 3
   per_device_train_batch_size: 2
   max_grad_norm: null
 
@@ -39,7 +50,7 @@ training:
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 16
 
-  logging_steps: 5
+  logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
   output_dir: "output/llama70b.fft"

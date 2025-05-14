@@ -13,7 +13,6 @@ As of early 2025, the most popular standardized benchmarks, used across academia
 - IFEval (Instruction Following Evaluation) [[paper](https://arxiv.org/abs/2311.07911)]
 - BBH (Big Bench Hard) [[paper](https://arxiv.org/abs/2210.09261)]
 
-
 You can evaluate a model on Hugging Face's latest leaderboard by creating a yaml file and invoking the CLI with the following command:
 
 ````{dropdown} configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
@@ -27,8 +26,9 @@ oumi launch up -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingfac
 ```
 
 A few things to pay attention to:
+
 - **GPQA Gating**. Access to GPQA is restricted through gating mechanisms, to minimize the risk of data contamination. Before running the leaderboard evaluation, you must first log in to HuggingFace and accept the [terms of use for QPQA](https://huggingface.co/datasets/Idavidrein/gpqa). In addition, you need to authenticate on the Hub using HuggingFace's [User Access Token](https://huggingface.co/docs/hub/security-tokens#user-access-tokens) when launching the evaluation job. You can do so either by setting the environmental HuggingFace token variable [HF_TOKEN](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hftoken) or by storing its value at [HF_TOKEN_PATH](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hftokenpath) (default location is `~/.cache/huggingface/token`).
-- **Dependencies**. This leaderboard (specifically the `IFEval` and `MATH` benchmarks) requires specific packages to be deployed to function correctly. You can either install all Oumi evaluation packages with `pip install -e '.[evaluation]'`, or explore the required packages for each benchmark at {gh}`src/oumi/evaluation/platform_prerequisites.py` and only install the packages needed for your specific case.
+- **Dependencies**. This leaderboard (specifically the `IFEval` and `MATH` benchmarks) requires specific packages to be deployed to function correctly. You can either install all Oumi evaluation packages with `pip install oumi[evaluation]`, or explore the required packages for each benchmark at {gh}`src/oumi/evaluation/platform_prerequisites.py` and only install the packages needed for your specific case.
 
 ## HuggingFace Leaderboard V1
 
@@ -102,7 +102,7 @@ output_dir: "/my-gcs-bucket/huggingface_leaderboard"
 
 ```yaml
 file_mounts:
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 ```
 
 - **W&B Credentials**. If you are using [Weights & Biases](https://wandb.ai/site/) for experiment tracking, make sure you mount the locally cached credentials file (by default `~/.netrc`) to the remote machine, as shown below.
@@ -116,7 +116,7 @@ file_mounts:
 
 ```yaml
 setup: |
-  pip install '.[evaluation]'
+  pip install oumi[evaluation]
 ```
 
 ```{tip}

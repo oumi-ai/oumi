@@ -1,8 +1,17 @@
-# Class: oumi.core.configs.EvaluationConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
-
-# NOTE: Your must first request access to the GPQA dataset here:
-# https://huggingface.co/datasets/Idavidrein/gpqa
+# HuggingFace Leaderboard V2 eval config.
+#
+# Requirements:
+#   - You must first request access to the GPQA dataset here:
+#     https://huggingface.co/datasets/Idavidrein/gpqa
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/smollm/evaluation/135m/leaderboards/huggingface_leaderboard_v2_eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
@@ -28,18 +37,18 @@ generation:
 ########################################################################################
 
 tasks:
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_bbh
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_gpqa
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_mmlu_pro
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_musr
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: leaderboard_ifeval
   # # Temporarily disabled due to packaging conflicts
-  # - evaluation_platform: lm_harness
+  # - evaluation_backend: lm_harness
   #   task_name: leaderboard_math_hard
 
 # NOTE: If you are running this in a remote machine, which is not accessible after the

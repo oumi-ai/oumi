@@ -3,21 +3,7 @@ Similar to custom dataset and model classes, you can register a class for your o
 
 This guide is specifically geared towards individuals who have access to a compute cluster that's not hosted on a common cloud provider (e.g. University/personal compute clusters).
 
-We'll cover the following topics:
-1. Prerequisites
-1. The Oumi Launcher Hierarchy
-1. Creating a CustomClient Class
-1. Creating a CustomCluster Class
-1. Creating a CustomCloud Class
-1. Registering Your CustomCloud
-1. Running a Job on Your Cloud
-
-# Prerequisites
-
-## Oumi Installation
-First, let's install Oumi. You can find detailed instructions [here](/get_started/installation.md).
-
-# The Oumi Launcher Hierarchy
+## The Oumi Launcher Hierarchy
 
 ### Preface
 Before diving into this tutorial, lets discuss the hierarchy of the Oumi Launcher. At this point, it's worth reading through our tutorial on {doc}`/user_guides/launch/deploy` to better understand the end-to-end flow of the launcher. Already read it? Great!
@@ -40,7 +26,7 @@ Clients are a completely optional but highly encouraged class. Clients should en
 
 You can find several implementations of Clients [here](https://github.com/oumi-ai/oumi/tree/main/src/oumi/launcher/clients).
 
-# Creating a CustomClient Class
+## Creating a CustomClient Class
 Let's get started by creating a client for our new cloud, `CustomCloud`. Let's create a simple client that randomly sets the state of the job on submission. It also supports canceling jobs, and turning down clusters:
 
 ``` {code-block} python
@@ -127,7 +113,7 @@ class CustomClient:
         pass
 ```
 
-# Creating a CustomCluster Class
+## Creating a CustomCluster Class
 Now that we have a client that talks to our API, we can use the Client to build a Cluster!
 
 ``` {code-block} python
@@ -200,7 +186,7 @@ class CustomCluster(BaseCluster):
         self.down()
 ```
 
-# Creating a CustomCloud Class
+## Creating a CustomCloud Class
 Let's create a CustomCloud to manage our clusters:
 
 ``` {code-block} python
@@ -256,7 +242,7 @@ class CustomCloud(BaseCloud):
 
 Now all that's left to do is register your CustomCloud!
 
-# Registering Your CustomCloud
+## Registering Your CustomCloud
 By implementing the BaseCloud class, you are now ready to register your cloud with Oumi. First, let's take a look at the clouds that are already registered:
 
 ``` {code-block} python
@@ -285,7 +271,7 @@ print(launcher.which_clouds())
 
 Great, our CustomCloud is there!
 
-## Using Your CustomCloud via the CLI
+### Using Your CustomCloud via the CLI
 
 **‼️ Important ‼️** A few extra steps are needed to use your cloud from the CLI.
 
@@ -317,7 +303,7 @@ You can verify that your cloud is now installed by running:
 oumi launch which
 ```
 
-# Running a Job on Your Cloud
+## Running a Job on Your Cloud
 
 Let's take our new Cloud for a spin:
 

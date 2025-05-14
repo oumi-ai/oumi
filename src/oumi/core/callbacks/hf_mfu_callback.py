@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """MFU calculator based on theoretical model flops computed by HuggingFace libraries."""
 
 import time
@@ -13,6 +27,7 @@ from oumi.performance.mfu import (
     calculate_mfu_from_model_flops_per_second,
 )
 from oumi.utils.logging import logger
+from oumi.utils.torch_utils import get_device_name
 
 _LOGS_KWARG = "logs"
 
@@ -49,10 +64,7 @@ class HfMfuTrainerCallback(BaseTrainerCallback):
         self._num_devices = device_rank_info.world_size
         self._is_world_rank_zero = is_world_process_zero()
         logger.info(f"HF MFU number of devices: {self._num_devices}")
-        # Assume all devices are identical
-        self._device_name = "CPU"
-        if torch.cuda.is_available():
-            self._device_name = torch.cuda.get_device_name(0)
+        self._device_name = get_device_name()
 
         logger.info(f"HF MFU device name: {self._device_name}")
         if self._device_name == "CPU":

@@ -1,7 +1,8 @@
 name: Bug Report
 description: File a bug report to help us improve Oumi
-title: "[Bug]: "
-labels: ["Bug"]
+title: "[Bug]"
+labels: ["bug", "triage"]
+type: "Bug"
 body:
   - type: markdown
     attributes:
@@ -45,5 +46,6 @@ body:
         - Oumi version
         - PyTorch version
         - Any other relevant system information
+      render: shell
     validations:
       required: true

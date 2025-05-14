@@ -1,14 +1,25 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to eval Phi3 Instruct on GCP.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/recipes/phi3/evaluation/gcp_job.yaml --cluster phi3-eval
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
 
 name: phi3-eval
 
 resources:
   cloud: gcp
-  accelerators: "A100:1"
-
+  accelerators: "A100:4"
   disk_size: 200  # Disk size in GB
-
   use_spot: false
 
 working_dir: .
@@ -24,7 +35,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu,evaluation]'
+  pip install uv && uv pip install oumi[gpu,evaluation]
 
 run: |
   set -e  # Exit if any command failed.

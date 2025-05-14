@@ -1,0 +1,46 @@
+# Job config to LoRA tune Deepseek R1 Distill Qwen2.5 1.5B.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/lora_gcp_job.yaml --cluster deepseek-r1-qwen1-5b-lora
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: deepseek-r1-distill-qwen1-5b-lora
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: deepseek-r1.qwen1.5b.lora
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/lora_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

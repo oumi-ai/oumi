@@ -1,5 +1,3 @@
-import os
-
 import pytest
 import torch
 import torch.nn as nn
@@ -23,6 +21,7 @@ from oumi.utils.torch_naming_heuristics import (
     resolve_transformer_layer_cls_string_as_module_set,
     simplify_transformer_layer_cls_string,
 )
+from tests.markers import requires_hf_token
 
 
 def test_disable_dropout():
@@ -85,12 +84,32 @@ MODEL_CONFIGS = [
         AutoModelForCausalLM,
     ),
     (
-        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "meta-llama/Llama-3.3-70B-Instruct",
         "LlamaDecoderLayer",
         AutoModelForCausalLM,
     ),
     (
-        "meta-llama/Meta-Llama-3.1-70B-Instruct",
+        "meta-llama/Llama-3.2-1B-Instruct",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    (
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    (
+        "meta-llama/Llama-3.1-8B-Instruct",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    (
+        "meta-llama/Llama-3.1-70B-Instruct",
+        "LlamaDecoderLayer",
+        AutoModelForCausalLM,
+    ),
+    (
+        "meta-llama/Llama-3.1-405B-Instruct",
         "LlamaDecoderLayer",
         AutoModelForCausalLM,
     ),
@@ -125,14 +144,10 @@ def _load_model_architecture(model_name, builder_class):
 
 
 @pytest.mark.skip("Very slow test. Only run occasionally if changing that logic.")
-@pytest.mark.skipif(
-    "HF_TOKEN" not in os.environ,
-    reason="Multiple models are gated and require cannot "
-    "be downloaded without a valid HF_TOKEN",
-)
 @pytest.mark.parametrize(
     "model_name, expected_layer_name, builder_class", MODEL_CONFIGS
 )
+@requires_hf_token()
 def test_guess_transformer_layer_cls(model_name, expected_layer_name, builder_class):
     _config, model = _load_model_architecture(model_name, builder_class)
 

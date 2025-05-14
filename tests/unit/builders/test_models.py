@@ -1,3 +1,4 @@
+from typing import Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +12,7 @@ from oumi.builders.models import (
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
+from oumi.utils.logging import logger
 
 
 @pytest.fixture
@@ -128,10 +130,11 @@ def test_build_chat_template_removes_indentation_and_newlines():
         ("MlpEncoder", False, False),  # Custom model
         ("CnnClassifier", False, False),  # Custom model
         ("openai-community/gpt2", False, False),
+        ("HuggingFaceTB/SmolLM2-135M-Instruct", False, False),
         ("llava-hf/llava-1.5-7b-hf", False, True),
         ("Salesforce/blip2-opt-2.7b", False, True),
         ("microsoft/Phi-3-vision-128k-instruct", True, True),
-        # ("HuggingFaceTB/SmolVLM-Instruct", False, True), # requires transformers>=4.46
+        ("HuggingFaceTB/SmolVLM-Instruct", False, True),
     ],
 )
 def test_is_image_text_llm(
@@ -146,18 +149,43 @@ def test_is_image_text_llm(
 
 
 @pytest.mark.parametrize(
-    "model_name, trust_remote_code, template_name",
+    "model_name, trust_remote_code, template_name, expected_padding_side",
     [
-        ("openai-community/gpt2", False, "gpt2"),
-        ("llava-hf/llava-1.5-7b-hf", False, "llava"),
-        ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct"),
+        ("openai-community/gpt2", False, "gpt2", "right"),
+        ("HuggingFaceTB/SmolLM2-135M-Instruct", False, None, "right"),
+        ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
+        ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
+        ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
+        # These models require allowlisting:
+        # ("meta-llama/Llama-3.2-3B-Instruct", False, None, "right"),
     ],
 )
 def test_default_chat_template_in_build_tokenizer(
-    model_name: str, trust_remote_code: bool, template_name: str
+    model_name: str,
+    trust_remote_code: bool,
+    template_name: Optional[str],
+    expected_padding_side: str,
 ):
     tokenizer = build_tokenizer(
         ModelParams(model_name=model_name, trust_remote_code=trust_remote_code)
     )
-    expected = build_chat_template(template_name=template_name)
-    assert tokenizer.chat_template == expected, f"template_name: {template_name}"
+
+    debug_tag = f"template_name: {template_name} model_name: {model_name}"
+    if template_name:
+        expected = build_chat_template(template_name=template_name)
+        if tokenizer.chat_template != expected:
+            logger.info(
+                f"Tokenizer chat template:\n\n{tokenizer.chat_template}\n\n"
+                f"Expected chat template:\n\n{expected}\n\n"
+            )
+        assert tokenizer.chat_template == expected, debug_tag
+    else:
+        # Using the model's built-in config.
+        assert tokenizer.chat_template is not None, (
+            f"Unspecified built-in template: {debug_tag}"
+        )
+        assert len(tokenizer.chat_template) > 0, f"Empty built-in template: {debug_tag}"
+
+    # Also check padding side here.
+    assert hasattr(tokenizer, "padding_side")
+    assert tokenizer.padding_side == expected_padding_side

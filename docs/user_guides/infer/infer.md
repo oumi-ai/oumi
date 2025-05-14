@@ -8,7 +8,7 @@
 inference_engines
 common_workflows
 configuration
-cli_reference
+inference_cli
 ```
 
 Oumi Infer provides a unified interface for running models, whether you're deploying models locally or calling external APIs. It handles the complexity of different backends and providers while maintaining a consistent interface for both batch and interactive workflows.
@@ -17,7 +17,7 @@ Oumi Infer provides a unified interface for running models, whether you're deplo
 
 Running models in production environments presents several challenges that Oumi helps address:
 
-- **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Gemini, OpenAI, Parasail, Vertex AI) through a single, consistent interface
+- **Universal Model Support**: Run models locally (vLLM, LlamaCPP, Transformers) or connect to hosted APIs (Anthropic, Gemini, OpenAI, Together, Parasail, Vertex AI, SambaNova) through a single, consistent interface
 - **Production-Ready**: Support for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
 - **Scalable Architecture**: Deploy anywhere from a single GPU to distributed systems without code changes
 - **Unified Configuration**: Control all aspects of model execution through a single config file
@@ -62,8 +62,8 @@ print(result[0].messages[-1].content)
 The inference system is built around three main components:
 
 1. **Inference Engines**: Handle model execution and generation
-2. **Configuration System**: Manage model and runtime settings
-3. **Conversation Format**: Structure inputs and outputs
+2. **Conversation Format**: Structure inputs and outputs
+3. **Configuration System**: Manage model and runtime settings
 
 Here's how these components work together:
 
@@ -94,8 +94,7 @@ Our engines are broken into two categories: local inference vs remote inference.
 
 Generally, the answer is simple: if you have sufficient resources to run the model locally without OOMing, then use a local engine like {py:obj}`~oumi.inference.VLLMInferenceEngine`, {py:obj}`~oumi.inference.NativeTextInferenceEngine`, or {py:obj}`~oumi.inference.LlamaCppInferenceEngine`.
 
-If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine` to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API), or use {py:obj}`~oumi.inference.SGLangInferenceEngine` or {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine` to call external SGLang or vLLM servers started remotely or locally outside of Oumi.
-
+If you don't have enough local compute resources, then the model must be hosted elsewhere. Our remote inference engines assume that your model is hosted behind a remote API. You can use {py:obj}`~oumi.inference.AnthropicInferenceEngine`, {py:obj}`~oumi.inference.GoogleGeminiInferenceEngine`, or {py:obj}`~oumi.inference.GoogleVertexInferenceEngine`, {py:obj}`~oumi.inference.SambanovaInferenceEngine`..., to call their respective APIs. You can also use {py:obj}`~oumi.inference.RemoteInferenceEngine` to call any API implementing the OpenAI Chat API format (including OpenAI's native API), or use {py:obj}`~oumi.inference.SGLangInferenceEngine` or {py:obj}`~oumi.inference.RemoteVLLMInferenceEngine` to call external SGLang or vLLM servers started remotely or locally outside of Oumi.
 
 For a comprehensive list of engines, see the [Supported Engines](#supported-engines) section below.
 
@@ -113,16 +112,21 @@ See {py:obj}`~oumi.inference.NativeTextInferenceEngine` for an example of a loca
 
 See {py:obj}`~oumi.inference.AnthropicInferenceEngine` for an example of an inference engine that requires a remote API.
 
+See {py:obj}`~oumi.inference.SambanovaInferenceEngine` for an example of an inference engine that requires a remote API.
 ```python
 from oumi.inference import VLLMInferenceEngine
 from oumi.core.configs import InferenceConfig, ModelParams
+from oumi.core.types.conversation import Conversation, Message, Role
 
 model_params = ModelParams(model_name="HuggingFaceTB/SmolLM2-135M-Instruct")
 engine = VLLMInferenceEngine(model_params)
-input_conversation = []  # Add your inputs here
+conversation = Conversation(
+    messages=[Message(role=Role.USER, content="What is Oumi?")]
+)
+
 inference_config = InferenceConfig()
 output_conversations = engine.infer_online(
-    input=input_conversation, inference_config=inference_config
+    input=[conversation], inference_config=inference_config
 )
 print(output_conversations)
 ```
@@ -132,24 +136,19 @@ print(output_conversations)
 Oumi supports several input formats for inference:
 
 1. JSONL files
-
-Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
-
-See {doc}`/resources/datasets/data_formats` for more details.
-
+    - Prepare a JSONL file with your inputs, where each line is a JSON object containing your input data.
+    - See {doc}`/resources/datasets/data_formats` for more details.
 2. Interactive console input
+    - To run inference interactively, use the `oumi infer` command with the `-i` flag.
 
-To run inference interactively, use the `oumi infer` command with the `-i` flag.
-
-```{code-block} bash
-oumi infer -c infer_config.yaml -i
-```
+    ```{code-block} bash
+    oumi infer -c infer_config.yaml -i
+    ```
 
 ## Supported Engines
 
 ```{include} /api/summary/inference_engines.md
 ```
-
 
 ## Advanced Topics
 
@@ -159,7 +158,7 @@ oumi infer -c infer_config.yaml -i
 model:
   model_name: "model.gguf"
 
-engine: "llamacpp"
+engine: LLAMACPP
 
 generation:
   temperature: 0.7
@@ -224,7 +223,7 @@ oumi infer -c infer_config.yaml -i --image="https://oumi.ai/the_great_wave_off_k
 ### Distributed Inference
 
 For large-scale inference across multiple GPUs or machines, see the following tutorial
-for inference with Llama 3.1 70B on {gh}`notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
+for inference with Llama 3.3 70B on {gh}`<GitHub> notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
 
 ## Next Steps
 

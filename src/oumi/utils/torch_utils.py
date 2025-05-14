@@ -1,11 +1,26 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import gc
 import math
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
-import numpy.typing
+import numpy.typing as npt
 import torch
 
 from oumi.utils.device_utils import get_nvidia_gpu_memory_utilization
@@ -68,9 +83,13 @@ def log_versioning_info() -> None:
         logger.info("CUDA is not available!")
         return
 
+    # pyright seems to have an issue with torch==2.5.1
+    # torch.version is always available, but pyright doesn't know that
+    if hasattr(torch, "version"):
+        logger.info(f"CUDA version: {torch.version.cuda} ")  # type: ignore
+
     # For AMD GPUs, these functions return ROCm, MlOpen versions respectively.
     logger.info(
-        f"CUDA version: {torch.version.cuda} "
         f"CuDNN version: {format_cudnn_version(torch.backends.cudnn.version())}"
     )
 
@@ -142,10 +161,54 @@ def log_model_summary(model, filepath: Optional[Path] = None) -> None:
             f.write(model_summary)
 
 
-class ModelParameterCount(NamedTuple):
+def get_device_name() -> str:
+    """Returns the name of the device, assuming all are identical."""
+    device_name = "CPU"
+    if torch.cuda.is_available():
+        # Assume all devices are identical
+        device_name = torch.cuda.get_device_name(0)
+    elif torch.backends.mps.is_available():
+        device_name = "MPS"
+    return device_name
+
+
+@dataclass(frozen=True)
+class ModelParameterCount:
     all_params: int
     trainable_params: int
     embedding_params: int
+
+    def __post_init__(self):
+        """Ensure that the parameters are valid."""
+        for name, value in [
+            ("all_params", self.all_params),
+            ("trainable_params", self.trainable_params),
+            ("embedding_params", self.embedding_params),
+        ]:
+            if value < 0:
+                raise ValueError(f"`{name}` ({value}) must be >= 0.")
+            if self.trainable_params > self.all_params:
+                raise ValueError(
+                    f"`trainable_params` ({self.trainable_params}) cannot be "
+                    f"greater than `all_params` ({self.all_params})."
+                )
+            if self.embedding_params > self.all_params:
+                raise ValueError(
+                    f"`embedding_params` ({self.embedding_params}) cannot be "
+                    f"greater than `all_params` ({self.all_params})."
+                )
+
+    @property
+    def trainable_params_percent(self) -> float:
+        """Percentage of trainable parameters [0.0, 100.0]."""
+        if self.all_params == 0:
+            return 0.0
+        return 100 * self.trainable_params / self.all_params
+
+    @property
+    def frozen_params_percent(self) -> float:
+        """Percentage of frozen parameters [0.0, 100.0]."""
+        return 100.0 - self.trainable_params_percent
 
 
 def _get_parameter_names(
@@ -170,13 +233,13 @@ def _get_parameter_names(
 
 
 def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
-    """Counts the number of parameters in a model.
+    """Creates a basic counter of the parameters in a neural model.
 
     Args:
         model: The torch-implemented neural network.
 
     Returns:
-        A tuple of (total_parameters, trainable_parameters).
+        ModelParameterCount: A ModelParameterCount for the underlying model.
     """
     trainable_params = 0
     all_params = 0
@@ -185,7 +248,8 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     for name, module in model.named_modules():
         if isinstance(module, torch.nn.Embedding):
             # Embedding layers appear in named_parameters with ".weight" at the end
-            embedding_layer_names.append(name + ".weight")
+            param_name = f"{name}.weight" if name else "weight"
+            embedding_layer_names.append(param_name)
 
     for name, param in model.named_parameters():
         param_count = param.numel()
@@ -203,21 +267,33 @@ def count_model_parameters(model: torch.nn.Module) -> ModelParameterCount:
     )
 
 
-def log_trainable_parameters(model: torch.nn.Module) -> None:
-    """Logs the number of trainable parameters of the model.
+def log_number_of_model_parameters(
+    model: torch.nn.Module, use_icons: bool = True
+) -> None:
+    """Logs the number of parameters of the model.
 
     Args:
         model: The torch-implemented neural network.
-
-    Note: original code:
-    https://github.com/huggingface/peft/blob/main/examples/fp4_finetuning/finetune_fp4_opt_bnb_peft.py
+        use_icons: Whether to display emojis/icons in the log output.
     """
     params = count_model_parameters(model)
-    all_params = params.all_params
-    trainable_params = params.trainable_params
+
+    # Icons if enabled, else fallback to plain text
+    total_label = "🔢 Total" if use_icons else "Total"
+    embedding_label = "🔗 Embedding" if use_icons else "Embedding"
+    trainable_label = "🎯 Trainable" if use_icons else "Trainable"
+    frozen_label = "🔒 Frozen" if use_icons else "Frozen"
+
+    n_space = 11 if use_icons else 9
+
     logger.info(
-        f"Trainable params: {trainable_params} || All params: {all_params} "
-        f"|| Trainable%: {100 * trainable_params / all_params:.4f}"
+        f"\nModel Parameters Summary:\n"
+        f"{total_label:<{n_space}} parameters: {params.all_params:,}\n"
+        f"{embedding_label:<{n_space}} parameters: {params.embedding_params:,}\n"
+        f"{trainable_label:<{n_space}} parameters: {params.trainable_params:,}\n"
+        f"{frozen_label:<{n_space}} parameters: "
+        f"{params.all_params - params.trainable_params:,} "
+        f"({params.frozen_params_percent:.2f}%)\n"
     )
 
 
@@ -239,7 +315,7 @@ def get_torch_dtype(torch_dtype_str: str) -> torch.dtype:
 
 
 def get_dtype_size_in_bytes(
-    dtype: Union[str, torch.dtype, numpy.typing.DTypeLike],
+    dtype: Union[str, torch.dtype, npt.DTypeLike],
 ) -> int:
     """Returns size of this dtype in bytes."""
     if isinstance(dtype, torch.dtype):
@@ -333,14 +409,6 @@ def convert_to_list_of_tensors(values: list[T]) -> list[torch.Tensor]:
     )
 
 
-def _pad_sequences_impl(
-    sequences: list[torch.Tensor], *, padding_value: float = 0
-) -> torch.Tensor:
-    return torch.nn.utils.rnn.pad_sequence(
-        sequences, batch_first=True, padding_value=padding_value
-    )
-
-
 def pad_sequences_right_side(
     sequences: list[T], *, padding_value: float = 0
 ) -> torch.Tensor:
@@ -357,11 +425,7 @@ def pad_sequences_right_side(
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
         L is the longest length (`max(len(sequences[i]))`)
     """
-    if len(sequences) == 0:
-        raise ValueError("Empty list is not allowed.")
-    tensor_sequences = convert_to_list_of_tensors(sequences)
-
-    return _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
+    return pad_sequences(sequences, padding_value=padding_value, padding_side="right")
 
 
 def pad_sequences_left_side(
@@ -380,23 +444,7 @@ def pad_sequences_left_side(
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
         L is the longest length (`max(len(sequences[i]))`)
     """
-    if len(sequences) == 0:
-        raise ValueError("Empty list is not allowed.")
-    tensor_sequences = convert_to_list_of_tensors(sequences)
-
-    # FIXME OPE-644 Start using `torch.nn.utils.rnn.pad_sequence(padding_size="left")`
-    # after we migrate to torch >=2.5.*.
-
-    # For now, do this to achieve left side padding:
-    # 1. Reverse all input sequences.
-    # 2. Right pad.
-    # 3. Unreverse all sequences in right-padded result.
-    # Note that torch.flip() copies tensors, so there is performance cost.
-
-    tensor_sequences = [torch.flip(s, dims=(0,)) for s in tensor_sequences]
-    result = _pad_sequences_impl(tensor_sequences, padding_value=padding_value)
-    result = torch.flip(result, dims=(1,))
-    return result
+    return pad_sequences(sequences, padding_value=padding_value, padding_side="left")
 
 
 def pad_sequences(
@@ -408,19 +456,222 @@ def pad_sequences(
         sequences: list of variable length sequences.
         padding_value: value for padded elements. Default: 0.
         padding_side: side to apply padding to. Valid values:  'right', 'left'.
+            If unspecified (`None`), defaults to `right`.
 
     Returns:
         A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
         L is the longest length (`max(len(sequences[i]))`)
     """
-    if not padding_side or padding_side == "right":
-        return pad_sequences_right_side(sequences, padding_value=padding_value)
-    elif padding_side == "left":
-        return pad_sequences_left_side(sequences, padding_value=padding_value)
+    if not padding_side:
+        padding_side = "right"
 
-    raise ValueError(
-        f"Unsupported padding side: '{padding_side}'. Valid values: 'right', 'left'."
+    if padding_side not in ("right", "left"):
+        raise ValueError(
+            f"Unsupported padding side: '{padding_side}'. "
+            "Valid values: 'right', 'left'."
+        )
+
+    if len(sequences) == 0:
+        raise ValueError("Empty list is not allowed.")
+    tensor_sequences = convert_to_list_of_tensors(sequences)
+
+    try:
+        return torch.nn.utils.rnn.pad_sequence(
+            tensor_sequences,
+            batch_first=True,
+            padding_value=padding_value,
+            padding_side=padding_side,
+        )
+    except RuntimeError:
+        logger.error(
+            "Failed to pad sequences with the shapes: "
+            + ", ".join([f"{t.shape}" for t in tensor_sequences])
+        )
+        raise
+
+
+class _DimMinMaxSizes(NamedTuple):
+    dim_index: int
+
+    min_size: int
+    max_size: int
+
+    @property
+    def has_variable_sizes(self) -> bool:
+        return self.min_size != self.max_size
+
+
+def _get_dims_min_max_size(tensors_list: list[torch.Tensor]) -> list[_DimMinMaxSizes]:
+    num_tensors = len(tensors_list)
+    if num_tensors <= 0:
+        return []
+
+    first_shape = tensors_list[0].shape
+
+    min_dim_sizes = list(first_shape)
+    max_dim_sizes = list(first_shape)
+    num_dims = len(min_dim_sizes)
+
+    for tensor_idx in range(num_tensors - 1):
+        curr_shape = tensors_list[tensor_idx + 1].shape
+        if num_dims != len(curr_shape):
+            raise ValueError(
+                "Tensors have different number of dimensions: "
+                f"{num_dims} vs {len(curr_shape)}! "
+                f"Shapes: {first_shape}, {curr_shape}"
+            )
+        for idx in range(num_dims):
+            min_dim_sizes[idx] = min(min_dim_sizes[idx], curr_shape[idx])
+            max_dim_sizes[idx] = max(max_dim_sizes[idx], curr_shape[idx])
+
+    return [
+        _DimMinMaxSizes(
+            dim_index=idx, min_size=min_dim_sizes[idx], max_size=max_dim_sizes[idx]
+        )
+        for idx in range(num_dims)
+    ]
+
+
+def _format_dims_min_max_sizes(dim_sizes: list[_DimMinMaxSizes]) -> str:
+    result: list[str] = [""] * len(dim_sizes)
+    for idx, item in enumerate(dim_sizes):
+        result[idx] = (
+            f"{item.min_size}...{item.max_size}"
+            if item.has_variable_sizes
+            else f"{item.min_size}"
+        )
+    return "[" + ", ".join(result) + "]"
+
+
+def _pad_to_max_dim_and_stack_impl(
+    tensors_list: list[torch.Tensor],
+    *,
+    max_variable_sized_dims: int,
+    padding_value: float,
+    pad_on_left_side: bool,
+) -> torch.Tensor:
+    num_tensors = len(tensors_list)
+    if num_tensors == 0:
+        raise ValueError("Empty list of tensors is not allowed.")
+    dim_sizes: list[_DimMinMaxSizes] = _get_dims_min_max_size(tensors_list)
+    num_variable_size_dims = sum(
+        (1 if item.has_variable_sizes else 0) for item in dim_sizes
     )
+    if (
+        max_variable_sized_dims >= 0
+        and num_variable_size_dims > max_variable_sized_dims
+    ):
+        raise ValueError(
+            "Too many dimensions with variable size. "
+            f"Got: {num_variable_size_dims} variable size dimensions. "
+            f"Maximum allowed: {max_variable_sized_dims}. "
+            f"Dimension sizes: {_format_dims_min_max_sizes(dim_sizes)}."
+        )
+
+    if num_variable_size_dims == 0:
+        # No need to pad anything, just `stack()`.
+        return torch.stack(tensors_list)
+    elif num_variable_size_dims == 1 and dim_sizes[0].has_variable_sizes:
+        # Use pad_sequences provided by PyTorch, which should be equivalent
+        # for the common case.
+        if pad_on_left_side:
+            return pad_sequences_left_side(tensors_list, padding_value=padding_value)
+        return pad_sequences_right_side(tensors_list, padding_value=padding_value)
+
+    max_dim_sizes = [item.max_size for item in dim_sizes]
+    result_shape = torch.Size([num_tensors] + max_dim_sizes)
+
+    result = torch.full(
+        result_shape,
+        padding_value,
+        dtype=tensors_list[0].dtype,
+        device=tensors_list[0].device,
+    )
+
+    max_dim_sizes = torch.Size(max_dim_sizes)
+    for i, input_tensor in enumerate(tensors_list):
+        target = result.select(0, i)
+        if max_dim_sizes == input_tensor.shape:
+            target[...] = input_tensor
+            continue
+
+        target_view = target[...]
+
+        for dim_idx, curr_size in enumerate(input_tensor.shape):
+            max_size = max_dim_sizes[dim_idx]
+            if curr_size < max_size:
+                start_idx = (max_size - curr_size) if pad_on_left_side else 0
+                target_view = target_view.narrow(
+                    dim_idx, start=start_idx, length=curr_size
+                )
+
+        assert target_view.shape == input_tensor.shape
+        target_view[...] = input_tensor
+
+    return result
+
+
+def pad_to_max_dim_and_stack(
+    tensors_list: list[T],
+    *,
+    max_variable_sized_dims: int = -1,
+    padding_value: float = 0,
+    padding_side: Optional[str] = None,
+) -> torch.Tensor:
+    """Stacks variable-length tensors to a single tensor with dimension expansion.
+
+    Some examples:
+    1) Two tensors with shapes [24,8], [32,8] are combined to [2,32,8].
+    2) Two tensors with shapes [24,1,8], [32,4,8] are combined to [2,32,4,8].
+    3) Three tensors with shapes [7,3,5],[8,2,6],[9,1,7] are combined to [3,9,3,7].
+
+    For 1D input tensors, the function is equivalent to `pad_sequences()`.
+
+    If all tensors have the same shape and no padding is required, then the function
+    is equivalent to `torch.stack()`.
+
+    Args:
+        tensors_list: list of tensors with potentially .
+        max_variable_sized_dims: Maximum number of variable-sized dimensions.
+            Negative values mean `Unlimited`.
+            If you know that your tensors have a pre-defined number `N` of
+            variable-sized dimensions (e.g., 1 for `sequence_length`) then
+            it's a good idea to set this parameter to catch abnormal inputs
+            (`ValueError` will be raised in such cases).
+        padding_value: value for padded elements. Default: 0.
+        padding_side: side to apply padding to. Valid values:  'right', 'left'.
+            If unspecified (`None`), defaults to `right`.
+
+    Returns:
+        A tensor with shape (B, L, ...), where B is a batch size (`len(sequences)`),
+        L is the longest length (`max(len(sequences[i]))`)
+    """
+    pad_on_left_side: bool = False
+    if not padding_side or padding_side == "right":
+        pad_on_left_side = False
+    elif padding_side == "left":
+        pad_on_left_side = True
+    else:
+        raise ValueError(
+            f"Unsupported padding side: '{padding_side}'. "
+            "Valid values: 'right', 'left'."
+        )
+
+    input_tensors = convert_to_list_of_tensors(tensors_list)
+
+    try:
+        return _pad_to_max_dim_and_stack_impl(
+            input_tensors,
+            max_variable_sized_dims=max_variable_sized_dims,
+            padding_value=padding_value,
+            pad_on_left_side=pad_on_left_side,
+        )
+    except RuntimeError:
+        logger.error(
+            "Failed to pad and stack tensors with the shapes: "
+            + ", ".join([f"{t.shape}" for t in input_tensors])
+        )
+        raise
 
 
 def create_ones_like(

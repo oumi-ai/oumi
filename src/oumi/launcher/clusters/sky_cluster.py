@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
@@ -10,6 +24,10 @@ class SkyCluster(BaseCluster):
 
     def __init__(self, name: str, client: SkyClient) -> None:
         """Initializes a new instance of the SkyCluster class."""
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky.exceptions
+
+        self._sky_exceptions = sky.exceptions
         self._name = name
         self._client = client
 
@@ -57,10 +75,13 @@ class SkyCluster(BaseCluster):
 
     def get_jobs(self) -> list[JobStatus]:
         """Lists the jobs on this cluster."""
-        return [
-            self._convert_sky_job_to_status(job)
-            for job in self._client.queue(self.name())
-        ]
+        try:
+            return [
+                self._convert_sky_job_to_status(job)
+                for job in self._client.queue(self.name())
+            ]
+        except self._sky_exceptions.ClusterNotUpError:
+            return []
 
     def cancel_job(self, job_id: str) -> JobStatus:
         """Cancels the specified job on this cluster."""

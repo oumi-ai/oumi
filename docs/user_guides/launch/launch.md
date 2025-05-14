@@ -1,4 +1,4 @@
-# Running Code on Clusters
+# Running Jobs on Clusters
 
 ```{toctree}
 :maxdepth: 2
@@ -34,6 +34,281 @@ The Oumi launcher integrates with SkyPilot to launch jobs on various cloud provi
   ```
 
 Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#cloud-account-setup).
+
+## Quickstart
+
+Got a {class}`~oumi.core.configs.TrainingConfig` you want to run on the cloud?
+Just replace the `run` section of one of the configs below with your training command
+and kick off the job via our CLI:
+
+```shell
+oumi launch up -c ./your_job.yaml
+```
+
+::::{tab-set}
+:::{tab-item} GCP
+````{dropdown} sample-gcp-job.yaml
+```yaml
+name: sample-gcp-job
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.gcp.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} AWS
+````{dropdown} sample-aws-job.yaml
+```yaml
+name: sample-aws-job
+
+resources:
+  cloud: aws
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.aws.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} Azure
+````{dropdown} sample-azure-job.yaml
+```yaml
+name: sample-azure-job
+
+resources:
+  cloud: azure
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.azure.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} RunPod
+````{dropdown} sample-runpod-job.yaml
+```yaml
+name: sample-runpod-job
+
+resources:
+  cloud: runpod
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.runpod.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+
+:::{tab-item} Lambda
+````{dropdown} sample-lambda-job.yaml
+```yaml
+name: sample-lambda-job
+
+resources:
+  cloud: lambda
+  accelerators: "A100"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 500 # Disk size in GBs
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+# file_mounts:
+#   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+#   /s3_dir:
+#     source: s3://<your-bucket>
+#     store: s3
+#   /r2_dir
+#     source: r2://,
+#     store: r2
+
+envs:
+  OUMI_RUN_NAME: sample.lambda.job
+
+setup: |
+  set -e
+  pip install uv && uv pip install 'oumi[gpu]'
+
+# NOTE: Update this section with your training command.
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c ./path/to/your/config
+```
+````
+:::
+::::
+
+```{note}
+Don't forget:
+- Make sure your training config is saved under `working_dir` so it will be copied by
+your job
+- Update the `setup` section if you need to install any custom dependencies
+- Update `accelerators` if you need to run on a specific set of GPUs (e.g. "A100-80GB:4" creates a job with 4x A100-80GBs)
+```
 
 ## Defining a Job
 
@@ -100,9 +375,6 @@ To find out more about the GPUs available on your cloud provider, you can use sk
 sky show-gpus
 ```
 
-If you made any code changes to the oumi codebase (not including configs), you need to run
-`pip install '.'` in the `run` section of the job config to install the
-changes on the cluster.
 :::
 
 :::{tab-item} Python
@@ -135,11 +407,12 @@ To find out more about the GPUs available on your cloud provider, you can use sk
 sky show-gpus
 ```
 
-If you made any code changes to the oumi codebase (not including configs), you need to run
-`pip install '.'` in the `run` section of the job config to install the
-changes on the cluster.
 :::
 ::::
+
+### Code Development
+
+You can use the Oumi job launcher as part of your development process using Oumi if your code changes need to be tested outside your local machine. First, make sure to follow the {doc}`/development/dev_setup` guide to install Oumi from source. Then, make sure your job config uses `pip install -e .` instead of `pip install oumi` in the setup section. This lets the job pick up on your local changes by installing Oumi from source, in addition to automatically applying your code changes on the remote machine with the editable installation.
 
 #### Spot instances
 
@@ -264,7 +537,7 @@ To stop the cluster when you are done to avoid extra charges, run:
 oumi launch stop --cluster my-cluster
 ```
 
-In addition, the Oumi launcher automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 30, i.e. clusters will stop automatically after 30 minutes of no jobs running.
+In addition, the Oumi launcher automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 60, i.e. clusters will stop automatically after 60 minutes of no jobs running. Note that this isn't done for clouds that don't support stopping jobs, like RunPod and Lambda.
 
 Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically restarted by specifying them in an `oumi launch up` command.
 
@@ -285,7 +558,7 @@ import oumi.launcher as launcher
 launcher.stop(cloud_name="gcp", cluster_name="my-cluster")
 ```
 
-In addition, Oumi automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 30, i.e. clusters will stop automatically after 30 minutes of no jobs running.
+In addition, Oumi automatically sets [`idle_minutes_to_autostop`](https://docs.skypilot.co/en/latest/reference/api.html#sky.launch) to 60, i.e. clusters will stop automatically after 60 minutes of no jobs running. Note that this isn't done for clouds that don't support stopping jobs, like RunPod and Lambda.
 
 Stopped clusters preserve their disk, and are quicker to initialize than turning up a brand new cluster. Stopped clusters can be automatically restarted by specifying them in a `launcher.up(...)` command.
 

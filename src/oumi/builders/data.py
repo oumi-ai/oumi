@@ -1,9 +1,22 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import copy
 from collections.abc import Sequence
 from typing import Callable, Optional, TypeVar, Union, cast
 
 import datasets
-from trl.trainer import ConstantLengthDataset
 
 from oumi.core.configs import (
     DataParams,
@@ -11,7 +24,6 @@ from oumi.core.configs import (
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
-    TrainingConfig,
 )
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.pretraining_async_text_dataset import (
@@ -19,43 +31,47 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 )
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
-from oumi.utils.hf_datasets_utils import is_cached_to_disk_hf_dataset
+from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
 from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
 
 def build_dataset_mixture(
-    config: TrainingConfig,
+    data_params: DataParams,
     tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
+    seq_length: Optional[int] = None,
     seed: Optional[int] = None,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset for the specified split.
 
     Args:
-        config: The training config.
+        data_params: The data params.
         tokenizer: The tokenizer object to use for preprocessing.
         dataset_split: The split of the dataset to load.
+        seq_length: The length each example will be packed to. This is only used if
+            packing is requested, and the dataset isn't already packed. If not provided,
+            defaults to 1024.
         seed: If specified, a seed used for random sampling.
         kwargs: Keyword arguments.
 
     Returns:
         dataset: The built dataset for `dataset_split`.
     """
-    dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
-    if dataset_split_params.experimental_use_torch_datapipes:
+    dataset_split_params: DatasetSplitParams = data_params.get_split(dataset_split)
+    if dataset_split_params.use_torchdata:
         from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
         logger.warning(
-            "Using experimental torch datapipes preprocessing pipeline. "
+            "Using torchdata preprocessing pipeline. "
             "This is currently in beta and may not be stable."
         )
         # TODO: OPE-271. Some type hackery going on here.
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
-        # and becomes the default processign pipeline.
-        return build_oumi_dataset(config, tokenizer, dataset_split, seed)  # type: ignore
+        # and becomes the default processing pipeline.
+        return build_oumi_dataset(data_params, tokenizer, dataset_split, seed)  # type: ignore
 
     # Check if the underlying dataset is already packed, or if we need to pack it
     # ourselves.
@@ -87,8 +103,8 @@ def build_dataset_mixture(
     if dataset_split_params.pack and not is_packed:
         # Fetch max sequence length. If not specified, defaults to 1024.
         dataset_kwargs = {}
-        if config.model.model_max_length:
-            dataset_kwargs["seq_length"] = config.model.model_max_length
+        if seq_length is not None:
+            dataset_kwargs["seq_length"] = seq_length
 
         dataset = PretrainingAsyncTextDataset(
             tokenizer,
@@ -99,47 +115,15 @@ def build_dataset_mixture(
     return dataset
 
 
-def build_dataset_from_params(
-    dataset_params: DatasetParams,
-    tokenizer: Optional[BaseTokenizer],
-    seed: Optional[int] = None,
-    stream: bool = False,
-    pack: bool = False,
-    experimental_use_torch_datapipes: bool = False,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
-    """Builds a dataset from a dataset params object.
-
-    Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
-    all the arguments.
-    """
-    training_config = TrainingConfig(
-        data=DataParams(
-            train=DatasetSplitParams(
-                datasets=[dataset_params],
-                stream=stream,
-                pack=pack,
-                experimental_use_torch_datapipes=experimental_use_torch_datapipes,
-            )
-        )
-    )
-
-    return build_dataset_mixture(
-        config=training_config,
-        dataset_split=DatasetSplit.TRAIN,
-        tokenizer=tokenizer,
-        seed=seed,
-    )
-
-
 def build_dataset(
     dataset_name: str,
     tokenizer: Optional[BaseTokenizer],
     seed: Optional[int] = None,
     stream: bool = False,
     pack: bool = False,
-    experimental_use_torch_datapipes: bool = False,
+    use_torchdata: Optional[bool] = None,
     **kwargs,
-) -> Union[ConstantLengthDataset, DatasetType, PretrainingAsyncTextDataset]:
+) -> Union[DatasetType, PretrainingAsyncTextDataset]:
     """Builds a dataset from a dataset name.
 
     Please refer to `DatasetParams` & `DatasetSplitParams` for a description of
@@ -149,14 +133,20 @@ def build_dataset(
         dataset_name=dataset_name,
         **kwargs,
     )
+    data_params = DataParams(
+        train=DatasetSplitParams(
+            datasets=[dataset_params],
+            stream=stream,
+            pack=pack,
+            use_torchdata=use_torchdata,
+        )
+    )
 
-    return build_dataset_from_params(
-        dataset_params=dataset_params,
+    return build_dataset_mixture(
+        data_params=data_params,
+        dataset_split=DatasetSplit.TRAIN,
         tokenizer=tokenizer,
         seed=seed,
-        stream=stream,
-        pack=pack,
-        experimental_use_torch_datapipes=experimental_use_torch_datapipes,
     )
 
 
@@ -195,9 +185,9 @@ def _sample_dataset(
     """Samples the specified dataset."""
     if dataset_params.sample_count is None:
         # No sampling.
-        dataset = cast(DatasetType, dataset)
         if dataset_params.shuffle:
             dataset = dataset.shuffle(dataset_params.seed)
+        dataset = cast(DatasetType, dataset)
         return dataset
     if stream:
         dataset = cast(datasets.IterableDataset, dataset)
@@ -283,9 +273,14 @@ def _load_dataset(
             dataset_kwargs["transform_num_workers"] = (
                 dataset_params.transform_num_workers
             )
+        # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
+        dataset_name = (
+            dataset_kwargs.pop("dataset_name_override", None)
+            or dataset_params.dataset_name
+        )
 
         dataset = dataset_class(
-            dataset_name=dataset_params.dataset_name,
+            dataset_name=dataset_name,
             dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,

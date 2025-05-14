@@ -1,4 +1,4 @@
-# Vision-Language
+# Vision-Language Datasets
 
 Vision-Language Supervised Finetuning (VL-SFT) extends the concept of Supervised Fine-Tuning (SFT) to handle both images and text. This enables the model to understand and reason about visual information, opening up a wide range of multimodal applications.
 

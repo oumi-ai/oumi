@@ -1,9 +1,20 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Job config to FSDP full fine-tune Llama 3.2 3B Instruct on 1 GCP node.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_2/sft/3b_full/fsdp_gcp_job.yaml --cluster llama3b-sft-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
-# Config to FSDP full fine-tune Llama 3.2 3B Instruct on 1 GCP node.
-# Example command:
-# oumi launch up -c configs/recipes/llama3_2/sft/3b_full/fsdp_gcp_job.yaml --cluster llama3b-sft-fsdp
 name: llama3b-sft-fsdp
 
 resources:
@@ -16,20 +27,15 @@ working_dir: .
 
 file_mounts:
   ~/.netrc: ~/.netrc  # WandB credentials
-  # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: llama3b.fft.fsdp
-  ACCELERATE_LOG_LEVEL: info
-  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
-  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
-  pip install uv && uv pip install '.[gpu]'
+  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.

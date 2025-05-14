@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.JobConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+# Polaris Hello World job config.
+#
+# Usage:
+#   oumi launch up -c configs/examples/misc/hello_world_polaris_job.yaml --cluster debug.$ALCF_USER --user $ALCF_USER
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
 
 name: hello-world
 # NOTE: Replace with your username.
@@ -7,13 +15,12 @@ user: your_username
 resources:
   cloud: polaris
 
-# Upload working directory to /home/$ALCF_USER/oumi_launcher/hello-world.
+# Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
 
-# Mount local files.
 #file_mounts:
   # Generally speaking, file mounts are not needed for Polaris jobs.
-  # Use this parameter if you'd like to upload individual files to /home/$ALFC_USER/
+  # Use this parameter if you'd like to upload individual files to /home/$ALCF_USER/
   # or /eagle/.
 
 envs:

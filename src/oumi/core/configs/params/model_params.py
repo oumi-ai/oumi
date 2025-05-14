@@ -1,5 +1,19 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Optional
 
@@ -8,7 +22,6 @@ from transformers.utils import find_adapter_config_file, is_flash_attn_2_availab
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.exceptions import HardwareException
-from oumi.utils.distributed_utils import is_using_accelerate
 from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
@@ -54,6 +67,16 @@ class ModelParams(BaseParams):
 
     This allows for passing any tokenizer-specific parameters that are not
     covered by other fields in ModelParams.
+    """
+
+    processor_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the processor's constructor.
+
+    Processors are used in Oumi for vision-language models to process image and
+    text inputs. This field is optional and can be left empty for text-only models,
+    or if not needed.
+
+    These params override model-specific default values for these kwargs, if present.
     """
 
     model_max_length: Optional[int] = None
@@ -162,10 +185,6 @@ class ModelParams(BaseParams):
 
     This is needed for large models that do not fit on a single GPU.
     It is used as the value for the `parallelize` argument in LM Harness.
-
-    If this is enabled, the eval job must be kicked off with `python` as opposed to
-    `accelerate launch`, as described here:
-    https://github.com/EleutherAI/lm-evaluation-harness?tab=readme-ov-file#multi-gpu-evaluation-with-hugging-face-accelerate
     """
 
     freeze_layers: list[str] = field(default_factory=list)
@@ -177,34 +196,20 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
-    def to_lm_harness(self) -> dict[str, Any]:
-        """Converts Oumi's ModelParams to LM Harness model arguments."""
-        model_args_dict = {
-            "pretrained": self.model_name,
-            "trust_remote_code": self.trust_remote_code,
-            "parallelize": self.shard_for_eval,
-            "dtype": self.torch_dtype,
-            "device_map": self.device_map,
-        }
-        if self.adapter_model:
-            model_args_dict["peft"] = self.adapter_model
-        if self.attn_implementation:
-            model_args_dict["attn_implementation"] = self.attn_implementation
-
-        # Handle extra model_kwargs (construction arguments).
-        # Towards OPE-564.
-        if self.model_kwargs:
-            relevant_for_lm = ["load_in_4bit", "load_in_8bit", "max_memory_per_gpu"]
-            for key in relevant_for_lm:
-                if key in self.model_kwargs:
-                    model_args_dict[key] = self.model_kwargs[key]
-            # TODO: load_in_8bit, load_in_4bit are deprecated and will be removed in
-            # future versions of HF. Integrate via PeftConfig.
-        return model_args_dict
-
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
+
+        if len(self.processor_kwargs) > 0:
+            conflicting_keys = {f.name for f in fields(self)}.intersection(
+                self.processor_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "processor_kwargs attempts to override the following "
+                    f"reserved fields: {conflicting_keys}. "
+                    "Use properties of ModelParams instead."
+                )
 
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""
@@ -256,12 +261,6 @@ class ModelParams(BaseParams):
                 "Flash attention 2 was requested but it is not "
                 "supported. Confirm that your hardware is compatible and then "
                 "consider installing it: pip install -U flash-attn --no-build-isolation"
-            )
-
-        if self.shard_for_eval and is_using_accelerate():
-            raise ValueError(
-                "Sharded-model evaluations with LM Harness should be invoked with "
-                "`python`, not `accelerate launch`."
             )
 
         if self.model_max_length is not None and self.model_max_length <= 0:

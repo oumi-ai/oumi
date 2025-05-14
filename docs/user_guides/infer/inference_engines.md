@@ -34,7 +34,7 @@ You can also specify configuration in YAML, and use the CLI to run inference:
 oumi infer --engine VLLM --model.model_name meta-llama/Llama-3.2-1B-Instruct
 ```
 
-Checkout the {doc}`cli_reference` for more information on how to use the CLI.
+Checkout the {doc}`inference_cli` for more information on how to use the CLI.
 
 **Cloud APIs**
 
@@ -62,7 +62,7 @@ Each inference engine supports a different set of parameters (for example, diffe
 
 Make sure to check the {doc}`configuration` for an exhaustive list of supported parameters, and the reference page for the specific engine you are using to find the parameters it supports.
 
-For example, the supported parameters for the `VLLMInferenceEngine` can be found here {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
+For example, the supported parameters for the `VLLMInferenceEngine` can be found in {py:meth}`~oumi.inference.VLLMInferenceEngine.get_supported_params`.
 
 ## Local Inference
 
@@ -112,6 +112,9 @@ First, make sure to install the vLLM package:
 
 ```bash
 pip install vllm
+# Alternatively, install all Oumi GPU dependencies, which takes care of installing a
+# vLLM version compatible with your current Oumi version.
+pip install oumi[gpu]
 ```
 
 **Basic Usage**
@@ -119,7 +122,7 @@ pip install vllm
 ```python
 engine = VLLMInferenceEngine(
     ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
     )
 )
 ```
@@ -221,7 +224,7 @@ model_params = ModelParams(
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --model meta-llama/Llama-3.1-8B-Instruct \
     --port 6864
 ```
 
@@ -229,7 +232,7 @@ python -m vllm.entrypoints.openai.api_server \
 
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model meta-llama/Meta-Llama-3.1-70B-Instruct \
+    --model meta-llama/Llama-3.3-70B-Instruct \
     --port 6864 \
     --tensor-parallel-size 4
 
@@ -243,7 +246,7 @@ The client can be configured with different reliability and performance options 
 # Basic client with timeout and retry settings
 engine = RemoteVLLMInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:6864",
@@ -261,7 +264,7 @@ engine = RemoteVLLMInferenceEngine(
 
 ```bash
 python -m sglang.launch_server \
-    --model-path meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --model-path meta-llama/Llama-3.1-8B-Instruct \
     --port 6864 \
     --disable-cuda-graph \
     --mem-fraction-static=0.99
@@ -276,7 +279,7 @@ The client can be configured with different reliability and performance options 
 ```{testcode}
 engine = SGLangInferenceEngine(
     model_params=ModelParams(
-        model_name="meta-llama/Meta-Llama-3.1-8B-Instruct"
+        model_name="meta-llama/Llama-3.1-8B-Instruct"
     ),
     remote_params=RemoteParams(
         api_url="http://localhost:6864"
@@ -314,6 +317,18 @@ engine = AnthropicInferenceEngine(
 )
 ```
 
+**Supported Models**
+
+The Anthropic models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://docs.anthropic.com/en/docs/about-claude/models).
+
+| Anthropic Model                       | API Model Name            |
+|---------------------------------------|---------------------------|
+| Claude 3.5 Sonnet (most intelligent)  | claude-3-5-sonnet-latest  |
+| Claude 3.5 Haiku (fastest)            | claude-3-5-haiku-latest   |
+| Claude 3.0 Opus                       | claude-3-opus-latest      |
+| Claude 3.0 Sonnet                     | claude-3-sonnet-20240229  |
+| Claude 3.0 Haiku                      | claude-3-haiku-20240307   |
+
 **Resources**
 
 - [Anthropic API Documentation](https://docs.anthropic.com/en/api/getting-started)
@@ -347,6 +362,28 @@ engine = GoogleVertexInferenceEngine(
 )
 ```
 
+**Supported Models**
+
+The most popular Google Vertex AI models available via this API (as of late Jan'2025) are listed below. For a full list, including specialized and 3rd party models, please visit [this page](https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models).
+
+| Gemini Model                          | API Model Name                   |
+|---------------------------------------|----------------------------------|
+| Gemini 2.0 Flash Thinking Mode        | google/gemini-2.0-flash-thinking-exp-01-21 |
+| Gemini 2.0 Flash                      | google/gemini-2.0-flash-exp      |
+| Gemini 1.5 Flash                      | google/gemini-1.5-flash-002      |
+| Gemini 1.5 Pro                        | google/gemini-1.5-pro-002        |
+| Gemini 1.0 Pro Vision                 | google/gemini-1.0-pro-vision-001 |
+
+| Gemma Model                           | API Model Name                   |
+|---------------------------------------|----------------------------------|
+| Gemma 2 2B IT                         | google/gemma2-2b-it              |
+| Gemma 2 9B IT                         | google/gemma2-9b-it              |
+| Gemma 2 27B IT                        | google/gemma2-27b-it             |
+| Code Gemma 2B                         | google/codegemma-2b              |
+| Code Gemma 7B                         | google/codegemma-7b              |
+| Code Gemma 7B IT                      | google/codegemma-7b-it           |
+
+
 **Resources**
 
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs) for Google Cloud AI services
@@ -368,6 +405,19 @@ engine = GoogleGeminiInferenceEngine(
     )
 )
 ```
+
+**Supported Models**
+
+The Gemini models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://ai.google.dev/gemini-api/docs/models/gemini).
+
+| Model Name                            | API Model Name            |
+|---------------------------------------|---------------------------|
+| Gemini 2.0 Flash (experimental)       | gemini-2.0-flash-exp      |
+| Gemini 1.5 Flash                      | gemini-1.5-flash          |
+| Gemini 1.5 Flash-8B                   | gemini-1.5-flash-8b       |
+| Gemini 1.5 Pro                        | gemini-1.5-pro            |
+| Gemini 1.0 Pro (deprecated)           | gemini-1.0-pro            |
+| AQA                                   | aqa                       |
 
 **Resources**
 
@@ -393,6 +443,19 @@ engine = OpenAIInferenceEngine(
 )
 ```
 
+**Supported Models**
+
+The most popular models available via the OpenAI API as of late Jan'2025 are listed below. For a full list please visit [this page](https://platform.openai.com/docs/models)
+
+| OpenAI Model                          | API Model Name            |
+|---------------------------------------|---------------------------|
+| GPT 4o (flagship model)               | gpt-4o                    |
+| GPT 4o mini (fast and affordable)     | gpt-4o-mini               |
+| o1 (reasoning model)                  | o1                        |
+| o1 mini (reasoning and affordable)    | o1-mini                   |
+| GPT-4 Turbo                           | gpt-4-turbo               |
+| GPT-4                                 | gpt-4                     |
+
 **Resources**
 
 - [OpenAI API Documentation](https://platform.openai.com/docs) for OpenAI API details
@@ -417,6 +480,8 @@ engine = TogetherInferenceEngine(
 )
 ```
 
+The models available via this API can be found at [together.ai](https://www.together.ai/).
+
 ### DeepSeek
 
 [DeepSeek](https://deepseek.com) allows to access the DeepSeek models (Chat, Code, and Reasoning) through the DeepSeek AI Platform.
@@ -436,6 +501,40 @@ engine = DeepSeekInferenceEngine(
     )
 )
 ```
+
+**Supported Models**
+
+The DeepSeek models available via this API as of late Jan'2025 are listed below. For an up-to-date list, please visit [this page](https://api-docs.deepseek.com/quick_start/pricing).
+
+| DeepSeek Model                        | API Model Name            |
+|---------------------------------------|---------------------------|
+| DeepSeek-V3                           | deepseek-chat             |
+| DeepSeek-R1 (reasoning with CoT)      | deepseek-reasoner         |
+
+### SambaNova
+
+[SambaNova](https://www.sambanova.ai/) offers an extreme-speed inference platform on cloud infrastructure with wide variety of models.
+
+This service is particularly useful when you need to run open source models in a managed environment.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import SambanovaInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = SambanovaInferenceEngine(
+    model_params=ModelParams(
+        model_name="Meta-Llama-3.1-405B-Instruct"
+    ),
+    remote_params=RemoteParams(
+        api_key_env_varname="SAMBANOVA_API_KEY",
+    )
+)
+```
+
+** Reference **
+- [SambaNova's Documentation](https://docs.sambanova.ai/cloud/docs/get-started/overview)
 
 ### Parasail.io
 
@@ -460,6 +559,8 @@ engine = ParasailInferenceEngine(
     )
 )
 ```
+
+The models available via this API can be found at [docs.parasail.io](https://docs.parasail.io/).
 
 **Resources**
 

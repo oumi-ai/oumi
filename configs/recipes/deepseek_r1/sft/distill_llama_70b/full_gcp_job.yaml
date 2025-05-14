@@ -1,0 +1,64 @@
+# Job config to full fine-tune Deepseek R1 Distill Llama 3.3 70B.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - (optional) Mount a storage bucket below
+#
+# Usage:
+#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_llama_70b/full_gcp_job.yaml --cluster deepseek-r1-llama70b-fft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: deepseek-r1-distill-llama70b-fft
+
+resources:
+  cloud: gcp
+  accelerators: "A100-80GB:8"
+  # If you don't have quota for a non-spot VM, try setting use_spot to true.
+  # However, make sure you are saving your output to a mounted cloud storage in case of
+  # preemption. For more information, see:
+  # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
+  use_spot: false
+  disk_size: 2000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: deepseek-r1.llama70b.fft
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Llama-70B
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/deepseek_r1/sft/distill_llama_70b/full_train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,5 +1,13 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# Phi3 DPO train config for an Nvidia GPU with >=80GB memory.
+#
+# Usage:
+#   oumi train -c configs/recipes/phi3/dpo/nvidia_80g_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
@@ -16,8 +24,8 @@ training:
   use_peft: true
   output_dir: "output/phi3.dpo"
   trainer_type: "TRL_DPO"
-  per_device_train_batch_size: 30 # Each batch seems to be approx. 1.8GB
-  gradient_accumulation_steps: 8
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 64
 
   # Use for debugging purposes
   # max_steps: 10

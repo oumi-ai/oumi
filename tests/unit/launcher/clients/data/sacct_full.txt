@@ -1,0 +1,38 @@
+Welcome to Ubuntu 22.04.5 LTS (GNU/Linux 5.15.0-130-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+ System information as of Fri Feb  7 10:40:36 PST 2025
+
+  System load:    0.01              Processes:                475
+  Usage of /home: 48.8% of 1.60TB   Users logged in:          0
+  Memory usage:   4%                IPv4 address for enp6s18:
+  Swap usage:     0%
+
+ * Strictly confined Kubernetes makes edge and IoT secure. Learn how MicroK8s
+   just raised the bar for easy, resilient and secure K8s cluster deployment.
+
+   https://ubuntu.com/engage/secure-kubernetes-at-the-edge
+
+Expanded Security Maintenance for Applications is not enabled.
+
+38 updates can be applied immediately.
+29 of these updates are standard security updates.
+To see these additional updates run: apt list --upgradable
+
+7 additional security updates can be applied with ESM Apps.
+Learn more about enabling ESM Apps service at https://ubuntu.com/esm
+
+New release '24.04.1 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+
+JobID                                                 JobName                           User                          State                         Reason
+------------------------------ ------------------------------ ------------------------------ ------------------------------ ------------------------------
+5                                                        test                         taenin                      COMPLETED                           None
+6                                                        test                         taenin                      COMPLETED                           None
+7                                                cluster_test                         taenin         CANCELLED by 243050679                           None
+8                                                job-tutorial                         taenin                      COMPLETED                           None
+9                                                job-tutorial                         taenin                      COMPLETED                           None

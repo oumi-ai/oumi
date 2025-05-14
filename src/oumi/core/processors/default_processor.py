@@ -1,3 +1,18 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import copy
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
@@ -11,6 +26,7 @@ from oumi.core.processors.default_image_processor import DefaultImageProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import Message
 from oumi.utils.logging import logger
+from oumi.utils.str_utils import truncate_to_max_tokens_limit
 
 
 class DefaultProcessor(BaseProcessor):
@@ -26,6 +42,7 @@ class DefaultProcessor(BaseProcessor):
         tokenizer: BaseTokenizer,
         *,
         label_ignore_index: Optional[int],
+        ignore_features: Optional[list[str]] = None,
     ):
         """Initializes the processor."""
         if not processor_name:
@@ -40,7 +57,7 @@ class DefaultProcessor(BaseProcessor):
             and callable(worker_processor.apply_chat_template)
         ):
             raise ValueError(
-                "Worker processor doesn't have " "the `apply_chat_template` method"
+                "Worker processor doesn't have the `apply_chat_template` method"
             )
 
         self._processor_name = processor_name
@@ -48,8 +65,13 @@ class DefaultProcessor(BaseProcessor):
         self._worker_processor.tokenizer = tokenizer
         self._tokenizer: BaseTokenizer = tokenizer
 
-        # Use chat template from tokenizer.
-        self._worker_processor.chat_template = tokenizer.chat_template
+        # If the worker processor does not have a chat template, or has a different
+        # one, then equate it to tokenizer's.
+        if (
+            not hasattr(self._worker_processor, "chat_template")
+            or self._worker_processor.chat_template != tokenizer.chat_template
+        ):
+            self._worker_processor.chat_template = tokenizer.chat_template
 
         self._image_processor: Optional[BaseImageProcessor] = None
         if (
@@ -60,6 +82,9 @@ class DefaultProcessor(BaseProcessor):
                 self._worker_processor.image_processor
             )
         self._label_ignore_index: Optional[int] = label_ignore_index
+        self._ignore_features: Optional[list[str]] = (
+            copy.copy(ignore_features) if ignore_features else []
+        )
 
     @property
     @override
@@ -135,6 +160,12 @@ class DefaultProcessor(BaseProcessor):
         """Returns a label ignore index."""
         return self._label_ignore_index
 
+    @property
+    @override
+    def ignore_features(self) -> list[str]:
+        """Returns a list of keys of features to ignore from feeding the model."""
+        return copy.copy(self._ignore_features) if self._ignore_features else []
+
     @override
     def __call__(
         self,
@@ -169,6 +200,11 @@ class DefaultProcessor(BaseProcessor):
         if result is None:
             raise RuntimeError("Processor returned `None`.")
         elif isinstance(result, transformers.BatchFeature):
+            for key in self.ignore_features:
+                if key in result:  # If it is not, we do not act to allow
+                    del result[key]  # the underlying dataset/processor to vary
+                    # their examples/output across batches.
+
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors
             )
@@ -236,3 +272,28 @@ class DefaultProcessor(BaseProcessor):
             return
 
         self._worker_processor.save_pretrained(str(output_dir))
+
+    @override
+    def truncate_text(
+        self,
+        text: str,
+        *,
+        max_tokens: int,
+        truncation_side: str = "right",
+    ) -> tuple[str, int]:
+        """Truncates text to `max_length` in tokens.
+
+        Args:
+            text: A text prompt.
+            max_tokens: Maximum number of tokens to keep.
+            truncation_side: The side to truncate the tokens ("right" or "left").
+
+        Returns:
+            A tuple containing truncated text prompt and the number of tokens.
+        """
+        return truncate_to_max_tokens_limit(
+            text,
+            self._tokenizer,
+            max_tokens=max_tokens,
+            truncation_side=truncation_side,
+        )

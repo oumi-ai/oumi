@@ -1,0 +1,62 @@
+# Sample command:
+# sky launch --cloud GCP -i 10 --env OUMI_RUN_NAME=pretokenize.v01 --num-nodes 1 --no-use-spot --cluster xrdaukar-cpu-01-oumi-cluster src/experimental/pretokenize/sky.yaml
+
+name: pretokenize-example
+
+resources:
+  cpus: "32+"
+  memory: "64+"
+  disk_size: 200 # Disk size in GB
+  region: us-central1
+
+  any_of:
+    - use_spot: false
+
+workdir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+  /dataset_parent_dir:
+    source: gs://oumi-dev-us-central1/
+    store: gcs
+    mode: MOUNT
+
+envs:
+  OUMI_RUN_NAME: pretokenize
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  # Example of using files-based dataset:
+  # export INPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/sample-10BT"
+  # echo "INPUT_DATA: $INPUT_DATA. Content: $(ls -l $INPUT_DATA)"
+  # echo "${INPUT_DATA}: $(ls -l ${INPUT_DATA})"
+  # echo "${INPUT_DATA}/train: $(ls -l ${INPUT_DATA}/train)"
+  # export INPUT_DATASET="${INPUT_DATA}/train/"
+  # export OUTPUT_DATA="/dataset_parent_dir/datasets/fineweb-edu/hf_pretokenized-sample-10BT"
+  # Use these extra params:
+  #   --config ./configs/examples/fineweb_ablation_pretraining/ddp/train.yaml
+
+  # Example of using a remote HuggingFace dataset:
+  # Just download, re-shard, and save it to GCS.
+  export INPUT_DATASET="HuggingFaceM4/COCO"
+  export DATASET_SPLIT="train"
+  export OUTPUT_DATA="/dataset_parent_dir/datasets/coco_captions/"
+
+  set -x
+  mkdir -p "${OUTPUT_DATA}/${DATASET_SPLIT}"
+  python3 ./scripts/datasets/pretokenize/process_dataset.py \
+    --verbose \
+    --input_dataset "${INPUT_DATASET}" \
+    --dataset_split "${DATASET_SPLIT}" \
+    --skip_tokenize \
+    --trust_remote_code \
+    --output_dir "${OUTPUT_DATA}/${DATASET_SPLIT}/" \
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

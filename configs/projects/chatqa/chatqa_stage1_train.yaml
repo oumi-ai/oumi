@@ -1,12 +1,20 @@
-# Class: oumi.core.configs.TrainingConfig
-# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+# ChatQA Stage 1 training config.
+#
+# Usage:
+#   oumi train -c configs/projects/chatqa/chatqa_stage1_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
   # model_name: "openai-community/gpt2"
   # torch_dtype_str: "float16"
   # model_max_length: 1024
 
-  # model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  # model_name: "meta-llama/Llama-3.1-8B-Instruct"
   # torch_dtype_str: "bfloat16"
   # model_max_length: 4096
 
@@ -14,7 +22,6 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 4096
 
-  trust_remote_code: True
   attn_implementation: "sdpa"
 
 data:
@@ -42,7 +49,6 @@ training:
     use_reentrant: False # So gradients flow from frozen (non FT) input embeddings
 
   optimizer: "adamw_torch_fused"
-  # optimizer: "adamw_torch"
   learning_rate: 0.000005
   lr_scheduler_type: "cosine_with_min_lr"
   lr_scheduler_kwargs:

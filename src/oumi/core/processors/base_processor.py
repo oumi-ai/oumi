@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import abc
 from pathlib import Path
 from typing import Optional, Union
@@ -73,6 +87,12 @@ class BaseProcessor(abc.ABC):
         """Returns a label ignore index."""
         raise NotImplementedError
 
+    @property
+    @abc.abstractmethod
+    def ignore_features(self) -> list[str]:
+        """Returns a list of keys of features to ignore from feeding the model."""
+        raise NotImplementedError
+
     @abc.abstractmethod
     def __call__(
         self,
@@ -113,4 +133,24 @@ class BaseProcessor(abc.ABC):
     @abc.abstractmethod
     def save_config(self, output_dir: Union[Path, str]) -> None:
         """Saves processor config to the directory."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def truncate_text(
+        self,
+        text: str,
+        *,
+        max_tokens: int,
+        truncation_side: str = "right",
+    ) -> tuple[str, int]:
+        """Truncates text to `max_length` in tokens.
+
+        Args:
+            text: A text prompt.
+            max_tokens: Maximum number of tokens to keep.
+            truncation_side: The side to truncate the tokens ("right" or "left").
+
+        Returns:
+            A tuple containing truncated text prompt and the number of tokens.
+        """
         raise NotImplementedError

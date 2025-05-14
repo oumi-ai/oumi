@@ -1,0 +1,58 @@
+# Job config to eval Deepseek R1 Distill Qwen2.5 1.5B.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/gcp_job.yaml --cluster deepseek-r1-qwen1-5b-eval
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: deepseek-r1-distill-qwen1-5b-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
+  MODEL_CHECKPOINT_DIR: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: deepseek-r1.qwen1.5b.eval
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu,evaluation]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  set -x
+
+  accelerate launch \
+    -m oumi evaluate \
+    -c configs/recipes/deepseek_r1/evaluation/distill_qwen_1_5b/eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

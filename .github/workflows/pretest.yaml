@@ -1,6 +1,9 @@
-name: "Pre-review Tests"
+name: "CPU Tests"
 
 on:
+  schedule:
+    - cron: '0 */8 * * *' # Every 8 hours
+  workflow_dispatch:
   pull_request:
     paths-ignore:
       - 'docs/**'
@@ -10,6 +13,8 @@ on:
 
 jobs:
   static-checks:
+    permissions:
+      contents: 'read'
     runs-on: ubuntu-24.04
 
     steps:
@@ -34,7 +39,7 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_cpu]' --system --prerelease=allow
+        uv pip install -e '.[ci_cpu]' --system
 
     - name: Cache pre-commit
       uses: actions/cache@v4

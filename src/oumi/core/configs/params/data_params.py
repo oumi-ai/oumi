@@ -1,5 +1,19 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from typing import Any, Literal, Optional, Union
 
@@ -151,14 +165,22 @@ class DatasetParams(BaseParams):
                     f"{self.transform_num_workers}."
                 )
 
+        if len(self.dataset_kwargs) > 0:
+            conflicting_keys = {f.name for f in fields(self)}.intersection(
+                self.dataset_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "dataset_kwargs attempts to override the following "
+                    f"reserved fields: {conflicting_keys}. "
+                    "Use properties of DatasetParams instead."
+                )
+
 
 @dataclass
 class DatasetSplitParams(BaseParams):
     datasets: list[DatasetParams] = field(default_factory=list)
-    """The input datasets used for training.
-
-    This will later be split into train, test, and validation.
-    """
+    """The datasets in this split."""
 
     collator_name: Optional[str] = None
     """Name of Oumi data collator.
@@ -230,34 +252,14 @@ class DatasetSplitParams(BaseParams):
         This parameter is deprecated and will be removed in the future.
     """
 
-    # EXPERIMENTAL PARAMS -------------------------
-    experimental_use_torch_datapipes: bool = False
-    """Whether to use the torch DataPipes for dataset processing.
+    use_torchdata: Optional[bool] = None
+    """Whether to use the `torchdata` library for dataset loading and processing.
 
-    Warning:
-        This is an experimental feature and may change without notice.
+    If set to `None`, this setting may be auto-inferred.
     """
-
-    # END EXPERIMENTAL PARAMS --------------------
 
     def __post_init__(self):
         """Verifies params."""
-        if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
-            if not all(
-                [dataset.mixture_proportion is not None for dataset in self.datasets]
-            ):
-                raise ValueError(
-                    "If `mixture_proportion` is specified it must be "
-                    " specified for all datasets"
-                )
-            mix_sum = sum(
-                filter(None, [dataset.mixture_proportion for dataset in self.datasets])
-            )
-            if not self._is_sum_normalized(mix_sum):
-                raise ValueError(
-                    "The sum of `mixture_proportion` must be 1.0. "
-                    f"The current sum is {mix_sum} ."
-                )
         if any([dataset.mixture_proportion is not None for dataset in self.datasets]):
             if not all(
                 [dataset.mixture_proportion is not None for dataset in self.datasets]
@@ -296,7 +298,7 @@ class DataParams(BaseParams):
     """The input datasets used for training."""
 
     test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
-    """The input datasets used for testing."""
+    """The input datasets used for testing. This field is currently unused."""
 
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     """The input datasets used for validation."""
@@ -312,8 +314,11 @@ class DataParams(BaseParams):
         else:
             raise ValueError(f"Received invalid split: {split}.")
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
+        if len(self.train.datasets) == 0:
+            raise ValueError("At least one training dataset is required.")
+
         all_collators = set()
         if self.train.collator_name:
             all_collators.add(self.train.collator_name)

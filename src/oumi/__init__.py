@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Oumi (Open Universal Machine Intelligence) library.
 
 This library provides tools and utilities for training, evaluating, and
@@ -110,12 +124,17 @@ def evaluate(config: EvaluationConfig) -> list[dict[str, Any]]:
 
 
 def infer_interactive(
-    config: InferenceConfig, *, input_image_bytes: bytes | None = None
+    config: InferenceConfig,
+    *,
+    input_image_bytes: list[bytes] | None = None,
+    system_prompt: str | None = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
     import oumi.infer
 
-    return oumi.infer.infer_interactive(config, input_image_bytes=input_image_bytes)
+    return oumi.infer.infer_interactive(
+        config, input_image_bytes=input_image_bytes, system_prompt=system_prompt
+    )
 
 
 def infer(
@@ -123,7 +142,7 @@ def infer(
     inputs: list[str] | None = None,
     inference_engine: BaseInferenceEngine | None = None,
     *,
-    input_image_bytes: bytes | None = None,
+    input_image_bytes: list[bytes] | None = None,
 ) -> list[Conversation]:
     """Runs batch inference for a model using the provided configuration.
 
@@ -132,8 +151,8 @@ def infer(
         inputs: A list of inputs for inference.
         inference_engine: The engine to use for inference. If unspecified, the engine
             will be inferred from `config`.
-        input_image_bytes: An input PNG image bytes to be used with `image+text` VLLMs.
-            Only used in interactive mode.
+        input_image_bytes: A list of input PNG image bytes to be used with `image+text`
+            VLMs. Only used in interactive mode.
 
     Returns:
         object: A list of model responses.
@@ -221,11 +240,19 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
     return oumi.judge.judge_dataset(config, dataset)
 
 
-def train(config: TrainingConfig, **kwargs) -> None:
+def train(
+    config: TrainingConfig,
+    additional_model_kwargs: dict[str, Any] | None = None,
+    additional_trainer_kwargs: dict[str, Any] | None = None,
+) -> None:
     """Trains a model using the provided configuration."""
     import oumi.train
 
-    return oumi.train.train(config, *kwargs)
+    return oumi.train.train(
+        config,
+        additional_model_kwargs=additional_model_kwargs,
+        additional_trainer_kwargs=additional_trainer_kwargs,
+    )
 
 
 __all__ = [

@@ -1,3 +1,17 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from typing import Optional, cast
 
 import torch.utils.data.datapipes as dp
@@ -14,14 +28,14 @@ from oumi.core.configs import (
     DatasetSplit,
     DatasetSplitParams,
     MixtureStrategy,
-    TrainingConfig,
 )
+from oumi.core.configs.params.data_params import DataParams
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
 
 
 def build_dataset_mixture(
-    config: TrainingConfig,
+    data_params: DataParams,
     tokenizer: Optional[BaseTokenizer],
     dataset_split: DatasetSplit,
     seed: Optional[int] = None,
@@ -29,7 +43,7 @@ def build_dataset_mixture(
     """Builds a dataset for the specified split.
 
     Args:
-        config: The training config.
+        data_params: The data params.
         tokenizer: The tokenizer object to use for preprocessing.
         dataset_split: The split of the dataset to load.
         seed: If specified, a seed used for random sampling.
@@ -37,7 +51,7 @@ def build_dataset_mixture(
     Returns:
         dataset: The built dataset for `dataset_split`.
     """
-    dataset_split_params: DatasetSplitParams = config.data.get_split(dataset_split)
+    dataset_split_params: DatasetSplitParams = data_params.get_split(dataset_split)
 
     if len(dataset_split_params.datasets) == 0:
         raise ValueError("No datasets specified in the split.")
@@ -109,8 +123,9 @@ def build_dataset_mixture(
 
     # Apply packing if needed
     # TODO: handle pre-packed datasets, non-iterable datasets
+    # Need to add `seq_length as an argument passed in from build_dataset_mixture
     # if dataset_split_params.pack:
-    #     combined_datapipe = combined_datapipe.batch(config.model.model_max_length)
+    #     combined_datapipe = combined_datapipe.batch(seq_length)
     #     combined_datapipe = combined_datapipe.map(
     #         functools.partial(pack_tokens, tokenizer=tokenizer)
     #     )
@@ -130,13 +145,21 @@ def _load_dataset(
     )
 
     if dataset_class is not None:
+        dataset_kwargs = {**dataset_params.dataset_kwargs}
+        # Use the dataset name override from 'dataset_kwargs' if specified (OPE-897).
+        dataset_name = (
+            dataset_kwargs.pop("dataset_name_override", None)
+            or dataset_params.dataset_name
+        )
+
         dataset = dataset_class(
+            dataset_name=dataset_name,
+            dataset_path=dataset_params.dataset_path,
             split=dataset_params.split,
             subset=dataset_params.subset,
-            dataset_path=dataset_params.dataset_path,
             tokenizer=tokenizer,
             trust_remote_code=dataset_params.trust_remote_code,
-            **dataset_params.dataset_kwargs,
+            **dataset_kwargs,
         )
 
         if isinstance(dataset, MapDataPipe):
