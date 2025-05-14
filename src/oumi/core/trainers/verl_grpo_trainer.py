@@ -223,6 +223,7 @@ class VerlGrpoTrainer(BaseTrainer):
         ### NEW
         config.data.tokenizer = model_name
         config.critic.model.path = model_name
+        config.reward_model.model.path = model_name
         ###
 
         grpo_params = self._oumi_config.training.grpo
