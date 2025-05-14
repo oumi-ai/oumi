@@ -2052,3 +2052,132 @@ def test_list_batches_public():
         assert response.first_id == "batch_1"
         assert response.last_id == "batch_2"
         assert response.has_more
+
+def test_infer_online_handles_content_type_error():
+    """Test that the engine can handle text/plain responses and parse them as JSON."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body=json.dumps({
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "The first time I saw",
+                        }
+                    }
+                ]
+            }),
+            content_type="text/plain",
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="Hello world!",
+                ),
+            ],
+        )
+        result = engine.infer_online(
+            [conversation],
+            _get_default_inference_config(),
+        )
+        assert len(result) == 1
+        assert result[0].messages[-1].content == "The first time I saw"
+        assert result[0].messages[-1].role == Role.ASSISTANT
+
+
+def test_infer_online_handles_invalid_content():
+    """Test that the engine properly handles invalid content responses."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body="Invalid JSON content",
+            content_type="text/plain",
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+                retry_backoff_base=0.1,  # Small value for testing
+                retry_backoff_max=0.3,
+            ),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="Hello world!",
+                ),
+            ],
+        )
+        
+        with pytest.raises(RuntimeError) as exc_info:
+            engine.infer_online(
+                [conversation],
+                _get_default_inference_config(),
+            )
+        
+        assert "Failed to parse response as JSON" in str(exc_info.value)
+        assert "Response content type: text/plain" in str(exc_info.value)
+
+
+def test_infer_online_exponential_backoff():
+    """Test that the engine implements exponential backoff correctly."""
+    request_times = []
+    
+    def callback(url, **kwargs):
+        request_times.append(time.time())
+        # Fail until the last attempt
+        if len(request_times) < 3:
+            return CallbackResult(status=500, body=json.dumps({"error": {"message": "Server Error"}}))
+        return CallbackResult(
+            status=200,
+            payload={
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Success after retries",
+                        }
+                    }
+                ]
+            },
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback)
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+                retry_backoff_base=0.2,  # Small values for testing
+                retry_backoff_max=1.0,
+            ),
+        )
+        conversation = Conversation(
+            messages=[Message(role=Role.USER, content="Hello")],
+        )
+        
+        result = engine.infer_online([conversation], _get_default_inference_config())
+        
+        # Verify the result
+        assert len(result) == 1
+        assert result[0].messages[-1].content == "Success after retries"
+        
+        # Verify timing between requests
+        delays = [request_times[i] - request_times[i-1] for i in range(1, len(request_times))]
+        # First retry should wait ~0.2s, second retry ~0.4s
+        assert 0.15 <= delays[0] <= 0.25  # Allow some timing variance
+        assert 0.35 <= delays[1] <= 0.45  # Allow some timing variance
