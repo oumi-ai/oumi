@@ -72,6 +72,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 self._model_params.model_name,
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
+                processor_kwargs=self._model_params.processor_kwargs,
             )
             internal_model_config = find_internal_model_config_using_model_name(
                 self._model_params.model_name,
@@ -312,7 +313,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 **batch, generation_config=generation_config, tokenizer=self._tokenizer
             )
 
-            # For each batch, remove the prepended prompts from all model reponses.
+            # For each batch, remove the prepended prompts from all model responses.
             if generation_params.exclude_prompt_from_response:
                 new_batch_data = []
                 for response_index, response in enumerate(output_batch.data):

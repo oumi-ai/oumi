@@ -1,3 +1,7 @@
+import re
+from typing import Optional
+from unittest.mock import MagicMock
+
 import pytest
 
 import oumi.core.constants as constants
@@ -8,6 +12,7 @@ from oumi.core.configs import (
     DatasetSplitParams,
     ModelParams,
     TrainingConfig,
+    TrainingParams,
 )
 
 
@@ -76,7 +81,7 @@ def test_build_data_collator_text_with_padding(mock_tokenizer):
     # TODO add tests to exercise the collator
 
 
-def test_build_data_collator_vision_language(mock_tokenizer):
+def test_build_data_collator_vision_language_with_padding(mock_tokenizer):
     collator = build_data_collator(
         "vision_language_with_padding",
         mock_tokenizer,
@@ -89,7 +94,37 @@ def test_build_data_collator_vision_language(mock_tokenizer):
     # TODO add tests to exercise the collator
 
 
-def test_build_collator_from_config_with_collator(mock_tokenizer):
+def test_build_data_collator_vision_language_sft(mock_tokenizer):
+    with pytest.raises(ValueError, match=re.escape("Empty processor_name")):
+        collator = build_data_collator(
+            "vision_language_sft",
+            mock_tokenizer,
+            max_length=64,
+            label_ignore_index=None,
+        )
+
+    def _convert_tokens_to_ids(token: str) -> int:
+        if token == "<image>":
+            return 32000
+        return 101
+
+    mock_tokenizer.convert_tokens_to_ids = MagicMock(side_effect=_convert_tokens_to_ids)
+
+    collator = build_data_collator(
+        "vision_language_sft",
+        mock_tokenizer,
+        max_length=1024,
+        label_ignore_index=None,
+        processor_name="llava-hf/llava-1.5-7b-hf",
+    )
+    assert collator is not None
+    assert callable(collator)
+
+
+@pytest.mark.parametrize("label_ignore_index", [None, -100])
+def test_build_collator_from_config_with_collator(
+    label_ignore_index: Optional[int], mock_tokenizer
+):
     training_config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(
@@ -99,6 +134,9 @@ def test_build_collator_from_config_with_collator(mock_tokenizer):
         ),
         model=ModelParams(
             model_name="MlpEncoder", tokenizer_name="gpt2", model_max_length=64
+        ),
+        training=TrainingParams(
+            label_ignore_index=label_ignore_index,
         ),
     )
 
@@ -124,7 +162,7 @@ def test_build_collator_from_config_no_collator(mock_tokenizer):
     assert collator is None
 
 
-def test_build_collator_from_config_no_collator_no_tokenzier():
+def test_build_collator_from_config_no_collator_no_tokenizer():
     training_config = TrainingConfig(
         data=DataParams(
             train=DatasetSplitParams(

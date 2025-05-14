@@ -16,8 +16,10 @@ import os
 from typing import Annotated, Final, Optional
 
 import typer
+from rich.table import Table
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.logging import logger
 
 _DEFAULT_CLI_PDF_DPI: Final[int] = 200
@@ -26,12 +28,12 @@ _DEFAULT_CLI_PDF_DPI: Final[int] = 200
 def infer(
     ctx: typer.Context,
     config: Annotated[
-        Optional[str],
+        str,
         typer.Option(
             *cli_utils.CONFIG_FLAGS,
             help="Path to the configuration file for inference.",
         ),
-    ] = None,
+    ],
     interactive: Annotated[
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
@@ -67,12 +69,20 @@ def infer(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
+        output_dir: Directory to save configs
+        (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            try_get_config_name_for_alias(config, AliasType.INFER),
+        )
+    )
 
     # Delayed imports
     from oumi import infer as oumi_infer
@@ -111,26 +121,34 @@ def infer(
                 )
             else:
                 input_image_png_bytes = [load_image_png_bytes_from_path(image)]
-
-    if interactive:
-        if parsed_config.input_path:
+    if parsed_config.input_path:
+        if interactive:
             logger.warning(
-                "Interactive inference requested, skipping reading from `input_path`."
+                "Input path provided, skipping interactive inference. "
+                "To run in interactive mode, do not provide an input path."
             )
-        return oumi_infer_interactive(
-            parsed_config,
-            input_image_bytes=input_image_png_bytes,
-            system_prompt=system_prompt,
+        generations = oumi_infer(parsed_config)
+        # Don't print results if output_filepath is provided.
+        if parsed_config.output_path:
+            return
+        table = Table(
+            title="Inference Results",
+            title_style="bold magenta",
+            show_edge=False,
+            show_lines=True,
         )
-    if parsed_config.input_path is None:
-        raise ValueError("One of `--interactive` or `input_path` must be provided.")
-    generations = oumi_infer(parsed_config)
-
-    # Don't print results if output_filepath is provided.
-    if parsed_config.output_path:
+        table.add_column("Conversation", style="green")
+        for generation in generations:
+            table.add_row(repr(generation))
+        cli_utils.CONSOLE.print(table)
         return
-
-    for generation in generations:
-        print("------------")
-        print(repr(generation))
-    print("------------")
+    if not interactive:
+        logger.warning(
+            "No input path provided, running in interactive mode. "
+            "To run with an input path, provide one in the configuration file."
+        )
+    return oumi_infer_interactive(
+        parsed_config,
+        input_image_bytes=input_image_png_bytes,
+        system_prompt=system_prompt,
+    )

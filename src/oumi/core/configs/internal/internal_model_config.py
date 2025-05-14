@@ -65,9 +65,21 @@ class InternalFeatureSpec(NamedTuple):
     )
     """Action to apply to the first feature dimension."""
 
+    image_dependent: bool = False
+    """Whether the feature depends on image data.
+
+    For example, `pixel_values`, `cross_attention_mask`.
+    """
+
 
 @dataclass
 class InternalVisualModelConfig(BaseConfig):
+    main_image_feature: str = "pixel_values"
+    """The key corresponding to the main image feature consumed by the model.
+
+    E.g., raw pixels, transformed image patches, etc. resulting from data
+    preprocessing and consumed by the underlying model."""
+
     variable_shape_image_features: bool = False
     """Whether image features can be of variable shape.
 
@@ -126,6 +138,9 @@ class InternalModelConfig(BaseConfig):
 
     processor_kwargs: dict[str, Any] = field(default_factory=dict)
     """Extra params to pass to processor constructor."""
+
+    ignore_features: list[str] = field(default_factory=list)
+    """Features from processing the input to ignore in the model's forward method."""
 
     visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""

@@ -6,7 +6,6 @@ from trl.trainer import ConstantLengthDataset
 
 from oumi.builders import (
     build_dataset,
-    build_dataset_from_params,
     build_dataset_mixture,
     build_tokenizer,
 )
@@ -103,7 +102,12 @@ def test_data_single_dataset_in_mixture(stream: bool):
         DatasetSplit.TRAIN,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
     assert _get_dataset_size(dataset, stream) == 5
 
 
@@ -130,14 +134,12 @@ def test_data_single_dataset_from_params(stream: bool):
         DatasetSplit.TRAIN,
     )
 
-    dataset_params = DatasetParams(
-        dataset_name="debug_sft", dataset_kwargs={"dataset_size": 5}
-    )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_from_params(
-        dataset_params=dataset_params,
+    dataset = build_dataset(
+        dataset_name="debug_sft",
         tokenizer=tokenizer,
         stream=stream,
+        dataset_kwargs={"dataset_size": 5},
     )
     assert _get_dataset_size(dataset, stream) == 5
 
@@ -160,7 +162,12 @@ def test_data_multiple_datasets(stream: bool):
         DatasetSplit.TEST,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
+    dataset = dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TEST,
+        seq_length=config.model.model_max_length,
+    )
     assert _get_dataset_size(dataset, stream) == 100 * 2  # Duplicated dataset
 
 
@@ -182,7 +189,12 @@ def test_data_multiple_datasets_local_sample(stream: bool):
         DatasetSplit.VALIDATION,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.VALIDATION,
+        seq_length=config.model.model_max_length,
+    )
     assert _get_dataset_size(dataset, stream) == 5 + 201
 
 
@@ -214,7 +226,12 @@ def test_data_multiple_datasets_shuffle_different_seeds(stream: bool):
         DatasetSplit.VALIDATION,
     )
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.VALIDATION)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.VALIDATION,
+        seq_length=config.model.model_max_length,
+    )
     assert _get_dataset_size(dataset, stream) == 20
     # Read all the data to handle streaming / nonstreaming in a unified manner.
     data = []
@@ -257,7 +274,12 @@ def test_data_multiple_datasets_local_mixed(stream: bool):
     config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
     config.data.get_split(DatasetSplit.TRAIN).seed = 1
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
     # The dataset size should be small. We stop merging when the smallest dataset is
     # exhausted.
     assert _get_dataset_size(dataset, stream) == 9
@@ -291,7 +313,12 @@ def test_data_multiple_datasets_local_mixed_all_exhausted(stream: bool):
     config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "all_exhausted"
     config.data.get_split(DatasetSplit.TRAIN).seed = 1
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
     # The dataset size should be larger. We stop merging when all datasets have been
     # exhausted.
     assert _get_dataset_size(dataset, stream) == 124
@@ -351,7 +378,14 @@ def test_data_multiple_datasets_different_mix_seeds(stream: bool):
         config.data.get_split(DatasetSplit.TRAIN).mixture_strategy = "first_exhausted"
         config.data.get_split(DatasetSplit.TRAIN).seed = seed
         tokenizer = build_tokenizer(config.model)
-        datasets.append(build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN))
+        datasets.append(
+            build_dataset_mixture(
+                config.data,
+                tokenizer,
+                DatasetSplit.TRAIN,
+                seq_length=config.model.model_max_length,
+            )
+        )
     dataset_a = datasets[0]
     dataset_b = datasets[1]
     assert _get_dataset_size(dataset_a, stream) != _get_dataset_size(dataset_b, stream)
@@ -386,7 +420,12 @@ def test_data_multiple_datasets_packing(stream: bool):
     config.data.get_split(DatasetSplit.TEST).mixture_strategy = "first_exhausted"
     config.data.get_split(DatasetSplit.TEST).seed = 1
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TEST)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TEST,
+        seq_length=config.model.model_max_length,
+    )
     # The packed dataset should be even smaller.
     assert _get_dataset_size(dataset, stream, pack=True) == 3
 
@@ -409,7 +448,12 @@ def test_packing_without_streaming_with_sft_dataset(stream: bool):
     )
 
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
 
     # Verify it returns a PretrainingAsyncTextDataset
     assert isinstance(dataset, PretrainingAsyncTextDataset)
@@ -448,7 +492,12 @@ def test_packing_without_streaming_with_pretraining_dataset(stream: bool):
     )
 
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
 
     # Verify it returns a IterableDataset
     assert isinstance(dataset, IterableDataset)
@@ -493,7 +542,12 @@ def test_mixed_dataset_packing(stream: bool):
     )
 
     tokenizer = build_tokenizer(config.model)
-    dataset = build_dataset_mixture(config, tokenizer, DatasetSplit.TRAIN)
+    dataset = build_dataset_mixture(
+        config.data,
+        tokenizer,
+        DatasetSplit.TRAIN,
+        seq_length=config.model.model_max_length,
+    )
 
     # Verify type and basic functionality
     assert isinstance(dataset, PretrainingAsyncTextDataset)

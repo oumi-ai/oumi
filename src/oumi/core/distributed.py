@@ -282,7 +282,8 @@ def init_distributed(
         device_id=torch.device(int(device_rank_info.local_rank)),
         timeout=timeout,
     )
-    logger.info(f"Initialized distributed: {device_rank_info}")
+    initialized = torch.distributed.is_initialized()
+    logger.info(f"Initialized distributed ({initialized}): {device_rank_info}")
 
 
 def cleanup_distributed():

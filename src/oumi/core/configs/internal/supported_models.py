@@ -58,6 +58,9 @@ def _create_default_vlm_config(
     *,
     supports_multiple_images: bool = False,
     pixel_values_variable_shape: bool = False,
+    pixel_values_first_dim_action: InternalFeatureFirstDimAction = (
+        InternalFeatureFirstDimAction.DROP_IF_DUMMY
+    ),
 ) -> InternalModelConfig:
     config = InternalModelConfig()
     config.chat_template = "llava"
@@ -67,7 +70,8 @@ def _create_default_vlm_config(
                 name="pixel_values",
                 required=True,
                 variable_shape=pixel_values_variable_shape,
-                first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+                first_dim_action=pixel_values_first_dim_action,
+                image_dependent=True,
             )
         }
     )
@@ -117,6 +121,7 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in (
                 "aspect_ratio_ids",
@@ -129,7 +134,11 @@ def _create_mllama_vlm_config() -> InternalModelConfig:
 
 
 def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
     config.chat_template = "qwen2-vl-instruct"
     # FIXME OPE-946 Consider updating to "right":
     # config.padding_side = InternalPaddingSide.PAD_RIGHT
@@ -139,6 +148,7 @@ def _create_qwen2_vl_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("image_grid_thw",)
         }
@@ -168,7 +178,11 @@ def _create_qwen2_5_vl_vlm_config() -> InternalModelConfig:
 
 
 def _create_phi3_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=True)
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
     config.chat_template = "phi3-instruct"
     config.label_ignore_index = None
     config.sanitize_negative_labels = True
@@ -178,18 +192,80 @@ def _create_phi3_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("image_sizes",)
         }
     )
-    assert config.visual_config is not None
-    visual_config = config.visual_config
-    visual_config.supports_multiple_images = True
+    return config
+
+
+def _create_phi4_vlm_config() -> InternalModelConfig:
+    config = InternalModelConfig()
+    config.chat_template = "phi3-instruct"
+    config.ignore_features = [
+        "audio_attention_mask",  # We won't use audio features.
+        "audio_embed_sizes",
+        "input_audio_embeds",
+    ]
+
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=True,
+                image_dependent=True,
+                first_dim_action=InternalFeatureFirstDimAction.DROP_IF_DUMMY,
+            )
+            for feature_name in (
+                "input_image_embeds",
+                "image_attention_mask",
+            )
+        }
+    )
+    config.model_input_features.update(
+        {
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
+                required=True,
+                variable_shape=False,
+                image_dependent=True,
+            )
+            for feature_name in ("image_sizes",)
+        }
+    )
+    visual_config = InternalVisualModelConfig()
+    # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+    visual_config.supports_multiple_images = False
+    visual_config.variable_shape_image_features = True
+    visual_config.main_image_feature = "input_image_embeds"
+
+    config.visual_config = visual_config
+    return config
+
+
+def _create_internvl_config() -> InternalModelConfig:
+    config = _create_default_vlm_config(
+        pixel_values_variable_shape=True,
+        # FIXME OPE-355 Set to True once multi-image issues are resolved for the model.
+        supports_multiple_images=False,
+    )
+    config.chat_template = "internvl3"
+
+    # Add to processor to return key-values pairs (e.g., "pixel_values": torch.Tensor):
+    config.processor_kwargs.update({"return_dict": True})
+    assert (
+        config.model_input_features["pixel_values"].first_dim_action
+        == InternalFeatureFirstDimAction.DROP_IF_DUMMY
+    )
     return config
 
 
 def _create_idefics3_vlm_config() -> InternalModelConfig:
-    config = _create_default_vlm_config(pixel_values_variable_shape=False)
+    config = _create_default_vlm_config(
+        supports_multiple_images=True, pixel_values_variable_shape=True
+    )
     # FIXME OPE-697 Create model-specific chat template
     config.chat_template = "llava"
     config.model_input_features.update(
@@ -198,24 +274,19 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
                 name=feature_name,
                 required=True,
                 variable_shape=False,
+                image_dependent=True,
             )
             for feature_name in ("pixel_attention_mask",)
         }
     )
-    assert config.visual_config is not None
-    visual_config = config.visual_config
-    visual_config.supports_multiple_images = True
-    visual_config.variable_shape_image_features = True
     return config
 
 
 @functools.cache
-def get_all_models_map() -> (
-    Mapping[
-        str,  # model type
-        _ModelTypeInfo,
-    ]
-):
+def get_all_models_map() -> Mapping[
+    str,  # model type
+    _ModelTypeInfo,
+]:
     """Creates a map of all supported VLMs with related configs."""
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
@@ -309,6 +380,16 @@ def get_all_models_map() -> (
             model_class=transformers.AutoModelForCausalLM,
             tested=True,
             config=_create_phi3_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="phi4mm",
+            model_class=transformers.AutoModelForCausalLM,
+            config=_create_phi4_vlm_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="internvl",
+            model_class=transformers.AutoModelForImageTextToText,
+            config=_create_internvl_config(),
         ),
     ]
 

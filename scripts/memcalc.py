@@ -121,8 +121,8 @@ def get_data_bytes(
 # TODO: Find a static way to calculate this
 def get_model_bytes(model: torch.nn.Module, bytes_per_unit: int) -> int:
     """Gets the total number of bytes used by the loaded model."""
-    num_total_params = count_model_parameters(model)
-    return num_total_params.all_params * bytes_per_unit
+    model_parameter_count = count_model_parameters(model)
+    return model_parameter_count.all_params * bytes_per_unit
 
 
 # TODO: Support more optimizers

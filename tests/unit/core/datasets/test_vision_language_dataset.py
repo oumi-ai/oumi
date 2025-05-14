@@ -1,3 +1,4 @@
+import copy
 import functools
 import io
 from typing import Optional
@@ -141,7 +142,7 @@ def sample_conversation_using_image_binary():
 
 
 @pytest.fixture
-def test_dataset_image_path_no_label_ignore_index(
+def sample_dataset_image_path_no_label_ignore_index(
     mock_processor_no_label_ignore_index: Mock,
     sample_conversation_using_image_path: Conversation,
     mock_image_tokenizer: MagicMock,
@@ -164,7 +165,7 @@ def test_dataset_image_path_no_label_ignore_index(
 
 
 @pytest.fixture
-def test_dataset_image_binary_label_ignore_index(
+def sample_dataset_image_binary_label_ignore_index(
     mock_processor: Mock,
     sample_conversation_using_image_binary: Conversation,
     mock_image_tokenizer: MagicMock,
@@ -185,18 +186,76 @@ def test_dataset_image_binary_label_ignore_index(
     )
 
 
-def test_transform_simple_model_using_image_path(
-    test_dataset_image_path_no_label_ignore_index,
+@pytest.fixture
+def sample_dataset_image_binary_return_conversations_barebones(
+    sample_conversation_using_image_binary: Conversation,
 ):
+    class TestDatasetImageBinary(VisionLanguageSftDataset):
+        default_dataset = "custom"
+
+        @override
+        def transform_conversation(self, example):
+            return sample_conversation_using_image_binary
+
+        @override
+        def _load_data(self):
+            pass
+
+    return TestDatasetImageBinary(
+        # No processor/tokenizer
+        return_conversations=True,
+    )
+
+
+@pytest.fixture
+def sample_dataset_image_binary_return_conversations_with_processor(
+    mock_processor: Mock,
+    sample_conversation_using_image_binary: Conversation,
+    mock_image_tokenizer: MagicMock,
+):
+    class TestDatasetImageBinary(VisionLanguageSftDataset):
+        default_dataset = "custom"
+
+        @override
+        def transform_conversation(self, example):
+            return sample_conversation_using_image_binary
+
+        @override
+        def _load_data(self):
+            pass
+
+    return TestDatasetImageBinary(
+        processor=mock_processor,
+        tokenizer=mock_image_tokenizer,
+        return_conversations=True,
+    )
+
+
+@pytest.fixture
+def return_conversation_fixtures(
+    sample_dataset_image_binary_return_conversations_barebones,
+    sample_dataset_image_binary_return_conversations_with_processor,
+):
+    return {
+        "barebones": (sample_dataset_image_binary_return_conversations_barebones),
+        "with_processor": (
+            sample_dataset_image_binary_return_conversations_with_processor
+        ),
+    }
+
+
+def test_transform_simple_model_using_image_path(
+    sample_dataset_image_path_no_label_ignore_index,
+):
+    my_dataset = sample_dataset_image_path_no_label_ignore_index
     with patch.object(
-        test_dataset_image_path_no_label_ignore_index, "_load_image"
+        my_dataset._feature_generator,
+        "_load_image",
     ) as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_image_path_no_label_ignore_index.transform(
-            {"example": "data"}
-        )
+        result = my_dataset.transform({"example": "data"})
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -211,17 +270,14 @@ def test_transform_simple_model_using_image_path(
 
 
 def test_transform_simple_model_using_image_binary(
-    test_dataset_image_binary_label_ignore_index,
+    sample_dataset_image_binary_label_ignore_index,
 ):
-    with patch.object(
-        test_dataset_image_binary_label_ignore_index, "_load_image"
-    ) as mock_load_image:
+    my_dataset = sample_dataset_image_binary_label_ignore_index
+    with patch.object(my_dataset._feature_generator, "_load_image") as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_image_binary_label_ignore_index.transform(
-            {"example": "data"}
-        )
+        result = my_dataset.transform({"example": "data"})
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -239,23 +295,20 @@ def test_transform_simple_model_using_image_binary(
 
 
 def test_transform_instruct_model_using_image_path(
-    test_dataset_image_path_no_label_ignore_index,
+    sample_dataset_image_path_no_label_ignore_index,
     mock_processor_no_label_ignore_index: Mock,
 ):
+    my_dataset = sample_dataset_image_path_no_label_ignore_index
     mock_processor_no_label_ignore_index.chat_template = "Template"
     mock_processor_no_label_ignore_index.apply_chat_template = Mock(
         return_value="Processed template"
     )
 
-    with patch.object(
-        test_dataset_image_path_no_label_ignore_index, "_load_image"
-    ) as mock_load_image:
+    with patch.object(my_dataset._feature_generator, "_load_image") as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_image_path_no_label_ignore_index.transform(
-            {"example": "data"}
-        )
+        result = my_dataset.transform({"example": "data"})
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -271,20 +324,17 @@ def test_transform_instruct_model_using_image_path(
 
 
 def test_transform_instruct_model_using_image_binary(
-    test_dataset_image_binary_label_ignore_index, mock_processor: Mock
+    sample_dataset_image_binary_label_ignore_index, mock_processor: Mock
 ):
+    my_dataset = sample_dataset_image_binary_label_ignore_index
     mock_processor.chat_template = "Template"
     mock_processor.apply_chat_template = Mock(return_value="Processed template")
 
-    with patch.object(
-        test_dataset_image_binary_label_ignore_index, "_load_image"
-    ) as mock_load_image:
+    with patch.object(my_dataset._feature_generator, "_load_image") as mock_load_image:
         mock_image = Mock(spec=Image.Image)
         mock_load_image.return_value = mock_image
 
-        result = test_dataset_image_binary_label_ignore_index.transform(
-            {"example": "data"}
-        )
+        result = my_dataset.transform({"example": "data"})
 
     assert isinstance(result, dict)
     assert "input_ids" in result
@@ -300,6 +350,91 @@ def test_transform_instruct_model_using_image_binary(
     assert "pixel_values" in result
     assert np.array(result["pixel_values"]).shape == (4, 3, 2, 8)
     mock_processor.apply_chat_template.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["barebones", "with_processor"],
+)
+def test_return_conversations(
+    fixture_name: str,
+    return_conversation_fixtures,
+    mock_processor: Mock,
+    sample_conversation_using_image_binary: Conversation,
+):
+    my_dataset = return_conversation_fixtures[fixture_name]
+    mock_processor.chat_template = "Template"
+    mock_processor.apply_chat_template = Mock(return_value="Processed template")
+
+    assert my_dataset._feature_generator is None
+
+    result = my_dataset.transform({"example": "data"})
+
+    assert isinstance(result, dict)
+    assert set({"conversation_json"}) == set(result.keys())
+    assert "conversation_json" in result
+    conversation = Conversation.from_json(result["conversation_json"])
+    assert conversation == sample_conversation_using_image_binary
+
+    mock_processor.apply_chat_template.assert_not_called()
+
+
+def test_return_conversations_with_max_images(
+    mock_processor,
+    mock_image_tokenizer,
+    sample_conversation_using_image_binary: Conversation,
+):
+    class TestDatasetImageBinary(VisionLanguageSftDataset):
+        default_dataset = "custom"
+
+        @override
+        def transform_conversation(self, example):
+            convo = sample_conversation_using_image_binary
+            messages = copy.deepcopy(convo.messages)
+            last_message = messages[-1]
+            assert isinstance(last_message.content, str)
+            messages[-1] = Message(
+                role=last_message.role,
+                content=[
+                    ContentItem(content=last_message.content, type=Type.TEXT),
+                    ContentItem(content="/anotherimage.jpg", type=Type.IMAGE_PATH),
+                    ContentItem(
+                        content="http://oumi.ai/yet_another_image.png",
+                        type=Type.IMAGE_URL,
+                    ),
+                ],
+            )
+            return Conversation(
+                conversation_id=convo.conversation_id,
+                messages=messages,
+                metadata=convo.metadata,
+            )
+
+        @override
+        def _load_data(self):
+            pass
+
+    my_dataset = TestDatasetImageBinary(
+        processor=mock_processor,
+        tokenizer=mock_image_tokenizer,
+        return_conversations=True,
+        max_images=1,
+    )
+
+    mock_processor.chat_template = "Template"
+    mock_processor.apply_chat_template = Mock(return_value="Processed template")
+
+    assert my_dataset._feature_generator is None
+
+    result = my_dataset.transform({"example": "data"})
+
+    assert isinstance(result, dict)
+    assert set({"conversation_json"}) == set(result.keys())
+    assert "conversation_json" in result
+    conversation = Conversation.from_json(result["conversation_json"])
+    assert conversation == sample_conversation_using_image_binary
+
+    mock_processor.apply_chat_template.assert_not_called()
 
 
 def test_dataset_no_tokenizer(

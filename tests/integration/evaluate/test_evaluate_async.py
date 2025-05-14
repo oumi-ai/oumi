@@ -18,7 +18,7 @@ def test_evaluate_async_polling_interval():
                 output_dir=output_temp_dir,
                 tasks=[
                     EvaluationTaskParams(
-                        evaluation_platform="lm_harness",
+                        evaluation_backend="lm_harness",
                         task_name="mmlu",
                         num_samples=4,
                     )

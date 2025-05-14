@@ -17,28 +17,24 @@ import sys
 
 import typer
 
-from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
+from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.train import train
 
-_ASCII_LOGO = """
-@@@@@@@@@@@@@@@@@@@
-@                 @
-@   @@@@@  @  @   @
-@   @   @  @  @   @
-@   @@@@@  @@@@   @
-@                 @
-@   @@@@@@@   @   @
-@   @  @  @   @   @
-@   @  @  @   @   @
-@                 @
-@@@@@@@@@@@@@@@@@@@
+_ASCII_LOGO = r"""
+   ____  _    _ __  __ _____
+  / __ \| |  | |  \/  |_   _|
+ | |  | | |  | | \  / | | |
+ | |  | | |  | | |\/| | | |
+ | |__| | |__| | |  | |_| |_
+  \____/ \____/|_|  |_|_____|
 """
 
 
@@ -48,13 +44,15 @@ def _oumi_welcome(ctx: typer.Context):
     # Skip logo for rank>0 for multi-GPU jobs to reduce noise in logs.
     if int(os.environ.get("RANK", 0)) > 0:
         return
-    print(_ASCII_LOGO)
+    CONSOLE.print(_ASCII_LOGO, style="green", highlight=False)
 
 
 def get_app() -> typer.Typer:
     """Create the Typer CLI app."""
     app = typer.Typer(pretty_exceptions_enable=False)
-    app.callback()(_oumi_welcome)
+    app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
+        _oumi_welcome
+    )
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",
@@ -108,6 +106,11 @@ def get_app() -> typer.Typer:
             "with reasonable default values for distributed training."
         ),
     )
+
+    app.command(
+        help="Fetch configuration files from the oumi GitHub repository.",
+    )(fetch)
+
     return app
 
 

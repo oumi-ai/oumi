@@ -21,13 +21,14 @@ model:
   attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
+  shard_for_eval: True
 
 generation:
   batch_size: 4
 
 tasks:
   # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
-  - evaluation_platform: lm_harness
+  - evaluation_backend: lm_harness
     task_name: mmlu_college_computer_science
     eval_kwargs:
       num_fewshot: 5

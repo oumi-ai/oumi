@@ -108,6 +108,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
                 self._model_params.model_name,
                 self._tokenizer,
                 trust_remote_code=self._model_params.trust_remote_code,
+                processor_kwargs=self._model_params.processor_kwargs,
             )
             internal_model_config = find_internal_model_config_using_model_name(
                 self._model_params.model_name,
@@ -237,7 +238,10 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
     @override
     def _convert_conversation_to_api_input(
-        self, conversation: Conversation, generation_params: GenerationParams
+        self,
+        conversation: Conversation,
+        generation_params: GenerationParams,
+        model_params: ModelParams,
     ) -> dict[str, Any]:
         """Converts a conversation to SGLang Native API input.
 
@@ -246,6 +250,7 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
         Args:
             conversation: The Oumi Conversation object to convert.
             generation_params: Parameters for text generation.
+            model_params: Ignored.
 
         Returns:
             Dict[str, Any]: A dictionary containing the formatted input for the

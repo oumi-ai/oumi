@@ -1,6 +1,9 @@
 name: "Doctests"
 
 on:
+  schedule:
+    - cron: '0 */8 * * *' # Every 8 hours
+  workflow_dispatch:
   pull_request:
     paths:
       - 'docs/**'
@@ -8,6 +11,8 @@ on:
 
 jobs:
   static-checks:
+    permissions:
+      contents: 'read'
     runs-on: ubuntu-24.04
 
     steps:

@@ -10,10 +10,10 @@
     {%- if message['content'] is string -%}
         {{ message['content'] | trim }}
     {%- elif message['content'] is iterable -%}
-        {%- for content in message['content'] -%}
-            {%- if content['type'] == 'text' -%}
-                {{  content['content'] | trim }}
-            {%- elif content['type'].startswith('image') -%}
+        {%- for item in message['content'] -%}
+            {%- if item['type'] == 'text' -%}
+                {{  (item['text'] if 'text' in item else item['content']) | trim }}
+            {%- elif item['type'].startswith('image') -%}
                 {{  image_token }}
             {%- endif -%}
         {%- endfor -%}

@@ -5,6 +5,7 @@ import pytest
 import torch
 
 from oumi.utils.torch_utils import (
+    ModelParameterCount,
     convert_to_list_of_tensors,
     create_ones_like,
     estimate_sample_dict_size_in_bytes,
@@ -17,6 +18,55 @@ from oumi.utils.torch_utils import (
     pad_sequences_right_side,
     pad_to_max_dim_and_stack,
 )
+
+
+def test_valid_model_parameter_count():
+    mpc = ModelParameterCount(
+        all_params=1000, trainable_params=800, embedding_params=200
+    )
+    assert mpc.trainable_params_percent == 80.0
+    assert mpc.frozen_params_percent == 20.0
+
+
+def test_model_parameter_count_zero_params():
+    mpc = ModelParameterCount(all_params=0, trainable_params=0, embedding_params=0)
+    assert mpc.trainable_params_percent == 0.0
+    assert mpc.frozen_params_percent == 100.0
+
+
+@pytest.mark.parametrize(
+    "all_params, trainable_params, embedding_params, error_field",
+    [
+        (-1, 0, 0, "all_params"),
+        (100, -5, 0, "trainable_params"),
+        (100, 0, -3, "embedding_params"),
+    ],
+)
+def test_model_parameter_count_negative_values(
+    all_params, trainable_params, embedding_params, error_field
+):
+    with pytest.raises(ValueError, match=rf"`{error_field}`.*must be >= 0\."):
+        ModelParameterCount(all_params, trainable_params, embedding_params)
+
+
+def test_model_parameter_relative_sizes():
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"`trainable_params` \(200\) cannot be greater than "
+            r"`all_params` \(100\)\."
+        ),
+    ):
+        ModelParameterCount(all_params=100, trainable_params=200, embedding_params=50)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"`embedding_params` \(150\) cannot be greater than "
+            r"`all_params` \(100\)\."
+        ),
+    ):
+        ModelParameterCount(all_params=100, trainable_params=80, embedding_params=150)
 
 
 def test_convert_to_list_of_tensors_empty_list():
@@ -194,9 +244,57 @@ def test_stack_and_pad_to_max_dim_right_side(padding_value):
     expected = torch.full((2, 5, 2, 2), padding_value)
     expected[0, :, :1, :] = 1
     expected[1, :3, :, :1] = 2
+    assert np.all(result.numpy() == expected.numpy()), (
+        f"result: {result} expected: {expected}"
+    )
+
     assert np.all(
-        result.numpy() == expected.numpy()
-    ), f"result: {result} expected: {expected}"
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=3,
+            padding_side="right",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=-1,
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 1"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=1,
+            padding_side="right",
+            padding_value=padding_value,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 2"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=2,
+            padding_value=padding_value,
+        )
 
 
 @pytest.mark.parametrize(
@@ -210,7 +308,9 @@ def test_stack_and_pad_to_max_dim_left_side(padding_value):
         torch.full([1, 1, 1, 1], -3),
     ]
     result = pad_to_max_dim_and_stack(
-        test_sequences, padding_side="left", padding_value=padding_value
+        test_sequences,
+        padding_side="left",
+        padding_value=padding_value,
     )
     assert result.shape == (3, 5, 2, 2, 1)
 
@@ -218,9 +318,59 @@ def test_stack_and_pad_to_max_dim_left_side(padding_value):
     expected[0, :, -1:, :, :] = 1
     expected[1, -3:, :, -1:, :] = 2
     expected[2, -1:, -1:, -1:, :] = -3
+    assert np.all(result.numpy() == expected.numpy()), (
+        f"result: {result} expected: {expected}"
+    )
+
     assert np.all(
-        result.numpy() == expected.numpy()
-    ), f"result: {result} expected: {expected}"
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=3,
+            padding_side="left",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    assert np.all(
+        expected.numpy()
+        == pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=-1,
+            padding_side="left",
+            padding_value=padding_value,
+        ).numpy()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 1"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=1,
+            padding_side="left",
+            padding_value=padding_value,
+        )
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Too many dimensions with variable size. "
+            "Got: 3 variable size dimensions. "
+            "Maximum allowed: 2"
+        ),
+    ):
+        pad_to_max_dim_and_stack(
+            test_sequences,
+            max_variable_sized_dims=2,
+            padding_side="left",
+            padding_value=padding_value,
+        )
 
 
 def test_create_ones_from_empty():

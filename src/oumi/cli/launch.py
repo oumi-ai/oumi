@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import itertools
-import sys
 import time
 from collections import defaultdict
 from multiprocessing.pool import Pool
@@ -21,25 +19,19 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Callable, Optional
 
 import typer
+from rich.columns import Columns
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 
 import oumi.cli.cli_utils as cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.utils.git_utils import get_git_root_dir
 from oumi.utils.logging import logger
 from oumi.utils.version_utils import is_dev_build
 
 if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
-
-
-def _clear_line() -> None:
-    """Clears the current line in the terminal."""
-    _ = sys.stdout.write("\r\033[K")
-
-
-def _clear_and_print(message: str) -> None:
-    """Clears the current line and prints a message."""
-    _clear_line()
-    print(message)
 
 
 def _get_working_dir(current: str) -> str:
@@ -58,41 +50,25 @@ def _get_working_dir(current: str) -> str:
     return str(oumi_root) if use_root else current
 
 
-def _print_spinner_and_sleep(
-    message: str, spinner: itertools.cycle, sleep_duration: float
-) -> None:
-    """Prints a message with a loading spinner and sleeps."""
-    _ = sys.stdout.write(f" {next(spinner)} {message}\r")
-    _ = sys.stdout.flush()
-    time.sleep(sleep_duration)
-    # Clear the line before printing the next spinner. This makes the spinner appear
-    # animated instead of printing each iteration on a new line. \r (written above)
-    # moves the cursor to the beginning of the line. \033[K deletes everything from the
-    # cursor to the end of the line.
-    _clear_line()
-
-
 def _print_and_wait(
     message: str, task: Callable[..., bool], asynchronous=True, **kwargs
 ) -> None:
     """Prints a message with a loading spinner until the provided task is done."""
-    spinner = itertools.cycle(["⠁", "⠈", "⠐", "⠠", "⢀", "⡀", "⠄", "⠂"])
-    sleep_duration = 0.1
-    if asynchronous:
-        with Pool(processes=1) as worker_pool:
-            task_done = False
-            while not task_done:
-                worker_result = worker_pool.apply_async(task, kwds=kwargs)
-                while not worker_result.ready():
-                    _print_spinner_and_sleep(message, spinner, sleep_duration)
-                worker_result.wait()
-                # Call get() to reraise any exceptions that occurred in the worker.
-                task_done = worker_result.get()
-    else:
-        # Synchronous tasks should be atomic and not block for a significant amount
-        # of time. If a task is blocking, it should be run asynchronously.
-        while not task(**kwargs):
-            _print_spinner_and_sleep(message, spinner, sleep_duration)
+    with cli_utils.CONSOLE.status(message):
+        if asynchronous:
+            with Pool(processes=1) as worker_pool:
+                task_done = False
+                while not task_done:
+                    worker_result = worker_pool.apply_async(task, kwds=kwargs)
+                    worker_result.wait()
+                    # Call get() to reraise any exceptions that occurred in the worker.
+                    task_done = worker_result.get()
+        else:
+            # Synchronous tasks should be atomic and not block for a significant amount
+            # of time. If a task is blocking, it should be run asynchronously.
+            while not task(**kwargs):
+                sleep_duration = 0.1
+                time.sleep(sleep_duration)
 
 
 def _is_job_done(id: str, cloud: str, cluster: str) -> bool:
@@ -139,7 +115,9 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             target_cluster.down()
         else:
-            _clear_and_print(f"Cluster {cluster} not found.")
+            cli_utils.CONSOLE.print(
+                f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
+            )
         return True
     # Make a best effort to find a single cluster to turn down without a cloud.
     clusters = []
@@ -149,14 +127,16 @@ def _down_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             clusters.append(target_cluster)
     if len(clusters) == 0:
-        _clear_and_print(f"Cluster {cluster} not found.")
+        cli_utils.CONSOLE.print(
+            f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
+        )
         return True
     if len(clusters) == 1:
         clusters[0].down()
     else:
-        _clear_and_print(
-            f"Multiple clusters found with name {cluster}. "
-            "Specify a cloud to turn down with `--cloud`."
+        cli_utils.CONSOLE.print(
+            f"[red]Multiple clusters found with name [yellow]{cluster}[/yellow]. "
+            "Specify a cloud to turn down with `--cloud`.[/red]"
         )
     return True  # Always return true to indicate that the task is done.
 
@@ -175,7 +155,9 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             target_cluster.stop()
         else:
-            _clear_and_print(f"Cluster {cluster} not found.")
+            cli_utils.CONSOLE.print(
+                f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
+            )
         return True
     # Make a best effort to find a single cluster to stop without a cloud.
     clusters = []
@@ -185,14 +167,16 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
         if target_cluster:
             clusters.append(target_cluster)
     if len(clusters) == 0:
-        _clear_and_print(f"Cluster {cluster} not found.")
+        cli_utils.CONSOLE.print(
+            f"[red]Cluster [yellow]{cluster}[/yellow] not found.[/red]"
+        )
         return True
     if len(clusters) == 1:
         clusters[0].stop()
     else:
-        _clear_and_print(
-            f"Multiple clusters found with name {cluster}. "
-            "Specify a cloud to stop with `--cloud`."
+        cli_utils.CONSOLE.print(
+            f"[red]Multiple clusters found with name [yellow]{cluster}[/yellow]. "
+            "Specify a cloud to stop with `--cloud`.[/red]"
         )
     return True  # Always return true to indicate that the task is done.
 
@@ -212,10 +196,12 @@ def _poll_job(
 
     is_local = cloud == "local"
     if detach and not is_local:
-        print(f"Running job {job_status.id} in detached mode.")
+        cli_utils.CONSOLE.print(
+            f"Running job [yellow]{job_status.id}[/yellow] in detached mode."
+        )
         return
     if detach and is_local:
-        print("Cannot detach from jobs in local mode.")
+        cli_utils.CONSOLE.print("Cannot detach from jobs in local mode.")
 
     if not running_cluster:
         running_cloud = launcher.get_cloud(cloud)
@@ -224,7 +210,7 @@ def _poll_job(
     assert running_cluster
 
     _print_and_wait(
-        f"Running job {job_status.id}",
+        f"Running job [yellow]{job_status.id}[/yellow]",
         _is_job_done,
         asynchronous=not is_local,
         id=job_status.id,
@@ -234,8 +220,13 @@ def _poll_job(
 
     final_status = running_cluster.get_job(job_status.id)
     if final_status:
-        print(f"Job {final_status.id} finished with status {final_status.status}")
-        print(f"Job metadata: {final_status.metadata}")
+        cli_utils.CONSOLE.print(
+            f"Job [yellow]{final_status.id}[/yellow] finished with "
+            f"status [yellow]{final_status.status}[/yellow]"
+        )
+        cli_utils.CONSOLE.print(
+            f"Job metadata: [yellow]{final_status.metadata}[/yellow]"
+        )
 
 
 # ----------------------------
@@ -263,7 +254,11 @@ def cancel(
         level: The logging level for the specified command.
     """
     _print_and_wait(
-        f"Canceling job {id}", _cancel_worker, id=id, cloud=cloud, cluster=cluster
+        f"Canceling job [yellow]{id}[/yellow]",
+        _cancel_worker,
+        id=id,
+        cloud=cloud,
+        cluster=cluster,
     )
 
 
@@ -285,11 +280,12 @@ def down(
         level: The logging level for the specified command.
     """
     _print_and_wait(
-        f"Turning down cluster `{cluster}`",
+        f"Turning down cluster [yellow]{cluster}[/yellow]",
         _down_worker,
         cluster=cluster,
         cloud=cloud,
     )
+    cli_utils.CONSOLE.print(f"Cluster [yellow]{cluster}[/yellow] turned down!")
 
 
 def run(
@@ -326,6 +322,13 @@ def run(
         level: The logging level for the specified command.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            try_get_config_name_for_alias(config, AliasType.JOB),
+        )
+    )
+
     # Delayed imports
     from oumi import launcher
 
@@ -339,7 +342,10 @@ def run(
         raise ValueError("No cluster specified for the `run` action.")
 
     job_status = launcher.run(parsed_config, cluster)
-    print(f"Job {job_status.id} queued on cluster {cluster}.")
+    cli_utils.CONSOLE.print(
+        f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
+        f"[yellow]{cluster}[/yellow]."
+    )
 
     _poll_job(job_status=job_status, detach=detach, cloud=parsed_config.resources.cloud)
 
@@ -372,35 +378,47 @@ def status(
     from oumi import launcher
 
     # End imports
-    print("========================")
-    print("Job status:")
-    print("========================")
     filtered_jobs = launcher.status(cloud=cloud, cluster=cluster, id=id)
     num_jobs = sum(len(cloud_jobs) for cloud_jobs in filtered_jobs.keys())
     # Print the filtered jobs.
-    if num_jobs == 0:
-        print("No jobs found for the specified filter criteria: ")
+    if num_jobs == 0 and (cloud or cluster or id):
+        cli_utils.CONSOLE.print(
+            "[red]No jobs found for the specified filter criteria: [/red]"
+        )
         if cloud:
-            print(f"Cloud: {cloud}")
+            cli_utils.CONSOLE.print(f"Cloud: [yellow]{cloud}[/yellow]")
         if cluster:
-            print(f"Cluster: {cluster}")
+            cli_utils.CONSOLE.print(f"Cluster: [yellow]{cluster}[/yellow]")
         if id:
-            print(f"Job ID: {id}")
+            cli_utils.CONSOLE.print(f"Job ID: [yellow]{id}[/yellow]")
     for target_cloud, job_list in filtered_jobs.items():
-        print(f"Cloud: {target_cloud}")
-        if len(job_list) == 0:
-            print("No matching clusters found.")
+        cli_utils.section_header(f"Cloud: [yellow]{target_cloud}[/yellow]")
+        cluster_name_list = [
+            c.name() for c in launcher.get_cloud(target_cloud).list_clusters()
+        ]
+        if len(cluster_name_list) == 0:
+            cli_utils.CONSOLE.print("[red]No matching clusters found.[/red]")
             continue
         # Organize all jobs by cluster.
         jobs_by_cluster: dict[str, list[JobStatus]] = defaultdict(list)
+        # List all clusters, even if they don't have jobs.
+        for cluster_name in cluster_name_list:
+            if not cluster or cluster == cluster_name:
+                jobs_by_cluster[cluster_name] = []
         for job in job_list:
             jobs_by_cluster[job.cluster].append(job)
         for target_cluster, jobs in jobs_by_cluster.items():
-            print(f"Cluster: {target_cluster}")
+            title = f"[cyan]Cluster: [yellow]{target_cluster}[/yellow][/cyan]"
             if not jobs:
-                print("No matching jobs found.")
-            for job in jobs:
-                print(f"Job: {job.id} Status: {job.status}")
+                body = Text("[red]No matching jobs found.[/red]")
+            else:
+                jobs_table = Table(show_header=True, show_lines=False)
+                jobs_table.add_column("Job", justify="left", style="green")
+                jobs_table.add_column("Status", justify="left", style="yellow")
+                for job in jobs:
+                    jobs_table.add_row(job.id, job.status)
+                body = jobs_table
+            cli_utils.CONSOLE.print(Panel(body, title=title, border_style="blue"))
 
 
 def stop(
@@ -421,10 +439,14 @@ def stop(
         level: The logging level for the specified command.
     """
     _print_and_wait(
-        f"Stopping cluster `{cluster}`",
+        f"Stopping cluster [yellow]{cluster}[/yellow]",
         _stop_worker,
         cluster=cluster,
         cloud=cloud,
+    )
+    cli_utils.CONSOLE.print(
+        f"Cluster [yellow]{cluster}[/yellow] stopped!\n"
+        "Use [green]oumi launch down[/green] to turn it down."
     )
 
 
@@ -466,6 +488,13 @@ def up(
 
     # End imports
     extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    config = str(
+        cli_utils.resolve_and_fetch_config(
+            try_get_config_name_for_alias(config, AliasType.JOB),
+        )
+    )
+
     parsed_config: launcher.JobConfig = launcher.JobConfig.from_yaml_and_arg_list(
         config, extra_args, logger=logger
     )
@@ -474,13 +503,18 @@ def up(
         target_cloud = launcher.get_cloud(parsed_config.resources.cloud)
         target_cluster = target_cloud.get_cluster(cluster)
         if target_cluster:
-            print(f"Found an existing cluster: {target_cluster.name()}.")
+            cli_utils.CONSOLE.print(
+                f"Found an existing cluster: [yellow]{target_cluster.name()}[/yellow]."
+            )
             run(ctx, config, cluster, detach)
             return
     parsed_config.working_dir = _get_working_dir(parsed_config.working_dir)
     # Start the job
     running_cluster, job_status = launcher.up(parsed_config, cluster)
-    print(f"Job {job_status.id} queued on cluster {running_cluster.name()}.")
+    cli_utils.CONSOLE.print(
+        f"Job [yellow]{job_status.id}[/yellow] queued on cluster "
+        f"[yellow]{running_cluster.name()}[/yellow]."
+    )
 
     _poll_job(
         job_status=job_status,
@@ -497,8 +531,11 @@ def which(level: cli_utils.LOG_LEVEL_TYPE = None) -> None:
 
     # End imports
     clouds = launcher.which_clouds()
-    print("========================")
-    print("Available clouds:")
-    print("========================")
-    for cloud in clouds:
-        print(cloud)
+    cloud_options = [Text(f"{cloud}", style="bold cyan") for cloud in clouds]
+    cli_utils.CONSOLE.print(
+        Panel(
+            Columns(cloud_options, equal=True, expand=True, padding=(0, 2)),
+            title="[yellow]Available Clouds[/yellow]",
+            border_style="blue",
+        )
+    )

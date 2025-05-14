@@ -19,6 +19,6 @@ def test_data_format_loading():
         json_datum = all_data[0]
         jsonl_datum = all_data[1]
         for i in range(len(json_datum)):
-            assert json_datum.conversation(i) == jsonl_datum.conversation(
-                i
-            ), "Data from json and jsonl files should be the same by construction."
+            assert json_datum.conversation(i) == jsonl_datum.conversation(i), (
+                "Data from json and jsonl files should be the same by construction."
+            )

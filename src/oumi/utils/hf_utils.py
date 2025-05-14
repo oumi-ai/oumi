@@ -12,10 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import os
 from pathlib import Path
 from typing import Optional, Union
 
+import transformers
+
+from oumi.core.configs.internal.supported_models import (
+    is_custom_model,
+)
 from oumi.utils.logging import logger
 
 
@@ -75,3 +81,25 @@ def find_hf_token() -> Optional[str]:
             raise FileNotFoundError(f"Missing HF token file: '{token_path}'")
 
     return hf_token if hf_token else None
+
+
+@functools.cache
+def get_hf_chat_template(
+    tokenizer_name: str, *, trust_remote_code: bool = False
+) -> Optional[str]:
+    """Returns chat template provided by HF for `tokenizer_name`."""
+    if not tokenizer_name or is_custom_model(tokenizer_name):
+        return None
+
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        tokenizer_name, trust_remote_code=trust_remote_code
+    )
+    if tokenizer.chat_template:
+        if not isinstance(tokenizer.chat_template, str):
+            raise RuntimeError(
+                f"Chat template for tokenizer_name: {tokenizer_name} "
+                "is not a string! "
+                f"Actual type: {type(tokenizer.chat_template)}"
+            )
+        return tokenizer.chat_template
+    return None
