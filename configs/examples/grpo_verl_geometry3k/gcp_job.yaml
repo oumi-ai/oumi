@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up -c configs/examples/grpo_verl_geometry3k/gcp_job.yaml --cluster grpo-verl-vlm-geometry3k
+#   oumi launch up -c configs/examples/grpo_verl_geometry3k/gcp_job.yaml --cluster grpo-verl-vlm-geom3k
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html

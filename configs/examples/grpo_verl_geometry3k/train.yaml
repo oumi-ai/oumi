@@ -20,10 +20,24 @@ data:
     datasets:
       - dataset_name: "hiyouga/geometry3k"
         split: "train"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+          # limit: 4096 # Uncomment to limit dataset size!
+          return_tensors: True
   validation:
     datasets:
       - dataset_name: "hiyouga/geometry3k"
         split: "validation"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+          # limit: 4096 # Uncomment to limit dataset size!
+          return_tensors: True
 
 training:
   trainer_type: "VERL_GRPO"
