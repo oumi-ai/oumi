@@ -51,7 +51,7 @@ training:
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True
 
-  reward_functions: ["countdown"]
+  reward_functions: [] # Use built-in reward func for data_source=="hiyouga/geometry3k".
 
   grpo:
     max_completion_length: 1024

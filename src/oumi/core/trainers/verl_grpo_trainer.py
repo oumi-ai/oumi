@@ -312,13 +312,21 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
         # Create reward function manager
-        compute_score = self._reward_funcs[0] if self._reward_funcs else None
-        reward_fn = NaiveRewardManager(
-            tokenizer=tokenizer, num_examine=0, compute_score=compute_score
+        compute_score = self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
+        reward_fn = (
+            NaiveRewardManager(
+                tokenizer=tokenizer, num_examine=0, compute_score=compute_score
+            )
+            if compute_score is not None
+            else None
         )
         # num_examine=1 means to print 1 example per batch for analysis.
-        val_reward_fn = NaiveRewardManager(
-            tokenizer=tokenizer, num_examine=1, compute_score=compute_score
+        val_reward_fn = (
+            NaiveRewardManager(
+                tokenizer=tokenizer, num_examine=1, compute_score=compute_score
+            )
+            if compute_score is not None
+            else None
         )
 
         self._verl_trainer = RayPPOTrainer(
