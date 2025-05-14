@@ -117,4 +117,4 @@ For more monitoring options and best practices, see {doc}`/user_guides/train/mon
 
 - Set up {doc}`monitoring tools </user_guides/train/monitoring>` for tracking progress
 - Check out {doc}`configuration options </user_guides/train/configuration>` for detailed settings
-- Seamlessly scale up your job to run on {doc}`cloud clusters <cloud>`
+- Seamlessly scale up your job to run on {doc}`cloud clusters </user_guides/launch/launch>`
