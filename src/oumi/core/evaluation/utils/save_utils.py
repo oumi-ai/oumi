@@ -30,6 +30,7 @@ OUTPUT_FILENAME_MODEL_PARAMS = "model_params.json"
 OUTPUT_FILENAME_GENERATION_PARAMS = "generation_params.json"
 OUTPUT_FILENAME_INFERENCE_PARAMS = "inference_params.json"
 OUTPUT_FILENAME_PACKAGE_VERSIONS = "package_versions.json"
+OUTPUT_FILENAME_EVALUATION_CONFIG_YAML = "evaluation_config.yaml"
 
 
 def _save_to_file(output_path: Path, data: Any) -> None:
@@ -134,6 +135,11 @@ def save_evaluation_output(
 
     # Save all relevant Oumi configurations.
     if config:
+        try:
+            config.to_yaml(output_dir / OUTPUT_FILENAME_EVALUATION_CONFIG_YAML)
+        except Exception as e:
+            logger.error(f"Failed to save EvaluationConfig as YAML: {e}")
+
         if config.model:
             _save_to_file(output_dir / OUTPUT_FILENAME_MODEL_PARAMS, config.model)
         if config.generation:
