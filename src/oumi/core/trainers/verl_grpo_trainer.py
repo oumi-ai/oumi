@@ -150,7 +150,8 @@ class VerlGrpoTrainer(BaseTrainer):
         answer: str = assistant_message.text_content_items[-1].content or ""
 
         if len(images) > 0:
-            # TODO: Generialize. This only works for QwenVL 2.5.
+            # TODO: Generialize. This only works for QwenVL 2.5, which is the only
+            # VLM supported by verl as of 2025-05-15.
             if not prompt.startswith("<image>"):
                 prompt = "<image>" + prompt
         logger.info(f"prompt: {prompt}")
