@@ -153,6 +153,8 @@ class VerlGrpoTrainer(BaseTrainer):
             # TODO: Generialize. This only works for QwenVL 2.5.
             if not prompt.startswith("<image>"):
                 prompt = "<image>" + prompt
+        logger.info(f"prompt: {prompt}")
+        logger.info(f"answer: {answer}")
         return (prompt, images, answer)
 
     @staticmethod
