@@ -358,6 +358,7 @@ def train(
             config=config,
             train_dataset=dataset,
             eval_dataset=eval_dataset,
+            processor=processor,
             **training_kwargs,
         )
         _verl_train(partial_trainer, checkpoint_location)
