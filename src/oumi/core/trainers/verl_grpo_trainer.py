@@ -332,6 +332,7 @@ class VerlGrpoTrainer(BaseTrainer):
         self._verl_trainer = RayPPOTrainer(
             config=self._verl_config,
             tokenizer=tokenizer,
+            processor=None,  # TBD
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
             reward_fn=reward_fn,
