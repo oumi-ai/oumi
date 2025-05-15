@@ -147,6 +147,8 @@ class VerlGrpoTrainer(BaseTrainer):
         assistant_message = assistant_messages[0]
 
         prompt: str = user_message.text_content_items[-1].content or ""
+        if not prompt.startswith("<image>"):
+            prompt = "<image>" + prompt
         images = [{"bytes": item.binary} for item in user_message.image_content_items]
         answer: str = assistant_message.text_content_items[-1].content or ""
         return (prompt, images, answer)

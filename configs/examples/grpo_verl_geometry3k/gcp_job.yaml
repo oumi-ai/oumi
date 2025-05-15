@@ -33,7 +33,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu]
+  pip install uv && uv pip install oumi[gpu] huggingface_hub[hf_xet]
   pip install -U flash-attn --no-build-isolation
 
 run: |
