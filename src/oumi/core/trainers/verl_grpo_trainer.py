@@ -343,6 +343,8 @@ class VerlGrpoTrainer(BaseTrainer):
             config=self._verl_config,
             tokenizer=tokenizer,
             processor=(
+                # verl trainer uses private methods and properties of `transformers`
+                # processor, so we need to pass the raw processor here.
                 self._processor.raw_processor if self._processor is not None else None
             ),
             role_worker_mapping=role_worker_mapping,
