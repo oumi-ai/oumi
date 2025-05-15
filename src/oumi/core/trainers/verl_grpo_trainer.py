@@ -47,6 +47,7 @@ except ModuleNotFoundError:
 
 
 from oumi.core.configs import TrainingConfig
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
@@ -69,7 +70,8 @@ class VerlGrpoTrainer(BaseTrainer):
         reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Dataset,
-        cache_dir: Union[str, Path] = Path.home() / ".cache" / "oumi" / "verl_datasets",
+        processor: Optional[BaseProcessor] = None,
+        cache_dir: Optional[Union[str, Path]] = None,
         **kwargs,
     ):
         """Initializes the verl trainer.
@@ -80,6 +82,7 @@ class VerlGrpoTrainer(BaseTrainer):
             reward_funcs: List of reward functions to use.
             train_dataset: Training dataset.
             eval_dataset: Validation dataset. This is required by verl.
+            processor: Optional processor for the dataset. Required for VLM-s.
             cache_dir: Directory to cache verl Parquet datasets.
             **kwargs: Additional keyword arguments.
         """
@@ -98,9 +101,14 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
-        self._cache_dir = Path(cache_dir)
+        self._cache_dir: Path = (
+            Path(cache_dir)
+            if cache_dir
+            else Path.home() / ".cache" / "oumi" / "verl_datasets"
+        )
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
+        self._processor = processor
         # Sets self._train_filepath and self._val_filepath.
         self._create_dataset_files(
             VerlGrpoTrainer._create_verl_data_entry_from_simple_conversation
@@ -332,7 +340,7 @@ class VerlGrpoTrainer(BaseTrainer):
         self._verl_trainer = RayPPOTrainer(
             config=self._verl_config,
             tokenizer=tokenizer,
-            processor=None,  # TBD
+            processor=self._processor,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
             reward_fn=reward_fn,

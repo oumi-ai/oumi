@@ -348,7 +348,7 @@ def train(
     # 1. It uses Ray
     # 2. Some of the setup below is not applicable.
     if config.training.trainer_type == TrainerType.VERL_GRPO:
-        create_trainer_fn = build_trainer(trainer_type, processor=None)
+        create_trainer_fn = build_trainer(trainer_type, processor=processor)
 
         # We don't initialize the trainer here because it needs to run in a remote Ray
         # function.
