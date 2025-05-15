@@ -1,6 +1,7 @@
 # Training Methods
 
 (training-methods)=
+
 ## Introduction
 
 Oumi supports several training methods to accommodate different use cases.
@@ -13,13 +14,15 @@ Here's a quick comparison:
 | [Vision-Language SFT](#vision-language-sft) | Multimodal tasks | Image-text pairs | Moderate | Extends SFT to handle both images and text, enabling image understanding problems. |
 | [Pretraining](#pretraining) | Domain adaptation | Raw text | Very High | Trains a language model from scratch or adapts it to a new domain using large amounts of unlabeled text. |
 | [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Low | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
+| [Group Relative Policy Optimization (GRPO)](#group-relative-policy-optimization-grpo) | Reasoning | Input-output pairs | Moderate | Trains a model to improve reasoning skills by providing training examples with concrete answers. |
 
 (supervised-fine-tuning-sft)=
+
 ## Supervised Fine-Tuning (SFT)
 
 ### Overview
-Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trained language model to specific downstream tasks. This involves fine-tuning the model's parameters on a labeled dataset of input-output pairs, effectively teaching the model to perform the desired task. SFT is effective for a wide range of tasks, including:
 
+Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trained language model to specific downstream tasks. This involves fine-tuning the model's parameters on a labeled dataset of input-output pairs, effectively teaching the model to perform the desired task. SFT is effective for a wide range of tasks, including:
 
 - **Question answering:** Answering questions based on given context or knowledge. This could be used to build chatbots that can answer questions about a specific domain or provide general knowledge.
 - **Agent development:** Training language models to act as agents that can interact with their environment and perform tasks autonomously. This involves fine-tuning the model on data that demonstrates how to complete tasks, communicate effectively, and make decisions.
@@ -28,6 +31,7 @@ Supervised Fine-Tuning (SFT) is the most common approach for adapting a pre-trai
 - **Text generation:** Generating coherent text, code, scripts, email, etc. based on a prompt.
 
 ### Data Format
+
 SFT uses the {class}`~oumi.core.types.conversation.Conversation` format, which represents a conversation between a user and an assistant. Each turn in the conversation is represented by a message with a role ("user" or "assistant") and content.
 
 ```python
@@ -45,10 +49,10 @@ SFT uses the {class}`~oumi.core.types.conversation.Conversation` format, which r
 }
 ```
 
-
 See {doc}`/resources/datasets/sft_datasets` for available SFT datasets.
 
 ### Configuration
+
 The `data` section in the configuration file specifies the dataset to use for training. The `training` section defines various training parameters.
 
 ```yaml
@@ -63,20 +67,23 @@ data:
 training:
   trainer_type: "TRL_SFT"
 ```
+
 See the {gh}`🔧 Model Finetuning Guide <notebooks/Oumi - Finetuning Tutorial.ipynb>` notebook for a complete example.
 
 (vision-language-sft)=
+
 ## Vision-Language SFT
 
 ### Overview
+
 Vision-Language SFT extends the concept of Supervised Fine-Tuning to handle both images and text. This enables the model to understand and reason about visual information, opening up a wide range of multimodal applications:
 
 - **Image-based instruction following:** Following instructions that involve both text and images. For example, the model could be instructed to analyze and generate a report based on an image of a table.
 - **Multimodal Agent Development:** Training agents that can perceive and act in the real world through vision and language. This could include tasks like navigating a physical space, interacting with objects, or following complex instructions.
 - **Structured Data Extraction from Images:** Extracting structured data from images, such as tables, forms, or diagrams. This could be used to automate data entry or to extract information from scanned documents.
 
-
 ### Data Format
+
 Vision-Language SFT uses the {class}`~oumi.core.types.conversation.Conversation` format with additional support for images. The `image` field contains the path to the image file.
 
 ::::{tab-set-code}
@@ -133,6 +140,7 @@ Conversation(
 See {doc}`/resources/datasets/vl_sft_datasets` for available vision-language datasets.
 
 ### Configuration
+
 The configuration for Vision-Language SFT is similar to SFT, but with additional parameters for handling images.
 
 ```yaml
@@ -158,19 +166,22 @@ training:
 See the {gh}`🖼️ Oumi Multimodal <notebooks/Oumi - Vision Language Models.ipynb>` notebook for a complete example.
 
 (pretraining)=
+
 ## Pretraining
 
 ### Overview
+
 The most common pretraining method is Causal Language Modeling (CLM), where the model predicts the next token in a sequence, given the preceding tokens.
 Pretraining is the process of training a language model from scratch, or continuing training on a pre-trained model, using large amounts of unlabeled text data. This is a computationally expensive process, but it can result in models with strong general language understanding capabilities.
 
 Pretraining is typically used for:
+
 - **Training models from scratch:** This involves training a new language model from scratch on a massive text corpus.
 - **Continuing training on new data:** This involves taking a pre-trained model and continuing to train it on additional data, to improve its performance on existing tasks.
 - **Domain adaptation:** This involves adapting a pre-trained model to a specific domain, such as scientific literature or legal documents.
 
-
 ### Data Format
+
 Pretraining uses the {class}`~oumi.core.datasets.BasePretrainingDataset` format, which simply contains the text to be used for training.
 
 ```python
@@ -182,6 +193,7 @@ Pretraining uses the {class}`~oumi.core.datasets.BasePretrainingDataset` format,
 See {doc}`/resources/datasets/pretraining_datasets` section on pretraining datasets.
 
 ### Configuration
+
 The configuration for pretraining specifies the dataset and the pretraining approach to use.
 
 ```yaml
@@ -200,20 +212,22 @@ training:
 
 **Explanation of Configuration Parameters:**
 
-* `streaming`: If set to `true`, the data will be streamed from disk, which is useful for large datasets that don't fit in memory.
-* `pack`: If set to `true`, multiple documents will be packed into a single sequence, which can improve efficiency.
+- `streaming`: If set to `true`, the data will be streamed from disk, which is useful for large datasets that don't fit in memory.
+- `pack`: If set to `true`, multiple documents will be packed into a single sequence, which can improve efficiency.
 
 (direct-preference-optimization-dpo)=
+
 ## Direct Preference Optimization (DPO)
 
 ### Overview
+
 Direct Preference Optimization (DPO) is a technique for training language models to align with human preferences. It involves presenting the model with pairs of outputs (e.g., two different responses to the same prompt) and training it to prefer the output that humans prefer. DPO offers several advantages:
 
 - **Training with human preferences:** DPO allows you to directly incorporate human feedback into the training process, leading to models that generate more desirable outputs.
 - **Improving output quality without reward models:** Unlike reinforcement learning methods, DPO doesn't require a separate reward model to evaluate the quality of outputs.
 
-
 ### Data Format
+
 DPO uses the {class}`~oumi.core.datasets.BaseExperimentalDpoDataset` format, which includes the prompt, the chosen output, and the rejected output.
 
 ```python
@@ -246,10 +260,10 @@ DPO uses the {class}`~oumi.core.datasets.BaseExperimentalDpoDataset` format, whi
 See {doc}`/resources/datasets/preference_datasets` section on preference datasets.
 
 ### Configuration
+
 The configuration for DPO specifies the training parameters and the DPO settings.
 
 ```yaml
-
 data:
   train:
     datasets:
@@ -259,7 +273,44 @@ data:
 
 training:
   trainer_type: "TRL_DPO"  # Use the TRL DPO trainer
+```
 
+(group-relative-policy-optimization-grpo)=
+
+## Group Relative Policy Optimization (GRPO)
+
+### Overview
+
+
+
+### Data Format
+
+GRPO uses the {class}`~oumi.core.datasets.BaseExperimentalGrpoDataset` format, which includes the prompt, ...
+
+```python
+
+```
+
+### Reward function
+
+TODO
+
+### Configuration
+
+TODO: Mention both trainers
+
+The configuration for GRPO specifies the training parameters and the GRPO settings.
+
+```yaml
+data:
+  train:
+    datasets:
+      - dataset_name: "preference_pairs_jsonl"
+        dataset_path: "/path/to/data"
+    collator_name: "dpo_with_padding"
+
+training:
+  trainer_type: "VERL_GRPO"  # Alternatively, use the TRL_GRPO trainer
 ```
 
 ## Next Steps
