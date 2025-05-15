@@ -106,9 +106,11 @@ class VerlGrpoTrainer(BaseTrainer):
             if cache_dir
             else Path.home() / ".cache" / "oumi" / "verl_datasets"
         )
+        logger.info(f"Cache dir: {self._cache_dir}")
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         self._processor = processor
+        logger.info(f"Processor: {self._processor}")
         # Sets self._train_filepath and self._val_filepath.
         self._create_dataset_files(
             VerlGrpoTrainer._create_verl_data_entry_from_simple_conversation
