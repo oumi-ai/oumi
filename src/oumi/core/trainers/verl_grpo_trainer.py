@@ -145,12 +145,14 @@ class VerlGrpoTrainer(BaseTrainer):
 
         user_message = user_messages[0]
         assistant_message = assistant_messages[0]
-
         prompt: str = user_message.text_content_items[-1].content or ""
-        if not prompt.startswith("<image>"):
-            prompt = "<image>" + prompt
         images = [{"bytes": item.binary} for item in user_message.image_content_items]
         answer: str = assistant_message.text_content_items[-1].content or ""
+
+        if len(images) > 0:
+            # TODO: Generialize. This only works for QwenVL 2.5.
+            if not prompt.startswith("<image>"):
+                prompt = "<image>" + prompt
         return (prompt, images, answer)
 
     @staticmethod
