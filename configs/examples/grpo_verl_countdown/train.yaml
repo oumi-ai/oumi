@@ -18,19 +18,19 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "d1shs0ap/countdown"
+      - dataset_name: "d1shs0ap/countdown-final"
         split: "train"
   validation:
     datasets:
-      - dataset_name: "d1shs0ap/countdown"
+      - dataset_name: "d1shs0ap/countdown-final"
         split: "test"
 
 training:
   trainer_type: "VERL_GRPO"
-  num_train_epochs: 1
-  save_steps: -1
+  num_train_epochs: 5
+  save_steps: 150
   eval_strategy: "steps"
-  eval_steps: 50
+  eval_steps: 12
 
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True
@@ -40,38 +40,44 @@ training:
   grpo:
     max_completion_length: 1024
     use_vllm: True
-    temperature: 1.0
-    vllm_gpu_memory_utilization: 0.4
+    temperature: 0.6
+    vllm_gpu_memory_utilization: 0.7
 
   verl_config_overrides:
     data:
-      train_batch_size: 64
-      val_batch_size: 640
+      train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
+      val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
+      train_batch_size: 128
+      val_batch_size: 256
       max_prompt_length: 256
+      max_extrapolation_length: 2048
+      shuffle: False
     actor_rollout_ref:
       model:
         use_remove_padding: True
       actor:
+        ppo_mini_batch_size: 32
+        use_dynamic_bsz: True
+        gradients: "normal"
         use_kl_loss: True
         kl_loss_coef: 0.001
         kl_loss_type: "low_var_kl"
-        ppo_mini_batch_size: 16
-        ppo_micro_batch_size: 4
+        entropy_coeff: 0
       rollout:
-        log_prob_micro_batch_size: 4
         tensor_model_parallel_size: 2
-        n: 16
+        n: 8
+        enforce_eager: False
+        free_cache_engine: False
+        val_kwargs:
+          temperature: 0.6
+          n: 8
+          do_sample: True
+        max_num_batched_tokens: 16384
       ref:
-        log_prob_micro_batch_size: 2
         fsdp_config:
           param_offload: True
-    algorithm:
-      kl_ctrl:
-        kl_coef: 0.001
     trainer:
-      critic_warmup: 0
-      val_before_train: False
-      n_gpus_per_node: 2
+      n_gpus_per_node: 8
       nnodes: 1
 
   output_dir: "output/grpo_verl_countdown"

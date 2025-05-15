@@ -17,6 +17,7 @@
 from oumi.datasets.vision_language.coco_captions import COCOCaptionsDataset
 from oumi.datasets.vision_language.docmatix import DocmatixDataset
 from oumi.datasets.vision_language.flickr30k import Flickr30kDataset
+from oumi.datasets.vision_language.geometry3k import Geometry3kDataset
 from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
     LlavaInstructMixVsftDataset,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "COCOCaptionsDataset",
     "DocmatixDataset",
     "Flickr30kDataset",
+    "Geometry3kDataset",
     "LlavaInstructMixVsftDataset",
     "MnistSftDataset",
     "PixmoAskModelAnythingDataset",
