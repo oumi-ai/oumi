@@ -50,7 +50,7 @@ training:
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True
 
-  reward_functions: [] # Use verl built-in reward func for data_source=="hiyouga/geometry3k"
+  reward_functions: [] # Use verl built-in reward func for "hiyouga/geometry3k" data source.
 
   grpo:
     max_completion_length: 1024
@@ -83,21 +83,18 @@ training:
         entropy_coeff: 0
         param_offload: False
         optimizer_offload: False
-        # use_dynamic_bsz: True
-        # gradients: "normal"
         fsdp_config:
           param_offload: False
           optimizer_offload: False
       rollout:
         tensor_model_parallel_size: 2
-        log_prob_micro_batch_size_per_gpu: 10 # 20
+        log_prob_micro_batch_size_per_gpu: 20
         n: 5
         enforce_eager: False
         free_cache_engine: False
         enable_chunked_prefill: False
-        # max_num_batched_tokens: 16384
       ref:
-        log_prob_micro_batch_size_per_gpu: 10 #20
+        log_prob_micro_batch_size_per_gpu: 20
         fsdp_config:
           param_offload: True
     trainer:
