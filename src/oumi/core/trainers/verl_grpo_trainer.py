@@ -120,7 +120,18 @@ class VerlGrpoTrainer(BaseTrainer):
     @staticmethod
     def _get_data_source_name(params: DatasetSplitParams) -> str:
         """Returns the data source name."""
-        return params.datasets[0].dataset_name if len(params.datasets) > 0 else ""
+        dataset_names = list({ds.dataset_name for ds in params.datasets})
+        if len(dataset_names) != 1:
+            if len(dataset_names) > 1:
+                raise ValueError(
+                    f"Multiple dataset names found: {dataset_names}. "
+                    f"Please specify a single dataset name."
+                )
+            else:
+                raise ValueError(
+                    "No dataset names found. Please check the dataset split parameters."
+                )
+        return dataset_names[0]
 
     @staticmethod
     def _extract_question_images_answer_from_simple_conversation(
@@ -223,7 +234,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 function=lambda example, idx: process_fn(
                     example,
                     idx,
-                    self._get_data_source_name(self._oumi_config.data.train),
+                    self._get_data_source_name(self._oumi_config.data.validation),
                     "validation",
                 ),
                 with_indices=True,
