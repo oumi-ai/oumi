@@ -52,13 +52,15 @@ training:
 
   reward_functions: [] # Use verl built-in reward func for "hiyouga/geometry3k" data source.
 
+  # The parameters in "grpo:" and "verl_config_overrides:" are set to match
+  # the Qwen2.5 VL example provided in `verl` repository:
+  # https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen2_5_vl-7b.sh
   grpo:
     max_completion_length: 1024
     use_vllm: True
     temperature: 0.6
     vllm_gpu_memory_utilization: 0.6
 
-  # from https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen2_5_vl-7b.sh
   verl_config_overrides:
     data:
       train_batch_size: 512

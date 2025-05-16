@@ -111,7 +111,7 @@ class VerlGrpoTrainer(BaseTrainer):
         self._processor = processor
         # Detect what dataset post-processing function to use (if any).
         process_fn = self._detect_dataset_process_fn()
-        # Generate files and  set self._train_filepath and self._val_filepath.
+        # Generate files and set self._train_filepath and self._val_filepath.
         self._create_dataset_files(process_fn)
         self._setup_verl_trainer()
 
