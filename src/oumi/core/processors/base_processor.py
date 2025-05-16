@@ -96,7 +96,12 @@ class BaseProcessor(abc.ABC):
     @property
     @abc.abstractmethod
     def raw_processor(self) -> Callable:
-        """Returns the underlying raw processor."""
+        """Returns the underlying raw processor.
+
+        The use of this method is generally discouraged. Only use ii if you know
+        what you are doing e.g., direct access to the underlying processor
+        is required by some third-party library.
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
