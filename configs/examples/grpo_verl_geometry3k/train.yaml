@@ -64,8 +64,8 @@ training:
     data:
       # train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
       # val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
-      train_batch_size: 256 # 512
-      val_batch_size: 256 # 512
+      train_batch_size: 512
+      val_batch_size: 512
       max_prompt_length: 1024
       # max_extrapolation_length: 2048
       # shuffle: False
