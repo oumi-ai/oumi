@@ -232,50 +232,64 @@ class TextCollatorWithPadding:
 
         # If debug is on and we haven't logged an example yet, log the first example
         if self._debug and not self._has_logged_example and len(batch) > 0:
-            first_input_ids = combined_batch[_INPUT_IDS_KEY][0]
-            formatted_example = self._tokenizer.decode(
-                first_input_ids, skip_special_tokens=False
-            )
+            # Log an example of the data in each step for debugging purposes.
+            self._log_debug_example(batch, combined_batch)
 
-            tokenized_example = [
-                (
-                    int(tid.item() if hasattr(tid, "item") else tid),
-                    self._tokenizer.decode([tid])
-                    if hasattr(tid, "item")
-                    else self._tokenizer.decode(tid),
-                )
-                for tid in first_input_ids
-            ]
-
-            model_input = {
-                "input_ids": (
-                    first_input_ids.tolist()
-                    if hasattr(first_input_ids, "tolist")
-                    else first_input_ids
-                ),
-                "attention_mask": (
-                    combined_batch[_ATTENTION_MASK_KEY][0].tolist()
-                    if hasattr(combined_batch[_ATTENTION_MASK_KEY][0], "tolist")
-                    else combined_batch[_ATTENTION_MASK_KEY][0]
-                ),
-            }
-
-            if labels_on:
-                model_input["labels"] = (
-                    combined_batch[_LABELS_KEY][0].tolist()
-                    if hasattr(combined_batch[_LABELS_KEY][0], "tolist")
-                    else combined_batch[_LABELS_KEY][0]
-                )
-
-            # Mark that we've logged an example to avoid logging again
-            self._has_logged_example = True
-            log_example_for_debugging(
-                raw_example=batch[0],
-                formatted_example=str(formatted_example),
-                tokenized_example=tokenized_example,
-                model_input=model_input,
-            )
         return combined_batch
+
+    def _log_debug_example(
+        self,
+        batch: list[dict[str, Any]],
+        combined_batch: dict[str, Any],
+    ) -> None:
+        """Logs a debug example if debug is enabled.
+
+        Args:
+            batch: The original batch of data.
+            combined_batch: The collated batch after processing.
+        """
+        first_input_ids = combined_batch[_INPUT_IDS_KEY][0]
+        formatted_example = self._tokenizer.decode(
+            first_input_ids, skip_special_tokens=False
+        )
+        # Decode raw text without special tokens for raw example
+        raw_text = self._tokenizer.decode(first_input_ids, skip_special_tokens=True)
+
+        tokenized_example = [
+            (
+                int(tid.item() if hasattr(tid, "item") else tid),
+                self._tokenizer.decode([tid])
+                if hasattr(tid, "item")
+                else self._tokenizer.decode(tid),
+            )
+            for tid in first_input_ids
+        ]
+
+        model_input = {
+            "input_ids": (
+                first_input_ids.tolist()
+                if hasattr(first_input_ids, "tolist")
+                else first_input_ids
+            ),
+            "attention_mask": (
+                combined_batch[_ATTENTION_MASK_KEY][0].tolist()
+                if hasattr(combined_batch[_ATTENTION_MASK_KEY][0], "tolist")
+                else combined_batch[_ATTENTION_MASK_KEY][0]
+            ),
+        }
+
+        if _LABELS_KEY in combined_batch:
+            lbl = combined_batch[_LABELS_KEY][0]
+            model_input["labels"] = lbl.tolist() if hasattr(lbl, "tolist") else lbl
+
+        # Mark that we've logged an example to avoid logging again
+        self._has_logged_example = True
+        log_example_for_debugging(
+            raw_example=raw_text,
+            formatted_example=str(formatted_example),
+            tokenized_example=tokenized_example,
+            model_input=model_input,
+        )
 
     def _update_max_lengths_and_log(self, *, max_input_ids_length: int):
         """Updates max length counters.

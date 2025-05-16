@@ -93,9 +93,8 @@ def build_data_collator(
                 + f" tokenizer's model maximum length ({tokenizer.model_max_length})"
             )
 
-    collator = None
     if collator_name == "text_with_padding":
-        collator = TextCollatorWithPadding(
+        return TextCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=enable_truncation,
@@ -104,7 +103,7 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "vision_language_with_padding":
-        collator = VisionLanguageCollatorWithPadding(
+        return VisionLanguageCollatorWithPadding(
             tokenizer=tokenizer,
             max_length=max_length,
             truncation=enable_truncation,
@@ -116,7 +115,7 @@ def build_data_collator(
         if not processor_name:
             raise ValueError(f"Empty processor_name for '{collator_name}'")
         processor_kwargs = kwargs.pop("processor_kwargs", None)
-        collator = VisionLanguageSftCollator(
+        return VisionLanguageSftCollator(
             tokenizer=tokenizer,
             processor_name=processor_name,
             processor_kwargs=processor_kwargs,
@@ -126,16 +125,13 @@ def build_data_collator(
             **kwargs,
         )
     elif collator_name == "text_completions_only_with_padding":
-        collator = TextCompletionsCollatorWithPadding(
+        return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             instruction_prefix="<|start_header_id|>user<|end_header_id|>\n\n",
             response_prefix="<|start_header_id|>assistant<|end_header_id|>\n\n",
             debug=debug,
         )
-
-    if collator is None:
-        raise ValueError(f"Unknown data collator name: '{collator_name}'")
-    return collator
+    raise ValueError(f"Unknown data collator name: '{collator_name}'")
 
 
 def build_collator_from_config(

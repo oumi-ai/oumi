@@ -74,29 +74,57 @@ class TextCompletionsCollatorWithPadding:
         collated_text_inputs = self._collate(batch)
 
         if self._debug and not self._has_logged_example:
-            # Log the first example for debugging
-            raw_example = batch[0]
-
-            # Get the formatted text from the tokenizer's encoding
-            formatted_example = self._default_collator.tokenizer.decode(
-                raw_example[_INPUT_IDS_KEY], skip_special_tokens=False
-            )
-
-            # Tokenize the formatted example
-            tokenized_ids = raw_example[_INPUT_IDS_KEY]
-            # Create tokenized example pairs
-            tokenized_example = [
-                (token_id, self._default_collator.tokenizer.decode([token_id]))
-                for token_id in tokenized_ids
-            ]
-
-            # Get model input (same as collated_text_inputs but for a single example)
-            model_input = self._collate([raw_example])
-
-            # Log all components for debugging
-            log_example_for_debugging(
-                raw_example, formatted_example, tokenized_example, model_input
-            )
-            self._has_logged_example = True
-
+            # Log an example of the data in each step for debugging purposes.
+            self._debug_log_example(batch, collated_text_inputs)
         return collated_text_inputs
+
+    def _debug_log_example(
+        self, batch: list[dict[str, Any]], collated_text_inputs: dict[str, Any]
+    ) -> None:
+        """Logs an example of the data in each step for debugging purposes.
+
+        Args:
+            batch: The batch of examples to log.
+            collated_text_inputs: The collated inputs after processing.
+        """
+        raw_example = batch[0]
+        token_ids = raw_example[_INPUT_IDS_KEY]
+        # Raw text without special tokens
+        raw_text = self._default_collator.tokenizer.decode(
+            token_ids, skip_special_tokens=True
+        )
+        # Formatted example with special tokens
+        formatted_example = self._default_collator.tokenizer.decode(
+            token_ids, skip_special_tokens=False
+        )
+        tokenized_ids = raw_example[_INPUT_IDS_KEY]
+        tokenized_example = [
+            (token_id, self._default_collator.tokenizer.decode([token_id]))
+            for token_id in tokenized_ids
+        ]
+        self._has_logged_example = True
+
+        # Extract the first example from the batched tensors for cleaner debug output
+        def _to_py(x):
+            """Convert tensor-like objects to Python native types."""
+            if hasattr(x, "tolist"):
+                return x.tolist()
+            elif hasattr(x, "item"):
+                return x.item()
+            else:
+                return x
+
+        # Process the collated inputs to get a clean representation for debugging
+        model_input = {}
+        for key, value in collated_text_inputs.items():
+            # For batch tensors, extract just the first example
+            if hasattr(value, "dim") and value.dim() > 1:
+                model_input[key] = _to_py(value[0])
+            # For single tensors or other objects
+            else:
+                model_input[key] = _to_py(value)
+
+        # Log all components for debugging
+        log_example_for_debugging(
+            raw_text, formatted_example, tokenized_example, model_input
+        )
