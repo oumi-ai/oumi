@@ -50,7 +50,10 @@ training:
   learning_rate: 1.0e-6
   enable_gradient_checkpointing: True
 
-  reward_functions: [] # Use verl built-in reward func for "hiyouga/geometry3k" data source.
+  # No custom reward function forces verl to use the default built-in reward
+  # function pre-configured for the "hiyouga/geometry3k" data source:
+  # https://github.com/volcengine/verl/blob/main/verl/utils/reward_score/geo3k.py#L31
+  reward_functions: []
 
   # The parameters in "grpo:" and "verl_config_overrides:" are set to match
   # the Qwen2.5 VL example provided in `verl` repository:
@@ -61,6 +64,8 @@ training:
     temperature: 0.6
     vllm_gpu_memory_utilization: 0.6
 
+  # For details on `verl` parameters, please refer to documentation:
+  # https://verl.readthedocs.io/en/latest/examples/config.html
   verl_config_overrides:
     data:
       train_batch_size: 512
