@@ -325,7 +325,6 @@ class VerlGrpoTrainer(BaseTrainer):
 
         # 2. Set config values, ex. from Oumi config values
         config.algorithm.adv_estimator = "grpo"
-        config.data.tokenizer = model_name
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
 
