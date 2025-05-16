@@ -96,7 +96,6 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._processing_class = processing_class
         self._oumi_config = copy.deepcopy(config)
-        # self._oumi_config.data.train
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -293,14 +292,9 @@ class VerlGrpoTrainer(BaseTrainer):
 
         # 2. Set config values, ex. from Oumi config values
         config.algorithm.adv_estimator = "grpo"
+        config.data.tokenizer = model_name
         config.data.train_files = self._train_filepath
         config.data.val_files = self._val_filepath
-
-        ### NEW
-        config.data.tokenizer = model_name
-        config.critic.model.path = model_name
-        config.reward_model.model.path = model_name
-        ###
 
         grpo_params = self._oumi_config.training.grpo
         training_params = self._oumi_config.training
@@ -339,6 +333,9 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = training_params.output_dir
+
+        config.critic.model.path = model_name
+        config.reward_model.model.path = model_name
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
