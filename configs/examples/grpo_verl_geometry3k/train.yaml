@@ -55,8 +55,8 @@ training:
   # https://github.com/volcengine/verl/blob/main/verl/utils/reward_score/geo3k.py#L31
   reward_functions: []
 
-  # The parameters in "grpo:" and "verl_config_overrides:" are set to match
-  # the Qwen2.5 VL example provided in `verl` repository:
+  # The parameters in "grpo:" and "verl_config_overrides:" sections are set to match
+  # the Qwen2.5 VL example provided in the `verl` repository:
   # https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen2_5_vl-7b.sh
   grpo:
     max_completion_length: 1024
