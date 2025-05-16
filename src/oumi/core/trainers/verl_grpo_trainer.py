@@ -57,7 +57,7 @@ from oumi.utils.logging import logger
 # 2. index of the sample.
 # 3. data source name
 # 4. split name (train, validation, etc.)
-# and returns a processed sample in verm format.
+# Returns an example converted to verl format.
 _DatasetProcessFn = Callable[[dict, int, str, str], dict]
 
 
