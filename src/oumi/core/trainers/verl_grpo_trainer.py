@@ -46,7 +46,7 @@ except ModuleNotFoundError:
     ray = None
 
 
-from oumi.core.configs import TrainingConfig
+from oumi.core.configs import DatasetSplitParams, TrainingConfig
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
@@ -96,6 +96,7 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._processing_class = processing_class
         self._oumi_config = copy.deepcopy(config)
+        # self._oumi_config.data.train
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -117,6 +118,11 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
         self._setup_verl_trainer()
+
+    @staticmethod
+    def _get_data_source_name(params: DatasetSplitParams) -> str:
+        """Returns the data source name."""
+        return params.datasets[0].dataset_name if len(params.datasets) > 0 else ""
 
     @staticmethod
     def _extract_question_images_answer_from_simple_conversation(
@@ -194,13 +200,15 @@ class VerlGrpoTrainer(BaseTrainer):
 
         The Parquet files are saved to the Oumi cache directory.
         """
-        data_source: str = "hiyouga/geometry3k"
         train_file = self._cache_dir / "train.parquet"
         train_dataset = self._train_dataset
         if process_fn is not None:
             train_dataset = train_dataset.map(
                 function=lambda example, idx: process_fn(
-                    example, idx, data_source, "train"
+                    example,
+                    idx,
+                    self._get_data_source_name(self._oumi_config.data.train),
+                    "train",
                 ),
                 with_indices=True,
                 num_proc=8,
@@ -214,7 +222,10 @@ class VerlGrpoTrainer(BaseTrainer):
         if process_fn is not None:
             eval_dataset = eval_dataset.map(
                 function=lambda example, idx: process_fn(
-                    example, idx, data_source, "validation"
+                    example,
+                    idx,
+                    self._get_data_source_name(self._oumi_config.data.train),
+                    "validation",
                 ),
                 with_indices=True,
                 num_proc=8,
