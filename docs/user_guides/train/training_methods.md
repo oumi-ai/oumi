@@ -281,14 +281,57 @@ training:
 
 ### Overview
 
+Group Relative Policy Optimization (GRPO) is a technique for training language models using reinforcement learning. It is primarily used for training reasoning models on verifiable rewards, i.e. rewards calculated by functions as opposed to a reward model. An example of this is math problems, where there is a correct answer, and correctly-formatted incorrect answers can be given partial credit. While GRPO can be used with reward models, we primarily consider the case of using reward functions here.
 
+Some advantages of GRPO include:
+
+- **Training on verifiable rewards:**: By having reward functions, a separate reward model doesn't have to be trained, reducing complexity and memory usage.
+- **Does not require labeled preference data:**: Unlike other algorithms like DPO, GRPO doesn't require labeled pairwise preference data. Instead, advantages are calculated by comparing multiple generations for a single prompt.
 
 ### Data Format
 
-GRPO uses the {class}`~oumi.core.datasets.BaseExperimentalGrpoDataset` format, which includes the prompt, ...
+GRPO uses the {class}`~oumi.core.datasets.BaseExperimentalGrpoDataset` dataset class.
+
+#### TRL_GRPO
+
+For the `TRL_GRPO` trainer, the only requirement is the dataset includes a `"prompt"` column containing either the plaintext prompt, or messages in [conversational format](https://huggingface.co/docs/trl/main/en/dataset_formats#conversational). The other fields, such as metadata, are optional, but are passed into the custom reward function if present. The following is a single example for {class}`~oumi.datasets.grpo.LetterCountGrpoDataset`, which has prompts asking models to count letters in words:
 
 ```python
+{
+    "prompt": [
+        {
+            "content": 'Your final answer should be an integer written as digits and formatted as "\\boxed{your_answer}". For example, if the answer is 42, you should output "\\boxed{42}".',
+            "role": "system",
+        },
+        {
+            "content": "Could you determine the count of 'l's in 'substantial'?",
+            "role": "user",
+        },
+    ],
+    "letter_count": 1,
+}
+```
 
+#### VERL_GRPO
+
+The `VERL_GRPO` trainer has a specific format required for its input dataset. Read their [documentation](https://verl.readthedocs.io/en/latest/preparation/prepare_data.html) for more information. An example for the [Countdown dataset](https://huggingface.co/datasets/Jiayi-Pan/Countdown-Tasks-3to4) is shown below:
+
+```python
+{
+    "ability": "math",
+    "data_source": "countdown",
+    "extra_info": {"split": "train"},
+    "prompt": [
+        {
+            "content": "A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer.\nUser: Using the numbers [79, 8], create an equation that equals 87. You can use basic arithmetic operations (+, -, *, /) and each number can only be used once. Show your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <answer> (1 + 2) / 3 </answer>.\nAssistant: Let me solve this step by step.\n<think>",
+            "role": "user",
+        }
+    ],
+    "reward_model": {
+        "ground_truth": {"numbers": [79, 8], "target": 87},
+        "style": "rule",
+    },
+}
 ```
 
 ### Reward function
@@ -297,7 +340,7 @@ TODO
 
 ### Configuration
 
-TODO: Mention both trainers
+TODO: Mention both trainers, and verl mapping
 
 The configuration for GRPO specifies the training parameters and the GRPO settings.
 
