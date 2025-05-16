@@ -52,6 +52,14 @@ from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 
+# Dataset processing function type. This function takes the following arguments:
+# 1. a dataset sample.
+# 2. index of the sample.
+# 3. data source name
+# 4. split name (train, validation, etc.)
+# and returns a processed sample in verm format.
+_DatasetProcessFn = Callable[[dict, int, str, str], dict]
+
 
 class VerlGrpoTrainer(BaseTrainer):
     """verl GRPO Trainer.
@@ -117,7 +125,15 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _detect_dataset_process_fn(
         self,
-    ) -> Optional[Callable[[dict, int, str, str], dict]]:
+    ) -> Optional[_DatasetProcessFn]:
+        """Returns a post-processing function to convert data to verl format.
+
+        Examines dataset samples to determine what post-processing function to use.
+
+        Returns:
+            A post-processing function to convert data to verl format.
+            If no post-processing is needed, returns `None`.
+        """
         first_train_sample = next(iter(self._train_dataset))
         first_eval_sample = next(iter(self._eval_dataset))
 
@@ -152,7 +168,7 @@ class VerlGrpoTrainer(BaseTrainer):
 
     @staticmethod
     def _get_data_source_name(params: DatasetSplitParams) -> str:
-        """Returns the data source name."""
+        """Returns the verl data source name."""
         dataset_names = list({ds.dataset_name for ds in params.datasets})
         if len(dataset_names) != 1:
             if len(dataset_names) > 1:
@@ -170,6 +186,15 @@ class VerlGrpoTrainer(BaseTrainer):
     def _extract_question_images_answer_from_single_turn_conversation(
         example: dict,
     ) -> tuple[str, list, str]:
+        """Finds question, answer, and optional images in a single-turn conversation.
+
+        Args:
+            example: A dictionary containing the conversation JSON.
+
+        Returns:
+            A tuple containing the question, images, and answer.
+            The list of images is empty for text-only conversations.
+        """
         if "conversation_json" not in example:
             raise ValueError(
                 f"Example doesn't contain 'conversation_json' key. "
@@ -234,15 +259,21 @@ class VerlGrpoTrainer(BaseTrainer):
         return data
 
     def _create_dataset_files(
-        self, process_fn: Optional[Callable[[dict, int, str, str], dict]] = None
+        self, process_fn: Optional[_DatasetProcessFn] = None
     ) -> None:
         """Creates dataset files for verl in Parquet format.
 
         The Parquet files are saved to the Oumi cache directory.
+
+        Args:
+            process_fn: Optional function to convert the dataset samples to verl format.
         """
         train_file = self._cache_dir / "train.parquet"
         train_dataset = self._train_dataset
-        # Limit the max number of sub-processes
+
+        # Limit the max number of sub-processes to 8 to avoid overloading the system
+        # with too many processes.
+        # TODO: Make this configurable.
         num_proc = min(8, os.cpu_count() or 1)
 
         if process_fn is not None:
