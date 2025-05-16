@@ -61,13 +61,10 @@ training:
   # from https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen2_5_vl-7b.sh
   verl_config_overrides:
     data:
-      # train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
-      # val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
       train_batch_size: 512
       val_batch_size: 512
       max_prompt_length: 1024
       # max_extrapolation_length: 2048
-      # shuffle: False
       max_response_length: 2048
       filter_overlong_prompts: True
       truncation: "error"
