@@ -20,13 +20,17 @@ import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
+from oumi import unsloth
 from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
     find_model_hf_config,
     get_all_models_map,
+    get_unsloth_model_args,
+    get_unsloth_peft_model_args,
     is_custom_model,
+    is_unsloth_model,
 )
 from oumi.core.distributed import get_device_rank_info
 from oumi.core.registry import REGISTRY, RegistryType
@@ -58,7 +62,10 @@ def build_model(
     Returns:
         model: The built model.
     """
-    if is_custom_model(model_params.model_name):
+    if is_unsloth_model(model_params.model_name):
+        model, _ = build_unsloth_model_tokenizer(model_params, peft_params, **kwargs)
+        return model
+    elif is_custom_model(model_params.model_name):
         model = build_oumi_model(
             model_params=model_params,
             peft_params=peft_params,
@@ -377,6 +384,11 @@ def build_tokenizer(
     Returns:
         tokenizer: The tokenizer object built from the configuration.
     """
+    # Unsloth
+    if is_unsloth_model(model_params.model_name):
+        _, tokenizer = build_unsloth_model_tokenizer(model_params)
+        return tokenizer
+
     # Identify the tokenizer we need to leverage for this model.
     if model_params.tokenizer_name:
         tokenizer_name = model_params.tokenizer_name
@@ -523,6 +535,21 @@ def build_peft_model(
     Returns:
         The built PEFT model.
     """
+    if is_unsloth_model(base_model.name_or_path):
+        if unsloth is None:
+            error_msg = (
+                "`unsloth` is required for this feature. "
+                "Please install it via `pip install oumi[unsloth]`."
+            )
+            raise ImportError(error_msg)
+        unsloth_model = getattr(
+            unsloth, base_model._params.model_kwargs.get("unsloth_model", "FastModel")
+        )
+        peft_model_args = get_unsloth_peft_model_args(
+            unsloth_model, base_model._params, peft_params
+        )
+        model = unsloth_model.get_peft_model(model=base_model, **peft_model_args)
+        return model
     lora_config = LoraConfig(
         r=peft_params.lora_r,
         lora_alpha=peft_params.lora_alpha,
@@ -583,3 +610,48 @@ def build_chat_template(template_name: str) -> str:
     chat_template = "".join(cleaned_lines)
 
     return chat_template
+
+
+def build_unsloth_model_tokenizer(
+    model_params: ModelParams,
+    peft_params: Optional[PeftParams] = None,
+    **kwargs,
+) -> tuple[
+    nn.Module,
+    Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+]:
+    """Builds an Unsloth model and tokenizer."""
+    if unsloth is None:
+        error_msg = (
+            "`unsloth` is required for this feature. "
+            "Please install it via `pip install oumi[unsloth]`."
+        )
+        raise ImportError(error_msg)
+
+    # Get unsloth model and tokenizer
+    unsloth_model = getattr(
+        unsloth, model_params.model_kwargs.get("unsloth_model", "FastModel")
+    )
+    model_args = get_unsloth_model_args(unsloth_model, model_params, peft_params)
+    model_args = {**model_args, **kwargs}
+    model, tokenizer = unsloth_model.from_pretrained(**model_args)
+
+    # Configure model
+    model._params = model_params
+
+    # Configure tokenizer
+    if model_params.model_max_length:
+        tokenizer.model_max_length = model_params.model_max_length
+    if model_params.tokenizer_pad_token:
+        tokenizer.pad_token = model_params.tokenizer_pad_token
+    chat_templates = [
+        name
+        for name in unsloth.chat_templates.CHAT_TEMPLATES
+        if name in model_params.model_name.replace("unsloth/", "")
+    ]
+    chat_template = max(chat_templates, key=len)
+    tokenizer = unsloth.chat_templates.get_chat_template(
+        tokenizer, chat_template=chat_template, **model_params.tokenizer_kwargs
+    )
+
+    return model, tokenizer
