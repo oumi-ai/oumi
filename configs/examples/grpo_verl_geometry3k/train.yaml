@@ -93,16 +93,15 @@ training:
           param_offload: False
           optimizer_offload: False
       rollout:
-        # ?? actor_rollout_ref.rollout.name=$ENGINE
         tensor_model_parallel_size: 2
-        log_prob_micro_batch_size_per_gpu: 20
+        log_prob_micro_batch_size_per_gpu: 10 # 20
         n: 5
         enforce_eager: False
         free_cache_engine: False
         enable_chunked_prefill: False
         # max_num_batched_tokens: 16384
       ref:
-        log_prob_micro_batch_size_per_gpu: 20
+        log_prob_micro_batch_size_per_gpu: 10 #20
         fsdp_config:
           param_offload: True
     trainer:
