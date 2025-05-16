@@ -367,8 +367,8 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = training_params.output_dir
 
-        config.critic.model.path = model_name
-        config.reward_model.model.path = model_name
+        # config.critic.model.path = model_name
+        # config.reward_model.model.path = model_name
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
