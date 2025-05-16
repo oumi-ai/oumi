@@ -107,11 +107,9 @@ class VerlGrpoTrainer(BaseTrainer):
             if cache_dir
             else Path.home() / ".cache" / "oumi" / "verl_datasets"
         )
-        logger.info(f"Cache dir: {self._cache_dir}")
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         self._processor = processor
-        logger.info(f"Processor: {self._processor}")
         # Sets self._train_filepath and self._val_filepath.
         self._create_dataset_files(
             VerlGrpoTrainer._create_verl_data_entry_from_simple_conversation
@@ -160,8 +158,6 @@ class VerlGrpoTrainer(BaseTrainer):
             # VLM supported by verl as of 2025-05-15.
             if not prompt.startswith("<image>"):
                 prompt = "<image>" + prompt
-        logger.info(f"prompt: {prompt}")
-        logger.info(f"answer: {answer}")
         return (prompt, images, answer)
 
     @staticmethod
@@ -202,6 +198,9 @@ class VerlGrpoTrainer(BaseTrainer):
         """
         train_file = self._cache_dir / "train.parquet"
         train_dataset = self._train_dataset
+        # Limit the max number of sub-processes
+        num_proc = min(8, os.cpu_count() or 1)
+
         if process_fn is not None:
             train_dataset = train_dataset.map(
                 function=lambda example, idx: process_fn(
@@ -211,7 +210,7 @@ class VerlGrpoTrainer(BaseTrainer):
                     "train",
                 ),
                 with_indices=True,
-                num_proc=8,
+                num_proc=num_proc,
             )
 
         train_dataset.to_parquet(train_file)
@@ -228,7 +227,7 @@ class VerlGrpoTrainer(BaseTrainer):
                     "validation",
                 ),
                 with_indices=True,
-                num_proc=8,
+                num_proc=num_proc,
             )
         eval_dataset.to_parquet(val_file)
         self._val_filepath = str(val_file)
@@ -310,7 +309,6 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError(
                 "Actor and critic must use the same strategy when using FSDP."
             )
-        logger.info(f"VERL config:\n\n{pformat(config)}\n\n")
         return config
 
     def _setup_verl_trainer(self):
@@ -321,7 +319,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 "Please install it with 'pip install `oumi[gpu]`'."
             )
         self._verl_config = self._create_config()
-        logger.info(f"verl config: {self._verl_config}")
+        logger.info(f"verl config: {pformat(self._verl_config)}")
 
         tokenizer = self._processing_class
 
