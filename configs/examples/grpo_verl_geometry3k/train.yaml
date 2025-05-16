@@ -13,7 +13,8 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "Qwen/Qwen2.5-VL-3B-Instruct" #  "Qwen/Qwen2.5-VL-7B-Instruct"
+  # For 7B model "Qwen/Qwen2.5-VL-7B-Instruct", a node with 8 GPUs is recommmeneded.
+  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
 
 data:
   train:
@@ -26,7 +27,6 @@ data:
         dataset_kwargs:
           return_conversations: True
           processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
   validation:
     datasets:
@@ -38,7 +38,6 @@ data:
         dataset_kwargs:
           return_conversations: True
           processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-          # limit: 4096 # Uncomment to limit dataset size!
           return_tensors: True
 
 training:
