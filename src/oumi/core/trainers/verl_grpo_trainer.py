@@ -116,7 +116,9 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
-        self._processor = processor
+        # verl trainer uses private methods and properties of `transformers`
+        # processor, so we need to pass the raw processor here.
+        self._processor = processor.raw_processor if processor is not None else None
         # Detect what dataset post-processing function to use (if any).
         process_fn = self._detect_dataset_process_fn()
         # Generate files and set self._train_filepath and self._val_filepath.
@@ -435,11 +437,7 @@ class VerlGrpoTrainer(BaseTrainer):
         self._verl_trainer = RayPPOTrainer(
             config=self._verl_config,
             tokenizer=tokenizer,
-            processor=(
-                # verl trainer uses private methods and properties of `transformers`
-                # processor, so we need to pass the raw processor here.
-                self._processor.raw_processor if self._processor is not None else None
-            ),
+            processor=self._processor,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
             reward_fn=reward_fn,
