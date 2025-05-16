@@ -110,12 +110,46 @@ class VerlGrpoTrainer(BaseTrainer):
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
         self._processor = processor
-        # Sets self._train_filepath and self._val_filepath.
-        self._create_dataset_files(
-            VerlGrpoTrainer._create_verl_data_entry_from_simple_conversation
-        )
-
+        # Detect what dataset post-processing function to use (if any).
+        process_fn = self._detect_dataset_process_fn()
+        # Generate files and  set self._train_filepath and self._val_filepath.
+        self._create_dataset_files(process_fn)
         self._setup_verl_trainer()
+
+    def _detect_dataset_process_fn(
+        self,
+    ) -> Optional[Callable[[dict, int, str, str], dict]]:
+        first_train_sample = next(iter(self._train_dataset))
+        first_eval_sample = next(iter(self._eval_dataset))
+
+        if not isinstance(first_train_sample, dict):
+            raise ValueError(
+                "Element type of training dataset must be a dictionary. "
+                f"Got {type(first_train_sample)} instead."
+            )
+        if not isinstance(first_eval_sample, dict):
+            raise ValueError(
+                "Element type of validation dataset must be a dictionary. "
+                f"Got {type(first_train_sample)} instead."
+            )
+
+        # Detect datasets containing Conversation-s.
+        if "conversation_json" in first_train_sample:
+            if "conversation_json" not in first_eval_sample:
+                raise ValueError(
+                    "Training and validation datasets must both have the same key: "
+                    "'conversation_json'."
+                )
+            try:
+                # Check if the conversation_json is valid.
+                _ = Conversation.from_json(first_train_sample["conversation_json"])
+                _ = Conversation.from_json(first_eval_sample["conversation_json"])
+            except Exception as e:
+                raise ValueError(
+                    "Invalid conversation_json in training or validation dataset."
+                ) from e
+            return VerlGrpoTrainer._create_verl_data_entry_from_single_turn_conversation
+        return None
 
     @staticmethod
     def _get_data_source_name(params: DatasetSplitParams) -> str:
@@ -134,7 +168,7 @@ class VerlGrpoTrainer(BaseTrainer):
         return dataset_names[0]
 
     @staticmethod
-    def _extract_question_images_answer_from_simple_conversation(
+    def _extract_question_images_answer_from_single_turn_conversation(
         example: dict,
     ) -> tuple[str, list, str]:
         if "conversation_json" not in example:
@@ -165,18 +199,18 @@ class VerlGrpoTrainer(BaseTrainer):
         answer: str = assistant_message.text_content_items[-1].content or ""
 
         if len(images) > 0:
-            # TODO: Generialize. This only works for QwenVL 2.5, which is the only
+            # TODO: Generalize. This only works for QwenVL 2.5, which is the only
             # VLM supported by verl as of 2025-05-15.
             if not prompt.startswith("<image>"):
                 prompt = "<image>" + prompt
         return (prompt, images, answer)
 
     @staticmethod
-    def _create_verl_data_entry_from_simple_conversation(
+    def _create_verl_data_entry_from_single_turn_conversation(
         example: dict, idx: int, data_source: str, split: str
     ) -> dict:
         prompt, images, answer = (
-            VerlGrpoTrainer._extract_question_images_answer_from_simple_conversation(
+            VerlGrpoTrainer._extract_question_images_answer_from_single_turn_conversation(
                 example
             )
         )
@@ -213,11 +247,12 @@ class VerlGrpoTrainer(BaseTrainer):
         num_proc = min(8, os.cpu_count() or 1)
 
         if process_fn is not None:
+            train_data_source = self._get_data_source_name(self._oumi_config.data.train)
             train_dataset = train_dataset.map(
                 function=lambda example, idx: process_fn(
                     example,
                     idx,
-                    self._get_data_source_name(self._oumi_config.data.train),
+                    train_data_source,
                     "train",
                 ),
                 with_indices=True,
@@ -230,11 +265,14 @@ class VerlGrpoTrainer(BaseTrainer):
         val_file = self._cache_dir / "val.parquet"
         eval_dataset = self._eval_dataset
         if process_fn is not None:
+            validation_data_source = self._get_data_source_name(
+                self._oumi_config.data.validation
+            )
             eval_dataset = eval_dataset.map(
                 function=lambda example, idx: process_fn(
                     example,
                     idx,
-                    self._get_data_source_name(self._oumi_config.data.validation),
+                    validation_data_source,
                     "validation",
                 ),
                 with_indices=True,
