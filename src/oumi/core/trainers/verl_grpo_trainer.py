@@ -129,7 +129,7 @@ class VerlGrpoTrainer(BaseTrainer):
         if not isinstance(first_eval_sample, dict):
             raise ValueError(
                 "Element type of validation dataset must be a dictionary. "
-                f"Got {type(first_train_sample)} instead."
+                f"Got {type(first_eval_sample)} instead."
             )
 
         # Detect datasets containing Conversation-s.
