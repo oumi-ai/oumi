@@ -2121,24 +2121,23 @@ def test_infer_online_handles_invalid_content():
             ],
         )
         
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(RuntimeError, match="Failed to parse response as JSON.Response content type: text/plain"):
             engine.infer_online(
                 [conversation],
                 _get_default_inference_config(),
             )
-        
-        assert "Failed to parse response as JSON" in str(exc_info.value)
-        assert "Response content type: text/plain" in str(exc_info.value)
 
 
 def test_infer_online_exponential_backoff():
     """Test that the engine implements exponential backoff correctly."""
-    request_times = []
+    sleep_calls = []
+    
+    async def mock_sleep(delay):
+        sleep_calls.append(delay)
     
     def callback(url, **kwargs):
-        request_times.append(time.time())
         # Fail until the last attempt
-        if len(request_times) < 3:
+        if len(sleep_calls) < 2:
             return CallbackResult(status=500, body=json.dumps({"error": {"message": "Server Error"}}))
         return CallbackResult(
             status=200,
@@ -2156,28 +2155,28 @@ def test_infer_online_exponential_backoff():
 
     with aioresponses() as m:
         m.post(_TARGET_SERVER, callback=callback)
-
-        engine = RemoteInferenceEngine(
-            model_params=_get_default_model_params(),
-            remote_params=RemoteParams(
-                api_url=_TARGET_SERVER,
-                max_retries=2,
-                retry_backoff_base=0.2,  # Small values for testing
-                retry_backoff_max=1.0,
-            ),
-        )
-        conversation = Conversation(
-            messages=[Message(role=Role.USER, content="Hello")],
-        )
         
-        result = engine.infer_online([conversation], _get_default_inference_config())
-        
-        # Verify the result
-        assert len(result) == 1
-        assert result[0].messages[-1].content == "Success after retries"
-        
-        # Verify timing between requests
-        delays = [request_times[i] - request_times[i-1] for i in range(1, len(request_times))]
-        # First retry should wait ~0.2s, second retry ~0.4s
-        assert 0.15 <= delays[0] <= 0.25  # Allow some timing variance
-        assert 0.35 <= delays[1] <= 0.45  # Allow some timing variance
+        with patch("asyncio.sleep", side_effect=mock_sleep):
+            engine = RemoteInferenceEngine(
+                model_params=_get_default_model_params(),
+                remote_params=RemoteParams(
+                    api_url=_TARGET_SERVER,
+                    max_retries=2,
+                    retry_backoff_base=0.2,  # Small values for testing
+                    retry_backoff_max=1.0,
+                ),
+            )
+            conversation = Conversation(
+                messages=[Message(role=Role.USER, content="Hello")],
+            )
+            
+            result = engine.infer_online([conversation], _get_default_inference_config())
+            
+            # Verify the result
+            assert len(result) == 1
+            assert result[0].messages[-1].content == "Success after retries"
+            
+            # Verify sleep calls
+            assert len(sleep_calls) == 2  # Two retries
+            assert sleep_calls[0] == pytest.approx(0.2)  # First retry: base delay
+            assert sleep_calls[1] == pytest.approx(0.4)  # Second retry: base delay * 2
