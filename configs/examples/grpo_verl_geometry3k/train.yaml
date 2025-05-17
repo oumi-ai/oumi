@@ -1,0 +1,111 @@
+# VERL GRPO VLM training config on Geometry3K dataset.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_verl_geometry3k/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  # For 7B model "Qwen/Qwen2.5-VL-7B-Instruct", a node with 8 GPUs is recommended.
+  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "hiyouga/geometry3k"
+        split: "train"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          return_conversations: True
+          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+          return_tensors: True
+  validation:
+    datasets:
+      - dataset_name: "hiyouga/geometry3k"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          return_conversations: True
+          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+          return_tensors: True
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 5
+  save_steps: 150
+  eval_strategy: "steps"
+  eval_steps: 12
+
+  learning_rate: 1.0e-6
+  enable_gradient_checkpointing: True
+
+  # No custom reward function forces verl to use the default built-in reward
+  # function pre-configured for the "hiyouga/geometry3k" data source:
+  # https://github.com/volcengine/verl/blob/main/verl/utils/reward_score/geo3k.py#L31
+  reward_functions: []
+
+  # The parameters in "grpo:" and "verl_config_overrides:" sections are set to match
+  # the Qwen2.5 VL example provided in the `verl` repository:
+  # https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen2_5_vl-7b.sh
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 0.6
+    vllm_gpu_memory_utilization: 0.6
+
+  # For details on `verl` parameters, please refer to documentation:
+  # https://verl.readthedocs.io/en/latest/examples/config.html
+  verl_config_overrides:
+    data:
+      train_batch_size: 512
+      val_batch_size: 512
+      max_prompt_length: 1024
+      max_response_length: 2048
+      filter_overlong_prompts: True
+      truncation: "error"
+      image_key: "images"
+    algorithm:
+      use_kl_in_reward: False
+    actor_rollout_ref:
+      model:
+        use_remove_padding: True
+      actor:
+        ppo_mini_batch_size: 128
+        ppo_micro_batch_size_per_gpu: 10
+        use_kl_loss: True
+        kl_loss_coef: 0.01
+        kl_loss_type: "low_var_kl"
+        entropy_coeff: 0
+        param_offload: False
+        optimizer_offload: False
+        fsdp_config:
+          param_offload: False
+          optimizer_offload: False
+      rollout:
+        tensor_model_parallel_size: 2
+        log_prob_micro_batch_size_per_gpu: 20
+        n: 5
+        enforce_eager: False
+        free_cache_engine: False
+        enable_chunked_prefill: False
+      ref:
+        log_prob_micro_batch_size_per_gpu: 20
+        fsdp_config:
+          param_offload: True
+    trainer:
+      n_gpus_per_node: 4
+      nnodes: 1
+
+  output_dir: "output/grpo-verl-vlm-geom3k"
+  enable_wandb: True
