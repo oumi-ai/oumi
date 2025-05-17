@@ -289,8 +289,9 @@ Group Relative Policy Optimization (GRPO) is a technique for training language m
 
 Some advantages of GRPO include:
 
-- **Training on verifiable rewards:**: By having reward functions, a separate reward model doesn't have to be trained, reducing complexity and memory usage.
-- **Does not require labeled preference data:**: Unlike other algorithms like DPO, GRPO doesn't require labeled pairwise preference data. Instead, advantages are calculated by comparing multiple generations for a single prompt.
+- **No value model:** Unlike PPO, where a value aka critic model has to be trained alongside the actor model to estimate long-term reward, GRPO estimates the baseline from group scores, obviating the need for this model. This reduces training complexity and memory usage.
+- **Training on verifiable rewards:** By having reward functions, a separate reward model doesn't have to be trained, reducing complexity and memory usage.
+- **Does not require labeled preference data:** Unlike other algorithms like DPO, GRPO doesn't require labeled pairwise preference data. Instead, advantages are calculated by comparing multiple generations for a single prompt.
 
 ### Data Format
 
