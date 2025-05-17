@@ -38,6 +38,8 @@ training:  # Training parameters
   output_dir: "output/my_run"
   num_train_epochs: 3
   learning_rate: 5e-5
+  grpo:   # Optional GRPO settings
+    num_generations: 2
 
 peft:  # Optional PEFT settings
   peft_method: "lora"
@@ -123,6 +125,7 @@ data:
 ```
 
 Notes:
+
 - When using multiple datasets in a split with `mixture_proportion`:
   - All datasets must specify a `mixture_proportion`
   - The sum of all proportions must equal 1.0
@@ -214,6 +217,33 @@ training:
   include_alternative_mfu_metrics: false  # Include alternative MFU metrics
   log_model_summary: false                # Print model layer summary
   empty_device_cache_steps: null          # Steps between cache clearing
+
+  # Settings if using GRPO. See below for more details.
+  grpo:
+    num_generations: null
+```
+
+### GRPO Configuration
+
+Configure group relative policy optimization using the {py:obj}`~oumi.core.configs.params.grpo_params.GrpoParams` class:
+
+```yaml
+training:
+  grpo:
+    model_init_kwargs: {}                     # Keyword args for AutoModelForCausalLM.from_pretrained
+    max_prompt_length: null                   # Max prompt length in input
+    max_completion_length: null               # Max completion length during generation
+    num_generations: null                     # Generations per prompt
+    temperature: 0.9                          # Sampling temperature (higher = more random)
+    remove_unused_columns: false              # If true, only keep the "prompt" column
+    repetition_penalty: 1.0                   # Penalty for token repetition (>1 discourages repetition)
+
+    # vLLM settings for generation
+    use_vllm: false                           # Use vLLM for generation
+    vllm_device: null                         # Device for vLLM (e.g., "cuda:1")
+    vllm_gpu_memory_utilization: 0.9          # VRAM fraction for vLLM (0-1)
+    vllm_dtype: null                          # Data type for vLLM
+    vllm_max_model_len: null                  # Maximum model length for vLLM
 ```
 
 ### PEFT Configuration
@@ -266,6 +296,7 @@ fsdp:
 ```
 
 Notes on FSDP sharding strategies:
+
 - `FULL_SHARD`: Shards model parameters, gradients, and optimizer states. Most memory efficient but may impact performance.
 - `SHARD_GRAD_OP`: Shards gradients and optimizer states only. Balances memory and performance.
 - `HYBRID_SHARD`: Shards parameters within a node, replicates across nodes.
@@ -304,6 +335,16 @@ This example shows how to fine-tune a medium-sized model ('Llama-3.1-8b') using 
 
 ````{dropdown} configs/recipes/llama3_1/sft/8b_full/train.yaml
 ```{literalinclude} ../../../configs/recipes/llama3_1/sft/8b_full/train.yaml
+:language: yaml
+```
+````
+
+### Group Relative Policy Optimization (GRPO)
+
+This example shows how to train a model using the GRPO reinforcement learning algorithm:
+
+````{dropdown} configs/examples/grpo_tldr/train.yaml
+```{literalinclude} ../../../configs/examples/grpo_tldr/train.yaml
 :language: yaml
 ```
 ````

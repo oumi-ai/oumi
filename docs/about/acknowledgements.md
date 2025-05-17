@@ -22,8 +22,9 @@ We would like to acknowledge these projects:
 | [TensorBoard](https://github.com/tensorflow/tensorboard) | Training visualization and monitoring |
 | [Tqdm](https://github.com/tqdm/tqdm) | Progress bars to enhance user experience during long-running operations |
 | [Transformers](https://github.com/huggingface/transformers) | Core model architectures and utilities for working with transformer-based models |
-| [TRL](https://github.com/huggingface/trl) | SFT and DPO training implementations |
+| [TRL](https://github.com/huggingface/trl) | SFT, DPO, and GRPO training implementations |
 | [Typer](https://github.com/tiangolo/typer) | Command-line interface for Oumi commands |
+| [verl](https://github.com/volcengine/verl) | GRPO training implementation |
 | [vllm](https://github.com/vllm-project/vllm) | Fast inference for large language models |
 | [Weights & Biases](https://github.com/wandb/wandb) | Experiment tracking and visualization |
 

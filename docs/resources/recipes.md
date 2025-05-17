@@ -106,6 +106,7 @@ This section lists an example config for various training techniques supported b
 | FSDP | `recipes/llama3_1/sft/8b_lora/fsdp_train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml>` {gh}`configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml` |
 | Long-context training | `recipes/llama3_1/sft/8b_full/longctx_train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml>` {gh}`configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml` |
 | DPO | `recipes/phi3/dpo/train.yaml` | {download}`Download </../configs/recipes/phi3/dpo/train.yaml>` {gh}`configs/recipes/phi3/dpo/train.yaml` |
+| GRPO | `examples/grpo_tldr/train.yaml` | {download}`Download </../configs/examples/grpo_tldr/train.yaml>` {gh}`configs/examples/grpo_tldr/train.yaml` |
 | DDP Pretraining | `examples/fineweb_ablation_pretraining/ddp/train.yaml` | {download}`Download </../configs/examples/fineweb_ablation_pretraining/ddp/train.yaml>` {gh}`configs/examples/fineweb_ablation_pretraining/ddp/train.yaml` |
 | FSDP Pretraining | `examples/fineweb_ablation_pretraining/fsdp/train.yaml` | {download}`Download </../configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml>` {gh}`configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml` |
 

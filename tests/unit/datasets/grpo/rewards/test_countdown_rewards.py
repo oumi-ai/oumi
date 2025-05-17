@@ -9,15 +9,15 @@ from oumi.datasets.grpo.rewards import countdown_reward
         # No valid answer
         ("foo bar 1", [], 1, 0),
         # Valid answer format, incorrect numbers
-        ("<answer>1 + 2</answer>", [1, 3], 2, 0.1),
-        ("<answer>1 / 2</answer>", [1, 2, 3], 6, 0.1),
+        ("<answer>1 + 2</answer>", [1, 3], 2, 0),
+        ("<answer>1 / 2</answer>", [1, 2, 3], 6, 0),
         # Invalid equation
-        ("<answer></answer>", [], 1, 0.1),
-        ("<answer>1 foo 2 bar 3</answer>", [1, 2, 3], 1, 0.1),
-        ("<answer>1.0 * 2.0 * 3.0</answer>", [1, 2, 3], 1, 0.1),
+        ("<answer></answer>", [], 1, 0),
+        ("<answer>1 foo 2 bar 3</answer>", [1, 2, 3], 1, 0),
+        ("<answer>1.0 * 2.0 * 3.0</answer>", [1, 2, 3], 1, 0),
         # Incorrect answer
-        ("<answer>1 + 2 + 3</answer>", [1, 2, 3], 1, 0.1),
-        ("<answer> (1 * 2) / 3</answer>", [1, 2, 3], 1, 0.1),
+        ("<answer>1 + 2 + 3</answer>", [1, 2, 3], 1, 0),
+        ("<answer> (1 * 2) / 3</answer>", [1, 2, 3], 1, 0),
         # Correct answer
         ("<answer> ( 3 - 2 ) * 1 </answer>", [1, 2, 3], 1, 1),
         ("<answer>(3-2)*1</answer>", [1, 2, 3], 1, 1),

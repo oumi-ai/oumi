@@ -166,6 +166,12 @@ class DefaultProcessor(BaseProcessor):
         """Returns a list of keys of features to ignore from feeding the model."""
         return copy.copy(self._ignore_features) if self._ignore_features else []
 
+    @property
+    @override
+    def raw_processor(self) -> Callable:
+        """Returns the underlying raw processor."""
+        return self._worker_processor
+
     @override
     def __call__(
         self,
