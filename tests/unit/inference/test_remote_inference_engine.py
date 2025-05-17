@@ -2053,7 +2053,7 @@ def test_list_batches_public():
         assert response.last_id == "batch_2"
         assert response.has_more
 
-def test_infer_online_handles_content_type_error():
+def test_infer_online_handles_content_type_text_plain():
     """Test that the engine can handle text/plain responses and parse them as JSON."""
     with aioresponses() as m:
         m.post(
