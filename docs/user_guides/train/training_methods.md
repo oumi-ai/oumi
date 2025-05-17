@@ -16,6 +16,10 @@ Here's a quick comparison:
 | [Direct Preference Optimization (DPO)](#direct-preference-optimization-dpo) | Preference learning | Preference pairs | Low | Trains a model to align with human preferences by providing pairs of preferred and rejected outputs. |
 | [Group Relative Policy Optimization (GRPO)](#group-relative-policy-optimization-grpo) | Reasoning | Input-output pairs | Moderate | Trains a model to improve reasoning skills by providing training examples with concrete answers. |
 
+```{tip}
+Oumi supports GRPO on Vision-Language Models with the `VERL_GRPO` trainer.
+```
+
 (supervised-fine-tuning-sft)=
 
 ## Supervised Fine-Tuning (SFT)
@@ -281,7 +285,7 @@ training:
 
 ### Overview
 
-Group Relative Policy Optimization (GRPO) is a technique for training language models using reinforcement learning. It is primarily used for training reasoning models on verifiable rewards, i.e. rewards calculated by functions as opposed to a reward model. An example of this is math problems, where there is a correct answer, and correctly-formatted incorrect answers can be given partial credit. While GRPO can be used with reward models, we primarily consider the case of using reward functions here.
+Group Relative Policy Optimization (GRPO) is a technique for training language models using reinforcement learning. A common usage is for training reasoning models on verifiable rewards, i.e. rewards calculated by functions as opposed to a reward model. An example of this is math problems, where there is a correct answer, and correctly-formatted incorrect answers can be given partial credit. While GRPO can be used with reward models, we primarily consider the case of using reward functions here.
 
 Some advantages of GRPO include:
 
@@ -290,7 +294,7 @@ Some advantages of GRPO include:
 
 ### Data Format
 
-GRPO uses the {class}`~oumi.core.datasets.BaseExperimentalGrpoDataset` dataset class.
+GRPO datasets should inherit from the {class}`~oumi.core.datasets.BaseExperimentalGrpoDataset` dataset class. Inside this class, you can implement any custom transformation logic you need.
 
 #### TRL_GRPO
 
@@ -334,26 +338,95 @@ The `VERL_GRPO` trainer has a specific format required for its input dataset. Re
 }
 ```
 
+```{tip}
+verl requires paths to Parquet files for the training and validation data. Oumi allows you to use HuggingFace Datasets instead by automatically creating the necessary Parquet files before training.
+```
+
 ### Reward function
 
-TODO
+Instead of training a separate reward model which estimates the reward value of a completion, it is common to use reward functions instead. Both the trl and verl frameworks have specific interfaces required for the reward functions used. These are documented in the [trl documentation](https://huggingface.co/docs/trl/main/en/grpo_trainer#using-a-custom-reward-function) and [verl documentation](https://verl.readthedocs.io/en/latest/preparation/reward_function.html) respectively.
 
 ### Configuration
 
-TODO: Mention both trainers, and verl mapping
+#### TRL_GRPO
 
-The configuration for GRPO specifies the training parameters and the GRPO settings.
+Configuring the `TRL_GRPO` trainer is similar to most other trl-based trainers in Oumi, like `TRL_SFT`. Most Oumi config fields will be used, as trl's [GRPO config](https://huggingface.co/docs/trl/main/en/grpo_trainer#trl.GRPOConfig) is built on top of HF's config. The following configuration highlights some relevant fields for GRPO:
 
 ```yaml
+model:
+  model_name: "Qwen/Qwen2-0.5B-Instruct"
+
 data:
   train:
     datasets:
-      - dataset_name: "preference_pairs_jsonl"
-        dataset_path: "/path/to/data"
-    collator_name: "dpo_with_padding"
+      - dataset_name: "trl-lib/tldr"
+        split: "train"
 
 training:
-  trainer_type: "VERL_GRPO"  # Alternatively, use the TRL_GRPO trainer
+  trainer_type: "TRL_GRPO"
+
+  # Specifies the name of a reward function in our reward function registry.
+  reward_functions: ["soft_20tokens_completions"]
+
+  grpo:
+    use_vllm: True
+```
+
+#### VERL_GRPO
+
+verl is an RL training framework created by Alibaba. Many Oumi config fields, which generally correspond to HF config fields, thus are not consumed by verl. The following table shows all Oumi config fields used by the verl trainer, and what fields they map to. An overview of fields in the verl config can be found in their [documentation](https://verl.readthedocs.io/en/latest/examples/config.html).
+
+| Oumi                                            | verl                                                  |
+|-------------------------------------------------|-------------------------------------------------------|
+| model.model_name                                | actor_rollout_ref.model.path                          |
+| data.train.datasets                             | data.train_files                                      |
+| data.validation.datasets                        | data.val_files                                        |
+| training.grpo.max_completion_length             | data.max_response_length                              |
+| training.grpo.use_vllm                          | actor_rollout_ref.rollout.name                        |
+| training.grpo.temperature                       | actor_rollout_ref.rollout.temperature                 |
+| training.grpo.vllm_gpu_memory_utilization       | actor_rollout_ref.rollout.gpu_memory_utilization      |
+| training.enable_gradient_checkpointing          | actor_rollout_ref.model.enable_gradient_checkpointing |
+| training.learning_rate                          | actor_rollout_ref.actor.optim.lr                      |
+| training.num_train_epochs                       | trainer.total_epochs                                  |
+| training.max_steps                              | trainer.total_training_steps                          |
+| training.eval_steps/training.eval_strategy      | trainer.test_freq                                     |
+| training.save_steps/training.save_epoch         | trainer.save_freq                                     |
+| training.logging_strategy/training.enable_wandb | trainer.logger                                        |
+| training.run_name                               | trainer.experiment_name                               |
+| training.output_dir                             | trainer.default_local_dir                             |
+
+```{tip}
+The `training.verl_config_overrides` field can be used to specify any field in the verl config. The values specified in this field will override any values set by the Oumi -> verl mapping above. For example, if you already have your own training/validation Parquet files you want to use, you can directly set `data.train_files` in the override.
+```
+
+The following shows a bare-bones Oumi `VERL_GRPO` config.
+
+```yaml
+model:
+  model_name: "Qwen/Qwen2-0.5B-Instruct"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "Jiayi-Pan/Countdown-Tasks-3to4"
+        split: "train"
+  # verl requires a validation set.
+  validation:
+    datasets:
+      - dataset_name: "Jiayi-Pan/Countdown-Tasks-3to4"
+        split: "test"
+
+training:
+  trainer_type: "VERL_GRPO"
+  reward_functions: ["countdown"]
+
+  grpo:
+    use_vllm: True
+
+  verl_config_overrides:
+    # This sets `data.train_batch_size` to 128 in the verl config.
+    data:
+      train_batch_size: 128
 ```
 
 ## Next Steps

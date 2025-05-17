@@ -94,7 +94,7 @@ def countdown_reward(
 ) -> float:
     """Custom reward function for the Countdown task.
 
-    Currently, this function only works with the VERL_PPO trainer.
+    Currently, this function only works with the VERL_GRPO trainer.
 
     Args:
         data_source: The data source.
