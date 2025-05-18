@@ -13,7 +13,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  # For 7B model "Qwen/Qwen2.5-VL-7B-Instruct", a node with 8 GPUs is recommmeneded.
+  # For 7B model "Qwen/Qwen2.5-VL-7B-Instruct", a node with 8 GPUs is recommended.
   model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
 
 data:
