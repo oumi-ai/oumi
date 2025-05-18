@@ -49,8 +49,10 @@ class DefaultProcessor(BaseProcessor):
             raise ValueError("Processor name must be provided!")
         elif worker_processor is None:
             raise ValueError("Worker processor must be provided!")
-        elif not callable(worker_processor):
-            raise ValueError("Worker processor is not callable!")
+        # elif not callable(worker_processor) or not hasattr(worker_processor, "process"):
+        #     raise ValueError(
+        #         f"Worker processor is not callable!, {type(worker_processor)}"
+        #     )
         elif not (
             hasattr(worker_processor, "apply_chat_template")
             and worker_processor.apply_chat_template is not None
@@ -191,7 +193,8 @@ class DefaultProcessor(BaseProcessor):
                 text=text, padding=padding, return_tensors=return_tensors
             )
         else:
-            result = self._worker_processor(
+            result = self._worker_processor.process(
+                # result = self._worker_processor(
                 text=(text[0] if len(text) == 1 else text),
                 images=images,
                 padding=padding,
@@ -208,6 +211,8 @@ class DefaultProcessor(BaseProcessor):
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors
             )
+        elif isinstance(result, dict):
+            result = transformers.BatchEncoding(data=result, tensor_type=return_tensors)
         elif not isinstance(result, transformers.BatchEncoding):
             raise RuntimeError(
                 "Processor returned an object that is not a BatchEncoding. "

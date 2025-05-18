@@ -31,7 +31,7 @@ class VisionLanguageCollatorWithPadding:
         truncation: bool = False,
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
-        main_image_feature: str = "pixel_values",
+        main_image_feature: str = "images",
     ):
         """Custom collator for multi-modal vision-language training.
 

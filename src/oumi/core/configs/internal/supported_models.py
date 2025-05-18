@@ -282,6 +282,66 @@ def _create_idefics3_vlm_config() -> InternalModelConfig:
     return config
 
 
+def _create_molmo_vlm_config() -> InternalModelConfig:
+    """Creates a config for Molmo VLM model.
+
+    Molmo uses a specific set of features including image masks and input indices
+    for handling images in the model. The config is set up to handle these
+    features appropriately.
+    """
+    config = InternalModelConfig()
+
+    config.model_input_features.update(
+        {
+            "input_ids": InternalFeatureSpec(
+                name="input_ids",
+                required=True,
+                variable_shape=True,
+                first_dim_action=InternalFeatureFirstDimAction.KEEP,
+            ),
+            "labels": InternalFeatureSpec(
+                name="labels",
+                required=False,
+                variable_shape=True,
+                first_dim_action=InternalFeatureFirstDimAction.KEEP,
+            ),
+            "images": InternalFeatureSpec(
+                name="images",
+                required=True,
+                variable_shape=True,
+                first_dim_action=InternalFeatureFirstDimAction.KEEP,
+                image_dependent=True,
+            ),
+            "image_masks": InternalFeatureSpec(
+                name="image_masks",
+                required=True,
+                variable_shape=True,
+                first_dim_action=InternalFeatureFirstDimAction.KEEP,
+                image_dependent=True,
+            ),
+            "image_input_idx": InternalFeatureSpec(
+                name="image_input_idx",
+                required=True,
+                variable_shape=True,
+                first_dim_action=InternalFeatureFirstDimAction.KEEP,
+                image_dependent=True,
+            ),
+        }
+    )
+
+    config.chat_template = "default"
+    # config.processor_kwargs.update({"return_dict": True})
+
+    visual_config = InternalVisualModelConfig()
+    visual_config.supports_multiple_images = False
+    visual_config.variable_shape_image_features = True
+    visual_config.main_image_feature = "images"
+
+    config.visual_config = visual_config
+
+    return config
+
+
 @functools.cache
 def get_all_models_map() -> Mapping[
     str,  # model type
@@ -373,7 +433,7 @@ def get_all_models_map() -> Mapping[
         _ModelTypeInfo(
             model_type="molmo",
             model_class=transformers.AutoModelForCausalLM,
-            config=copy.deepcopy(default_vlm_config),
+            config=_create_molmo_vlm_config(),
         ),
         _ModelTypeInfo(
             model_type="phi3_v",
