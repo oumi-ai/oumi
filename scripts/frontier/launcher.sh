@@ -1,12 +1,12 @@
 #!/bin/bash
 
-ALLOWED_FRONTIER_QUEUES=("debug" "debug-scaling" "preemptable" "prod")
+ALLOWED_FRONTIER_QUEUES=("batch" "extended" "debug")
 
 helpFunction() {
     echo ""
     echo "Usage: $0 -u username -q debug -n 1 -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
     echo -e "\t-u The username on OLCF Frontier cluster."
-    echo -e "\t-q The Frontier queue to use (${ALLOWED_FRONTIER_QUEUES[@]})."
+    echo -e "\t-q The Frontier partition (queue) to use (${ALLOWED_FRONTIER_QUEUES[@]})."
     echo -e "\t-n The number of Frontier nodes to use."
     echo -e "\t-s The source directory to copy. Defaults to the current directory."
     echo -e "\t-d The destination directory on Frontier to copy local files."
@@ -45,13 +45,9 @@ if ! test "$FRONTIER_NODES" -gt 0; then
     helpFunction
 fi
 
-# Select default queue if unspecified (depends on the number of nodes).
+# Select default queue if unspecified.
 if [ -z "$FRONTIER_QUEUE" ]; then
-    if test "$FRONTIER_NODES" -gt 9; then
-        FRONTIER_QUEUE="prod"
-    else
-        FRONTIER_QUEUE="preemptable"
-    fi
+    FRONTIER_QUEUE="batch"
 fi
 
 if ! (echo "${ALLOWED_FRONTIER_QUEUES[@]}" | grep -q -w "${FRONTIER_QUEUE}"); then
@@ -93,10 +89,13 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   export https_proxy=http://proxy.ccs.ornl.gov:3128/
   export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
 
+  export HF_HUB_CACHE=/lustre/orion/lrn081/scratch/.cache/huggingface/hub/
+
   # Set up Conda env if it doesn't exist and activate it.
   module use /soft/modulefiles
   module load conda
-  if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then
+
+  if [ ! -d /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi ]; then
       echo "Creating Oumi Conda environment... -----------------------------------------"
       conda create -y python=3.11 --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
   fi
