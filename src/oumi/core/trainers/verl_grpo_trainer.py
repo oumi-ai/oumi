@@ -17,10 +17,14 @@
 import copy
 import os
 from pathlib import Path
+from pprint import pformat
 from typing import Callable, Optional, Union, cast
 
 from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
+
+from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Role as ConversationRole
 
 try:
     import ray  # pyright: ignore[reportMissingImports]
@@ -42,10 +46,19 @@ except ModuleNotFoundError:
     ray = None
 
 
-from oumi.core.configs import TrainingConfig
+from oumi.core.configs import DatasetSplitParams, TrainingConfig
+from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
+
+# Dataset processing function type. This function takes the following arguments:
+# 1. a dataset sample.
+# 2. index of the sample.
+# 3. data source name
+# 4. split name (train, validation, etc.)
+# Returns an example converted to verl format.
+_DatasetProcessFn = Callable[[dict, int, str, str], dict]
 
 
 class VerlGrpoTrainer(BaseTrainer):
@@ -65,7 +78,8 @@ class VerlGrpoTrainer(BaseTrainer):
         reward_funcs: list[Callable],
         train_dataset: Dataset,
         eval_dataset: Dataset,
-        cache_dir: Union[str, Path] = Path.home() / ".cache" / "oumi" / "verl_datasets",
+        processor: Optional[BaseProcessor] = None,
+        cache_dir: Optional[Union[str, Path]] = None,
         **kwargs,
     ):
         """Initializes the verl trainer.
@@ -76,6 +90,7 @@ class VerlGrpoTrainer(BaseTrainer):
             reward_funcs: List of reward functions to use.
             train_dataset: Training dataset.
             eval_dataset: Validation dataset. This is required by verl.
+            processor: Optional processor for the dataset. Required for VLM-s.
             cache_dir: Directory to cache verl Parquet datasets.
             **kwargs: Additional keyword arguments.
         """
@@ -94,29 +109,215 @@ class VerlGrpoTrainer(BaseTrainer):
             raise ValueError("We only support up to one reward function.")
         self._reward_funcs = reward_funcs
 
-        self._cache_dir = Path(cache_dir)
+        self._cache_dir: Path = (
+            Path(cache_dir)
+            if cache_dir
+            else Path.home() / ".cache" / "oumi" / "verl_datasets"
+        )
         self._train_dataset = train_dataset
         self._eval_dataset = eval_dataset
-        # Sets self._train_filepath and self._val_filepath.
-        self._create_dataset_files()
-
+        # verl trainer uses private methods and properties of `transformers`
+        # processor, so we need to pass the raw processor here.
+        self._processor = processor.raw_processor if processor is not None else None
+        # Detect what dataset post-processing function to use (if any).
+        process_fn = self._detect_dataset_process_fn()
+        # Generate files and set self._train_filepath and self._val_filepath.
+        self._create_dataset_files(process_fn)
         self._setup_verl_trainer()
 
-    def _create_dataset_files(self) -> None:
+    def _detect_dataset_process_fn(
+        self,
+    ) -> Optional[_DatasetProcessFn]:
+        """Returns a post-processing function to convert data to verl format.
+
+        Examines dataset samples to determine what post-processing function to use.
+
+        Returns:
+            A post-processing function to convert data to verl format.
+            If no post-processing is needed, returns `None`.
+        """
+        first_train_sample = next(iter(self._train_dataset))
+        first_eval_sample = next(iter(self._eval_dataset))
+
+        if not isinstance(first_train_sample, dict):
+            raise ValueError(
+                "Element type of training dataset must be a dictionary. "
+                f"Got {type(first_train_sample)} instead."
+            )
+        if not isinstance(first_eval_sample, dict):
+            raise ValueError(
+                "Element type of validation dataset must be a dictionary. "
+                f"Got {type(first_eval_sample)} instead."
+            )
+
+        # Detect datasets containing Conversation-s.
+        if "conversation_json" in first_train_sample:
+            if "conversation_json" not in first_eval_sample:
+                raise ValueError(
+                    "Training and validation datasets must both have the same key: "
+                    "'conversation_json'."
+                )
+            try:
+                # Check if the conversation_json is valid.
+                _ = Conversation.from_json(first_train_sample["conversation_json"])
+                _ = Conversation.from_json(first_eval_sample["conversation_json"])
+            except Exception as e:
+                raise ValueError(
+                    "Invalid conversation_json in training or validation dataset."
+                ) from e
+            return VerlGrpoTrainer._create_verl_data_entry_from_single_turn_conversation
+        return None
+
+    @staticmethod
+    def _get_data_source_name(params: DatasetSplitParams) -> str:
+        """Returns the verl data source name."""
+        dataset_names = list({ds.dataset_name for ds in params.datasets})
+        if len(dataset_names) != 1:
+            if len(dataset_names) > 1:
+                raise ValueError(
+                    f"Multiple dataset names found: {dataset_names}. "
+                    f"Please specify a single dataset name."
+                )
+            else:
+                raise ValueError(
+                    "No dataset names found. Please check the dataset split parameters."
+                )
+        return dataset_names[0]
+
+    @staticmethod
+    def _extract_question_images_answer_from_single_turn_conversation(
+        example: dict,
+    ) -> tuple[str, list, str]:
+        """Finds question, answer, and optional images in a single-turn conversation.
+
+        Args:
+            example: A dictionary containing the conversation JSON.
+
+        Returns:
+            A tuple containing the question, images, and answer.
+            The list of images is empty for text-only conversations.
+        """
+        if "conversation_json" not in example:
+            raise ValueError(
+                f"Example doesn't contain 'conversation_json' key. "
+                f"Available keys: {example.keys()}"
+            )
+
+        conversation_json = example["conversation_json"]
+        conversation = Conversation.from_json(conversation_json)
+
+        user_messages = conversation.filter_messages(role=ConversationRole.USER)
+        if len(user_messages) != 1:
+            raise ValueError(f"Expected 1 user message, but got {len(user_messages)}.")
+
+        assistant_messages = conversation.filter_messages(
+            role=ConversationRole.ASSISTANT
+        )
+        if len(assistant_messages) != 1:
+            raise ValueError(
+                f"Expected 1 assistant message, but got {len(assistant_messages)}."
+            )
+
+        user_message = user_messages[0]
+        assistant_message = assistant_messages[0]
+        prompt: str = user_message.text_content_items[-1].content or ""
+        images = [{"bytes": item.binary} for item in user_message.image_content_items]
+        answer: str = assistant_message.text_content_items[-1].content or ""
+
+        if len(images) > 0:
+            # TODO: Generalize. This only works for QwenVL 2.5, which is the only
+            # VLM supported by verl as of 2025-05-15.
+            if not prompt.startswith("<image>"):
+                prompt = "<image>" + prompt
+        return (prompt, images, answer)
+
+    @staticmethod
+    def _create_verl_data_entry_from_single_turn_conversation(
+        example: dict, idx: int, data_source: str, split: str
+    ) -> dict:
+        prompt, images, answer = (
+            VerlGrpoTrainer._extract_question_images_answer_from_single_turn_conversation(
+                example
+            )
+        )
+        data = {
+            "data_source": data_source,
+            "prompt": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "images": images,
+            "ability": "math",
+            "reward_model": {"style": "rule", "ground_truth": answer},
+            "extra_info": {
+                "split": split,
+                "index": idx,
+                "answer": answer,
+                "question": prompt,  # TODO: extract problem
+            },
+        }
+        return data
+
+    def _create_dataset_files(
+        self, process_fn: Optional[_DatasetProcessFn] = None
+    ) -> None:
         """Creates dataset files for verl in Parquet format.
 
         The Parquet files are saved to the Oumi cache directory.
+
+        Args:
+            process_fn: Optional function to convert the dataset samples to verl format.
         """
         train_file = self._cache_dir / "train.parquet"
-        self._train_dataset.to_parquet(train_file)
+        train_dataset = self._train_dataset
+
+        # Limit the max number of sub-processes to 8 to avoid overloading the system
+        # with too many processes.
+        # TODO: Make this configurable.
+        num_proc = min(8, os.cpu_count() or 1)
+
+        if process_fn is not None:
+            train_data_source = self._get_data_source_name(self._oumi_config.data.train)
+            train_dataset = train_dataset.map(
+                function=lambda example, idx: process_fn(
+                    example,
+                    idx,
+                    train_data_source,
+                    "train",
+                ),
+                with_indices=True,
+                num_proc=num_proc,
+            )
+
+        train_dataset.to_parquet(train_file)
         self._train_filepath = str(train_file)
 
         val_file = self._cache_dir / "val.parquet"
-        self._eval_dataset.to_parquet(val_file)
+        eval_dataset = self._eval_dataset
+        if process_fn is not None:
+            validation_data_source = self._get_data_source_name(
+                self._oumi_config.data.validation
+            )
+            eval_dataset = eval_dataset.map(
+                function=lambda example, idx: process_fn(
+                    example,
+                    idx,
+                    validation_data_source,
+                    "validation",
+                ),
+                with_indices=True,
+                num_proc=num_proc,
+            )
+        eval_dataset.to_parquet(val_file)
         self._val_filepath = str(val_file)
 
     def _create_config(self) -> DictConfig:
         """Creates a verl config."""
+        model_params = self._oumi_config.model
+        model_name = model_params.model_name
+
         # 1. Read verl default dict config from YAML.
         yaml_path = Path(__file__).parent / "verl_trainer_config.yaml"
         config = OmegaConf.load(yaml_path)
@@ -128,11 +329,10 @@ class VerlGrpoTrainer(BaseTrainer):
         config.data.val_files = self._val_filepath
 
         grpo_params = self._oumi_config.training.grpo
-        model_params = self._oumi_config.model
         training_params = self._oumi_config.training
 
         config.data.max_response_length = grpo_params.max_completion_length
-        config.actor_rollout_ref.model.path = model_params.model_name
+        config.actor_rollout_ref.model.path = model_name
         config.actor_rollout_ref.actor.optim.lr = training_params.learning_rate
         config.actor_rollout_ref.model.enable_gradient_checkpointing = (
             training_params.enable_gradient_checkpointing
@@ -194,7 +394,7 @@ class VerlGrpoTrainer(BaseTrainer):
                 "Please install it with 'pip install `oumi[gpu]`'."
             )
         self._verl_config = self._create_config()
-        logger.info(f"verl config: {self._verl_config}")
+        logger.info(f"verl config: {pformat(self._verl_config)}")
 
         tokenizer = self._processing_class
 
@@ -221,7 +421,7 @@ class VerlGrpoTrainer(BaseTrainer):
         )
 
         # Create reward function manager
-        compute_score = self._reward_funcs[0] if self._reward_funcs else None
+        compute_score = self._reward_funcs[0] if len(self._reward_funcs) > 0 else None
         reward_fn = NaiveRewardManager(
             tokenizer=tokenizer, num_examine=0, compute_score=compute_score
         )
@@ -233,6 +433,7 @@ class VerlGrpoTrainer(BaseTrainer):
         self._verl_trainer = RayPPOTrainer(
             config=self._verl_config,
             tokenizer=tokenizer,
+            processor=self._processor,
             role_worker_mapping=role_worker_mapping,
             resource_pool_manager=resource_pool_manager,
             reward_fn=reward_fn,
