@@ -69,21 +69,21 @@ fi
 
 # Start an SSH tunnel in the background so we only have to auth once.
 # This tunnel will close automatically after 5 minutes of inactivity.
-ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${FRONTIER_USER}@Frontier.alcf.anl.gov
+ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${FRONTIER_USER}@frontier.alcf.anl.gov
 
 # Copy files to Frontier over the same SSH tunnel, excluding unnecessary ones.
 echo "Copying files to Frontier... -----------------------------------------"
 rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
     --exclude-from "${SOURCE_DIRECTORY}/.gitignore" \
     --exclude tests \
-    "${SOURCE_DIRECTORY}" "${FRONTIER_USER}@Frontier.alcf.anl.gov:${COPY_DIRECTORY}"
+    "${SOURCE_DIRECTORY}" "${FRONTIER_USER}@frontier.alcf.anl.gov:${COPY_DIRECTORY}"
 
 # Submit a job on Frontier over the same SSH tunnel.
 echo "Setting up environment and submitting job on Frontier..."
 # Save the variables to pass to the remote script.
 printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$FRONTIER_NODES" "$FRONTIER_QUEUE"
 # We need to properly escape the remote script due to the qsub command substitution.
-ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@Frontier.alcf.anl.gov" "bash -s $varsStr" <<'EOF'
+ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.alcf.anl.gov" "bash -s $varsStr" <<'EOF'
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
   cd ${COPY_DIRECTORY}
 
