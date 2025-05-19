@@ -69,33 +69,39 @@ fi
 
 # Start an SSH tunnel in the background so we only have to auth once.
 # This tunnel will close automatically after 5 minutes of inactivity.
-ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${FRONTIER_USER}@frontier.alcf.anl.gov
+ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${FRONTIER_USER}@frontier.olcf.ornl.gov
 
 # Copy files to Frontier over the same SSH tunnel, excluding unnecessary ones.
 echo "Copying files to Frontier... -----------------------------------------"
 rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
     --exclude-from "${SOURCE_DIRECTORY}/.gitignore" \
     --exclude tests \
-    "${SOURCE_DIRECTORY}" "${FRONTIER_USER}@frontier.alcf.anl.gov:${COPY_DIRECTORY}"
+    "${SOURCE_DIRECTORY}" "${FRONTIER_USER}@frontier.olcf.ornl.gov:${COPY_DIRECTORY}"
 
 # Submit a job on Frontier over the same SSH tunnel.
 echo "Setting up environment and submitting job on Frontier..."
 # Save the variables to pass to the remote script.
 printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$FRONTIER_NODES" "$FRONTIER_QUEUE"
 # We need to properly escape the remote script due to the qsub command substitution.
-ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.alcf.anl.gov" "bash -s $varsStr" <<'EOF'
+ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -s $varsStr" <<'EOF'
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
   cd ${COPY_DIRECTORY}
+
+  export all_proxy=socks://proxy.ccs.ornl.gov:3128/
+  export ftp_proxy=ftp://proxy.ccs.ornl.gov:3128/
+  export http_proxy=http://proxy.ccs.ornl.gov:3128/
+  export https_proxy=http://proxy.ccs.ornl.gov:3128/
+  export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
 
   # Set up Conda env if it doesn't exist and activate it.
   module use /soft/modulefiles
   module load conda
   if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then
       echo "Creating Oumi Conda environment... -----------------------------------------"
-      conda create -y python=3.11 --prefix /home/$USER/miniconda3/envs/oumi
+      conda create -y python=3.11 --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
   fi
   echo "Installing packages... -----------------------------------------"
-  conda activate /home/$USER/miniconda3/envs/oumi
+  conda activate /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
 
   if ! command -v uv >/dev/null 2>&1; then
       pip install -U uv
