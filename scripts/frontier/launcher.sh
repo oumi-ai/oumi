@@ -114,7 +114,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   mkdir -p /eagle/community_ai/jobs/logs/$USER/
 
   set -x
-  JOB_ID=$(qsub -l select=${FRONTIER_NODES}:system=Frontier -q ${FRONTIER_QUEUE} -o /eagle/community_ai/jobs/logs/$USER/ -e /eagle/community_ai/jobs/logs/$USER/ ${JOB_PATH})
+  JOB_ID=$(qsub -l select=${FRONTIER_NODES}:system=frontier -q ${FRONTIER_QUEUE} -o /lustre/orion/lrn081/scratch/jobs/logs/$USER/ -e /lustre/orion/lrn081/scratch/jobs/logs/$USER/ ${JOB_PATH})
   QSUB_RESULT=$?
   set +x  # Turn-off printing
 
