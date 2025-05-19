@@ -74,6 +74,8 @@ rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
     --exclude tests \
     "${SOURCE_DIRECTORY}" "${FRONTIER_USER}@frontier.olcf.ornl.gov:${COPY_DIRECTORY}"
 
+exit 0
+
 # Submit a job on Frontier over the same SSH tunnel.
 echo "Setting up environment and submitting job on Frontier..."
 # Save the variables to pass to the remote script.
@@ -83,53 +85,62 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
   cd ${COPY_DIRECTORY}
 
+  # Setup the environment variables.
   export all_proxy=socks://proxy.ccs.ornl.gov:3128/
   export ftp_proxy=ftp://proxy.ccs.ornl.gov:3128/
   export http_proxy=http://proxy.ccs.ornl.gov:3128/
   export https_proxy=http://proxy.ccs.ornl.gov:3128/
   export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
-
-  export HF_HUB_CACHE=/lustre/orion/lrn081/scratch/.cache/huggingface/hub/
+  export HF_HUB_CACHE=/lustre/orion/lrn081/scratch/$USER/.cache/huggingface/hub/
 
   # Set up Conda env if it doesn't exist and activate it.
-  module use /soft/modulefiles
-  module load conda
+  module load PrgEnv-gnu/8.6.0
+  module load miniforge3/23.11.0-0
+  module load rocm/6.2.4
+  module load craype-accel-amd-gfx90a
 
   if [ ! -d /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi ]; then
       echo "Creating Oumi Conda environment... -----------------------------------------"
-      conda create -y python=3.11 --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+      # conda create -y python=3.11 --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+      conda create -y python=3.10 -c conda-forge --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
   fi
   echo "Installing packages... -----------------------------------------"
-  conda activate /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+  conda activate --no-stack /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
 
   if ! command -v uv >/dev/null 2>&1; then
       pip install -U uv
   fi
+
+  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2
   pip install -e '.[gpu]'
+
+  python -c "import torch; print(torch.cuda.device_count())"
+  python -c "import torch; print(torch.cuda.get_device_name(0))"
 
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Frontier won't create them.
-  mkdir -p /eagle/community_ai/jobs/logs/$USER/
+  mkdir -p /lustre/orion/lrn081/scratch/jobs/logs/$USER/
 
   set -x
-  JOB_ID=$(qsub -l select=${FRONTIER_NODES}:system=frontier -q ${FRONTIER_QUEUE} -o /lustre/orion/lrn081/scratch/jobs/logs/$USER/ -e /lustre/orion/lrn081/scratch/jobs/logs/$USER/ ${JOB_PATH})
-  QSUB_RESULT=$?
+  JOB_ID=$(sbatch -l select=${FRONTIER_NODES}:system=frontier -p ${FRONTIER_QUEUE} -o /lustre/orion/lrn081/scratch/jobs/logs/$USER/ -e /lustre/orion/lrn081/scratch/jobs/logs/$USER/ ${JOB_PATH})
+  SBATCH_RESULT=$?
   set +x  # Turn-off printing
 
-  if (test "$QSUB_RESULT" -ne 0) || [ -z "$JOB_ID" ]
+  if (test "$SBATCH_RESULT" -ne 0) || [ -z "$JOB_ID" ]
   then
-      echo "Job submission ('qsub') failed with error code: $QSUB_RESULT"
+      echo "Job submission ('sbatch') failed with error code: $SBATCH_RESULT"
       exit 1
   fi
   echo "Job id: ${JOB_ID}"
 
   echo
   echo "All jobs:"
-  qstat -s -u $USER
+  squeue -l -u $USER
+
   echo
   echo "To view error logs, run (on Frontier):"
-  echo "tail -n200 -f /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.ER"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/jobs/logs/$USER/${JOB_ID}.ER"
   echo "To view output logs, run (on Frontier):"
-  echo "tail -n200 -f /eagle/community_ai/jobs/logs/$USER/${JOB_ID}.OU"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/jobs/logs/$USER/${JOB_ID}.OU"
 EOF
