@@ -83,7 +83,7 @@ printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$FRONTIER_NODES" "$FRONTI
 # We need to properly escape the remote script due to the qsub command substitution.
 ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -s $varsStr" <<'EOF'
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
-  cd ${COPY_DIRECTORY}
+  cd "${COPY_DIRECTORY}"
 
   # Setup the environment variables.
   export all_proxy=socks://proxy.ccs.ornl.gov:3128/
@@ -123,7 +123,9 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   mkdir -p /lustre/orion/lrn081/scratch/jobs/logs/$USER/
 
   set -x
-  JOB_ID=$(sbatch -l select=${FRONTIER_NODES}:system=frontier -p ${FRONTIER_QUEUE} -o /lustre/orion/lrn081/scratch/jobs/logs/$USER/ -e /lustre/orion/lrn081/scratch/jobs/logs/$USER/ ${JOB_PATH})
+  srun -A lrn081 --nodes 1 -t 59:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
+
+  JOB_ID=$(srun -l select=${FRONTIER_NODES}:system=frontier -p ${FRONTIER_QUEUE} -o /lustre/orion/lrn081/scratch/jobs/logs/$USER/ -e /lustre/orion/lrn081/scratch/jobs/logs/$USER/ ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
 
