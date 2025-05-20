@@ -14,7 +14,8 @@ set -e
 # Various setup for running on Polaris.
 source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
-HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/alpaca-cleaned"
 
 # Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need
 # 4 gradient accumulation steps.
