@@ -82,6 +82,11 @@ echo "Setting up environment and submitting job on Frontier..."
 printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$FRONTIER_NODES" "$FRONTIER_QUEUE"
 # We need to properly escape the remote script due to the qsub command substitution.
 ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -s $varsStr" <<'EOF'
+export COPY_DIRECTORY="/lustre/orion/lrn081/scratch/nikg/lema01/"
+export JOB_PATH="./scripts/frontier/jobs/example_job.sh"
+export FRONTIER_NODES=1
+export FRONTIER_QUEUE=batch
+
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
   cd "${COPY_DIRECTORY}"
 
@@ -124,7 +129,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Frontier won't create them.
-  mkdir -p /lustre/orion/lrn081/scratch/jobs/logs/$USER/
+  mkdir -p /lustre/orion/lrn081/scratch/$USER/jobs/logs/
 
   set -x
   srun -A lrn081 --nodes 1 -t 59:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
@@ -132,8 +137,8 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   JOB_ID=$(
     srun -l select=${FRONTIER_NODES}:system=frontier \
     -p ${FRONTIER_QUEUE} \
-    -o "/lustre/orion/lrn081/scratch/jobs/logs/$USER/job-%j.OU" \
-    -o "/lustre/orion/lrn081/scratch/jobs/logs/$USER/job-%j.ER" \
+    -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" \
+    -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" \
     ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
