@@ -105,6 +105,10 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
       conda create -y python=3.10 -c conda-forge --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
   fi
   echo "Installing packages... -----------------------------------------"
+  if [ ! -z "$CONDA_DEFAULT_ENV" ]; then
+    # De-activate previous environment (stacked envs can cause `pip install` problems).
+    conda deactivate
+  fi
   conda activate --no-stack /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
 
   if ! command -v uv >/dev/null 2>&1; then
