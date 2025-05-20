@@ -20,7 +20,6 @@ TRAIN_DATASETS="--data.train.datasets=
   split: \"train\"
 "
 
-pip install hf_transfer
 HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceFW/ablation-model-fineweb-v1
 
 # Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need

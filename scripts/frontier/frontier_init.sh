@@ -76,7 +76,6 @@ set +x
 # conda init bash
 conda env list
 
-echo "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 if [ -z "$CONDA_PREFIX" ]; then
     conda activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 fi
