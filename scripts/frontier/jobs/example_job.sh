@@ -22,4 +22,4 @@ oumi distributed torchrun \
   -m oumi train \
   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
   --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
-  --training.max_steps=10
+  --training.max_steps=5
