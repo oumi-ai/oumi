@@ -112,7 +112,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   fi
 
   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2
-  pip install -e '.[gpu]'
+  pip install -e '.[gpu]' hf_transfer
 
   python -c "import torch; print(torch.cuda.device_count())"
   python -c "import torch; print(torch.cuda.get_device_name(0))"
