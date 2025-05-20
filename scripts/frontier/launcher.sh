@@ -134,12 +134,7 @@ export FRONTIER_QUEUE=batch
   set -x
   srun -A lrn081 --nodes 1 -t 09:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
 
-  JOB_ID=$(sbatch -A lrn081     \
-    --nodes ${FRONTIER_NODES}   \
-    -p ${FRONTIER_QUEUE}        \
-    -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" \
-    -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" \
-    ${JOB_PATH})
+  JOB_ID=$(sbatch -A lrn081 --nodes ${FRONTIER_NODES} -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
 
