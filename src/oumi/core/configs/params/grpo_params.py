@@ -109,8 +109,8 @@ class GrpoParams(BaseParams):
 
     epsilon: float = 0.2
     """Epsilon value for clipping the relative probability in the loss.
-    
-    For example, if epsilon is 0.2, then the new probability can only differ from 
+
+    For example, if epsilon is 0.2, then the new probability can only differ from
     the old probability by a factor of x0.8-1.2."""
 
     log_completions: bool = False
