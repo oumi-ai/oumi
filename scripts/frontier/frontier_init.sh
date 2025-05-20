@@ -65,12 +65,15 @@ export https_proxy=http://proxy.ccs.ornl.gov:3128/
 export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
 export HF_HUB_CACHE=/lustre/orion/lrn081/scratch/$USER/.cache/huggingface/hub/
 
+echo "Loading Frontier modules..."
+
 # Set up default modules.
 module load PrgEnv-gnu/8.6.0
 module load miniforge3/23.11.0-0
 module load rocm/6.2.4
 module load craype-accel-amd-gfx90a
 
+echo "Setting up conda..."
 # Activate the Oumi Conda environment.
 set +x
 # conda init bash
@@ -81,3 +84,5 @@ if [ -z "$CONDA_PREFIX" ]; then
 fi
 echo "Conda path: ${CONDA_PREFIX}"
 set -x
+
+echo "frontier_init.sh is done!"
