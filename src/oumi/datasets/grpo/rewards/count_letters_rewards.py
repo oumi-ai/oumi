@@ -47,7 +47,6 @@ def compute_letter_count_reward(completion: str, target_count: int) -> float:
     if count is None:
         return -3.0
 
-    # Take the 
     delta = abs(count - target_count)
 
     # Reward scales from [0, -2) as delta increases
