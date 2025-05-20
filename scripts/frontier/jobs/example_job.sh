@@ -10,7 +10,11 @@
 
 FRONTIER_NODE_RANK=${PMI_RANK:=0}
 
-export CUDA_VISIBLE_DEVICES=3,2,1,0
+set -e
+
+# Various setup for running on Polaris.
+source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
+
 LOG_PREFIX="Node: ${FRONTIER_NODE_RANK}:"
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
@@ -24,16 +28,11 @@ echo "${LOG_PREFIX} PMI_RANK: $PMI_RANK"
 echo "${LOG_PREFIX} NCCL_COLLNET_ENABLE: $NCCL_COLLNET_ENABLE"
 echo "${LOG_PREFIX} NCCL_NET_GDR_LEVEL: $NCCL_NET_GDR_LEVEL"
 echo "${LOG_PREFIX} NCCL_DEBUG: $NCCL_DEBUG"
-echo "${LOG_PREFIX} NVIDIA info: $(nvidia-smi -L)"
+echo "${LOG_PREFIX} ROCM info: $(rocm-smi)"
 echo "${LOG_PREFIX} TMPDIR: ${TMPDIR}"
 echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} ROCR_VISIBLE_DEVICES: ${ROCR_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} ***ENV END***"
-
-set -e
-
-# Various setup for running on Polaris.
-source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
 echo "Using this Python environment: $(which python3)"
 
