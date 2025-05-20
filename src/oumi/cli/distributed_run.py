@@ -365,6 +365,38 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
     )
 
 
+def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
+    polaris_node_file = env.get("PBS_NODEFILE", None)
+    if polaris_node_file is None:
+        return None
+
+    logger.debug("Running in Slurm environment!")
+    for env_var_name in _SLURM_ENV_VARS:
+        if env.get(env_var_name, None) is None:
+            raise ValueError(
+                f"Slurm environment variable '{env_var_name}' is not defined!"
+            )
+    if not polaris_node_file:
+        raise ValueError("Empty value in the 'PBS_NODEFILE' environment variable!")
+    with open(polaris_node_file) as f:
+        nodes_str = f.read()
+    node_ips = _parse_nodes_str(nodes_str)
+    if len(node_ips) == 0:
+        raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
+    gpus_per_node = 4  # Per Polaris spec.
+    node_rank = _get_optional_int_env_var("PMI_RANK", env)
+    if node_rank is None:
+        node_rank = 0
+
+    return _ProcessRunInfo(
+        node_rank=node_rank,
+        world_info=_WorldInfo(num_nodes=len(node_ips), gpus_per_node=gpus_per_node),
+        master_address=node_ips[0],
+        master_port=_DEFAULT_MASTER_PORT,
+        node_ips=node_ips,
+    )
+
+
 def _detect_skypilot_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
     node_rank: Optional[int] = _get_optional_int_env_var("SKYPILOT_NODE_RANK", env)
     if node_rank is None:
@@ -452,6 +484,6 @@ def _get_positive_int_env_var(var_name: str, env: dict[str, str]) -> int:
 
 
 def _parse_nodes_str(nodes_str: str) -> list[str]:
-    node_ips = [x.strip() for x in nodes_str.split("\n")]
+    node_ips = [x.strip() for line in nodes_str.split("\n") for x in line.split(",")]
     node_ips = [x for x in node_ips if len(x) > 0]
     return node_ips
