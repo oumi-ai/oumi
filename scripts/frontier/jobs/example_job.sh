@@ -12,7 +12,7 @@
 set -e
 
 # Various setup for running on Polaris.
-source ${PBS_O_WORKDIR}/scripts/frontier/frontier_init.sh
+source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
 TRAIN_DATASETS="--data.train.datasets=
 - dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
