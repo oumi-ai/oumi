@@ -22,7 +22,7 @@ echo "SLURM_NODELIST       =" $SLURM_NODELIST
 echo "SLURM_JOB_NODELIST   =" $SLURM_JOB_NODELIST
 echo ""
 
-export OUMI_NUM_NODES=$(wc -l <"${PBS_NODEFILE}")
+export OUMI_NUM_NODES=$SLURM_NNODES
 export OUMI_FRONTIER_NUM_GPUS_PER_NODE=8
 export OUMI_TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${OUMI_FRONTIER_NUM_GPUS_PER_NODE}))
 export OUMI_MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
@@ -72,5 +72,7 @@ module load rocm/6.2.4
 module load craype-accel-amd-gfx90a
 
 # Activate the Oumi Conda environment.
-conda activate --no-stack /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+set +x
+conda activate /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
 echo "Conda path: ${CONDA_PREFIX}"
+set -x
