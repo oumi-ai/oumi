@@ -20,6 +20,8 @@ TRAIN_DATASETS="--data.train.datasets=
   split: \"train\"
 "
 
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceFW/ablation-model-fineweb-v1
+
 # Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need
 # 4 gradient accumulation steps.
 # oumi distributed torchrun \
