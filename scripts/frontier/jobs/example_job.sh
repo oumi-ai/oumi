@@ -14,25 +14,12 @@ set -e
 # Various setup for running on Polaris.
 source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
-TRAIN_DATASETS="--data.train.datasets=
-- dataset_name: \"/eagle/community_ai/datasets/fineweb-edu/sample-10BT\"
-  subset: \"default\"
-  split: \"train\"
-"
-
-HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceFW/ablation-model-fineweb-v1
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
 
 # Each batch should be 512 examples. With 4 GPUS and batch size 32 per GPU, we need
 # 4 gradient accumulation steps.
-# oumi distributed torchrun \
-#   -m oumi train \
-#   -c configs/recipes/gpt2/pretraining/train.yaml \
-#   --training.run_name "gpt2.pt.${PBS_JOBID}" \
-#   "$TRAIN_DATASETS" \
-#   --training.max_steps 100 \
-#   --training.include_performance_metrics true \
-#   --training.ddp_find_unused_parameters false \
-#   --training.dataloader_num_workers 2 \
-#   --training.dataloader_prefetch_factor 4 \
-#   --training.per_device_train_batch_size 32 \
-#   --training.gradient_accumulation_steps 4
+oumi distributed torchrun \
+  -m oumi train \
+  -c configs/recipes/gpt2/pretraining/train.yaml \
+  --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
+  --training.max_steps=10

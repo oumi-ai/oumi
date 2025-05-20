@@ -132,11 +132,11 @@ export FRONTIER_QUEUE=batch
   mkdir -p /lustre/orion/lrn081/scratch/$USER/jobs/logs/
 
   set -x
-  srun -A lrn081 --nodes 1 -t 59:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
+  srun -A lrn081 --nodes 1 -t 09:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
 
-  JOB_ID=$(
-    srun -l select=${FRONTIER_NODES}:system=frontier \
-    -p ${FRONTIER_QUEUE} \
+  JOB_ID=$(sbatch -A lrn081     \
+    --nodes ${FRONTIER_NODES}   \
+    -p ${FRONTIER_QUEUE}        \
     -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" \
     -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" \
     ${JOB_PATH})
