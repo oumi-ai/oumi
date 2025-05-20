@@ -73,6 +73,12 @@ module load craype-accel-amd-gfx90a
 
 # Activate the Oumi Conda environment.
 set +x
-conda activate /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+# conda init bash
+conda env list
+
+echo "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
+if [ -z "$CONDA_PREFIX" ]; then
+    conda activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
+fi
 echo "Conda path: ${CONDA_PREFIX}"
 set -x
