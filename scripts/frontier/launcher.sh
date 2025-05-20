@@ -129,7 +129,12 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   set -x
   srun -A lrn081 --nodes 1 -t 59:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
 
-  JOB_ID=$(srun -l select=${FRONTIER_NODES}:system=frontier -p ${FRONTIER_QUEUE} -o /lustre/orion/lrn081/scratch/jobs/logs/$USER/ -e /lustre/orion/lrn081/scratch/jobs/logs/$USER/ ${JOB_PATH})
+  JOB_ID=$(
+    srun -l select=${FRONTIER_NODES}:system=frontier \
+    -p ${FRONTIER_QUEUE} \
+    -o "/lustre/orion/lrn081/scratch/jobs/logs/$USER/job-%j.OU" \
+    -o "/lustre/orion/lrn081/scratch/jobs/logs/$USER/job-%j.ER" \
+    ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
 
