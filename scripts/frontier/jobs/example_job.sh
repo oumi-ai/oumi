@@ -47,6 +47,8 @@ HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/
 
 echo "Checking conda envs..."
 conda env list
+source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
+conda env list
 
 python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
