@@ -32,6 +32,7 @@ echo "${LOG_PREFIX} ROCM info: $(rocm-smi)"
 echo "${LOG_PREFIX} TMPDIR: ${TMPDIR}"
 echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} ROCR_VISIBLE_DEVICES: ${ROCR_VISIBLE_DEVICES}"
+echo "${LOG_PREFIX} OMP_NUM_THREADS: ${OMP_NUM_THREADS}"
 echo "${LOG_PREFIX} ***ENV END***"
 
 echo "Using this Python environment: $(which python3)"
