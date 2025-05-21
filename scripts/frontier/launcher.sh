@@ -96,7 +96,9 @@ export FRONTIER_QUEUE=batch
   export http_proxy=http://proxy.ccs.ornl.gov:3128/
   export https_proxy=http://proxy.ccs.ornl.gov:3128/
   export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
-  export HF_HUB_CACHE=/lustre/orion/lrn081/scratch/$USER/.cache/huggingface/hub/
+  export HF_HOME="/lustre/orion/lrn081/scratch/$USER/.cache/huggingface"
+  export HF_HUB_CACHE="$HF_HOME/hub"
+  export HF_ASSETS_CACHE="$HF_HOME/assets"
 
   # Set up Conda env if it doesn't exist and activate it.
   module load PrgEnv-gnu/8.6.0

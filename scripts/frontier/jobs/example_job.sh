@@ -37,6 +37,10 @@ echo "${LOG_PREFIX} TMPDIR: ${TMPDIR}"
 echo "${LOG_PREFIX} CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} ROCR_VISIBLE_DEVICES: ${ROCR_VISIBLE_DEVICES}"
 echo "${LOG_PREFIX} OMP_NUM_THREADS: ${OMP_NUM_THREADS}"
+
+echo "${LOG_PREFIX} HF_HOME: ${HF_HOME}"
+echo "${LOG_PREFIX} HF_HUB_CACHE: ${HF_HUB_CACHE}"
+
 echo "${LOG_PREFIX} ***ENV END***"
 
 echo "Using this Python environment: $(which python3)"
@@ -60,7 +64,7 @@ set +x
 
 # alias torchrun="python -m torch.distributed.run"
 
-ROCR_VISIBLE_DEVICES=0
+export ROCR_VISIBLE_DEVICES=0
 oumi train \
   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
   --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
