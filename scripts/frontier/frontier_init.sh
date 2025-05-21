@@ -92,4 +92,6 @@ source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 echo "Conda path: ${CONDA_PREFIX}"
 set -x
 
+conda env list
+
 echo "frontier_init.sh is done!"
