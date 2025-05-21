@@ -50,6 +50,8 @@ conda env list
 source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 conda env list
 
+pip show oumi
+
 python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
 set +x
