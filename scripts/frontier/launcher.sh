@@ -152,7 +152,7 @@ export FRONTIER_QUEUE=batch
 
   echo
   echo "To view error logs, run (on Frontier):"
-  echo "tail -n200 -f /lustre/orion/lrn081/scratch/jobs/logs/$USER/${JOB_ID}.ER"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/${JOB_ID}.ER"
   echo "To view output logs, run (on Frontier):"
-  echo "tail -n200 -f /lustre/orion/lrn081/scratch/jobs/logs/$USER/${JOB_ID}.OU"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/${JOB_ID}.OU"
 EOF
