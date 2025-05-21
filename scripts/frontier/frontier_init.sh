@@ -60,7 +60,7 @@ export NCCL_DEBUG=WARN # INFO
 # Physical cores: 0..31. Additional "logical" cores: 32..63.
 # https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 NRANKS=1  # Number of MPI ranks to spawn per node (1 worker per node)
-NDEPTH=64 # Number of hardware threads per rank (Frontier has 64 CPU physical cores per node, 128 logical ones)
+NDEPTH=64 # Number of hardware threads per rank (Frontier has 64 CPU physical cores per node, 56 available, 2X logical ones)
 CPU_BIND="depth"
 
 # Setup the environment variables.
@@ -81,17 +81,10 @@ module load miniforge3/23.11.0-0
 module load rocm/6.2.4
 module load craype-accel-amd-gfx90a
 
-echo "Setting up conda..."
 # Activate the Oumi Conda environment.
 set +x
-
-# if [ -z "$CONDA_PREFIX" ]; then
-#   conda activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
-# fi
 source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 echo "Conda path: ${CONDA_PREFIX}"
 set -x
-
-conda env list
 
 echo "frontier_init.sh is done!"
