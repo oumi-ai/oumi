@@ -60,7 +60,7 @@ export NCCL_DEBUG=WARN # INFO
 # Physical cores: 0..31. Additional "logical" cores: 32..63.
 # https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
 NRANKS=1  # Number of MPI ranks to spawn per node (1 worker per node)
-NDEPTH=64 # Number of hardware threads per rank (Frontier has 64 CPU cores per node)
+NDEPTH=64 # Number of hardware threads per rank (Frontier has 64 CPU physical cores per node, 128 logical ones)
 CPU_BIND="depth"
 
 # Setup the environment variables.
