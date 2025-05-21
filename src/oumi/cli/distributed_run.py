@@ -261,6 +261,9 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
         process_run_info = _detect_polaris_process_run_info(env)
 
     if process_run_info is None:
+        process_run_info = _detect_slurm_process_run_info(env)
+
+    if process_run_info is None:
         process_run_info = _detect_local_machine_process_run_info(env)
 
     if process_run_info is None:
@@ -366,24 +369,21 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
 
 
 def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
-    polaris_node_file = env.get("PBS_NODEFILE", None)
-    if polaris_node_file is None:
+    nodes_str = env.get("SLURM_NODELIST", None)
+    if nodes_str is None:
         return None
-
     logger.debug("Running in Slurm environment!")
     for env_var_name in _SLURM_ENV_VARS:
         if env.get(env_var_name, None) is None:
             raise ValueError(
                 f"Slurm environment variable '{env_var_name}' is not defined!"
             )
-    if not polaris_node_file:
-        raise ValueError("Empty value in the 'PBS_NODEFILE' environment variable!")
-    with open(polaris_node_file) as f:
-        nodes_str = f.read()
+    if not nodes_str:
+        raise ValueError("Empty value in the 'SLURM_NODELIST' environment variable!")
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
         raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
-    gpus_per_node = 4  # Per Polaris spec.
+    gpus_per_node = 8  # Per Frontier spec.
     node_rank = _get_optional_int_env_var("PMI_RANK", env)
     if node_rank is None:
         node_rank = 0
