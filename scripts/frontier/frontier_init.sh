@@ -86,8 +86,9 @@ set +x
 conda env list
 
 if [ -z "$CONDA_PREFIX" ]; then
-    conda activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
+    # conda activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 fi
+source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 echo "Conda path: ${CONDA_PREFIX}"
 set -x
 

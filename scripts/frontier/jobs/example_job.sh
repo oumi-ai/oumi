@@ -10,6 +10,10 @@
 
 FRONTIER_NODE_RANK=${PMI_RANK:=0}
 
+# Only necessary if submitting like: sbatch --export=NONE ... (recommended)
+# Do NOT include this line when submitting without --export=NONE
+unset SLURM_EXPORT_ENV
+
 set -e
 
 # Various setup for running on Polaris.
@@ -37,9 +41,9 @@ echo "${LOG_PREFIX} ***ENV END***"
 
 echo "Using this Python environment: $(which python3)"
 
+
 HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/alpaca-cleaned"
-
 
 python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
