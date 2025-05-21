@@ -135,6 +135,8 @@ export FRONTIER_QUEUE=batch
   set -x
   srun -A lrn081 --nodes 1 -t 09:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
   sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
+  sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n8 -c1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
+  sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
 
   # --cpu-bind=threads
   JOB_ID=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n8 -c1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH})
