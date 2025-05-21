@@ -15,6 +15,7 @@
 import copy
 import enum
 import os
+import shutil
 import sys
 import time
 from subprocess import Popen
@@ -170,9 +171,14 @@ def torchrun(
         logger.exception("Failed to detect process run info!")
         raise
 
+    torchrun_available = shutil.which("torchrun") is not None
+
     try:
-        cmds: list[str] = [
-            "torchrun",
+        cmds: list[str] = (
+            ["torchrun"]
+            if torchrun_available
+            else ["python", "-m", "torch.distributed.run"]
+        ) + [
             f"--nnodes={run_info.num_nodes}",
             f"--node-rank={run_info.node_rank}",
             f"--nproc-per-node={run_info.gpus_per_node}",
@@ -183,7 +189,9 @@ def torchrun(
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
-        logger.exception(f"`torchrun` failed (Rank: {run_info.node_rank})!")
+        logger.exception(
+            f"`torchrun` failed (Rank: {run_info.node_rank})!\nCommands: {cmds}"
+        )
         raise
 
 
