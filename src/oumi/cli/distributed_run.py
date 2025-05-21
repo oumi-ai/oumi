@@ -176,7 +176,7 @@ def torchrun(
     try:
         cmds: list[str] = (
             ["torchrun"]
-            if torchrun_available
+            if torchrun_available or True
             else ["python", "-m", "torch.distributed.run"]
         ) + [
             f"--nnodes={run_info.num_nodes}",

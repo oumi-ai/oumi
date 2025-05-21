@@ -46,6 +46,8 @@ python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log
 set +x
 export OMP_NUM_THREADS=${OUMI_FRONTIER_NUM_GPUS_PER_NODE}
 
+alias torchrun="python -m torch.distributed.run"
+
 oumi distributed torchrun \
   -m oumi train \
   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
