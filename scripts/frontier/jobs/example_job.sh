@@ -55,7 +55,8 @@ conda env list
 python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
 set +x
-export OMP_NUM_THREADS=${OUMI_FRONTIER_NUM_GPUS_PER_NODE}
+# export OMP_NUM_THREADS=${OUMI_FRONTIER_NUM_GPUS_PER_NODE}
+export OMP_NUM_THREADS=64
 
 # alias torchrun="python -m torch.distributed.run"
 
@@ -63,4 +64,6 @@ oumi distributed torchrun \
   -m oumi train \
   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
   --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
-  --training.max_steps=5
+  --training.max_steps=5 \
+  --training.dataloader_num_workers=2 \
+  --training.dataloader_prefetch_factor=32
