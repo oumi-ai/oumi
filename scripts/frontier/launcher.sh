@@ -141,15 +141,22 @@ export FRONTIER_QUEUE=batch
   sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
 
   # --cpu-bind=threads
-  JOB_ID=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n8 -c1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH})
+  SBATCH_OUTPUT=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
 
-  if (test "$SBATCH_RESULT" -ne 0) || [ -z "$JOB_ID" ]
+  if (test "$SBATCH_RESULT" -ne 0) || [ -z "$SBATCH_OUTPUT" ]
   then
       echo "Job submission ('sbatch') failed with error code: $SBATCH_RESULT"
       exit 1
   fi
+  JOB_ID=$(echo "${SBATCH_OUTPUT}" | grep -o -E '[0-9]+')
+  if [ -z "$JOB_ID" ]
+  then
+      echo "Failed to extract JOB_ID from: $SBATCH_OUTPUT"
+      exit 1
+  fi
+
   echo "Job id: ${JOB_ID}"
 
   echo
@@ -158,7 +165,7 @@ export FRONTIER_QUEUE=batch
 
   echo
   echo "To view error logs, run (on Frontier):"
-  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/${JOB_ID}.ER"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/job-${JOB_ID}.ER"
   echo "To view output logs, run (on Frontier):"
-  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/${JOB_ID}.OU"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/job-${JOB_ID}.OU"
 EOF

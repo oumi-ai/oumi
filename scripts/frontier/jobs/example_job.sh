@@ -42,18 +42,14 @@ echo "${LOG_PREFIX} HF_HUB_CACHE: ${HF_HUB_CACHE}"
 echo "${LOG_PREFIX} HF_ASSETS_CACHE: ${HF_ASSETS_CACHE}"
 echo "${LOG_PREFIX} ***ENV END***"
 
-echo "Using this Python environment: $(which python3)"
-
-
-HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/alpaca-cleaned"
 
 echo "Checking conda envs..."
-conda env list
 source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 conda env list
 
-# pip show oumi
+echo "Using this Python environment: $(which python3)"
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/alpaca-cleaned"
 
 python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
