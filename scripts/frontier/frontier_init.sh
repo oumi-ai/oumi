@@ -69,7 +69,7 @@ export ftp_proxy=ftp://proxy.ccs.ornl.gov:3128/
 export http_proxy=http://proxy.ccs.ornl.gov:3128/
 export https_proxy=http://proxy.ccs.ornl.gov:3128/
 export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
-export HF_HOME="/lustre/orion/lrn081/scratch/$USER/.cache/huggingface"
+export HF_HOME="/lustre/orion/lrn081/scratch/$USER/.cache/huggingface/slurm_job_${SLURM_JOBID}"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_ASSETS_CACHE="$HF_HOME/assets"
 
