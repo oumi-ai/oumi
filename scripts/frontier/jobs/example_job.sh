@@ -41,10 +41,9 @@ HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Di
 HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/alpaca-cleaned"
 
 
-python -c "import torch; oumit.utils.torch_utils.log_devices_info()"
-python -c "import torch; oumit.utils.torch_utils.log_versioning_info()"
+python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
-
+set +x
 export OMP_NUM_THREADS=${OUMI_FRONTIER_NUM_GPUS_PER_NODE}
 
 oumi distributed torchrun \
