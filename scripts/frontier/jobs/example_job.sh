@@ -56,7 +56,7 @@ python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log
 
 set +x
 # export OMP_NUM_THREADS=${OUMI_FRONTIER_NUM_GPUS_PER_NODE}
-export OMP_NUM_THREADS=64
+# export OMP_NUM_THREADS=56 # 64
 
 # alias torchrun="python -m torch.distributed.run"
 
