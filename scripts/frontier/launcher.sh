@@ -114,7 +114,8 @@ export FRONTIER_QUEUE=batch
     # De-activate previous environment (stacked envs can cause `pip install` problems).
     conda deactivate
   fi
-  conda activate --no-stack /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+  # conda activate --no-stack /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
+  source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
 
   if ! command -v uv >/dev/null 2>&1; then
       pip install -U uv
