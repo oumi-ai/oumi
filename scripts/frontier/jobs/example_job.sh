@@ -71,7 +71,7 @@ oumi distributed torchrun \
   -m oumi train \
   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
   --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
-  --training.max_steps=5 \
+  --training.max_steps=50 \
   --training.dataloader_num_workers=2 \
   --training.dataloader_prefetch_factor=32 \
   --training.enable_wandb=false
