@@ -96,7 +96,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   fi
   echo "Installing packages... -----------------------------------------"
   if [ ! -z "$CONDA_DEFAULT_ENV" ]; then
-    # De-activate previous environment (stacked envs can cause `pip install` problems).
+    # Deactivate the previous environment (stacked env-s cause `pip install` problems).
     conda deactivate
   fi
   source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
@@ -109,7 +109,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
   pip uninstall nvidia-smi
 
-  # python -c "import torch; print(torch.cuda.get_device_name(0))"
+  python -c "import torch; print('GPU count: ', torch.cuda.device_count()); print(torch.cuda.get_device_name(0))"
 
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.
