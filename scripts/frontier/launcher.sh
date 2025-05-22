@@ -1,10 +1,10 @@
 #!/bin/bash
 
-ALLOWED_FRONTIER_QUEUES=("batch" "extended" "debug")
+ALLOWED_FRONTIER_QUEUES=("batch" "extended")
 
 helpFunction() {
     echo ""
-    echo "Usage: $0 -u username -q debug -n 1 -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
+    echo "Usage: $0 -u username -q batch -n 1 -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
     echo -e "\t-u The username on OLCF Frontier cluster."
     echo -e "\t-q The Frontier partition (queue) to use (${ALLOWED_FRONTIER_QUEUES[@]})."
     echo -e "\t-n The number of Frontier nodes to use."

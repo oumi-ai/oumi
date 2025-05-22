@@ -7,6 +7,7 @@
 #SBATCH -e /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER
 #SBATCH -t 01:00:00
 #SBATCH -p batch
+#SBATCH -q debug
 
 FRONTIER_NODE_RANK=${PMI_RANK:=0}
 
