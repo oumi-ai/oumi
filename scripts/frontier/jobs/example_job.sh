@@ -19,6 +19,9 @@ set -e
 # Various setup for running on OLCF Frontier.
 source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
+# TODO: Populate this variable:
+# export OMP_NUM_THREADS=56 # 64
+
 LOG_PREFIX="Node: ${FRONTIER_NODE_RANK}:"
 echo "${LOG_PREFIX} ***ENV BEGIN***"
 echo "${LOG_PREFIX} SLURM_JOBID: $SLURM_JOBID"
@@ -49,9 +52,6 @@ HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Di
 python -c "from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
 set +x
-
-# TODO: Populate this variable:
-# export OMP_NUM_THREADS=56 # 64
 
 oumi distributed torchrun \
   -m oumi train \
