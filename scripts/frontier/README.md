@@ -1,8 +1,12 @@
-# Polaris Scripts
+# Frontier Scripts
 
 This directory contains scripts for running jobs on the Frontier supercomputer at the Oak Ridge Leadership Computing Facility.
 
 https://docs.olcf.ornl.gov/systems/frontier_user_guide.html
+
+## Frontier Compute Nodes
+
+Each Frontier compute node consists of [1x] 64-core AMD “Optimized 3rd Gen EPYC” CPU (with 2 hardware threads per physical core) with access to 512 GB of DDR4 memory. Each node also contains [4x] AMD MI250X, each with 2 Graphics Compute Dies (GCDs) for a total of 8 GCDs per node. The programmer can think of the 8 GCDs as 8 separate GPUs, each having 64 GB of high-bandwidth memory (HBM2E). The CPU is connected to each GCD via Infinity Fabric CPU-GPU, allowing a peak host-to-device (H2D) and device-to-host (D2H) bandwidth of 36+36 GB/s. The 2 GCDs on the same MI250X are connected with Infinity Fabric GPU-GPU with a peak bandwidth of 200 GB/s.
 
 ## Overview
 
@@ -34,10 +38,10 @@ Arguments:
 - `-j`: Path to your job script
 
 
-### Available Queues
+### Available Partitions (Queues)
 
-- `batch`: For quick testing (max 1 node, limited time)
-- `extended`: For testing multi-node jobs (max 10 nodes)
+- `batch`: The default partition for production work.
+- `extended`: For testing smaller long-running job (max 64 nodes, limted time (24h))
 
 ## Example
 
@@ -54,6 +58,6 @@ Arguments:
 ## Monitoring Jobs
 
 After submission, you can monitor your jobs:
-- View job status: `qstat -u username`
+- View job status: `squeue -l -u username`
 - Check error logs: `tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/jobid.ER`
 - Check output logs: `tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/jobid.OU`
