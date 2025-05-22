@@ -109,6 +109,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
   pip uninstall nvidia-smi
 
+  # Optional: print GPU count and GPU name.
   python -c "import torch; print('GPU count: ', torch.cuda.device_count()); print(torch.cuda.get_device_name(0))"
 
   echo "Submitting job... -----------------------------------------"
