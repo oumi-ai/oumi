@@ -1,6 +1,8 @@
 # Polaris Scripts
 
-This directory contains scripts for running jobs on the Frontier supercomputer at Argonne National Laboratory.
+This directory contains scripts for running jobs on the Frontier supercomputer at the Oak Ridge Leadership Computing Facility.
+
+https://docs.olcf.ornl.gov/systems/frontier_user_guide.html
 
 ## Overview
 
@@ -12,9 +14,9 @@ This directory contains scripts for running jobs on the Frontier supercomputer a
 
 ### Launching a Job
 
-Use the `launcher.sh` script to submit jobs to Polaris. The script handles:
+Use the `launcher.sh` script to submit jobs to Frontier. The script handles:
 - Setting up an SSH tunnel
-- Copying your local files to Polaris
+- Copying your local files to Frontier
 - Creating and activating the Conda environment
 - Submitting your job
 
@@ -25,10 +27,10 @@ Basic usage:
 
 Arguments:
 - `-u`: Your Frontier username
-- `-q`: Queue to use (options: batch, extended)
+- `-q`: Queue/partition to use (options: batch, extended)
 - `-n`: Number of nodes to request
 - `-s`: Source directory to copy (defaults to current directory)
-- `-d`: Destination directory on Polaris
+- `-d`: Destination directory on Frontier
 - `-j`: Path to your job script
 
 
@@ -40,12 +42,12 @@ Arguments:
 ## Example
 
 ```bash
-./launcher.sh \
+./scripts/frontier/launcher.sh \
     -u jdoe \
     -q batch \
     -n 4 \
     -s . \
-    -d /home/jdoe/projects/oumi \
+    -d  /lustre/orion/lrn081/scratch/jdoe/oumi/ \
     -j ./scripts/frontier/jobs/my_training_job.sh
 ```
 
