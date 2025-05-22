@@ -125,6 +125,7 @@ export FRONTIER_QUEUE=batch
 
   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2
   pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
+  pip uninstall nvidia-smi
 
   python -c "import torch; print(torch.cuda.device_count())"
   python -c "import torch; print(torch.cuda.get_device_name(0))"
