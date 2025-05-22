@@ -16,12 +16,12 @@ unset SLURM_EXPORT_ENV
 
 set -e
 
-# Various setup for running on Polaris.
+# Various setup for running on OLCF Frontier.
 source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
 LOG_PREFIX="Node: ${FRONTIER_NODE_RANK}:"
 echo "${LOG_PREFIX} ***ENV BEGIN***"
-echo "${LOG_PREFIX} PBS_JOBID: $PBS_JOBID"
+echo "${LOG_PREFIX} SLURM_JOBID: $SLURM_JOBID"
 echo "${LOG_PREFIX} OUMI_JOBNUM: $OUMI_JOBNUM"
 echo "${LOG_PREFIX} USER: ${USER}"
 echo "${LOG_PREFIX} OUMI_MASTER_ADDR: $OUMI_MASTER_ADDR"
@@ -45,7 +45,8 @@ echo "${LOG_PREFIX} ***ENV END***"
 echo "Using this Python environment: $(which python3)"
 HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 
-# python -c "from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
+# Log some context info and  verify that Oumi is usable in this environment:
+python -c "from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
 set +x
 

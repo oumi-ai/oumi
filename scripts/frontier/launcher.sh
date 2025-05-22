@@ -92,7 +92,6 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
 
   if [ ! -d /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi ]; then
       echo "Creating Oumi Conda environment... -----------------------------------------"
-      # conda create -y python=3.11 --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
       conda create -y python=3.10 -c conda-forge --prefix /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi
   fi
   echo "Installing packages... -----------------------------------------"
