@@ -42,7 +42,7 @@ Arguments:
 ## Example
 
 ```bash
-./launcher.sh \
+./scripts/polaris/launcher.sh \
     -u jdoe \
     -q preemptable \
     -n 4 \
