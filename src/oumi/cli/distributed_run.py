@@ -171,6 +171,10 @@ def torchrun(
         logger.exception("Failed to detect process run info!")
         raise
 
+    # In some environments (e.g., OLCF Frontier) the "torchrun" command isn't available.
+    # In that case, use "python -m torch.distributed.run" instead,
+    # which should be equivalent:
+    # https://docs.pytorch.org/docs/stable/elastic/run.html#module-torch.distributed.run
     torchrun_available = shutil.which("torchrun") is not None
 
     try:
