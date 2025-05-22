@@ -74,7 +74,6 @@ rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
     --exclude tests \
     "${SOURCE_DIRECTORY}" "${FRONTIER_USER}@frontier.olcf.ornl.gov:${COPY_DIRECTORY}"
 
-# exit 0
 
 # Submit a job on Frontier over the same SSH tunnel.
 echo "Setting up environment and submitting job on Frontier..."
@@ -82,23 +81,8 @@ echo "Setting up environment and submitting job on Frontier..."
 printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$FRONTIER_NODES" "$FRONTIER_QUEUE"
 # We need to properly escape the remote script due to the qsub command substitution.
 ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -s $varsStr" <<'EOF'
-# export COPY_DIRECTORY="/lustre/orion/lrn081/scratch/nikg/lema01/"
-# export JOB_PATH="./scripts/frontier/jobs/example_job.sh"
-# export FRONTIER_NODES=1
-# export FRONTIER_QUEUE=batch
-
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
   cd "${COPY_DIRECTORY}"
-
-  # Setup the environment variables.
-  # export all_proxy=socks://proxy.ccs.ornl.gov:3128/
-  # export ftp_proxy=ftp://proxy.ccs.ornl.gov:3128/
-  # export http_proxy=http://proxy.ccs.ornl.gov:3128/
-  # export https_proxy=http://proxy.ccs.ornl.gov:3128/
-  # export no_proxy='localhost,127.0.0.0/8,*.ccs.ornl.gov'
-  # export HF_HOME="/lustre/orion/lrn081/scratch/$USER/.cache/huggingface"
-  # export HF_HUB_CACHE="$HF_HOME/hub"
-  # export HF_ASSETS_CACHE="$HF_HOME/assets"
 
   # Set up Conda env if it doesn't exist and activate it.
   module load PrgEnv-gnu/8.6.0
@@ -126,7 +110,6 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
   pip uninstall nvidia-smi
 
-  # python -c "import torch; print(torch.cuda.device_count())"
   # python -c "import torch; print(torch.cuda.get_device_name(0))"
 
   echo "Submitting job... -----------------------------------------"
@@ -135,12 +118,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
   mkdir -p /lustre/orion/lrn081/scratch/$USER/jobs/logs/
 
   set -x
-  # srun -A lrn081 --nodes 1 -t 09:00 -p "${FRONTIER_QUEUE}" "${JOB_PATH}"
-  # sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
-  # sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n8 -c1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
-  # sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH}
 
-  # --cpu-bind=threads
   SBATCH_OUTPUT=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing

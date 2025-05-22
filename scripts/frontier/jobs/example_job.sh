@@ -42,30 +42,15 @@ echo "${LOG_PREFIX} HF_HUB_CACHE: ${HF_HUB_CACHE}"
 echo "${LOG_PREFIX} HF_ASSETS_CACHE: ${HF_ASSETS_CACHE}"
 echo "${LOG_PREFIX} ***ENV END***"
 
-
-# echo "Checking conda envs..."
-# source activate "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
-# conda env list
-
 echo "Using this Python environment: $(which python3)"
 HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-# HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download --repo-type=dataset "yahma/alpaca-cleaned"
 
 # python -c "import oumi; from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
 
 set +x
-# export OMP_NUM_THREADS=${OUMI_FRONTIER_NUM_GPUS_PER_NODE}
+
+# TODO: Populate this variable:
 # export OMP_NUM_THREADS=56 # 64
-
-# alias torchrun="python -m torch.distributed.run"
-
-# export ROCR_VISIBLE_DEVICES=0
-# oumi train \
-#  -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
-#  --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
-#  --training.max_steps=5 \
-#  --training.dataloader_num_workers=2 \
-#  --training.dataloader_prefetch_factor=32
 
 oumi distributed torchrun \
   -m oumi train \
