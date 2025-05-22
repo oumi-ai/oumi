@@ -65,7 +65,7 @@ fi
 
 # Start an SSH tunnel in the background so we only have to auth once.
 # This tunnel will close automatically after 5 minutes of inactivity.
-ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 5m" ${FRONTIER_USER}@frontier.olcf.ornl.gov
+ssh -f -N -M -S ~/.ssh/control-%h-%p-%r -o "ControlPersist 15m" ${FRONTIER_USER}@frontier.olcf.ornl.gov
 
 # Copy files to Frontier over the same SSH tunnel, excluding unnecessary ones.
 echo "Copying files to Frontier... -----------------------------------------"
