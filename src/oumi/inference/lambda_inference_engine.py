@@ -18,6 +18,7 @@ from typing import Optional
 
 from typing_extensions import override
 
+from oumi.core.configs import RemoteParams
 from oumi.inference.remote_inference_engine import RemoteInferenceEngine
 
 
@@ -41,3 +42,8 @@ class LambdaInferenceEngine(RemoteInferenceEngine):
     def api_key_env_varname(self) -> Optional[str]:
         """Return the default environment variable name for the Lambda AI API key."""
         return "LAMBDA_API_KEY"
+
+    @override
+    def _default_remote_params(self) -> RemoteParams:
+        """Returns the default remote parameters."""
+        return RemoteParams(num_workers=20, politeness_policy=60.0)
