@@ -119,7 +119,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
 
   set -x
 
-  SBATCH_OUTPUT=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER" ${JOB_PATH})
+  SBATCH_OUTPUT=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n1 --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER" ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
 
@@ -143,7 +143,7 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
 
   echo
   echo "To view error logs, run (on Frontier):"
-  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/job-${JOB_ID}.ER"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/${JOB_ID}.ER"
   echo "To view output logs, run (on Frontier):"
-  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/job-${JOB_ID}.OU"
+  echo "tail -n200 -f /lustre/orion/lrn081/scratch/$USER/jobs/logs/${JOB_ID}.OU"
 EOF

@@ -3,8 +3,8 @@
 #SBATCH -N 1
 #SBATCH -A lrn081
 #SBATCH -J example_job
-#SBATCH -o /lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.OU
-#SBATCH -e /lustre/orion/lrn081/scratch/$USER/jobs/logs/job-%j.ER
+#SBATCH -o /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU
+#SBATCH -e /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER
 #SBATCH -t 01:00:00
 #SBATCH -p batch
 
