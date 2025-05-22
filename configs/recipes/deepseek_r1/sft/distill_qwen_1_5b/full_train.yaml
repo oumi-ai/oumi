@@ -23,7 +23,6 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
-        split: "train[0:100]"
     target_col: "prompt"
     use_async_dataset: True
 
