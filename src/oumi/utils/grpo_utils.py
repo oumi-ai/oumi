@@ -58,7 +58,7 @@ def extract_question_images_answer_from_single_turn_conversation(
     return (prompt, images, answer)
 
 
-def try_prepare_grpo_example(
+def try_prepare_trl_grpo_example(
     example: dict,
 ) -> dict:
     """Prepares an example for GRPO_TRL processing.
@@ -93,18 +93,18 @@ def try_prepare_grpo_example(
     return example
 
 
-def try_prepare_grpo_dataset(
+def try_prepare_trl_grpo_dataset(
     dataset: Union[hf_datasets.Dataset, hf_datasets.IterableDataset],
 ) -> Union[hf_datasets.Dataset, hf_datasets.IterableDataset]:
     """Prepares a dataset for GRPO_TRL processing."""
     if isinstance(dataset, hf_datasets.Dataset):
         num_proc = 8
         return dataset.map(
-            function=try_prepare_grpo_example,
+            function=try_prepare_trl_grpo_example,
             with_indices=False,
             num_proc=num_proc,
         )
     return dataset.map(
-        function=try_prepare_grpo_example,
+        function=try_prepare_trl_grpo_example,
         with_indices=False,
     )
