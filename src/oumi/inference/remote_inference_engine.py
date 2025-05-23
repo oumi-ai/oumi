@@ -349,7 +349,13 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
-        message = response["choices"][0]["message"]
+        if "error" in response:
+            raise RuntimeError(f"API error: {response['error'].get('message', response['error'])}")
+        if "choices" not in response or not response["choices"]:
+            raise RuntimeError(f"No choices found in API response: {response}")
+        message = response["choices"][0].get("message")
+        if not message:
+            raise RuntimeError(f"No message found in API response: {response}")
         return Conversation(
             messages=[
                 *original_conversation.messages,
@@ -489,7 +495,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     result,
                                     self._get_scratch_filepath(output_path),
                                 )
-                            await asyncio.sleep(remote_params.politeness_policy)
                             return result
                         else:
                             if isinstance(response_json, list):
@@ -506,7 +511,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     if attempt == remote_params.max_retries:
                         raise RuntimeError(
-                            f"Failed to query API after {attempt + 1} attempts due to connection error: {str(e)}"
+                            f"Failed to query API after {attempt} retries due to connection error: {str(e)}"
                         ) from e
                     continue
 
@@ -514,7 +519,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     await asyncio.sleep(remote_params.politeness_policy)
 
             raise RuntimeError(
-                f"Failed to query API after {remote_params.max_retries + 1} attempts. "
+                f"Failed to query API after {remote_params.max_retries} retries. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 

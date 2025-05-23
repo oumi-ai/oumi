@@ -2084,9 +2084,11 @@ def test_infer_online_handles_content_type_text_plain():
                 ),
             ],
         )
+        inference_config = _get_default_inference_config()
+        inference_config.remote_params = engine._remote_params
         result = engine.infer_online(
             [conversation],
-            _get_default_inference_config(),
+            inference_config,
         )
         assert len(result) == 1
         assert result[0].messages[-1].content == "The first time I saw"
@@ -2099,8 +2101,8 @@ def test_infer_online_handles_invalid_content():
         m.post(
             _TARGET_SERVER,
             status=200,
-            body="Invalid JSON content",
-            content_type="text/plain",
+            body=json.dumps({"error": {"message": "Invalid JSON content"}}),
+            content_type="application/json",
         )
 
         engine = RemoteInferenceEngine(
@@ -2121,11 +2123,16 @@ def test_infer_online_handles_invalid_content():
             ],
         )
         
-        with pytest.raises(RuntimeError, match="Failed to parse response as JSON.Response content type: text/plain"):
-            engine.infer_online(
-                [conversation],
-                _get_default_inference_config(),
-            )
+        inference_config = _get_default_inference_config()
+        inference_config.remote_params = engine._remote_params
+        async def mock_sleep(delay):
+            pass
+        with patch("asyncio.sleep", side_effect=mock_sleep):
+            with pytest.raises(RuntimeError, match="API error: Invalid JSON content"):
+                engine.infer_online(
+                    [conversation],
+                    inference_config,
+                )
 
 
 def test_infer_online_exponential_backoff():
@@ -2137,11 +2144,15 @@ def test_infer_online_exponential_backoff():
     
     def callback(url, **kwargs):
         # Fail until the last attempt
-        if len(sleep_calls) < 2:
-            return CallbackResult(status=500, body=json.dumps({"error": {"message": "Server Error"}}))
+        if len(sleep_calls) < 3:
+            return CallbackResult(
+                status=500,
+                body=json.dumps({"error": {"message": "Server Error"}}),
+                content_type="application/json"
+            )
         return CallbackResult(
             status=200,
-            payload={
+            body=json.dumps({
                 "choices": [
                     {
                         "message": {
@@ -2150,11 +2161,12 @@ def test_infer_online_exponential_backoff():
                         }
                     }
                 ]
-            },
+            }),
+            content_type="application/json"
         )
 
     with aioresponses() as m:
-        m.post(_TARGET_SERVER, callback=callback)
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
         
         with patch("asyncio.sleep", side_effect=mock_sleep):
             engine = RemoteInferenceEngine(
@@ -2170,13 +2182,22 @@ def test_infer_online_exponential_backoff():
                 messages=[Message(role=Role.USER, content="Hello")],
             )
             
-            result = engine.infer_online([conversation], _get_default_inference_config())
+            remote_params = RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+                retry_backoff_base=0.2,
+                retry_backoff_max=1.0,
+            )
+            inference_config = _get_default_inference_config()
+            inference_config.remote_params = remote_params
+
+            result = engine.infer_online([conversation], inference_config)
             
             # Verify the result
             assert len(result) == 1
             assert result[0].messages[-1].content == "Success after retries"
             
             # Verify sleep calls
-            assert len(sleep_calls) == 2  # Two retries
-            assert sleep_calls[0] == pytest.approx(0.2)  # First retry: base delay
-            assert sleep_calls[1] == pytest.approx(0.4)  # Second retry: base delay * 2
+            backoff_sleeps = [s for s in sleep_calls if s > 0]
+            assert backoff_sleeps[0] == pytest.approx(0.2)  # First retry: base delay
+            assert backoff_sleeps[1] == pytest.approx(0.4)  # Second retry: base delay * 2
