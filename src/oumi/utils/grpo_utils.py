@@ -51,11 +51,6 @@ def extract_question_images_answer_from_single_turn_conversation(
     images = [{"bytes": item.binary} for item in user_message.image_content_items]
     answer: str = assistant_message.text_content_items[-1].content or ""
 
-    if len(images) > 0:
-        # TODO: Generalize. This only works for QwenVL 2.5, which is the only
-        # VLM supported by verl as of 2025-05-15.
-        if not prompt.startswith("<image>"):
-            prompt = "<image>" + prompt
     return (prompt, images, answer)
 
 
