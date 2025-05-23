@@ -329,7 +329,7 @@ def train(
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
-        if not isinstance(train_dataset, BaseExperimentalGrpoDataset):
+        if True or not isinstance(train_dataset, BaseExperimentalGrpoDataset):
             if isinstance(
                 train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
             ):
