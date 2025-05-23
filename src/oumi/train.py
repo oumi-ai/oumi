@@ -19,6 +19,7 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
+import datasets as hf_datasets
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
@@ -44,6 +45,7 @@ from oumi.core.configs import (
 from oumi.core.configs.internal.supported_models import (
     is_custom_model,
 )
+from oumi.core.datasets import BaseExperimentalGrpoDataset
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -327,6 +329,19 @@ def train(
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
+        if not isinstance(train_dataset, BaseExperimentalGrpoDataset):
+            if isinstance(
+                train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+            ):
+                train_dataset = train_dataset.map(
+                    lambda x: x, remove_columns=train_dataset.column_names
+                )
+            if eval_dataset is not None and isinstance(
+                eval_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+            ):
+                eval_dataset = eval_dataset.map(
+                    lambda x: x, remove_columns=eval_dataset.column_names
+                )
 
     collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
 
