@@ -1,11 +1,11 @@
-# Job config to GRPO tune "Qwen2-0.5B-Instruct" with DDP on GCP.
+# Job config to GRPO tune "Qwen/Qwen2-VL-2B-Instruct" with DDP on GCP.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/examples/grpo_tldr/gcp_job.yaml --cluster tiny-qwen-grpo
+#   oumi launch up -c configs/examples/grpo_trl_vlm/gcp_job.yaml --cluster tiny-qwen-grpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -13,7 +13,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: tiny-qwen-grpo
+name: grpo-trl-vlm-geom3k
 
 resources:
   cloud: gcp
@@ -27,7 +27,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: tiny-qwen.grpo
+  OUMI_RUN_NAME: trl-vlm.grpo
 
 setup: |
   set -e
@@ -49,7 +49,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c configs/examples/grpo_tldr/train.yaml \
+      -c configs/examples/grpo_trl_vlm/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.per_device_train_batch_size ${PER_DEVICE_BATCH_SIZE} \
       --training.grpo.num_generations ${GRPO_NUM_GENERATIONS} \
