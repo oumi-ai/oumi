@@ -67,6 +67,7 @@ from oumi.utils.device_utils import (
 )
 from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
 from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
+from oumi.utils.grpo_utils import try_prepare_trl_grpo_dataset
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
@@ -334,16 +335,12 @@ def train(
                 train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
             ):
                 logger.warning("Remapping train GRPO dataset...")
-                train_dataset = train_dataset.map(
-                    lambda x: x, remove_columns=train_dataset.column_names
-                )
+                train_dataset = try_prepare_trl_grpo_dataset(train_dataset)
             if eval_dataset is not None and isinstance(
                 eval_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
             ):
                 logger.warning("Remapping eval GRPO dataset...")
-                eval_dataset = eval_dataset.map(
-                    lambda x: x, remove_columns=eval_dataset.column_names
-                )
+                eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
     collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
 
