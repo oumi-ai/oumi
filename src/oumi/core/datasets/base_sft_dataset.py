@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 from typing import Literal, Optional, Union, cast
 
 import pandas as pd
+from typing_extensions import override
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers import BaseTokenizer
@@ -145,6 +146,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
     #
     # Pre-processing
     #
+    @override
     def transform(self, sample: pd.Series) -> dict:
         """Preprocesses the inputs in the given sample."""
         return self.tokenize(self.transform_conversation(sample))
