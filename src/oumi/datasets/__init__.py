@@ -108,6 +108,7 @@ __all__ = [
     "Flickr30kDataset",
     "HuggingFaceDataset",
     "LetterCountGrpoDataset",
+    "LetterCountCleanGrpoDataset",
     "LlavaInstructMixVsftDataset",
     "MagpieProDataset",
     "OpenO1SFTDataset",
