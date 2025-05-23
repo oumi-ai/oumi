@@ -333,12 +333,14 @@ def train(
             if isinstance(
                 train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
             ):
+                logger.warning("Remapping train GRPO dataset...")
                 train_dataset = train_dataset.map(
                     lambda x: x, remove_columns=train_dataset.column_names
                 )
             if eval_dataset is not None and isinstance(
                 eval_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
             ):
+                logger.warning("Remapping eval GRPO dataset...")
                 eval_dataset = eval_dataset.map(
                     lambda x: x, remove_columns=eval_dataset.column_names
                 )
