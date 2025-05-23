@@ -350,7 +350,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             Conversation: The conversation including the generated response.
         """
         if "error" in response:
-            raise RuntimeError(f"API error: {response['error'].get('message', response['error'])}")
+            raise RuntimeError(
+                f"API error: {response['error'].get('message', response['error'])}"
+            )
         if "choices" not in response or not response["choices"]:
             raise RuntimeError(f"No choices found in API response: {response}")
         message = response["choices"][0].get("message")
@@ -450,7 +452,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 conversation, generation_params, model_params
             )
             headers = self._get_request_headers(remote_params)
-            retries = 0
             failure_reason = None
 
             # Retry the request if it fails
@@ -460,7 +461,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     if attempt > 0:
                         delay = min(
                             remote_params.retry_backoff_base * (2 ** (attempt - 1)),
-                            remote_params.retry_backoff_max
+                            remote_params.retry_backoff_max,
                         )
                         await asyncio.sleep(delay)
 
@@ -479,8 +480,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             except (json.JSONDecodeError, ValueError) as e:
                                 if attempt == remote_params.max_retries:
                                     raise RuntimeError(
-                                        f"Failed to parse response as JSON after {attempt + 1} attempts. "
-                                        f"Response content type: {response.content_type}. "
+                                        "Failed to parse response as JSON after "
+                                        f"{attempt + 1} attempts. "
+                                        "Response content type:"
+                                        f"{response.content_type}. "
                                         f"Error: {str(e)}"
                                     ) from e
                                 continue
@@ -498,7 +501,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             return result
                         else:
                             if isinstance(response_json, list):
-                                # If the response is a list, it is likely an error message
+                                # If the response is a list, it is likely an error
+                                # message
                                 response_json = response_json[0]
                             failure_reason = (
                                 response_json.get("error", {}).get("message")
@@ -507,11 +511,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             )
                             if attempt < remote_params.max_retries:
                                 continue
-                            
+
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     if attempt == remote_params.max_retries:
                         raise RuntimeError(
-                            f"Failed to query API after {attempt} retries due to connection error: {str(e)}"
+                            f"Failed to query API after {attempt} retries due to "
+                            f"connection error: {str(e)}"
                         ) from e
                     continue
 

@@ -1,5 +1,6 @@
-from oumi.core.configs.params.remote_params import RemoteParams
 import pytest
+
+from oumi.core.configs.params.remote_params import RemoteParams
 
 
 def test_remote_params_allows_empty():
@@ -20,8 +21,11 @@ def test_remote_params_validates_backoff_base():
 
 
 def test_remote_params_validates_backoff_max():
-    """Test that retry_backoff_max must be greater than or equal to retry_backoff_base."""
-    with pytest.raises(ValueError, match="Retry backoff max must be greater than or equal to retry backoff base"):
+    """Test that retry_backoff_max is be greater than or equal to retry_backoff_base."""
+    with pytest.raises(
+        ValueError,
+        match="Retry backoff max must be greater than or equal to retry backoff base",
+    ):
         params = RemoteParams(retry_backoff_base=2, retry_backoff_max=1)
         params.finalize_and_validate()
 

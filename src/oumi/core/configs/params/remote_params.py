@@ -78,4 +78,6 @@ class RemoteParams(BaseParams):
         if self.retry_backoff_base <= 0:
             raise ValueError("Retry backoff base must be greater than 0.")
         if self.retry_backoff_max < self.retry_backoff_base:
-            raise ValueError("Retry backoff max must be greater than or equal to retry backoff base.")
+            raise ValueError(
+                "Retry backoff max must be greater than or equal to retry backoff base."
+            )
