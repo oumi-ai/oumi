@@ -11,6 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Union
+
+import datasets as hf_datasets
+
 from oumi.core.types.conversation import Conversation, Role
 
 
@@ -87,3 +91,20 @@ def try_prepare_grpo_example(
         }
 
     return example
+
+
+def try_prepare_grpo_dataset(
+    dataset: Union[hf_datasets.Dataset, hf_datasets.IterableDataset],
+) -> Union[hf_datasets.Dataset, hf_datasets.IterableDataset]:
+    """Prepares a dataset for GRPO_TRL processing."""
+    if isinstance(dataset, hf_datasets.Dataset):
+        num_proc = 8
+        return dataset.map(
+            function=try_prepare_grpo_example,
+            with_indices=False,
+            num_proc=num_proc,
+        )
+    return dataset.map(
+        function=try_prepare_grpo_example,
+        with_indices=False,
+    )
