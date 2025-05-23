@@ -5,7 +5,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/examples/grpo_trl_vlm/gcp_job.yaml --cluster tiny-qwen-grpo
+#   oumi launch up -c configs/examples/grpo_trl_vlm/gcp_job.yaml --cluster grpo-trl-vlm
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -13,7 +13,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: grpo-trl-vlm-geom3k
+name: grpo-trl-vlm
 
 resources:
   cloud: gcp
@@ -28,10 +28,15 @@ file_mounts:
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: trl-vlm.grpo
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu]
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
