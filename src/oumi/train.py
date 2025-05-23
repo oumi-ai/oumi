@@ -305,7 +305,7 @@ def train(
         )
 
     # Load datasets.
-    dataset = build_dataset_mixture(
+    train_dataset = build_dataset_mixture(
         config.data,
         tokenizer,
         DatasetSplit.TRAIN,
@@ -324,8 +324,9 @@ def train(
     trainer_type: Final[TrainerType] = config.training.trainer_type
     metrics_function: Optional[Callable] = build_metrics_function(config.training)
     reward_functions: list[Callable] = build_reward_functions(config.training)
-    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
-        logger.warning(f"No reward_function specified for {trainer_type}!")
+    if trainer_type == TrainerType.TRL_GRPO:
+        if len(reward_functions) == 0:
+            logger.warning(f"No reward_function specified for {trainer_type}!")
 
     collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
 
@@ -356,7 +357,7 @@ def train(
             create_trainer_fn,
             processing_class=tokenizer,
             config=config,
-            train_dataset=dataset,
+            train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             processor=processor,
             **training_kwargs,
@@ -416,7 +417,7 @@ def train(
     # `PretrainingAsyncTextDataset` class
     # See OPE-1108 for more details.
     if config.training.trainer_type == TrainerType.TRL_SFT:
-        example = next(iter(dataset))
+        example = next(iter(train_dataset))
         if "input_ids" in example:
             logger.info(
                 "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
@@ -453,7 +454,7 @@ def train(
                 model=model,
                 processing_class=tokenizer,
                 args=config.training,
-                train_dataset=dataset,
+                train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 callbacks=callbacks,
                 **training_kwargs,
