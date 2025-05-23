@@ -349,7 +349,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
-        message = response["choices"][0]["message"]
+        if "error" in response:
+            raise RuntimeError(
+                f"API error: {response['error'].get('message', response['error'])}"
+            )
+        if "choices" not in response or not response["choices"]:
+            raise RuntimeError(f"No choices found in API response: {response}")
+        message = response["choices"][0].get("message")
+        if not message:
+            raise RuntimeError(f"No message found in API response: {response}")
         return Conversation(
             messages=[
                 *original_conversation.messages,
@@ -444,40 +452,77 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 conversation, generation_params, model_params
             )
             headers = self._get_request_headers(remote_params)
-            retries = 0
             failure_reason = None
-            # Retry the request if it fails.
-            for _ in range(remote_params.max_retries + 1):
-                async with session.post(
-                    remote_params.api_url,
-                    json=api_input,
-                    headers=headers,
-                    timeout=remote_params.connection_timeout,
-                ) as response:
-                    response_json = await response.json()
-                    if response.status == 200:
-                        result = self._convert_api_output_to_conversation(
-                            response_json, conversation
+
+            # Retry the request if it fails
+            for attempt in range(remote_params.max_retries + 1):
+                try:
+                    # Calculate exponential backoff delay
+                    if attempt > 0:
+                        delay = min(
+                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                            remote_params.retry_backoff_max,
                         )
-                        if output_path:
-                            # Write what we have so far to our scratch directory.
-                            self._save_conversation(
-                                result,
-                                self._get_scratch_filepath(output_path),
+                        await asyncio.sleep(delay)
+
+                    async with session.post(
+                        remote_params.api_url,
+                        json=api_input,
+                        headers=headers,
+                        timeout=remote_params.connection_timeout,
+                    ) as response:
+                        try:
+                            response_json = await response.json()
+                        except aiohttp.ContentTypeError:
+                            try:
+                                text_response = await response.text()
+                                response_json = json.loads(text_response)
+                            except (json.JSONDecodeError, ValueError) as e:
+                                if attempt == remote_params.max_retries:
+                                    raise RuntimeError(
+                                        "Failed to parse response as JSON after "
+                                        f"{attempt + 1} attempts. "
+                                        "Response content type:"
+                                        f"{response.content_type}. "
+                                        f"Error: {str(e)}"
+                                    ) from e
+                                continue
+
+                        if response.status == 200:
+                            result = self._convert_api_output_to_conversation(
+                                response_json, conversation
                             )
-                        await asyncio.sleep(remote_params.politeness_policy)
-                        return result
-                    else:
-                        if isinstance(response_json, list):
-                            # If the response is a list, it is likely an error message.
-                            response_json = response_json[0]
-                        failure_reason = (
-                            response_json.get("error").get("message")
-                            if response_json and response_json.get("error")
-                            else None
-                        )
-                        retries += 1
-                        await asyncio.sleep(remote_params.politeness_policy)
+                            if output_path:
+                                # Write what we have so far to our scratch directory
+                                self._save_conversation(
+                                    result,
+                                    self._get_scratch_filepath(output_path),
+                                )
+                            return result
+                        else:
+                            if isinstance(response_json, list):
+                                # If the response is a list, it is likely an error
+                                # message
+                                response_json = response_json[0]
+                            failure_reason = (
+                                response_json.get("error", {}).get("message")
+                                if response_json
+                                else f"HTTP {response.status}"
+                            )
+                            if attempt < remote_params.max_retries:
+                                continue
+
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    if attempt == remote_params.max_retries:
+                        raise RuntimeError(
+                            f"Failed to query API after {attempt} retries due to "
+                            f"connection error: {str(e)}"
+                        ) from e
+                    continue
+
+                finally:
+                    await asyncio.sleep(remote_params.politeness_policy)
+
             raise RuntimeError(
                 f"Failed to query API after {remote_params.max_retries} retries. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
