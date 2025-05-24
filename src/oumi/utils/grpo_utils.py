@@ -75,9 +75,6 @@ def try_prepare_trl_grpo_example(
         GRPO compatible example, or an original example.
     """
     print(f"example type: {type(example)}")
-    if not isinstance(example, dict):
-        return example
-
     if "conversation_json" in example:
         prompt, images, answer = (
             extract_question_images_answer_from_single_turn_conversation(example)
