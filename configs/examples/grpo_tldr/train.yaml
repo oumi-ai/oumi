@@ -20,12 +20,9 @@ model:
 
 data:
   train:
-    use_torchdata: False # True
     datasets:
-      - dataset_name: "argilla/databricks-dolly-15k-curated-en" # "trl-lib/tldr"
+      - dataset_name: "trl-lib/tldr"
         split: "train"
-        dataset_kwargs:
-          return_conversations: True
 
 
 training:
