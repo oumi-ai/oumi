@@ -330,17 +330,18 @@ def train(
     if trainer_type == TrainerType.TRL_GRPO:
         if len(reward_functions) == 0:
             logger.warning(f"No reward_function specified for {trainer_type}!")
-        if not isinstance(train_dataset, BaseExperimentalGrpoDataset):
-            if isinstance(
-                train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
-            ):
-                logger.warning("Remapping train GRPO dataset...")
-                train_dataset = try_prepare_trl_grpo_dataset(train_dataset)
-            if eval_dataset is not None and isinstance(
+        if not isinstance(train_dataset, BaseExperimentalGrpoDataset) and isinstance(
+            train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+        ):
+            train_dataset = try_prepare_trl_grpo_dataset(train_dataset)
+        if (
+            eval_dataset is not None
+            and not isinstance(eval_dataset, BaseExperimentalGrpoDataset)
+            and isinstance(
                 eval_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
-            ):
-                logger.warning("Remapping eval GRPO dataset...")
-                eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
+            )
+        ):
+            eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
     collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
 
