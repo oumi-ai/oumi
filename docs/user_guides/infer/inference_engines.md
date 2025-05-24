@@ -482,6 +482,32 @@ engine = TogetherInferenceEngine(
 
 The models available via this API can be found at [together.ai](https://www.together.ai/).
 
+### Lambda Inference API
+
+[Lambda Inference API](https://lambda.ai) enables you to use large language models (LLMs) without the need to set up a server. No limits are placed on the rate of requests.
+
+**Basic Usage**
+
+```{testcode}
+from oumi.inference import LambdaInferenceEngine
+from oumi.core.configs import ModelParams, RemoteParams
+
+engine = LambdaInferenceEngine(
+    model_params=ModelParams(
+        model_name="llama-4-scout-17b-16e-instruct"
+    ),
+)
+```
+
+**Supported Models**
+
+The full list of models available via this API can be found at [docs.lambda.ai](https://docs.lambda.ai/public-cloud/lambda-inference-api/#listing-models).
+
+
+**Resources**
+
+- [Lambda AI API Documentation](https://docs.lambda.ai/public-cloud/lambda-inference-api)
+
 ### DeepSeek
 
 [DeepSeek](https://deepseek.com) allows to access the DeepSeek models (Chat, Code, and Reasoning) through the DeepSeek AI Platform.
