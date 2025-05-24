@@ -153,8 +153,8 @@ class BaseSftDataset(BaseMapDataset, ABC):
         """Preprocesses the inputs in the given sample."""
         conversation = self.transform_conversation(sample)
         if self._return_conversations:
-            # This is only compatible with `use_torchdata=True`
-            # as HF loaders expect certain keys like `input_ids`.
+            # This may require `use_torchdata=True` for TRL_SFT trainer,
+            # but compatible with TRL_GRPO trainer.
             conversation_json = conversation.to_json()
             return {"conversation_json": conversation_json}
         return self.tokenize(conversation)
