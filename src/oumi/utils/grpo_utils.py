@@ -74,6 +74,7 @@ def try_prepare_trl_grpo_example(
     Returns:
         GRPO compatible example, or an original example.
     """
+    print(f"example type: {type(example)}")
     if not isinstance(example, dict):
         return example
 

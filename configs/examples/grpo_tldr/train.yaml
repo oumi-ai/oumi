@@ -20,7 +20,7 @@ model:
 
 data:
   train:
-    use_torchdata: True
+    use_torchdata: False # True
     datasets:
       - dataset_name: "argilla/databricks-dolly-15k-curated-en" # "trl-lib/tldr"
         split: "train"
