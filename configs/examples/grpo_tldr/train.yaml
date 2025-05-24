@@ -24,7 +24,6 @@ data:
       - dataset_name: "trl-lib/tldr"
         split: "train"
 
-
 training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
