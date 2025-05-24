@@ -106,15 +106,18 @@ def try_prepare_trl_grpo_dataset(
         # with too many processes.
         # TODO: Make this configurable.
         num_proc = min(8, os.cpu_count() or 1)
-        dataset.column_names
-        return dataset.map(
+        dataset = dataset.map(
             function=try_prepare_trl_grpo_example,
             with_indices=False,
             num_proc=num_proc,
             remove_columns=["conversation_json"],
         )
-    return dataset.map(
-        function=try_prepare_trl_grpo_example,
-        with_indices=False,
-        remove_columns=["conversation_json"],
-    )
+    else:
+        dataset = dataset.map(
+            function=try_prepare_trl_grpo_example,
+            with_indices=False,
+            remove_columns=["conversation_json"],
+        )
+
+    print(f"Transformed GRPO Dataset columns: {dataset.column_names}")
+    return dataset
