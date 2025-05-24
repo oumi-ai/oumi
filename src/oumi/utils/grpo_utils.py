@@ -98,17 +98,23 @@ def try_prepare_trl_grpo_dataset(
     dataset: Union[hf_datasets.Dataset, hf_datasets.IterableDataset],
 ) -> Union[hf_datasets.Dataset, hf_datasets.IterableDataset]:
     """Prepares a dataset for GRPO_TRL processing."""
+    column_names = dataset.column_names
+    if column_names and ("conversation_json" not in column_names):
+        return dataset
     if isinstance(dataset, hf_datasets.Dataset):
         # Limit the max number of sub-processes to 8 to avoid overloading the system
         # with too many processes.
         # TODO: Make this configurable.
         num_proc = min(8, os.cpu_count() or 1)
+        dataset.column_names
         return dataset.map(
             function=try_prepare_trl_grpo_example,
             with_indices=False,
             num_proc=num_proc,
+            remove_columns=["conversation_json"],
         )
     return dataset.map(
         function=try_prepare_trl_grpo_example,
         with_indices=False,
+        remove_columns=["conversation_json"],
     )
