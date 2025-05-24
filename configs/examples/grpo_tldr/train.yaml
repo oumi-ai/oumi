@@ -31,7 +31,7 @@ data:
 training:
   trainer_type: "TRL_GRPO"
   save_steps: 500
-  per_device_train_batch_size: 2 # 1 for GPUs with 24GB VRAM
+  per_device_train_batch_size: 1 # 1 for GPUs with 24GB VRAM
   gradient_accumulation_steps: 1
 
   reward_functions: ["soft_20tokens_completions"]
