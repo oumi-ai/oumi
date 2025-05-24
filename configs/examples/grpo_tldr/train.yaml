@@ -21,7 +21,7 @@ model:
 data:
   train:
     datasets:
-      - dataset_name: "trl-lib/tldr"
+      - dataset_name: "argilla/databricks-dolly-15k-curated-en" # "trl-lib/tldr"
         split: "train"
 
 training:

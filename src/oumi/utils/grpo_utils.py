@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 from typing import Union
 
 import datasets as hf_datasets
@@ -98,7 +99,10 @@ def try_prepare_trl_grpo_dataset(
 ) -> Union[hf_datasets.Dataset, hf_datasets.IterableDataset]:
     """Prepares a dataset for GRPO_TRL processing."""
     if isinstance(dataset, hf_datasets.Dataset):
-        num_proc = 8
+        # Limit the max number of sub-processes to 8 to avoid overloading the system
+        # with too many processes.
+        # TODO: Make this configurable.
+        num_proc = min(8, os.cpu_count() or 1)
         return dataset.map(
             function=try_prepare_trl_grpo_example,
             with_indices=False,

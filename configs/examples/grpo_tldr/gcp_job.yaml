@@ -37,6 +37,8 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  pip install -e ".[gpu]""
+
   export PER_DEVICE_BATCH_SIZE=3
   export GLOBAL_BATCH_SIZE=$((${OUMI_TOTAL_NUM_GPUS} * ${PER_DEVICE_BATCH_SIZE}))
   export GRPO_NUM_GENERATIONS=6
