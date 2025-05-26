@@ -50,6 +50,15 @@ def mock_aioresponse():
         yield m
 
 
+@pytest.fixture
+def mock_asyncio_sleep():
+    async def mock_sleep(delay):
+        pass
+
+    with patch("asyncio.sleep", side_effect=mock_sleep) as asyncio_sleep:
+        yield asyncio_sleep
+
+
 def _get_default_model_params() -> ModelParams:
     return ModelParams(
         model_name="MlpEncoder",
@@ -561,7 +570,7 @@ def test_infer_online_empty():
     assert expected_result == result
 
 
-def test_infer_online_fails():
+def test_infer_online_fails(mock_asyncio_sleep):
     with aioresponses() as m:
         m.post(_TARGET_SERVER, status=401)
         m.post(_TARGET_SERVER, status=401)
@@ -593,7 +602,7 @@ def test_infer_online_fails():
             )
 
 
-def test_infer_online_fails_with_message():
+def test_infer_online_fails_with_message(mock_asyncio_sleep):
     with aioresponses() as m:
         m.post(_TARGET_SERVER, status=401)
         m.post(_TARGET_SERVER, status=401)
@@ -2052,3 +2061,161 @@ def test_list_batches_public():
         assert response.first_id == "batch_1"
         assert response.last_id == "batch_2"
         assert response.has_more
+
+
+def test_infer_online_handles_content_type_text_plain():
+    """Test that the engine can handle text/plain responses and parse them as JSON."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body=json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "The first time I saw",
+                            }
+                        }
+                    ]
+                }
+            ),
+            content_type="text/plain",
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="Hello world!",
+                ),
+            ],
+        )
+        inference_config = _get_default_inference_config()
+        inference_config.remote_params = engine._remote_params
+        result = engine.infer_online(
+            [conversation],
+            inference_config,
+        )
+        assert len(result) == 1
+        assert result[0].messages[-1].content == "The first time I saw"
+        assert result[0].messages[-1].role == Role.ASSISTANT
+
+
+def test_infer_online_handles_invalid_content():
+    """Test that the engine properly handles invalid content responses."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body=json.dumps({"error": {"message": "Invalid JSON content"}}),
+            content_type="application/json",
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+                retry_backoff_base=0.1,  # Small value for testing
+                retry_backoff_max=0.3,
+            ),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    role=Role.USER,
+                    content="Hello world!",
+                ),
+            ],
+        )
+
+        inference_config = _get_default_inference_config()
+        inference_config.remote_params = engine._remote_params
+
+        async def mock_sleep(delay):
+            pass
+
+        with patch("asyncio.sleep", side_effect=mock_sleep):
+            with pytest.raises(RuntimeError, match="API error: Invalid JSON content"):
+                engine.infer_online(
+                    [conversation],
+                    inference_config,
+                )
+
+
+def test_infer_online_exponential_backoff():
+    """Test that the engine implements exponential backoff correctly."""
+    sleep_calls = []
+
+    async def mock_sleep(delay):
+        sleep_calls.append(delay)
+
+    def callback(url, **kwargs):
+        # Fail until the last attempt
+        if len(sleep_calls) < 3:
+            return CallbackResult(
+                status=500,
+                body=json.dumps({"error": {"message": "Server Error"}}),
+                content_type="application/json",
+            )
+        return CallbackResult(
+            status=200,
+            body=json.dumps(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "Success after retries",
+                            }
+                        }
+                    ]
+                }
+            ),
+            content_type="application/json",
+        )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=callback, repeat=True)
+
+        with patch("asyncio.sleep", side_effect=mock_sleep):
+            engine = RemoteInferenceEngine(
+                model_params=_get_default_model_params(),
+                remote_params=RemoteParams(
+                    api_url=_TARGET_SERVER,
+                    max_retries=2,
+                    retry_backoff_base=0.2,  # Small values for testing
+                    retry_backoff_max=1.0,
+                ),
+            )
+            conversation = Conversation(
+                messages=[Message(role=Role.USER, content="Hello")],
+            )
+
+            remote_params = RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+                retry_backoff_base=0.2,
+                retry_backoff_max=1.0,
+            )
+            inference_config = _get_default_inference_config()
+            inference_config.remote_params = remote_params
+
+            result = engine.infer_online([conversation], inference_config)
+
+            # Verify the result
+            assert len(result) == 1
+            assert result[0].messages[-1].content == "Success after retries"
+
+            # Verify sleep calls
+            backoff_sleeps = [s for s in sleep_calls if s > 0]
+            assert backoff_sleeps[0] == pytest.approx(0.2)  # First retry: base delay
+            assert backoff_sleeps[1] == pytest.approx(
+                0.4
+            )  # Second retry: base delay * 2
