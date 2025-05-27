@@ -20,16 +20,16 @@ import datasets as hf_datasets
 from oumi.core.types.conversation import Conversation, Role
 
 
-def extract_question_images_answer_from_single_turn_conversation(
+def extract_prompt_images_completion_from_single_turn_conversation(
     example: dict,
 ) -> tuple[str, list, str]:
-    """Finds question, answer, and optional images in a single-turn conversation.
+    """Finds prompt, completion, and optional images in a single-turn conversation.
 
     Args:
         example: A dictionary containing the conversation JSON.
 
     Returns:
-        A tuple containing the question, images, and answer.
+        A tuple containing the prompt, images, and completion.
         The list of images is empty for text-only conversations.
     """
     if "conversation_json" not in example:
@@ -77,7 +77,7 @@ def try_prepare_trl_grpo_example(
     """
     if "conversation_json" in example:
         prompt, images, answer = (
-            extract_question_images_answer_from_single_turn_conversation(example)
+            extract_prompt_images_completion_from_single_turn_conversation(example)
         )
         if len(images) > 0:
             raise ValueError(

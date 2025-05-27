@@ -25,7 +25,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.types.conversation import Conversation
 from oumi.utils.grpo_utils import (
-    extract_question_images_answer_from_single_turn_conversation,
+    extract_prompt_images_completion_from_single_turn_conversation,
 )
 
 try:
@@ -200,7 +200,7 @@ class VerlGrpoTrainer(BaseTrainer):
             The list of images is empty for text-only conversations.
         """
         prompt, images, answer = (
-            extract_question_images_answer_from_single_turn_conversation(example)
+            extract_prompt_images_completion_from_single_turn_conversation(example)
         )
 
         if len(images) > 0:
