@@ -203,8 +203,35 @@ def test_debug_logging(caplog):
 
     # Process the batch
     _ = collator(batch)
-    # Check that debug logs were generated
-    assert "Raw example:" in caplog.text
-    assert "Formatted example:" in caplog.text
-    assert "Tokenized example:" in caplog.text
-    assert "Model input:" in caplog.text
+
+    # Check that debug logs were generated and verify their content
+    log_text = caplog.text
+
+    # Verify raw example (decoded without special tokens)
+    expected_raw_text = tokenizer.decode([101, 102, 103, 104], skip_special_tokens=True)
+    assert f"Raw example: {expected_raw_text}" in log_text
+
+    # Verify formatted example (decoded with special tokens)
+    expected_formatted_text = tokenizer.decode(
+        [101, 102, 103, 104], skip_special_tokens=False
+    )
+    assert f"Formatted example: {expected_formatted_text}" in log_text
+
+    # Verify tokenized example (list of tuples with token_id and decoded token)
+    expected_tokenized = [
+        (101, tokenizer.decode([101])),
+        (102, tokenizer.decode([102])),
+        (103, tokenizer.decode([103])),
+        (104, tokenizer.decode([104])),
+    ]
+    assert f"Tokenized example: {expected_tokenized}" in log_text
+
+    # Verify model input (the actual tensors converted to lists)
+    expected_input_ids = [101, 102, 103, 104]
+    expected_attention_mask = [1, 1, 1, 1]
+    expected_labels = [101, 102, 103, 104]
+
+    # Check that the model input contains the expected values
+    assert f"'input_ids': {expected_input_ids}" in log_text
+    assert f"'attention_mask': {expected_attention_mask}" in log_text
+    assert f"'labels': {expected_labels}" in log_text

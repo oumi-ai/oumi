@@ -232,7 +232,7 @@ class TextCollatorWithPadding:
 
         # If debug is on and we haven't logged an example yet, log the first example
         if self._debug and not self._has_logged_example and len(batch) > 0:
-            # Log an example of the data in each step for debugging purposes.
+            # Log an example of the data in the first step for debugging purposes.
             self._log_debug_example(batch, combined_batch)
 
         return combined_batch

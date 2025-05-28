@@ -74,7 +74,7 @@ class TextCompletionsCollatorWithPadding:
         collated_text_inputs = self._collate(batch)
 
         if self._debug and not self._has_logged_example:
-            # Log an example of the data in each step for debugging purposes.
+            # Log an example of the data in the first step for debugging purposes.
             self._debug_log_example(batch, collated_text_inputs)
         return collated_text_inputs
 
