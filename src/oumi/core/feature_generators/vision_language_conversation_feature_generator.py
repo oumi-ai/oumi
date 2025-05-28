@@ -34,10 +34,12 @@ from oumi.core.feature_generators.base_feature_generator import (
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.tokenizers.utils import mask_labels_for_completions_only
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
     Message,
+    Role,
 )
 from oumi.utils.conversation_utils import (
     load_pil_image_from_content_item,
@@ -75,6 +77,9 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         truncation: bool = False,
         truncation_side: str = "right",
         label_ignore_index: Optional[int] = None,
+        train_on_completions_only: bool = False,
+        response_template: Optional[str] = None,
+        instruction_template: Optional[str] = None,
     ) -> None:
         """Initializes a new instance of VisionLanguageFeatureProcessor."""
         # Importing these here to avoid circular dependencies
@@ -90,6 +95,19 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         self._truncation: bool = truncation
         self._truncation_side = truncation_side
         self._return_tensors = return_tensors
+
+        # Completion-only training configuration
+        self._train_on_completions_only = train_on_completions_only
+        self._response_template = response_template
+        self._instruction_template = instruction_template
+
+        # Validate completion-only training configuration
+        if self._train_on_completions_only:
+            if self._response_template is None:
+                raise ValueError(
+                    "response_template must be provided when "
+                    "train_on_completions_only=True"
+                )
 
         if tokenizer is None:
             raise ValueError(
@@ -151,6 +169,19 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             ),
             pad_token_id=int(tokenizer.pad_token_id),
         )
+
+        # Tokenize templates for completion-only training
+        if self._train_on_completions_only:
+            assert self._response_template is not None  # Already validated above
+            self._response_token_ids = self._processor.tokenizer.encode(
+                self._response_template, add_special_tokens=False
+            )
+            if self._instruction_template is not None:
+                self._instruction_token_ids = self._processor.tokenizer.encode(
+                    self._instruction_template, add_special_tokens=False
+                )
+            else:
+                self._instruction_token_ids = None
 
     def _prepare_simple_model(
         self, conversation: Conversation
@@ -262,6 +293,10 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             raise ValueError("Processor required to transform a conversation")
 
         valid_options: FeatureGeneratorOptions = options or FeatureGeneratorOptions()
+
+        # Validate conversations for completion-only training
+        if self._train_on_completions_only:
+            self._validate_conversations_for_completion_only_training(conversations)
 
         all_images: list[list[Image.Image]] = []
         all_prompts: list[str] = []
@@ -392,6 +427,10 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 labels[labels < 0] = sanitized_label_target
                 inputs["labels"] = labels.tolist()
 
+        # Apply completion-only training masking if enabled
+        if self._train_on_completions_only:
+            self._apply_completion_only_masking(inputs)
+
         return inputs.data
 
     def _truncate_text_in_content_items(self, messages: list[Message]) -> list[Message]:
@@ -427,3 +466,84 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             max_tokens=self._max_length,
             truncation_side=self._truncation_side,
         )
+
+    def _validate_conversations_for_completion_only_training(
+        self, conversations: list[Conversation]
+    ):
+        """Validates that conversations are suitable for completion-only training.
+
+        For completion-only training, we only support conversations with exactly
+        1 user message followed by 1 assistant message.
+
+        Args:
+            conversations: List of conversations to validate.
+
+        Raises:
+            ValueError: If any conversation doesn't meet the requirements.
+        """
+        for i, conversation in enumerate(conversations):
+            if len(conversation.messages) != 2:
+                raise ValueError(
+                    f"Conversation {i} has {len(conversation.messages)} messages. "
+                    "Completion-only training requires exactly 2 messages "
+                    "(1 user + 1 assistant)."
+                )
+
+            user_msg = conversation.messages[0]
+            assistant_msg = conversation.messages[1]
+
+            if user_msg.role != Role.USER:
+                raise ValueError(
+                    f"Conversation {i}: First message must be from USER, "
+                    f"got {user_msg.role}."
+                )
+
+            if assistant_msg.role != Role.ASSISTANT:
+                raise ValueError(
+                    f"Conversation {i}: Second message must be from ASSISTANT, "
+                    f"got {assistant_msg.role}."
+                )
+
+    def _apply_completion_only_masking(self, inputs: Any) -> None:
+        """Applies completion-only masking to the labels.
+
+        This method finds the response template in the tokenized sequence and sets
+        all tokens before the response template to the ignore index, so that loss
+        is only computed on the assistant's completion.
+
+        Args:
+            inputs: Dictionary containing model inputs including 'labels'.
+        """
+        labels = inputs["labels"]
+        ignore_index = int(self._special_tokens.label_ignore_index or -100)
+
+        # Handle different label formats (tensor, numpy array, or list)
+        if isinstance(labels, torch.Tensor):
+            # Process each sequence in the batch
+            for i in range(labels.shape[0]):
+                mask_labels_for_completions_only(
+                    labels[i],
+                    self._response_token_ids,
+                    ignore_index=ignore_index,
+                    response_template=self._response_template,
+                )
+        elif isinstance(labels, np.ndarray):
+            # Process each sequence in the batch
+            for i in range(labels.shape[0]):
+                mask_labels_for_completions_only(
+                    labels[i],
+                    self._response_token_ids,
+                    ignore_index=ignore_index,
+                    response_template=self._response_template,
+                )
+        else:
+            # Convert to numpy for processing, then back to list
+            labels_array = np.array(labels)
+            for i in range(labels_array.shape[0]):
+                mask_labels_for_completions_only(
+                    labels_array[i],
+                    self._response_token_ids,
+                    ignore_index=ignore_index,
+                    response_template=self._response_template,
+                )
+            inputs["labels"] = labels_array.tolist()

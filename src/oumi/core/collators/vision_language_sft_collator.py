@@ -35,6 +35,9 @@ class VisionLanguageSftCollator:
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
         trust_remote_code: bool = False,
+        train_on_completions_only: bool = False,
+        response_template: Optional[str] = None,
+        instruction_template: Optional[str] = None,
     ):
         """Custom collator for multi-modal vision-language training.
 
@@ -54,6 +57,12 @@ class VisionLanguageSftCollator:
                 this special value.
             allow_multi_image_inputs: Whether to allow multi-image inputs.
             trust_remote_code: Whether to trust remote code execution for the processor.
+            train_on_completions_only: If True, only compute loss on the assistant's
+                response tokens.
+            response_template: The template string that marks the beginning of the
+                assistant's response. Required if train_on_completions_only is True.
+            instruction_template: The template string that marks the beginning of the
+                user's instruction.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
 
@@ -71,6 +80,9 @@ class VisionLanguageSftCollator:
                 truncation_side=truncation_side,
                 max_length=max_length,
                 label_ignore_index=label_ignore_index,
+                train_on_completions_only=train_on_completions_only,
+                response_template=response_template,
+                instruction_template=instruction_template,
             )
         )
 

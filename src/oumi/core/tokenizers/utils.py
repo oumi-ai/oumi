@@ -149,6 +149,68 @@ def _find_pattern_start(
     return None
 
 
+def find_token_sequence(sequence, target_tokens: list[int]) -> Optional[int]:
+    """Find the starting index of a token sequence in labels.
+
+    Args:
+        sequence: Sequence of token IDs (can be torch.Tensor, np.ndarray, or list).
+        target_tokens: List of token IDs to search for.
+
+    Returns:
+        Start index of the target sequence, or None if not found.
+    """
+    # Convert to list for consistent handling
+    if isinstance(sequence, torch.Tensor):
+        sequence_list = sequence.tolist()
+    elif isinstance(sequence, np.ndarray):
+        sequence_list = sequence.tolist()
+    else:
+        sequence_list = list(sequence)
+
+    # Search for the target token sequence
+    for i in range(len(sequence_list) - len(target_tokens) + 1):
+        if sequence_list[i : i + len(target_tokens)] == target_tokens:
+            return i
+
+    return None
+
+
+def mask_labels_for_completions_only(
+    labels,
+    response_token_ids: list[int],
+    instruction_token_ids: Optional[list[int]] = None,
+    ignore_index: int = LABEL_IGNORE_INDEX,
+    response_template: Optional[str] = None,
+) -> None:
+    """Apply completion-only masking to labels.
+
+    This function masks all tokens before the response template, so that loss
+    is only computed on the model's response tokens.
+
+    Args:
+        labels: Labels to mask (can be torch.Tensor, np.ndarray, or list).
+        response_token_ids: Token IDs of the response template.
+        instruction_token_ids: Token IDs of the instruction template (optional).
+        ignore_index: Index to use for masking tokens.
+        response_template: String representation of response template for logging.
+    """
+    # Find response template
+    response_start_idx = find_token_sequence(labels, response_token_ids)
+
+    if response_start_idx is None:
+        # If response template not found, mask the entire sequence
+        if response_template:
+            logger.warning(
+                f"Could not find response template '{response_template}' "
+                "in sequence. Masking entire sequence."
+            )
+        labels[:] = ignore_index
+    else:
+        # Mask everything before the end of the response template
+        response_end_idx = response_start_idx + len(response_token_ids)
+        labels[:response_end_idx] = ignore_index
+
+
 def tokenizer_for_inference(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
