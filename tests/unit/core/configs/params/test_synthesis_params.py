@@ -551,44 +551,45 @@ def test_general_synthesis_params_valid():
 def test_general_synthesis_params_invalid():
     # Test empty lists
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_data cannot be empty"
+        ValueError, match="GeneralSynthesisParams.input_data cannot be empty."
     ):
         GeneralSynthesisParams(input_data=[])
 
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_documents cannot be empty"
+        ValueError, match="GeneralSynthesisParams.input_documents cannot be empty."
     ):
         GeneralSynthesisParams(input_documents=[])
 
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.input_examples cannot be empty"
+        ValueError, match="GeneralSynthesisParams.input_examples cannot be empty."
     ):
         GeneralSynthesisParams(input_examples=[])
 
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.permutable_attributes cannot be empty"
+        ValueError,
+        match="GeneralSynthesisParams.permutable_attributes cannot be empty.",
     ):
         GeneralSynthesisParams(permutable_attributes=[])
 
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.combination_sampling cannot be empty"
+        ValueError, match="GeneralSynthesisParams.combination_sampling cannot be empty."
     ):
         GeneralSynthesisParams(combination_sampling=[])
 
     with pytest.raises(
-        ValueError, match="GeneralSynthesisParams.generated_attributes cannot be empty"
+        ValueError, match="GeneralSynthesisParams.generated_attributes cannot be empty."
     ):
         GeneralSynthesisParams(generated_attributes=[])
 
     with pytest.raises(
         ValueError,
-        match="GeneralSynthesisParams.transformed_attributes cannot be empty",
+        match="GeneralSynthesisParams.transformed_attributes cannot be empty.",
     ):
         GeneralSynthesisParams(transformed_attributes=[])
 
     with pytest.raises(
         ValueError,
-        match="GeneralSynthesisParams.passthrough_attributes cannot be empty",
+        match="GeneralSynthesisParams.passthrough_attributes cannot be empty.",
     ):
         GeneralSynthesisParams(passthrough_attributes=[])
 

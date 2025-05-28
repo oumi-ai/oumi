@@ -381,153 +381,217 @@ class GeneralSynthesisParams(BaseParams):
     """General synthesis parameters."""
 
     input_data: Optional[list[DatasetSource]] = None
-    """Data to be used in synthesis"""
+    """Datasets whose rows and columns will be used in synthesis.
+
+    Rows will be enumerated during sampling, and columns can be referenced as attributes
+    when generating new attributes."""
 
     input_documents: Optional[list[DocumentSource]] = None
-    """Documents to be used in synthesis"""
+    """Documents to be used in synthesis.
+
+    Documents will be enumerated during sampling, and both documents and document
+    segments can be referenced as attributes when generating new attributes."""
 
     input_examples: Optional[list[ExampleSource]] = None
-    """In-line examples to be used in synthesis"""
+    """In-line examples to be used in synthesis.
+
+    Examples will be enumerated during sampling, and attributes can be referenced as
+    attributes when generating new attributes."""
 
     permutable_attributes: Optional[list[PermutableAttribute]] = None
-    """Attributes to be varied across the dataset"""
+    """Attributes to be varied across the dataset.
+
+    Attributes each have a set of possible values which will be randomly sampled
+    according to their sample rate. If no sample rate is specified, a uniform
+    distribution is used. Sample rates must sum to <= 1.0. Any attributes that do not
+    have a sample rate will be given a uniform sample rate equal to whatever remains.
+
+    For example, if there are 3 attributes with sample rates of 0.5, 0.3, and 0.2,
+    the total sample rate is 1.0. The first attribute will be sampled 50% of the time,
+    the second attribute will be sampled 30% of the time, and the third attribute will
+    be sampled 20% of the time. If the last two attributes have no sample rate, they
+    will be sampled 25% of the time each as (1.0 - 0.5) / 2 = 0.25."""
 
     combination_sampling: Optional[list[AttributeCombination]] = None
-    """Sampling rates for combinations of attributes"""
+    """Sampling rates for combinations of attributes.
+
+    Each combination is a dictionary of attribute IDs to their values. The sample rate
+    is the probability of sampling this combination. The sample rate of all combinations
+    must sum to <= 1.0."""
 
     generated_attributes: Optional[list[GeneratedAttribute]] = None
-    """Attributes to be generated"""
+    """Attributes to be generated.
+
+    Generated attributes are created by running a chat with the model. The chat is
+    specified by a list of messages. The messages will be populated with attribute
+    values specific to that data point. The output of the chat is the generated
+    attribute.
+
+    For example, if one of the previous attributes is "name", and you use the following
+    instruction messages:
+    [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "How do you pronounce the name <<name>>?"}
+    ]
+
+    Then assuming your data point has a value of "Oumi" for the "name" attribute, the
+    chat will be run with the following messages:
+    [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "How do you pronounce the name Oumi?"}
+    ]
+
+    The model's response to these messages will be the value of the "name" attribute
+    for that data point."""
 
     transformed_attributes: Optional[list[TransformedAttribute]] = None
-    """Transformation of existing attributes"""
+    """Transformation of existing attributes.
+
+    Transformed attributes involve no model interaction and instead are for the
+    convenience of transforming parts of your data into a new form.
+
+    For example, if you have "prompt" and "response" attributes, you can create a
+    "chat" attribute by transforming the "prompt" and "response" attributes into a
+    chat message.
+
+    [
+        {"role": "user", "content": "<<prompt>>"},
+        {"role": "assistant", "content": "<<response>>"}
+    ]"""
 
     passthrough_attributes: Optional[list[str]] = None
     """When specified, will ONLY pass through these attributes in final output.
-    If left unspecified, all attributes are saved."""
+    If left unspecified, all attributes are saved. If an attribute is specified in
+    passthrough_attributes but doesn't exist, it will be ignored."""
 
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if isinstance(self.input_data, list) and len(self.input_data) == 0:
+    def _check_attribute_ids(self, attribute_ids: set[str], id: str):
+        """Check if the attribute ID is already in the set."""
+        if id in attribute_ids:
+            raise ValueError(
+                f"GeneralSynthesisParams contains duplicate attribute IDs: {id}"
+            )
+        attribute_ids.add(id)
+
+    def _check_dataset_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from dataset sources for uniqueness."""
+        if self.input_data is None:
+            return
+
+        if len(self.input_data) == 0:
             raise ValueError("GeneralSynthesisParams.input_data cannot be empty.")
-        if isinstance(self.input_documents, list) and len(self.input_documents) == 0:
+
+        for dataset_source in self.input_data:
+            if dataset_source.attribute_map:
+                for new_key in dataset_source.attribute_map.values():
+                    self._check_attribute_ids(all_attribute_ids, new_key)
+
+    def _check_document_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from document sources for uniqueness."""
+        if self.input_documents is None:
+            return
+
+        if len(self.input_documents) == 0:
             raise ValueError("GeneralSynthesisParams.input_documents cannot be empty.")
-        if isinstance(self.input_examples, list) and len(self.input_examples) == 0:
+
+        for document_source in self.input_documents:
+            if not document_source.segmentation_params:
+                continue
+
+            seg_key = document_source.segmentation_params.id
+            self._check_attribute_ids(all_attribute_ids, seg_key)
+
+    def _check_example_source_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from example sources for uniqueness."""
+        if self.input_examples is None:
+            return
+
+        if len(self.input_examples) == 0:
             raise ValueError("GeneralSynthesisParams.input_examples cannot be empty.")
-        if (
-            isinstance(self.permutable_attributes, list)
-            and len(self.permutable_attributes) == 0
-        ):
+
+        for example_source in self.input_examples:
+            example_keys = example_source.examples[0].keys()
+            for new_key in example_keys:
+                self._check_attribute_ids(all_attribute_ids, new_key)
+
+    def _check_permutable_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from permutable attributes for uniqueness."""
+        if self.permutable_attributes is None:
+            return
+
+        if len(self.permutable_attributes) == 0:
             raise ValueError(
                 "GeneralSynthesisParams.permutable_attributes cannot be empty."
             )
-        if (
-            isinstance(self.combination_sampling, list)
-            and len(self.combination_sampling) == 0
-        ):
-            raise ValueError(
-                "GeneralSynthesisParams.combination_sampling cannot be empty."
-            )
-        if (
-            isinstance(self.generated_attributes, list)
-            and len(self.generated_attributes) == 0
-        ):
+
+        for permutable_attribute in self.permutable_attributes:
+            attribute_id = permutable_attribute.id
+            self._check_attribute_ids(all_attribute_ids, attribute_id)
+
+    def _check_generated_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from generated attributes for uniqueness."""
+        if self.generated_attributes is None:
+            return
+
+        if len(self.generated_attributes) == 0:
             raise ValueError(
                 "GeneralSynthesisParams.generated_attributes cannot be empty."
             )
-        if (
-            isinstance(self.transformed_attributes, list)
-            and len(self.transformed_attributes) == 0
-        ):
+
+        for generated_attribute in self.generated_attributes:
+            attribute_id = generated_attribute.id
+            self._check_attribute_ids(all_attribute_ids, attribute_id)
+
+    def _check_transformed_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from transformed attributes for uniqueness."""
+        if self.transformed_attributes is None:
+            return
+
+        if len(self.transformed_attributes) == 0:
             raise ValueError(
                 "GeneralSynthesisParams.transformed_attributes cannot be empty."
             )
-        if (
-            isinstance(self.passthrough_attributes, list)
-            and len(self.passthrough_attributes) == 0
-        ):
+
+        for transformed_attribute in self.transformed_attributes:
+            attribute_id = transformed_attribute.id
+            self._check_attribute_ids(all_attribute_ids, attribute_id)
+
+    def _check_combination_sampling_sample_rates(self) -> None:
+        """Check sample rates for combination sampling for uniqueness."""
+        if self.combination_sampling is None:
+            return
+
+        if len(self.combination_sampling) == 0:
+            raise ValueError(
+                "GeneralSynthesisParams.combination_sampling cannot be empty."
+            )
+
+        sample_rates = [
+            combination.sample_rate for combination in self.combination_sampling
+        ]
+        if sum(sample_rates) > 1.0:
+            raise ValueError(
+                "GeneralSynthesisParams.combination_sampling sample rates must be "
+                "less than or equal to 1.0."
+            )
+
+    def _check_passthrough_attribute_ids(self) -> None:
+        """Check attribute IDs from passthrough attributes for uniqueness."""
+        if self.passthrough_attributes is None:
+            return
+
+        if len(self.passthrough_attributes) == 0:
             raise ValueError(
                 "GeneralSynthesisParams.passthrough_attributes cannot be empty."
             )
 
-        attribute_ids = set()
-        if self.input_data:
-            for dataset_source in self.input_data:
-                if dataset_source.attribute_map:
-                    for new_key in dataset_source.attribute_map.values():
-                        if new_key in attribute_ids:
-                            raise ValueError(
-                                f"GeneralSynthesisParams contains duplicate attribute "
-                                f"IDs: {new_key}"
-                            )
-                        attribute_ids.add(new_key)
-
-        if self.input_documents:
-            for document_source in self.input_documents:
-                doc_key = document_source.id
-                if doc_key in attribute_ids:
-                    raise ValueError(
-                        f"GeneralSynthesisParams contains duplicate attribute "
-                        f"IDs: {doc_key}"
-                    )
-                attribute_ids.add(doc_key)
-
-                if document_source.segmentation_params:
-                    seg_key = document_source.segmentation_params.id
-                    if seg_key in attribute_ids:
-                        raise ValueError(
-                            f"GeneralSynthesisParams contains duplicate attribute "
-                            f"IDs: {seg_key}"
-                        )
-                    attribute_ids.add(seg_key)
-
-        if self.input_examples:
-            for example_source in self.input_examples:
-                example_keys = example_source.examples[0].keys()
-                for new_key in example_keys:
-                    if new_key in attribute_ids:
-                        raise ValueError(
-                            f"GeneralSynthesisParams contains duplicate attribute "
-                            f"IDs: {new_key}"
-                        )
-                    attribute_ids.add(new_key)
-
-        if self.permutable_attributes:
-            for permutable_attribute in self.permutable_attributes:
-                attribute_id = permutable_attribute.id
-                if attribute_id in attribute_ids:
-                    raise ValueError(
-                        f"GeneralSynthesisParams contains duplicate attribute "
-                        f"IDs: {attribute_id}"
-                    )
-
-                attribute_ids.add(attribute_id)
-
-        if self.generated_attributes:
-            for generated_attribute in self.generated_attributes:
-                attribute_id = generated_attribute.id
-                if attribute_id in attribute_ids:
-                    raise ValueError(
-                        f"GeneralSynthesisParams contains duplicate attribute "
-                        f"IDs: {attribute_id}"
-                    )
-                attribute_ids.add(attribute_id)
-
-        if self.transformed_attributes:
-            for transformed_attribute in self.transformed_attributes:
-                attribute_id = transformed_attribute.id
-                if attribute_id in attribute_ids:
-                    raise ValueError(
-                        f"GeneralSynthesisParams contains duplicate attribute "
-                        f"IDs: {attribute_id}"
-                    )
-                attribute_ids.add(attribute_id)
-
-        if self.combination_sampling:
-            sample_rates = [
-                combination.sample_rate for combination in self.combination_sampling
-            ]
-            if sum(sample_rates) > 1.0:
-                raise ValueError(
-                    "GeneralSynthesisParams.combination_sampling sample rates must be "
-                    "less than or equal to 1.0."
-                )
+    def __post_init__(self):
+        """Verifies/populates params."""
+        all_attribute_ids = set()
+        self._check_dataset_source_attribute_ids(all_attribute_ids)
+        self._check_document_source_attribute_ids(all_attribute_ids)
+        self._check_example_source_attribute_ids(all_attribute_ids)
+        self._check_permutable_attribute_ids(all_attribute_ids)
+        self._check_generated_attribute_ids(all_attribute_ids)
+        self._check_transformed_attribute_ids(all_attribute_ids)
+        self._check_passthrough_attribute_ids()
+        self._check_combination_sampling_sample_rates()
