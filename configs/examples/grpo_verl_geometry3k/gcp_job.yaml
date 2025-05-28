@@ -27,6 +27,13 @@ file_mounts:
   ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+storage_mounts:
+  /gcs_dir:
+    source: gs://oumi-dev-us-west3/
+    store: gcs
+
 envs:
   WANDB_PROJECT: oumi-train
   OUMI_RUN_NAME: verl-vlm-geom3k.grpo
@@ -42,9 +49,13 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
+  export OUTPUT_DIR="/gcs_dir/grpo-verl-vlm-geom3k/2025-05-28/v01/"
+  mkdir -p "$OUTPUT_DIR"
+
   set -x
   oumi train \
       -c configs/examples/grpo_verl_geometry3k/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+      --training.run_name="${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.output_dir="$OUTPUT_DIR"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
