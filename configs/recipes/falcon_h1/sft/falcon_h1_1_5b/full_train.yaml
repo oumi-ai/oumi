@@ -19,6 +19,7 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
+  enable_liger_kernel: True
 
 data:
   train:
@@ -51,10 +52,3 @@ training:
   output_dir: "output/falcon_h1_1_5b.fft"
   include_performance_metrics: True
   enable_wandb: True
-
-fsdp:
-  enable_fsdp: True
-  sharding_strategy: "HYBRID_SHARD"
-  forward_prefetch: True
-  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "FalconH1DecoderLayer"

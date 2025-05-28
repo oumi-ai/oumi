@@ -40,7 +40,7 @@ setup: |
   uv pip install \
     oumi[gpu,evaluation] \
     -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly \
-    transformers @ git+https://github.com/younesbelkada/transformers.git@fix-slow-path \
+    transformers@git+https://github.com/younesbelkada/transformers.git@fix-slow-path \
     hf_transfer
   uv pip install mamba-ssm causal-conv1d --no-build-isolation
   # Install model from HF Hub. This tool increases download speed compared to

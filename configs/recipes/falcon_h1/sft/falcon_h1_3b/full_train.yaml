@@ -19,6 +19,7 @@ model:
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
+  enable_liger_kernel: True
 
 data:
   train:
