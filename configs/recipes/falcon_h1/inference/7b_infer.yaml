@@ -4,7 +4,7 @@
 #   - Set the `TOGETHER_API_KEY` env var to your Together API key.
 #   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
 # Usage:
-#   oumi infer -i -c configs/recipes/falcon_h1/inference/7b_infer.yaml
+#   oumi infer -i -c oumi://configs/recipes/falcon_h1/inference/7b_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
