@@ -1,7 +1,6 @@
 # Inference config for tiiuae/Falcon-H1-0.5B-Instruct.
 #
 # Requirements:
-#   - Set the `TOGETHER_API_KEY` env var to your Together API key.
 #   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
 # Usage:
 #   oumi infer -i -c oumi://configs/recipes/falcon_h1/inference/0_5b_infer.yaml
@@ -28,4 +27,4 @@ generation:
   # If repetitions are still present, consider increasing this value (up to 2.0).
   presence_penalty: 0.0
 
-engine: NATIVE ## Can also use `VLLM` for faster inference on GPUs.
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.

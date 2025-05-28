@@ -34,7 +34,7 @@ setup: |
   set -e
   pip install uv
   uv pip install \
-    oumi[gpu,evaluation] \
+    oumi[gpu] \
     -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly \
     transformers@git+https://github.com/younesbelkada/transformers.git@fix-slow-path \
     hf_transfer
