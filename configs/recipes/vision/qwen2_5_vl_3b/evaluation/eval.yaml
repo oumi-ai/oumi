@@ -1,0 +1,97 @@
+# Eval config for Qwen2 VL 2B Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
+#
+# Usage:
+#   oumi evaluate -c configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "Qwen/Qwen2-VL-2B-Instruct"
+  model_max_length: 1024
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "flash_attention_2" # For this eval "sdpa" leads to CUDA OOM
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 2
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmmu_val
+    # num_samples: 100  # Limit the number of eval samples.
+    eval_kwargs:
+      num_fewshot: 5
+
+  # To enable individual sub-tasks, uncomment the entries of interest below:
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_accounting"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_agriculture" # This task requires more GPU memory!
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_architecture_and_engineering"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_art"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_art_theory"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_basic_medical_science"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_biology"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_chemistry"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_clinical_medicine"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_computer_science"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_design"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_diagnostics_and_laboratory_medicine"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_economics"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_electronics"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_energy_and_power"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_finance"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_geography"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_history"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_literature"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_manage"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_marketing"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_materials"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_math"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_mechanical_engineering"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_music"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_pharmacy"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_physics"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_psychology"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_public_health"
+  # - evaluation_backend: lm_harness
+  #   task_name: "mmmu_val_sociology"
+
+enable_wandb: True
+inference_engine: NATIVE
