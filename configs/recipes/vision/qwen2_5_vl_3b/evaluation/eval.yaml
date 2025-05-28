@@ -1,11 +1,11 @@
-# Eval config for Qwen2 VL 2B Instruct.
+# Eval config for Qwen 2.5 VL 3B Instruct.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - Run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
-#   oumi evaluate -c configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml
+#   oumi evaluate -c configs/recipes/vision/qwen2_5_vl_3b/evaluation/eval.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
@@ -14,7 +14,7 @@
 #   - Other eval configs: configs/**/evaluation/
 
 model:
-  model_name: "Qwen/Qwen2-VL-2B-Instruct"
+  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
   model_max_length: 1024
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2" # For this eval "sdpa" leads to CUDA OOM

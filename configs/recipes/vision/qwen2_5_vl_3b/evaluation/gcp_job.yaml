@@ -1,11 +1,11 @@
-# Job config to eval Qwen2 VL 2B Instruct on GCP.
+# Job config to eval Qwen 2.5 VL 3B Instruct on GCP.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/vision/qwen2_vl_2b/evaluation/gcp_job.yaml --cluster qwen2-vl-vision
+#   oumi launch up -c configs/recipes/vision/qwen2_5_vl_3b/evaluation/gcp_job.yaml --cluster qwen2_5-vl-vision
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -13,7 +13,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: qwen2-vl-eval
+name: qwen2_5-vl-eval
 
 resources:
   cloud: gcp
@@ -31,9 +31,9 @@ envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
   # NOTE: For LoRA, instead update this to point to your LoRA adapter.
   #       The base model will be inferred automatically.
-  MODEL_CHECKPOINT_DIR: Qwen/Qwen2-VL-2B-Instruct
+  MODEL_CHECKPOINT_DIR: Qwen/Qwen2.5-VL-3B-Instruct
   WANDB_PROJECT: oumi-eval
-  OUMI_RUN_NAME: qwen2.vl.eval
+  OUMI_RUN_NAME: qwen2_5-vl.eval
 
 setup: |
   set -e
@@ -42,7 +42,7 @@ setup: |
 
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2.5-VL-3B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -62,7 +62,7 @@ run: |
     --mixed_precision="no" \
     --dynamo_backend="no" \
     -m oumi evaluate \
-    -c configs/recipes/vision/qwen2_vl_2b/evaluation/eval.yaml \
+    -c configs/recipes/vision/qwen2_5_vl_3b/evaluation/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
     --model.model_name "${MODEL_CHECKPOINT_DIR}"
 
