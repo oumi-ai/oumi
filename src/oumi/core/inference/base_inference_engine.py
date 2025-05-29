@@ -117,8 +117,7 @@ class BaseInferenceEngine(ABC):
         self._maybe_log_latency_histogram(histogram)
         return result
 
-    @staticmethod
-    def _maybe_log_latency_histogram(histogram: Optional[HdrHistogram]) -> None:
+    def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:
         """Logs the histogram if it is not None.
 
         Args:
@@ -127,6 +126,7 @@ class BaseInferenceEngine(ABC):
         if histogram is None:
             return
         total_count = histogram.get_total_count()
+        # TODO: Define better way to enable/configure this logging.
         if not (
             isinstance(total_count, int)
             and total_count >= 8
@@ -138,6 +138,7 @@ class BaseInferenceEngine(ABC):
         p90 = histogram.get_value_at_percentile(90)
         p99 = histogram.get_value_at_percentile(99)
         logger.info(
+            f"{self.__class__.__name__}: "
             f"Latency Histogram: {total_count} samples recorded:"
             f"\tp50: {p50:.1f}ms\tp90: {p90:.1f}ms\tp99: {p99:.1f}ms "
         )
