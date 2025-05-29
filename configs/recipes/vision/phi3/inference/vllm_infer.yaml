@@ -24,4 +24,4 @@ generation:
   max_new_tokens: 64
   batch_size: 1
 
-engine: VLLM
+engine: NATIVE # VLLM
