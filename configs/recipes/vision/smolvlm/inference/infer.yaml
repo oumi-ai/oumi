@@ -1,10 +1,10 @@
-# vLLM inference config for SmolVLM Instruct.
+# SmolVLM Instruct inference config.
 #
 # Requirements:
 #   - Run `pip install oumi[gpu]`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/vision/smolvlm/inference/vllm_infer.yaml \
+#   oumi infer -i -c configs/recipes/vision/smolvlm/inference/infer.yaml \
 #     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
 #
 # See Also:
@@ -24,4 +24,4 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
-engine: VLLM
+engine: NATIVE
