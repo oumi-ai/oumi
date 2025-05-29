@@ -15,7 +15,7 @@
 
 model:
   model_name: "OpenGVLab/InternVL3-1B-hf"
-  torch_dtype_str: "bfloat16"
+  torch_dtype_str: "float32"
   model_max_length: 8192
   chat_template: "internvl3"
   trust_remote_code: True
@@ -24,6 +24,6 @@ generation:
   max_new_tokens: 32
   batch_size: 1
 
-engine: VLLM
+engine: NATIVE # VLLM
 
 #  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download OpenGVLab/InternVL3-1B-hf
