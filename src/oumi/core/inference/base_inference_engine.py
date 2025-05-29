@@ -137,10 +137,10 @@ class BaseInferenceEngine(ABC):
         p50 = histogram.get_value_at_percentile(50)
         p90 = histogram.get_value_at_percentile(90)
         p99 = histogram.get_value_at_percentile(99)
-        logger.info(
+        logger.debug(
             f"{self.__class__.__name__}: "
             f"Latency Histogram: {total_count} samples recorded:"
-            f"\tp50: {p50:.1f}ms\tp90: {p90:.1f}ms\tp99: {p99:.1f}ms "
+            f"\tp50: {p50:.1f}ms\tp90: {p90:.1f}ms\tp99: {p99:.1f}ms"
         )
 
     def _read_conversations(self, input_filepath: str) -> list[Conversation]:
