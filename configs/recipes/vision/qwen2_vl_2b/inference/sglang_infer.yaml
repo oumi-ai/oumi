@@ -19,6 +19,23 @@
 #     --host 0.0.0.0 --port 6864 --disable-cuda-graph --trust-remote-code \
 #     --mem-fraction-static=0.9
 #
+# docker run --gpus all --shm-size 32g -p 6864:6864 --ipc=host -v ~/.cache/huggingface:/root/.cache/huggingface  lmsysorg/sglang:latest  python3 -m sglang.launch_server  --model-path microsoft/Phi-3-vision-128k-instruct --host 0.0.0.0 --port 6864 --disable-cuda-graph --trust-remote-code --mem-fraction-static=0.9
+#
+# python -u -m vllm.entrypoints.openai.api_server
+#   --port 6864 \
+#   --model OpenGVLab/InternVL3-1B-hf \
+#   --trust-remote-code \
+#   --dtype=bfloat16 \
+#   --device=cuda \
+#   --max-model-len 2048 \
+#   --enforce-eager \
+#   --disable-custom-all-reduce \
+#   --disable-log-requests \
+#   --max_num_seqs=2 \
+#   --enable-chunked-prefill=false \
+#   --gpu-memory-utilization=0.95 \
+#   --tensor-parallel-size 1
+#
 # Sample command to start SGLang server using Python:
 # CUDA_VISIBLE_DEVICES=0 python -m sglang.launch_server \
 #   --model-path Qwen/Qwen2-VL-2B-Instruct \
