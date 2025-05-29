@@ -126,10 +126,10 @@ class BaseInferenceEngine(ABC):
         if histogram is None:
             return
         total_count = histogram.get_total_count()
-        # TODO: Define better way to enable/configure this logging.
+        # TODO: Define a better way to enable/configure this logging.
         if not (
             isinstance(total_count, int)
-            and total_count >= 8
+            and total_count >= 2
             and is_power_of_two(total_count)
         ):
             return
