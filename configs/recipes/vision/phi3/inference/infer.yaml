@@ -4,7 +4,7 @@
 #   - Run `pip install oumi[gpu]`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/vision/phi3/inference/vllm_infer.yaml \
+#   oumi infer -i -c configs/recipes/vision/phi3/inference/infer.yaml \
 #     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
 #
 # See Also:
