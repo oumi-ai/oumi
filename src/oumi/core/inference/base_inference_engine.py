@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import copy
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
 import jsonlines
+from hdrh.histogram import HdrHistogram
 from tqdm import tqdm
 
 from oumi.core.configs import (
@@ -57,6 +59,9 @@ class BaseInferenceEngine(ABC):
             generation_params = GenerationParams()
         self._generation_params = generation_params
 
+        self._latency_histogram_online = HdrHistogram(1, 60 * 1000, 1)
+        self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
+
     def infer(
         self,
         input: Optional[list[Conversation]] = None,
@@ -94,14 +99,28 @@ class BaseInferenceEngine(ABC):
                     "the generation parameters that the engine was initialized with."
                 )
 
+        result: list[Conversation] = []
+        start_time = time.perf_counter()
+        histogram: Optional[HdrHistogram] = None
         if input is not None:
-            return self.infer_online(input, inference_config)
+            histogram = self._latency_histogram_online
+            result = self.infer_online(input, inference_config)
         elif inference_config and inference_config.input_path is not None:
-            return self.infer_from_file(inference_config.input_path, inference_config)
+            histogram = self._latency_histogram_from_file
+            result = self.infer_from_file(inference_config.input_path, inference_config)
         else:
             raise ValueError(
                 "One of input or inference_config.input_path must be provided."
             )
+        histogram.record_value((time.perf_counter() - start_time) * 1e3)
+        if histogram.get_total_count() % 10 == 9:
+            for item in histogram.get_recorded_iterator():
+                logger.info(
+                    f"value={item.value_iterated_to} "
+                    f"count={item.count_added_in_this_iter_step} "
+                    f"percentile={item.percentile}"
+                )
+        return result
 
     def _read_conversations(self, input_filepath: str) -> list[Conversation]:
         """Reads conversations from a file in Oumi chat format.
