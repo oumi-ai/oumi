@@ -29,6 +29,7 @@ from oumi.core.configs import (
 )
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
+from oumi.utils.math_utils import is_power_of_two
 
 
 class BaseInferenceEngine(ABC):
@@ -113,14 +114,33 @@ class BaseInferenceEngine(ABC):
                 "One of input or inference_config.input_path must be provided."
             )
         histogram.record_value((time.perf_counter() - start_time) * 1e3)
-        if histogram.get_total_count() % 10 == 9:
-            for item in histogram.get_recorded_iterator():
-                logger.info(
-                    f"value={item.value_iterated_to} "
-                    f"count={item.count_added_in_this_iter_step} "
-                    f"percentile={item.percentile}"
-                )
+        self._maybe_log_latency_histogram(histogram)
         return result
+
+    @staticmethod
+    def _maybe_log_latency_histogram(histogram: Optional[HdrHistogram]) -> None:
+        """Logs the histogram if it is not None.
+
+        Args:
+            histogram: The histogram to log.
+        """
+        if histogram is None:
+            return
+        total_count = histogram.get_total_count()
+        if not (
+            isinstance(total_count, int)
+            and total_count >= 8
+            and is_power_of_two(total_count)
+        ):
+            return
+
+        p50 = histogram.get_value_at_percentile(50)
+        p90 = histogram.get_value_at_percentile(90)
+        p99 = histogram.get_value_at_percentile(99)
+        logger.info(
+            f"Latency Histogram: {total_count} samples recorded:"
+            f"\tp50: {p50:.1f}ms\tp90: {p90:.1f}ms\tp99: {p99:.1f}ms "
+        )
 
     def _read_conversations(self, input_filepath: str) -> list[Conversation]:
         """Reads conversations from a file in Oumi chat format.
