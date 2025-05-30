@@ -571,8 +571,7 @@ def test_infer_online_empty():
     assert expected_result == result
 
 
-def test_infer_online_fails(mock_asyncio_sleep):
-    """Test that non-retryable errors (like 401) fail immediately without retries."""
+def test_infer_online_fast_fail_nonretriable(mock_asyncio_sleep):
     with aioresponses() as m:
         # Only set up one response since it should fail immediately
         m.post(
@@ -613,6 +612,88 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
     with aioresponses() as m:
         m.post(
             _TARGET_SERVER,
+            status=504,
+            payload={"error": {"message": "Gateway timeout"}},
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=429,
+            payload={"error": {"message": "Too many requests"}},
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=503,
+            payload={"error": {"message": "Service unavailable"}},
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=500,
+            payload={"error": {"message": "Internal server error"}},
+        )
+
+        engine = RemoteInferenceEngine(
+            _get_default_model_params(),
+            remote_params=RemoteParams(api_url=_TARGET_SERVER, max_retries=0),
+        )
+        conversation = Conversation(
+            messages=[
+                Message(
+                    content="Hello world!",
+                    role=Role.USER,
+                ),
+                Message(
+                    content="Hello again!",
+                    role=Role.USER,
+                ),
+            ],
+            metadata={"foo": "bar"},
+            conversation_id="123",
+        )
+        config = _get_default_inference_config()
+        if config.remote_params is not None:
+            config.remote_params.max_retries = 0
+
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to query API after 1 attempts. Reason: Gateway timeout",
+        ):
+            _ = engine.infer_online(
+                [conversation],
+                config,
+            )
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to query API after 1 attempts. Reason: Too many requests",
+        ):
+            _ = engine.infer_online(
+                [conversation],
+                config,
+            )
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to query API after 1 attempts. Reason: Service unavailable",
+        ):
+            _ = engine.infer_online(
+                [conversation],
+                config,
+            )
+        with pytest.raises(
+            RuntimeError,
+            match="Failed to query API after 1 attempts. Reason: Internal server error",
+        ):
+            _ = engine.infer_online(
+                [conversation],
+                config,
+            )
+
+        # No retries
+        assert mock_asyncio_sleep.call_count == 0
+
+
+def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
             status=500,
             payload={"error": {"message": "Internal server error"}},
         )
@@ -632,6 +713,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             payload={"error": {"message": "Internal server error"}},
         )
 
+        config = _get_default_inference_config()
         engine = RemoteInferenceEngine(
             _get_default_model_params(),
             remote_params=RemoteParams(api_url=_TARGET_SERVER),
@@ -656,9 +738,9 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
         ):
             _ = engine.infer_online(
                 [conversation],
-                _get_default_inference_config(),
+                config,
             )
-        # Should retry on 500
+        # 3 retries + 3 backoffs
         assert mock_asyncio_sleep.call_count == 6
 
 
