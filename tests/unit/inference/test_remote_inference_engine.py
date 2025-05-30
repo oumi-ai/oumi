@@ -2344,8 +2344,7 @@ def test_infer_online_exponential_backoff():
             )  # Second retry: base delay * 2
 
 
-@pytest.mark.asyncio
-async def test_non_retryable_errors(mock_asyncio_sleep):
+def test_non_retryable_errors(mock_asyncio_sleep):
     """Test that certain HTTP status codes are not retried."""
     non_retryable_codes = [400, 401, 403, 404, 422]
     error_messages = {
@@ -2374,7 +2373,7 @@ async def test_non_retryable_errors(mock_asyncio_sleep):
             conversation = create_test_text_only_conversation()
 
             with pytest.raises(RuntimeError) as exc_info:
-                await engine._infer([conversation])
+                engine.infer_online([conversation])
 
             assert f"Non-retryable error: {error_messages[status_code]}" in str(
                 exc_info.value
@@ -2384,8 +2383,7 @@ async def test_non_retryable_errors(mock_asyncio_sleep):
             mock_asyncio_sleep.reset_mock()
 
 
-@pytest.mark.asyncio
-async def test_response_processing_error(mock_asyncio_sleep):
+def test_response_processing_error(mock_asyncio_sleep):
     """Test handling of errors during response processing."""
     with aioresponses() as m:
         m.post(
@@ -2419,15 +2417,14 @@ async def test_response_processing_error(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            await engine._infer([conversation])
+            engine.infer_online([conversation])
 
         assert "Failed to process successful response" in str(exc_info.value)
         # Verify retries were attempted
         assert mock_asyncio_sleep.call_count == 4
 
 
-@pytest.mark.asyncio
-async def test_malformed_json_response(mock_asyncio_sleep):
+def test_malformed_json_response(mock_asyncio_sleep):
     """Test handling of malformed JSON responses."""
     with aioresponses() as m:
         m.post(
@@ -2459,7 +2456,7 @@ async def test_malformed_json_response(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            await engine._infer([conversation])
+            engine.infer_online([conversation])
 
         assert "Failed to parse response" in str(exc_info.value)
         assert "Content type: application/json" in str(exc_info.value)
@@ -2467,8 +2464,7 @@ async def test_malformed_json_response(mock_asyncio_sleep):
         assert mock_asyncio_sleep.call_count == 4
 
 
-@pytest.mark.asyncio
-async def test_unexpected_error_handling(mock_asyncio_sleep):
+def test_unexpected_error_handling(mock_asyncio_sleep):
     """Test handling of unexpected errors during API calls."""
 
     def raise_unexpected(*args, **kwargs):
@@ -2487,7 +2483,7 @@ async def test_unexpected_error_handling(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            await engine._infer([conversation])
+            engine.infer_online([conversation])
 
         assert (
             "Failed to query API after 3 attempts due to unexpected error: Unexpected "
@@ -2497,8 +2493,7 @@ async def test_unexpected_error_handling(mock_asyncio_sleep):
         assert mock_asyncio_sleep.call_count == 4
 
 
-@pytest.mark.asyncio
-async def test_list_response_error_handling():
+def test_list_response_error_handling():
     """Test handling of list-type error responses."""
     with aioresponses() as m:
         m.post(
@@ -2517,13 +2512,12 @@ async def test_list_response_error_handling():
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            await engine._infer([conversation])
+            engine.infer_online([conversation])
 
         assert "Internal server error" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
-async def test_retry_with_different_errors():
+def test_retry_with_different_errors():
     """Test retry behavior with different types of errors on each attempt."""
     attempt = 0
 
@@ -2569,7 +2563,7 @@ async def test_retry_with_different_errors():
         )
         conversation = create_test_text_only_conversation()
 
-        result = await engine._infer([conversation])
+        result = engine.infer_online([conversation])
 
         assert len(result) == 1
         assert result[0].messages[-1].content == "Success after retries"
