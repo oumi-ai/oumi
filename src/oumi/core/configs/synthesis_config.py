@@ -41,7 +41,7 @@ class SynthesisConfig(BaseConfig):
     """The inference configuration to use."""
 
     num_samples: int = 1
-    """The number of samples to generate."""
+    """The number of synthetic samples to generate."""
 
     def __post_init__(self):
         """Verifies/populates params."""

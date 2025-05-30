@@ -14,10 +14,13 @@
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional, Union
 
 from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.types.conversation import Conversation
+
+_SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
 
 
 @dataclass
@@ -28,26 +31,20 @@ class DatasetSource:
     """Path to the dataset source."""
 
     attribute_map: Optional[dict[str, str]] = None
-    """Map of attributes to be used in synthesis. Will use original attribute names if
-    not specified."""
+    """Map of attributes to be used in synthesis.
+    Will use the existing keys in the dataset if not specified."""
 
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.path:
             raise ValueError("DatasetSource.path cannot be empty.")
 
-        if self.path.endswith(".jsonl"):
-            pass
-        elif self.path.endswith(".json"):
-            pass
-        elif self.path.endswith(".csv"):
-            pass
-        elif self.path.endswith(".parquet"):
-            pass
-        elif self.path.endswith(".tsv"):
-            pass
-        else:
-            raise ValueError(f"Unsupported dataset file type: {self.path}")
+        file_path = Path(self.path)
+        if file_path.suffix not in _SUPPORTED_DATASET_FILE_TYPES:
+            raise ValueError(
+                f"Unsupported dataset file type: {self.path}\n"
+                f"Supported file types: {_SUPPORTED_DATASET_FILE_TYPES}"
+            )
 
 
 class SegmentationStrategy(str, Enum):
@@ -556,7 +553,7 @@ class GeneralSynthesisParams(BaseParams):
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
     def _check_combination_sampling_sample_rates(self) -> None:
-        """Check sample rates for combination sampling for uniqueness."""
+        """Validate that the combination sample rates are <= 1.0."""
         if self.combination_sampling is None:
             return
 
@@ -575,7 +572,7 @@ class GeneralSynthesisParams(BaseParams):
             )
 
     def _check_passthrough_attribute_ids(self) -> None:
-        """Check attribute IDs from passthrough attributes for uniqueness."""
+        """Validate that passthrough attributes are non-empty when defined."""
         if self.passthrough_attributes is None:
             return
 
