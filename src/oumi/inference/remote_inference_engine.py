@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import aiofiles
 import aiohttp
@@ -52,6 +52,15 @@ from oumi.utils.conversation_utils import (
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
 _BATCH_ENDPOINT = "/v1/chat/completions"
+
+# HTTP status codes that should not be retried
+_NON_RETRYABLE_STATUS_CODES = {
+    400,  # Bad Request
+    401,  # Unauthorized
+    403,  # Forbidden
+    404,  # Not Found
+    422,  # Unprocessable Entity
+}
 
 
 class BatchStatus(Enum):
@@ -202,6 +211,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
     _remote_params: RemoteParams
     """Parameters for running inference against a remote API."""
+
+    _unsuccessful_request_count: int = 0
+    """Number of failed requests."""
 
     def __init__(
         self,
@@ -407,6 +419,45 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         if not remote_params.api_key:
             remote_params.api_key = self._remote_params.api_key
 
+    async def _get_failure_reason_from_non_retryable_error(
+        self,
+        response: aiohttp.ClientResponse,
+    ) -> str:
+        """Handle non-retryable errors."""
+        try:
+            response_json = await response.json()
+            if isinstance(response_json, list):
+                response_json = response_json[0]
+            error_msg = (
+                response_json.get("error", {}).get("message")
+                if response_json
+                else f"HTTP {response.status}"
+            )
+
+        except Exception:
+            error_msg = f"HTTP {response.status}"
+
+        failure_reason = error_msg
+        return f"Non-retryable error: {failure_reason}"
+
+    def _get_non_200_retryable_failure_reason(
+        self,
+        response: aiohttp.ClientResponse,
+        response_json: Union[dict[str, Any], list[dict[str, Any]]],
+    ) -> str:
+        """Handle non-200 retryable response."""
+        # Handle error response
+        if isinstance(response_json, list):
+            # If the response is a list, it is likely an error message
+            response_json = response_json[0]
+
+        error_msg = (
+            response_json.get("error", {}).get("message") if response_json else None
+        )
+        failure_reason = error_msg if error_msg else f"HTTP {response.status}"
+
+        return failure_reason
+
     async def _query_api(
         self,
         conversation: Conversation,
@@ -471,24 +522,49 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         headers=headers,
                         timeout=remote_params.connection_timeout,
                     ) as response:
+                        # Check for non-retryable status codes first to fail fast.
+                        if response.status in _NON_RETRYABLE_STATUS_CODES:
+                            failure_reason = (
+                                await self._get_failure_reason_from_non_retryable_error(
+                                    response
+                                )
+                            )
+                            self._unsuccessful_request_count += 1
+                            raise RuntimeError(failure_reason)
+
+                        # Try to parse the response as JSON
                         try:
                             response_json = await response.json()
-                        except aiohttp.ContentTypeError:
+                        except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                            # Try to parse as text if JSON parsing fails
+                            text_response = await response.text()
                             try:
-                                text_response = await response.text()
                                 response_json = json.loads(text_response)
                             except (json.JSONDecodeError, ValueError) as e:
+                                failure_reason = (
+                                    "Failed to parse response. "
+                                    f"Content type: {response.content_type}. "
+                                    f"Response text: {text_response[:200]}..."
+                                )
+                                self._unsuccessful_request_count += 1
                                 if attempt == remote_params.max_retries:
                                     raise RuntimeError(
                                         "Failed to parse response as JSON after "
-                                        f"{attempt + 1} attempts. "
-                                        "Response content type:"
-                                        f"{response.content_type}. "
-                                        f"Error: {str(e)}"
+                                        f"{attempt + 1} attempts. {failure_reason}"
                                     ) from e
                                 continue
 
-                        if response.status == 200:
+                        # Check for non-200 response
+                        if response.status != 200:
+                            failure_reason = self._get_non_200_retryable_failure_reason(
+                                response,
+                                response_json,
+                            )
+                            self._unsuccessful_request_count += 1
+                            continue
+
+                        # Process successful response
+                        try:
                             result = self._convert_api_output_to_conversation(
                                 response_json, conversation
                             )
@@ -499,32 +575,51 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     self._get_scratch_filepath(output_path),
                                 )
                             return result
-                        else:
-                            if isinstance(response_json, list):
-                                # If the response is a list, it is likely an error
-                                # message
-                                response_json = response_json[0]
+                        except Exception as e:
+                            # Response was successful, but we couldn't process it.
                             failure_reason = (
-                                response_json.get("error", {}).get("message")
-                                if response_json
-                                else f"HTTP {response.status}"
+                                f"Failed to process successful response: {str(e)}"
                             )
-                            if attempt < remote_params.max_retries:
-                                continue
+                            self._unsuccessful_request_count += 1
+                            if attempt == remote_params.max_retries:
+                                raise RuntimeError(failure_reason) from e
+                            continue
 
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    # Connection or timeout errors are retryable.
+                    failure_reason = f"Connection error: {str(e)}"
+                    self._unsuccessful_request_count += 1
                     if attempt == remote_params.max_retries:
                         raise RuntimeError(
-                            f"Failed to query API after {attempt} retries due to "
+                            f"Failed to query API after {attempt + 1} attempts due to "
                             f"connection error: {str(e)}"
                         ) from e
                     continue
-
+                except RuntimeError:
+                    # RuntimeError is raised by our code, so we don't need to retry.
+                    raise
+                except Exception as e:
+                    # If we get here, we've hit an unexpected error.
+                    failure_reason = f"Unexpected error: {str(e)}"
+                    self._unsuccessful_request_count += 1
+                    if attempt == remote_params.max_retries:
+                        raise RuntimeError(
+                            f"Failed to query API after {attempt + 1} attempts due to "
+                            f"unexpected error: {str(e)}"
+                        ) from e
+                    continue
                 finally:
-                    await asyncio.sleep(remote_params.politeness_policy)
+                    # If the request was successful or non-retryable, and we haven't
+                    # reached the max number of retries, sleep for politeness policy.
+                    if (
+                        not failure_reason
+                        or not failure_reason.startswith("Non-retryable error:")
+                    ) and attempt < remote_params.max_retries:
+                        await asyncio.sleep(remote_params.politeness_policy)
 
+            # This should only be reached if all retries failed
             raise RuntimeError(
-                f"Failed to query API after {remote_params.max_retries} retries. "
+                f"Failed to query API after {attempt + 1} attempts. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Final
 from unittest.mock import patch
 
+import aiohttp
 import jsonlines
 import PIL.Image
 import pytest
@@ -571,15 +572,19 @@ def test_infer_online_empty():
 
 
 def test_infer_online_fails(mock_asyncio_sleep):
+    """Test that non-retryable errors (like 401) fail immediately without retries."""
     with aioresponses() as m:
-        m.post(_TARGET_SERVER, status=401)
-        m.post(_TARGET_SERVER, status=401)
-        m.post(_TARGET_SERVER, status=401)
-        m.post(_TARGET_SERVER, status=501)
+        # Only set up one response since it should fail immediately
+        m.post(
+            _TARGET_SERVER, status=401, payload={"error": {"message": "Unauthorized"}}
+        )
 
         engine = RemoteInferenceEngine(
             _get_default_model_params(),
-            remote_params=RemoteParams(api_url=_TARGET_SERVER),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=3,  # Even with retries configured, should fail immediately
+            ),
         )
         conversation = Conversation(
             messages=[
@@ -595,21 +600,35 @@ def test_infer_online_fails(mock_asyncio_sleep):
             metadata={"foo": "bar"},
             conversation_id="123",
         )
-        with pytest.raises(RuntimeError, match="Failed to query API after 3 retries."):
+        with pytest.raises(RuntimeError, match="Non-retryable error: Unauthorized"):
             _ = engine.infer_online(
                 [conversation],
                 _get_default_inference_config(),
             )
+        # Should not retry on 401
+        assert mock_asyncio_sleep.call_count == 0
 
 
 def test_infer_online_fails_with_message(mock_asyncio_sleep):
     with aioresponses() as m:
-        m.post(_TARGET_SERVER, status=401)
-        m.post(_TARGET_SERVER, status=401)
-        m.post(_TARGET_SERVER, status=401)
         m.post(
             _TARGET_SERVER,
-            status=501,
+            status=500,
+            payload={"error": {"message": "Internal server error"}},
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=500,
+            payload={"error": {"message": "Internal server error"}},
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=500,
+            payload={"error": {"message": "Internal server error"}},
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=500,
             payload={"error": {"message": "Internal server error"}},
         )
 
@@ -633,12 +652,14 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
         )
         with pytest.raises(
             RuntimeError,
-            match="Failed to query API after 3 retries. Reason: Internal server error",
+            match="Failed to query API after 4 attempts. Reason: Internal server error",
         ):
             _ = engine.infer_online(
                 [conversation],
                 _get_default_inference_config(),
             )
+        # Should retry on 500
+        assert mock_asyncio_sleep.call_count == 6
 
 
 def test_infer_online_recovers_from_retries():
@@ -2116,6 +2137,24 @@ def test_infer_online_handles_invalid_content():
             body=json.dumps({"error": {"message": "Invalid JSON content"}}),
             content_type="application/json",
         )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body=json.dumps({"error": {"message": "Invalid JSON content"}}),
+            content_type="application/json",
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body=json.dumps({"error": {"message": "Invalid JSON content"}}),
+            content_type="application/json",
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body=json.dumps({"error": {"message": "Invalid JSON content"}}),
+            content_type="application/json",
+        )
 
         engine = RemoteInferenceEngine(
             model_params=_get_default_model_params(),
@@ -2142,7 +2181,9 @@ def test_infer_online_handles_invalid_content():
             pass
 
         with patch("asyncio.sleep", side_effect=mock_sleep):
-            with pytest.raises(RuntimeError, match="API error: Invalid JSON content"):
+            with pytest.raises(
+                RuntimeError, match="Failed to process successful response"
+            ):
                 engine.infer_online(
                     [conversation],
                     inference_config,
@@ -2160,7 +2201,7 @@ def test_infer_online_exponential_backoff():
         # Fail until the last attempt
         if len(sleep_calls) < 3:
             return CallbackResult(
-                status=500,
+                status=500,  # Use 500 instead of 401 since 401 is non-retryable
                 body=json.dumps({"error": {"message": "Server Error"}}),
                 content_type="application/json",
             )
@@ -2219,3 +2260,235 @@ def test_infer_online_exponential_backoff():
             assert backoff_sleeps[1] == pytest.approx(
                 0.4
             )  # Second retry: base delay * 2
+
+
+@pytest.mark.asyncio
+async def test_non_retryable_errors(mock_asyncio_sleep):
+    """Test that certain HTTP status codes are not retried."""
+    non_retryable_codes = [400, 401, 403, 404, 422]
+    error_messages = {
+        400: "Bad request error",
+        401: "Unauthorized error",
+        403: "Forbidden error",
+        404: "Not found error",
+        422: "Validation error",
+    }
+
+    for status_code in non_retryable_codes:
+        with aioresponses() as m:
+            m.post(
+                _TARGET_SERVER,
+                status=status_code,
+                payload={"error": {"message": error_messages[status_code]}},
+            )
+
+            engine = RemoteInferenceEngine(
+                model_params=_get_default_model_params(),
+                remote_params=RemoteParams(
+                    api_url=_TARGET_SERVER,
+                    max_retries=3,
+                ),
+            )
+            conversation = create_test_text_only_conversation()
+
+            with pytest.raises(RuntimeError) as exc_info:
+                await engine._infer([conversation])
+
+            assert f"Non-retryable error: {error_messages[status_code]}" in str(
+                exc_info.value
+            )
+            # Verify no retries were attempted
+            assert mock_asyncio_sleep.call_count == 0
+            mock_asyncio_sleep.reset_mock()
+
+
+@pytest.mark.asyncio
+async def test_response_processing_error(mock_asyncio_sleep):
+    """Test handling of errors during response processing."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload={"choices": [{"invalid": "response"}]},  # Missing required fields
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload={"choices": [{"invalid": "response"}]},  # Missing required fields
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload={"choices": [{"invalid": "response"}]},  # Missing required fields
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload={"choices": [{"invalid": "response"}]},  # Missing required fields
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await engine._infer([conversation])
+
+        assert "Failed to process successful response" in str(exc_info.value)
+        # Verify retries were attempted
+        assert mock_asyncio_sleep.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_malformed_json_response(mock_asyncio_sleep):
+    """Test handling of malformed JSON responses."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body="Invalid JSON {",
+            content_type="application/json",
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body="Invalid JSON {",
+            content_type="application/json",
+        )
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body="Invalid JSON {",
+            content_type="application/json",
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await engine._infer([conversation])
+
+        assert "Failed to parse response" in str(exc_info.value)
+        assert "Content type: application/json" in str(exc_info.value)
+        # Verify retries were attempted
+        assert mock_asyncio_sleep.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_handling(mock_asyncio_sleep):
+    """Test handling of unexpected errors during API calls."""
+
+    def raise_unexpected(*args, **kwargs):
+        raise ValueError("Unexpected internal error")
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=raise_unexpected)
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=2,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await engine._infer([conversation])
+
+        assert (
+            "Failed to query API after 3 attempts due to unexpected error: Unexpected "
+            "internal error" in str(exc_info.value)
+        )
+        # Verify retries were attempted
+        assert mock_asyncio_sleep.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_list_response_error_handling():
+    """Test handling of list-type error responses."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=500,
+            payload=[{"error": {"message": "Internal server error"}}],
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=0,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await engine._infer([conversation])
+
+        assert "Internal server error" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_retry_with_different_errors():
+    """Test retry behavior with different types of errors on each attempt."""
+    attempt = 0
+
+    def get_response(*args, **kwargs):
+        nonlocal attempt
+        attempt += 1
+
+        if attempt == 1:
+            raise aiohttp.ClientError("Network error")
+        elif attempt == 2:
+            return CallbackResult(status=200, body="Invalid JSON {")
+        elif attempt == 3:
+            return CallbackResult(
+                status=500, payload={"error": {"message": "Server error"}}
+            )
+        else:
+            return CallbackResult(
+                status=200,
+                payload={
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "Success after retries",
+                            }
+                        }
+                    ]
+                },
+            )
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=get_response)
+        m.post(_TARGET_SERVER, callback=get_response)
+        m.post(_TARGET_SERVER, callback=get_response)
+        m.post(_TARGET_SERVER, callback=get_response)
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=RemoteParams(
+                api_url=_TARGET_SERVER,
+                max_retries=3,
+            ),
+        )
+        conversation = create_test_text_only_conversation()
+
+        result = await engine._infer([conversation])
+
+        assert len(result) == 1
+        assert result[0].messages[-1].content == "Success after retries"
+        assert attempt == 4  # Verify all attempts were made
