@@ -40,7 +40,7 @@ class DatasetSource:
             raise ValueError("DatasetSource.path cannot be empty.")
 
         file_path = Path(self.path)
-        if file_path.suffix not in _SUPPORTED_DATASET_FILE_TYPES:
+        if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
             raise ValueError(
                 f"Unsupported dataset file type: {self.path}\n"
                 f"Supported file types: {_SUPPORTED_DATASET_FILE_TYPES}"
