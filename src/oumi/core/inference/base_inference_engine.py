@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import copy
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
 import jsonlines
+from hdrh.histogram import HdrHistogram
 from tqdm import tqdm
 
 from oumi.core.configs import (
@@ -27,6 +29,7 @@ from oumi.core.configs import (
 )
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
+from oumi.utils.math_utils import is_power_of_two
 
 
 class BaseInferenceEngine(ABC):
@@ -56,6 +59,9 @@ class BaseInferenceEngine(ABC):
         else:
             generation_params = GenerationParams()
         self._generation_params = generation_params
+
+        self._latency_histogram_online = HdrHistogram(1, 60 * 1000, 1)
+        self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
 
     def infer(
         self,
@@ -94,14 +100,48 @@ class BaseInferenceEngine(ABC):
                     "the generation parameters that the engine was initialized with."
                 )
 
+        result: list[Conversation] = []
+        start_time = time.perf_counter()
+        histogram: Optional[HdrHistogram] = None
         if input is not None:
-            return self.infer_online(input, inference_config)
+            histogram = self._latency_histogram_online
+            result = self.infer_online(input, inference_config)
         elif inference_config and inference_config.input_path is not None:
-            return self.infer_from_file(inference_config.input_path, inference_config)
+            histogram = self._latency_histogram_from_file
+            result = self.infer_from_file(inference_config.input_path, inference_config)
         else:
             raise ValueError(
                 "One of input or inference_config.input_path must be provided."
             )
+        histogram.record_value((time.perf_counter() - start_time) * 1e3)
+        self._maybe_log_latency_histogram(histogram)
+        return result
+
+    def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:
+        """Logs the histogram if it is not None.
+
+        Args:
+            histogram: The histogram to log.
+        """
+        if histogram is None:
+            return
+        total_count = histogram.get_total_count()
+        # TODO: Define a better way to enable/configure this logging.
+        if not (
+            isinstance(total_count, int)
+            and total_count >= 2
+            and is_power_of_two(total_count)
+        ):
+            return
+
+        p50 = histogram.get_value_at_percentile(50)
+        p90 = histogram.get_value_at_percentile(90)
+        p99 = histogram.get_value_at_percentile(99)
+        logger.debug(
+            f"{self.__class__.__name__}: "
+            f"Latency Histogram: {total_count} samples recorded:"
+            f"\tp50: {p50:.1f}ms\tp90: {p90:.1f}ms\tp99: {p99:.1f}ms"
+        )
 
     def _read_conversations(self, input_filepath: str) -> list[Conversation]:
         """Reads conversations from a file in Oumi chat format.

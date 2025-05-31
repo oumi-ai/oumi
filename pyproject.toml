@@ -45,6 +45,7 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click < 8.2.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2.0,<3.3",
+    "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
     "mlflow>=2.21.2,<2.22.0",       # Logging to MLflow
