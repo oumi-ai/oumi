@@ -12,6 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Vision-Language collator for batching multimodal inputs.
+
+This module provides a collator that handles both text and image data for
+vision-language models. It extends the text collator functionality to properly
+batch and pad both textual features (input_ids, attention_mask, labels) and
+visual features (pixel_values, image masks, etc.).
+
+Key Features:
+    - Handles variable-sized images within batches
+    - Supports models with single or multiple image inputs
+    - Automatically pads sequences to consistent lengths
+    - Preserves model-specific image features (masks, positions, etc.)
+    - Integrates with the text collator for unified handling
+
+Example:
+    >>> from oumi.builders import build_tokenizer
+    >>> from oumi.core.configs import ModelParams
+    >>> tokenizer = build_tokenizer(ModelParams(model_name="llava-hf/llava-1.5-7b-hf"))
+    >>> collator = VisionLanguageCollatorWithPadding(
+    ...     tokenizer=tokenizer,
+    ...     max_length=512,
+    ...     truncation=True,
+    ...     allow_multi_image_inputs=False
+    ... )
+    >>> batch = collator([
+    ...     {"input_ids": [1, 2, 3], "pixel_values": image_tensor1},
+    ...     {"input_ids": [4, 5], "pixel_values": image_tensor2}
+    ... ])
+"""
+
 import collections
 from typing import Any, Optional
 
@@ -23,6 +53,28 @@ from oumi.utils.torch_utils import pad_to_max_dim_and_stack
 
 
 class VisionLanguageCollatorWithPadding:
+    """Collator for vision-language models that handles both text and image batching.
+
+    This collator extends TextCollatorWithPadding to handle multimodal inputs where
+    each example contains both text tokens and image data. It properly batches and
+    pads both modalities while preserving model-specific features.
+
+    The collator expects each batch item to be a dictionary containing:
+        - Text features: "input_ids", "attention_mask", "labels" (handled by text collator)
+        - Image features: The main image feature (e.g., "pixel_values", "images")
+        - Additional features: Model-specific features like "image_masks", "cross_attention_mask"
+
+    Features are automatically collated based on their properties:
+        - Text features are padded using the tokenizer's padding configuration
+        - Image features are stacked or padded to handle variable sizes
+        - Additional features are validated and stacked appropriately
+
+    Note:
+        This collator is typically used with models like LLAVA, BLIP, Qwen2-VL that
+        process pre-extracted image features. For models requiring raw image processing,
+        use VisionLanguageSftCollator instead.
+    """
+
     def __init__(
         self,
         tokenizer: BaseTokenizer,
@@ -33,19 +85,40 @@ class VisionLanguageCollatorWithPadding:
         allow_multi_image_inputs: bool = True,
         main_image_feature: str = "images",
     ):
-        """Custom collator for multi-modal vision-language training.
+        """Initialize the vision-language collator.
 
         Args:
-        tokenizer: The tokenizer used for encoding the data.
-        max_length: Padding length.
-        truncation: Whether to truncate long inputs to `max_length`.
-            If False, the long inputs are preserved as is even if they exceed
-            `max_length`. Only has effect if `max_length` is specified.
-        label_ignore_index:  If set, then label values of tokens that shouldn't
-            contribute to the loss computation will be replaced by this special value.
-        allow_multi_image_inputs: Whether to allow multi-image inputs.
-        main_image_feature: The key to use for fetching the main image data
-        (e.g., raw pixels, patches, etc.) from the input.
+            tokenizer: The tokenizer used for encoding text data. Must have valid
+                padding_side and pad_token_id attributes.
+
+            max_length: Maximum sequence length for padding. If None, sequences are
+                padded to the longest sequence in the batch. If specified, shorter
+                sequences are padded and longer sequences may be truncated based on
+                the truncation parameter.
+
+            truncation: Whether to truncate sequences longer than max_length.
+                If False, long sequences are kept as-is even if they exceed max_length.
+                Only takes effect when max_length is specified.
+
+            label_ignore_index: Special value to mark tokens that should be ignored
+                in loss computation (typically -100 for PyTorch). If set, padding tokens
+                in labels are replaced with this value. Common values:
+                - None: Keep original padding token IDs
+                - -100: PyTorch's default ignore index for CrossEntropyLoss
+
+            allow_multi_image_inputs: Whether the model supports multiple images per
+                example. When True, allows variable number of images and adjusts padding
+                dimensions accordingly. Models like MLLaMA support this, while others
+                like early LLAVA versions only support single images.
+
+            main_image_feature: The dictionary key for the main image data in each
+                batch item. Common values:
+                - "pixel_values": For models using raw pixel data (LLAVA, BLIP)
+                - "images": For models using preprocessed features (Molmo)
+                - "image_features": For models with pre-extracted features
+
+        Raises:
+            RuntimeError: If tokenizer lacks required padding_side or pad_token_id.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._main_image_feature = main_image_feature
@@ -62,13 +135,43 @@ class VisionLanguageCollatorWithPadding:
         )
 
     def __call__(self, batch) -> dict[str, Any]:
-        """Custom collator for multi-modal vision-language training.
+        """Process a batch of vision-language examples.
+
+        This method orchestrates the collation of multimodal data by:
+        1. Using the text collator to handle text features (input_ids, attention_mask, labels)
+        2. Collecting and stacking image features from all examples
+        3. Validating and stacking any additional model-specific features
 
         Args:
-            batch: List of batch items.
+            batch: List of dictionaries, where each dictionary represents one example
+                and must contain:
+                - Text features handled by the text collator
+                - The main image feature (as specified by main_image_feature)
+                - Optional additional features (automatically detected and collated)
+
+                Example format:
+                [
+                    {
+                        "input_ids": [1, 2, 3, 4],
+                        "attention_mask": [1, 1, 1, 1],
+                        "labels": [1, 2, 3, 4],
+                        "pixel_values": torch.tensor(...),  # shape: (C, H, W)
+                        "image_masks": torch.tensor(...),    # optional
+                    },
+                    ...
+                ]
 
         Returns:
-            Dict[str, torch.Tensor]: Processed batch.
+            Dictionary containing all collated features with consistent tensor shapes:
+                - "input_ids": Padded token IDs, shape (batch_size, max_seq_len)
+                - "attention_mask": Attention masks, shape (batch_size, max_seq_len)
+                - "labels": Padded labels with ignore indices, shape (batch_size, max_seq_len)
+                - main_image_feature: Stacked images, shape depends on model and settings
+                - Additional features: Any other features present in all examples
+
+        Raises:
+            ValueError: If any example is missing the main image feature, or if
+                additional features are not present in all examples.
         """
         # Collate batch prompts
         collated_batch = self._text_collator(batch)  # type: ignore
@@ -129,13 +232,36 @@ class VisionLanguageCollatorWithPadding:
         return collated_batch
 
     def collate_images(self, images) -> torch.Tensor:
-        """Collate images for multi-modal training.
+        """Collate image tensors into a batch with appropriate padding.
+
+        This method handles the stacking of image tensors, which may have variable
+        sizes depending on the model configuration. It uses intelligent padding to
+        create consistent tensor shapes suitable for batch processing.
 
         Args:
-            images: List of images to collate.
+            images: List of image tensors to collate. Each tensor can be:
+                - For single image models: Shape (C, H, W) or similar
+                - For multi-image models: Shape (num_images, C, H, W) or similar
+                - May include additional dimensions for patches, features, etc.
 
         Returns:
-            torch.Tensor: Batch of processed images.
+            Batched image tensor with consistent shape across the batch dimension.
+            The exact output shape depends on:
+                - Input tensor shapes
+                - allow_multi_image_inputs setting
+                - Model-specific requirements
+
+            Common output shapes:
+                - Single image: (batch_size, C, H, W)
+                - Multiple images: (batch_size, max_num_images, C, H, W)
+                - With patches: (batch_size, num_patches, feature_dim)
+
+        Raises:
+            ValueError: If the images list is empty.
+
+        Note:
+            The method uses pad_to_max_dim_and_stack which intelligently handles
+            variable-sized dimensions based on max_variable_sized_dims setting.
         """
         if len(images) == 0:
             raise ValueError("No images found in the batch")

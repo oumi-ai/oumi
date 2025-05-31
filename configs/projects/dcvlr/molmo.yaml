@@ -7,7 +7,7 @@ model:
 
 data:
   train:
-    collator_name: "vision_language_with_padding"
+    collator_name: "vision_language_sft"
     # collator_kwargs:
     #   main_image_feature: "images"
     use_torchdata: True
@@ -20,13 +20,13 @@ data:
         dataset_kwargs:
           processor_name: "allenai/Molmo-7B-D-0924"
           # processor_name: "llava-hf/llava-1.5-7b-hf"
-          return_tensors: True
+          return_conversation: True
 
 training:
   output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: False # Molmo does not support gradient checkpointing
-  per_device_train_batch_size: 1
+  per_device_train_batch_size: 5
   max_steps: 20
   optimizer: "adamw_torch_fused"
   logging_steps: 5

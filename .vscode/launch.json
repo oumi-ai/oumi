@@ -13,10 +13,10 @@
             ],
             "justMyCode": false,
             "env": {
-                "HF_HOME": "/workspace/hf_cache",
-                "HF_HUB_CACHE": "/workspace/hf_cache/hub",
-                "CUDA_LAUNCH_BLOCKING": "1",
-                "CUDA_VISIBLE_DEVICES": "0"
+                // "HF_HOME": "/workspace/hf_cache",
+                // "HF_HUB_CACHE": "/workspace/hf_cache/hub",
+                // "CUDA_LAUNCH_BLOCKING": "1",
+                // "CUDA_VISIBLE_DEVICES": "0"
             }
         },
         {

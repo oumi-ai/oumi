@@ -44,31 +44,75 @@ def build_data_collator(
 ) -> Callable:
     """Builds a data collator based on the given collator name.
 
+    This function creates the appropriate collator for different training scenarios.
+    Choose the collator based on your data format and model type:
+
     Args:
         collator_name: The name of the collator to build.
             Supported values are:
 
-            - "text_with_padding": Uses `TextCollatorWithPadding`.
-            - "text_completions_only_with_padding": Uses
-                `TextCompletionsCollatorWithPadding`.
-            - "vision_language_with_padding": Uses `VisionLanguageCollatorWithPadding`.
-            - "vision_language_sft": Uses `VisionLanguageSftCollator`.
+            - "text_with_padding": For standard text-only language models.
+                Use when training on text data without images.
+                Input format: {"input_ids": [...], "attention_mask": [...], "labels": [...]}
 
-        tokenizer: A tokenizer.
-        max_length: An optional maximum sequence length.
-        label_ignore_index: If set, then label values of tokens that shouldn't
-            contribute to the loss computation will be replaced by this special value.
-            For example, this can be `PAD`, or image tokens.
-            PyTorch convention is to use -100 as the `ignore_index` label. Refer to
-            the `ignore_index` parameter of `torch.nn.CrossEntropyLoss()`
-            for more details.
-        **kwargs: Additional keyword arguments to pass to the collator constructor.
+            - "text_completions_only_with_padding": For instruction-following models
+                where only completions (assistant responses) contribute to loss.
+                Automatically masks instruction tokens in labels.
+
+            - "vision_language_with_padding": For vision-language models with
+                pre-processed features. Use when your dataset provides extracted
+                image features (pixel_values, image_features, etc.).
+                Input format: {...text features..., "pixel_values": tensor, ...}
+
+            - "vision_language_sft": For vision-language models with conversation
+                data. Use when your dataset provides Conversation objects with
+                image references that need processing.
+                Input format: {"conversation_json": serialized_conversation}
+
+        tokenizer: A tokenizer for encoding text data.
+
+        max_length: Maximum sequence length for padding/truncation. If None,
+            sequences are padded to the longest in the batch.
+
+        label_ignore_index: Value to replace padding tokens in labels for loss
+            masking. Common values:
+            - -100: PyTorch's default for CrossEntropyLoss
+            - None: No masking (use original pad token IDs)
+
+        **kwargs: Additional collator-specific arguments:
+            For vision_language_with_padding:
+                - allow_multi_image_inputs: bool
+                - main_image_feature: str (default "images")
+            For vision_language_sft:
+                - processor_name: str (required)
+                - processor_kwargs: dict
+                - trust_remote_code: bool
+                - process_individually: bool (default False)
 
     Returns:
-        Callable: The data collator function or class.
+        Callable: The instantiated data collator.
 
     Raises:
-        ValueError: If an unsupported collator name is provided.
+        ValueError: If an unsupported collator name is provided or required
+            parameters are missing.
+
+    Example:
+        >>> # For text-only training
+        >>> text_collator = build_data_collator(
+        ...     "text_with_padding", tokenizer, max_length=512
+        ... )
+        >>>
+        >>> # For vision-language with pre-processed features
+        >>> vl_collator = build_data_collator(
+        ...     "vision_language_with_padding", tokenizer, max_length=512,
+        ...     main_image_feature="pixel_values"
+        ... )
+        >>>
+        >>> # For vision-language SFT with conversations
+        >>> sft_collator = build_data_collator(
+        ...     "vision_language_sft", tokenizer, max_length=512,
+        ...     processor_name="llava-hf/llava-1.5-7b-hf"
+        ... )
     """
     if not collator_name:
         raise ValueError("Empty data collator name.")
