@@ -516,34 +516,12 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         """
         labels = inputs["labels"]
         ignore_index = int(self._special_tokens.label_ignore_index or -100)
+        sequence_length = len(labels) if isinstance(labels, list) else labels.shape[0]
 
-        # Handle different label formats (tensor, numpy array, or list)
-        if isinstance(labels, torch.Tensor):
-            # Process each sequence in the batch
-            for i in range(labels.shape[0]):
-                mask_labels_for_completions_only(
-                    labels[i],
-                    self._response_token_ids,
-                    ignore_index=ignore_index,
-                    response_template=self._response_template,
-                )
-        elif isinstance(labels, np.ndarray):
-            # Process each sequence in the batch
-            for i in range(labels.shape[0]):
-                mask_labels_for_completions_only(
-                    labels[i],
-                    self._response_token_ids,
-                    ignore_index=ignore_index,
-                    response_template=self._response_template,
-                )
-        else:
-            # Convert to numpy for processing, then back to list
-            labels_array = np.array(labels)
-            for i in range(labels_array.shape[0]):
-                mask_labels_for_completions_only(
-                    labels_array[i],
-                    self._response_token_ids,
-                    ignore_index=ignore_index,
-                    response_template=self._response_template,
-                )
-            inputs["labels"] = labels_array.tolist()
+        for i in range(sequence_length):
+            mask_labels_for_completions_only(
+                labels[i],
+                self._response_token_ids,
+                ignore_index=ignore_index,
+                response_template=self._response_template,
+            )
