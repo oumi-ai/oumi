@@ -188,6 +188,8 @@ def torchrun(
             f"--nproc-per-node={run_info.gpus_per_node}",
             f"--master-addr={run_info.master_address}",
             f"--master-port={run_info.master_port}",
+            # New flags
+            "--rdzv_backend=c10d",
         ]
         cmds.extend(ctx.args)
 
