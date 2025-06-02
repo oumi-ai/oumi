@@ -53,6 +53,10 @@ export NCCL_NET_GDR_LEVEL=3           # Typically improves performance, but remo
 export NCCL_CROSS_NIC=1               # On large systems, this NCCL setting has been found to improve performance
 export NCCL_SOCKET_IFNAME=hsn0        # NCCL/RCCL will use the high speed network to coordinate startup.
 export NCCL_DEBUG=WARN # INFO
+
+export NCCL_DEBUG=INFO
+export TORCH_CPP_LOG_LEVEL=INFO
+export TORCH_DISTRIBUTED_DEBUG=INFO
 ## export NCCL_DEBUG_SUBSYS=ALL
 
 # Frontier has 64 "physical" CPU cores, and 128 "logical" cores per node
