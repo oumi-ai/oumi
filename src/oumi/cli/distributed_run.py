@@ -502,6 +502,7 @@ def _get_positive_int_env_var(var_name: str, env: dict[str, str]) -> int:
 
 
 def _parse_nodes_str(nodes_str: str) -> list[str]:
+    # Detect and parse values like `frontier[08774-08775]`.
     node_ips = [x.strip() for line in nodes_str.split("\n") for x in line.split(",")]
     node_ips = [x for x in node_ips if len(x) > 0]
     return node_ips
