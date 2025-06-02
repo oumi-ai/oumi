@@ -31,6 +31,9 @@ echo "Master address: ${OUMI_MASTER_ADDR}"
 echo "Number of nodes: ${OUMI_NUM_NODES}"
 echo "All nodes: ${OUMI_NODELIST}"
 
+# Get IPv4 for hostname.
+export OUMI_MASTER_ADDR="$(nslookup "$OUMI_MASTER_ADDR" | grep -oP '(?<=Address: ).*')"
+
 if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
     exit 1
