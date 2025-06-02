@@ -149,6 +149,10 @@ evaluation = [
     "sentencepiece>=0.1.98",
 ]
 
+bitnet = [
+    "onebitllms>=0.0.3"
+]
+
 cambrian = [
     "timm==0.9.16",
     "open_clip_torch",
