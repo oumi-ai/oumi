@@ -1,0 +1,13 @@
+model:
+  model_name: "output/falcon_e_3b.fft/checkpoint-800-quantized"
+  torch_dtype_str: "bfloat16"
+
+inference_engine: NATIVE
+
+tasks:
+  - evaluation_backend: lm_harness
+    task_name: mmlu_college_computer_science
+
+output_dir: "output/falcon_e_3b.fft/evaluation"
+generation:
+  batch_size: null # This will let LM HARNESS find the maximum possible batch size.
