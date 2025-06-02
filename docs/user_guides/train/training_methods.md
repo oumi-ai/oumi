@@ -156,6 +156,7 @@ model:
 data:
   train:
     collator_name: "vision_language_with_padding" # Visual features collator
+    collator_kwargs: {}  # Optional: Additional collator parameters
     datasets:
       - dataset_name: "vl_sft_jsonl"
         dataset_path: "/path/to/data"
@@ -166,6 +167,8 @@ data:
 training:
   trainer_type: "TRL_SFT"
 ```
+
+**Note:** You can use `collator_kwargs` to customize the vision-language collator behavior. See the {doc}`configuration guide </user_guides/train/configuration>` for more details and examples.
 
 See the {gh}`🖼️ Oumi Multimodal <notebooks/Oumi - Vision Language Models.ipynb>` notebook for a complete example.
 
