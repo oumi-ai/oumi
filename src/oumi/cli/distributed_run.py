@@ -288,9 +288,7 @@ def _detect_process_run_info(env: dict[str, str]) -> _ProcessRunInfo:
     # Extra verification logic to make sure that the detected process run info is
     # consistent with the environment variables.
     # Will raise an exception if the detected process run info is not consistent.
-    _verify_process_run_info(process_run_info, env)
-
-    return process_run_info
+    return _verify_process_run_info(process_run_info, env)
 
 
 def _run_subprocess(cmds: list[str], *, rank: int) -> None:
@@ -319,7 +317,9 @@ def _run_subprocess(cmds: list[str], *, rank: int) -> None:
     logger.info(f"Successfully completed! (Rank: {rank}. {duration_str})")
 
 
-def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> None:
+def _verify_process_run_info(
+    run_info: _ProcessRunInfo, env: dict[str, str]
+) -> _ProcessRunInfo:
     oumi_total_gpus: Optional[int] = _get_optional_int_env_var(
         "OUMI_TOTAL_NUM_GPUS", env
     )
@@ -348,6 +348,13 @@ def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> 
             f"Master address '{oumi_master_address}' not found in the list of nodes: "
             f"{run_info.node_ips}."
         )
+    return _ProcessRunInfo(
+        node_rank=run_info.node_rank,
+        world_info=run_info._world_info,
+        master_address=(oumi_master_address or run_info.master_address),
+        master_port=run_info.master_port,
+        node_ips=run_info.node_ips,
+    )
 
 
 #
