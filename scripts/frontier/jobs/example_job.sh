@@ -59,7 +59,7 @@ oumi env
 
 set +x
 
-oumi distributed torchrun \
+OMP_NUM_THREADS=56 oumi distributed torchrun \
   -m oumi train \
   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
   --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
