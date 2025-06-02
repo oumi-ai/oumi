@@ -248,12 +248,12 @@ class VisionLanguageSftCollator:
         Raises:
             ValueError: If results have inconsistent keys or non-tensor values
         """
-        if not results:
+        if not results or len(results) == 0:
             return {}
 
         # Get keys from first result and verify consistency
         expected_keys = set(results[0].keys())
-        for i, result in enumerate(results[1:], 1):
+        for i, result in enumerate(results):
             if set(result.keys()) != expected_keys:
                 raise ValueError(
                     f"Inconsistent keys in batch. Expected {expected_keys}, "
