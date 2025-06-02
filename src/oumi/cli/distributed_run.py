@@ -341,7 +341,8 @@ def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> 
         )
     elif oumi_master_address and oumi_master_address not in run_info.node_ips:
         raise ValueError(
-            f"Master address '{oumi_master_address}' not found in the list of nodes."
+            f"Master address '{oumi_master_address}' not found in the list of nodes: "
+            f"{run_info.node_ips}."
         )
 
 
@@ -394,7 +395,7 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
         raise ValueError("Empty value in the 'SLURM_NODELIST' environment variable!")
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
-        raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
+        raise RuntimeError("Empty list of nodes in 'SLURM_NODELIST'!")
     gpus_per_node = 8  # Per Frontier spec.
     node_rank = _get_optional_int_env_var("PMI_RANK", env)
     if node_rank is None:

@@ -26,9 +26,10 @@ export OUMI_NUM_NODES=$SLURM_NNODES
 export OUMI_FRONTIER_NUM_GPUS_PER_NODE=8
 export OUMI_TOTAL_NUM_GPUS=$((${OUMI_NUM_NODES} * ${OUMI_FRONTIER_NUM_GPUS_PER_NODE}))
 export OUMI_MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export OUMI_NODELIST=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 echo "Master address: ${OUMI_MASTER_ADDR}"
 echo "Number of nodes: ${OUMI_NUM_NODES}"
-echo "All nodes: " $(scontrol show hostnames "$SLURM_JOB_NODELIST")
+echo "All nodes: ${OUMI_NODELIST}"
 
 if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
     echo "Master address is empty!"
