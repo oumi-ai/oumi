@@ -52,7 +52,7 @@ _MASTER_ADDR_ENV = "MASTER_ADDRESS"
 _MASTER_PORT_ENV = "MASTER_PORT"
 
 _DEFAULT_MASTER_ADDR = "127.0.0.1"
-_DEFAULT_MASTER_PORT = 8007
+_DEFAULT_MASTER_PORT = 3442  # 8007
 
 
 class _RunBackend(str, enum.Enum):
@@ -405,6 +405,8 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
     node_rank = _get_optional_int_env_var("PMI_RANK", env)
     if node_rank is None:
         node_rank = 0
+
+    logger.info(f"SLURM node_ips: {node_ips}")
 
     return _ProcessRunInfo(
         node_rank=node_rank,
