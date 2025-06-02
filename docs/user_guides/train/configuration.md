@@ -144,32 +144,6 @@ Notes:
   - For `vision_language_sft`: Can override `allow_multi_image_inputs`, `truncation_side`, etc.
   - Config-provided kwargs take precedence over automatically determined values
 
-#### Collator Examples
-
-```yaml
-# Example 1: Customize text collator for multi-dimensional padding
-data:
-  train:
-    collator_name: "text_with_padding"
-    collator_kwargs:
-      max_variable_sized_dims: 2  # Allow 2 variable-sized dimensions
-
-# Example 2: Override vision-language collator settings
-data:
-  train:
-    collator_name: "vision_language_with_padding"
-    collator_kwargs:
-      allow_multi_image_inputs: false  # Disable multi-image support
-      main_image_feature: "image_features"  # Use custom image feature key
-
-# Example 3: Customize vision-language SFT collator
-data:
-  train:
-    collator_name: "vision_language_sft"
-    collator_kwargs:
-      truncation_side: "left"  # Truncate from left instead of right
-      allow_multi_image_inputs: true  # Enable multi-image support
-```
 
 ### Training Configuration
 
