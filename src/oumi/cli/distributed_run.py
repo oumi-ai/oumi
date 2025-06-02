@@ -344,7 +344,7 @@ def _verify_process_run_info(run_info: _ProcessRunInfo, env: dict[str, str]) -> 
             f"Nodes: {run_info.num_nodes}. GPU-s per node: {run_info.gpus_per_node}."
         )
     elif oumi_master_address and oumi_master_address not in run_info.node_ips:
-        raise ValueError(
+        logger.warning(
             f"Master address '{oumi_master_address}' not found in the list of nodes: "
             f"{run_info.node_ips}."
         )
