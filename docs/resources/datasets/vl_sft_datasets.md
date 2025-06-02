@@ -21,6 +21,7 @@ training:
   data:
     train:
       collator_name: vision_language_with_padding
+      collator_kwargs: {}  # Optional: Additional collator parameters
       datasets:
         - dataset_name: "your_vl_sft_dataset_name"
           split: "train"
@@ -33,6 +34,7 @@ training:
 In this configuration:
 
 - `dataset_name`: Name of the vision-language dataset
+- `collator_kwargs`: Optional additional parameters for the collator (e.g., `allow_multi_image_inputs: false`)
 - `trust_remote_code`: Enable for model-specific processors that use downloaded scripts
 - `transform_num_workers`: Number of workers for image processing
 - `processor_name`: Vision model processor to use
