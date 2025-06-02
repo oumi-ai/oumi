@@ -49,7 +49,6 @@ repos:
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        exclude: tests/
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.1
     hooks:
