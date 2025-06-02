@@ -32,7 +32,7 @@ echo "Number of nodes: ${OUMI_NUM_NODES}"
 echo "All nodes: ${OUMI_NODELIST}"
 
 # Get IPv4 for hostname.
-export OUMI_MASTER_ADDR="$(nslookup "$OUMI_MASTER_ADDR" | grep -oP '(?<=Address: ).*')"
+export OUMI_MASTER_ADDR=$(nslookup "${OUMI_MASTER_ADDR}" | grep -oP '(?<=Server:).*' | tr -d '\t ')
 echo "Master address IPv4: ${OUMI_MASTER_ADDR}"
 
 if [[ -z "${OUMI_MASTER_ADDR}" ]]; then
