@@ -255,15 +255,15 @@ class TextCollatorWithPadding:
         # Decode raw text without special tokens for raw example
         raw_text = self._tokenizer.decode(first_input_ids, skip_special_tokens=True)
 
-        tokenized_example = [
-            (
-                int(tid.item() if hasattr(tid, "item") else tid),
-                self._tokenizer.decode([tid])
-                if hasattr(tid, "item")
-                else self._tokenizer.decode(tid),
-            )
-            for tid in first_input_ids
-        ]
+        tokenized_example = []
+        for tid in first_input_ids:
+            if hasattr(tid, "item"):
+                token_id = int(tid.item())
+                decoded_token = self._tokenizer.decode([tid])
+            else:
+                token_id = int(tid)
+                decoded_token = self._tokenizer.decode(tid)
+            tokenized_example.append((token_id, decoded_token))
 
         model_input = {
             "input_ids": (
