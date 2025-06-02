@@ -382,7 +382,7 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
 
 
 def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
-    nodes_str = env.get("SLURM_NODELIST", None)
+    nodes_str = env.get("OUMI_NODELIST", env.get("SLURM_NODELIST", None))
     if nodes_str is None:
         return None
     logger.debug("Running in Slurm environment!")
@@ -392,10 +392,15 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
                 f"Slurm environment variable '{env_var_name}' is not defined!"
             )
     if not nodes_str:
-        raise ValueError("Empty value in the 'SLURM_NODELIST' environment variable!")
+        raise ValueError(
+            "Empty value in the 'OUMI_NODELIST', 'SLURM_NODELIST' "
+            "environment variables!"
+        )
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
-        raise RuntimeError("Empty list of nodes in 'SLURM_NODELIST'!")
+        raise RuntimeError(
+            "Empty list of nodes in 'OUMI_NODELIST' and 'SLURM_NODELIST'!"
+        )
     gpus_per_node = 8  # Per Frontier spec.
     node_rank = _get_optional_int_env_var("PMI_RANK", env)
     if node_rank is None:
