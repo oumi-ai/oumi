@@ -44,8 +44,8 @@ except ImportError:
 
 # Import `onebitllms` utils methods
 try:
-    import onebitllms
-    from onebitllms import replace_linear_with_bitnet_linear
+    import onebitllms  # type: ignore
+    from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
 except ImportError:
     onebitllms = None
 

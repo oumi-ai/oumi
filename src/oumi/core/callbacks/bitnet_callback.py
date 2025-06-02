@@ -25,8 +25,8 @@ from oumi.core.configs import TrainingParams
 
 # Import `onebitllms` utils methods
 try:
-    import onebitllms
-    from onebitllms import quantize_to_1bit
+    import onebitllms  # type: ignore
+    from onebitllms import quantize_to_1bit  # type: ignore
 except ImportError:
     onebitllms = None
 
