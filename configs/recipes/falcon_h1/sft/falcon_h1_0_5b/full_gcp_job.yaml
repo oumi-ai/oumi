@@ -35,6 +35,7 @@ setup: |
   pip install uv
   uv pip install oumi[gpu] hf_transfer
   uv pip install -U accelerate vllm
+  uv pip install dill==0.3.8
   uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
   uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
   uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
