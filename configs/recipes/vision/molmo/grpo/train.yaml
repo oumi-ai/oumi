@@ -1,5 +1,7 @@
 # VERL GRPO VLM training config on Geometry3K dataset.
 #
+# EXPERIMENTAL: This config is not yet fully tested.
+#
 # Note: the original model is not compatible with the latest version of transformers and oumi
 # We use the oumi-ai version of the model instead until the original model is updated.
 #
