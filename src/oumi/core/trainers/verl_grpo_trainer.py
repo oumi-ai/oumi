@@ -110,6 +110,7 @@ class VerlGrpoTrainer(BaseTrainer):
         self._final_output_dir: Path = Path(self._oumi_config.training.output_dir)
         if not self._final_output_dir:
             raise ValueError("Output directory must be specified")
+        self._final_output_dir = self._final_output_dir.absolute().resolve()
         self._temp_output_dir: Path = self._final_output_dir / "verl_output"
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
@@ -438,6 +439,8 @@ class VerlGrpoTrainer(BaseTrainer):
         logger.info("Starting verl training...")
         self._verl_trainer.fit()
 
+        self._export_hf_model()
+
     # TODO: OPE-1192 - Implement saving model/trainer state. verl training should
     # already handle saving models, including the final checkpoint.
 
@@ -454,19 +457,41 @@ class VerlGrpoTrainer(BaseTrainer):
         """
         pass
 
-    def _export_hf_model(self):
+    def _export_hf_model(self) -> bool:
         """Exports the tuned model to HF format."""
         final_dir = Path(self._final_output_dir)
         temp_dir = Path(self._temp_output_dir)
-        checkpoint_dir = temp_dir
+        all_checkpoint_dirs: list[Path] = [
+            f.absolute()
+            for f in temp_dir.iterdir()
+            if f.is_dir() and f.name.startswith("global_step_")
+        ]
+
+        # Find sub-directory named `global_step_NNN` with the largest NNN.
+        latest_checkpoint_step = -1
+        latest_checkpoint_dir: Optional[Path] = None
+        for d in all_checkpoint_dirs:
+            step_str = str(d.name.removeprefix("global_step_"))
+            try:
+                step = int(step_str)
+            except Exception as e:
+                raise RuntimeError(f"Failed to extract step number from {d}") from e
+            if step > latest_checkpoint_step:
+                latest_checkpoint_dir = d
+                latest_checkpoint_step = step
+
+        if not latest_checkpoint_dir:
+            logger.warning(f"No checkpoints found under {temp_dir}")
+            return False
 
         config = ModelMergerConfig(
             operation="merge",
             backend="fsdp",
             tie_word_embedding=False,
-            local_dir=str(checkpoint_dir),
-            hf_model_config_path=str(checkpoint_dir / "huggingface"),
+            local_dir=str(latest_checkpoint_dir),
+            hf_model_config_path=str(latest_checkpoint_dir / "huggingface"),
             target_dir=str(final_dir),
         )
         merger = FSDPModelMerger(config)
         merger.merge_and_save()
+        return True
