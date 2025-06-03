@@ -49,9 +49,8 @@ from oumi.utils.conversation_utils import (
     create_list_of_message_json_dicts,
 )
 from oumi.utils.http import (
-    get_failure_reason_from_non_retriable_error,
-    get_non_200_retriable_failure_reason,
-    is_non_retryable_status_code,
+    get_failure_reason_from_response,
+    is_non_retriable_status_code,
 )
 
 _AUTHORIZATION_KEY: str = "Authorization"
@@ -476,14 +475,18 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         headers=headers,
                         timeout=remote_params.connection_timeout,
                     ) as response:
-                        # Check for non-retryable status codes first to fail fast.
-                        if is_non_retryable_status_code(response.status):
-                            failure_reason = (
-                                await get_failure_reason_from_non_retriable_error(
-                                    response
-                                )
+                        if response.status != 200:
+                            failure_reason = await get_failure_reason_from_response(
+                                response
                             )
-                            raise RuntimeError(failure_reason)
+
+                            # Check for non-retriable status codes to fail fast.
+                            if is_non_retriable_status_code(response.status):
+                                failure_reason = (
+                                    f"Non-retriable error: {failure_reason}"
+                                )
+                                raise RuntimeError(failure_reason)
+                            continue
 
                         # Try to parse the response as JSON
                         try:
@@ -505,14 +508,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                         f"{attempt + 1} attempts. {failure_reason}"
                                     ) from e
                                 continue
-
-                        # Check for non-200 response
-                        if response.status != 200:
-                            failure_reason = get_non_200_retriable_failure_reason(
-                                response,
-                                response_json,
-                            )
-                            continue
 
                         # Process successful response
                         try:
@@ -536,7 +531,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             continue
 
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    # Connection or timeout errors are retryable.
+                    # Connection or timeout errors are retriable.
                     failure_reason = f"Connection error: {str(e)}"
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
@@ -557,11 +552,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         ) from e
                     continue
                 finally:
-                    # If the request was successful or non-retryable, and we haven't
+                    # If the request was successful or non-retriable, and we haven't
                     # reached the max number of retries, sleep for politeness policy.
                     if (
                         not failure_reason
-                        or not failure_reason.startswith("Non-retryable error:")
+                        or not failure_reason.startswith("Non-retriable error:")
                     ) and attempt < remote_params.max_retries:
                         await asyncio.sleep(remote_params.politeness_policy)
 

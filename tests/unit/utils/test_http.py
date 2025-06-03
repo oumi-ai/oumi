@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import aiohttp
 import pytest
 
 from oumi.utils.http import (
-    get_failure_reason_from_non_retriable_error,
-    get_non_200_retriable_failure_reason,
-    is_non_retryable_status_code,
+    get_failure_reason_from_response,
+    is_non_retriable_status_code,
 )
 
 
@@ -40,78 +39,48 @@ from oumi.utils.http import (
 )
 def test_is_non_retryable_status_code(status_code: int, expected: bool):
     """Test identification of non-retryable status codes."""
-    assert is_non_retryable_status_code(status_code) == expected
+    assert is_non_retriable_status_code(status_code) == expected
 
 
 @pytest.mark.asyncio
-async def test_get_failure_reason_from_non_retriable_error_with_json_response():
+async def test_get_failure_reason_from_response_with_json_response():
     """Test handling of non-retryable errors with JSON response."""
     mock_response = AsyncMock(spec=aiohttp.ClientResponse)
     mock_response.status = 400
     mock_response.json.return_value = {"error": {"message": "Invalid request"}}
 
-    result = await get_failure_reason_from_non_retriable_error(mock_response)
-    assert result == "Non-retryable error: Invalid request"
+    result = await get_failure_reason_from_response(mock_response)
+    assert result == "Invalid request"
 
 
 @pytest.mark.asyncio
-async def test_get_failure_reason_from_non_retriable_error_with_list_response():
+async def test_get_failure_reason_from_response_with_list_response():
     """Test handling of non-retryable errors with list response."""
     mock_response = AsyncMock(spec=aiohttp.ClientResponse)
     mock_response.status = 400
     mock_response.json.return_value = [{"error": {"message": "Invalid request"}}]
 
-    result = await get_failure_reason_from_non_retriable_error(mock_response)
-    assert result == "Non-retryable error: Invalid request"
+    result = await get_failure_reason_from_response(mock_response)
+    assert result == "Invalid request"
 
 
 @pytest.mark.asyncio
-async def test_get_failure_reason_from_non_retriable_error_with_empty_response():
+async def test_get_failure_reason_from_response_with_empty_response():
     """Test handling of non-retryable errors with empty response."""
     mock_response = AsyncMock(spec=aiohttp.ClientResponse)
     mock_response.status = 400
     mock_response.json.return_value = {}
 
-    result = await get_failure_reason_from_non_retriable_error(mock_response)
-    assert result == "Non-retryable error: HTTP 400"
+    result = await get_failure_reason_from_response(mock_response)
+    assert result == "HTTP 400"
 
 
 @pytest.mark.asyncio
-async def test_get_failure_reason_from_non_retriable_error_with_json_error():
+async def test_get_failure_reason_from_response_with_json_error():
     """Test handling of non-retryable errors when JSON parsing fails."""
     mock_response = AsyncMock(spec=aiohttp.ClientResponse)
     mock_response.status = 400
     mock_response.json.side_effect = Exception("JSON decode error")
 
-    result = await get_failure_reason_from_non_retriable_error(mock_response)
-    assert result == "Non-retryable error: HTTP 400"
-
-
-def test_get_non_200_retriable_failure_reason_with_dict():
-    """Test handling of retryable errors with dict response."""
-    mock_response = Mock(spec=aiohttp.ClientResponse)
-    mock_response.status = 500
-    response_json = {"error": {"message": "Internal server error"}}
-
-    result = get_non_200_retriable_failure_reason(mock_response, response_json)
-    assert result == "Internal server error"
-
-
-def test_get_non_200_retriable_failure_reason_with_list():
-    """Test handling of retryable errors with list response."""
-    mock_response = Mock(spec=aiohttp.ClientResponse)
-    mock_response.status = 500
-    response_json = [{"error": {"message": "Internal server error"}}]
-
-    result = get_non_200_retriable_failure_reason(mock_response, response_json)
-    assert result == "Internal server error"
-
-
-def test_get_non_200_retriable_failure_reason_with_empty_response():
-    """Test handling of retryable errors with empty response."""
-    mock_response = Mock(spec=aiohttp.ClientResponse)
-    mock_response.status = 500
-    response_json = {}
-
-    result = get_non_200_retriable_failure_reason(mock_response, response_json)
-    assert result == "HTTP 500"
+    result = await get_failure_reason_from_response(mock_response)
+    assert result == "HTTP 400"

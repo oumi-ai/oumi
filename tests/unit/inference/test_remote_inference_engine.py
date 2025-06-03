@@ -599,7 +599,7 @@ def test_infer_online_fast_fail_nonretriable(mock_asyncio_sleep):
             metadata={"foo": "bar"},
             conversation_id="123",
         )
-        with pytest.raises(RuntimeError, match="Non-retryable error: Unauthorized"):
+        with pytest.raises(RuntimeError, match="Non-retriable error: Unauthorized"):
             _ = engine.infer_online(
                 [conversation],
                 _get_default_inference_config(),
@@ -2283,7 +2283,7 @@ def test_infer_online_exponential_backoff():
         # Fail until the last attempt
         if len(sleep_calls) < 3:
             return CallbackResult(
-                status=500,  # Use 500 instead of 401 since 401 is non-retryable
+                status=500,  # Use 500 instead of 401 since 401 is non-retriable
                 body=json.dumps({"error": {"message": "Server Error"}}),
                 content_type="application/json",
             )
@@ -2344,9 +2344,9 @@ def test_infer_online_exponential_backoff():
             )  # Second retry: base delay * 2
 
 
-def test_non_retryable_errors(mock_asyncio_sleep):
+def test_non_retriable_errors(mock_asyncio_sleep):
     """Test that certain HTTP status codes are not retried."""
-    non_retryable_codes = [400, 401, 403, 404, 422]
+    non_retriable_codes = [400, 401, 403, 404, 422]
     error_messages = {
         400: "Bad request error",
         401: "Unauthorized error",
@@ -2355,7 +2355,7 @@ def test_non_retryable_errors(mock_asyncio_sleep):
         422: "Validation error",
     }
 
-    for status_code in non_retryable_codes:
+    for status_code in non_retriable_codes:
         with aioresponses() as m:
             m.post(
                 _TARGET_SERVER,
@@ -2375,7 +2375,7 @@ def test_non_retryable_errors(mock_asyncio_sleep):
             with pytest.raises(RuntimeError) as exc_info:
                 engine.infer_online([conversation])
 
-            assert f"Non-retryable error: {error_messages[status_code]}" in str(
+            assert f"Non-retriable error: {error_messages[status_code]}" in str(
                 exc_info.value
             )
             # Verify no retries were attempted
