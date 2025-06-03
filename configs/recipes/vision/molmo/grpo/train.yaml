@@ -18,7 +18,7 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  # model_name: "allenai/Molmo-7B-O-0924"
+  # model_name: "allenai/Molmo-7B-O-0924"  # original model is not compatible with the latest version of transformers
   model_name: "oumi-ai/Molmo-7B-O-0924"
   torch_dtype_str: "float32"
   trust_remote_code: True
