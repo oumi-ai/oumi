@@ -33,12 +33,15 @@ from oumi.utils.logging import logger
 
 
 @functools.cache
-def find_model_hf_config(model_name: str, *, trust_remote_code: bool):
+def find_model_hf_config(
+    model_name: str, *, trust_remote_code: bool, revision: Optional[str] = None
+):
     """Finds HF model config by model name."""
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
         model_name,
         trust_remote_code=trust_remote_code,
         return_unused_kwargs=True,
+        revision=revision,
     )
     if unused_kwargs:
         logger.warning(
