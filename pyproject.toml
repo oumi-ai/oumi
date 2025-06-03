@@ -231,7 +231,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
     "UP006",  # UP006 Use `list` instead of `List` for type annotation
 ]
-"src/oumi/utils/verl_model_merger.py" = [
+"src/oumi/utils/verl_model_merger.*" = [
      "E501",   # Line too long
      "D102",   # Missing docstring in public method
      "D103",   # Missing docstring in public function
