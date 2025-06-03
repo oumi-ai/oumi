@@ -39,7 +39,6 @@ data:
     stream: True
     pack: True
     target_col: "text"
-    use_async_dataset: True
 
 training:
   trainer_type: "TRL_SFT"

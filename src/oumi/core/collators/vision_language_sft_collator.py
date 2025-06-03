@@ -15,21 +15,11 @@
 """Vision-Language SFT collator for conversation-based multimodal training.
 
 This module provides a collator specifically designed for supervised fine-tuning (SFT)
-of vision-language models using conversation data. Unlike VisionLanguageCollatorWithPadding
-which expects pre-processed features, this collator works with raw conversation objects
-and handles the complete feature generation pipeline.
+of vision-language models using conversation data.
 
-Key Differences from VisionLanguageCollatorWithPadding:
-    - Input: Expects Conversation objects with image paths/data
-    - Processing: Uses a processor to extract features from raw images
-    - Output: Generates all required features (text + vision) from conversations
-    - Use case: SFT training where data comes in conversation format
-
-Typical Workflow:
-    1. Dataset provides conversations with text and image references
-    2. Collator uses VisionLanguageConversationFeatureGenerator to process them
-    3. Feature generator uses the specified processor to extract image features
-    4. Returns batch-ready tensors for model training
+Unlike VisionLanguageCollatorWithPadding which expects pre-processed features,
+this collator works with raw conversation objects and handles the complete feature
+generation pipeline.
 
 Example:
     >>> from oumi.builders import build_tokenizer
@@ -76,11 +66,6 @@ class VisionLanguageSftCollator:
         - Multiple turns of dialogue
         - Image references (paths, URLs, or base64 data)
         - System prompts and user/assistant messages
-
-    Typical Use Cases:
-        - Fine-tuning LLAVA, Qwen2-VL, or similar models on custom datasets
-        - Training on visual question answering or image captioning tasks
-        - Multi-turn visual dialogue training
     """
 
     def __init__(
@@ -97,23 +82,18 @@ class VisionLanguageSftCollator:
         trust_remote_code: bool = False,
         process_individually: bool = False,
     ):
-        """Initialize the vision-language SFT collator.
+        """Initializes the vision-language SFT collator.
 
         Args:
             tokenizer: The tokenizer for encoding text. Should match the model's
                 tokenizer for proper token alignment.
 
             processor_name: Name or path of the processor to use for feature extraction.
-                This should typically match the model name (e.g., "llava-hf/llava-1.5-7b-hf").
+                This should typically match the model name.
                 The processor handles image preprocessing and feature extraction.
 
             processor_kwargs: Optional parameters to pass to the processor constructor.
                 These can override default settings or model-specific parameters.
-                Common options include:
-                - "return_dict": Whether to return a dictionary (usually True)
-                - "do_rescale": Whether to rescale pixel values
-                - "do_normalize": Whether to normalize images
-                - Model-specific options (see processor documentation)
 
             max_length: Maximum sequence length for padding/truncation. If None,
                 sequences are padded to the batch maximum. If specified, sequences
@@ -128,12 +108,9 @@ class VisionLanguageSftCollator:
                 for specific architectures or tasks.
 
             label_ignore_index: Value to use for masking labels in loss computation.
-                Common values:
-                - None: No masking, all tokens contribute to loss
-                - -100: PyTorch's default ignore index for CrossEntropyLoss
-                This is typically used to mask padding tokens or image placeholders.
 
-            allow_multi_image_inputs: Whether to support multiple images per conversation.
+            allow_multi_image_inputs: Whether to support multiple images per
+                conversation.
                 Set to True for models like MLLaMA that handle multiple images.
                 Set to False for models that only support single images per example.
 
@@ -143,15 +120,12 @@ class VisionLanguageSftCollator:
 
             process_individually: Whether to process each conversation individually
                 and then collate features by padding to max dimensions. When True:
-                - Each conversation is processed separately through the feature generator
-                - All results must have the same keys and all values must be tensors
+                - Each conversation is processed separately through the feature
+                    generator
                 - Features are padded to the maximum size in the batch
                 - Useful for models with variable-sized outputs or heterogeneous data
                 - May be less efficient but more flexible than batch processing
                 When False (default), conversations are processed as a batch.
-
-        Raises:
-            ValueError: If processor_name is empty or None.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._process_individually = process_individually
@@ -264,10 +238,9 @@ class VisionLanguageSftCollator:
     ) -> dict[str, Any]:
         """Collate individually processed results by padding to max dimensions.
 
-        This method assumes all results have the same keys and all values are tensors.
-
         Args:
-            results: List of feature dictionaries from individual conversation processing
+            results: List of feature dictionaries from individual conversation
+                processing
 
         Returns:
             Collated dictionary with padded tensors
@@ -275,12 +248,12 @@ class VisionLanguageSftCollator:
         Raises:
             ValueError: If results have inconsistent keys or non-tensor values
         """
-        if not results:
+        if not results or len(results) == 0:
             return {}
 
         # Get keys from first result and verify consistency
         expected_keys = set(results[0].keys())
-        for i, result in enumerate(results[1:], 1):
+        for i, result in enumerate(results):
             if set(result.keys()) != expected_keys:
                 raise ValueError(
                     f"Inconsistent keys in batch. Expected {expected_keys}, "

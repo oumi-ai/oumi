@@ -17,6 +17,7 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
+from oumi.core.callbacks.bitnet_callback import BitNetCallback
 from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
 from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallback
@@ -136,5 +137,14 @@ def build_training_callbacks(
             track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
     )
+
+    # Add the BitNet saving callbacks if relevant
+    if config.model.model_name in (
+        "tiiuae/Falcon-E-1B-Base",
+        "tiiuae/Falcon-E-1B-Instruct",
+        "tiiuae/Falcon-E-3B-Base",
+        "tiiuae/Falcon-E-3B-Instruct",
+    ):
+        result.append(BitNetCallback())
 
     return result
