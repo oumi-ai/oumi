@@ -1,5 +1,5 @@
 {% for message in messages -%}
-    {%- if (loop.index % 2 == 1 and message['role'].lower() != 'user') or 
+    {%- if (loop.index % 2 == 1 and message['role'].lower() != 'user') or
             (loop.index % 2 == 0 and message['role'].lower() != 'assistant') -%}
         {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
     {%- endif -%}
@@ -11,4 +11,4 @@
 {%- if add_generation_prompt -%}
     {{ ' Assistant:' }}
 {%- endif %}
- 
+

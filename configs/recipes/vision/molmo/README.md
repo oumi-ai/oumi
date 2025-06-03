@@ -41,4 +41,3 @@ oumi train -c configs/recipes/vision/molmo/sft/full/train.yaml
 - The original model requires `trust_remote_code=True` due to custom modeling code
 - Currently using `oumi-ai/Molmo-7B-D-0924` variant for compatibility with latest transformers
 - Gradient checkpointing is not supported by this model
-
