@@ -151,6 +151,9 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "molmo-7b-d": {
         AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml",
     },
+    "molmo-7b-o-grpo": {
+        AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/grpo/train.yaml",
+    },
 }
 
 
