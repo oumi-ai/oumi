@@ -234,7 +234,7 @@ ban-relative-imports = "all" # Disallow all relative imports.
 "src/oumi/utils/verl_model_merger.*" = [
      "E501",   # Line too long
      "D",      # Ignore docstring checks
-     "PTH",
+     "PTH",    # Ignore pathlib checks
 ]
 
 [tool.ruff.lint.pydocstyle]
