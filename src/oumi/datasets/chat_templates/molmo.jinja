@@ -3,9 +3,9 @@
             (loop.index % 2 == 0 and message['role'].lower() != 'assistant') -%}
         {{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}
     {%- endif -%}
-    
+
     {{ message['role'].capitalize() + ': ' }}
-    
+
     {%- if message['content'] is string -%}
         {{ message['content'] }}
     {%- elif message['content'] is iterable -%}
@@ -15,7 +15,7 @@
             {%- endif -%}
         {%- endfor -%}
     {%- endif -%}
-    
+
     {%- if not loop.last -%}
         {{ ' ' }}
     {%- endif -%}
