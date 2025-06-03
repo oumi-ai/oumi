@@ -106,6 +106,10 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._processing_class = processing_class
         self._oumi_config = copy.deepcopy(config)
+        self._final_output_dir: Path = Path(self._oumi_config.training.output_dir)
+        if not self._final_output_dir:
+            raise ValueError("Output directory must be specified")
+        self._temp_output_dir: Path = self._final_output_dir / "verl_output"
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -343,7 +347,7 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.logger.append("wandb")
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
-        config.trainer.default_local_dir = training_params.output_dir
+        config.trainer.default_local_dir = str(self._temp_output_dir)
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
