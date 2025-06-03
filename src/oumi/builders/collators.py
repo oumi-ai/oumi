@@ -53,7 +53,8 @@ def build_data_collator(
 
             - "text_with_padding": For standard text-only language models.
                 Use when training on text data without images.
-                Input format: {"input_ids": [...], "attention_mask": [...], "labels": [...]}
+                Input format: {"input_ids": [...], "attention_mask": [...],
+                    "labels": [...]}
 
             - "text_completions_only_with_padding": For instruction-following models
                 where only completions (assistant responses) contribute to loss.
