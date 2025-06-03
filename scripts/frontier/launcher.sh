@@ -119,6 +119,14 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
 
   set -x
 
+  # Needed to bypass MIOpen, Disk I/O Errors
+  export MIOPEN_USER_DB_PATH="/tmp/my-miopen-cache"
+  export MIOPEN_CUSTOM_CACHE_DIR="${MIOPEN_USER_DB_PATH}"
+  rm -rf "${MIOPEN_USER_DB_PATH}"
+  mkdir -p "${MIOPEN_USER_DB_PATH}"
+
+  # TODO Configure 8X ranks (1 rank per GPU).
+
   SBATCH_OUTPUT=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n ${FRONTIER_NODES} --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER" ${JOB_PATH})
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
