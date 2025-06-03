@@ -14,8 +14,8 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-  torch_dtype_str: "bfloat16"
+  model_name: "/Users/xrdaukar/geom_verl_model/2025-05-28/v01/merged_hf_model/" # "Qwen/Qwen2.5-VL-3B-Instruct"
+  torch_dtype_str: "float16" # "bfloat16"
   model_max_length: 4096
   chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
   trust_remote_code: True
