@@ -19,6 +19,7 @@ from typing import Any
 
 try:
     import alpaca_eval  # pyright: ignore[reportMissingImports]
+    import alpaca_eval.evaluate  # pyright: ignore[reportMissingImports]
 except ImportError:
     alpaca_eval = None
 
@@ -116,15 +117,15 @@ def evaluate(
     # Run AlpacaEval evaluation, i.e. annotate the model's responses.
     logger.info("Running AlpacaEval annotation.")
     logger.info(f"\tAlpacaEval `task_params`:\n{pformat(task_params)}")
-    df_leaderboard, _ = alpaca_eval.evaluate(  # type: ignore[call-arg]
-        model_outputs=responses_df,  # type: ignore[arg-type]
-        annotators_config=annotators_config,  # type: ignore[arg-type]
-        fn_metric=fn_metric,  # type: ignore[arg-type]
-        is_return_instead_of_print=True,  # type: ignore[arg-type]
-        is_overwrite_leaderboard=True,  # type: ignore[arg-type]
-        max_instances=task_params.num_samples,  # type: ignore[arg-type]
-        sort_by=sort_by_metric,  # type: ignore[arg-type]
-        **task_params.eval_kwargs,  # type: ignore[arg-type]
+    df_leaderboard, _ = alpaca_eval.evaluate(
+        model_outputs=responses_df,
+        annotators_config=annotators_config,
+        fn_metric=fn_metric,
+        is_return_instead_of_print=True,
+        is_overwrite_leaderboard=True,
+        max_instances=task_params.num_samples,
+        sort_by=sort_by_metric,
+        **task_params.eval_kwargs,
     )
 
     # Metrics are only available on the main process, and `None` on others.
