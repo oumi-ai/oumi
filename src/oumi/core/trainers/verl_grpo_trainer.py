@@ -53,7 +53,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
-from oumi.utils.verl_model_merger import ModelMergerConfig
+from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 
 # Dataset processing function type. This function takes the following arguments:
 # 1. a dataset sample.
@@ -460,7 +460,7 @@ class VerlGrpoTrainer(BaseTrainer):
         temp_dir = Path(self._temp_output_dir)
         checkpoint_dir = temp_dir
 
-        ModelMergerConfig(
+        config = ModelMergerConfig(
             operation="merge",
             backend="fsdp",
             tie_word_embedding=False,
@@ -468,3 +468,5 @@ class VerlGrpoTrainer(BaseTrainer):
             hf_model_config_path=str(checkpoint_dir / "huggingface"),
             target_dir=str(final_dir),
         )
+        merger = FSDPModelMerger(config)
+        merger.merge_and_save()
