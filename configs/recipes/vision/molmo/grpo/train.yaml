@@ -34,6 +34,18 @@ data:
           # processor_name: "allenai/Molmo-7B-O-0924"
           return_conversations: True
 
+  validation:
+    datasets:
+      - dataset_name: "hiyouga/geometry3k"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "oumi-ai/Molmo-7B-O-0924"
+          # processor_name: "allenai/Molmo-7B-O-0924"
+          return_conversations: True
+
 training:
   output_dir: "output/grpo-verl-molmo-o"
   enable_wandb: True
