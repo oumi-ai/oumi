@@ -56,11 +56,20 @@ oumi env
 
 set +x
 
-oumi distributed torchrun \
-  -m oumi train \
-  -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
-  --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
+HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "Qwen/Qwen2.5-VL-3B-Instruct"
+oumi train \
+  -c configs/examples/grpo_verl_geometry3k/train.yaml \
+  --training.run_name "geom3k.${SLURM_JOBID}" \
   --training.max_steps=50 \
   --training.dataloader_num_workers=2 \
   --training.dataloader_prefetch_factor=32 \
   --training.enable_wandb=false
+
+# oumi distributed torchrun \
+#   -m oumi train \
+#   -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
+#   --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
+#   --training.max_steps=50 \
+#   --training.dataloader_num_workers=2 \
+#   --training.dataloader_prefetch_factor=32 \
+#   --training.enable_wandb=false
