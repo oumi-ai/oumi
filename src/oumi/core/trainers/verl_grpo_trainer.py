@@ -464,7 +464,10 @@ class VerlGrpoTrainer(BaseTrainer):
         all_checkpoint_dirs: list[Path] = [
             f.absolute()
             for f in temp_dir.iterdir()
-            if f.is_dir() and f.name.startswith("global_step_")
+            if f.is_dir()
+            and f.name.startswith("global_step_")
+            and (f / "actor").exists()
+            and (f / "actor").is_dir()
         ]
 
         # Find sub-directory named `global_step_NNN` with the largest NNN.
@@ -494,7 +497,7 @@ class VerlGrpoTrainer(BaseTrainer):
             backend="fsdp",
             tie_word_embedding=False,
             local_dir=str(latest_checkpoint_dir),
-            hf_model_config_path=str(latest_checkpoint_dir / "huggingface"),
+            hf_model_config_path=str(latest_checkpoint_dir / "actor" / "huggingface"),
             target_dir=str(final_dir),
         )
         merger = FSDPModelMerger(config)
