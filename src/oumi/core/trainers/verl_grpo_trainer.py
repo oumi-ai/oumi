@@ -53,6 +53,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
+from oumi.utils.verl_model_merger import ModelMergerConfig
 
 # Dataset processing function type. This function takes the following arguments:
 # 1. a dataset sample.
@@ -452,3 +453,18 @@ class VerlGrpoTrainer(BaseTrainer):
             final: Whether this is the final model being saved during training.
         """
         pass
+
+    def _export_hf_model(self):
+        """Exports the tuned model to HF format."""
+        final_dir = Path(self._final_output_dir)
+        temp_dir = Path(self._temp_output_dir)
+        checkpoint_dir = temp_dir
+
+        ModelMergerConfig(
+            operation="merge",
+            backend="fsdp",
+            tie_word_embedding=False,
+            local_dir=str(checkpoint_dir),
+            hf_model_config_path=str(checkpoint_dir / "huggingface"),
+            target_dir=str(final_dir),
+        )
