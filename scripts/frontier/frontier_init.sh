@@ -55,10 +55,10 @@ fi
 export FI_CXI_DEFAULT_CQ_SIZE=131072  # Ask the network stack to allocate additional space to process message completions.
 export FI_CXI_DEFAULT_TX_SIZE=2048    # Ask the network stack to allocate additional space to hold pending outgoing messages.
 export FI_CXI_RX_MATCH_MODE=hybrid    # Allow the network stack to transition to software mode if necessary.
-export NCCL_NET_GDR_LEVEL=3           # Typically improves performance, but remove this setting if you encounter a hang/crash.
-export NCCL_CROSS_NIC=1               # On large systems, this NCCL setting has been found to improve performance
+# export NCCL_NET_GDR_LEVEL=3           # Typically improves performance, but remove this setting if you encounter a hang/crash.
+# export NCCL_CROSS_NIC=1               # On large systems, this NCCL setting has been found to improve performance
 # export NCCL_SOCKET_IFNAME=hsn0        # NCCL/RCCL will use the high speed network to coordinate startup.
-export NCCL_DEBUG=WARN # INFO
+# export NCCL_DEBUG=WARN # INFO
 
 export NCCL_DEBUG=INFO
 export TORCH_CPP_LOG_LEVEL=INFO
