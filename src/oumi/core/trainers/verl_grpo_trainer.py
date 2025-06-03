@@ -496,7 +496,7 @@ class VerlGrpoTrainer(BaseTrainer):
             operation="merge",
             backend="fsdp",
             tie_word_embedding=False,
-            local_dir=str(latest_checkpoint_dir),
+            local_dir=str(latest_checkpoint_dir / "actor"),
             hf_model_config_path=str(latest_checkpoint_dir / "actor" / "huggingface"),
             target_dir=str(final_dir),
         )
