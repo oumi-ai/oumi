@@ -56,14 +56,29 @@ oumi env
 
 set +x
 
-HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "Qwen/Qwen2.5-VL-3B-Instruct"
-oumi train \
-  -c configs/examples/grpo_verl_geometry3k/train.yaml \
-  --training.run_name "geom3k.${SLURM_JOBID}" \
-  --training.max_steps=50 \
-  --training.dataloader_num_workers=2 \
-  --training.dataloader_prefetch_factor=32 \
-  --training.enable_wandb=false
+
+export PER_DEVICE_BATCH_SIZE=3
+export GLOBAL_BATCH_SIZE=$((${OUMI_TOTAL_NUM_GPUS} * ${PER_DEVICE_BATCH_SIZE}))
+export GRPO_NUM_GENERATIONS=6
+
+oumi distributed torchrun \
+      -m oumi train \
+      -c configs/examples/grpo_tldr/train.yaml \
+      --training.run_name "tldr.${SLURM_JOBID}" \
+      --training.per_device_train_batch_size ${PER_DEVICE_BATCH_SIZE} \
+      --training.grpo.num_generations ${GRPO_NUM_GENERATIONS} \
+      --training.max_steps 20 \
+      --training.save_steps 0 \
+      --training.save_final_model true
+
+# HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download "Qwen/Qwen2.5-VL-3B-Instruct"
+# oumi train \
+#   -c configs/examples/grpo_verl_geometry3k/train.yaml \
+#   --training.run_name "geom3k.${SLURM_JOBID}" \
+#   --training.max_steps=50 \
+#   --training.dataloader_num_workers=2 \
+#   --training.dataloader_prefetch_factor=32 \
+#   --training.enable_wandb=false
 
 # oumi distributed torchrun \
 #   -m oumi train \
