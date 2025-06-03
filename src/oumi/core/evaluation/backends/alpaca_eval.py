@@ -19,6 +19,7 @@ from typing import Any
 
 try:
     import alpaca_eval  # pyright: ignore[reportMissingImports]
+    import alpaca_eval.evaluate  # pyright: ignore[reportMissingImports]
 except ImportError:
     alpaca_eval = None
 
@@ -125,7 +126,7 @@ def evaluate(
         max_instances=task_params.num_samples,
         sort_by=sort_by_metric,
         **task_params.eval_kwargs,
-    )  # type: ignore
+    )
 
     # Metrics are only available on the main process, and `None` on others.
     if not is_world_process_zero():

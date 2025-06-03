@@ -21,6 +21,7 @@ from oumi.inference.anthropic_inference_engine import AnthropicInferenceEngine
 from oumi.inference.deepseek_inference_engine import DeepSeekInferenceEngine
 from oumi.inference.gcp_inference_engine import GoogleVertexInferenceEngine
 from oumi.inference.gemini_inference_engine import GoogleGeminiInferenceEngine
+from oumi.inference.lambda_inference_engine import LambdaInferenceEngine
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
 from oumi.inference.native_text_inference_engine import NativeTextInferenceEngine
 from oumi.inference.openai_inference_engine import OpenAIInferenceEngine
@@ -37,6 +38,7 @@ __all__ = [
     "DeepSeekInferenceEngine",
     "GoogleGeminiInferenceEngine",
     "GoogleVertexInferenceEngine",
+    "LambdaInferenceEngine",
     "LlamaCppInferenceEngine",
     "NativeTextInferenceEngine",
     "OpenAIInferenceEngine",
@@ -47,5 +49,4 @@ __all__ = [
     "SGLangInferenceEngine",
     "TogetherInferenceEngine",
     "VLLMInferenceEngine",
-    "SambanovaInferenceEngine",
 ]

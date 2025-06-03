@@ -107,6 +107,15 @@ class GrpoParams(BaseParams):
     leading to inefficiencies.
     """
 
+    epsilon: float = 0.2
+    """Epsilon value for clipping the relative probability in the loss.
+
+    For example, if epsilon is 0.2, then the new probability can only differ from
+    the old probability by a factor of x0.8-1.2."""
+
+    log_completions: bool = False
+    """Whether to log prompt and completion pairs every `logging_steps` steps."""
+
     def __post_init__(self):
         """Verifies params."""
         if self.max_prompt_length is not None and self.max_prompt_length <= 0:

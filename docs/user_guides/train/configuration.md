@@ -111,6 +111,7 @@ data:
 
     # Split-level settings
     collator_name: "text_with_padding"      # Data collator type
+    collator_kwargs: {}                     # Additional collator constructor args
     pack: false                             # Pack text into constant-length chunks
     stream: false                           # Enable dataset streaming
     mixture_strategy: "first_exhausted"     # Strategy for mixing datasets
@@ -137,6 +138,12 @@ Notes:
   - `target_col` must be specified
 - All splits must use the same collator type if specified
 - If a collator is specified for validation/test, it must also be specified for train
+- `collator_kwargs` allows customizing collator behavior with additional parameters:
+  - For `text_with_padding`: Can set `max_variable_sized_dims` to control padding dimensions
+  - For `vision_language_with_padding`: Can override `allow_multi_image_inputs` or `main_image_feature`
+  - For `vision_language_sft`: Can override `allow_multi_image_inputs`, `truncation_side`, etc.
+  - Config-provided kwargs take precedence over automatically determined values
+
 
 ### Training Configuration
 
