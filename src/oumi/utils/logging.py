@@ -86,7 +86,7 @@ def configure_logger(
     )
 
     # Add a console handler to the logger for only global leader.
-    if device_rank == 0:
+    if device_rank == 0 or True:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setFormatter(formatter)
         console_handler.setLevel(level.upper())
