@@ -1,4 +1,4 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
+# Copyright 2025 - Oumi
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
+# Copied from the Verl script:
+# volcengine/verl/blob/main/scripts/model_merger.py
+# with minor modifications.
 
 """This script is used to merge huggingface model and test verl checkpoints from FSDP and Megatron backends.
 
