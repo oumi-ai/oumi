@@ -484,6 +484,11 @@ class VerlGrpoTrainer(BaseTrainer):
             logger.warning(f"No checkpoints found under {temp_dir}")
             return False
 
+        logger.info(
+            f"Merging and exporting model from '{latest_checkpoint_dir}' "
+            f"to '{final_dir}' ..."
+        )
+
         config = ModelMergerConfig(
             operation="merge",
             backend="fsdp",
@@ -494,4 +499,5 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         merger = FSDPModelMerger(config)
         merger.merge_and_save()
+        logger.info(f"Successfully exported model to '{final_dir}'!")
         return True
