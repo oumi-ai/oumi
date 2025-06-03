@@ -1,0 +1,70 @@
+# LoRA config for Phi-4-reasoning-plus (14B params).
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c oumi://configs/recipes/phi4/sft/reasoning_plus/lora_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "microsoft/Phi-4-reasoning-plus"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
+    target_col: "prompt"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: True
+  save_steps: 200
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  max_grad_norm: null
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 3.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+  weight_decay: 0.01
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 100
+  empty_device_cache_steps: 50
+  output_dir: "output/phi_4_reasoning_plus.lora"
+  include_performance_metrics: True
+  enable_wandb: True
+
+peft:
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "qkv_proj"
+    - "o_proj"
+
+fsdp:
+  enable_fsdp: True
+  forward_prefetch: True
+  sharding_strategy: "FULL_SHARD"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Phi3DecoderLayer"

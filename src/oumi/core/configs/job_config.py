@@ -115,6 +115,13 @@ class JobResources:
     disk tiers.
     """
 
+    image_id: Optional[str] = None
+    """The image id used to boot the instances (optional).
+
+    You can specify a docker by using the format `docker:<image_id>`.
+    This field is not applicable for all clouds.
+    """
+
 
 @dataclass
 class JobConfig(BaseConfig):

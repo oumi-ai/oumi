@@ -43,7 +43,7 @@ def _get_test_data(file_name: str) -> str:
 def _run_commands_template(commands: list[str]) -> str:
     user = "user"
     ctrl_path = "-S ~/.ssh/control-%h-%p-%r"
-    ssh_cmd = f"ssh {ctrl_path} {user}@host " " << 'EOF'"
+    ssh_cmd = f"ssh {ctrl_path} {user}@host  << 'EOF'"
     eof_suffix = "EOF"
     return "\n".join([ssh_cmd, *commands, eof_suffix])
 
@@ -1113,9 +1113,7 @@ def test_slurm_client_get_active_users_failure(mock_subprocess):
     mock_run = Mock()
     mock_subprocess.run.return_value = mock_run
     mock_run.stdout = (
-        b"control-host-22-matthew\n"
-        b"control-host-22-user1\n"
-        b"control-host-22-user2\n"
+        b"control-host-22-matthew\ncontrol-host-22-user1\ncontrol-host-22-user2\n"
     )
     mock_run.stderr = b"foo"
     mock_run.returncode = 1

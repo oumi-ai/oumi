@@ -181,9 +181,9 @@ def test_default_chat_template_in_build_tokenizer(
         assert tokenizer.chat_template == expected, debug_tag
     else:
         # Using the model's built-in config.
-        assert (
-            tokenizer.chat_template is not None
-        ), f"Unspecified built-in template: {debug_tag}"
+        assert tokenizer.chat_template is not None, (
+            f"Unspecified built-in template: {debug_tag}"
+        )
         assert len(tokenizer.chat_template) > 0, f"Empty built-in template: {debug_tag}"
 
     # Also check padding side here.

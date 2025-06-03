@@ -56,15 +56,15 @@ def test_dataset_iteration(dataset_fixture):
 
     # Iterate through all the items in the dataset
     for batch_idx, batch in enumerate(tqdm(dataset)):
-        assert isinstance(
-            batch, dict
-        ), f"Invalid batch format for dataset {dataset_name} at batch {batch_idx}"
-        assert (
-            "input_ids" in batch
-        ), f"Missing 'input_ids' in batch {batch_idx} for dataset {dataset_name}"
-        assert (
-            "attention_mask" in batch
-        ), f"Missing 'attention_mask' in batch {batch_idx} for dataset {dataset_name}"
+        assert isinstance(batch, dict), (
+            f"Invalid batch format for dataset {dataset_name} at batch {batch_idx}"
+        )
+        assert "input_ids" in batch, (
+            f"Missing 'input_ids' in batch {batch_idx} for dataset {dataset_name}"
+        )
+        assert "attention_mask" in batch, (
+            f"Missing 'attention_mask' in batch {batch_idx} for dataset {dataset_name}"
+        )
 
         if LIMIT_SAMPLES > 0 and batch_idx >= LIMIT_SAMPLES:
             break

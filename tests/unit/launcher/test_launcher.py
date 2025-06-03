@@ -1185,6 +1185,6 @@ def test_launcher_no_sky_dependency():
     process = Process(target=_verify_no_extra_import, args=["sky"])
     process.start()
     process.join()
-    assert (
-        process.exitcode == 0
-    ), "Sky was imported as part of the launcher module. This is a regression."
+    assert process.exitcode == 0, (
+        "Sky was imported as part of the launcher module. This is a regression."
+    )

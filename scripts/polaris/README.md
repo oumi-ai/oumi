@@ -42,18 +42,18 @@ Arguments:
 ## Example
 
 ```bash
-./launcher.sh \
+./scripts/polaris/launcher.sh \
     -u jdoe \
     -q preemptable \
     -n 4 \
     -s . \
     -d /home/jdoe/projects/oumi \
-    -j ./jobs/my_training_job.sh
+    -j ./scripts/polaris/jobs/my_training_job.sh
 ```
 
 ## Monitoring Jobs
 
 After submission, you can monitor your jobs:
 - View job status: `qstat -u username`
-- Check error logs: `tail -f /eagle/community_ai/jobs/logs/username/jobid.ER`
-- Check output logs: `tail -f /eagle/community_ai/jobs/logs/username/jobid.OU`
+- Check error logs: `tail -n200 -f /eagle/community_ai/jobs/logs/username/jobid.ER`
+- Check output logs: `tail -n200 -f /eagle/community_ai/jobs/logs/username/jobid.OU`

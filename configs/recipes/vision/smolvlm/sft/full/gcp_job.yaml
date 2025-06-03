@@ -1,0 +1,60 @@
+# Job config to full fine-tune SmolVLM Instruct, with the *Oumi* trainer.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#
+# Usage:
+#   oumi launch up --config configs/recipes/vision/smolvlm/sft/full/gcp_job.yaml --cluster smolvlm-vision
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: smolvlm-sft-train-oumi
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4"
+  use_spot: false
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: smolvlm.fft.oumi
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceTB/SmolVLM-Instruct --exclude "onnx/*" "runs/*"
+
+  pip install -U flash-attn --no-build-isolation
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/vision/smolvlm/sft/full/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.trainer_type OUMI \
+      --training.max_steps 20 \
+      --training.save_steps 0 \
+      --training.save_final_model false
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

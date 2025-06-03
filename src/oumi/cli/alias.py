@@ -27,9 +27,10 @@ class AliasType(str, Enum):
 
 
 _ALIASES: dict[str, dict[AliasType, str]] = {
+    # Llama 4 family.
     "llama4-scout": {
         AliasType.TRAIN: "oumi://configs/recipes/llama4/sft/scout_base_full/train.yaml",
-        AliasType.JOB: "oumi://configs/recipes/llama4/sft/scout_base_full/train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/llama4/sft/scout_base_full/gcp_job.yaml",
     },
     "llama4-scout-instruct-lora": {
         AliasType.TRAIN: "oumi://configs/recipes/llama4/sft/scout_instruct_lora/train.yaml",
@@ -45,6 +46,75 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "llama4-maverick": {
         AliasType.INFER: "oumi://configs/recipes/llama4/inference/maverick_instruct_together_infer.yaml",
+    },
+    # Qwen3 family.
+    "qwen3-30b-a3b": {
+        AliasType.INFER: "oumi://configs/recipes/qwen3/inference/30b_a3b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/qwen3/evaluation/30b_a3b_eval.yaml",
+    },
+    "qwen3-30b-a3b-lora": {
+        AliasType.TRAIN: "oumi://configs/recipes/qwen3/sft/30b_a3b_lora/train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/qwen3/sft/30b_a3b_lora/gcp_job.yaml",
+    },
+    "qwen3-32b": {
+        AliasType.INFER: "oumi://configs/recipes/qwen3/inference/32b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/qwen3/evaluation/32b_eval.yaml",
+    },
+    "qwen3-32b-lora": {
+        AliasType.TRAIN: "oumi://configs/recipes/qwen3/sft/32b_lora/train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/qwen3/sft/32b_lora/gcp_job.yaml",
+    },
+    # Phi family.
+    "phi4-reasoning-plus": {
+        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus/full_train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus/full_gcp_job.yaml",
+        AliasType.INFER: "oumi://configs/recipes/phi4/inference/reasoning_plus_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/phi4/evaluation/reasoning_plus_eval.yaml",
+    },
+    "phi4-reasoning-plus-lora": {
+        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus/lora_train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus/lora_gcp_job.yaml",
+    },
+    "phi4-reasoning-plus-qlora": {
+        AliasType.TRAIN: "oumi://configs/recipes/phi4/sft/reasoning_plus/qlora_train.yaml",
+        AliasType.JOB: "oumi://configs/recipes/phi4/sft/reasoning_plus/qlora_gcp_job.yaml",
+    },
+    # Falcon H1 family
+    "falcon_h1_0_5b": {
+        AliasType.TRAIN: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_train.yaml",
+        AliasType.INFER: "oumi://configs/recipes/falcon_h1/inference/0_5b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_0_5b/eval.yaml",
+        AliasType.JOB: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_gcp_job.yaml",
+    },
+    "falcon_h1_1_5b": {
+        AliasType.TRAIN: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_1_5b/full_train.yaml",
+        AliasType.INFER: "oumi://configs/recipes/falcon_h1/inference/1_5b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_1_5b/eval.yaml",
+        AliasType.JOB: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_1_5b/full_gcp_job.yaml",
+    },
+    "falcon_h1_1_5b_deep": {
+        AliasType.TRAIN: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_1_5b_deep/full_train.yaml",
+        AliasType.INFER: "oumi://configs/recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_1_5b_deep/eval.yaml",
+        AliasType.JOB: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_1_5b_deep/full_gcp_job.yaml",
+    },
+    "falcon_h1_3b": {
+        AliasType.TRAIN: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_3b/full_train.yaml",
+        AliasType.INFER: "oumi://configs/recipes/falcon_h1/inference/3b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_3b/eval.yaml",
+        AliasType.JOB: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_3b/full_gcp_job.yaml",
+    },
+    "falcon_h1_7b": {
+        AliasType.TRAIN: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml",
+        AliasType.INFER: "oumi://configs/recipes/falcon_h1/inference/7b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/eval.yaml",
+        AliasType.JOB: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_gcp_job.yaml",
+    },
+    "falcon_h1_34b": {
+        AliasType.TRAIN: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_34b/full_train.yaml",
+        AliasType.INFER: "oumi://configs/recipes/falcon_h1/inference/34b_infer.yaml",
+        AliasType.EVAL: "oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_34b/eval.yaml",
+        AliasType.JOB: "oumi://configs/recipes/falcon_h1/sft/falcon_h1_34b/full_gcp_job.yaml",
     },
     # Hosted models.
     "claude-3-5-sonnet": {

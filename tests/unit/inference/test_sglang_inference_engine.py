@@ -147,9 +147,9 @@ def test_convert_conversation_to_api_input(
         conversation, generation_params, ModelParams()
     )
 
-    assert isinstance(
-        engine._tokenizer.bos_token, str
-    ), "bos_token: {engine._tokenizer.bos_token}"
+    assert isinstance(engine._tokenizer.bos_token, str), (
+        "bos_token: {engine._tokenizer.bos_token}"
+    )
     expected_prompt = (
         "\n\n".join(
             [
@@ -185,9 +185,9 @@ def test_convert_conversation_to_api_input(
             assert isinstance(result["image_data"], list)
             assert len(result["image_data"]) == num_images
             for idx in range(num_images):
-                assert result["image_data"][idx].startswith(
-                    "data:image/png;base64,"
-                ), result
+                assert result["image_data"][idx].startswith("data:image/png;base64,"), (
+                    result
+                )
 
         else:
             assert isinstance(result["image_data"], str)

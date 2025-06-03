@@ -1,0 +1,76 @@
+# Class: oumi.core.configs.JobConfig
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+# Sample command:
+# oumi launch up --config tests/scripts/e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
+name: oumi-e2e-tests
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4" # "A100:1", "A100-80GB:1", "A100-80GB:4"
+  use_spot: false
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  WANDB_PROJECT: oumi-e2e-tests
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+  ENABLE_OUMI_UNIT_TESTS: "false"
+  ENABLE_OUMI_INTEGRATION_TESTS: "false"
+  ENABLE_OUMI_E2E_TESTS: "true"
+
+setup: |
+  set -e
+  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer
+  pip install -U flash-attn --no-build-isolation
+
+run: |
+  set -xe  # Exit if any command failed.
+  source "./configs/examples/misc/sky_init.sh"
+
+  echo "Node ${SKYPILOT_NODE_RANK} starting..."
+  echo "Unit tests: ${ENABLE_OUMI_UNIT_TESTS}"
+  echo "Integration tests: ${ENABLE_OUMI_INTEGRATION_TESTS}"
+  echo "e2e tests: ${ENABLE_OUMI_E2E_TESTS}"
+
+  nvidia-smi
+
+  pip install -U -e ".[ci_gpu]"
+  echo "$(oumi env)"
+
+  GPU_MULTIPLICITY_MARKER="single_gpu"
+  if test ${OUMI_TOTAL_NUM_GPUS} -gt 1; then
+    GPU_MULTIPLICITY_MARKER="multi_gpu"
+  fi
+
+  ROOT_DIR="$(pwd)"
+
+  if "${ENABLE_OUMI_UNIT_TESTS}"; then
+    cd "${ROOT_DIR}/tests/unit/"
+    echo "Running all unit tests..."
+    pytest -s -vv --durations=50 --timeout=300
+  fi
+
+  if "${ENABLE_OUMI_INTEGRATION_TESTS}"; then
+    cd "${ROOT_DIR}/tests/integration/"
+    echo "Running all integration tests..."
+    pytest -s -vv --durations=50 --timeout=300
+  fi
+
+  if "${ENABLE_OUMI_E2E_TESTS}"; then
+    cd "${ROOT_DIR}/tests/"
+    echo "Running all tests: e2e and ${GPU_MULTIPLICITY_MARKER}..."
+    pytest -s -vv -m "e2e and ${GPU_MULTIPLICITY_MARKER}" --durations=50 --timeout=1200
+  fi
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

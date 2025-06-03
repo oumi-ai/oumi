@@ -87,7 +87,7 @@ def tokenize_for_completions_only_training_with_prefix(
     if len(response_token_ids_idxs) == 0:
         logger.warning(
             f"Could not find response key `{response_template}` in the "
-            f'following instance: {tokenizer.decode(batch["input_ids"])} '
+            f"following instance: {tokenizer.decode(batch['input_ids'])} "
             f"This instance will be ignored in loss calculation. "
             f"Note, if this happens often, consider increasing the `max_seq_length`."
         )
@@ -103,9 +103,9 @@ def tokenize_for_completions_only_training_with_prefix(
             human_token_ids_idxs.append(human_idx)
 
     if len(human_token_ids_idxs) == 0:
-        logger.warn(
+        logger.warning(
             f"Could not find instruction key `{instruction_template}` in the "
-            f'following instance: {tokenizer.decode(batch["input_ids"])} '
+            f"following instance: {tokenizer.decode(batch['input_ids'])} "
             f"This instance will be ignored in loss calculation. "
             f"Note, if this happens often, consider increasing the `max_seq_length`."
         )

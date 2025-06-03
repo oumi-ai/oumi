@@ -32,11 +32,6 @@ def _extract_solution(solution_str: str) -> Optional[str]:
     Returns:
         The equation from the solution string, or None if not found.
     """
-    # Remove everything before the first "Assistant:"
-    if "Assistant:" in solution_str:
-        solution_str = solution_str.split("Assistant:", 1)[1]
-    elif "<|im_start|>assistant" in solution_str:
-        solution_str = solution_str.split("<|im_start|>assistant", 1)[1]
     solution_str = solution_str.split("\n")[-1]
 
     answer_pattern = r"<answer>(.*?)</answer>"
@@ -94,12 +89,12 @@ def countdown_reward(
     solution_str: str,
     ground_truth: dict[str, Any],
     extra_info: dict[str, Any],
-    format_score=0.1,
+    format_score=0.0,
     score=1.0,
 ) -> float:
     """Custom reward function for the Countdown task.
 
-    Currently, this function only works with the VERL_PPO trainer.
+    Currently, this function only works with the VERL_GRPO trainer.
 
     Args:
         data_source: The data source.

@@ -244,9 +244,9 @@ def test_stack_and_pad_to_max_dim_right_side(padding_value):
     expected = torch.full((2, 5, 2, 2), padding_value)
     expected[0, :, :1, :] = 1
     expected[1, :3, :, :1] = 2
-    assert np.all(
-        result.numpy() == expected.numpy()
-    ), f"result: {result} expected: {expected}"
+    assert np.all(result.numpy() == expected.numpy()), (
+        f"result: {result} expected: {expected}"
+    )
 
     assert np.all(
         expected.numpy()
@@ -318,9 +318,9 @@ def test_stack_and_pad_to_max_dim_left_side(padding_value):
     expected[0, :, -1:, :, :] = 1
     expected[1, -3:, :, -1:, :] = 2
     expected[2, -1:, -1:, -1:, :] = -3
-    assert np.all(
-        result.numpy() == expected.numpy()
-    ), f"result: {result} expected: {expected}"
+    assert np.all(result.numpy() == expected.numpy()), (
+        f"result: {result} expected: {expected}"
+    )
 
     assert np.all(
         expected.numpy()

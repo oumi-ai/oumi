@@ -149,9 +149,13 @@ def build_collator_from_config(
     model_config = find_internal_model_config(config.model)
 
     label_ignore_index: Optional[int] = (
-        model_config.label_ignore_index
-        if model_config is not None
-        else constants.LABEL_IGNORE_INDEX
+        config.training.label_ignore_index
+        if config.training.label_ignore_index is not None
+        else (
+            model_config.label_ignore_index
+            if model_config is not None
+            else constants.LABEL_IGNORE_INDEX
+        )
     )
 
     collator_kwargs = {}
@@ -180,6 +184,11 @@ def build_collator_from_config(
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
         )
+
+    # Merge collator_kwargs from config with the existing kwargs
+    # Config kwargs take precedence over automatically determined kwargs
+    config_collator_kwargs = train_split.collator_kwargs or {}
+    collator_kwargs.update(config_collator_kwargs)
 
     return build_data_collator(
         collator_name=collator_name,
