@@ -233,14 +233,8 @@ ban-relative-imports = "all" # Disallow all relative imports.
 ]
 "src/oumi/utils/verl_model_merger.*" = [
      "E501",   # Line too long
-     "D102",   # Missing docstring in public method
-     "D103",   # Missing docstring in public function
-     "D105",   # Missing docstring in magic method
-     "D107",   # Missing docstring in `__init__`
-     "D205",   # 1 blank line required between summary line and description
-     "D415",   # First line should end with a period, question mark, or exclamation point
-     "PTH103", # `os.makedirs()` should be replaced by `Path.mkdir(parents=True)`
-     "PTH208", # Use `pathlib.Path.iterdir()` instead.
+     "D",      # Ignore docstring checks
+     "PTH",
 ]
 
 [tool.ruff.lint.pydocstyle]
