@@ -191,8 +191,8 @@ def torchrun(
             # New flags
             "--rdzv_id=0",
             f"--rdzv_endpoint={run_info.master_address}:{run_info.master_port}",
-            "--rdzv_backend=static",
-            # "--rdzv_backend=c10d",
+            # "--rdzv_backend=static",
+            "--rdzv_backend=c10d",
         ]
         cmds.extend(ctx.args)
 
