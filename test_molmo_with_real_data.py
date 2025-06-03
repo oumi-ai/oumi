@@ -28,7 +28,7 @@ def main():
     # 1. Setup model parameters
     print("\n1. Setting up Molmo model parameters...")
     model_params = ModelParams(
-        model_name="allenai/Molmo-7B-D-0924",
+        model_name="oumi-ai/Molmo-7B-D-0924",
         trust_remote_code=True,
         torch_dtype_str="float32",
         model_max_length=2048,
