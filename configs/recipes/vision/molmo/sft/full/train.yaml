@@ -36,6 +36,7 @@ training:
   save_steps: 0
   include_performance_metrics: True
   log_model_summary: True
+  dataloader_main_process_only: False
 
 fsdp:
   enable_fsdp: True
