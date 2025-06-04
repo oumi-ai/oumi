@@ -116,7 +116,7 @@ class TestJudgeOutputField:
         field = JudgeOutputField(
             field_key="test",
             field_type=JudgeOutputType.ENUM,
-            field_scores={"excellent": 1.0,  "good": 0.7, "poor": 0.3},
+            field_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
         )
 
         assert field.get_typed_value("unknown") is None
@@ -343,7 +343,10 @@ class TestBaseJudge:
         )
 
     def test_init(self, base_judge, mock_inference_engine, sample_output_fields):
-        assert base_judge.prompt_template == "Is this helpful? Question: {question}, Answer: {answer}"
+        assert (
+            base_judge.prompt_template
+            == "Is this helpful? Question: {question}, Answer: {answer}"
+        )
         assert base_judge.response_format == JudgeResponseFormat.XML
         assert base_judge.output_fields == sample_output_fields
         assert base_judge.inference_engine == mock_inference_engine
@@ -357,15 +360,13 @@ class TestBaseJudge:
     def test_build_judgement_prompt_missing_placeholder(self, base_judge):
         judge_input = {"question": "What is 2+2?"}  # Missing 'answer'
 
-        with pytest.raises(ValueError, match="Missing values for template placeholders"):
+        with pytest.raises(
+            ValueError, match="Missing values for template placeholders"
+        ):
             base_judge._build_judgement_prompt(judge_input)
 
     def test_build_judgement_prompt_extra_data(self, base_judge):
-        judge_input = {
-            "question": "What is 2+2?",
-            "answer": "4",
-            "extra": "ignored"
-        }
+        judge_input = {"question": "What is 2+2?", "answer": "4", "extra": "ignored"}
         prompt = base_judge._build_judgement_prompt(judge_input)
         expected = "Is this helpful? Question: What is 2+2?, Answer: 4"
         assert prompt == expected
@@ -383,12 +384,12 @@ class TestBaseJudge:
         input_convs = [
             Conversation(
                 messages=[Message(content="test1", role=Role.USER)],
-                metadata={"id": "conv1", "custom": "data1"}
+                metadata={"id": "conv1", "custom": "data1"},
             ),
             Conversation(
                 messages=[Message(content="test2", role=Role.USER)],
-                metadata={"id": "conv2", "custom": "data2"}
-            )
+                metadata={"id": "conv2", "custom": "data2"},
+            ),
         ]
 
         # Setup mock to return conversations with responses
@@ -396,15 +397,15 @@ class TestBaseJudge:
             Conversation(
                 messages=[
                     Message(content="test1", role=Role.USER),
-                    Message(content="response1", role=Role.ASSISTANT)
+                    Message(content="response1", role=Role.ASSISTANT),
                 ]
             ),
             Conversation(
                 messages=[
                     Message(content="test2", role=Role.USER),
-                    Message(content="response2", role=Role.ASSISTANT)
+                    Message(content="response2", role=Role.ASSISTANT),
                 ]
-            )
+            ),
         ]
         mock_inference_engine.infer.return_value = output_convs
 
@@ -429,7 +430,7 @@ class TestBaseJudge:
     def test_transform_judge_output(self, base_judge):
         raw_output = "<judgment>True</judgment>"
 
-        with patch.object(JudgeOutput, 'from_raw_output') as mock_from_raw:
+        with patch.object(JudgeOutput, "from_raw_output") as mock_from_raw:
             mock_judge_output = Mock()
             mock_from_raw.return_value = mock_judge_output
 
@@ -446,7 +447,7 @@ class TestBaseJudge:
         # Setup input data
         inputs = [
             {"question": "What is 1+1?", "answer": "2"},
-            {"question": "What is 2+2?", "answer": "3"}
+            {"question": "What is 2+2?", "answer": "3"},
         ]
 
         # Setup mock inference engine to return response
@@ -454,24 +455,18 @@ class TestBaseJudge:
             messages=[
                 Message(
                     content="Is this helpful? Question: What is 1+1?, Answer: 2",
-                    role=Role.USER
+                    role=Role.USER,
                 ),
-                Message(
-                    content="<judgment>True</judgment>",
-                    role=Role.ASSISTANT
-                )
+                Message(content="<judgment>True</judgment>", role=Role.ASSISTANT),
             ]
         )
         response_conv_2 = Conversation(
             messages=[
                 Message(
                     content="Is this helpful? Question: What is 2+2?, Answer: 3",
-                    role=Role.USER
+                    role=Role.USER,
                 ),
-                Message(
-                    content="<judgment>False</judgment>",
-                    role=Role.ASSISTANT
-                )
+                Message(content="<judgment>False</judgment>", role=Role.ASSISTANT),
             ]
         )
         mock_inference_engine.infer.return_value = [response_conv_1, response_conv_2]
@@ -492,13 +487,12 @@ class TestBaseJudge:
         inputs = [{"question": "What is 2+2?", "answer": "4"}]
 
         # Return conversation with wrong number of messages
-        response_conv = Conversation(messages=[
-            Message(content="single message", role=Role.USER)
-        ])
+        response_conv = Conversation(
+            messages=[Message(content="single message", role=Role.USER)]
+        )
         mock_inference_engine.infer.return_value = [response_conv]
 
         with pytest.raises(
-            ValueError,
-            match="Expected conversation to have precisely 2 messages"
+            ValueError, match="Expected conversation to have precisely 2 messages"
         ):
             base_judge.judge(inputs)
