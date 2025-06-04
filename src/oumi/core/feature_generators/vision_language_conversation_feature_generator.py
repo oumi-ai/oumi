@@ -307,10 +307,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         valid_options: FeatureGeneratorOptions = options or FeatureGeneratorOptions()
 
-        # Validate conversations for completion-only training
-        # if self._train_on_completions_only:
-        #     self._validate_conversations_for_completion_only_training(conversations)
-
         all_images: list[list[Image.Image]] = []
         all_prompts: list[str] = []
         if self._processor.chat_template is None:
@@ -486,7 +482,9 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         input_ids = inputs.get("input_ids")
 
         if labels is None or input_ids is None:
-            return
+            raise ValueError(
+                "Labels and input_ids are required for completion-only training"
+            )
 
         # Convert to numpy for processing
         labels_array = np.array(labels)

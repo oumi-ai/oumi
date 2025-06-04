@@ -168,6 +168,7 @@ def mask_labels_without_user_template(
 
     # Only unmask the last assistant response
     last_response_start = response_starts[-1]
+
     # Unmask from the last response start to the end of the sequence
     labels[last_response_start:] = original_labels[last_response_start:]
 
@@ -221,7 +222,10 @@ def mask_labels_for_completions_only(
 
 
 def find_all_sequences(arr: np.ndarray, target: list[int]) -> list[int]:
-    """Find all occurrences of target sequence in array."""
+    """Find all occurrences of target sequence in array.
+
+    Returns the positions of the target sequence AFTER the found sequence.
+    """
     arr_list = arr.tolist()
     positions = []
     for i in range(len(arr_list) - len(target) + 1):
