@@ -34,7 +34,6 @@ from oumi.core.feature_generators.base_feature_generator import (
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
-from oumi.core.tokenizers.utils import mask_labels_for_completions_only
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -504,24 +503,106 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                     f"got {assistant_msg.role}."
                 )
 
+    # def _apply_completion_only_masking(self, inputs: Any) -> None:
+    #     """Applies completion-only masking to the labels.
+
+    #     This method finds the response template in the tokenized sequence and sets
+    #     all tokens before the response template to the ignore index, so that loss
+    #     is only computed on the assistant's completion.
+
+    #     Args:
+    #         inputs: Dictionary containing model inputs including 'labels'.
+    #     """
+    #     labels = inputs["labels"]
+    #     ignore_index = int(self._special_tokens.label_ignore_index or -100)
+    #     sequence_length = len(labels) if isinstance(labels, list) else labels.shape[0]
+
+    #     for i in range(sequence_length):
+    #         mask_labels_for_completions_only(
+    #             labels[i],
+    #             self._response_token_ids,
+    #             ignore_index=ignore_index,
+    #             response_template=self._response_template,
+    #         )
+
     def _apply_completion_only_masking(self, inputs: Any) -> None:
-        """Applies completion-only masking to the labels.
+        """Apply masking to keep only assistant responses for loss computation."""
+        labels = inputs.get("labels")
+        input_ids = inputs.get("input_ids")
 
-        This method finds the response template in the tokenized sequence and sets
-        all tokens before the response template to the ignore index, so that loss
-        is only computed on the assistant's completion.
+        if labels is None or input_ids is None:
+            return
 
-        Args:
-            inputs: Dictionary containing model inputs including 'labels'.
-        """
-        labels = inputs["labels"]
+        # Convert to numpy for processing
+        labels_array = np.array(labels)
+        input_ids_array = np.array(input_ids)
+
+        # Process each sequence in the batch
+        for i in range(labels_array.shape[0]):
+            self._mask_single_conversation(labels_array[i], input_ids_array[i])
+
+        # Convert back to original format
+        if isinstance(labels, torch.Tensor):
+            inputs["labels"] = torch.from_numpy(labels_array)
+        elif isinstance(labels, list):
+            inputs["labels"] = labels_array.tolist()
+        else:
+            inputs["labels"] = labels_array
+
+    def _mask_single_conversation(
+        self, labels: np.ndarray, input_ids: np.ndarray
+    ) -> None:
+        """Mask a single conversation to keep only assistant responses."""
         ignore_index = int(self._special_tokens.label_ignore_index or -100)
-        sequence_length = len(labels) if isinstance(labels, list) else labels.shape[0]
 
-        for i in range(sequence_length):
-            mask_labels_for_completions_only(
-                labels[i],
-                self._response_token_ids,
-                ignore_index=ignore_index,
-                response_template=self._response_template,
+        # Find all response positions
+        response_positions = self._find_all_template_positions(
+            input_ids, self._response_token_ids
+        )
+
+        if not response_positions:
+            # No responses found, mask everything
+            labels[:] = ignore_index
+            return
+
+        # If we have user template, use it to find response endpoints
+        if hasattr(self, "_instruction_token_ids") and self._instruction_token_ids:
+            user_positions = self._find_all_template_positions(
+                input_ids, self._instruction_token_ids
             )
+
+            # Mask everything first
+            labels[:] = ignore_index
+
+            # Unmask each response segment
+            for i, resp_start in enumerate(response_positions):
+                # Find next user position or end of sequence
+                resp_end = len(labels)
+                for user_pos in user_positions:
+                    if user_pos > resp_start:
+                        resp_end = user_pos
+                        break
+
+                # Keep the response for loss computation
+                labels[resp_start:resp_end] = input_ids[resp_start:resp_end]
+        else:
+            # Simple strategy: mask everything before first response
+            # and between consecutive responses
+            labels[: response_positions[0]] = ignore_index
+
+            # For multi-turn, you might want to add logic here
+            # to detect natural response boundaries
+
+    def _find_all_template_positions(
+        self, input_ids: np.ndarray, template_tokens: list[int]
+    ) -> list[int]:
+        """Find all positions where template occurs."""
+        positions = []
+        input_list = input_ids.tolist()
+        template_len = len(template_tokens)
+
+        for i in range(len(input_list) - template_len + 1):
+            if input_list[i : i + template_len] == template_tokens:
+                positions.append(i + template_len)
+
+        return positions

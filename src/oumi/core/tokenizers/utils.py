@@ -24,6 +24,9 @@ from oumi.core.types import Conversation
 from oumi.utils.logging import logger
 
 
+#
+# Base class functions
+#
 def tokenize_for_completions_only_training_with_template(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:
@@ -133,6 +136,9 @@ def tokenize_for_completions_only_training_with_prefix(
     return batch
 
 
+#
+# VL Collator functions
+#
 def find_token_sequence(sequence, target_tokens: list[int]) -> Optional[int]:
     """Find the starting index of a token sequence in labels.
 
@@ -178,6 +184,9 @@ def mask_labels_for_completions_only(
         ignore_index: Index to use for masking tokens.
         response_template: String representation of response template for logging.
     """
+    if not response_token_ids:
+        raise ValueError("response_token_ids is required for completions-only training")
+
     # Find response template
     response_start_idx = find_token_sequence(labels, response_token_ids)
 
@@ -195,6 +204,9 @@ def mask_labels_for_completions_only(
         labels[:response_end_idx] = ignore_index
 
 
+#
+# Multi-turn collator functions
+#
 def mask_labels_for_arbitrary_conversations(
     labels: np.ndarray,
     input_ids: np.ndarray,
@@ -262,8 +274,7 @@ def mask_labels_for_conversations_advanced(
     user_template: Optional[str] = None,
     ignore_index: int = -100,
 ) -> None:
-    """
-    Advanced masking that handles arbitrary conversations by detecting role transitions.
+    """Advanced masking that handles arbitrary conversations by detecting role transitions.
 
     Args:
         labels: Label array to mask
@@ -319,6 +330,9 @@ def find_all_sequences(arr: np.ndarray, target: list[int]) -> list[int]:
     return positions
 
 
+#
+# Utils
+#
 def tokenizer_for_inference(
     tokenizer: BaseTokenizer, conversation: Conversation
 ) -> dict:

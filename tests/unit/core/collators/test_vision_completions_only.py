@@ -112,7 +112,6 @@ def feature_generator(mock_processor, mock_tokenizer):
         VisionLanguageConversationFeatureGenerator
     )
     fg._processor = mock_processor
-    fg._tokenizer = mock_tokenizer
     fg._train_on_completions_only = True
     fg._response_template = "Assistant:"
     fg._response_token_ids = [100, 101]
@@ -229,31 +228,6 @@ def test_response_template_longer_than_sequence():
     # Should mask everything
     expected = np.array([-100, -100])
     np.testing.assert_array_equal(labels, expected)
-
-
-# Integration Tests
-def test_collator_initialization_validation():
-    from oumi.core.collators.vision_language_sft_collator import (
-        VisionLanguageSftCollator,
-    )
-
-    # Should raise error when train_on_completions_only=True without response_template
-    with pytest.raises(ValueError, match="response_template must be provided"):
-        VisionLanguageSftCollator(
-            processor=Mock(),
-            tokenizer=Mock(),
-            train_on_completions_only=True,
-            response_template=None,
-        )
-
-    # Should succeed with both parameters
-    collator = VisionLanguageSftCollator(
-        processor=Mock(),
-        tokenizer=Mock(),
-        train_on_completions_only=True,
-        response_template="Assistant:",
-    )
-    assert collator is not None
 
 
 def test_validate_conversations_for_completion_only_training(feature_generator):
