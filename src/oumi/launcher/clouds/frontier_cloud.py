@@ -18,8 +18,8 @@ from typing import Optional
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
 from oumi.core.registry import register_cloud_builder
-from oumi.launcher.clients.polaris_client import PolarisClient
-from oumi.launcher.clusters.polaris_cluster import PolarisCluster
+from oumi.launcher.clients.slurm_client import SlurmClient
+from oumi.launcher.clusters.frontier_cluster import FrontierCluster
 from oumi.utils.logging import logger
 
 
@@ -30,22 +30,26 @@ class _ClusterInfo:
     queue: str
     user: str
 
+    @property
     def name(self):
         return f"{self.queue}.{self.user}"
 
 
-class PolarisCloud(BaseCloud):
-    """A resource pool for managing the Polaris ALCF job queues."""
+_FRONTIER_HOSTNAME = "frontier.olcf.ornl.gov"
+
+
+class FrontierCloud(BaseCloud):
+    """A resource pool for managing the OLCF Frontier job queues."""
 
     def __init__(self):
-        """Initializes a new instance of the PolarisCloud class."""
-        # A mapping from user names to Polaris Clients.
+        """Initializes a new instance of the FrontierCloud class."""
+        # A mapping from user names to Frontier Clients.
         self._clients = {}
-        # A mapping from cluster names to Polaris Cluster instances.
+        # A mapping from cluster names to Frontier Cluster instances.
         self._clusters = {}
 
-        # Check if any users have open SSH tunnels to Polaris.
-        for user in PolarisClient.get_active_users():
+        # Check if any users have open SSH tunnels to Frontier.
+        for user in SlurmClient.get_active_users(_FRONTIER_HOSTNAME):
             self.initialize_clusters(user)
 
     def _parse_cluster_name(self, name: str) -> _ClusterInfo:
@@ -65,46 +69,48 @@ class PolarisCloud(BaseCloud):
         queue, user = name_splits
         return _ClusterInfo(queue, user)
 
-    def _get_or_create_client(self, user: str) -> PolarisClient:
+    def _get_or_create_client(self, cluster_info: _ClusterInfo) -> SlurmClient:
         """Gets the client for the specified user, or creates one if it doesn't exist.
 
         Args:
-            user: The user to get the client for.
+            cluster_info: The cluster information.
 
         Returns:
-            PolarisClient: The client instance.
+            SlurmClient: The client instance.
         """
-        if user not in self._clients:
-            self._clients[user] = PolarisClient(user)
-        return self._clients[user]
+        if cluster_info.user not in self._clients:
+            self._clients[cluster_info.user] = SlurmClient(
+                cluster_info.user, _FRONTIER_HOSTNAME, cluster_info.name
+            )
+        return self._clients[cluster_info.user]
 
-    def _get_or_create_cluster(self, name: str) -> PolarisCluster:
+    def _get_or_create_cluster(self, name: str) -> FrontierCluster:
         """Gets the cluster with the specified name, or creates one if it doesn't exist.
 
         Args:
             name: The name of the cluster.
 
         Returns:
-            PolarisCluster: The cluster instance.
+            FrontierCluster: The cluster instance.
         """
         if name not in self._clusters:
             cluster_info = self._parse_cluster_name(name)
-            self._clusters[name] = PolarisCluster(
-                name, self._get_or_create_client(cluster_info.user)
+            self._clusters[name] = FrontierCluster(
+                name, self._get_or_create_client(cluster_info)
             )
         return self._clusters[name]
 
     def initialize_clusters(self, user) -> list[BaseCluster]:
-        """Initializes clusters for the specified user for all Polaris queues.
+        """Initializes clusters for the specified user for all Frontier queues.
 
         Args:
             user: The user to initialize clusters for.
 
         Returns:
-            List[PolarisCluster]: The list of initialized clusters.
+            List[FrontierCluster]: The list of initialized clusters.
         """
         clusters = []
-        queue_set = {q.value for q in PolarisClient.SupportedQueues}
+        queue_set = {q.value for q in FrontierCluster.SupportedQueues}
         for q in queue_set:
             name = f"{q}.{user}"
             cluster = self._get_or_create_cluster(name)
@@ -116,7 +122,9 @@ class PolarisCloud(BaseCloud):
         if not job.user:
             raise ValueError("User must be provided in the job config.")
         # The default queue is PROD.
-        cluster_info = _ClusterInfo(PolarisClient.SupportedQueues.PROD.value, job.user)
+        cluster_info = _ClusterInfo(
+            FrontierCluster.SupportedQueues.BATCH.value, job.user
+        )
         if name:
             cluster_info = self._parse_cluster_name(name)
             if cluster_info.user != job.user:
@@ -127,9 +135,9 @@ class PolarisCloud(BaseCloud):
         else:
             logger.warning(
                 "No cluster name provided. Using default queue: "
-                f"{PolarisClient.SupportedQueues.PROD.value}."
+                f"{FrontierCluster.SupportedQueues.BATCH.value}."
             )
-        cluster = self._get_or_create_cluster(cluster_info.name())
+        cluster = self._get_or_create_cluster(cluster_info.name)
         job_status = cluster.run_job(job)
         if not job_status:
             raise RuntimeError("Failed to start job.")
@@ -148,7 +156,7 @@ class PolarisCloud(BaseCloud):
         return list(self._clusters.values())
 
 
-@register_cloud_builder("polaris")
-def polaris_cloud_builder() -> PolarisCloud:
-    """Builds a PolarisCloud instance."""
-    return PolarisCloud()
+@register_cloud_builder("frontier")
+def frontier_cloud_builder() -> FrontierCloud:
+    """Builds a FrontierCloud instance."""
+    return FrontierCloud()
