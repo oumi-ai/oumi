@@ -63,15 +63,27 @@ class JudgeConfig(BaseConfig):
     including the prompt template, response format, and model parameters.
 
     Examples:
+        Basic boolean judgment:
         >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     prompt_template="Is the following answer helpful? Question: {question}, Answer: {answer}. Respond with True or False.",
+        ...     prompt_template="Is the following answer helpful? Question: {question},
+        ...                      Answer: {answer}. Respond with True or False.",
         ...     response_format=JudgeResponseFormat.XML,
-        ...     judgment_type=JudgeOutputType.BOOL
+        ...     judgment_type=JudgeOutputType.BOOL,
+        ...     include_explanation=False
+        ... )
+
+        Categorical judgment with scores:
+        >>> judge_config = JudgeConfig( # doctest: +SKIP
+        ...     prompt_template="Rate the quality: {text}",
+        ...     response_format=JudgeResponseFormat.JSON,
+        ...     judgment_type=JudgeOutputType.ENUM,
+        ...     judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
+        ...     include_explanation=True
         ... )
     """
 
     prompt_template: str
-    """The template for the judge prompt with placeholders like {question}, {answer}, etc."""
+    """Template for the judge prompt with placeholders, such as {question}, {answer}."""
 
     response_format: JudgeResponseFormat = field(default=JudgeResponseFormat.XML)
     """The format in which the judge should respond."""
@@ -83,7 +95,11 @@ class JudgeConfig(BaseConfig):
     """The type of judgment the judge should make."""
 
     judgment_scores: Optional[dict[str, float]] = field(default=None)
-    """For ENUM judgment_type, mapping from category names to scores."""
+    """For ENUM judgment_type, mapping from category names to numeric scores.
+
+    Example:
+        {"excellent": 1.0, "good": 0.7, "poor": 0.3}
+    """
 
     model: ModelParams = field(default_factory=ModelParams)
     """Parameters for the model used in inference."""
@@ -96,3 +112,27 @@ class JudgeConfig(BaseConfig):
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
+
+    def __post_init__(self):
+        """Validate the configuration after initialization."""
+        self._validate_config()
+
+    def _validate_config(self):
+        """Validate the configuration for consistency and completeness.
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        # Validate prompt template is not empty
+        if not self.prompt_template.strip():
+            raise ValueError("prompt_template cannot be empty")
+
+        # Validate judgment scores are numeric if provided
+        if self.judgment_scores:
+            if not all(
+                isinstance(score, (int, float))
+                for score in self.judgment_scores.values()
+            ):
+                raise ValueError("All judgment_scores values must be numeric")
+            if not self.judgment_scores:
+                raise ValueError("judgment_scores cannot be empty when provided")

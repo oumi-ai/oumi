@@ -17,7 +17,6 @@ import re
 from typing import Optional, Union
 
 import pydantic
-from tqdm.auto import tqdm
 from typing_extensions import Self
 
 from oumi.core.configs.judge_config import JudgeOutputType, JudgeResponseFormat
@@ -26,32 +25,55 @@ from oumi.core.types.conversation import Conversation, Message, Role
 
 
 class JudgeOutputField(pydantic.BaseModel):
+    """Represents a single output field that a judge can produce.
+
+    Attributes:
+        field_key: The key/name for this field in the judge's output
+        field_type: The data type expected for this field's value
+        field_scores: Optional mapping from categorical values to numeric scores
+    """
+
     field_key: str
     field_type: JudgeOutputType
     field_scores: Optional[dict[str, float]]
 
     def get_typed_value(self, raw_value: str) -> Optional[Union[float, int, str, bool]]:
-        """Convert the field's value to the appropriate type based on field_type."""
+        """Convert the field's raw string value to the appropriate type.
+
+        Args:
+            raw_value: The raw string value from the judge's output
+
+        Returns:
+            The typed value, or None if conversion fails
+
+        Raises:
+            ValueError: If the field_type is not supported
+        """
         if self.field_type == JudgeOutputType.BOOL:
             from oumi.utils.str_utils import try_str_to_bool
 
             return try_str_to_bool(raw_value)
+
         elif self.field_type == JudgeOutputType.INT:
             try:
                 return int(raw_value)
             except ValueError:
                 return None
+
         elif self.field_type == JudgeOutputType.FLOAT:
             try:
                 return float(raw_value)
             except ValueError:
                 return None
+
         elif self.field_type == JudgeOutputType.ENUM:
             if self.field_scores and raw_value in self.field_scores:
                 return self.field_scores[raw_value]
-            return None  # Return None for unmapped categories
+            return None  # Return None for unmapped enum values
+
         elif self.field_type == JudgeOutputType.TEXT:
             return raw_value
+
         else:
             raise ValueError(
                 f"Unsupported field type: {self.field_type}. "
@@ -60,6 +82,15 @@ class JudgeOutputField(pydantic.BaseModel):
 
 
 class BaseJudgeOutput(pydantic.BaseModel):
+    """Represents the output from a judge evaluation.
+
+    Attributes:
+        raw_output: The original unprocessed output from the judge
+        parsed_output: Structured data extracted from the raw output
+        field_values: Typed values for each output field
+        field_scores: Numeric scores for each field (if applicable)
+    """
+
     raw_output: str
     parsed_output: dict[str, str] = {}
     field_values: dict[str, Optional[Union[float, int, str, bool]]] = {}
@@ -72,33 +103,37 @@ class BaseJudgeOutput(pydantic.BaseModel):
         response_format: JudgeResponseFormat,
         output_fields: list[JudgeOutputField],
     ) -> Self:
+        """Generate a structured judge output from a raw model output."""
         field_values = {}
         field_scores = {}
 
-        # Parse the judge's response.
+        # Parse the judge's response based on the expected format
         if response_format == JudgeResponseFormat.XML:
-            parsed_output = cls.parse_xml_output(raw_output)
+            parsed_output = cls._parse_xml_output(raw_output)
         elif response_format == JudgeResponseFormat.JSON:
-            parsed_output = cls.parse_json_output(raw_output)
-        else:  # JudgeResponseFormat.RAW:
+            parsed_output = cls._parse_json_output(raw_output)
+        else:  # JudgeResponseFormat.RAW
             parsed_output = {}
 
-        # Extract fields based on the expected keys.
+        # Process each expected output field
         for field in output_fields:
             if field.field_key not in parsed_output:
                 field_values[field.field_key] = None
+                field_scores[field.field_key] = None
                 continue
 
-            # Convert the raw value to the appropriate type.
-            raw_value: str = parsed_output[field.field_key]
-            raw_value = raw_value.strip()
+            # Extract and clean the raw value
+            raw_value = parsed_output[field.field_key].strip()
+
+            # Convert to the appropriate type
             typed_value = field.get_typed_value(raw_value)
             field_values[field.field_key] = typed_value
 
-            # If the field has scores, extract the score for the corresponding value.
+            # Extract numeric score if field has score mapping
             if field.field_scores:
-                score = field.field_scores.get(raw_value, None)
-                field_scores[field.field_key] = score
+                field_scores[field.field_key] = field.field_scores.get(raw_value)
+            else:
+                field_scores[field.field_key] = None
 
         return cls(
             raw_output=raw_output,
@@ -108,7 +143,7 @@ class BaseJudgeOutput(pydantic.BaseModel):
         )
 
     @classmethod
-    def parse_xml_output(cls, xml_output: Optional[str]) -> dict[str, str]:
+    def _parse_xml_output(cls, xml_output: Optional[str]) -> dict[str, str]:
         """Parses an XML judge output."""
         if not xml_output:
             return {}
@@ -121,20 +156,35 @@ class BaseJudgeOutput(pydantic.BaseModel):
 
         return {field_name: field_value.strip() for field_name, field_value in matches}
 
-    # FIXME: Leverage structured-outputs
+    # TODO: Consider leveraging structured-outputs for better JSON parsing
     # https://oumi.ai/docs/en/latest/user_guides/infer/common_workflows.html#structured-outputs
     @classmethod
-    def parse_json_output(cls, json_output: Optional[str]) -> dict[str, str]:
-        """Parses the judgement from JSON."""
+    def _parse_json_output(cls, json_output: Optional[str]) -> dict[str, str]:
+        """Parse judgment data from JSON format.
+
+        Args:
+            json_output: Raw JSON string from the judge
+
+        Returns:
+            Dictionary of field names to values, empty dict if parsing fails
+        """
         if not json_output:
             return {}
         try:
-            return json.loads(json_output)
+            parsed = json.loads(json_output)
+            # Ensure all values are strings for consistent processing
+            return {k: str(v) for k, v in parsed.items()}
         except json.JSONDecodeError:
             return {}
 
 
 class BaseJudge:
+    """Base class for implementing judges that evaluate model outputs.
+
+    A judge takes structured inputs, formats them using a prompt template,
+    runs inference to get judgments, and parses the results into structured outputs.
+    """
+
     def __init__(
         self,
         prompt_template: str,
@@ -142,7 +192,14 @@ class BaseJudge:
         output_fields: list[JudgeOutputField],
         inference_engine: BaseInferenceEngine,
     ):
-        """Initialize the Judge."""
+        """Initialize the judge with configuration and inference engine.
+
+        Args:
+            prompt_template: Template string with placeholders for input data
+            response_format: Expected format of judge responses (XML, JSON, or RAW)
+            output_fields: List of fields expected in judge outputs
+            inference_engine: Engine for running model inference
+        """
         self.prompt_template = prompt_template
         self.response_format = response_format
         self.output_fields = output_fields
@@ -152,64 +209,114 @@ class BaseJudge:
         self,
         inputs: list[dict[str, str]],
     ) -> list[BaseJudgeOutput]:
-        """Judge the given inputs using the prompt template."""
-        # Generate the full judging prompt for each input.
-        judgement_prompts = [
-            self.build_judgement_prompt(input_data) for input_data in tqdm(inputs)
+        """Evaluate a batch of inputs and return structured judgments.
+
+        Args:
+            inputs: List of dictionaries containing input data for evaluation
+
+        Returns:
+            List of structured judge outputs with parsed results
+        """
+        # Build prompts and conversations for all inputs
+        judgment_prompts = [
+            self.build_judgement_prompt(input_data) for input_data in inputs
         ]
         judge_conversations = [
-            self.build_judge_conversation(judgement_prompt)
-            for judgement_prompt in tqdm(judgement_prompts)
+            self.build_judge_conversation(prompt) for prompt in judgment_prompts
         ]
 
-        # Run inference for all prompts.
-        judge_conversations = self._infer(judge_conversations)
+        # Run inference for all conversations in batch
+        completed_conversations = self._infer(judge_conversations)
 
-        # Parse the raw judge output (a string) into a JudgeOutput object.
+        # Extract and parse the judgment outputs
         judge_outputs = []
-        for judge_conversation in judge_conversations:
-            assert len(judge_conversation.messages) == 2
-            judge_output_str = str(judge_conversation.messages[-1].content)
-            judge_output = self._transform_judge_output(judge_output_str)
-            judge_outputs.append(judge_output)
+        for conversation in completed_conversations:
+            if len(conversation.messages) < 2:
+                raise ValueError("Expected conversation to have at least 2 messages")
+
+            raw_output = str(conversation.messages[-1].content)
+            parsed_output = self._transform_judge_output(raw_output)
+            judge_outputs.append(parsed_output)
 
         return judge_outputs
 
     def build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
-        """Generate judge prompts using the template."""
-        # Extract placeholders from the prompt template (e.g., {question}, {answer}).
-        placeholders = set(re.findall(r"\{(\w+)\}", self.prompt_template))
+        """Generate a judge prompt by filling the template with input data.
 
-        # Ensure all placeholders have corresponding values in judge_input.
-        if missing_keys := placeholders - set(judge_input.keys()):
+        Args:
+            judge_input: Dictionary mapping placeholder names to values
+
+        Returns:
+            Formatted prompt string ready for inference
+
+        Raises:
+            ValueError: If required placeholders are missing from judge_input
+        """
+        # Extract all placeholders from the template (e.g., {question}, {answer})
+        required_placeholders = set(re.findall(r"\{(\w+)\}", self.prompt_template))
+
+        # Validate that all required data is provided
+        provided_keys = set(judge_input.keys())
+        if missing_keys := required_placeholders - provided_keys:
             raise ValueError(
-                f"Missing values for placeholders: {missing_keys}. "
-                f"Required placeholders: {placeholders}"
+                f"Missing values for template placeholders: {sorted(missing_keys)}. "
+                f"Required: {sorted(required_placeholders)}, "
+                f"Provided: {sorted(provided_keys)}"
             )
 
-        # Fill the prompt template with the input data
+        # Format the template with the provided data
         return self.prompt_template.format(**judge_input)
 
-    def build_judge_conversation(self, judgement_prompt: str) -> Conversation:
-        """Build a conversation for the judge prompt."""
-        messages = [Message(content=judgement_prompt, role=Role.USER)]
+    def build_judge_conversation(self, judgment_prompt: str) -> Conversation:
+        """Create a conversation object from a formatted judge prompt.
+
+        Args:
+            judgment_prompt: The formatted prompt string
+
+        Returns:
+            Conversation object ready for inference
+        """
+        messages = [Message(content=judgment_prompt, role=Role.USER)]
         return Conversation(messages=messages)
 
     def _infer(self, conversations: list[Conversation]) -> list[Conversation]:
-        """Judge a single attribute."""
-        metadatas = [conv.metadata for conv in conversations]
+        """Run inference on judge conversations and preserve metadata.
 
-        responses = self.inference_engine.infer(input=conversations)
-        assert len(responses) == len(metadatas)
+        Args:
+            conversations: List of conversations to run inference on
 
-        for response, metadata in zip(responses, metadatas):
-            response.metadata.update(metadata)
-        return responses
+        Returns:
+            List of conversations with model responses added
+        """
+        # Preserve original metadata from input conversations
+        original_metadata = [conv.metadata for conv in conversations]
 
-    def _transform_judge_output(self, judge_output: str) -> BaseJudgeOutput:
-        """Transform model output into BaseJudgeOutput based on response format."""
+        # Run batch inference
+        response_conversations = self.inference_engine.infer(input=conversations)
+
+        if len(response_conversations) != len(original_metadata):
+            raise ValueError(
+                f"Inference engine returned {len(response_conversations)} responses "
+                f"but expected {len(original_metadata)}"
+            )
+
+        # Restore original metadata to response conversations
+        for response_conv, metadata in zip(response_conversations, original_metadata):
+            response_conv.metadata.update(metadata)
+
+        return response_conversations
+
+    def _transform_judge_output(self, raw_output: str) -> BaseJudgeOutput:
+        """Parse raw model output into structured judge output.
+
+        Args:
+            raw_output: The raw string output from the model
+
+        Returns:
+            Structured judge output with parsed fields and values
+        """
         return BaseJudgeOutput.from_raw_output(
-            raw_output=judge_output,
+            raw_output=raw_output,
             response_format=self.response_format,
             output_fields=self.output_fields,
         )

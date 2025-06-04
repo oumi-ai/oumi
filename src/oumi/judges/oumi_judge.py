@@ -27,30 +27,30 @@ from oumi.utils.logging import logger
 
 # Field name constants (for judge outputs).
 EXPLANATION_KEY = "explanation"
-JUDGEMENT_KEY = "judgement"
+JUDGMENT_KEY = "judgment"
 
 # Prompt suffixes for XML, JSON, RAW formats.
 XML_SUFFIX = (
     "\nProvide your response in XML format only. Include your judgment enclosed within "
-    f"<{JUDGEMENT_KEY}> and </{JUDGEMENT_KEY}> tags. Do not include any text outside "
+    f"<{JUDGMENT_KEY}> and </{JUDGMENT_KEY}> tags. Do not include any text outside "
     "the XML. Ensure that all tags are properly closed and that the XML is well-formed."
 )
 XML_SUFFIX_WITH_EXPLANATION = (
     "\nProvide your response in XML format only. Begin with an explanation justifying "
     f"your judgment, enclosed within <{EXPLANATION_KEY}> and </{EXPLANATION_KEY}> tags."
-    f" Follow this with your judgment, enclosed within <{JUDGEMENT_KEY}> and "
-    f"</{JUDGEMENT_KEY}> tags. Do not include any text outside the XML. "
+    f" Follow this with your judgment, enclosed within <{JUDGMENT_KEY}> and "
+    f"</{JUDGMENT_KEY}> tags. Do not include any text outside the XML. "
     "Ensure that all tags are properly closed and that the XML is well-formed."
 )
 JSON_SUFFIX = (
-    "\nProvide your response in JSON format only. Include your judgment as the value of "
-    "a single key named '{JUDGEMENT_KEY}'. Do not include any text outside the JSON. "
-    "Ensure the JSON is properly formatted and valid."
+    "\nProvide your response in JSON format only. Include your judgment as the value "
+    f"of a single key named '{JUDGMENT_KEY}'. Do not include any text outside the JSON."
+    " Ensure the JSON is properly formatted and valid."
 )
 JSON_SUFFIX_WITH_EXPLANATION = (
     "\nProvide your response in JSON format only. Begin with an explanation justifying "
     f"your judgment, using the key '{EXPLANATION_KEY}'. Then include your judgment "
-    "using the key '{JUDGEMENT_KEY}'. Do not include any text outside the JSON. "
+    f"using the key '{JUDGMENT_KEY}'. Do not include any text outside the JSON. "
     "Ensure the JSON is properly formatted and valid."
 )
 RAW_SUFFIX_WITH_EXPLANATION = "\nExplain your reasoning before providing your judgment."
@@ -71,22 +71,17 @@ class OumiJudge(BaseJudge):
                 "prompt_template must be specified in the judge configuration."
             )
 
+        # Generate an inference engine if not provided
         if inference_engine is None:
             logger.debug("Initializing inference engine.")
             inference_engine = self._create_inference_engine(config)
 
-        output_fields = [
-            JudgeOutputField(
-                field_key=JUDGEMENT_KEY,
-                field_type=config.judgment_type,
-                field_scores=config.judgment_scores,
-            ),
-            JudgeOutputField(
-                field_key=EXPLANATION_KEY,
-                field_type=JudgeOutputType.TEXT,
-                field_scores=None,
-            ),
-        ]
+        # Create output fields based on configuration
+        output_fields = [self._create_judgment_field(config)]
+
+        # Add explanation field if explanations are enabled
+        if config.include_explanation:
+            output_fields.append(self._create_explanation_field())
 
         super().__init__(
             prompt_template=config.prompt_template,
@@ -100,25 +95,48 @@ class OumiJudge(BaseJudge):
         """Generate judge prompts using the template."""
         prompt_content = super().build_judgement_prompt(judge_input)
 
-        # Add instructions based on the response format
-        if self._config.response_format == JudgeResponseFormat.XML:
-            if self._config.include_explanation:
-                prompt_content += XML_SUFFIX_WITH_EXPLANATION
-            else:
-                prompt_content += XML_SUFFIX
-        elif self._config.response_format == JudgeResponseFormat.JSON:
-            if self._config.include_explanation:
-                prompt_content += JSON_SUFFIX_WITH_EXPLANATION
-            else:
-                prompt_content += JSON_SUFFIX
-        elif self._config.response_format == JudgeResponseFormat.RAW:
-            if self._config.include_explanation:
-                prompt_content += RAW_SUFFIX_WITH_EXPLANATION
+        # Append format-specific instructions to the prompt
+        if format_suffix := self._get_format_suffix():
+            prompt_content += format_suffix
 
         return prompt_content
 
+    def _get_format_suffix(self) -> str:
+        """Get the appropriate format suffix based on response format and explanation.
+
+        Returns:
+            Format-specific instruction suffix to append to prompts
+        """
+        response_format = self._config.response_format
+        include_explanation = self._config.include_explanation
+
+        if response_format == JudgeResponseFormat.XML:
+            return XML_SUFFIX_WITH_EXPLANATION if include_explanation else XML_SUFFIX
+        elif response_format == JudgeResponseFormat.JSON:
+            return JSON_SUFFIX_WITH_EXPLANATION if include_explanation else JSON_SUFFIX
+        elif response_format == JudgeResponseFormat.RAW:
+            return RAW_SUFFIX_WITH_EXPLANATION if include_explanation else ""
+        else:
+            return ""
+
+    def _create_judgment_field(self, config: JudgeConfig) -> JudgeOutputField:
+        """Create the main judgment output field."""
+        return JudgeOutputField(
+            field_key=JUDGMENT_KEY,
+            field_type=config.judgment_type,
+            field_scores=config.judgment_scores,
+        )
+
+    def _create_explanation_field(self) -> JudgeOutputField:
+        """Create the explanation output field."""
+        return JudgeOutputField(
+            field_key=EXPLANATION_KEY,
+            field_type=JudgeOutputType.TEXT,
+            field_scores=None,
+        )
+
     def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
-        """Create the inference engine."""
+        """Create the inference engine based on the provided configuration."""
         from oumi.builders.inference_engines import build_inference_engine
 
         return build_inference_engine(
