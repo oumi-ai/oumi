@@ -357,7 +357,7 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.logger.append("wandb")
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
-        config.trainer.default_local_dir = str(self._temp_output_dir)
+        config.trainer.default_local_dir = str(self._temp_output_dir or "")
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
