@@ -94,9 +94,9 @@ class OumiJudge(BaseJudge):
         )
 
     @override
-    def build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
+    def _build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
         """Generate judge prompts using the template."""
-        prompt_content = super().build_judgement_prompt(judge_input)
+        prompt_content = super()._build_judgement_prompt(judge_input)
 
         # Append format-specific instructions to the prompt
         if format_suffix := self._get_format_suffix():

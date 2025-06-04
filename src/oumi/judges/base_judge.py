@@ -67,9 +67,11 @@ class JudgeOutputField(pydantic.BaseModel):
                 return None
 
         elif self.field_type == JudgeOutputType.ENUM:
-            if self.field_scores and raw_value in self.field_scores:
-                return self.field_scores[raw_value]
-            return None  # Return None for unmapped enum values
+            if self.field_scores:
+                # Return None for unmapped enum values
+                return raw_value if raw_value in self.field_scores else None
+            else:
+                return raw_value
 
         elif self.field_type == JudgeOutputType.TEXT:
             return raw_value
@@ -222,10 +224,10 @@ class BaseJudge:
         """
         # Build prompts and conversations for all inputs
         judgment_prompts = [
-            self.build_judgement_prompt(input_data) for input_data in inputs
+            self._build_judgement_prompt(input_data) for input_data in inputs
         ]
         judge_conversations = [
-            self.build_judge_conversation(prompt) for prompt in judgment_prompts
+            self._build_judge_conversation(prompt) for prompt in judgment_prompts
         ]
 
         # Run inference for all conversations in batch
@@ -243,7 +245,7 @@ class BaseJudge:
 
         return judge_outputs
 
-    def build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
+    def _build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
         """Generate a judge prompt by filling the template with input data.
 
         Args:
@@ -270,7 +272,7 @@ class BaseJudge:
         # Format the template with the provided data
         return self.prompt_template.format(**judge_input)
 
-    def build_judge_conversation(self, judgment_prompt: str) -> Conversation:
+    def _build_judge_conversation(self, judgment_prompt: str) -> Conversation:
         """Create a conversation object from a formatted judge prompt.
 
         Args:
