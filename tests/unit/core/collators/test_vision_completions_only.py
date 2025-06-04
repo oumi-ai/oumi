@@ -45,14 +45,16 @@ def test_basic_masking_no_user_template():
 
 def test_masking_with_user_template():
     """Test masking with both user and assistant templates."""
-    # Conversation: User: [200, 201, 10] Assistant: [100, 101, 20, 21] User: [200, 201, 30] Assistant: [100, 101, 40, 41]
+    # Conversation: User: [200, 201, 10] Assistant: [100, 101, 20, 21]
+    # User: [200, 201, 30] Assistant: [100, 101, 40, 41]
     labels = np.array([200, 201, 10, 100, 101, 20, 21, 200, 201, 30, 100, 101, 40, 41])
     response_tokens = [100, 101]  # Assistant template
     instruction_tokens = [200, 201]  # User template
 
     mask_labels_for_completions_only(labels, response_tokens, instruction_tokens)
 
-    # Should mask everything except assistant responses: [20, 21] and [40, 41] (templates are masked)
+    # Should mask everything except assistant responses: [20, 21] and [40, 41]
+    # (templates are masked)
     expected = np.array(
         [-100, -100, -100, -100, -100, 20, 21, -100, -100, -100, -100, -100, 40, 41]
     )
@@ -117,7 +119,8 @@ def test_single_turn_conversation():
 
     mask_labels_for_completions_only(labels, response_tokens, instruction_tokens)
 
-    # Should mask everything except assistant response content: [20, 21, 22] (template [100, 101] is masked)
+    # Should mask everything except assistant response content: [20, 21, 22]
+    # (template [100, 101] is masked)
     expected = np.array([-100, -100, -100, -100, -100, -100, 20, 21, 22])
     np.testing.assert_array_equal(labels, expected)
 
@@ -136,15 +139,14 @@ def simple_feature_generator():
     fg._special_tokens = special_tokens
 
     # Import the actual masking methods we need to test
-    from oumi.core.feature_generators.vision_language_conversation_feature_generator import (
+    from oumi.core.feature_generators.vision_language_conversation_feature_generator import (  # noqa: E501
         VisionLanguageConversationFeatureGenerator,
     )
 
     # Bind the actual methods to our mock
-    fg._mask_single_conversation = (
-        VisionLanguageConversationFeatureGenerator._mask_single_conversation.__get__(fg)
-    )
-    fg._apply_completion_only_masking = VisionLanguageConversationFeatureGenerator._apply_completion_only_masking.__get__(
+    fg_class = VisionLanguageConversationFeatureGenerator
+    fg._mask_single_conversation = fg_class._mask_single_conversation.__get__(fg)
+    fg._apply_completion_only_masking = fg_class._apply_completion_only_masking.__get__(
         fg
     )
 
@@ -162,13 +164,15 @@ def test_find_all_template_positions(simple_feature_generator):
 
 def test_mask_single_conversation_with_user_template(simple_feature_generator):
     """Test masking single conversation with user template."""
-    # User: [200, 201, 10] Assistant: [100, 101, 20] User: [200, 201, 30] Assistant: [100, 101, 40]
+    # User: [200, 201, 10] Assistant: [100, 101, 20]
+    # User: [200, 201, 30] Assistant: [100, 101, 40]
     input_ids = np.array([200, 201, 10, 100, 101, 20, 200, 201, 30, 100, 101, 40])
     labels = np.array([200, 201, 10, 100, 101, 20, 200, 201, 30, 100, 101, 40])
 
     simple_feature_generator._mask_single_conversation(labels, input_ids)
 
-    # Should mask everything except assistant response content: 20 and 40 (templates are masked)
+    # Should mask everything except assistant response content: 20 and 40
+    # (templates are masked)
     expected = np.array(
         [-100, -100, -100, -100, -100, 20, -100, -100, -100, -100, -100, 40]
     )
@@ -259,6 +263,7 @@ def test_assistant_response_at_end():
 
     mask_labels_for_completions_only(labels, response_tokens, instruction_tokens)
 
-    # Should mask everything including the assistant template (no content after template)
+    # Should mask everything including the assistant template
+    # (no content after template)
     expected = np.array([-100, -100, -100, -100, -100])
     np.testing.assert_array_equal(labels, expected)

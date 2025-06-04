@@ -187,7 +187,6 @@ def test_vision_language_completions_only_exact_matching(
 def test_vision_language_without_completions_only_exact(
     phi3_tokenizer, sample_conversation
 ):
-    """Test vision language collator without completions-only training with exact validation."""
     # Create collator without completions-only training
     collator = build_data_collator(
         collator_name="vision_language_sft",
@@ -217,7 +216,8 @@ def test_vision_language_without_completions_only_exact(
     for i, (input_id, label) in enumerate(zip(input_ids, labels)):
         if label != LABEL_IGNORE_INDEX:
             assert label == input_id or label == 32000 and input_id == -1, (
-                f"Position {i}: unmasked label {label} doesn't match input_id {input_id}"
+                f"Position {i}: unmasked label {label} doesn't match "
+                f"input_id {input_id}"
             )
 
 
@@ -247,12 +247,13 @@ def test_vision_language_completions_only_missing_template_exact(
     # Verify every single token is masked
     for i, label in enumerate(labels):
         assert label == LABEL_IGNORE_INDEX, (
-            f"Position {i} (token {input_ids[i]}) should be masked when template not found, "
-            f"but label is {label}"
+            f"Position {i} (token {input_ids[i]}) should be masked when "
+            f"template not found, but label is {label}"
         )
 
     # Verify the count
     masked_count = sum(1 for label in labels if label == LABEL_IGNORE_INDEX)
     assert masked_count == len(labels), (
-        f"Expected all {len(labels)} tokens to be masked, but only {masked_count} are masked"
+        f"Expected all {len(labels)} tokens to be masked, but only "
+        f"{masked_count} are masked"
     )

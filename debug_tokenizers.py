@@ -47,7 +47,9 @@ conversation = Conversation(
             content=[
                 ContentItem(
                     type=Type.TEXT,
-                    content="This is a PNG transparency demonstration image showing dice.",
+                    content=(
+                        "This is a PNG transparency demonstration image showing dice."
+                    ),
                 )
             ],
         ),
@@ -76,7 +78,8 @@ try:
 
     print(f"  Non-ignored tokens: {non_ignored_count}/{total_count}")
     print(
-        f"  Percentage masked: {((total_count - non_ignored_count) / total_count * 100):.1f}%"
+        f"  Percentage masked: "
+        f"{((total_count - non_ignored_count) / total_count * 100):.1f}%"
     )
 
     # Find where non-ignored tokens start
@@ -89,7 +92,8 @@ try:
     # Show tokens around the transition point
     if first_non_ignored > 0:
         print(
-            f"\n  Tokens around assistant response (starting at index {first_non_ignored}):"
+            f"\n  Tokens around assistant response "
+            f"(starting at index {first_non_ignored}):"
         )
         start_idx = max(0, first_non_ignored - 5)
         end_idx = min(len(input_ids), first_non_ignored + 15)

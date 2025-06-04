@@ -38,7 +38,6 @@ from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
     Message,
-    Role,
 )
 from oumi.utils.conversation_utils import (
     load_pil_image_from_content_item,
