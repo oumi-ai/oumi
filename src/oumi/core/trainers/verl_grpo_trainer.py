@@ -448,8 +448,6 @@ class VerlGrpoTrainer(BaseTrainer):
         logger.info("Starting verl training...")
         self._verl_trainer.fit()
 
-        self._export_hf_model()
-
     # TODO: OPE-1192 - Implement saving model/trainer state. verl training should
     # already handle saving models, including the final checkpoint.
 
@@ -464,7 +462,7 @@ class VerlGrpoTrainer(BaseTrainer):
             config: The Oumi training config.
             final: Whether this is the final model being saved during training.
         """
-        pass
+        self._export_hf_model()
 
     def _export_hf_model(self) -> bool:
         """Exports the tuned model to HF format.
