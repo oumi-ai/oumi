@@ -16,12 +16,15 @@ from typing import Optional
 
 from typing_extensions import override
 
-from oumi.core.configs.judge_config import JudgeConfig, JudgeOutputType
+from oumi.core.configs.judge_config import (
+    JudgeConfig,
+    JudgeOutputType,
+    JudgeResponseFormat,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.judges.base_judge import (
     BaseJudge,
     JudgeOutputField,
-    JudgeResponseFormat,
 )
 from oumi.utils.logging import logger
 

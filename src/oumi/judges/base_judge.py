@@ -81,7 +81,7 @@ class JudgeOutputField(pydantic.BaseModel):
             )
 
 
-class BaseJudgeOutput(pydantic.BaseModel):
+class JudgeOutput(pydantic.BaseModel):
     """Represents the output from a judge evaluation.
 
     Attributes:
@@ -211,7 +211,7 @@ class BaseJudge:
     def judge(
         self,
         inputs: list[dict[str, str]],
-    ) -> list[BaseJudgeOutput]:
+    ) -> list[JudgeOutput]:
         """Evaluate a batch of inputs and return structured judgments.
 
         Args:
@@ -309,7 +309,7 @@ class BaseJudge:
 
         return response_conversations
 
-    def _transform_judge_output(self, raw_output: str) -> BaseJudgeOutput:
+    def _transform_judge_output(self, raw_output: str) -> JudgeOutput:
         """Parse raw model output into structured judge output.
 
         Args:
@@ -318,7 +318,7 @@ class BaseJudge:
         Returns:
             Structured judge output with parsed fields and values
         """
-        return BaseJudgeOutput.from_raw_output(
+        return JudgeOutput.from_raw_output(
             raw_output=raw_output,
             response_format=self.response_format,
             output_fields=self.output_fields,
