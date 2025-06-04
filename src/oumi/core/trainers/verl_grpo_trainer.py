@@ -107,11 +107,19 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._processing_class = processing_class
         self._oumi_config = copy.deepcopy(config)
-        self._final_output_dir: Path = Path(self._oumi_config.training.output_dir)
-        if not self._final_output_dir:
-            raise ValueError("Output directory must be specified")
-        self._final_output_dir = self._final_output_dir.absolute().resolve()
-        self._temp_output_dir: Path = self._final_output_dir / "verl_output"
+        self._final_output_dir: Optional[Path] = None
+        self._temp_output_dir: Optional[Path] = (
+            Path(self._oumi_config.training.output_dir)
+            if self._oumi_config.training.output_dir
+            else None
+        )
+        if config.training.save_final_model:
+            self._final_output_dir = Path(self._oumi_config.training.output_dir)
+            if not self._final_output_dir:
+                raise ValueError("Output directory must be specified")
+            self._final_output_dir = self._final_output_dir.absolute().resolve()
+            self._temp_output_dir = self._final_output_dir / "verl_output"
+
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -459,6 +467,8 @@ class VerlGrpoTrainer(BaseTrainer):
 
     def _export_hf_model(self) -> bool:
         """Exports the tuned model to HF format."""
+        if not (self._final_output_dir and self._temp_output_dir):
+            return False
         final_dir = Path(self._final_output_dir)
         temp_dir = Path(self._temp_output_dir)
         all_checkpoint_dirs: list[Path] = [
