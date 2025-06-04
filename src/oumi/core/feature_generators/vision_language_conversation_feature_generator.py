@@ -182,6 +182,54 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             else:
                 self._instruction_token_ids = None
 
+            # Validate that templates are present in the chat template
+            self._validate_templates_in_chat_template()
+
+            # Log the completion-only masking strategy being used
+            if self._instruction_token_ids is not None:
+                logger.info(
+                    "Completion-only training configured with multi-turn strategy. "
+                    f"Using response template: '{self._response_template}' and "
+                    f"instruction template: '{self._instruction_template}'. "
+                    "All assistant responses will be unmasked for training."
+                )
+            else:
+                logger.info(
+                    "Completion-only training configured with single-turn strategy. "
+                    f"Using response template: '{self._response_template}' only. "
+                    "Only the last assistant response will be unmasked for training."
+                )
+
+    def _validate_templates_in_chat_template(self) -> None:
+        """Validate that the provided templates are present in the chat template.
+
+        Raises:
+            ValueError: If templates are not found in the chat template.
+        """
+        if self._processor.tokenizer.chat_template is None:
+            raise ValueError("No chat template available for validation.")
+
+        chat_template = self._processor.tokenizer.chat_template
+
+        # Check response template
+        if self._response_template and self._response_template not in chat_template:
+            raise ValueError(
+                f"Provided response template '{self._response_template}' not found in chat template.\n\n"
+                f"Chat template content:\n{chat_template}\n\n"
+                f"Please ensure the response_template exactly matches the assistant prefix in the chat template."
+            )
+
+        # Check instruction template
+        if (
+            self._instruction_template
+            and self._instruction_template not in chat_template
+        ):
+            raise ValueError(
+                f"Instruction template '{self._instruction_template}' not found in chat template.\n\n"
+                f"Chat template content:\n{chat_template}\n\n"
+                f"Please ensure the instruction_template exactly matches the user prefix in the chat template, "
+            )
+
     def _prepare_simple_model(
         self, conversation: Conversation
     ) -> tuple[Image.Image, str]:
@@ -466,65 +514,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             truncation_side=self._truncation_side,
         )
 
-    # def _validate_conversations_for_completion_only_training(
-    #     self, conversations: list[Conversation]
-    # ):
-    #     """Validates that conversations are suitable for completion-only training.
-
-    #     For completion-only training, we only support conversations with exactly
-    #     1 user message followed by 1 assistant message.
-
-    #     Args:
-    #         conversations: List of conversations to validate.
-
-    #     Raises:
-    #         ValueError: If any conversation doesn't meet the requirements.
-    #     """
-    #     for i, conversation in enumerate(conversations):
-    #         if len(conversation.messages) != 2:
-    #             raise ValueError(
-    #                 f"Conversation {i} has {len(conversation.messages)} messages. "
-    #                 "Completion-only training requires exactly 2 messages "
-    #                 "(1 user + 1 assistant)."
-    #             )
-
-    #         user_msg = conversation.messages[0]
-    #         assistant_msg = conversation.messages[1]
-
-    #         if user_msg.role != Role.USER:
-    #             raise ValueError(
-    #                 f"Conversation {i}: First message must be from USER, "
-    #                 f"got {user_msg.role}."
-    #             )
-
-    #         if assistant_msg.role != Role.ASSISTANT:
-    #             raise ValueError(
-    #                 f"Conversation {i}: Second message must be from ASSISTANT, "
-    #                 f"got {assistant_msg.role}."
-    #             )
-
-    # def _apply_completion_only_masking(self, inputs: Any) -> None:
-    #     """Applies completion-only masking to the labels.
-
-    #     This method finds the response template in the tokenized sequence and sets
-    #     all tokens before the response template to the ignore index, so that loss
-    #     is only computed on the assistant's completion.
-
-    #     Args:
-    #         inputs: Dictionary containing model inputs including 'labels'.
-    #     """
-    #     labels = inputs["labels"]
-    #     ignore_index = int(self._special_tokens.label_ignore_index or -100)
-    #     sequence_length = len(labels) if isinstance(labels, list) else labels.shape[0]
-
-    #     for i in range(sequence_length):
-    #         mask_labels_for_completions_only(
-    #             labels[i],
-    #             self._response_token_ids,
-    #             ignore_index=ignore_index,
-    #             response_template=self._response_template,
-    #         )
-
     def _apply_completion_only_masking(self, inputs: Any) -> None:
         """Apply masking to keep only assistant responses for loss computation."""
         labels = inputs.get("labels")
@@ -562,10 +551,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         # Choose masking strategy based on whether instruction token IDs are available
         if hasattr(self, "_instruction_token_ids") and self._instruction_token_ids:
-            logger.info(
-                "Using multi-turn completion-only masking strategy with user and assistant templates. "
-                "All assistant responses will be unmasked for training."
-            )
             mask_labels_for_completions_only(
                 labels,
                 self._response_token_ids,
@@ -573,10 +558,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                 ignore_index=ignore_index,
             )
         else:
-            logger.info(
-                "Using single-turn completion-only masking strategy without user templates. "
-                "Only the last assistant response will be unmasked for training."
-            )
             mask_labels_without_user_template(
                 labels,
                 self._response_token_ids,
