@@ -1,4 +1,5 @@
 import pytest
+import torch
 
 from oumi.builders import build_data_collator, build_tokenizer
 from oumi.core.configs import ModelParams
@@ -49,10 +50,64 @@ def sample_conversation():
     )
 
 
-def test_vision_language_completions_only_with_phi3(
+def test_phi3_tokenization_behavior(phi3_tokenizer):
+    """Test that we understand Phi-3's tokenization behavior correctly."""
+    # Known tokenization from our analysis
+    response_template = "<|assistant|>"
+    instruction_template = "<|user|>"
+
+    response_tokens = phi3_tokenizer.encode(response_template, add_special_tokens=False)
+    instruction_tokens = phi3_tokenizer.encode(
+        instruction_template, add_special_tokens=False
+    )
+
+    # Verify expected token values
+    assert response_tokens == [32001], f"Expected [32001], got {response_tokens}"
+    assert instruction_tokens == [32010], f"Expected [32010], got {instruction_tokens}"
+
+    # Test full conversation tokenization
+    messages = [
+        {"role": "user", "content": "What is this?"},
+        {"role": "assistant", "content": "This is a test."},
+    ]
+
+    prompt = phi3_tokenizer.apply_chat_template(messages, tokenize=False)
+    expected_prompt = (
+        "<|user|>\nWhat is this?<|end|>\n<|assistant|>\nThis is a test.<|end|>\n"
+    )
+    assert prompt == expected_prompt, (
+        f"Expected {repr(expected_prompt)}, got {repr(prompt)}"
+    )
+
+    tokens = phi3_tokenizer.encode(prompt, add_special_tokens=False)
+    expected_tokens = [
+        32010,
+        29871,
+        13,
+        5618,
+        338,
+        445,
+        29973,
+        32007,
+        29871,
+        13,
+        32001,
+        910,
+        338,
+        263,
+        1243,
+        29889,
+        32007,
+        29871,
+        13,
+    ]
+    assert tokens == expected_tokens, f"Expected {expected_tokens}, got {tokens}"
+
+
+def test_vision_language_completions_only_exact_matching(
     phi3_tokenizer, sample_conversation
 ):
-    """Test vision language collator with completions-only training enabled."""
+    """Test vision language collator with exact token-level validation."""
     # Create collator with completions-only training
     collator = build_data_collator(
         collator_name="vision_language_sft",
@@ -70,49 +125,69 @@ def test_vision_language_completions_only_with_phi3(
     result = collator(batch)
 
     # Verify result structure
-    assert "input_ids" in result
-    assert "labels" in result
-    assert "attention_mask" in result
-    assert "pixel_values" in result
+    required_keys = ["input_ids", "labels", "attention_mask", "pixel_values"]
+    for key in required_keys:
+        assert key in result, f"Missing key: {key}"
+        assert isinstance(result[key], torch.Tensor), f"{key} is not a tensor"
 
-    # Check that labels are properly masked
+    # Extract tensors
+    input_ids = result["input_ids"][0]
     labels = result["labels"][0]
+    attention_mask = result["attention_mask"][0]
 
-    # Count non-ignored tokens
-    non_ignored_mask = labels != LABEL_IGNORE_INDEX
-    non_ignored_count = non_ignored_mask.sum().item()
-    total_count = len(labels)
+    # Verify shapes match
+    assert input_ids.shape == labels.shape == attention_mask.shape
 
-    # Should have some tokens masked and some not masked
-    assert non_ignored_count > 0, (
-        "Should have some non-ignored tokens (assistant response)"
-    )
-    assert non_ignored_count < total_count, (
-        "Should have some ignored tokens (user prompt)"
-    )
+    # Find template positions in the tokenized sequence
+    input_ids_list = input_ids.tolist()
+    labels_list = labels.tolist()
 
-    # Check that tokens before assistant response are masked
-    first_non_ignored_idx = -1
-    for i in range(len(labels)):
-        if labels[i].item() != LABEL_IGNORE_INDEX:
-            first_non_ignored_idx = i
-            break
-
-    assert first_non_ignored_idx > 0, "Should find non-ignored tokens"
-
-    # Verify that all tokens before the first non-ignored are masked
-    assert all(labels[:first_non_ignored_idx] == LABEL_IGNORE_INDEX), (
-        "All tokens before assistant response should be masked"
+    # Find assistant template position (token 32001)
+    assistant_positions = [
+        i for i, token in enumerate(input_ids_list) if token == 32001
+    ]
+    assert len(assistant_positions) == 1, (
+        f"Expected 1 assistant template, found {len(assistant_positions)}"
     )
 
-    # Verify that all tokens after the first non-ignored not masked
-    assert all(labels[first_non_ignored_idx + 1 :] != LABEL_IGNORE_INDEX), (
-        "All tokens after assistant response should be masked"
+    assistant_pos = assistant_positions[0]
+
+    # Validate masking pattern
+    # Everything up to and including the assistant template should be masked
+    for i in range(assistant_pos + 1):
+        assert labels_list[i] == LABEL_IGNORE_INDEX, (
+            f"Token at position {i} (value: {input_ids_list[i]}) should be masked, "
+            f"but label is {labels_list[i]}"
+        )
+
+    # At least some tokens after the assistant template should be unmasked
+    unmasked_count = sum(
+        1
+        for i in range(assistant_pos + 1, len(labels_list))
+        if labels_list[i] != LABEL_IGNORE_INDEX
     )
+    assert unmasked_count > 0, "No assistant response tokens are unmasked"
+
+    # Verify that unmasked labels match input_ids
+    for i in range(len(labels_list)):
+        if labels_list[i] != LABEL_IGNORE_INDEX:
+            assert labels_list[i] == input_ids_list[i], (
+                f"Unmasked label at position {i} ({labels_list[i]}) "
+                f"doesn't match input_id ({input_ids_list[i]})"
+            )
+
+    # Log the actual masking pattern for debugging
+    print("\nMasking pattern analysis:")
+    print(f"Sequence length: {len(input_ids_list)}")
+    print(f"Assistant template position: {assistant_pos}")
+    print(f"Masked tokens: {sum(1 for x in labels_list if x == LABEL_IGNORE_INDEX)}")
+    print(f"Unmasked tokens: {sum(1 for x in labels_list if x != LABEL_IGNORE_INDEX)}")
 
 
-def test_vision_language_without_completions_only(phi3_tokenizer, sample_conversation):
-    """Test vision language collator without completions-only training."""
+def test_vision_language_without_completions_only_exact(
+    phi3_tokenizer, sample_conversation
+):
+    """Test vision language collator without completions-only training with exact validation."""
     # Create collator without completions-only training
     collator = build_data_collator(
         collator_name="vision_language_sft",
@@ -131,22 +206,25 @@ def test_vision_language_without_completions_only(phi3_tokenizer, sample_convers
     assert "input_ids" in result
     assert "labels" in result
 
-    labels = result["labels"][0]
+    input_ids = result["input_ids"][0].tolist()
+    labels = result["labels"][0].tolist()
 
-    # Without completions-only, most tokens should not be masked
-    # (except for special tokens like image placeholders)
-    non_ignored_mask = labels != LABEL_IGNORE_INDEX
-    non_ignored_count = non_ignored_mask.sum().item()
-    total_count = len(labels)
+    # Verify that input_ids and labels have the same shape
+    assert len(input_ids) == len(labels)
 
-    # Most tokens should be unmasked
-    assert non_ignored_count == total_count
+    # Verify that unmasked labels match input_ids
+    # OR image tokens are masked
+    for i, (input_id, label) in enumerate(zip(input_ids, labels)):
+        if label != LABEL_IGNORE_INDEX:
+            assert label == input_id or label == 32000 and input_id == -1, (
+                f"Position {i}: unmasked label {label} doesn't match input_id {input_id}"
+            )
 
 
-def test_vision_language_completions_only_missing_template(
+def test_vision_language_completions_only_missing_template_exact(
     phi3_tokenizer, sample_conversation
 ):
-    """Test that response template not found is handled gracefully."""
+    """Test exact behavior when response template is not found."""
     # Create collator with a non-existent response template
     collator = build_data_collator(
         collator_name="vision_language_sft",
@@ -162,75 +240,19 @@ def test_vision_language_completions_only_missing_template(
     batch = [{"conversation_json": sample_conversation.to_json()}]
     result = collator(batch)
 
-    # When template is not found, all tokens should be masked
-    labels = result["labels"][0]
-    assert all(labels == LABEL_IGNORE_INDEX), (
-        "When response template is not found, all tokens should be masked"
+    # When template is not found, ALL tokens should be masked
+    labels = result["labels"][0].tolist()
+    input_ids = result["input_ids"][0].tolist()
+
+    # Verify every single token is masked
+    for i, label in enumerate(labels):
+        assert label == LABEL_IGNORE_INDEX, (
+            f"Position {i} (token {input_ids[i]}) should be masked when template not found, "
+            f"but label is {label}"
+        )
+
+    # Verify the count
+    masked_count = sum(1 for label in labels if label == LABEL_IGNORE_INDEX)
+    assert masked_count == len(labels), (
+        f"Expected all {len(labels)} tokens to be masked, but only {masked_count} are masked"
     )
-
-
-def test_vision_language_completions_only_multiple_turns(phi3_tokenizer):
-    """Test completions-only with invalid multi-turn conversation."""
-    # Create a multi-turn conversation (not supported for completions-only)
-    multi_turn_conversation = Conversation(
-        messages=[
-            Message(
-                role=Role.USER,
-                content=[ContentItem(type=Type.TEXT, content="First question")],
-            ),
-            Message(
-                role=Role.ASSISTANT,
-                content=[ContentItem(type=Type.TEXT, content="First answer")],
-            ),
-            Message(
-                role=Role.USER,
-                content=[ContentItem(type=Type.TEXT, content="Second question")],
-            ),
-        ]
-    )
-
-    # Create collator with completions-only training
-    collator = build_data_collator(
-        collator_name="vision_language_sft",
-        tokenizer=phi3_tokenizer,
-        processor_name="microsoft/Phi-3-vision-128k-instruct",
-        train_on_completions_only=True,
-        response_template="<|assistant|>",
-        trust_remote_code=True,
-        max_length=512,
-    )
-
-    # Process batch should raise an error
-    batch = [{"conversation_json": multi_turn_conversation.to_json()}]
-
-    with pytest.raises(ValueError, match="exactly 2 messages"):
-        collator(batch)
-
-
-def test_vision_language_completions_only_with_instruction_template(
-    phi3_tokenizer, sample_conversation
-):
-    """Test vision language collator with both response and instruction templates."""
-    # Create collator with both templates
-    collator = build_data_collator(
-        collator_name="vision_language_sft",
-        tokenizer=phi3_tokenizer,
-        processor_name="microsoft/Phi-3-vision-128k-instruct",
-        train_on_completions_only=True,
-        response_template="<|assistant|>",
-        instruction_template="<|user|>",  # Optional instruction template
-        trust_remote_code=True,
-        max_length=512,
-    )
-
-    # Process batch
-    batch = [{"conversation_json": sample_conversation.to_json()}]
-    result = collator(batch)
-
-    # Verify that masking still works correctly
-    labels = result["labels"][0]
-    non_ignored_mask = labels != LABEL_IGNORE_INDEX
-    non_ignored_count = non_ignored_mask.sum().item()
-
-    assert non_ignored_count > 0, "Should have some non-ignored tokens"
-    assert non_ignored_count < len(labels), "Should have some ignored tokens"

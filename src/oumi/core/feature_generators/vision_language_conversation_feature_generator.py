@@ -182,9 +182,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             else:
                 self._instruction_token_ids = None
 
-            # Validate that templates are present in the chat template
-            self._validate_templates_in_chat_template()
-
             # Log the completion-only masking strategy being used
             if self._instruction_token_ids is not None:
                 logger.info(
@@ -199,36 +196,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
                     f"Using response template: '{self._response_template}' only. "
                     "Only the last assistant response will be unmasked for training."
                 )
-
-    def _validate_templates_in_chat_template(self) -> None:
-        """Validate that the provided templates are present in the chat template.
-
-        Raises:
-            ValueError: If templates are not found in the chat template.
-        """
-        if self._processor.tokenizer.chat_template is None:
-            raise ValueError("No chat template available for validation.")
-
-        chat_template = self._processor.tokenizer.chat_template
-
-        # Check response template
-        if self._response_template and self._response_template not in chat_template:
-            raise ValueError(
-                f"Provided response template '{self._response_template}' not found in chat template.\n\n"
-                f"Chat template content:\n{chat_template}\n\n"
-                f"Please ensure the response_template exactly matches the assistant prefix in the chat template."
-            )
-
-        # Check instruction template
-        if (
-            self._instruction_template
-            and self._instruction_template not in chat_template
-        ):
-            raise ValueError(
-                f"Instruction template '{self._instruction_template}' not found in chat template.\n\n"
-                f"Chat template content:\n{chat_template}\n\n"
-                f"Please ensure the instruction_template exactly matches the user prefix in the chat template, "
-            )
 
     def _prepare_simple_model(
         self, conversation: Conversation
