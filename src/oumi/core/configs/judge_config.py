@@ -24,7 +24,7 @@ from oumi.core.configs.params.remote_params import RemoteParams
 
 
 class JudgeResponseFormat(str, Enum):
-    """Enumeration of possible response formats for judge outputs."""
+    """Enumeration of possible response formats for the judge output."""
 
     JSON = "json"
     """JSON structured response format."""
@@ -37,7 +37,7 @@ class JudgeResponseFormat(str, Enum):
 
 
 class JudgeOutputType(str, Enum):
-    """Enumeration of possible judgment types for judge evaluations."""
+    """Enumeration of possible output types for the judge's output fields."""
 
     TEXT = "text"
     """Free-form text judgment."""
@@ -52,7 +52,7 @@ class JudgeOutputType(str, Enum):
     """Floating-point value judgment."""
 
     BOOL = "bool"
-    """Boolean judgment (True/False)."""
+    """Boolean judgment (True/False, Yes/No)."""
 
 
 @dataclass
@@ -74,7 +74,8 @@ class JudgeConfig(BaseConfig):
 
         Categorical judgment with scores:
         >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     prompt_template="Rate the quality: {text}",
+        ...     prompt_template="Rate the quality of this text: {text}.
+        ..                       Respond with 'excellent', 'good', or 'poor'.",
         ...     response_format=JudgeResponseFormat.JSON,
         ...     judgment_type=JudgeOutputType.ENUM,
         ...     judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
@@ -92,17 +93,17 @@ class JudgeConfig(BaseConfig):
     """Whether the judge should provide an explanation before the judgment."""
 
     judgment_type: JudgeOutputType = field(default=JudgeOutputType.BOOL)
-    """The type of judgment the judge should make."""
+    """The type of output that the judgment should be provided with."""
 
     judgment_scores: Optional[dict[str, float]] = field(default=None)
-    """For ENUM judgment_type, mapping from category names to numeric scores.
+    """For ENUM judgment_type, the mapping from category names to numeric scores.
 
     Example:
         {"excellent": 1.0, "good": 0.7, "poor": 0.3}
     """
 
     model: ModelParams = field(default_factory=ModelParams)
-    """Parameters for the model used in inference."""
+    """Parameters for the underlying judge model used in inference."""
 
     generation: GenerationParams = field(default_factory=GenerationParams)
     """Parameters for text generation during inference."""

@@ -86,9 +86,9 @@ class BaseJudgeOutput(pydantic.BaseModel):
 
     Attributes:
         raw_output: The original unprocessed output from the judge
-        parsed_output: Structured data extracted from the raw output
-        field_values: Typed values for each output field
-        field_scores: Numeric scores for each field (if applicable)
+        parsed_output: Structured data (fields & their values) extracted from raw output
+        field_values: Typed values for each expected output field
+        field_scores: Numeric scores for each expected output field (if applicable)
     """
 
     raw_output: str
@@ -132,6 +132,9 @@ class BaseJudgeOutput(pydantic.BaseModel):
             # Extract numeric score if field has score mapping
             if field.field_scores:
                 field_scores[field.field_key] = field.field_scores.get(raw_value)
+            elif field.field_type == JudgeOutputType.BOOL:
+                # For boolean fields, scores can be inferred
+                field_scores[field.field_key] = 1.0 if typed_value else 0.0
             else:
                 field_scores[field.field_key] = None
 
@@ -192,7 +195,7 @@ class BaseJudge:
         output_fields: list[JudgeOutputField],
         inference_engine: BaseInferenceEngine,
     ):
-        """Initialize the judge with configuration and inference engine.
+        """Initialize the judge.
 
         Args:
             prompt_template: Template string with placeholders for input data
@@ -231,8 +234,8 @@ class BaseJudge:
         # Extract and parse the judgment outputs
         judge_outputs = []
         for conversation in completed_conversations:
-            if len(conversation.messages) < 2:
-                raise ValueError("Expected conversation to have at least 2 messages")
+            if len(conversation.messages) != 2:
+                raise ValueError("Expected conversation to have precisely 2 messages")
 
             raw_output = str(conversation.messages[-1].content)
             parsed_output = self._transform_judge_output(raw_output)
@@ -310,7 +313,7 @@ class BaseJudge:
         """Parse raw model output into structured judge output.
 
         Args:
-            raw_output: The raw string output from the model
+            raw_output: The raw string output from the judge model
 
         Returns:
             Structured judge output with parsed fields and values

@@ -25,7 +25,7 @@ from oumi.judges.base_judge import (
 )
 from oumi.utils.logging import logger
 
-# Field name constants (for judge outputs).
+# Field names for judge outputs.
 EXPLANATION_KEY = "explanation"
 JUDGMENT_KEY = "judgment"
 
@@ -73,15 +73,15 @@ class OumiJudge(BaseJudge):
 
         # Generate an inference engine if not provided
         if inference_engine is None:
-            logger.debug("Initializing inference engine.")
+            logger.debug("Initializing a new inference engine.")
             inference_engine = self._create_inference_engine(config)
 
         # Create output fields based on configuration
-        output_fields = [self._create_judgment_field(config)]
+        output_fields = [self._create_judgment_output_field(config)]
 
-        # Add explanation field if explanations are enabled
+        # Add explanation field, if explanations are enabled
         if config.include_explanation:
-            output_fields.append(self._create_explanation_field())
+            output_fields.append(self._create_explanation_output_field())
 
         super().__init__(
             prompt_template=config.prompt_template,
@@ -119,7 +119,7 @@ class OumiJudge(BaseJudge):
         else:
             return ""
 
-    def _create_judgment_field(self, config: JudgeConfig) -> JudgeOutputField:
+    def _create_judgment_output_field(self, config: JudgeConfig) -> JudgeOutputField:
         """Create the main judgment output field."""
         return JudgeOutputField(
             field_key=JUDGMENT_KEY,
@@ -127,7 +127,7 @@ class OumiJudge(BaseJudge):
             field_scores=config.judgment_scores,
         )
 
-    def _create_explanation_field(self) -> JudgeOutputField:
+    def _create_explanation_output_field(self) -> JudgeOutputField:
         """Create the explanation output field."""
         return JudgeOutputField(
             field_key=EXPLANATION_KEY,
