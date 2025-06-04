@@ -60,10 +60,10 @@ Evaluate using the VLLM engine:
 oumi evaluate -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/eval.yaml --inference_engine VLLM
 ```
 
-Evaluate on GCP 4xA100 cluster:
+Evaluate on Lambda 4xA100 cluster:
 
 ```bash
-oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/gcp_job.yaml --cluster falcon-h1-7b-instruct-eval
+oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/lambda_job.yaml --cluster falcon-h1-7b-instruct-eval
 ```
 
 ### Inference

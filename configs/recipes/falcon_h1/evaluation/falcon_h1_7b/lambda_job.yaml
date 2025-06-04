@@ -1,11 +1,11 @@
 # Job config to eval tiiuae/Falcon-H1-7B-Instruct.
 #
 # Requirements:
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/gcp_job.yaml --cluster falcon-h1-7b-instruct-eval
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/lambda_job.yaml --cluster falcon-h1-7b-instruct-eval
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -16,7 +16,7 @@
 name: falcon-h1-7b-instruct-eval
 
 resources:
-  cloud: gcp
+  cloud: lambda
   accelerators: "A100:1"
   use_spot: false
 
