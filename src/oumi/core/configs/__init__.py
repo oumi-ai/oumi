@@ -57,8 +57,8 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
 - Judge:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttribute`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttributeValueType`
+    - :class:`~oumi.core.configs.judge_config.JudgeOutputType`
+    - :class:`~oumi.core.configs.judge_config.JudgeResponseFormat`
 
 Example:
     >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
@@ -83,9 +83,9 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
 from oumi.core.configs.judge_config import (
-    JudgeAttribute,
-    JudgeAttributeValueType,
     JudgeConfig,
+    JudgeOutputType,
+    JudgeResponseFormat,
 )
 from oumi.core.configs.params.data_params import (
     DataParams,
@@ -148,9 +148,9 @@ __all__ = [
     "InferenceEngineType",
     "JobConfig",
     "JobResources",
-    "JudgeAttribute",
-    "JudgeAttributeValueType",
     "JudgeConfig",
+    "JudgeOutputType",
+    "JudgeResponseFormat",
     "LMHarnessTaskParams",
     "LoraWeightInitialization",
     "MixedPrecisionDtype",

@@ -18,11 +18,6 @@ The judges are used to evaluate the quality of AI-generated responses based on
 different criteria such as helpfulness, honesty, and safety.
 """
 
-from oumi.core.configs.judge_config import (
-    JudgeConfig,
-    JudgeOutputType,
-    JudgeResponseFormat,
-)
 from oumi.judges.base_judge import (
     BaseJudge,
     JudgeOutput,
@@ -31,9 +26,6 @@ from oumi.judges.base_judge import (
 from oumi.judges.oumi_judge import OumiJudge
 
 __all__ = [
-    "JudgeConfig",
-    "JudgeOutputType",
-    "JudgeResponseFormat",
     "BaseJudge",
     "OumiJudge",
     "JudgeOutputField",
