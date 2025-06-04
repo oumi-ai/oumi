@@ -40,10 +40,10 @@ Launch full fine-tuning on Falcon-H1-7B-Instruct locally:
 oumi train -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml
 ```
 
-Launch full fine-tuning on Falcon-H1-7B-Instruct remotely via GCP:
+Launch full fine-tuning on Falcon-H1-7B-Instruct remotely via Lambda:
 
 ```bash
-oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_gcp_job.yaml --cluster falcon-h1-7b-fft
+oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_lambda_job.yaml --cluster falcon-h1-7b-fft
 ```
 
 ### Evaluation

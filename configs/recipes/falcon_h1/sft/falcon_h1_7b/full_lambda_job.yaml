@@ -1,11 +1,11 @@
-# Job config to full fine-tune tiiuae/Falcon-H1-3B-Instruct.
+# Job config to full fine-tune tiiuae/Falcon-H1-7B-Instruct.
 #
 # Requirements:
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_3b/full_gcp_job.yaml --cluster falcon-h1-3b-fft
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_lambda_job.yaml --cluster falcon-h1-7b-fft
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -13,7 +13,7 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: falcon-h1-3b-fft
+name: falcon-h1-7b-fft
 
 resources:
   cloud: lambda
@@ -28,7 +28,7 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: falconh1.3b.fft
+  OUMI_RUN_NAME: falconh1.7b.fft
 
 setup: |
   set -e
@@ -41,7 +41,7 @@ setup: |
   uv pip install dill==0.3.8
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-3B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-7B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
@@ -50,7 +50,7 @@ run: |
   set -x
   oumi distributed torchrun \
     -m oumi train \
-    -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_3b/full_train.yaml \
+    -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml \
     --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

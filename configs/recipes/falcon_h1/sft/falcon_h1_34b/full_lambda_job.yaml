@@ -1,11 +1,11 @@
 # Job config to full fine-tune tiiuae/Falcon-H1-34B-Instruct.
 #
 # Requirements:
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_34b/full_gcp_job.yaml --cluster falcon-h1-34b-fft
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_34b/full_lambda_job.yaml --cluster falcon-h1-34b-fft
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
