@@ -462,7 +462,8 @@ class VerlGrpoTrainer(BaseTrainer):
             config: The Oumi training config.
             final: Whether this is the final model being saved during training.
         """
-        self._export_hf_model()
+        if final:
+            self._export_hf_model()
 
     def _export_hf_model(self) -> bool:
         """Exports the tuned model to HF format.
