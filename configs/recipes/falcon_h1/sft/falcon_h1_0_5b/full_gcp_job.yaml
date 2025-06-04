@@ -17,7 +17,7 @@ name: falcon-h1-05b-fft
 
 resources:
   cloud: lambda
-  accelerators: "A100:1"
+  accelerators: "A100-80GB:8"
   use_spot: false
   disk_size: 200 # Disk size in GBs
 
@@ -35,10 +35,10 @@ setup: |
   pip install uv
   uv pip install oumi[gpu] hf_transfer
   uv pip install -U accelerate vllm
-  uv pip install dill==0.3.8
   uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
   uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
   uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
+  uv pip install dill==0.3.8
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-0.5B-Instruct
@@ -48,8 +48,7 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi distributed torchrun \
-    -m oumi train \
+  oumi train \
     -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_train.yaml \
     --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
