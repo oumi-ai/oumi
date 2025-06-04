@@ -45,7 +45,6 @@ run: |
   set -x
   oumi train \
       -c configs/examples/grpo_verl_geometry3k/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-      --training.max_steps=1
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
