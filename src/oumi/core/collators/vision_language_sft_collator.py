@@ -80,6 +80,9 @@ class VisionLanguageSftCollator:
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
         trust_remote_code: bool = False,
+        train_on_completions_only: bool = False,
+        response_template: Optional[str] = None,
+        instruction_template: Optional[str] = None,
         process_individually: bool = False,
     ):
         """Initializes the vision-language SFT collator.
@@ -126,6 +129,15 @@ class VisionLanguageSftCollator:
                 - Useful for models with variable-sized outputs or heterogeneous data
                 - May be less efficient but more flexible than batch processing
                 When False (default), conversations are processed as a batch.
+
+            train_on_completions_only: If True, only compute loss on the assistant's
+                response tokens.
+
+            response_template: The template string that marks the beginning of the
+                assistant's response. Required if train_on_completions_only is True.
+
+            instruction_template: The template string that marks the beginning of the
+                user's instruction.
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._process_individually = process_individually
@@ -144,6 +156,9 @@ class VisionLanguageSftCollator:
                 truncation_side=truncation_side,
                 max_length=max_length,
                 label_ignore_index=label_ignore_index,
+                train_on_completions_only=train_on_completions_only,
+                response_template=response_template,
+                instruction_template=instruction_template,
             )
         )
 
