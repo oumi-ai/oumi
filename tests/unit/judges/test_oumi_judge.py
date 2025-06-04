@@ -1,0 +1,330 @@
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from unittest.mock import Mock, patch
+
+import pytest
+
+from oumi.core.configs.judge_config import (
+    JudgeConfig,
+    JudgeOutputType,
+    JudgeResponseFormat,
+)
+from oumi.judges.oumi_judge import (
+    EXPLANATION_KEY,
+    JSON_SUFFIX,
+    JSON_SUFFIX_WITH_EXPLANATION,
+    JUDGMENT_KEY,
+    RAW_SUFFIX_WITH_EXPLANATION,
+    XML_SUFFIX,
+    XML_SUFFIX_WITH_EXPLANATION,
+    OumiJudge,
+)
+
+
+class TestOumiJudge:
+    """Test cases for the OumiJudge class."""
+
+    @pytest.fixture
+    def xml_config_no_explanation(self):
+        return JudgeConfig(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            response_format=JudgeResponseFormat.XML,
+            judgment_type=JudgeOutputType.BOOL,
+            include_explanation=False,
+        )
+
+    @pytest.fixture
+    def xml_config_with_explanation(self):
+        return JudgeConfig(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            response_format=JudgeResponseFormat.XML,
+            judgment_type=JudgeOutputType.BOOL,
+            include_explanation=True,
+        )
+
+    @pytest.fixture
+    def json_config_no_explanation(self):
+        return JudgeConfig(
+            prompt_template="Rate this answer: {answer}",
+            response_format=JudgeResponseFormat.JSON,
+            judgment_type=JudgeOutputType.ENUM,
+            judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
+            include_explanation=False,
+        )
+
+    @pytest.fixture
+    def json_config_with_explanation(self):
+        return JudgeConfig(
+            prompt_template="Rate this answer: {answer}",
+            response_format=JudgeResponseFormat.JSON,
+            judgment_type=JudgeOutputType.ENUM,
+            judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
+            include_explanation=True,
+        )
+
+    @pytest.fixture
+    def mock_inference_engine(self):
+        return Mock()
+
+    def test_init_with_engine_no_explanation(
+        self, xml_config_no_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=xml_config_no_explanation, inference_engine=mock_inference_engine
+        )
+
+        assert judge._config == xml_config_no_explanation
+        assert judge.inference_engine == mock_inference_engine
+        assert judge.prompt_template == xml_config_no_explanation.prompt_template
+        assert judge.response_format == xml_config_no_explanation.response_format
+
+        # Should have one output field for judgment
+        assert len(judge.output_fields) == 1
+        assert judge.output_fields[0].field_key == JUDGMENT_KEY
+        assert judge.output_fields[0].field_type == JudgeOutputType.BOOL
+        assert judge.output_fields[0].field_scores is None
+
+    def test_init_with_engine_explanation(
+        self, json_config_with_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=json_config_with_explanation, inference_engine=mock_inference_engine
+        )
+
+        # Should have two output fields: judgment and explanation
+        assert len(judge.output_fields) == 2
+        assert judge.output_fields[0].field_key == JUDGMENT_KEY
+        assert judge.output_fields[0].field_type == JudgeOutputType.ENUM
+        assert judge.output_fields[0].field_scores == {
+            "excellent": 1.0,
+            "good": 0.7,
+            "poor": 0.3,
+        }
+        assert judge.output_fields[1].field_key == EXPLANATION_KEY
+        assert judge.output_fields[1].field_type == JudgeOutputType.TEXT
+        assert judge.output_fields[1].field_scores is None
+
+    @patch("oumi.judges.oumi_judge.OumiJudge._create_inference_engine")
+    def test_init_without_engine(self, mock_create_engine, xml_config_no_explanation):
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+
+        judge = OumiJudge(config=xml_config_no_explanation)
+
+        assert judge.inference_engine == mock_engine
+        mock_create_engine.assert_called_once_with(xml_config_no_explanation)
+
+    def test_build_prompt_xml_no_explanation(
+        self, xml_config_no_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=xml_config_no_explanation, inference_engine=mock_inference_engine
+        )
+
+        judge_input = {"question": "What is 2+2?", "answer": "4"}
+        prompt = judge._build_judgement_prompt(judge_input)
+
+        expected = f"Is this helpful? Question: What is 2+2?, Answer: 4{XML_SUFFIX}"
+        assert prompt == expected
+
+    def test_build_prompt_xml_with_explanation(
+        self, xml_config_with_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=xml_config_with_explanation, inference_engine=mock_inference_engine
+        )
+
+        judge_input = {"question": "What is 2+2?", "answer": "4"}
+        prompt = judge._build_judgement_prompt(judge_input)
+
+        expected = (
+            "Is this helpful? Question: What is 2+2?, Answer: 4"
+            f"{XML_SUFFIX_WITH_EXPLANATION}"
+        )
+        assert prompt == expected
+
+    def test_build_prompt_json_no_explanation(
+        self, json_config_no_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=json_config_no_explanation, inference_engine=mock_inference_engine
+        )
+
+        judge_input = {"answer": "Some good answer"}
+        prompt = judge._build_judgement_prompt(judge_input)
+
+        expected = f"Rate this answer: Some good answer{JSON_SUFFIX}"
+        assert prompt == expected
+
+    def test_build_prompt_json_with_explanation(
+        self, json_config_with_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=json_config_with_explanation, inference_engine=mock_inference_engine
+        )
+
+        judge_input = {"answer": "Some good answer"}
+        prompt = judge._build_judgement_prompt(judge_input)
+
+        expected = f"Rate this answer: Some good answer{JSON_SUFFIX_WITH_EXPLANATION}"
+        assert prompt == expected
+
+    def test_build_prompt_raw_no_explanation(self, mock_inference_engine):
+        config = JudgeConfig(
+            prompt_template="Evaluate: {content}",
+            response_format=JudgeResponseFormat.RAW,
+            judgment_type=JudgeOutputType.TEXT,
+            include_explanation=False,
+        )
+        judge = OumiJudge(config=config, inference_engine=mock_inference_engine)
+
+        judge_input = {"content": "Some content"}
+        prompt = judge._build_judgement_prompt(judge_input)
+
+        expected = "Evaluate: Some content"  # No suffix for RAW without explanation
+        assert prompt == expected
+
+    def test_build_prompt_raw_with_explanation(self, mock_inference_engine):
+        config = JudgeConfig(
+            prompt_template="Evaluate: {content}",
+            response_format=JudgeResponseFormat.RAW,
+            judgment_type=JudgeOutputType.TEXT,
+            include_explanation=True,
+        )
+        judge = OumiJudge(config=config, inference_engine=mock_inference_engine)
+
+        judge_input = {"content": "Some content"}
+        prompt = judge._build_judgement_prompt(judge_input)
+
+        expected = f"Evaluate: Some content{RAW_SUFFIX_WITH_EXPLANATION}"
+        assert prompt == expected
+
+    def test_get_format_suffix_xml(self, mock_inference_engine):
+        config_no_exp = JudgeConfig(
+            prompt_template="Test: {input}",
+            response_format=JudgeResponseFormat.XML,
+            include_explanation=False,
+        )
+        judge_no_exp = OumiJudge(
+            config=config_no_exp, inference_engine=mock_inference_engine
+        )
+        assert judge_no_exp._get_format_suffix() == XML_SUFFIX
+
+        config_with_exp = JudgeConfig(
+            prompt_template="Test: {input}",
+            response_format=JudgeResponseFormat.XML,
+            include_explanation=True,
+        )
+        judge_with_exp = OumiJudge(
+            config=config_with_exp, inference_engine=mock_inference_engine
+        )
+        assert judge_with_exp._get_format_suffix() == XML_SUFFIX_WITH_EXPLANATION
+
+    def test_get_format_suffix_json(self, mock_inference_engine):
+        config_no_exp = JudgeConfig(
+            prompt_template="Test: {input}",
+            response_format=JudgeResponseFormat.JSON,
+            include_explanation=False,
+        )
+        judge_no_exp = OumiJudge(
+            config=config_no_exp, inference_engine=mock_inference_engine
+        )
+        assert judge_no_exp._get_format_suffix() == JSON_SUFFIX
+
+        config_with_exp = JudgeConfig(
+            prompt_template="Test: {input}",
+            response_format=JudgeResponseFormat.JSON,
+            include_explanation=True,
+        )
+        judge_with_exp = OumiJudge(
+            config=config_with_exp, inference_engine=mock_inference_engine
+        )
+        assert judge_with_exp._get_format_suffix() == JSON_SUFFIX_WITH_EXPLANATION
+
+    def test_get_format_suffix_raw(self, mock_inference_engine):
+        config_no_exp = JudgeConfig(
+            prompt_template="Test: {input}",
+            response_format=JudgeResponseFormat.RAW,
+            include_explanation=False,
+        )
+        judge_no_exp = OumiJudge(
+            config=config_no_exp, inference_engine=mock_inference_engine
+        )
+        assert judge_no_exp._get_format_suffix() == ""
+
+        config_with_exp = JudgeConfig(
+            prompt_template="Test: {input}",
+            response_format=JudgeResponseFormat.RAW,
+            include_explanation=True,
+        )
+        judge_with_exp = OumiJudge(
+            config=config_with_exp, inference_engine=mock_inference_engine
+        )
+        assert judge_with_exp._get_format_suffix() == RAW_SUFFIX_WITH_EXPLANATION
+
+    def test_create_judgment_output_field(
+        self, xml_config_no_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=xml_config_no_explanation, inference_engine=mock_inference_engine
+        )
+
+        field = judge._create_judgment_output_field(xml_config_no_explanation)
+
+        assert field.field_key == JUDGMENT_KEY
+        assert field.field_type == JudgeOutputType.BOOL
+        assert field.field_scores is None
+
+    def test_create_judgment_output_field_with_scores(
+        self, json_config_with_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=json_config_with_explanation, inference_engine=mock_inference_engine
+        )
+
+        field = judge._create_judgment_output_field(json_config_with_explanation)
+
+        assert field.field_key == JUDGMENT_KEY
+        assert field.field_type == JudgeOutputType.ENUM
+        assert field.field_scores == {"excellent": 1.0, "good": 0.7, "poor": 0.3}
+
+    def test_create_explanation_output_field(
+        self, json_config_with_explanation, mock_inference_engine
+    ):
+        judge = OumiJudge(
+            config=json_config_with_explanation, inference_engine=mock_inference_engine
+        )
+
+        field = judge._create_explanation_output_field()
+
+        assert field.field_key == EXPLANATION_KEY
+        assert field.field_type == JudgeOutputType.TEXT
+        assert field.field_scores is None
+
+    @patch("oumi.builders.inference_engines.build_inference_engine")
+    def test_create_inference_engine(
+        self, mock_build_engine, xml_config_no_explanation, mock_inference_engine
+    ):
+        mock_build_engine.return_value = mock_inference_engine
+
+        _ = OumiJudge(config=xml_config_no_explanation, inference_engine=None)
+
+        # Should be called during init when inference_engine is None
+        mock_build_engine.assert_called_once_with(
+            engine_type=xml_config_no_explanation.engine,
+            model_params=xml_config_no_explanation.model,
+            remote_params=xml_config_no_explanation.remote_params,
+            generation_params=xml_config_no_explanation.generation,
+        )

@@ -69,10 +69,6 @@ class OumiJudge(BaseJudge):
     ):
         """Initialize the Judge."""
         self._config = config
-        if not config.prompt_template:
-            raise ValueError(
-                "prompt_template must be specified in the judge configuration."
-            )
 
         # Generate an inference engine if not provided
         if inference_engine is None:
