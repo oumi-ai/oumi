@@ -294,8 +294,8 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         valid_options: FeatureGeneratorOptions = options or FeatureGeneratorOptions()
 
         # Validate conversations for completion-only training
-        if self._train_on_completions_only:
-            self._validate_conversations_for_completion_only_training(conversations)
+        # if self._train_on_completions_only:
+        #     self._validate_conversations_for_completion_only_training(conversations)
 
         all_images: list[list[Image.Image]] = []
         all_prompts: list[str] = []
@@ -466,42 +466,42 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
             truncation_side=self._truncation_side,
         )
 
-    def _validate_conversations_for_completion_only_training(
-        self, conversations: list[Conversation]
-    ):
-        """Validates that conversations are suitable for completion-only training.
+    # def _validate_conversations_for_completion_only_training(
+    #     self, conversations: list[Conversation]
+    # ):
+    #     """Validates that conversations are suitable for completion-only training.
 
-        For completion-only training, we only support conversations with exactly
-        1 user message followed by 1 assistant message.
+    #     For completion-only training, we only support conversations with exactly
+    #     1 user message followed by 1 assistant message.
 
-        Args:
-            conversations: List of conversations to validate.
+    #     Args:
+    #         conversations: List of conversations to validate.
 
-        Raises:
-            ValueError: If any conversation doesn't meet the requirements.
-        """
-        for i, conversation in enumerate(conversations):
-            if len(conversation.messages) != 2:
-                raise ValueError(
-                    f"Conversation {i} has {len(conversation.messages)} messages. "
-                    "Completion-only training requires exactly 2 messages "
-                    "(1 user + 1 assistant)."
-                )
+    #     Raises:
+    #         ValueError: If any conversation doesn't meet the requirements.
+    #     """
+    #     for i, conversation in enumerate(conversations):
+    #         if len(conversation.messages) != 2:
+    #             raise ValueError(
+    #                 f"Conversation {i} has {len(conversation.messages)} messages. "
+    #                 "Completion-only training requires exactly 2 messages "
+    #                 "(1 user + 1 assistant)."
+    #             )
 
-            user_msg = conversation.messages[0]
-            assistant_msg = conversation.messages[1]
+    #         user_msg = conversation.messages[0]
+    #         assistant_msg = conversation.messages[1]
 
-            if user_msg.role != Role.USER:
-                raise ValueError(
-                    f"Conversation {i}: First message must be from USER, "
-                    f"got {user_msg.role}."
-                )
+    #         if user_msg.role != Role.USER:
+    #             raise ValueError(
+    #                 f"Conversation {i}: First message must be from USER, "
+    #                 f"got {user_msg.role}."
+    #             )
 
-            if assistant_msg.role != Role.ASSISTANT:
-                raise ValueError(
-                    f"Conversation {i}: Second message must be from ASSISTANT, "
-                    f"got {assistant_msg.role}."
-                )
+    #         if assistant_msg.role != Role.ASSISTANT:
+    #             raise ValueError(
+    #                 f"Conversation {i}: Second message must be from ASSISTANT, "
+    #                 f"got {assistant_msg.role}."
+    #             )
 
     # def _apply_completion_only_masking(self, inputs: Any) -> None:
     #     """Applies completion-only masking to the labels.
@@ -553,56 +553,32 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         self, labels: np.ndarray, input_ids: np.ndarray
     ) -> None:
         """Mask a single conversation to keep only assistant responses."""
-        ignore_index = int(self._special_tokens.label_ignore_index or -100)
-
-        # Find all response positions
-        response_positions = self._find_all_template_positions(
-            input_ids, self._response_token_ids
+        from oumi.core.tokenizers.utils import (
+            mask_labels_for_completions_only,
+            mask_labels_without_user_template,
         )
 
-        if not response_positions:
-            # No responses found, mask everything
-            labels[:] = ignore_index
-            return
+        ignore_index = int(self._special_tokens.label_ignore_index or -100)
 
-        # If we have user template, use it to find response endpoints
+        # Choose masking strategy based on whether instruction token IDs are available
         if hasattr(self, "_instruction_token_ids") and self._instruction_token_ids:
-            user_positions = self._find_all_template_positions(
-                input_ids, self._instruction_token_ids
+            logger.info(
+                "Using multi-turn completion-only masking strategy with user and assistant templates. "
+                "All assistant responses will be unmasked for training."
             )
-
-            # Mask everything first
-            labels[:] = ignore_index
-
-            # Unmask each response segment
-            for i, resp_start in enumerate(response_positions):
-                # Find next user position or end of sequence
-                resp_end = len(labels)
-                for user_pos in user_positions:
-                    if user_pos > resp_start:
-                        resp_end = user_pos
-                        break
-
-                # Keep the response for loss computation
-                labels[resp_start:resp_end] = input_ids[resp_start:resp_end]
+            mask_labels_for_completions_only(
+                labels,
+                self._response_token_ids,
+                self._instruction_token_ids,
+                ignore_index=ignore_index,
+            )
         else:
-            # Simple strategy: mask everything before first response
-            # and between consecutive responses
-            labels[: response_positions[0]] = ignore_index
-
-            # For multi-turn, you might want to add logic here
-            # to detect natural response boundaries
-
-    def _find_all_template_positions(
-        self, input_ids: np.ndarray, template_tokens: list[int]
-    ) -> list[int]:
-        """Find all positions where template occurs."""
-        positions = []
-        input_list = input_ids.tolist()
-        template_len = len(template_tokens)
-
-        for i in range(len(input_list) - template_len + 1):
-            if input_list[i : i + template_len] == template_tokens:
-                positions.append(i + template_len)
-
-        return positions
+            logger.info(
+                "Using single-turn completion-only masking strategy without user templates. "
+                "Only the last assistant response will be unmasked for training."
+            )
+            mask_labels_without_user_template(
+                labels,
+                self._response_token_ids,
+                ignore_index=ignore_index,
+            )

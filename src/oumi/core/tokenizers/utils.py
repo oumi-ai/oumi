@@ -15,7 +15,6 @@
 from typing import Optional
 
 import numpy as np
-import torch
 import transformers
 
 from oumi.core.constants import LABEL_IGNORE_INDEX
@@ -139,185 +138,155 @@ def tokenize_for_completions_only_training_with_prefix(
 #
 # VL Collator functions
 #
-def find_token_sequence(sequence, target_tokens: list[int]) -> Optional[int]:
-    """Find the starting index of a token sequence in labels.
+# def find_token_sequence(sequence, target_tokens: list[int]) -> Optional[int]:
+#     """Find the starting index of a token sequence in labels.
 
-    Args:
-        sequence: Sequence of token IDs (can be torch.Tensor, np.ndarray, or list).
-        target_tokens: List of token IDs to search for.
+#     Args:
+#         sequence: Sequence of token IDs (can be torch.Tensor, np.ndarray, or list).
+#         target_tokens: List of token IDs to search for.
 
-    Returns:
-        Start index of the target sequence, or None if not found.
-    """
-    # Convert to list for consistent handling
-    if isinstance(sequence, torch.Tensor):
-        sequence_list = sequence.tolist()
-    elif isinstance(sequence, np.ndarray):
-        sequence_list = sequence.tolist()
-    else:
-        sequence_list = list(sequence)
+#     Returns:
+#         Start index of the target sequence, or None if not found.
+#     """
+#     # Convert to list for consistent handling
+#     if isinstance(sequence, torch.Tensor):
+#         sequence_list = sequence.tolist()
+#     elif isinstance(sequence, np.ndarray):
+#         sequence_list = sequence.tolist()
+#     else:
+#         sequence_list = list(sequence)
 
-    # Search for the target token sequence
-    for i in range(len(sequence_list) - len(target_tokens) + 1):
-        if sequence_list[i : i + len(target_tokens)] == target_tokens:
-            return i
+#     # Search for the target token sequence
+#     for i in range(len(sequence_list) - len(target_tokens) + 1):
+#         if sequence_list[i : i + len(target_tokens)] == target_tokens:
+#             return i
 
-    return None
+#     return None
 
 
-def mask_labels_for_completions_only(
-    labels,
-    response_token_ids: list[int],
-    instruction_token_ids: Optional[list[int]] = None,
-    ignore_index: int = LABEL_IGNORE_INDEX,
-    response_template: Optional[str] = None,
-) -> None:
-    """Apply completion-only masking to labels.
+# def mask_labels_for_completions_only(
+#     labels,
+#     response_token_ids: list[int],
+#     instruction_token_ids: Optional[list[int]] = None,
+#     ignore_index: int = LABEL_IGNORE_INDEX,
+#     response_template: Optional[str] = None,
+# ) -> None:
+#     """Apply completion-only masking to labels.
 
-    This function masks all tokens before the response template, so that loss
-    is only computed on the model's response tokens.
+#     This function masks all tokens before the response template, so that loss
+#     is only computed on the model's response tokens.
 
-    Args:
-        labels: Labels to mask (can be torch.Tensor, np.ndarray, or list).
-        response_token_ids: Token IDs of the response template.
-        instruction_token_ids: Token IDs of the instruction template (optional).
-        ignore_index: Index to use for masking tokens.
-        response_template: String representation of response template for logging.
-    """
-    if not response_token_ids:
-        raise ValueError("response_token_ids is required for completions-only training")
+#     Args:
+#         labels: Labels to mask (can be torch.Tensor, np.ndarray, or list).
+#         response_token_ids: Token IDs of the response template.
+#         instruction_token_ids: Token IDs of the instruction template (optional).
+#         ignore_index: Index to use for masking tokens.
+#         response_template: String representation of response template for logging.
+#     """
+#     if not response_token_ids:
+#         raise ValueError("response_token_ids is required for completions-only training")
 
-    # Find response template
-    response_start_idx = find_token_sequence(labels, response_token_ids)
+#     # Find response template
+#     response_start_idx = find_token_sequence(labels, response_token_ids)
 
-    if response_start_idx is None:
-        # If response template not found, mask the entire sequence
-        if response_template:
-            logger.warning(
-                f"Could not find response template '{response_template}' "
-                "in sequence. Masking entire sequence."
-            )
-        labels[:] = ignore_index
-    else:
-        # Mask everything before the end of the response template
-        response_end_idx = response_start_idx + len(response_token_ids)
-        labels[:response_end_idx] = ignore_index
+#     if response_start_idx is None:
+#         # If response template not found, mask the entire sequence
+#         if response_template:
+#             logger.warning(
+#                 f"Could not find response template '{response_template}' "
+#                 "in sequence. Masking entire sequence."
+#             )
+#         labels[:] = ignore_index
+#     else:
+#         # Mask everything before the end of the response template
+#         response_end_idx = response_start_idx + len(response_token_ids)
+#         labels[:response_end_idx] = ignore_index
 
 
 #
 # Multi-turn collator functions
 #
-def mask_labels_for_arbitrary_conversations(
+def mask_labels_without_user_template(
     labels: np.ndarray,
-    input_ids: np.ndarray,
-    tokenizer,
-    response_template: str,
-    ignore_index: int = -100,
+    response_token_ids: list[int],
+    ignore_index: int = LABEL_IGNORE_INDEX,
 ) -> None:
-    """Mask labels for arbitrary multi-turn conversations.
+    """Apply completion-only masking when no user template is provided.
 
-    Only assistant responses (after response_template) are kept for loss computation.
+    This strategy masks everything except the last assistant response, allowing
+    the model to learn only from the final assistant turn in the conversation.
 
     Args:
         labels: Label array to mask
-        input_ids: Corresponding input token IDs
-        tokenizer: Tokenizer for encoding templates
-        response_template: String marking start of assistant responses
+        response_token_ids: Token IDs of the response template.
         ignore_index: Value to use for masked positions
     """
-    # Tokenize the response template
-    response_tokens = tokenizer.encode(response_template, add_special_tokens=False)
-    if not response_tokens:
-        raise ValueError(f"Response template '{response_template}' produced no tokens")
+    # Find all response positions
+    response_starts = find_all_sequences(labels, response_token_ids)
 
-    # Convert to lists for easier searching
-    labels_list = labels.tolist()
-    input_ids_list = input_ids.tolist()
-
-    # Find all occurrences of the response template
-    response_positions = []
-    for i in range(len(input_ids_list) - len(response_tokens) + 1):
-        if input_ids_list[i : i + len(response_tokens)] == response_tokens:
-            response_positions.append(
-                i + len(response_tokens)
-            )  # Position after template
-
-    if not response_positions:
-        # No response template found, mask everything
+    if not response_starts:
+        # No assistant responses found, mask everything
         labels[:] = ignore_index
         return
 
-    # Create masking ranges
-    # We want to mask from start to first response, and between responses
-    mask_ranges = []
+    # Save original labels before masking
+    original_labels = labels.copy()
 
-    # Mask from start to first response
-    mask_ranges.append((0, response_positions[0]))
+    # Mask everything initially
+    labels[:] = ignore_index
 
-    # For each response, we need to find where it ends
-    # Strategy: mask from one response end to the next response start
-    for i in range(len(response_positions) - 1):
-        # Find the end of current response (start of next instruction)
-        # This is the position of the next response template
-        mask_ranges.append((response_positions[i], response_positions[i + 1]))
-
-    # Apply masking
-    for start, end in mask_ranges:
-        labels[start:end] = ignore_index
+    # Only unmask the last assistant response
+    last_response_start = response_starts[-1]
+    # Unmask from the last response start to the end of the sequence
+    labels[last_response_start:] = original_labels[last_response_start:]
 
 
-def mask_labels_for_conversations_advanced(
+def mask_labels_for_completions_only(
     labels: np.ndarray,
-    input_ids: np.ndarray,
-    tokenizer,
-    response_template: str,
-    user_template: Optional[str] = None,
-    ignore_index: int = -100,
+    response_token_ids: list[int],
+    instruction_token_ids: list[int],
+    ignore_index: int = LABEL_IGNORE_INDEX,
 ) -> None:
-    """Advanced masking that handles arbitrary conversations by detecting role transitions.
+    """Apply completion-only masking to labels with user and assistant templates.
+
+    This strategy masks everything except assistant response content, using user
+    templates to determine the boundaries of each assistant response.
 
     Args:
         labels: Label array to mask
-        input_ids: Corresponding input token IDs
-        tokenizer: Tokenizer for encoding templates
-        response_template: String marking start of assistant responses
-        user_template: String marking start of user messages (optional)
+        response_token_ids: Token IDs of the response template.
+        instruction_token_ids: Token IDs of the instruction template.
         ignore_index: Value to use for masked positions
     """
-    response_tokens = tokenizer.encode(response_template, add_special_tokens=False)
-    user_tokens = (
-        tokenizer.encode(user_template, add_special_tokens=False)
-        if user_template
-        else None
-    )
-
     # Find all response and user positions
-    response_starts = find_all_sequences(input_ids, response_tokens)
-    user_starts = find_all_sequences(input_ids, user_tokens) if user_tokens else []
+    response_starts = find_all_sequences(labels, response_token_ids)
+    user_starts = find_all_sequences(labels, instruction_token_ids)
 
-    # If we have user templates, use them to determine response endpoints
-    if user_starts:
-        # Mask everything except assistant responses
-        labels[:] = ignore_index  # Start by masking everything
+    # If no response templates found, mask everything
+    if not response_starts:
+        labels[:] = ignore_index
+        return
 
-        # Unmask each assistant response
-        for resp_start in response_starts:
-            # Find the next user start after this response
-            resp_end = len(labels)  # Default to end of sequence
-            for user_start in user_starts:
-                if user_start > resp_start:
-                    resp_end = user_start
-                    break
+    # Save original labels before masking
+    original_labels = labels.copy()
 
-            # Unmask the response (keeping it for loss computation)
-            labels[resp_start:resp_end] = input_ids[resp_start:resp_end]
-    else:
-        # Without user templates, use a simpler strategy
-        # Mask everything before each response template
-        current_pos = 0
-        for resp_start in response_starts:
-            labels[current_pos:resp_start] = ignore_index
-            current_pos = resp_start
+    # Mask everything except assistant responses
+    labels[:] = ignore_index  # Start by masking everything
+
+    # Unmask each assistant response (content after the template)
+    for resp_start in response_starts:
+        # Find the next user template start after this response
+        resp_end = len(labels)  # Default to end of sequence
+        for user_start in user_starts:
+            # user_start is position after user template, so we need to go back
+            user_template_start = user_start - len(instruction_token_ids)
+            if user_template_start > resp_start:
+                resp_end = user_template_start
+                break
+
+        # Restore the original labels for the response content only
+        # (starting after the response template)
+        labels[resp_start:resp_end] = original_labels[resp_start:resp_end]
 
 
 def find_all_sequences(arr: np.ndarray, target: list[int]) -> list[int]:
