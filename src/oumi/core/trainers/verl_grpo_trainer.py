@@ -512,6 +512,7 @@ class VerlGrpoTrainer(BaseTrainer):
         config = ModelMergerConfig(
             operation="merge",
             backend="fsdp",
+            # TODO: Detect if tie-word-embedding is enabled, or add a config parameter.
             tie_word_embedding=False,
             local_dir=str(latest_checkpoint_dir / "actor"),
             hf_model_config_path=str(latest_checkpoint_dir / "actor" / "huggingface"),

@@ -15,7 +15,8 @@
 
 # Copied from the Verl script:
 # volcengine/verl/scripts/model_merger.py
-# with minor modifications.
+# with minor modifications e.g., `import verl` is wrapped into try-except block
+# and some verl-related imports are moved down to the function that uses them.
 
 """This script is used to merge huggingface model and test verl checkpoints from FSDP and Megatron backends.
 
@@ -235,9 +236,10 @@ class FSDPModelMerger(BaseModelMerger):
         self, mesh: np.ndarray, mesh_dim_names: tuple[str, ...]
     ) -> tuple[int, tuple[int, ...]]:
         """Calculates the total number of shards and the shape of the device mesh."""
-        assert mesh_dim_names in (("fsdp",), ("ddp", "fsdp")), (
-            f"Unsupported mesh_dim_names {mesh_dim_names}"
-        )
+        assert mesh_dim_names in (
+            ("fsdp",),
+            ("ddp", "fsdp"),
+        ), f"Unsupported mesh_dim_names {mesh_dim_names}"
 
         if "tp" in mesh_dim_names:
             # TODO: "tp" is not supported yet due to the above assert
