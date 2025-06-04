@@ -50,7 +50,7 @@ def sample_conversation():
     )
 
 
-def test_phi3_tokenization_behavior(phi3_tokenizer):
+def test_phi3_tokenization(phi3_tokenizer):
     """Test that we understand Phi-3's tokenization behavior correctly."""
     # Known tokenization from our analysis
     response_template = "<|assistant|>"
@@ -104,9 +104,7 @@ def test_phi3_tokenization_behavior(phi3_tokenizer):
     assert tokens == expected_tokens, f"Expected {expected_tokens}, got {tokens}"
 
 
-def test_vision_language_completions_only_exact_matching(
-    phi3_tokenizer, sample_conversation
-):
+def test_vision_language_completions_only(phi3_tokenizer, sample_conversation):
     """Test vision language collator with exact token-level validation."""
     # Create collator with completions-only training
     collator = build_data_collator(
@@ -176,17 +174,8 @@ def test_vision_language_completions_only_exact_matching(
                 f"doesn't match input_id ({input_ids_list[i]})"
             )
 
-    # Log the actual masking pattern for debugging
-    print("\nMasking pattern analysis:")
-    print(f"Sequence length: {len(input_ids_list)}")
-    print(f"Assistant template position: {assistant_pos}")
-    print(f"Masked tokens: {sum(1 for x in labels_list if x == LABEL_IGNORE_INDEX)}")
-    print(f"Unmasked tokens: {sum(1 for x in labels_list if x != LABEL_IGNORE_INDEX)}")
 
-
-def test_vision_language_without_completions_only_exact(
-    phi3_tokenizer, sample_conversation
-):
+def test_vision_language_without_completions_only(phi3_tokenizer, sample_conversation):
     # Create collator without completions-only training
     collator = build_data_collator(
         collator_name="vision_language_sft",
@@ -221,7 +210,7 @@ def test_vision_language_without_completions_only_exact(
             )
 
 
-def test_vision_language_completions_only_missing_template_exact(
+def test_vision_language_completions_only_wrong_template(
     phi3_tokenizer, sample_conversation
 ):
     """Test exact behavior when response template is not found."""
