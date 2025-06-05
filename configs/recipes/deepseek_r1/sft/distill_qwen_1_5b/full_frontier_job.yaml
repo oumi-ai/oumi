@@ -25,7 +25,7 @@ resources:
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
 
 envs:
   WANDB_PROJECT: oumi-train
@@ -44,6 +44,13 @@ setup: |
 
 run: |
   set -e  # Exit if any command failed.
+
+  FRONTIER_NODE_RANK=${PMI_RANK:=0}
+
+  # Only necessary if submitting like: sbatch --export=NONE ... (recommended)
+  # Do NOT include this line when submitting without --export=NONE
+  unset SLURM_EXPORT_ENV
+
   # Various setup for running on OLCF Frontier.
   source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
 
