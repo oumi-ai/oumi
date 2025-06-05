@@ -258,7 +258,7 @@ class SlurmClient:
                 + " && ".join(commands)
                 + "'\""
             )
-            ssh_cmd = f"ssh -tt {_CTRL_PATH} {self._user}@{self._slurm_host} << 'EOF'"
+            ssh_cmd = f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host} << 'EOF'"
             eof_suffix = "EOF"
             new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         else:
