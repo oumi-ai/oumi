@@ -416,6 +416,7 @@ def _create_molmo_vlm_config() -> InternalModelConfig:
             for feature_name in (
                 "input_ids",
                 "labels",
+                "attention_mask",
                 "images",
                 "image_masks",
                 "image_input_idx",
@@ -451,7 +452,7 @@ def get_all_models_map() -> Mapping[
         to its corresponding configuration and metadata.
     >>>>>>> main
 
-        Returns:
+    Returns:
             An immutable mapping from model_type strings to _ModelTypeInfo objects.
             The mapping includes both LLMs and VLMs with their specific configurations.
     <<<<<<< HEAD
@@ -472,7 +473,7 @@ def get_all_models_map() -> Mapping[
             3. The model_type must exactly match what's in the model's config.json
             4. Add tests in test_supported_models.py before setting tested=True
 
-        Note:
+    Note:
             This function is cached, so the mapping is only created once per process.
     =======
     >>>>>>> main
@@ -606,7 +607,7 @@ def find_internal_model_config_using_model_name(
         3. Looks up the model_type in the supported models registry
         4. Returns the corresponding InternalModelConfig if found
 
-        Args:
+    Args:
             model_name: The model name, either:
                 - A HuggingFace model ID (e.g., "meta-llama/Llama-2-7b-hf")
                 - A local path to a model directory
@@ -614,13 +615,13 @@ def find_internal_model_config_using_model_name(
             trust_remote_code: Whether to trust external code associated with the model.
                 Required for some models like Qwen2-VL that use custom code.
 
-        Returns:
+    Returns:
             InternalModelConfig for the model if it's supported, or None if:
             - The model is a custom Oumi model (handled separately)
             - The model type is not in the supported models registry
     <<<<<<< HEAD
 
-        Example:
+    Example:
             >>> config = find_internal_model_config_using_model_name(
             ...     "llava-hf/llava-1.5-7b-hf", trust_remote_code=False
             ... )
