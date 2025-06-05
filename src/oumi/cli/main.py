@@ -23,7 +23,6 @@ from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
-from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.train import train
@@ -73,13 +72,14 @@ def get_app() -> typer.Typer:
         help="Train a model.",
     )(train)
 
-    judge_app = typer.Typer(pretty_exceptions_enable=False)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(dataset)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(model)
-    app.add_typer(
-        judge_app, name="judge", help="Judge datasets, models or conversations."
-    )
+    # FIXME: Update with the new judge API
+    # judge_app = typer.Typer(pretty_exceptions_enable=False)
+    # judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
+    # judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(dataset)
+    # judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(model)
+    # app.add_typer(
+    #     judge_app, name="judge", help="Judge datasets, models or conversations."
+    # )
 
     launch_app = typer.Typer(pretty_exceptions_enable=False)
     launch_app.command(help="Cancels a job.")(cancel)
