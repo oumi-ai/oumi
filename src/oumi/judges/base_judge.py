@@ -175,6 +175,13 @@ class JudgeOutput(pydantic.BaseModel):
         """
         if not json_output:
             return {}
+
+        # Remove any API formatting
+        if json_output.startswith("```json"):
+            json_output = json_output[len("```json") :].lstrip()
+        if json_output.endswith("```"):
+            json_output = json_output[:-3].rstrip()
+
         try:
             parsed = json.loads(json_output)
             # Ensure all values are strings for consistent processing
