@@ -32,7 +32,6 @@ envs:
   OUMI_RUN_NAME: deepseek-r1.qwen1.5b.fft
 
 setup: |
-  set -e
   #SBATCH -N 1
   #SBATCH -A lrn081
   #SBATCH -J distill_qwen_1_5b_fft
