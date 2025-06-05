@@ -23,6 +23,9 @@ All models are supported in both **native** and **VLLM** inference modes. Models
 
 ## Quickstart
 
+> [!IMPORTANT]
+> If you are running Falcon-H1 locally, you will need to set up additional Python library dependencies. Please run the `pip` and `uv` commands under the `-setup` section of the [remote job configs](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/falcon_h1/evaluation/falcon_h1_0_5b/lambda_job.yaml#L36-L43).
+
 1. Follow the [Oumi quickstart guide](https://oumi.ai/docs/en/latest/get_started/quickstart.html) for installation.
 2. (Optional) To launch jobs on remote clusters, follow the [SkyPilot job launcher guide](https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup).
 3. Run your desired `oumi` command with the provided config paths (examples below).

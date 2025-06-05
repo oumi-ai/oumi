@@ -348,11 +348,18 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                     metadata=conversation.metadata,
                     conversation_id=conversation.conversation_id,
                 )
-                if inference_config and inference_config.output_path:
-                    self._save_conversation(
-                        new_conversation, inference_config.output_path
-                    )
+                self._save_conversation_to_scratch(
+                    new_conversation,
+                    inference_config.output_path if inference_config else None,
+                )
                 output_conversations.append(new_conversation)
+
+        self._cleanup_scratch_file(
+            inference_config.output_path if inference_config else None
+        )
+
+        if inference_config and inference_config.output_path:
+            self._save_conversations(output_conversations, inference_config.output_path)
 
         return output_conversations
 
