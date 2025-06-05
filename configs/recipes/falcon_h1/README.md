@@ -40,10 +40,10 @@ Launch full fine-tuning on Falcon-H1-7B-Instruct locally:
 oumi train -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml
 ```
 
-Launch full fine-tuning on Falcon-H1-7B-Instruct remotely via GCP:
+Launch full fine-tuning on Falcon-H1-7B-Instruct remotely via Lambda:
 
 ```bash
-oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_gcp_job.yaml --cluster falcon-h1-7b-fft
+oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_lambda_job.yaml --cluster falcon-h1-7b-fft
 ```
 
 ### Evaluation
@@ -60,10 +60,10 @@ Evaluate using the VLLM engine:
 oumi evaluate -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/eval.yaml --inference_engine VLLM
 ```
 
-Evaluate on GCP 4xA100 cluster:
+Evaluate on Lambda 4xA100 cluster:
 
 ```bash
-oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/gcp_job.yaml --cluster falcon-h1-7b-instruct-eval
+oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/lambda_job.yaml --cluster falcon-h1-7b-instruct-eval
 ```
 
 ### Inference
