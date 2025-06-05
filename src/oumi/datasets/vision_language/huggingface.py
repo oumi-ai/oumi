@@ -34,7 +34,7 @@ from oumi.core.types.conversation import (
 )
 
 
-@register_dataset("HuggingFaceVisionDataset")
+@register_dataset("hf_vision")
 class HuggingFaceVisionDataset(VisionLanguageSftDataset):
     """Converts HuggingFace Vision-Language Datasets to Oumi Message format.
 
@@ -143,16 +143,18 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
         messages = []
 
         # Validate required columns
-        required_columns = [
-            (self.image_column, "image_column"),
-            (self.question_column, "question_column"),
-        ]
-        if self.answer_column:
-            required_columns.append((self.answer_column, "answer_column"))
-        if self.system_prompt_column:
-            required_columns.append((self.system_prompt_column, "system_prompt_column"))
+        required = {
+            "image_column": self.image_column,
+            "question_column": self.question_column,
+        }
 
-        for column_name, column_var in required_columns:
+        if self.answer_column:
+            required["answer_column"] = self.answer_column
+
+        if self.system_prompt_column:
+            required["system_prompt_column"] = self.system_prompt_column
+
+        for column_name, column_var in required.items():
             if column_name not in example:
                 raise ValueError(
                     f"The column '{column_name}' (specified as {column_var}) "

@@ -384,7 +384,7 @@ def test_transform_conversation_missing_answer_column_in_data(
         hf_dataset_path="test/dataset",
         image_column="image",
         question_column="question",
-        answer_column="answer",  # Answer column specified but not in data
+        answer_column=None,  # Answer column specified but not in data
         tokenizer=mock_tokenizer,
         processor=mock_processor,
     )
