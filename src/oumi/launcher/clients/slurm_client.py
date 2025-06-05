@@ -283,9 +283,9 @@ class SlurmClient:
                 logger.debug(f"Commands successfully finished! {duration_str}")
             else:
                 logger.error(
-                    f"Commands failed with code: {child.returncode}! {duration_str}"
-                    f"\nSTDERR: {stderr_str}"
-                    f"\nSTDOUT: {stdout_str}"
+                    f"Commands failed with code: {return_code}! {duration_str}"
+                    f"\n\nSTDERR: {stderr_str}"
+                    f"\n\nSTDOUT: {stdout_str}"
                 )
             return SlurmResponse(
                 stdout=stdout_str,
