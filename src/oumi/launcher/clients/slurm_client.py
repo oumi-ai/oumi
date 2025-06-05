@@ -318,6 +318,8 @@ class SlurmClient:
         threads_per_core: Optional[int] = None,
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
+        stdout_file: Optional[str] = None,
+        stderr_file: Optional[str] = None,
     ) -> str:
         """Submits the specified job script to Slurm.
 
@@ -336,6 +338,8 @@ class SlurmClient:
             distribution: Distribution method for processes to nodes
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
+            stdout_file: File for batch script's standard output.
+            stderr_file: File for batch script's standard error.
 
         Returns:
             The ID of the submitted job.
@@ -361,8 +365,10 @@ class SlurmClient:
             cmd_parts.append(f"--distribution={distribution}")
         if partition:
             cmd_parts.append(f"--partition={partition}")
-        cmd_parts.append('-o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"')
-        cmd_parts.append('-e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"')
+        if stdout_file:
+            cmd_parts.append(f"--output={stdout_file}")
+        if stderr_file:
+            cmd_parts.append(f"--error={stderr_file}")
         cmd_parts.append("--parsable")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)

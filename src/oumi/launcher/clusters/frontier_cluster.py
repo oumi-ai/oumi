@@ -310,6 +310,8 @@ class FrontierCluster(BaseCluster):
             threads_per_core=1,
             distribution="block:cyclic",
             partition=self._queue.value,
+            stdout_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU",
+            stderr_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER",
         )
         job_status = self.get_job(job_id)
         if job_status is None:
