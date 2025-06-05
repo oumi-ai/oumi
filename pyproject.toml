@@ -121,7 +121,7 @@ gpu = [
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.3.0,<0.4",   # Used for the VERL_GRPO trainer.
-    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
+    "vllm>=0.9.0,<0.10", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
 # Targets for supported cloud providers
