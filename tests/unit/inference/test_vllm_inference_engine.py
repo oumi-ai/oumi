@@ -1,3 +1,4 @@
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, Mock, patch
@@ -60,6 +61,21 @@ def mock_sampling_params():
 def mock_vllm():
     with patch("oumi.inference.vllm_inference_engine.vllm") as mvllm:
         yield mvllm
+
+
+@pytest.fixture
+def setup_and_teardown():
+    # Setup
+    temp_output = Path(str(os.getcwd())) / "tmp" / "temp_inference_output.jsonl"
+    if temp_output.exists():
+        temp_output.unlink()
+
+    # Run Test
+    yield
+
+    # Teardown
+    if temp_output.exists():
+        temp_output.unlink()
 
 
 @pytest.fixture
