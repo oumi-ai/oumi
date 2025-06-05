@@ -275,16 +275,21 @@ class SlurmClient:
                 timeout=180,  # time in seconds
             )
             duration_str = _compute_duration_debug_str(start_time)
-            if child.returncode == 0:
+            return_code = int(child.returncode)
+            stdout_str = child.stdout.decode("utf-8")
+            stderr_str = child.stderr.decode("utf-8")
+            if return_code == 0:
                 logger.debug(f"Commands successfully finished! {duration_str}")
             else:
                 logger.error(
                     f"Commands failed with code: {child.returncode}! {duration_str}"
+                    f"\nSTDERR: {stderr_str}"
+                    f"\nSTDOUT: {stdout_str}"
                 )
             return SlurmResponse(
-                stdout=child.stdout.decode("utf-8"),
-                stderr=child.stderr.decode("utf-8"),
-                exit_code=child.returncode,
+                stdout=stdout_str,
+                stderr=stderr_str,
+                exit_code=return_code,
             )
         except subprocess.TimeoutExpired:
             duration_str = _compute_duration_debug_str(start_time)
