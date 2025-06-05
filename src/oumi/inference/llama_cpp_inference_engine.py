@@ -223,10 +223,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 inference_config.output_path if inference_config else None,
             )
 
-        self._cleanup_scratch_file(
-            inference_config.output_path if inference_config else None
-        )
-
         return output_conversations
 
     @override
