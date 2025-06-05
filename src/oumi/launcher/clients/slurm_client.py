@@ -253,7 +253,7 @@ class SlurmClient:
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
         try:
-            logger.info(f"Running commands:\n{new_cmd}")
+            logger.debug(f"Running commands:\n{new_cmd}")
             child = subprocess.run(
                 new_cmd,
                 shell=True,
@@ -357,7 +357,7 @@ class SlurmClient:
         cmd_parts.append("--parsable")
         cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
-        logger.info(f"Executing SBATCH command: {sbatch_cmd}")
+        logger.debug(f"Executing SBATCH command: {sbatch_cmd}")
         result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
