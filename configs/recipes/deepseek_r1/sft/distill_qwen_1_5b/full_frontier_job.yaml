@@ -35,7 +35,7 @@ setup: |
   set -e
   #SBATCH -N 1
   #SBATCH -A lrn081
-  #SBATCH -J example_job
+  #SBATCH -J distill_qwen_1_5b_fft
   #SBATCH -o /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU
   #SBATCH -e /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER
   #SBATCH -t 01:00:00

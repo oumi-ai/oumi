@@ -57,8 +57,8 @@ def _last_sbatch_line(script: list[str]) -> int:
 def _get_logging_directories(script: str) -> list[str]:
     """Gets the logging directories from the script.
 
-    Parses the provided script for commands starting with `#PBS -o`, `#PBS -e`,
-    `#PBS -oe`, `#PBS -eo`, or `#PBS -doe`.
+    Parses the provided script for commands starting with `#SBATCH -o`, `#SBATCH -e`,
+    `#SBATCH -oe`, `#SBATCH -eo`, or `#SBATCH -doe`.
 
     Args:
         script: The script to extract logging directories from.
@@ -66,13 +66,18 @@ def _get_logging_directories(script: str) -> list[str]:
     Returns:
         A list of logging directories.
     """
-    logging_pattern = r"#PBS\s+-[oe|eo|doe|o|e]\s+(.*)"
-    logging_dirs = []
+    logging_pattern = r"#SBATCH\s+-[oe|eo|doe|o|e]\s+(.*)"
+    logging_dirs = set()
     for line in script.split("\n"):
         match = re.match(logging_pattern, line.strip())
         if match:
-            logging_dirs.append(match.group(1))
-    return logging_dirs
+            file_name = str(match.group(1)).strip()
+            if file_name:
+                dir_path = Path(file_name)
+                if dir_path.suffix:  # If it's a file name, get a parent dir.
+                    dir_path = dir_path.parent
+                logging_dirs.add(str(dir_path))
+    return list(sorted(logging_dirs))
 
 
 def _create_job_script(job: JobConfig) -> str:
