@@ -1,11 +1,11 @@
 # Job config to eval tiiuae/Falcon-H1-34B-Instruct.
 #
 # Requirements:
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_34b/gcp_job.yaml --cluster falcon-h1-34b-instruct-eval
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_34b/lambda_job.yaml --cluster falcon-h1-34b-instruct-eval
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -16,7 +16,7 @@
 name: falcon-h1-34b-instruct-eval
 
 resources:
-  cloud: gcp
+  cloud: lambda
   accelerators: "A100:4"
   use_spot: false
   disk_size: 400 # Disk size in GBs
@@ -37,12 +37,11 @@ envs:
 setup: |
   set -e
   pip install uv
-  uv pip install \
-    oumi[gpu,evaluation] \
-    -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly \
-    transformers@git+https://github.com/younesbelkada/transformers.git@fix-slow-path \
-    hf_transfer
-  uv pip install mamba-ssm causal-conv1d --no-build-isolation
+  uv pip install oumi[gpu] hf_transfer
+  uv pip install -U vllm
+  uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
+  uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
+  uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-34B-Instruct

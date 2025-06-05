@@ -80,6 +80,9 @@ class VisionLanguageSftCollator:
         label_ignore_index: Optional[int] = None,
         allow_multi_image_inputs: bool = True,
         trust_remote_code: bool = False,
+        train_on_completions_only: bool = False,
+        response_template: Optional[str] = None,
+        instruction_template: Optional[str] = None,
         process_individually: bool = False,
     ):
         """Initializes the vision-language SFT collator.
@@ -126,6 +129,51 @@ class VisionLanguageSftCollator:
                 - Useful for models with variable-sized outputs or heterogeneous data
                 - May be less efficient but more flexible than batch processing
                 When False (default), conversations are processed as a batch.
+
+            train_on_completions_only: If True, only compute loss on the assistant's
+                response tokens. This enables instruction-following training where:
+
+                - **When True**: Only assistant responses contribute to the loss.
+                  User instructions, system prompts, and special tokens are masked
+                  (ignored) during training. The model learns to generate appropriate
+                  responses without being penalized for user input tokens.
+
+                - **When False**: All tokens in the conversation contribute to the loss.
+                  This is standard language modeling where the model learns to predict
+                  the next token for the entire conversation sequence.
+
+                This parameter is particularly useful for instruction-tuning where you
+                want the model to learn response patterns without memorizing prompts.
+
+                **Masking Strategy**: The behavior depends on whether
+                instruction_template is provided:
+
+                - **With instruction_template**: Uses multi-turn masking strategy.
+                  All user turns are masked, all assistant turns are unmasked.
+                  Suitable for multi-turn conversations.
+
+                - **Without instruction_template**: Uses single-turn masking strategy.
+                  Only the final assistant response is unmasked, everything else
+                  is masked. Suitable for single-turn prompt-response pairs.
+
+            response_template: The template string that marks the beginning of the
+                assistant's response. Required if train_on_completions_only is True.
+
+                This should match the exact string that appears in your tokenized
+                conversation format to indicate where assistant responses start.
+
+                For example:
+                    - Phi-3: "<|assistant|>"
+                    - Llama-3: "<|start_header_id|>assistant<|end_header_id|>"
+                    - Custom: "Assistant: " or "AI: "
+
+            instruction_template: The template string that marks the beginning of the
+                user's instruction.
+
+                For example:
+                    - Phi-3: "<|user|>"
+                    - Llama-3: "<|start_header_id|>user<|end_header_id|>"
+                    - Custom: "User: " or "Human: "
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._process_individually = process_individually
@@ -144,6 +192,9 @@ class VisionLanguageSftCollator:
                 truncation_side=truncation_side,
                 max_length=max_length,
                 label_ignore_index=label_ignore_index,
+                train_on_completions_only=train_on_completions_only,
+                response_template=response_template,
+                instruction_template=instruction_template,
             )
         )
 
@@ -218,7 +269,7 @@ class VisionLanguageSftCollator:
                 single_result = (
                     self._conversation_feature_generator.transform_conversations(
                         [conversation],
-                        FeatureGeneratorOptions(allow_feature_reshape=False),
+                        FeatureGeneratorOptions(allow_feature_reshape=True),
                     )
                 )
                 individual_results.append(single_result)

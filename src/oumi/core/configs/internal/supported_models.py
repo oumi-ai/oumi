@@ -14,16 +14,19 @@
 
 """Supported models configuration for Oumi framework.
 
-This module defines the configuration for all supported models in the Oumi framework,
+This module defines the configuration for all non-standard models in the Oumi framework,
 including both language models (LLMs) and vision-language models (VLMs). It provides
 a centralized registry of model configurations that specify how different models
 should be handled during training, inference, and evaluation.
 
+Note that most models should work without any special configuration, and therefore do
+not need to be added to this module.
+
 Key Components:
-    - _ModelTypeInfo: Metadata for each supported model type
     - InternalModelConfig: Configuration parameters for model behavior
     - Model-specific config creators: Functions that create configs for specific models
     - Registry functions: For looking up and accessing model configurations
+    - _ModelTypeInfo: Metadata for each supported model type
 
 How to Add a New Model:
     1. Create a configuration function:
@@ -48,15 +51,13 @@ How to Add a New Model:
 
     3. For VLMs, configure visual features:
        ```python
-       config = _create_default_vlm_config(
+       vlm_config = _create_default_vlm_config(
            supports_multiple_images=True,  # If model supports multiple images
            pixel_values_variable_shape=True,  # If images can have different sizes
        )
        # Add any model-specific image features
-       config.model_input_features.update({...})
+       vlm_config.model_input_features.update({...})
        ```
-
-    4. Add tests in test_supported_models.py to verify the configuration works
 """
 
 import copy
@@ -403,44 +404,25 @@ def _create_molmo_vlm_config() -> InternalModelConfig:
 
     config.model_input_features.update(
         {
-            "input_ids": InternalFeatureSpec(
-                name="input_ids",
+            feature_name: InternalFeatureSpec(
+                name=feature_name,
                 required=True,
                 variable_shape=True,
                 first_dim_action=InternalFeatureFirstDimAction.KEEP,
-            ),
-            "labels": InternalFeatureSpec(
-                name="labels",
-                required=False,
-                variable_shape=True,
-                first_dim_action=InternalFeatureFirstDimAction.KEEP,
-            ),
-            "images": InternalFeatureSpec(
-                name="images",
-                required=True,
-                variable_shape=True,
-                first_dim_action=InternalFeatureFirstDimAction.KEEP,
-                image_dependent=True,
-            ),
-            "image_masks": InternalFeatureSpec(
-                name="image_masks",
-                required=True,
-                variable_shape=True,
-                first_dim_action=InternalFeatureFirstDimAction.KEEP,
-                image_dependent=True,
-            ),
-            "image_input_idx": InternalFeatureSpec(
-                name="image_input_idx",
-                required=True,
-                variable_shape=True,
-                first_dim_action=InternalFeatureFirstDimAction.KEEP,
-                image_dependent=True,
-            ),
+                image_dependent=True
+                if feature_name in ("images", "image_masks", "image_input_idx")
+                else False,
+            )
+            for feature_name in (
+                "input_ids",
+                "labels",
+                "images",
+                "image_masks",
+                "image_input_idx",
+            )
         }
     )
-
-    config.chat_template = "default"
-    # config.processor_kwargs.update({"return_dict": True})
+    config.chat_template = "molmo"
 
     visual_config = InternalVisualModelConfig()
     visual_config.supports_multiple_images = False
@@ -459,32 +441,41 @@ def get_all_models_map() -> Mapping[
 ]:
     """Creates a map of all supported models with their configurations.
 
-    This is the central registry of all models supported by the Oumi framework.
-    Each entry maps a model type (as defined in the HuggingFace model config) to
-    its corresponding configuration and metadata.
+    <<<<<<< HEAD
+        This is the central registry of all models supported by the Oumi framework.
+        Each entry maps a model type (as defined in the HuggingFace model config) to
+        its corresponding configuration and metadata.
+    =======
+        This is the central registry of the non-standard models supported by the Oumi
+        framework. Each entry maps a model type (as defined in the HuggingFace model config)
+        to its corresponding configuration and metadata.
+    >>>>>>> main
 
-    Returns:
-        An immutable mapping from model_type strings to _ModelTypeInfo objects.
-        The mapping includes both LLMs and VLMs with their specific configurations.
+        Returns:
+            An immutable mapping from model_type strings to _ModelTypeInfo objects.
+            The mapping includes both LLMs and VLMs with their specific configurations.
+    <<<<<<< HEAD
 
-    Adding a New Model:
-        To add support for a new model:
+        Adding a New Model:
+            To add support for a new model:
 
-        1. Create a configuration function (see _create_molmo_vlm_config for example)
-        2. Add a new _ModelTypeInfo entry to all_models_list:
-           ```python
-           _ModelTypeInfo(
-               model_type="your_model_type",  # Must match HF config.model_type
-               model_class=transformers.AutoModelForCausalLM,  # Or appropriate class
-               tested=False,  # Change to True after adding tests
-               config=_create_your_model_config(),
-           )
-           ```
-        3. The model_type must exactly match what's in the model's config.json
-        4. Add tests in test_supported_models.py before setting tested=True
+            1. Create a configuration function (see _create_molmo_vlm_config for example)
+            2. Add a new _ModelTypeInfo entry to all_models_list:
+               ```python
+               _ModelTypeInfo(
+                   model_type="your_model_type",  # Must match HF config.model_type
+                   model_class=transformers.AutoModelForCausalLM,  # Or appropriate class
+                   tested=False,  # Change to True after adding tests
+                   config=_create_your_model_config(),
+               )
+               ```
+            3. The model_type must exactly match what's in the model's config.json
+            4. Add tests in test_supported_models.py before setting tested=True
 
-    Note:
-        This function is cached, so the mapping is only created once per process.
+        Note:
+            This function is cached, so the mapping is only created once per process.
+    =======
+    >>>>>>> main
     """
     default_vlm_config: InternalModelConfig = _create_default_vlm_config()
 
@@ -608,32 +599,35 @@ def find_internal_model_config_using_model_name(
 ) -> Optional[InternalModelConfig]:
     """Finds an internal model config for supported models using model name.
 
-    This function is the main entry point for determining how to configure a model
-    based on its name. It:
-    1. Checks if it's a custom Oumi model (returns None if so)
-    2. Loads the model's HuggingFace config to get its model_type
-    3. Looks up the model_type in the supported models registry
-    4. Returns the corresponding InternalModelConfig if found
+        This function is the main entry point for determining how to configure a model
+        based on its name. It:
+        1. Checks if it's a custom Oumi model (returns None if so)
+        2. Loads the model's HuggingFace config to get its model_type
+        3. Looks up the model_type in the supported models registry
+        4. Returns the corresponding InternalModelConfig if found
 
-    Args:
-        model_name: The model name, either:
-            - A HuggingFace model ID (e.g., "meta-llama/Llama-2-7b-hf")
-            - A local path to a model directory
-            - A custom model name registered in Oumi
-        trust_remote_code: Whether to trust external code associated with the model.
-            Required for some models like Qwen2-VL that use custom code.
+        Args:
+            model_name: The model name, either:
+                - A HuggingFace model ID (e.g., "meta-llama/Llama-2-7b-hf")
+                - A local path to a model directory
+                - A custom model name registered in Oumi
+            trust_remote_code: Whether to trust external code associated with the model.
+                Required for some models like Qwen2-VL that use custom code.
 
-    Returns:
-        InternalModelConfig for the model if it's supported, or None if:
-        - The model is a custom Oumi model (handled separately)
-        - The model type is not in the supported models registry
+        Returns:
+            InternalModelConfig for the model if it's supported, or None if:
+            - The model is a custom Oumi model (handled separately)
+            - The model type is not in the supported models registry
+    <<<<<<< HEAD
 
-    Example:
-        >>> config = find_internal_model_config_using_model_name(
-        ...     "llava-hf/llava-1.5-7b-hf", trust_remote_code=False
-        ... )
-        >>> config.model_type if config else None
-        'llava'
+        Example:
+            >>> config = find_internal_model_config_using_model_name(
+            ...     "llava-hf/llava-1.5-7b-hf", trust_remote_code=False
+            ... )
+            >>> config.model_type if config else None
+            'llava'
+    =======
+    >>>>>>> main
     """
     if is_custom_model(model_name):
         return None
