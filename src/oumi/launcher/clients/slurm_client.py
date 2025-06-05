@@ -291,6 +291,7 @@ class SlurmClient:
         working_dir: str,
         node_count: int,
         name: Optional[str],
+        export: Optional[list[str]] = None,
     ) -> str:
         """Submits the specified job script to Slurm.
 
@@ -299,16 +300,16 @@ class SlurmClient:
             working_dir: The working directory to submit the job from.
             node_count: The number of nodes to use for the job.
             name: The name of the job (optional).
+            export: Environment variables to export. "NONE" if nothing to export.
 
         Returns:
             The ID of the submitted job.
         """
-        optional_name_args = ""
+        cmd_parts = ["sbatch", f"--nodes={node_count}"]
         if name:
-            optional_name_args = f"--job-name={name}"
-        sbatch_cmd = (
-            f"sbatch --nodes={node_count} {optional_name_args} --parsable {job_path}"
-        )
+            cmd_parts.append(f"--job-name={name}")
+        cmd_parts.append(f"--parsable {job_path}")
+        sbatch_cmd = " ".join(cmd_parts)
         result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
