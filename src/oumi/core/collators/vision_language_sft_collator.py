@@ -136,8 +136,21 @@ class VisionLanguageSftCollator:
             response_template: The template string that marks the beginning of the
                 assistant's response. Required if train_on_completions_only is True.
 
+                This should match the exact string that appears in your tokenized
+                conversation format to indicate where assistant responses start.
+
+                For example:
+                    - Phi-3: "<|assistant|>"
+                    - Llama-3: "<|start_header_id|>assistant<|end_header_id|>"
+                    - Custom: "Assistant: " or "AI: "
+
             instruction_template: The template string that marks the beginning of the
                 user's instruction.
+
+                For example:
+                    - Phi-3: "<|user|>"
+                    - Llama-3: "<|start_header_id|>user<|end_header_id|>"
+                    - Custom: "User: " or "Human: "
         """
         self._allow_multi_image_inputs = allow_multi_image_inputs
         self._process_individually = process_individually

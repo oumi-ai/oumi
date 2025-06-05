@@ -34,6 +34,10 @@ from oumi.core.feature_generators.base_feature_generator import (
 )
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.core.tokenizers.utils import (
+    mask_labels_for_completions_only,
+    mask_labels_without_user_template,
+)
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -483,7 +487,8 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
 
         if labels is None or input_ids is None:
             raise ValueError(
-                "Labels and input_ids are required for completion-only training"
+                "Properties `labels` and `input_ids` are required for "
+                "completion-only training"
             )
 
         # Convert to numpy for processing
@@ -506,11 +511,6 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         self, labels: np.ndarray, input_ids: np.ndarray
     ) -> None:
         """Mask a single conversation to keep only assistant responses."""
-        from oumi.core.tokenizers.utils import (
-            mask_labels_for_completions_only,
-            mask_labels_without_user_template,
-        )
-
         ignore_index = int(self._special_tokens.label_ignore_index or -100)
 
         # Choose masking strategy based on whether instruction token IDs are available
