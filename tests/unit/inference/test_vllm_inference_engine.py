@@ -412,6 +412,7 @@ def test_infer_from_file(mock_vllm):
         _create_vllm_output(["The first time I saw"], "123")
     ]
     with tempfile.TemporaryDirectory() as output_temp_dir:
+        os.chdir(output_temp_dir)
         engine = VLLMInferenceEngine(_get_default_model_params())
         conversation = Conversation(
             messages=[
@@ -444,7 +445,6 @@ def test_infer_from_file(mock_vllm):
         ]
         inference_config = _get_default_inference_config()
         inference_config.input_path = str(input_path)
-        engine._cleanup_scratch_file(None)
         infer_result = engine.infer(
             inference_config=inference_config,
         )
