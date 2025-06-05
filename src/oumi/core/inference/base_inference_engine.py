@@ -141,6 +141,7 @@ class BaseInferenceEngine(ABC):
 
         if not remaining_conversations:
             logger.info("All conversations have already been processed")
+            self._cleanup_scratch_file(output_path)
             return completed_conversations
 
         if len(remaining_conversations) < len(conversations_to_process):
