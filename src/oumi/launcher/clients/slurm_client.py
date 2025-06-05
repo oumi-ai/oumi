@@ -360,7 +360,10 @@ class SlurmClient:
             cmd_parts.append(f"--distribution={distribution}")
         if partition:
             cmd_parts.append(f"--partition={partition}")
-        cmd_parts.append(f"--parsable {job_path}")
+        cmd_parts.append('-o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"')
+        cmd_parts.append('-e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"')
+        cmd_parts.append("--parsable")
+        cmd_parts.append(job_path)
         sbatch_cmd = " ".join(cmd_parts)
         logger.info(f"Executing SBATCH command: {sbatch_cmd}")
         result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
