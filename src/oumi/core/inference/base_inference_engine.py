@@ -155,6 +155,16 @@ class BaseInferenceEngine(ABC):
         # Load all results from scratch to get both previously completed and new results
         final_results = self._load_from_scratch(output_path)
         self._cleanup_scratch_file(output_path)
+
+        sorted_conversations = {
+            conv.conversation_id: conv for conv in conversations_to_process
+        }
+
+        for conv in final_results:
+            sorted_conversations[conv.conversation_id] = conv
+
+        final_results = list(sorted_conversations.values())
+
         return final_results
 
     def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:
