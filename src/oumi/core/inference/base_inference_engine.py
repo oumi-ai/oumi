@@ -161,11 +161,14 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
-    def _get_scratch_filepath(self, output_filepath: str) -> str:
+    def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
         """Returns a scratch filepath for the given output filepath.
 
         For example, if the output filepath is "/foo/bar/output.json", the scratch
         filepath will be "/foo/bar/scratch/output.json"
+
+        If no output filepath is provided, a temporary file is used and placed in the
+        current working directory under the name "tmp/temp_inference_output.jsonl".
 
         Args:
             output_filepath: The output filepath.
@@ -173,11 +176,14 @@ class BaseInferenceEngine(ABC):
         Returns:
             str: The scratch filepath.
         """
-        original_filepath = Path(output_filepath)
-        return str(original_filepath.parent / "scratch" / original_filepath.name)
+        if output_filepath is not None:
+            original_filepath = Path(output_filepath)
+            return str(original_filepath.parent / "scratch" / original_filepath.name)
 
-    def _save_conversation(
-        self, conversation: Conversation, output_filepath: str
+        return str(Path.cwd() / "tmp" / "temp_inference_output.jsonl")
+
+    def _save_conversation_to_scratch(
+        self, conversation: Conversation, output_filepath: Optional[str]
     ) -> None:
         """Appends a conversation to a file in Oumi chat format.
 
@@ -187,10 +193,22 @@ class BaseInferenceEngine(ABC):
                 saved.
         """
         # Make the directory if it doesn't exist.
-        Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
-        with jsonlines.open(output_filepath, mode="a") as writer:
+        scratch_filepath = self._get_scratch_filepath(output_filepath)
+        Path(scratch_filepath).parent.mkdir(parents=True, exist_ok=True)
+        with jsonlines.open(scratch_filepath, mode="a") as writer:
             json_obj = conversation.to_dict()
             writer.write(json_obj)
+
+    def _cleanup_scratch_file(self, output_filepath: Optional[str]) -> None:
+        """Delete the scratch file from the file system if it exists.
+
+        Args:
+            output_filepath: The path to the output file. This is used to determine the
+                location of the scratch file.
+        """
+        scratch_filepath = self._get_scratch_filepath(output_filepath)
+        if Path(scratch_filepath).exists():
+            Path(scratch_filepath).unlink()
 
     def _save_conversations(
         self, conversations: list[Conversation], output_filepath: str

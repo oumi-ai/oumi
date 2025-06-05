@@ -1338,18 +1338,141 @@ def test_infer_from_file_to_file():
                 inference_config,
             )
             assert expected_result == result
-            # Ensure that intermediary results are saved to the scratch directory.
-            with open(output_path.parent / "scratch" / output_path.name) as f:
-                parsed_conversations = []
-                for line in f:
-                    parsed_conversations.append(Conversation.from_json(line))
-                assert len(expected_result) == len(parsed_conversations)
+            # Ensure that intermediary results are cleaned up after inference.
+            scratch_path = output_path.parent / "scratch" / output_path.name
+            assert not scratch_path.exists(), f"Scratch file {scratch_path} exists"
             # Ensure the final output is in order.
             with open(output_path) as f:
                 parsed_conversations = []
                 for line in f:
                     parsed_conversations.append(Conversation.from_json(line))
                 assert expected_result == parsed_conversations
+
+
+def test_infer_from_file_to_file_failure_midway():
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
+
+        # Note: We use the first message's content as the key to avoid
+        # stringifying the message object.
+        response_by_conversation_id = {
+            "Hello world!": {
+                "status": 200,
+                "payload": {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "The first time I saw",
+                            }
+                        }
+                    ]
+                },
+            },
+            "Goodbye world!": {
+                "status": 500,  # Fail the second conversation
+                "payload": {"error": {"message": "Internal server error"}},
+            },
+        }
+
+        def response_callback(url: str, **kwargs: Any) -> CallbackResult:
+            """Callback for mocked API responses."""
+            request = kwargs.get("json", {})
+            messages = request.get("messages", [])
+            if not messages:
+                raise ValueError("No messages in request")
+            content = messages[0].get("content", [])
+            if not content:
+                raise ValueError("No content in message")
+            conversation_id = content[0].get("text")
+
+            if response := response_by_conversation_id.get(conversation_id):
+                # Extract status and payload from the response dict
+                return CallbackResult(
+                    status=response["status"], payload=response["payload"]
+                )
+
+            raise ValueError(
+                "Test error: Static response not found for "
+                f"conversation_id: {conversation_id}"
+            )
+
+        with aioresponses() as m:
+            m.post(_TARGET_SERVER, callback=response_callback, repeat=True)
+            remote_params = RemoteParams(api_url=_TARGET_SERVER, num_workers=2)
+            engine = RemoteInferenceEngine(
+                _get_default_model_params(), remote_params=remote_params
+            )
+            conversation1 = Conversation(
+                messages=[
+                    Message(
+                        content="Hello world!",
+                        role=Role.USER,
+                    ),
+                    Message(
+                        content="Hello again!",
+                        role=Role.USER,
+                    ),
+                ],
+                metadata={"foo": "bar"},
+                conversation_id="123",
+            )
+            conversation2 = Conversation(
+                messages=[
+                    Message(
+                        content="Goodbye world!",
+                        role=Role.USER,
+                    ),
+                    Message(
+                        content="Goodbye again!",
+                        role=Role.USER,
+                    ),
+                ],
+                metadata={"bar": "foo"},
+                conversation_id="321",
+            )
+            _setup_input_conversations(str(input_path), [conversation1, conversation2])
+            expected_result = [
+                Conversation(
+                    messages=[
+                        *conversation1.messages,
+                        Message(
+                            content="The first time I saw",
+                            role=Role.ASSISTANT,
+                        ),
+                    ],
+                    metadata={"foo": "bar"},
+                    conversation_id="123",
+                )
+            ]
+            output_path = Path(output_temp_dir) / "b" / "output.jsonl"
+            inference_config = InferenceConfig(
+                output_path=str(output_path),
+                generation=GenerationParams(
+                    max_new_tokens=5,
+                ),
+                remote_params=remote_params,
+            )
+
+            with pytest.raises(RuntimeError, match="Internal server error"):
+                _ = engine.infer_online(
+                    [conversation1, conversation2],
+                    inference_config,
+                )
+
+            # Verify scratch file exists and contains only first conversation
+            scratch_path = output_path.parent / "scratch" / output_path.name
+            assert scratch_path.exists(), f"Scratch file {scratch_path} does not exist"
+
+            # Read scratch file and verify contents
+            with open(scratch_path) as f:
+                parsed_conversations = []
+                for line in f:
+                    parsed_conversations.append(Conversation.from_json(line))
+                assert expected_result == parsed_conversations
+
+            # Ensure the final output is in order and matches scratch file
+            assert not output_path.exists(), f"Output file {output_path} exists"
 
 
 def test_get_list_of_message_json_dicts_multimodal_with_grouping():

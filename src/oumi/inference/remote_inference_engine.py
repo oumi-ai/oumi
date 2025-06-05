@@ -514,12 +514,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             result = self._convert_api_output_to_conversation(
                                 response_json, conversation
                             )
-                            if output_path:
-                                # Write what we have so far to our scratch directory
-                                self._save_conversation(
-                                    result,
-                                    self._get_scratch_filepath(output_path),
-                                )
+                            # Write what we have so far to our scratch directory
+                            self._save_conversation_to_scratch(result, output_path)
                             return result
                         except Exception as e:
                             # Response was successful, but we couldn't process it.
@@ -597,7 +593,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             ]
 
             disable_tqdm = len(tasks) < 2
-            return await tqdm.gather(*tasks, disable=disable_tqdm)
+            results = await tqdm.gather(*tasks, disable=disable_tqdm)
+            self._cleanup_scratch_file(
+                inference_config.output_path if inference_config else None
+            )
+            return results
 
     @override
     def infer_online(
