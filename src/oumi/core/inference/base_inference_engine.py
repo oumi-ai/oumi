@@ -139,11 +139,6 @@ class BaseInferenceEngine(ABC):
             conversations_to_process, completed_conversations
         )
 
-        if not remaining_conversations:
-            logger.info("All conversations have already been processed")
-            self._cleanup_scratch_file(output_path)
-            return completed_conversations
-
         if len(remaining_conversations) < len(conversations_to_process):
             logger.info(
                 f"Found {len(completed_conversations)} completed conversations. "
@@ -151,12 +146,11 @@ class BaseInferenceEngine(ABC):
             )
 
         # Run inference only on remaining conversations
-        if remaining_conversations:
-            start_time = time.perf_counter()
-            histogram = self._latency_histogram_online
-            _ = self.infer_online(remaining_conversations, inference_config)
-            histogram.record_value((time.perf_counter() - start_time) * 1e3)
-            self._maybe_log_latency_histogram(histogram)
+        start_time = time.perf_counter()
+        histogram = self._latency_histogram_online
+        _ = self.infer_online(remaining_conversations, inference_config)
+        histogram.record_value((time.perf_counter() - start_time) * 1e3)
+        self._maybe_log_latency_histogram(histogram)
 
         # Load all results from scratch to get both previously completed and new results
         final_results = self._load_from_scratch(output_path)
