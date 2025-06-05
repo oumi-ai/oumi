@@ -248,9 +248,20 @@ class SlurmClient:
         Args:
             commands: The commands to run.
         """
-        ssh_cmd = f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
-        eof_suffix = "EOF"
-        new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
+        if (
+            len(commands) == 2
+            and commands[0].startswith("cd")
+            and commands[0].startswith("sbatch")
+        ):
+            new_cmd = (
+                f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host} bash -c '"
+                + " && ".join(commands)
+                + "'"
+            )
+        else:
+            ssh_cmd = f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
+            eof_suffix = "EOF"
+            new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
         try:
             logger.info(f"Running commands:\n{new_cmd}")
