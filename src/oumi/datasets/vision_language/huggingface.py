@@ -116,6 +116,12 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
                 type=Type.IMAGE_BINARY,
                 binary=image_data.bytes,
             )
+        elif isinstance(image_data, dict) and "bytes" in image_data:
+            # Dict with bytes
+            return ContentItem(
+                type=Type.IMAGE_BINARY,
+                binary=image_data["bytes"],
+            )
         elif isinstance(image_data, str):
             if image_data.startswith(("http://", "https://")):
                 return ContentItem(type=Type.IMAGE_URL, content=image_data)
