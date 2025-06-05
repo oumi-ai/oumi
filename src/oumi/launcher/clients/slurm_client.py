@@ -254,12 +254,15 @@ class SlurmClient:
             and commands[1].startswith("sbatch")
         ):
             new_cmd = (
-                f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host} bash -c '"
+                f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host} \"bash -c '"
                 + " && ".join(commands)
-                + "'"
+                + "'\""
             )
+            # ssh_cmd = f"ssh -tt {_CTRL_PATH} {self._user}@{self._slurm_host} << 'EOF'"
+            # eof_suffix = "EOF"
+            # new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         else:
-            ssh_cmd = f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
+            ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
             eof_suffix = "EOF"
             new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
