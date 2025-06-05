@@ -19,7 +19,7 @@ model:
   torch_dtype_str: "bfloat16"
   model_max_length: 3072
   trust_remote_code: True
-  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
+  attn_implementation: "flash_attention_2" # The model requires Flash Attention for best performance. "eager" is also supported.
   chat_template: "phi3-instruct"
   freeze_layers: # To train also the vision encoder, remove this field.
     - "model.vision_embed_tokens"
@@ -35,6 +35,7 @@ data:
       train_on_completions_only: True
       response_template: "<|assistant|>\n"
       instruction_template: "<|user|>\n"
+      process_individually: True
 
     datasets:
       - dataset_name: "merve/vqav2-small"
