@@ -231,6 +231,14 @@ class PeftParams(BaseParams):
     Can be 'fp4' (float point 4) or 'nf4' (normal float 4).
     """
 
+    llm_int8_skip_modules: Optional[list[str]] = field(
+        default=None,
+        metadata={"help": "Modules that we do not want to convert in 8-bit"},
+    )
+    """ An explicit list of the modules that we do not want to convert in 8-bit.
+
+    """
+
     use_bnb_nested_quant: bool = field(
         default=False, metadata={"help": "Use nested quantization."}
     )
@@ -286,6 +294,7 @@ class PeftParams(BaseParams):
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=self.q_lora_bits == 4,
             load_in_8bit=self.q_lora_bits == 8,
+            llm_int8_skip_modules=self.llm_int8_skip_modules,
             bnb_4bit_compute_dtype=self.bnb_4bit_compute_dtype,
             bnb_4bit_quant_type=self.bnb_4bit_quant_type,
             bnb_4bit_use_double_quant=self.use_bnb_nested_quant,
