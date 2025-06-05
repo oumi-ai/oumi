@@ -1,11 +1,13 @@
-# Job config to full fine-tune tune Deepseek R1 Distill Qwen2.5 1.5B.
+# Job config to full fine-tune Deepseek R1 Distill Qwen2.5 1.5B on OLCF Frontier cluster.
 #
 # Requirements:
+#   - Set up your OLCF account (only available to Oumi core team)
+#   - Set `user` to your OLCF username
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_gcp_job.yaml --cluster deepseek-r1-qwen1-5b-fft
+#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_frontier_job.yaml --cluster debug.$OLCF_USER --user $OLCF_USER
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -15,10 +17,9 @@
 
 name: deepseek-r1-distill-qwen1-5b-fft
 
+num_nodes: 1
 resources:
-  cloud: gcp
-  accelerators: "A100:4"
-  use_spot: false
+  cloud: frontier
 
 working_dir: .
 
@@ -31,7 +32,6 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu]
 
 run: |
   set -e  # Exit if any command failed.
