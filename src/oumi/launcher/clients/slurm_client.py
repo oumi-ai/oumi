@@ -248,12 +248,12 @@ class SlurmClient:
         Args:
             commands: The commands to run.
         """
-        ssh_cmd = f"ssh -t -t {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
+        ssh_cmd = f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
         try:
-            logger.debug(f"Running commands:\n{new_cmd}")
+            logger.info(f"Running commands:\n{new_cmd}")
             child = subprocess.run(
                 new_cmd,
                 shell=True,
