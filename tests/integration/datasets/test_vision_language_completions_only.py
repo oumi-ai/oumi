@@ -21,7 +21,7 @@ def phi3_tokenizer():
 
 
 @pytest.fixture
-def sample_conversation():
+def sample_conversation(root_testdata_dir):
     """Create a sample vision-language conversation."""
     return Conversation(
         messages=[
@@ -33,7 +33,7 @@ def sample_conversation():
                     ),
                     ContentItem(
                         type=Type.IMAGE_PATH,
-                        content="tests/testdata/images/oumi_logo_dark.png",
+                        content=str(root_testdata_dir / "images/oumi_logo_dark.png"),
                     ),
                 ],
             ),

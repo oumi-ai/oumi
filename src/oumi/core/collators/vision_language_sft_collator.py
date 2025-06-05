@@ -131,7 +131,30 @@ class VisionLanguageSftCollator:
                 When False (default), conversations are processed as a batch.
 
             train_on_completions_only: If True, only compute loss on the assistant's
-                response tokens.
+                response tokens. This enables instruction-following training where:
+
+                - **When True**: Only assistant responses contribute to the loss.
+                  User instructions, system prompts, and special tokens are masked
+                  (ignored) during training. The model learns to generate appropriate
+                  responses without being penalized for user input tokens.
+
+                - **When False**: All tokens in the conversation contribute to the loss.
+                  This is standard language modeling where the model learns to predict
+                  the next token for the entire conversation sequence.
+
+                This parameter is particularly useful for instruction-tuning where you
+                want the model to learn response patterns without memorizing prompts.
+
+                **Masking Strategy**: The behavior depends on whether
+                instruction_template is provided:
+
+                - **With instruction_template**: Uses multi-turn masking strategy.
+                  All user turns are masked, all assistant turns are unmasked.
+                  Suitable for multi-turn conversations.
+
+                - **Without instruction_template**: Uses single-turn masking strategy.
+                  Only the final assistant response is unmasked, everything else
+                  is masked. Suitable for single-turn prompt-response pairs.
 
             response_template: The template string that marks the beginning of the
                 assistant's response. Required if train_on_completions_only is True.
