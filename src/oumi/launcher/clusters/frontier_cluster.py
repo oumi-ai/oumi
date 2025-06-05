@@ -255,7 +255,7 @@ class FrontierCluster(BaseCluster):
         remote_working_dir = Path(
             f"/lustre/orion/lrn081/scratch/{user}/oumi_launcher/{submission_time}"
         )
-        # Copy the working directory to Polaris /home/ system.
+        # Copy the working directory to Frontier user's scratch directory.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if Oumi is installed in a conda env. If not, install it.
         oumi_env_path = Path("/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi")
