@@ -269,7 +269,7 @@ class VisionLanguageSftCollator:
                 single_result = (
                     self._conversation_feature_generator.transform_conversations(
                         [conversation],
-                        FeatureGeneratorOptions(allow_feature_reshape=False),
+                        FeatureGeneratorOptions(allow_feature_reshape=True),
                     )
                 )
                 individual_results.append(single_result)

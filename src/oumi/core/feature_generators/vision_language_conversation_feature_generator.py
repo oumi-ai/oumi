@@ -495,9 +495,12 @@ class VisionLanguageConversationFeatureGenerator(BaseConversationFeatureGenerato
         labels_array = np.array(labels)
         input_ids_array = np.array(input_ids)
 
-        # Process each sequence in the batch
-        for i in range(labels_array.shape[0]):
-            self._mask_single_conversation(labels_array[i], input_ids_array[i])
+        if len(labels_array.shape) == 1:
+            self._mask_single_conversation(labels_array, input_ids_array)
+        else:
+            # Process each sequence in the batch
+            for i in range(labels_array.shape[0]):
+                self._mask_single_conversation(labels_array[i], input_ids_array[i])
 
         # Convert back to original format
         if isinstance(labels, torch.Tensor):
