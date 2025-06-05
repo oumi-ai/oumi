@@ -32,7 +32,7 @@ class _SlurmAuthException(Exception):
 
 def _check_connection(user: str, slurm_host: str) -> None:
     """Checks if the connection is still open."""
-    ssh_cmd = f"ssh -t -t {_CTRL_PATH} -O check {user}@{slurm_host}"
+    ssh_cmd = f"ssh {_CTRL_PATH} -O check {user}@{slurm_host}"
     error_msg = ""
     try:
         child = subprocess.run(
@@ -178,7 +178,7 @@ class SlurmClient:
         except _SlurmAuthException:
             logger.warning("No connection found. Establishing a new SSH tunnel...")
         ssh_cmd = (
-            f'ssh -t -t -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" '
+            f'ssh -f -N -M {_CTRL_PATH} -o "ControlPersist 4h" '
             f"{self._user}@{self._slurm_host}"
         )
         child = subprocess.run(
@@ -437,7 +437,7 @@ class SlurmClient:
             self.run_commands([f"mkdir -p {destination}"])
         tests_dir = Path(source) / "tests"
         git_ignore = Path(source) / ".gitignore"
-        rsync_cmd_list = [f'rsync -e "ssh -t -t {_CTRL_PATH}" -avz --delete ']
+        rsync_cmd_list = [f'rsync -e "ssh {_CTRL_PATH}" -avz --delete ']
         if git_ignore.is_file():
             rsync_cmd_list.append(f"--exclude-from {str(git_ignore)} ")
         if tests_dir.is_dir():
