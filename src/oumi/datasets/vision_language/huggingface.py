@@ -155,7 +155,7 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
             required["system_prompt_column"] = self.system_prompt_column
 
         for column_name, column_var in required.items():
-            if column_name not in example:
+            if column_var not in example:
                 raise ValueError(
                     f"The column '{column_name}' (specified as {column_var}) "
                     f"is not present in the example. "

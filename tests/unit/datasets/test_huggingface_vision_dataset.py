@@ -447,7 +447,13 @@ def test_transform_conversation_missing_column(
         "answer": "Some answer",
     }
 
-    with pytest.raises(ValueError, match="The column 'question'.*is not present"):
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"The column 'question_column' \(specified as question\) is not present"
+            r" in the example. Available columns: \['image', 'answer'\]"
+        ),
+    ):
         dataset.transform_conversation(example)
 
 
