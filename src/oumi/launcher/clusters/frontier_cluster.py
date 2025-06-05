@@ -38,17 +38,17 @@ def _format_date(date: datetime) -> str:
     return date.strftime("%Y%m%d_%H%M%S%f")
 
 
-def _last_pbs_line(script: list[str]) -> int:
-    """Finds the last PBS instruction line in the script.
+def _last_sbatch_line(script: list[str]) -> int:
+    """Finds the last SBATCH instruction line in the script.
 
     Args:
         script: The lines of the script.
 
     Returns:
-        The index of the last PBS instruction line. -1 if not found.
+        The index of the last SBATCH instruction line. -1 if not found.
     """
     return reduce(
-        lambda acc, val: val[0] if val[1].startswith("#PBS") else acc,
+        lambda acc, val: val[0] if val[1].startswith("#SBATCH") else acc,
         enumerate(script),
         -1,
     )
@@ -86,25 +86,25 @@ def _create_job_script(job: JobConfig) -> str:
     """
     setup_lines = [] if not job.setup else job.setup.strip().split("\n")
     run_lines = job.run.strip().split("\n")
-    # Find the last PBS instruction line.
-    last_run_pbs = _last_pbs_line(run_lines) + 1
-    last_setup_pbs = _last_pbs_line(setup_lines) + 1
-    # Inject environment variables into the script after PBS instructions.
+    # Find the last SBATCH instruction line.
+    last_run_sbatch = _last_sbatch_line(run_lines) + 1
+    last_setup_sbatch = _last_sbatch_line(setup_lines) + 1
+    # Inject environment variables into the script after SBATCH instructions.
     env_lines = [f"export {key}={value}" for key, value in job.envs.items()]
     # Pad the environment variables with newlines.
     env_lines = [""] + env_lines + [""] if env_lines else []
     # Generate the job script.
     # The script should have the following structure:
-    # 1. PBS instructions from Setup and Run commands (in that order).
+    # 1. SBATCH instructions from Setup and Run commands (in that order).
     # 2. Environment variables.
     # 3. Setup commands.
     # 4. Run commands.
     output_lines = (
-        setup_lines[:last_setup_pbs]
-        + run_lines[:last_run_pbs]
+        setup_lines[:last_setup_sbatch]
+        + run_lines[:last_run_sbatch]
         + env_lines
-        + setup_lines[last_setup_pbs:]
-        + run_lines[last_run_pbs:]
+        + setup_lines[last_setup_sbatch:]
+        + run_lines[last_run_sbatch:]
     )
     # Always start the script with #!/bin/bash.
     script_prefix = "#!/bin/bash"
