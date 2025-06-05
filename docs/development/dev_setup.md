@@ -142,3 +142,8 @@ Please keep an eye on your costs, and don't forget to tear down your cluster whe
 sky down cluster_name
 ```
 
+or
+
+```bash
+oumi launch down --cluster cluster_name
+```
