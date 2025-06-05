@@ -61,6 +61,6 @@ run: |
       --training.dataloader_num_workers=2 \
       --training.max_steps=20 \
       --training.save_steps=0 \
-      --training.save_final_model=false
+      --training.save_final_model=true
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

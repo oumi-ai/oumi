@@ -302,9 +302,14 @@ class FrontierCluster(BaseCluster):
         job_id = self._client.submit_job(
             str(script_path),
             str(remote_working_dir),
-            job.num_nodes,
-            # self._queue,
-            job_name,
+            node_count=job.num_nodes,
+            name=job_name,
+            export="NONE",
+            account="lrn081",
+            ntasks=job.num_nodes,
+            threads_per_core=1,
+            distribution="block:cyclic",
+            partition=self._queue.value,
         )
         job_status = self.get_job(job_id)
         if job_status is None:
