@@ -249,7 +249,8 @@ class SlurmClient:
             commands: The commands to run.
         """
         if (
-            len(commands) == 2
+            False
+            and len(commands) == 2
             and commands[0].startswith("cd")
             and commands[1].startswith("sbatch")
         ):
