@@ -276,6 +276,7 @@ peft:
   use_bnb_nested_quant: false        # Use nested quantization
   bnb_4bit_quant_storage: "uint8"    # Storage type for params
   bnb_4bit_compute_dtype: "float32"  # Compute type for params
+  llm_int8_skip_modules: "none"      # A list of modules that we do not want to convert in 8-bit.
 ```
 
 ### FSDP Configuration
