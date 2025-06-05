@@ -54,7 +54,9 @@ def _last_sbatch_line(script: list[str]) -> int:
     )
 
 
-def _get_logging_directories(script: str) -> list[str]:
+def _get_logging_directories(
+    script: str,
+) -> tuple[list[str], Optional[Path], Optional[Path]]:
     """Gets the logging directories from the script.
 
     Parses the provided script for commands starting with `#SBATCH -o`, `#SBATCH -e`,
@@ -64,20 +66,28 @@ def _get_logging_directories(script: str) -> list[str]:
         script: The script to extract logging directories from.
 
     Returns:
-        A list of logging directories.
+        A tuple containing (A list of logging directories, stdout_file, stderr_file).
     """
-    logging_pattern = r"#SBATCH\s+-[oe|eo|doe|o|e]\s+(.*)"
+    logging_pattern = r"#SBATCH\s+-([oe|eo|doe|o|e])\s+(.*)"
     logging_dirs = set()
+    stdout_file: Optional[Path] = None
+    stderr_file: Optional[Path] = None
     for line in script.split("\n"):
         match = re.match(logging_pattern, line.strip())
         if match:
-            file_name = str(match.group(1)).strip()
-            if file_name:
-                dir_path = Path(file_name)
-                if dir_path.suffix:  # If it's a file name, get a parent dir.
-                    dir_path = dir_path.parent
-                logging_dirs.add(str(dir_path))
-    return list(sorted(logging_dirs))
+            type_tag = str(match.group(1)).strip()
+            file_name = str(match.group(2)).strip()
+            if type_tag:
+                if file_name:
+                    dir_path = Path(file_name)
+                    if dir_path.suffix:  # If it's a file name, get a parent dir.
+                        dir_path = dir_path.parent
+                    logging_dirs.add(str(dir_path))
+                if "o" in type_tag:
+                    stdout_file = Path(file_name)
+                if "e" in type_tag:
+                    stderr_file = Path(file_name)
+    return list(sorted(logging_dirs)), stdout_file, stderr_file
 
 
 def _create_job_script(job: JobConfig) -> str:
@@ -294,10 +304,12 @@ class FrontierCluster(BaseCluster):
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
-        logging_dirs = _get_logging_directories(job_script)
-        logging_dir_cmds = [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
-        if logging_dir_cmds:
-            self._client.run_commands(logging_dir_cmds)
+        logging_dirs, stdout_file, stderr_file = _get_logging_directories(job_script)
+        if logging_dirs:
+            self._client.run_commands(
+                [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
+            )
+
         # Submit the job.
         job_id = self._client.submit_job(
             str(script_path),
@@ -310,8 +322,12 @@ class FrontierCluster(BaseCluster):
             threads_per_core=1,
             distribution="block:cyclic",
             partition=self._queue.value,
-            stdout_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU",
-            stderr_file="/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER",
+            stdout_file=(
+                str(stdout_file) or "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
+            ),
+            stderr_file=(
+                str(stderr_file) or "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
+            ),
         )
         job_status = self.get_job(job_id)
         if job_status is None:
