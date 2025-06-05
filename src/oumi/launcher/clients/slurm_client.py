@@ -251,7 +251,7 @@ class SlurmClient:
         if (
             len(commands) == 2
             and commands[0].startswith("cd")
-            and commands[0].startswith("sbatch")
+            and commands[1].startswith("sbatch")
         ):
             new_cmd = (
                 f"ssh -t {_CTRL_PATH} {self._user}@{self._slurm_host} bash -c '"
