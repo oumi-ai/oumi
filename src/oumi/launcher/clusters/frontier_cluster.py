@@ -319,9 +319,9 @@ class FrontierCluster(BaseCluster):
         return job_status
 
     def stop(self) -> None:
-        """This is a no-op for Polaris clusters."""
+        """This is a no-op for Frontier clusters."""
         pass
 
     def down(self) -> None:
-        """This is a no-op for Polaris clusters."""
+        """This is a no-op for Frontier clusters."""
         pass
