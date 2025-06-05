@@ -414,6 +414,7 @@ def _create_molmo_vlm_config() -> InternalModelConfig:
                 else False,
             )
             for feature_name in (
+                "attention_mask",
                 "input_ids",
                 "labels",
                 "images",
