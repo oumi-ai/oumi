@@ -1,5 +1,7 @@
 import unittest
 
+import pytest
+
 from oumi.core.configs import JudgeConfig
 from oumi.judges.oumi_judge import OumiJudge
 
@@ -45,6 +47,7 @@ JUDGE_DATASET = [
 ]
 
 
+@pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
 def test_oumi_judge_xml_enum():
     # Instantiate the judge using a YAML configuration.
     config = JudgeConfig.from_str(YAML_CONFIG_XML_ENUM)
@@ -74,6 +77,7 @@ def test_oumi_judge_xml_enum():
     assert judge_output[1].field_scores["explanation"] is None
 
 
+@pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
 def test_oumi_judge_json_bool():
     # Instantiate the judge using a YAML configuration.
     config = JudgeConfig.from_str(YAML_CONFIG_JSON_BOOL)
