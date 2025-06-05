@@ -36,6 +36,51 @@ from oumi.judges.oumi_judge import (
 class TestOumiJudge:
     """Test cases for the OumiJudge class."""
 
+    # Test constants
+    TEST_PROMPT_TEMPLATE = "Test: {input}"
+    TEST_ENUM_SCORES = {"excellent": 1.0, "good": 0.7, "poor": 0.3}
+
+    # Test judge input data
+    XML_JUDGE_INPUT = {"question": "What is 2+2?", "answer": "4"}
+    JSON_JUDGE_INPUT = {"answer": "Some good answer"}
+    RAW_JUDGE_INPUT = {"content": "Some content"}
+
+    # Pre-formatted suffix constants for tests
+    BOOL_JUDGMENT_OPTIONS = "Your judgment should be a single word: 'Yes' or 'No'. "
+    ENUM_JUDGMENT_OPTIONS = (
+        "Your judgment should be one of the following options: "
+        "'excellent', 'good', 'poor'. "
+    )
+    TEXT_JUDGMENT_OPTIONS = (
+        "Your judgment should be provided in the form of free text. "
+    )
+
+    XML_SUFFIX_FORMATTED_BOOL = XML_SUFFIX.format(
+        judgment_key=JUDGMENT_KEY,
+        explanation_key=EXPLANATION_KEY,
+        judgment_options=BOOL_JUDGMENT_OPTIONS,
+    )
+    XML_SUFFIX_WITH_EXPLANATION_FORMATTED_BOOL = XML_SUFFIX_WITH_EXPLANATION.format(
+        judgment_key=JUDGMENT_KEY,
+        explanation_key=EXPLANATION_KEY,
+        judgment_options=BOOL_JUDGMENT_OPTIONS,
+    )
+    JSON_SUFFIX_FORMATTED_ENUM = JSON_SUFFIX.format(
+        judgment_key=JUDGMENT_KEY,
+        explanation_key=EXPLANATION_KEY,
+        judgment_options=ENUM_JUDGMENT_OPTIONS,
+    )
+    JSON_SUFFIX_WITH_EXPLANATION_FORMATTED_ENUM = JSON_SUFFIX_WITH_EXPLANATION.format(
+        judgment_key=JUDGMENT_KEY,
+        explanation_key=EXPLANATION_KEY,
+        judgment_options=ENUM_JUDGMENT_OPTIONS,
+    )
+    RAW_SUFFIX_WITH_EXPLANATION_FORMATTED_TEXT = RAW_SUFFIX_WITH_EXPLANATION.format(
+        judgment_key=JUDGMENT_KEY,
+        explanation_key=EXPLANATION_KEY,
+        judgment_options=TEXT_JUDGMENT_OPTIONS,
+    )
+
     @pytest.fixture
     def xml_config_no_explanation(self):
         return JudgeConfig(
@@ -60,7 +105,7 @@ class TestOumiJudge:
             prompt_template="Rate this answer: {answer}",
             response_format=JudgeResponseFormat.JSON,
             judgment_type=JudgeOutputType.ENUM,
-            judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
+            judgment_scores=self.TEST_ENUM_SCORES,
             include_explanation=False,
         )
 
@@ -70,7 +115,7 @@ class TestOumiJudge:
             prompt_template="Rate this answer: {answer}",
             response_format=JudgeResponseFormat.JSON,
             judgment_type=JudgeOutputType.ENUM,
-            judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
+            judgment_scores=self.TEST_ENUM_SCORES,
             include_explanation=True,
         )
 
@@ -133,10 +178,12 @@ class TestOumiJudge:
             config=xml_config_no_explanation, inference_engine=mock_inference_engine
         )
 
-        judge_input = {"question": "What is 2+2?", "answer": "4"}
-        prompt = judge._build_judgement_prompt(judge_input)
+        prompt = judge._build_judgement_prompt(self.XML_JUDGE_INPUT)
 
-        expected = f"Is this helpful? Question: What is 2+2?, Answer: 4{XML_SUFFIX}"
+        expected = (
+            f"Is this helpful? Question: What is 2+2?, Answer: 4"
+            f"{self.XML_SUFFIX_FORMATTED_BOOL}"
+        )
         assert prompt == expected
 
     def test_build_prompt_xml_with_explanation(
@@ -146,12 +193,11 @@ class TestOumiJudge:
             config=xml_config_with_explanation, inference_engine=mock_inference_engine
         )
 
-        judge_input = {"question": "What is 2+2?", "answer": "4"}
-        prompt = judge._build_judgement_prompt(judge_input)
+        prompt = judge._build_judgement_prompt(self.XML_JUDGE_INPUT)
 
         expected = (
-            "Is this helpful? Question: What is 2+2?, Answer: 4"
-            f"{XML_SUFFIX_WITH_EXPLANATION}"
+            f"Is this helpful? Question: What is 2+2?, Answer: 4"
+            f"{self.XML_SUFFIX_WITH_EXPLANATION_FORMATTED_BOOL}"
         )
         assert prompt == expected
 
@@ -162,10 +208,11 @@ class TestOumiJudge:
             config=json_config_no_explanation, inference_engine=mock_inference_engine
         )
 
-        judge_input = {"answer": "Some good answer"}
-        prompt = judge._build_judgement_prompt(judge_input)
+        prompt = judge._build_judgement_prompt(self.JSON_JUDGE_INPUT)
 
-        expected = f"Rate this answer: Some good answer{JSON_SUFFIX}"
+        expected = (
+            f"Rate this answer: Some good answer{self.JSON_SUFFIX_FORMATTED_ENUM}"
+        )
         assert prompt == expected
 
     def test_build_prompt_json_with_explanation(
@@ -175,10 +222,12 @@ class TestOumiJudge:
             config=json_config_with_explanation, inference_engine=mock_inference_engine
         )
 
-        judge_input = {"answer": "Some good answer"}
-        prompt = judge._build_judgement_prompt(judge_input)
+        prompt = judge._build_judgement_prompt(self.JSON_JUDGE_INPUT)
 
-        expected = f"Rate this answer: Some good answer{JSON_SUFFIX_WITH_EXPLANATION}"
+        expected = (
+            f"Rate this answer: Some good answer"
+            f"{self.JSON_SUFFIX_WITH_EXPLANATION_FORMATTED_ENUM}"
+        )
         assert prompt == expected
 
     def test_build_prompt_raw_no_explanation(self, mock_inference_engine):
@@ -190,8 +239,7 @@ class TestOumiJudge:
         )
         judge = OumiJudge(config=config, inference_engine=mock_inference_engine)
 
-        judge_input = {"content": "Some content"}
-        prompt = judge._build_judgement_prompt(judge_input)
+        prompt = judge._build_judgement_prompt(self.RAW_JUDGE_INPUT)
 
         expected = "Evaluate: Some content"  # No suffix for RAW without explanation
         assert prompt == expected
@@ -205,58 +253,70 @@ class TestOumiJudge:
         )
         judge = OumiJudge(config=config, inference_engine=mock_inference_engine)
 
-        judge_input = {"content": "Some content"}
-        prompt = judge._build_judgement_prompt(judge_input)
+        prompt = judge._build_judgement_prompt(self.RAW_JUDGE_INPUT)
 
-        expected = f"Evaluate: Some content{RAW_SUFFIX_WITH_EXPLANATION}"
+        expected = (
+            f"Evaluate: Some content{self.RAW_SUFFIX_WITH_EXPLANATION_FORMATTED_TEXT}"
+        )
         assert prompt == expected
 
     def test_get_format_suffix_xml(self, mock_inference_engine):
         config_no_exp = JudgeConfig(
-            prompt_template="Test: {input}",
+            prompt_template=self.TEST_PROMPT_TEMPLATE,
             response_format=JudgeResponseFormat.XML,
             include_explanation=False,
         )
         judge_no_exp = OumiJudge(
             config=config_no_exp, inference_engine=mock_inference_engine
         )
-        assert judge_no_exp._get_format_suffix() == XML_SUFFIX
+        assert judge_no_exp._get_format_suffix() == self.XML_SUFFIX_FORMATTED_BOOL
 
         config_with_exp = JudgeConfig(
-            prompt_template="Test: {input}",
+            prompt_template=self.TEST_PROMPT_TEMPLATE,
             response_format=JudgeResponseFormat.XML,
             include_explanation=True,
         )
         judge_with_exp = OumiJudge(
             config=config_with_exp, inference_engine=mock_inference_engine
         )
-        assert judge_with_exp._get_format_suffix() == XML_SUFFIX_WITH_EXPLANATION
+        assert (
+            judge_with_exp._get_format_suffix()
+            == self.XML_SUFFIX_WITH_EXPLANATION_FORMATTED_BOOL
+        )
 
     def test_get_format_suffix_json(self, mock_inference_engine):
         config_no_exp = JudgeConfig(
-            prompt_template="Test: {input}",
+            prompt_template=self.TEST_PROMPT_TEMPLATE,
             response_format=JudgeResponseFormat.JSON,
+            judgment_type=JudgeOutputType.ENUM,
+            judgment_scores=self.TEST_ENUM_SCORES,
             include_explanation=False,
         )
         judge_no_exp = OumiJudge(
             config=config_no_exp, inference_engine=mock_inference_engine
         )
-        assert judge_no_exp._get_format_suffix() == JSON_SUFFIX
+        assert judge_no_exp._get_format_suffix() == self.JSON_SUFFIX_FORMATTED_ENUM
 
         config_with_exp = JudgeConfig(
-            prompt_template="Test: {input}",
+            prompt_template=self.TEST_PROMPT_TEMPLATE,
             response_format=JudgeResponseFormat.JSON,
+            judgment_type=JudgeOutputType.ENUM,
+            judgment_scores=self.TEST_ENUM_SCORES,
             include_explanation=True,
         )
         judge_with_exp = OumiJudge(
             config=config_with_exp, inference_engine=mock_inference_engine
         )
-        assert judge_with_exp._get_format_suffix() == JSON_SUFFIX_WITH_EXPLANATION
+        assert (
+            judge_with_exp._get_format_suffix()
+            == self.JSON_SUFFIX_WITH_EXPLANATION_FORMATTED_ENUM
+        )
 
     def test_get_format_suffix_raw(self, mock_inference_engine):
         config_no_exp = JudgeConfig(
-            prompt_template="Test: {input}",
+            prompt_template=self.TEST_PROMPT_TEMPLATE,
             response_format=JudgeResponseFormat.RAW,
+            judgment_type=JudgeOutputType.TEXT,
             include_explanation=False,
         )
         judge_no_exp = OumiJudge(
@@ -265,14 +325,18 @@ class TestOumiJudge:
         assert judge_no_exp._get_format_suffix() == ""
 
         config_with_exp = JudgeConfig(
-            prompt_template="Test: {input}",
+            prompt_template=self.TEST_PROMPT_TEMPLATE,
             response_format=JudgeResponseFormat.RAW,
+            judgment_type=JudgeOutputType.TEXT,
             include_explanation=True,
         )
         judge_with_exp = OumiJudge(
             config=config_with_exp, inference_engine=mock_inference_engine
         )
-        assert judge_with_exp._get_format_suffix() == RAW_SUFFIX_WITH_EXPLANATION
+        assert (
+            judge_with_exp._get_format_suffix()
+            == self.RAW_SUFFIX_WITH_EXPLANATION_FORMATTED_TEXT
+        )
 
     def test_create_judgment_output_field(
         self, xml_config_no_explanation, mock_inference_engine
