@@ -7,7 +7,7 @@
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_frontier_job.yaml --cluster debug.$OLCF_USER --user $OLCF_USER --log-level DEBUG
+#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_frontier_job.yaml --cluster batch.$OLCF_USER --user $OLCF_USER --log-level DEBUG
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
