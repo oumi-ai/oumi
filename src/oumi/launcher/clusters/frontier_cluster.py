@@ -54,7 +54,7 @@ def _last_sbatch_line(script: list[str]) -> int:
     )
 
 
-def _get_logging_directories(
+def _get_logging_dirs_and_files(
     script: str,
 ) -> tuple[list[str], Optional[Path], Optional[Path]]:
     """Gets the logging directories from the script.
@@ -304,8 +304,8 @@ class FrontierCluster(BaseCluster):
         # Set the proper CHMOD permissions.
         self._client.run_commands([f"chmod +x {script_path}"])
         # Set up logging directories.
-        logging_dirs, stdout_file, stderr_file = _get_logging_directories(job_script)
-        if logging_dirs:
+        logging_dirs, stdout_file, stderr_file = _get_logging_dirs_and_files(job_script)
+        if len(logging_dirs) > 0:
             self._client.run_commands(
                 [f"mkdir -p {log_dir}" for log_dir in logging_dirs]
             )
