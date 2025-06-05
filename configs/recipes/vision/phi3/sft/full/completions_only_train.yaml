@@ -50,7 +50,10 @@ data:
 
 training:
   output_dir: "output/vlm_completions_only_finetuned"
-  trainer_type: "TRL_SFT"
+  # Note: with phi3.5, the latest version of transformers/trl have a bug
+  # preventing saving the model. https://github.com/microsoft/PhiCookBook/issues/223
+  # we use the OUMI trainer instead of TRL_SFT to avoid this issue.
+  trainer_type: "OUMI"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 8
@@ -74,6 +77,6 @@ training:
   dataloader_main_process_only: True
   dataloader_num_workers: 2
   dataloader_prefetch_factor: 8
-  include_performance_metrics: True
+  include_performance_metrics: False # enable this to see the performance metrics
   log_model_summary: False
   enable_wandb: True
