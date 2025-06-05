@@ -42,6 +42,13 @@ try:
 except ImportError:
     liger_kernel = None
 
+# Import `onebitllms` utils methods
+try:
+    import onebitllms  # type: ignore
+    from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
+except ImportError:
+    onebitllms = None
+
 
 def build_model(
     model_params: ModelParams,
@@ -84,6 +91,19 @@ def build_model(
 
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model)
+
+    if model_params.model_name in (
+        "tiiuae/Falcon-E-1B-Base",
+        "tiiuae/Falcon-E-1B-Instruct",
+        "tiiuae/Falcon-E-3B-Base",
+        "tiiuae/Falcon-E-3B-Instruct",
+    ):
+        if onebitllms is None:
+            raise ValueError(
+                """Please install `onebitllms` in order to fine-tune
+                `Falcon-E` models - `pip install onebitllms`"""
+            )
+        model = replace_linear_with_bitnet_linear(model)
 
     if len(model_params.freeze_layers) > 0:
         num_frozen = freeze_model_layers(model, model_params.freeze_layers)
@@ -209,8 +229,13 @@ def build_huggingface_model(
         f"Building model using device_map: {device_map} ({device_rank_info})..."
     )
 
+    # Get the model revision through `model_kwargs`
+    revision = model_params.model_kwargs.get("revision", None)
+
     hf_config = find_model_hf_config(
-        model_params.model_name, trust_remote_code=model_params.trust_remote_code
+        model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
+        revision=revision,
     )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
@@ -237,6 +262,7 @@ def build_huggingface_model(
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
             attn_implementation=model_params.attn_implementation,
+            revision=revision,
             **kwargs,
         )
     else:

@@ -237,6 +237,7 @@ def test_decorators_with_distributed(
     mock_work_function,
     mock_oumi_barrier,
     mock_torch_barrier,
+    mock_device_rank_info,
 ):
     # The decorated function should be executed
     # exaclty once and call barrier exactly once

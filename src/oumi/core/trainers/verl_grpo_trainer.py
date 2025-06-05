@@ -24,7 +24,9 @@ from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.types.conversation import Conversation
-from oumi.core.types.conversation import Role as ConversationRole
+from oumi.utils.grpo_utils import (
+    extract_prompt_images_completion_from_single_turn_conversation,
+)
 
 try:
     import ray  # pyright: ignore[reportMissingImports]
@@ -197,32 +199,9 @@ class VerlGrpoTrainer(BaseTrainer):
             A tuple containing the question, images, and answer.
             The list of images is empty for text-only conversations.
         """
-        if "conversation_json" not in example:
-            raise ValueError(
-                f"Example doesn't contain 'conversation_json' key. "
-                f"Available keys: {example.keys()}"
-            )
-
-        conversation_json = example["conversation_json"]
-        conversation = Conversation.from_json(conversation_json)
-
-        user_messages = conversation.filter_messages(role=ConversationRole.USER)
-        if len(user_messages) != 1:
-            raise ValueError(f"Expected 1 user message, but got {len(user_messages)}.")
-
-        assistant_messages = conversation.filter_messages(
-            role=ConversationRole.ASSISTANT
+        prompt, images, answer = (
+            extract_prompt_images_completion_from_single_turn_conversation(example)
         )
-        if len(assistant_messages) != 1:
-            raise ValueError(
-                f"Expected 1 assistant message, but got {len(assistant_messages)}."
-            )
-
-        user_message = user_messages[0]
-        assistant_message = assistant_messages[0]
-        prompt: str = user_message.text_content_items[-1].content or ""
-        images = [{"bytes": item.binary} for item in user_message.image_content_items]
-        answer: str = assistant_message.text_content_items[-1].content or ""
 
         if len(images) > 0:
             # TODO: Generalize. This only works for QwenVL 2.5, which is the only
