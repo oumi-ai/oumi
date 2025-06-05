@@ -192,7 +192,7 @@ class FrontierCluster(BaseCluster):
         queue = splits[0].lower()
         if queue == FrontierCluster.SupportedQueues.BATCH.value:
             return FrontierCluster.SupportedQueues.BATCH
-        if queue == FrontierCluster.SupportedQueues.EXTENDED.value:
+        elif queue == FrontierCluster.SupportedQueues.EXTENDED.value:
             return FrontierCluster.SupportedQueues.EXTENDED
 
         raise ValueError(f"Unsupported partition: {queue}")
@@ -256,18 +256,27 @@ class FrontierCluster(BaseCluster):
         oumi_env_path = Path("/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi")
         install_cmds = [
             f"cd {remote_working_dir}",
-            "module use /soft/modulefiles",
-            "module load conda",
+            # For details, see https://docs.olcf.ornl.gov/software/analytics/pytorch_frontier.html
+            "module load PrgEnv-gnu/8.6.0",
+            "module load miniforge3/23.11.0-0",
+            "module load rocm/6.2.4",
+            "module load craype-accel-amd-gfx90a",
             f"if [ ! -d {oumi_env_path} ]; then",
             'echo "Creating Oumi Conda environment... ---------------------------"',
-            f"conda create -y python=3.11 --prefix {oumi_env_path}",
+            f"conda create -y python=3.10 -c conda-forge --prefix {oumi_env_path}",
+            "fi",
+            'if [ ! -z "$CONDA_DEFAULT_ENV" ]; then',
+            # Deactivate the previous env (stacked env-s cause `pip install` problems).
+            "conda deactivate",
             "fi",
             'echo "Installing packages... ---------------------------------------"',
-            f"conda activate {oumi_env_path}",
+            f"source activate {oumi_env_path}",
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "pip install -e '.[gpu]'",  # TODO Re-enable uv OPE-670
+            "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2"
+            "pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer"
+            "pip uninstall nvidia-smi",  # TODO Re-enable uv OPE-670
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.
