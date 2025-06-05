@@ -16,7 +16,7 @@ import copy
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import jsonlines
 from hdrh.histogram import HdrHistogram
@@ -161,7 +161,7 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
-    def _get_scratch_filepath(self, output_filepath: Union[str, None]) -> str:
+    def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
         """Returns a scratch filepath for the given output filepath.
 
         For example, if the output filepath is "/foo/bar/output.json", the scratch
@@ -180,10 +180,10 @@ class BaseInferenceEngine(ABC):
             original_filepath = Path(output_filepath)
             return str(original_filepath.parent / "scratch" / original_filepath.name)
 
-        return "tmp/temp_inference_output.jsonl"
+        return str(Path.cwd() / "tmp" / "temp_inference_output.jsonl")
 
     def _save_conversation_to_scratch(
-        self, conversation: Conversation, output_filepath: Union[str, None]
+        self, conversation: Conversation, output_filepath: Optional[str]
     ) -> None:
         """Appends a conversation to a file in Oumi chat format.
 
@@ -199,7 +199,7 @@ class BaseInferenceEngine(ABC):
             json_obj = conversation.to_dict()
             writer.write(json_obj)
 
-    def _cleanup_scratch_file(self, output_filepath: Union[str, None]) -> None:
+    def _cleanup_scratch_file(self, output_filepath: Optional[str]) -> None:
         """Delete the scratch file from the file system if it exists.
 
         Args:
