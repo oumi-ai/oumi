@@ -111,9 +111,7 @@ def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
         ),
     ]
     job = cluster.get_job("myjob")
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job is not None
     assert job.id == "myjob"
     assert job.cluster == "batch.name"
@@ -123,9 +121,7 @@ def test_frontier_cluster_get_job_invalid_id_empty(mock_datetime, mock_slurm_cli
     cluster = FrontierCluster("batch.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = []
     job = cluster.get_job("myjob")
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job is None
 
 
@@ -158,9 +154,7 @@ def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_
         ),
     ]
     job = cluster.get_job("wrong job")
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job is None
 
 
@@ -193,9 +187,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
         ),
     ]
     jobs = cluster.get_jobs()
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     expected_jobs = [
         JobStatus(
             id="myjob",
@@ -229,9 +221,7 @@ def test_frontier_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
     cluster = FrontierCluster("batch.name", mock_slurm_client)
     mock_slurm_client.list_jobs.return_value = []
     jobs = cluster.get_jobs()
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     expected_jobs = []
     assert jobs == expected_jobs
 
@@ -385,9 +375,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
@@ -487,9 +475,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
@@ -588,9 +574,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         FrontierCluster.SupportedQueues.BATCH,
         "1-2-3",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
@@ -677,9 +661,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
@@ -758,9 +740,7 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
@@ -839,9 +819,7 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_slurm_client.list_jobs.assert_called_once_with(
-        FrontierCluster.SupportedQueues.BATCH
-    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
 
 
