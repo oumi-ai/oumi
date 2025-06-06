@@ -411,6 +411,7 @@ def test_infer_from_file(mock_vllm):
     mock_vllm_instance.chat.return_value = [
         _create_vllm_output(["The first time I saw"], "123")
     ]
+    current_dir = os.getcwd()
     with tempfile.TemporaryDirectory() as output_temp_dir:
         os.chdir(output_temp_dir)
         engine = VLLMInferenceEngine(_get_default_model_params())
@@ -449,6 +450,8 @@ def test_infer_from_file(mock_vllm):
             inference_config=inference_config,
         )
         assert expected_result == infer_result
+
+    os.chdir(current_dir)
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
