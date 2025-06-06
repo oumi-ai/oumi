@@ -38,25 +38,25 @@ training:
   reward_functions: ["countdown"]
 
   grpo:
-    max_completion_length: 1024
+    max_completion_length: 512
     use_vllm: True
     temperature: 0.6
     vllm_gpu_memory_utilization: 0.7
 
   verl_config_overrides:
     data:
-      train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
-      val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
-      train_batch_size: 128
-      val_batch_size: 256
-      max_prompt_length: 256
-      max_extrapolation_length: 2048
+      # train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
+      # val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
+      train_batch_size: 64
+      val_batch_size: 128
+      max_prompt_length: 128
+      max_extrapolation_length: 1024
       shuffle: False
     actor_rollout_ref:
       model:
         use_remove_padding: True
       actor:
-        ppo_mini_batch_size: 32
+        ppo_mini_batch_size: 16
         use_dynamic_bsz: True
         gradients: "normal"
         use_kl_loss: True
@@ -77,7 +77,7 @@ training:
         fsdp_config:
           param_offload: True
     trainer:
-      n_gpus_per_node: 8
+      n_gpus_per_node: 4
       nnodes: 1
 
   output_dir: "output/grpo_verl_countdown"
