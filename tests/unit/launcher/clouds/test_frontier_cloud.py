@@ -60,7 +60,7 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
-def test_frontier_cloud_up_cluster_debug(mock_slurm_client, mock_frontier_cluster):
+def test_frontier_cloud_up_cluster_extended(mock_slurm_client, mock_frontier_cluster):
     cloud = FrontierCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
@@ -68,7 +68,7 @@ def test_frontier_cloud_up_cluster_debug(mock_slurm_client, mock_frontier_cluste
     mock_frontier_cluster.side_effect = [mock_cluster]
     expected_job_status = JobStatus(
         id="job_id",
-        cluster="debug.user",
+        cluster="extended.user",
         name="foo",
         status="running",
         metadata="bar",
@@ -77,12 +77,14 @@ def test_frontier_cloud_up_cluster_debug(mock_slurm_client, mock_frontier_cluste
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("frontier")
     job_status = cloud.up_cluster(job, "extended.user")
-    mock_slurm_client.assert_called_once_with("user")
+    mock_slurm_client.assert_called_once_with(
+        "user", "frontier.olcf.ornl.gov", "extended.user"
+    )
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
 
 
-def test_frontier_cloud_up_cluster_demand(mock_slurm_client, mock_frontier_cluster):
+def test_frontier_cloud_up_cluster_batch(mock_slurm_client, mock_frontier_cluster):
     cloud = FrontierCloud()
     mock_client = Mock(spec=SlurmClient)
     mock_slurm_client.side_effect = [mock_client]
@@ -99,77 +101,9 @@ def test_frontier_cloud_up_cluster_demand(mock_slurm_client, mock_frontier_clust
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("frontier")
     job_status = cloud.up_cluster(job, "batch.user")
-    mock_slurm_client.assert_called_once_with("user")
-    mock_cluster.run_job.assert_called_once_with(job)
-    assert job_status == expected_job_status
-
-
-def test_frontier_cloud_up_cluster_debug_scaling(
-    mock_slurm_client, mock_frontier_cluster
-):
-    cloud = FrontierCloud()
-    mock_client = Mock(spec=SlurmClient)
-    mock_slurm_client.side_effect = [mock_client]
-    mock_cluster = Mock(spec=FrontierCluster)
-    mock_frontier_cluster.side_effect = [mock_cluster]
-    expected_job_status = JobStatus(
-        id="job_id",
-        cluster="debug-scaling.user",
-        name="foo",
-        status="running",
-        metadata="bar",
-        done=False,
+    mock_slurm_client.assert_called_once_with(
+        "user", "frontier.olcf.ornl.gov", "batch.user"
     )
-    mock_cluster.run_job.return_value = expected_job_status
-    job = _get_default_job("frontier")
-    job_status = cloud.up_cluster(job, "debug-scaling.user")
-    mock_slurm_client.assert_called_once_with("user")
-    mock_cluster.run_job.assert_called_once_with(job)
-    assert job_status == expected_job_status
-
-
-def test_frontier_cloud_up_cluster_preemptable(
-    mock_slurm_client, mock_frontier_cluster
-):
-    cloud = FrontierCloud()
-    mock_client = Mock(spec=SlurmClient)
-    mock_slurm_client.side_effect = [mock_client]
-    mock_cluster = Mock(spec=FrontierCluster)
-    mock_frontier_cluster.side_effect = [mock_cluster]
-    expected_job_status = JobStatus(
-        id="job_id",
-        cluster="preemptable.user",
-        name="foo",
-        status="running",
-        metadata="bar",
-        done=False,
-    )
-    mock_cluster.run_job.return_value = expected_job_status
-    job = _get_default_job("frontier")
-    job_status = cloud.up_cluster(job, "preemptable.user")
-    mock_slurm_client.assert_called_once_with("user")
-    mock_cluster.run_job.assert_called_once_with(job)
-    assert job_status == expected_job_status
-
-
-def test_frontier_cloud_up_cluster_prod(mock_slurm_client, mock_frontier_cluster):
-    cloud = FrontierCloud()
-    mock_client = Mock(spec=SlurmClient)
-    mock_slurm_client.side_effect = [mock_client]
-    mock_cluster = Mock(spec=FrontierCluster)
-    mock_frontier_cluster.side_effect = [mock_cluster]
-    expected_job_status = JobStatus(
-        id="job_id",
-        cluster="prod.user",
-        name="foo",
-        status="running",
-        metadata="bar",
-        done=False,
-    )
-    mock_cluster.run_job.return_value = expected_job_status
-    job = _get_default_job("frontier")
-    job_status = cloud.up_cluster(job, "prod.user")
-    mock_slurm_client.assert_called_once_with("user")
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
 
@@ -192,7 +126,7 @@ def test_frontier_cloud_up_cluster_default_queue(
     mock_frontier_cluster.side_effect = [mock_cluster]
     expected_job_status = JobStatus(
         id="job_id",
-        cluster="prod.user",
+        cluster="batch.user",
         name="foo",
         status="running",
         metadata="bar",
@@ -219,7 +153,12 @@ def test_frontier_cloud_init_with_users(mock_slurm_client):
         "extended.user1",
         "extended.user2",
     ]
-    mock_slurm_client.assert_has_calls([call("user1"), call("user2")])
+    mock_slurm_client.assert_has_calls(
+        [
+            call("user1", "frontier.olcf.ornl.gov", "extended.user1"),
+            call("user2", "frontier.olcf.ornl.gov", "extended.user2"),
+        ]
+    )
 
 
 def test_frontier_cloud_initialize_cluster(mock_slurm_client):
@@ -228,7 +167,9 @@ def test_frontier_cloud_initialize_cluster(mock_slurm_client):
     mock_slurm_client.side_effect = [mock_client]
     clusters = cloud.initialize_clusters("me")
     clusters2 = cloud.initialize_clusters("me")
-    mock_slurm_client.assert_called_once_with("me")
+    mock_slurm_client.assert_called_once_with(
+        "me", "frontier.olcf.ornl.gov", "extended.me"
+    )
     cluster_names = [cluster.name() for cluster in clusters]
     cluster_names.sort()
     assert cluster_names == [
