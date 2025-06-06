@@ -5,21 +5,21 @@ import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
 from oumi.core.launcher import JobStatus
-from oumi.launcher.clients.polaris_client import PolarisClient
-from oumi.launcher.clusters.polaris_cluster import PolarisCluster
+from oumi.launcher.clients.slurm_client import SlurmClient
+from oumi.launcher.clusters.frontier_cluster import FrontierCluster
 
 
 #
 # Fixtures
 #
 @pytest.fixture
-def mock_polaris_client():
-    yield Mock(spec=PolarisClient)
+def mock_slurm_client():
+    yield Mock(spec=SlurmClient)
 
 
 @pytest.fixture
 def mock_datetime():
-    with patch("oumi.launcher.clusters.polaris_cluster.datetime") as mock_dt:
+    with patch("oumi.launcher.clusters.frontier_cluster.datetime") as mock_dt:
         mock_dt.now.return_value = datetime(2024, 10, 9, 13, 4, 24, 513094)
         yield mock_dt
 
@@ -54,7 +54,7 @@ def _get_default_job(cloud: str) -> JobConfig:
             )
         },
         setup=(
-            "#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n"
+            "#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n"
             "pip install -r requirements.txt"
         ),
         run="./hello_world.sh",
@@ -64,36 +64,27 @@ def _get_default_job(cloud: str) -> JobConfig:
 #
 # Tests
 #
-def test_polaris_cluster_name(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("demand.einstein", mock_polaris_client)
-    assert cluster.name() == "demand.einstein"
+def test_frontier_cluster_name(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.einstein", mock_slurm_client)
+    assert cluster.name() == "batch.einstein"
 
-    cluster = PolarisCluster("debug.einstein", mock_polaris_client)
-    assert cluster.name() == "debug.einstein"
-
-    cluster = PolarisCluster("debug-scaling.einstein", mock_polaris_client)
-    assert cluster.name() == "debug-scaling.einstein"
-
-    cluster = PolarisCluster("preemptable.einstein", mock_polaris_client)
-    assert cluster.name() == "preemptable.einstein"
-
-    cluster = PolarisCluster("prod.einstein", mock_polaris_client)
-    assert cluster.name() == "prod.einstein"
+    cluster = FrontierCluster("extended.einstein", mock_slurm_client)
+    assert cluster.name() == "extended.einstein"
 
 
-def test_polaris_cluster_invalid_name(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_invalid_name(mock_datetime, mock_slurm_client):
     with pytest.raises(ValueError):
-        PolarisCluster("einstein", mock_polaris_client)
+        FrontierCluster("einstein", mock_slurm_client)
 
 
-def test_polaris_cluster_invalid_queue(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_invalid_queue(mock_datetime, mock_slurm_client):
     with pytest.raises(ValueError):
-        PolarisCluster("albert.einstein", mock_polaris_client)
+        FrontierCluster("albert.einstein", mock_slurm_client)
 
 
-def test_polaris_cluster_get_job_valid_id(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = [
+def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
             name="some name",
@@ -120,29 +111,27 @@ def test_polaris_cluster_get_job_valid_id(mock_datetime, mock_polaris_client):
         ),
     ]
     job = cluster.get_job("myjob")
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job is not None
     assert job.id == "myjob"
-    assert job.cluster == "debug.name"
+    assert job.cluster == "batch.name"
 
 
-def test_polaris_cluster_get_job_invalid_id_empty(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = []
+def test_frontier_cluster_get_job_invalid_id_empty(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = []
     job = cluster.get_job("myjob")
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job is None
 
 
-def test_polaris_cluster_get_job_invalid_id_nonempty(
-    mock_datetime, mock_polaris_client
-):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = [
+def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
             name="some name",
@@ -169,15 +158,15 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(
         ),
     ]
     job = cluster.get_job("wrong job")
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job is None
 
 
-def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = [
+def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
             name="some name",
@@ -204,8 +193,8 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
         ),
     ]
     jobs = cluster.get_jobs()
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     expected_jobs = [
         JobStatus(
@@ -213,7 +202,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             name="some name",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
         JobStatus(
@@ -221,7 +210,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             name="some",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
         JobStatus(
@@ -229,33 +218,33 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             name="name3",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
     ]
     assert jobs == expected_jobs
 
 
-def test_polaris_cluster_get_jobs_empty(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = []
+def test_frontier_cluster_get_jobs_empty(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = []
     jobs = cluster.get_jobs()
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     expected_jobs = []
     assert jobs == expected_jobs
 
 
-def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("prod.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = [
+def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("extended.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="myjob",
             name="some name",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
         JobStatus(
@@ -263,7 +252,7 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
             name="some",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
         JobStatus(
@@ -271,7 +260,7 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
             name="name3",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
     ]
@@ -281,25 +270,25 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
         name="some",
         status="running",
         metadata="",
-        cluster="prod.name",
+        cluster="extended.name",
         done=False,
     )
-    mock_polaris_client.cancel.assert_called_once_with(
+    mock_slurm_client.cancel.assert_called_once_with(
         "job2",
-        PolarisClient.SupportedQueues.PROD,
+        FrontierCluster.SupportedQueues.EXTENDED,
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_cancel_job_fails(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("prod.name", mock_polaris_client)
-    mock_polaris_client.list_jobs.return_value = [
+def test_frontier_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("extended.name", mock_slurm_client)
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="job2",
             name="some",
             status="running",
             metadata="",
-            cluster="debug.name",
+            cluster="batch.name",
             done=False,
         ),
     ]
@@ -307,13 +296,13 @@ def test_polaris_cluster_cancel_job_fails(mock_datetime, mock_polaris_client):
         _ = cluster.cancel_job("myjobid")
 
 
-def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
+def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
-    mock_polaris_client.run_commands.return_value = mock_successful_cmd
-    mock_polaris_client.submit_job.return_value = "1234"
-    mock_polaris_client.list_jobs.return_value = [
+    mock_slurm_client.run_commands.return_value = mock_successful_cmd
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -328,11 +317,11 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="debug.name",
+        cluster="batch.name",
         done=False,
     )
-    job_status = cluster.run_job(_get_default_job("polaris"))
-    mock_polaris_client.put_recursive.assert_has_calls(
+    job_status = cluster.run_job(_get_default_job("frontier"))
+    mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -348,7 +337,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
             ),
         ],
     )
-    mock_polaris_client.run_commands.assert_has_calls(
+    mock_slurm_client.run_commands.assert_has_calls(
         [
             call(
                 [
@@ -382,40 +371,40 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
-    mock_polaris_client.put.assert_called_once_with(
+    mock_slurm_client.put.assert_called_once_with(
         job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
-    mock_polaris_client.submit_job.assert_called_once_with(
+    mock_slurm_client.submit_job.assert_called_once_with(
         "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/home/user/oumi_launcher/20241009_130424513094",
         2,
-        PolarisClient.SupportedQueues.DEBUG,
+        FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
     mock_failed_cmd = Mock()
     mock_failed_cmd.exit_code = 1
-    mock_polaris_client.run_commands.side_effect = [
+    mock_slurm_client.run_commands.side_effect = [
         mock_failed_cmd,
         mock_successful_cmd,
         mock_successful_cmd,
         mock_successful_cmd,
     ]
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.submit_job.return_value = "1234"
-    mock_polaris_client.list_jobs.return_value = [
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -433,8 +422,8 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
         cluster="debug.name",
         done=False,
     )
-    job_status = cluster.run_job(_get_default_job("polaris"))
-    mock_polaris_client.put_recursive.assert_has_calls(
+    job_status = cluster.run_job(_get_default_job("frontier"))
+    mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -450,7 +439,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
             ),
         ],
     )
-    mock_polaris_client.run_commands.assert_has_calls(
+    mock_slurm_client.run_commands.assert_has_calls(
         [
             call(
                 [
@@ -488,29 +477,29 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
-    mock_polaris_client.put.assert_called_once_with(
+    mock_slurm_client.put.assert_called_once_with(
         job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
-    mock_polaris_client.submit_job.assert_called_once_with(
+    mock_slurm_client.submit_job.assert_called_once_with(
         "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/home/user/oumi_launcher/20241009_130424513094",
         2,
-        PolarisClient.SupportedQueues.DEBUG,
+        FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
-    mock_polaris_client.run_commands.return_value = mock_successful_cmd
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.submit_job.return_value = "1234"
-    mock_polaris_client.list_jobs.return_value = [
+    mock_slurm_client.run_commands.return_value = mock_successful_cmd
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -525,17 +514,17 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="debug.name",
+        cluster="batch.name",
         done=False,
     )
-    job = _get_default_job("polaris")
+    job = _get_default_job("frontier")
     job.name = None
-    with patch("oumi.launcher.clusters.polaris_cluster.uuid") as mock_uuid:
+    with patch("oumi.launcher.clusters.frontier_cluster.uuid") as mock_uuid:
         mock_hex = Mock()
         mock_hex.hex = "1-2-3"
         mock_uuid.uuid1.return_value = mock_hex
         job_status = cluster.run_job(job)
-    mock_polaris_client.put_recursive.assert_has_calls(
+    mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -551,7 +540,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
             ),
         ],
     )
-    mock_polaris_client.run_commands.assert_has_calls(
+    mock_slurm_client.run_commands.assert_has_calls(
         [
             call(
                 [
@@ -589,29 +578,29 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
-    mock_polaris_client.put.assert_called_once_with(
+    mock_slurm_client.put.assert_called_once_with(
         job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
-    mock_polaris_client.submit_job.assert_called_once_with(
+    mock_slurm_client.submit_job.assert_called_once_with(
         "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/home/user/oumi_launcher/20241009_130424513094",
         2,
-        PolarisClient.SupportedQueues.DEBUG,
+        FrontierCluster.SupportedQueues.BATCH,
         "1-2-3",
     )
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
-    mock_polaris_client.run_commands.return_value = mock_successful_cmd
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.submit_job.return_value = "1234"
-    mock_polaris_client.list_jobs.return_value = [
+    mock_slurm_client.run_commands.return_value = mock_successful_cmd
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -626,13 +615,13 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="debug.name",
+        cluster="batch.name",
         done=False,
     )
-    job = _get_default_job("polaris")
+    job = _get_default_job("frontier")
     job.file_mounts = {}
     job_status = cluster.run_job(job)
-    mock_polaris_client.put_recursive.assert_has_calls(
+    mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -640,7 +629,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
             ),
         ],
     )
-    mock_polaris_client.run_commands.assert_has_calls(
+    mock_slurm_client.run_commands.assert_has_calls(
         [
             call(
                 [
@@ -678,29 +667,29 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
-    mock_polaris_client.put.assert_called_once_with(
+    mock_slurm_client.put.assert_called_once_with(
         job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
-    mock_polaris_client.submit_job.assert_called_once_with(
+    mock_slurm_client.submit_job.assert_called_once_with(
         "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/home/user/oumi_launcher/20241009_130424513094",
         2,
-        PolarisClient.SupportedQueues.DEBUG,
+        FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
-    mock_polaris_client.run_commands.return_value = mock_successful_cmd
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.submit_job.return_value = "1234"
-    mock_polaris_client.list_jobs.return_value = [
+    mock_slurm_client.run_commands.return_value = mock_successful_cmd
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -715,15 +704,15 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="debug.name",
+        cluster="batch.name",
         done=False,
     )
-    job = _get_default_job("polaris")
+    job = _get_default_job("frontier")
     job.file_mounts = {}
     job.setup = "small setup"
     job.run = "./hello_world.sh"
     job_status = cluster.run_job(job)
-    mock_polaris_client.put_recursive.assert_has_calls(
+    mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -731,7 +720,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
             ),
         ],
     )
-    mock_polaris_client.run_commands.assert_has_calls(
+    mock_slurm_client.run_commands.assert_has_calls(
         [
             call(
                 [
@@ -759,29 +748,29 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
         ]
     )
     job_script = "#!/bin/bash\n\nexport var1=val1\n\nsmall setup\n./hello_world.sh\n"
-    mock_polaris_client.put.assert_called_once_with(
+    mock_slurm_client.put.assert_called_once_with(
         job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
-    mock_polaris_client.submit_job.assert_called_once_with(
+    mock_slurm_client.submit_job.assert_called_once_with(
         "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/home/user/oumi_launcher/20241009_130424513094",
         2,
-        PolarisClient.SupportedQueues.DEBUG,
+        FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
+def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     mock_successful_cmd = Mock()
     mock_successful_cmd.exit_code = 0
-    mock_polaris_client.run_commands.return_value = mock_successful_cmd
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.submit_job.return_value = "1234"
-    mock_polaris_client.list_jobs.return_value = [
+    mock_slurm_client.run_commands.return_value = mock_successful_cmd
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -796,15 +785,15 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
         name="some name",
         status="queued",
         metadata="",
-        cluster="debug.name",
+        cluster="batch.name",
         done=False,
     )
-    job = _get_default_job("polaris")
+    job = _get_default_job("frontier")
     job.file_mounts = {}
     job.setup = None
     job.run = "./hello_world.sh"
     job_status = cluster.run_job(job)
-    mock_polaris_client.put_recursive.assert_has_calls(
+    mock_slurm_client.put_recursive.assert_has_calls(
         [
             call(
                 "./",
@@ -812,7 +801,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
             ),
         ],
     )
-    mock_polaris_client.run_commands.assert_has_calls(
+    mock_slurm_client.run_commands.assert_has_calls(
         [
             call(
                 [
@@ -840,26 +829,26 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
         ]
     )
     job_script = "#!/bin/bash\n\nexport var1=val1\n\n./hello_world.sh\n"
-    mock_polaris_client.put.assert_called_once_with(
+    mock_slurm_client.put.assert_called_once_with(
         job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
     )
-    mock_polaris_client.submit_job.assert_called_once_with(
+    mock_slurm_client.submit_job.assert_called_once_with(
         "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/home/user/oumi_launcher/20241009_130424513094",
         2,
-        PolarisClient.SupportedQueues.DEBUG,
+        FrontierCluster.SupportedQueues.BATCH,
         "myjob",
     )
-    mock_polaris_client.list_jobs.assert_called_once_with(
-        PolarisClient.SupportedQueues.DEBUG
+    mock_slurm_client.list_jobs.assert_called_once_with(
+        FrontierCluster.SupportedQueues.BATCH
     )
     assert job_status == expected_status
 
 
-def test_polaris_cluster_run_job_fails(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug.name", mock_polaris_client)
-    mock_polaris_client.submit_job.return_value = "234"
-    mock_polaris_client.list_jobs.return_value = [
+def test_frontier_cluster_run_job_fails(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("batch.name", mock_slurm_client)
+    mock_slurm_client.submit_job.return_value = "234"
+    mock_slurm_client.list_jobs.return_value = [
         JobStatus(
             id="1234",
             name="some name",
@@ -870,16 +859,16 @@ def test_polaris_cluster_run_job_fails(mock_datetime, mock_polaris_client):
         )
     ]
     with pytest.raises(RuntimeError):
-        _ = cluster.run_job(_get_default_job("polaris"))
+        _ = cluster.run_job(_get_default_job("frontier"))
 
 
-def test_polaris_cluster_down(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
+def test_frontier_cluster_down(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("extended.name", mock_slurm_client)
     cluster.down()
     # Nothing to assert, this method is a no-op.
 
 
-def test_polaris_cluster_stop(mock_datetime, mock_polaris_client):
-    cluster = PolarisCluster("debug-scaling.name", mock_polaris_client)
+def test_frontier_cluster_stop(mock_datetime, mock_slurm_client):
+    cluster = FrontierCluster("extended.name", mock_slurm_client)
     cluster.stop()
     # Nothing to assert, this method is a no-op.
