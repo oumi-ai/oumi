@@ -1,4 +1,4 @@
-# Job config to full fine-tune tune Deepseek R1 Distill Qwen2.5 1.5B.
+# Job config to full fine-tune Deepseek R1 Distill Qwen2.5 1.5B.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
