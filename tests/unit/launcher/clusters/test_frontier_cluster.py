@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Final
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -59,6 +60,36 @@ def _get_default_job(cloud: str) -> JobConfig:
         ),
         run="./hello_world.sh",
     )
+
+
+_COMMON_INIT_COMMANDS: Final[list[str]] = [
+    ("cd /lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094"),
+    "module load PrgEnv-gnu/8.6.0",
+    "module load miniforge3/23.11.0-0",
+    "module load rocm/6.2.4",
+    "module load craype-accel-amd-gfx90a",
+    "if [ ! -d /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi ]; then",
+    'echo "Creating Oumi Conda environment... ---------------------------"',
+    (
+        "conda create -y python=3.10 -c conda-forge --prefix "
+        "/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi"
+    ),
+    "fi",
+    'if [ ! -z "$CONDA_DEFAULT_ENV" ]; then',
+    "conda deactivate",
+    "fi",
+    'echo "Installing packages... ---------------------------------------"',
+    "source activate /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi",
+    "if ! command -v uv >/dev/null 2>&1; then",
+    "pip install -U uv",
+    "fi",
+    (
+        "pip install torch torchvision torchaudio --index-url "
+        "https://download.pytorch.org/whl/rocm6.2"
+    ),
+    "pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
+    "pip uninstall nvidia-smi",
+]
 
 
 #
@@ -263,10 +294,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
         cluster="extended.name",
         done=False,
     )
-    mock_slurm_client.cancel.assert_called_once_with(
-        "job2",
-        FrontierCluster.SupportedQueues.EXTENDED,
-    )
+    mock_slurm_client.cancel.assert_called_once_with("job2")
     assert job_status == expected_status
 
 
@@ -315,7 +343,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -329,35 +357,16 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
+            call(_COMMON_INIT_COMMANDS),
             call(
                 [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]'",
+                    (
+                        "chmod +x "
+                        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+                    )
                 ]
             ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
-                [
-                    "mkdir -p some/log",
-                    "mkdir -p run/log",
-                ]
-            ),
+            call(["mkdir -p run/log", "mkdir -p some/log"]),
         ]
     )
     job_script = (
@@ -366,14 +375,22 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script,
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
-        2,
-        FrontierCluster.SupportedQueues.BATCH,
-        "myjob",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
+        node_count=2,
+        name="myjob",
+        export="NONE",
+        account="lrn081",
+        ntasks=2,
+        threads_per_core=1,
+        distribution="block:cyclic",
+        partition="batch",
+        stdout_file="some/log",
+        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -415,7 +432,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -429,35 +446,14 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
+            call(_COMMON_INIT_COMMANDS),
             call(
                 [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]'",
+                    "chmod +x "
+                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
                 ]
             ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
-                [
-                    "mkdir -p some/log",
-                    "mkdir -p run/log",
-                ]
-            ),
+            call(["mkdir -p run/log", "mkdir -p some/log"]),
         ]
     )
     job_script = (
@@ -466,11 +462,12 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script,
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
         2,
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
@@ -514,7 +511,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
             ),
             call(
                 "~/local/path.bar",
@@ -528,33 +525,17 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
+            call(_COMMON_INIT_COMMANDS),
             call(
                 [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]'",
+                    "chmod +x "
+                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
                 [
-                    "mkdir -p some/log",
                     "mkdir -p run/log",
+                    "mkdir -p some/log",
                 ]
             ),
         ]
@@ -565,11 +546,12 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script,
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
         2,
         FrontierCluster.SupportedQueues.BATCH,
         "1-2-3",
@@ -609,39 +591,23 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
+            call(_COMMON_INIT_COMMANDS),
             call(
                 [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]'",
+                    "chmod +x "
+                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
                 ]
             ),
             call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
-            ),
-            call(
                 [
-                    "mkdir -p some/log",
                     "mkdir -p run/log",
+                    "mkdir -p some/log",
                 ]
             ),
         ]
@@ -652,11 +618,12 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script,
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
         2,
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
@@ -698,44 +665,29 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
+            call(_COMMON_INIT_COMMANDS),
             call(
                 [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]'",
+                    "chmod +x "
+                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
                 ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
         ]
     )
     job_script = "#!/bin/bash\n\nexport var1=val1\n\nsmall setup\n./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script,
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
         2,
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",
@@ -777,44 +729,29 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         [
             call(
                 "./",
-                "/home/user/oumi_launcher/20241009_130424513094",
+                "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
             ),
         ],
     )
     mock_slurm_client.run_commands.assert_has_calls(
         [
+            call(_COMMON_INIT_COMMANDS),
             call(
                 [
-                    "cd /home/user/oumi_launcher/20241009_130424513094",
-                    "module use /soft/modulefiles",
-                    "module load conda",
-                    "if [ ! -d /home/$USER/miniconda3/envs/oumi ]; then",
-                    'echo "Creating Oumi Conda environment... '
-                    '---------------------------"',
-                    "conda create -y python=3.11 --prefix "
-                    "/home/$USER/miniconda3/envs/oumi",
-                    "fi",
-                    'echo "Installing packages... '
-                    '---------------------------------------"',
-                    "conda activate /home/$USER/miniconda3/envs/oumi",
-                    "if ! command -v uv >/dev/null 2>&1; then",
-                    "pip install -U uv",
-                    "fi",
-                    "pip install -e '.[gpu]'",
+                    "chmod +x "
+                    "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
                 ]
-            ),
-            call(
-                ["chmod +x /home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"]
             ),
         ]
     )
     job_script = "#!/bin/bash\n\nexport var1=val1\n\n./hello_world.sh\n"
     mock_slurm_client.put.assert_called_once_with(
-        job_script, "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh"
+        job_script,
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
     )
     mock_slurm_client.submit_job.assert_called_once_with(
-        "/home/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
-        "/home/user/oumi_launcher/20241009_130424513094",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
         2,
         FrontierCluster.SupportedQueues.BATCH,
         "myjob",

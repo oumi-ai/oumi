@@ -289,8 +289,8 @@ class FrontierCluster(BaseCluster):
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2"
-            "pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer"
+            "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2",
+            "pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
             "pip uninstall nvidia-smi",  # TODO Re-enable uv OPE-670
         ]
         self._client.run_commands(install_cmds)
