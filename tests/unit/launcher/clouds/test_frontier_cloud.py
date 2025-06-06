@@ -112,8 +112,10 @@ def test_frontier_cloud_up_cluster_fails_mismatched_user(
     mock_slurm_client, mock_frontier_cluster
 ):
     cloud = FrontierCloud()
-    with pytest.raises(ValueError):
-        _ = cloud.up_cluster(_get_default_job("frontier"), "debug.user1")
+    with pytest.raises(ValueError, match="User must match the provided job user"):
+        _ = cloud.up_cluster(_get_default_job("frontier"), "batch.user1")
+    with pytest.raises(ValueError, match="User must match the provided job user"):
+        _ = cloud.up_cluster(_get_default_job("frontier"), "extended.user1")
 
 
 def test_frontier_cloud_up_cluster_default_queue(

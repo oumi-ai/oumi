@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import collections
 from dataclasses import dataclass
 from typing import Optional
 
@@ -44,9 +45,9 @@ class FrontierCloud(BaseCloud):
     def __init__(self):
         """Initializes a new instance of the FrontierCloud class."""
         # A mapping from user names to Frontier Clients.
-        self._clients = {}
+        self._clients = collections.OrderedDict()
         # A mapping from cluster names to Frontier Cluster instances.
-        self._clusters = {}
+        self._clusters = collections.OrderedDict()
 
         # Check if any users have open SSH tunnels to Frontier.
         for user in SlurmClient.get_active_users(_FRONTIER_HOSTNAME):
