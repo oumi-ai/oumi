@@ -457,7 +457,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -541,7 +541,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
@@ -613,7 +613,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         ]
     )
     job_script = (
-        "#!/bin/bash\n#PBS -o some/log \n#PBE -l wow\n#PBS -e run/log\n\n"
+        "#!/bin/bash\n#SBATCH -o some/log \n#SBUTCH -l wow\n#SBATCH -e run/log\n\n"
         "export var1=val1\n\n"
         "pip install -r requirements.txt\n./hello_world.sh\n"
     )
