@@ -11,6 +11,7 @@ from oumi.core.collators.text_completions_collator_with_padding import (
 )
 from oumi.core.configs import ModelParams
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.utils import logging
 
 
 @pytest.fixture
@@ -149,3 +150,91 @@ def test_success_basic():
     assert np.all(
         collated_batch["labels"].numpy() == np.array(expected_labels, dtype=np.int32)
     )
+
+
+def test_debug_logging(caplog):
+    """Test that example debugging logs are correctly generated when debug=True."""
+    # Set the logging level to DEBUG for both caplog and the oumi logger
+    caplog.set_level("DEBUG")
+
+    # Get and configure the oumi logger to ensure debug messages are captured
+    oumi_logger = logging.get_logger("oumi")
+    oumi_logger.setLevel("DEBUG")
+    oumi_logger.propagate = True  # Ensure propagation to root logger
+
+    tokenizer, pad_token_id = create_test_tokenizer()
+
+    instruction_prefix = "ignore this and after me"
+    response_prefix = "ignore this but not after me"
+
+    instruction_prefix_tokens = tokenizer.encode(
+        instruction_prefix, add_special_tokens=False
+    )
+    response_prefix_tokens = tokenizer.encode(response_prefix, add_special_tokens=False)
+
+    collator = TextCompletionsCollatorWithPadding(
+        tokenizer=tokenizer,
+        instruction_prefix=instruction_prefix,
+        response_prefix=response_prefix,
+        debug=True,
+    )
+    assert callable(collator)
+
+    batch = [
+        # Instructions with no response, all tokens are ignored
+        {"input_ids": instruction_prefix_tokens + [101] + response_prefix_tokens},
+        # Response with no instructions, only in-between tokens are used
+        {
+            "input_ids": (
+                response_prefix_tokens
+                + [201, 202, 203, 204]
+                + instruction_prefix_tokens
+            )
+        },
+        # No instructions or response, all tokens are ignored
+        {"input_ids": [301, 302]},
+        # Normal multi-turn conversation, only tokens after response are used
+        {
+            "input_ids": (
+                instruction_prefix_tokens
+                + [301, 302]
+                + response_prefix_tokens
+                + [303, 304]
+                + instruction_prefix_tokens
+                + [305, 306]
+                + response_prefix_tokens
+                + [307, 308]
+            )
+        },
+    ]
+
+    _ = collator(batch)
+
+    # Check that debug logs were generated and verify their content
+    log_text = caplog.text
+
+    # Get the first example's token IDs for verification
+    first_example_input_ids = batch[0]["input_ids"]
+
+    # Verify raw example (decoded without special tokens)
+    expected_raw_text = tokenizer.decode(
+        first_example_input_ids, skip_special_tokens=True
+    )
+    assert f"Raw example: {expected_raw_text}" in log_text
+
+    # Verify formatted example (decoded with special tokens)
+    expected_formatted_text = tokenizer.decode(
+        first_example_input_ids, skip_special_tokens=False
+    )
+    assert f"Formatted example: {expected_formatted_text}" in log_text
+
+    # Verify tokenized example (list of tuples with token_id and decoded token)
+    expected_tokenized = [
+        (token_id, tokenizer.decode([token_id])) for token_id in first_example_input_ids
+    ]
+    assert f"Tokenized example: {expected_tokenized}" in log_text
+
+    # Verify model input contains the expected structure
+    assert "'input_ids':" in log_text
+    assert "'attention_mask':" in log_text
+    assert "'labels':" in log_text
