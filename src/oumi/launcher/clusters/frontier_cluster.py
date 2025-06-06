@@ -323,10 +323,14 @@ class FrontierCluster(BaseCluster):
             distribution="block:cyclic",
             partition=self._queue.value,
             stdout_file=(
-                str(stdout_file) or "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
+                str(stdout_file)
+                if stdout_file
+                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
             ),
             stderr_file=(
-                str(stderr_file) or "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
+                str(stderr_file)
+                if stderr_file
+                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
             ),
         )
         job_status = self.get_job(job_id)

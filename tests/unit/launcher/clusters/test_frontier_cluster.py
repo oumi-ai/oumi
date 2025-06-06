@@ -717,8 +717,8 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="some/log",
-        stderr_file="run/log",
+        stdout_file=None,
+        stderr_file=None,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -788,8 +788,8 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         threads_per_core=1,
         distribution="block:cyclic",
         partition="batch",
-        stdout_file="some/log",
-        stderr_file="run/log",
+        stdout_file=None,
+        stderr_file=None,
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
