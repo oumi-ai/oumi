@@ -424,7 +424,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         name="some name",
         status="queued",
         metadata="",
-        cluster="debug.name",
+        cluster="batch.name",
         done=False,
     )
     job_status = cluster.run_job(_get_default_job("frontier"))
