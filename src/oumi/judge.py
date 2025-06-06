@@ -12,86 +12,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
 
 from oumi.core.configs import JudgeConfig
-from oumi.core.datasets import BaseSftDataset
-from oumi.core.types.conversation import Conversation
-from oumi.judges.oumi_judge import OumiXmlJudge as Judge
+from oumi.judges.base_judge import JudgeOutput
+from oumi.judges.oumi_judge import OumiJudge
 
 
-def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str, Any]]:
-    """Judge a dataset.
+def judge_dataset(
+    config: JudgeConfig, dataset: list[dict[str, str]]
+) -> list[JudgeOutput]:
+    """Judge a dataset using the Oumi Judge framework.
 
-    This function evaluates a given dataset using a specified Judge configuration.
+    This function evaluates a dataset by instantiating an OumiJudge with the provided
+    configuration and running batch inference on all input data.
 
     The function performs the following steps:
 
-        1. Initializes the Judge with the provided configuration.
-        2. Iterates through the dataset to extract conversation inputs.
-        3. Uses the Judge to evaluate each conversation input.
-        4. Collects and returns the judged outputs.
+        1. Initializes an OumiJudge with the provided configuration.
+        2. Passes the entire dataset to the judge for batch evaluation.
+        3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        config: The configuration for the judge.
-        dataset: The dataset to be judged. This dataset
-            should be compatible with the Supervised Finetuning Dataset class.
+        config: The configuration for the judge, including prompt template,
+            response format, inference engine settings, and output field specifications.
+        dataset: List of dictionaries containing input data for evaluation. Each
+            dictionary should contain key-value pairs that match placeholders in
+            the judge's prompt template (e.g., {'question': '...', 'answer': '...'}).
 
     Returns:
-        List[Dict[str, Any]]: A list of judgement results for each conversation.
-
-        >>> # Example output:
-        [
-            {'helpful': True, 'safe': False},
-            {'helpful': True, 'safe': True},
-        ]
+        List[JudgeOutput]: A list of structured judgment results, each containing:
+            - raw_output: The original response from the judge model
+            - parsed_output: Extracted field values from structured formats (XML/JSON)
+            - field_values: Typed values for each expected output field
+            - field_scores: Numeric scores for applicable fields
 
     Example:
-        >>> config = JudgeConfig(...)
-        >>> dataset = SomeDataset(...)
+        >>> config = JudgeConfig(
+        ...     prompt_template="Is this answer helpful? "
+        ...                     "Question: {question} Answer: {answer}",
+        ...     judgment_type=JudgeOutputType.BOOL,
+        ...     response_format=JudgeResponseFormat.JSON
+        ...     ...
+        ... )
+        >>> dataset = [
+        ...     {'question': 'What is 2+2?', 'answer': '4'},
+        ...     {'question': 'How to cook?', 'answer': 'I dont know'}
+        ... ]
         >>> judged_outputs = judge_dataset(config, dataset)
         >>> for output in judged_outputs:
-        ...     print(output)
+        ...     print(output.field_values)  # e.g., {'judgment': True}
     """
-    judge = Judge(config)
-    judge_inputs = [dataset.conversation(idx) for idx in range(len(dataset))]
-    judge_outputs = judge.judge(judge_inputs)
-    return judge_outputs
-
-
-def judge_conversations(
-    config: JudgeConfig, judge_inputs: list[Conversation]
-) -> list[dict[str, Any]]:
-    """Judge a list of conversations.
-
-    This function evaluates a list of conversations using the specified Judge.
-
-    The function performs the following steps:
-
-        1. Initializes the Judge with the provided configuration.
-        2. Uses the Judge to evaluate each conversation input.
-        3. Collects and returns the judged outputs.
-
-    Args:
-        config: The configuration for the judge.
-        judge_inputs: A list of Conversation objects to be judged.
-
-    Returns:
-        List[Dict[str, Any]]: A list of judgement results for each conversation.
-
-        >>> # Example output:
-        [
-            {'helpful': True, 'safe': False},
-            {'helpful': True, 'safe': True},
-        ]
-
-    Example:
-        >>> config = JudgeConfig(...)
-        >>> judge_inputs = [Conversation(...), Conversation(...)]
-        >>> judged_outputs = judge_conversations(config, judge_inputs)
-        >>> for output in judged_outputs:
-        ...     print(output)
-    """
-    judge = Judge(config)
-    judge_outputs = judge.judge(judge_inputs)
-    return judge_outputs
+    judge = OumiJudge(config=config)
+    return judge.judge(inputs=dataset)

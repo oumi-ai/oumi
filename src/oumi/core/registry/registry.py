@@ -27,12 +27,13 @@ from oumi.utils.logging import logger
 class RegistryType(Enum):
     CLOUD = auto()
     DATASET = auto()
-    METRICS_FUNCTION = auto()
-    REWARD_FUNCTION = auto()
-    MODEL_CONFIG = auto()
-    MODEL = auto()
-    JUDGE_CONFIG = auto()
     EVALUATION_FUNCTION = auto()
+    JUDGE_CONFIG = auto()
+    METRICS_FUNCTION = auto()
+    MODEL = auto()
+    MODEL_CONFIG = auto()
+    PROMPT_TEMPLATE = auto()
+    REWARD_FUNCTION = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -63,7 +64,7 @@ def _load_user_requirements(requirements_file: str):
         )
     with open(requirements_path) as f:
         import_count = 0
-        for idx, line in enumerate(f):
+        for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
@@ -190,6 +191,11 @@ class Registry:
     def get_evaluation_function(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered evaluation function."""
         return self.get(name, RegistryType.EVALUATION_FUNCTION)
+
+    def get_prompt_template(self, name: str) -> Optional[str]:
+        """Gets a record that corresponds to a registered prompt template."""
+        prompt_template = self.get(name, RegistryType.PROMPT_TEMPLATE)
+        return prompt_template if isinstance(prompt_template, str) else None
 
     def get_dataset(
         self, name: str, subset: Optional[str] = None
@@ -356,5 +362,45 @@ def register_evaluation_function(registry_name: str) -> Callable:
             name=registry_name, type=RegistryType.EVALUATION_FUNCTION, value=obj
         )
         return obj
+
+    return decorator_register
+
+
+def register_prompt_template(registry_name: str) -> Callable:
+    """Returns function to register a prompt template in the Oumi global registry.
+
+    Args:
+        registry_name: The name that the prompt template should be registered with.
+
+    Returns:
+        Decorator function to register the target prompt template.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target prompt template string or function."""
+        if callable(obj):
+            # Function decorator case (i.e., call a function to get the prompt string).
+            template_str = obj()
+            if not isinstance(template_str, str):
+                raise TypeError(
+                    f"Registry `{registry_name}` function must return a string. "
+                    f"Got {type(template_str)} instead."
+                )
+        else:
+            # Direct string case
+            template_str = obj
+            if not isinstance(template_str, str):
+                raise TypeError(
+                    f"Registry `{registry_name}` must be a string. "
+                    f"Got {type(template_str)} instead."
+                )
+
+        if not template_str.strip():
+            raise ValueError(f"Registry `{registry_name}` cannot be an empty string.")
+
+        REGISTRY.register(
+            name=registry_name, type=RegistryType.PROMPT_TEMPLATE, value=template_str
+        )
+        return obj  # Return the original object (function or string)
 
     return decorator_register
