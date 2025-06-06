@@ -159,8 +159,8 @@ def test_frontier_cloud_init_with_users(mock_slurm_client):
     ]
     mock_slurm_client.assert_has_calls(
         [
-            call("user1", "frontier.olcf.ornl.gov", "extended.user1"),
-            call("user2", "frontier.olcf.ornl.gov", "extended.user2"),
+            call("user1", "frontier.olcf.ornl.gov", "batch.user1"),
+            call("user2", "frontier.olcf.ornl.gov", "batch.user2"),
         ]
     )
 
@@ -172,7 +172,7 @@ def test_frontier_cloud_initialize_cluster(mock_slurm_client):
     clusters = cloud.initialize_clusters("me")
     clusters2 = cloud.initialize_clusters("me")
     mock_slurm_client.assert_called_once_with(
-        "me", "frontier.olcf.ornl.gov", "extended.me"
+        "me", "frontier.olcf.ornl.gov", "batch.me"
     )
     cluster_names = [cluster.name() for cluster in clusters]
     cluster_names.sort()

@@ -111,8 +111,7 @@ class FrontierCloud(BaseCloud):
             List[FrontierCluster]: The list of initialized clusters.
         """
         clusters = []
-        queue_set = {q.value for q in FrontierCluster.SupportedQueues}
-        for q in queue_set:
+        for q in sorted({q.value for q in FrontierCluster.SupportedQueues}):
             name = f"{q}.{user}"
             cluster = self._get_or_create_cluster(name)
             clusters.append(cluster)
