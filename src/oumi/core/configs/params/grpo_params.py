@@ -57,6 +57,13 @@ class GrpoParams(BaseParams):
     and `"completions"`, you should set it to `False`.
     """
 
+    repetition_penalty: Optional[float] = 1.0
+    """Float that penalizes new tokens if they appear in the prompt/response so far.
+
+    Values > 1.0 encourage the model to use new tokens, while values < 1.0 encourage
+    the model to repeat tokens.
+    """
+
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
 
@@ -99,6 +106,15 @@ class GrpoParams(BaseParams):
     will use the model context size, which might be much larger than the KV cache,
     leading to inefficiencies.
     """
+
+    epsilon: float = 0.2
+    """Epsilon value for clipping the relative probability in the loss.
+
+    For example, if epsilon is 0.2, then the new probability can only differ from
+    the old probability by a factor of x0.8-1.2."""
+
+    log_completions: bool = False
+    """Whether to log prompt and completion pairs every `logging_steps` steps."""
 
     def __post_init__(self):
         """Verifies params."""

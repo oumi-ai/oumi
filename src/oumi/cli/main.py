@@ -37,7 +37,8 @@ _ASCII_LOGO = r"""
  | |  | | |  | | \  / | | |
  | |  | | |  | | |\/| | | |
  | |__| | |__| | |  | |_| |_
-  \____/ \____/|_|  |_|_____|"""
+  \____/ \____/|_|  |_|_____|
+"""
 
 _FANCY_LOGO = r"""
   ██████╗ ██╗   ██╗███╗   ███╗██╗
@@ -96,6 +97,9 @@ def get_app() -> typer.Typer:
         # Display welcome message
         _oumi_welcome(ctx)
 
+    app.callback(context_settings={"help_option_names": ["-h", "--help"]})(
+        _oumi_welcome
+    )
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Evaluate a model.",

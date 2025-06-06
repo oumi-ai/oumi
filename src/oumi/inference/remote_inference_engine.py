@@ -48,6 +48,10 @@ from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
 )
+from oumi.utils.http import (
+    get_failure_reason_from_response,
+    is_non_retriable_status_code,
+)
 
 _AUTHORIZATION_KEY: str = "Authorization"
 _BATCH_PURPOSE = "batch"
@@ -349,7 +353,15 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             Conversation: The conversation including the generated response.
         """
-        message = response["choices"][0]["message"]
+        if "error" in response:
+            raise RuntimeError(
+                f"API error: {response['error'].get('message', response['error'])}"
+            )
+        if "choices" not in response or not response["choices"]:
+            raise RuntimeError(f"No choices found in API response: {response}")
+        message = response["choices"][0].get("message")
+        if not message:
+            raise RuntimeError(f"No message found in API response: {response}")
         return Conversation(
             messages=[
                 *original_conversation.messages,
@@ -444,42 +456,109 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 conversation, generation_params, model_params
             )
             headers = self._get_request_headers(remote_params)
-            retries = 0
             failure_reason = None
-            # Retry the request if it fails.
-            for _ in range(remote_params.max_retries + 1):
-                async with session.post(
-                    remote_params.api_url,
-                    json=api_input,
-                    headers=headers,
-                    timeout=remote_params.connection_timeout,
-                ) as response:
-                    response_json = await response.json()
-                    if response.status == 200:
-                        result = self._convert_api_output_to_conversation(
-                            response_json, conversation
+
+            # Retry the request if it fails
+            for attempt in range(remote_params.max_retries + 1):
+                try:
+                    # Calculate exponential backoff delay
+                    if attempt > 0:
+                        delay = min(
+                            remote_params.retry_backoff_base * (2 ** (attempt - 1)),
+                            remote_params.retry_backoff_max,
                         )
-                        if output_path:
-                            # Write what we have so far to our scratch directory.
-                            self._save_conversation(
-                                result,
-                                self._get_scratch_filepath(output_path),
+                        await asyncio.sleep(delay)
+
+                    async with session.post(
+                        remote_params.api_url,
+                        json=api_input,
+                        headers=headers,
+                        timeout=remote_params.connection_timeout,
+                    ) as response:
+                        if response.status != 200:
+                            failure_reason = await get_failure_reason_from_response(
+                                response
                             )
+
+                            # Check for non-retriable status codes to fail fast.
+                            if is_non_retriable_status_code(response.status):
+                                failure_reason = (
+                                    f"Non-retriable error: {failure_reason}"
+                                )
+                                raise RuntimeError(failure_reason)
+                            continue
+
+                        # Try to parse the response as JSON
+                        try:
+                            response_json = await response.json()
+                        except (aiohttp.ContentTypeError, json.JSONDecodeError):
+                            # Try to parse as text if JSON parsing fails
+                            text_response = await response.text()
+                            try:
+                                response_json = json.loads(text_response)
+                            except (json.JSONDecodeError, ValueError) as e:
+                                failure_reason = (
+                                    "Failed to parse response. "
+                                    f"Content type: {response.content_type}. "
+                                    f"Response text: {text_response[:200]}..."
+                                )
+                                if attempt >= remote_params.max_retries:
+                                    raise RuntimeError(
+                                        "Failed to parse response as JSON after "
+                                        f"{attempt + 1} attempts. {failure_reason}"
+                                    ) from e
+                                continue
+
+                        # Process successful response
+                        try:
+                            result = self._convert_api_output_to_conversation(
+                                response_json, conversation
+                            )
+                            # Write what we have so far to our scratch directory
+                            self._save_conversation_to_scratch(result, output_path)
+                            return result
+                        except Exception as e:
+                            # Response was successful, but we couldn't process it.
+                            failure_reason = (
+                                f"Failed to process successful response: {str(e)}"
+                            )
+                            if attempt >= remote_params.max_retries:
+                                raise RuntimeError(failure_reason) from e
+                            continue
+
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    # Connection or timeout errors are retriable.
+                    failure_reason = f"Connection error: {str(e)}"
+                    if attempt >= remote_params.max_retries:
+                        raise RuntimeError(
+                            f"Failed to query API after {attempt + 1} attempts due to "
+                            f"connection error: {str(e)}"
+                        ) from e
+                    continue
+                except RuntimeError:
+                    # RuntimeError is raised by our code, so we don't need to retry.
+                    raise
+                except Exception as e:
+                    # If we get here, we've hit an unexpected error.
+                    failure_reason = f"Unexpected error: {str(e)}"
+                    if attempt >= remote_params.max_retries:
+                        raise RuntimeError(
+                            f"Failed to query API after {attempt + 1} attempts due to "
+                            f"unexpected error: {str(e)}"
+                        ) from e
+                    continue
+                finally:
+                    # If the request was successful or non-retriable, and we haven't
+                    # reached the max number of retries, sleep for politeness policy.
+                    if (
+                        not failure_reason
+                        or not failure_reason.startswith("Non-retriable error:")
+                    ) and attempt < remote_params.max_retries:
                         await asyncio.sleep(remote_params.politeness_policy)
-                        return result
-                    else:
-                        if isinstance(response_json, list):
-                            # If the response is a list, it is likely an error message.
-                            response_json = response_json[0]
-                        failure_reason = (
-                            response_json.get("error").get("message")
-                            if response_json and response_json.get("error")
-                            else None
-                        )
-                        retries += 1
-                        await asyncio.sleep(remote_params.politeness_policy)
+
+            # This should only be reached if all retries failed
             raise RuntimeError(
-                f"Failed to query API after {remote_params.max_retries} retries. "
+                f"Failed to query API after {attempt + 1} attempts. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
 
@@ -514,7 +593,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             ]
 
             disable_tqdm = len(tasks) < 2
-            return await tqdm.gather(*tasks, disable=disable_tqdm)
+            results = await tqdm.gather(*tasks, disable=disable_tqdm)
+            self._cleanup_scratch_file(
+                inference_config.output_path if inference_config else None
+            )
+            return results
 
     @override
     def infer_online(

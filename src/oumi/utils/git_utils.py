@@ -30,7 +30,7 @@ def get_git_revision_hash() -> Optional[str]:
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
 
@@ -47,7 +47,7 @@ def get_git_tag() -> Optional[str]:
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
 
@@ -67,5 +67,5 @@ def get_git_root_dir() -> Optional[Path]:
             ).strip()
         )
         return dir_path if dir_path.is_dir() else None
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return None

@@ -1,0 +1,73 @@
+# QLoRA config for Phi-4-reasoning-plus (14B params).
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c oumi://configs/recipes/phi4/sft/reasoning_plus/qlora_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "microsoft/Phi-4-reasoning-plus"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
+    target_col: "prompt"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: True
+  save_steps: 200
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  max_grad_norm: null
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 3.0e-04
+  lr_scheduler_type: "cosine"
+  warmup_steps: 100
+  weight_decay: 0.01
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  logging_steps: 100
+  empty_device_cache_steps: 50
+  output_dir: "output/phi_4_reasoning_plus.qlora"
+  include_performance_metrics: True
+  enable_wandb: True
+
+peft:
+  q_lora: True
+  # https://github.com/pytorch/torchtune/blob/37337f71677da69f0967a9cde34b96ad7fec3cb6/torchtune/modules/peft/lora.py#L95
+  bnb_4bit_quant_type: "nf4"
+  # Must use a float type for quantized data storage. See:
+  # https://huggingface.co/docs/bitsandbytes/main/en/fsdp_qlora#quantized-data-storage.
+  bnb_4bit_quant_storage: "bfloat16"
+  bnb_4bit_compute_dtype: "bfloat16"
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "qkv_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

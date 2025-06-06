@@ -27,6 +27,6 @@ def test_cli_speed_regression_no_core_dependency():
     process = Process(target=_verify_no_extra_import, args=["oumi.core"])
     process.start()
     process.join()
-    assert (
-        process.exitcode == 0
-    ), "oumi.core was imported in the CLI. This is a regression."
+    assert process.exitcode == 0, (
+        "oumi.core was imported in the CLI. This is a regression."
+    )

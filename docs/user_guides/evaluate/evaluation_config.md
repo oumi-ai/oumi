@@ -35,6 +35,10 @@ tasks:
     version: 2.0  # or 1.0
     num_samples: 805
 
+  # Custom Task
+  - evaluation_backend: custom
+    task_name: my_custom_evaluation
+
 generation:
   batch_size: 16
   max_new_tokens: 512
@@ -69,6 +73,10 @@ run_name: "phi3-evaluation"
     - `version`: AlpacaEval version (1.0 or 2.0)
     - `num_samples`: Number of samples to evaluate
     - `eval_kwargs`: Additional task-specific parameters
+
+  - Custom Task Parameters:
+    - `evaluation_backend`: "custom"
+    - `task_name`: Name that the custom evaluation function was registered with
 
 - `generation`: Generation parameters ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`)
   - `batch_size`: Batch size for inference ("auto" for automatic selection)

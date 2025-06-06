@@ -1,0 +1,84 @@
+# VERL GRPO training config for Countdown.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/examples/grpo_verl_countdown/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "d1shs0ap/cognitive-behaviors-Llama-3.2-3B"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "d1shs0ap/countdown-final"
+        split: "train"
+  validation:
+    datasets:
+      - dataset_name: "d1shs0ap/countdown-final"
+        split: "test"
+
+training:
+  trainer_type: "VERL_GRPO"
+  num_train_epochs: 5
+  save_steps: 150
+  eval_strategy: "steps"
+  eval_steps: 12
+
+  learning_rate: 1.0e-6
+  enable_gradient_checkpointing: True
+
+  reward_functions: ["countdown"]
+
+  grpo:
+    max_completion_length: 1024
+    use_vllm: True
+    temperature: 0.6
+    vllm_gpu_memory_utilization: 0.7
+
+  verl_config_overrides:
+    data:
+      train_files: "/home/cmu/countdown-curriculum/data/countdown/train-3-3.parquet"
+      val_files: "/home/cmu/countdown-curriculum/data/countdown/test-3-10.parquet"
+      train_batch_size: 128
+      val_batch_size: 256
+      max_prompt_length: 256
+      max_extrapolation_length: 2048
+      shuffle: False
+    actor_rollout_ref:
+      model:
+        use_remove_padding: True
+      actor:
+        ppo_mini_batch_size: 32
+        use_dynamic_bsz: True
+        gradients: "normal"
+        use_kl_loss: True
+        kl_loss_coef: 0.001
+        kl_loss_type: "low_var_kl"
+        entropy_coeff: 0
+      rollout:
+        tensor_model_parallel_size: 2
+        n: 8
+        enforce_eager: False
+        free_cache_engine: False
+        val_kwargs:
+          temperature: 0.6
+          n: 8
+          do_sample: True
+        max_num_batched_tokens: 16384
+      ref:
+        fsdp_config:
+          param_offload: True
+    trainer:
+      n_gpus_per_node: 8
+      nnodes: 1
+
+  output_dir: "output/grpo_verl_countdown"
+  enable_wandb: True

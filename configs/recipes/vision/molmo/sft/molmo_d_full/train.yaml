@@ -1,0 +1,61 @@
+# Full fine-tune config for Molmo-7B-D.
+#
+# Note: the original model is not compatible with the latest version of transformers and oumi
+# We use the oumi-ai version of the model instead until the original model is updated.
+#
+# Requirements:
+#   - uv pip install einops tf-keras
+#
+# Usage:
+#   torchrun --nproc-per-node 4 --standalone -m	oumi train -c configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  # model_name: "allenai/Molmo-7B-D-0924"
+  model_name: "oumi-ai/Molmo-7B-D-0924"
+  torch_dtype_str: "float32"
+  model_max_length: 2048
+  trust_remote_code: True
+
+data:
+  train:
+    collator_name: "vision_language_sft"
+    collator_kwargs:
+      process_individually: True
+    use_torchdata: True
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          # processor_name: "allenai/Molmo-7B-D-0924"
+          processor_name: "oumi-ai/Molmo-7B-D-0924"
+          return_conversation: True
+
+training:
+  output_dir: "output/molmo_sft"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: False # Note: Molmo does not support gradient checkpointing
+  per_device_train_batch_size: 2
+  max_steps: 20
+  optimizer: "adamw_torch_fused"
+  logging_steps: 5
+  save_steps: 0
+  include_performance_metrics: True
+  log_model_summary: True
+  dataloader_main_process_only: False
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  mixed_precision: "bf16"
+  forward_prefetch: True
+  auto_wrap_policy: "SIZE_BASED_WRAP" # TODO: use transformer wrapper instead
+  min_num_params: 100000

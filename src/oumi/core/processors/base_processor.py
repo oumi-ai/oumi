@@ -14,7 +14,7 @@
 
 import abc
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import PIL.Image
 import transformers
@@ -91,6 +91,17 @@ class BaseProcessor(abc.ABC):
     @abc.abstractmethod
     def ignore_features(self) -> list[str]:
         """Returns a list of keys of features to ignore from feeding the model."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def raw_processor(self) -> Callable:
+        """Returns the underlying raw processor.
+
+        The use of this method is generally discouraged. Only use it if you know
+        what you are doing e.g., direct access to the underlying processor
+        is required by some third-party library.
+        """
         raise NotImplementedError
 
     @abc.abstractmethod

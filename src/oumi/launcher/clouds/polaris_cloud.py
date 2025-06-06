@@ -60,7 +60,7 @@ class PolarisCloud(BaseCloud):
         name_splits = name.split(".")
         if len(name_splits) != 2:
             raise ValueError(
-                f"Invalid cluster name: {name}. " "Must be in the format 'queue.user'."
+                f"Invalid cluster name: {name}. Must be in the format 'queue.user'."
             )
         queue, user = name_splits
         return _ClusterInfo(queue, user)

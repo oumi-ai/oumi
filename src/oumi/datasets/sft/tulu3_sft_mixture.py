@@ -47,6 +47,5 @@ class Tulu3MixtureDataset(BaseSftDataset):
             return Message(role=role, content=content)
         except KeyError as e:
             raise ValueError(
-                f"Unknown role {message['role']}, "
-                f"was expecting one of {roles.keys()}"
+                f"Unknown role {message['role']}, was expecting one of {roles.keys()}"
             ) from e

@@ -133,8 +133,7 @@ class TextSftJsonLinesDataset(BaseSftDataset):
 
         if format and format not in ["oumi", "alpaca"]:
             raise ValueError(
-                f"Invalid format: {format}. "
-                "Supported formats are 'oumi', and 'alpaca'."
+                f"Invalid format: {format}. Supported formats are 'oumi', and 'alpaca'."
             )
 
         self._format: str = format if format else self._detect_format(data_frame)

@@ -34,28 +34,25 @@ def _extract_prediction(response: str) -> Optional[int]:
 def compute_letter_count_reward(completion: str, target_count: int) -> float:
     """Computes the rewards for counting the letters in a string.
 
-    The last group of consecutive digits in the completion is assumed to be the letter
-    count. We're also assuming it's counting the correct letter. The reward is the
-    negative of the absolute difference between the count and the target count, plus 0.1
-    if the answer was properly formatted.
-
-    For example, for the string "There are 2 'r's in strawberry", and the target count
-    is 3, the reward is -1.
-
     Args:
         completion: The completion string from the LLM.
         target_count: The target count of letters.
 
     Returns:
-        The reward value, calculated as the negative of the absolute difference between
-        the count and the target count. The count is assumed to be the last group of
-        consecutive digits in the completion string.
+        The reward value.
     """
     count = _extract_prediction(completion)
-    formatting_reward = 0.1 if count is not None else 0
+
+    # Lowest reward goes to unparseable responses
     if count is None:
-        count = 0
-    return -abs(count - target_count) + formatting_reward
+        return -3.0
+
+    delta = abs(count - target_count)
+
+    # Reward scales from [0, -2) as delta increases
+    # Ensures that "worse" answers (where the counts are off by a higher amount) are
+    # penalized while never reaching -3.0 which is reserved for unparseable answers.
+    return (1 / (delta + 0.5)) - 2
 
 
 @register("count_letters", RegistryType.REWARD_FUNCTION)

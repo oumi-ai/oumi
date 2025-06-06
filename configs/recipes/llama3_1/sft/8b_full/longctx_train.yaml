@@ -50,6 +50,5 @@ data:
         dataset_kwargs:
           seq_length: 32_768
     target_col: "text"
-    use_async_dataset: True
     stream: True
     pack: True

@@ -105,6 +105,7 @@ def _convert_job_to_task(job: JobConfig) -> "sky.Task":
         zone=job.resources.zone,
         disk_size=job.resources.disk_size,
         disk_tier=job.resources.disk_tier,
+        image_id=job.resources.image_id,
     )
     sky_task = sky.Task(
         name=job.name,

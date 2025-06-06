@@ -109,8 +109,7 @@ def _split_status_line(
     """
     if len(column_lengths) != 5:
         raise ValueError(
-            f"Expected 5 fields, but found {len(column_lengths)}."
-            f" Invalid line: {line}."
+            f"Expected 5 fields, but found {len(column_lengths)}. Invalid line: {line}."
         )
     fields = []
     # Note: We can't use a simple split() here because empty fields are allowed.
@@ -249,7 +248,7 @@ class SlurmClient:
         Args:
             commands: The commands to run.
         """
-        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@{self._slurm_host} " " << 'EOF'"
+        ssh_cmd = f"ssh {_CTRL_PATH} {self._user}@{self._slurm_host}  << 'EOF'"
         eof_suffix = "EOF"
         new_cmd = "\n".join([ssh_cmd, *commands, eof_suffix])
         start_time: float = time.perf_counter()
@@ -308,8 +307,7 @@ class SlurmClient:
         if name:
             optional_name_args = f"--job-name={name}"
         sbatch_cmd = (
-            f"sbatch --nodes={node_count}"
-            f" {optional_name_args} --parsable {job_path}"
+            f"sbatch --nodes={node_count} {optional_name_args} --parsable {job_path}"
         )
         result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
         if result.exit_code != 0:

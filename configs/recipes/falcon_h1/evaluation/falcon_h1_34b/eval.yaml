@@ -1,0 +1,57 @@
+# Eval config for tiiuae/Falcon-H1-34B-Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi evaluate -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_34b/eval.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+#   - Config class: oumi.core.configs.EvaluationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/evaluation_config.py
+#   - Other eval configs: configs/**/evaluation/
+
+model:
+  model_name: "tiiuae/Falcon-H1-34B-Instruct"
+  model_max_length: 262144
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  shard_for_eval: True
+
+generation:
+  batch_size: 3
+
+# HuggingFace Leaderboard V1
+tasks:
+  # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
+  - evaluation_backend: lm_harness
+    task_name: mmlu
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: arc_challenge
+    eval_kwargs:
+      num_fewshot: 25
+  - evaluation_backend: lm_harness
+    task_name: winogrande
+    eval_kwargs:
+      num_fewshot: 5
+  - evaluation_backend: lm_harness
+    task_name: hellaswag
+    eval_kwargs:
+      num_fewshot: 10
+  - evaluation_backend: lm_harness
+    task_name: truthfulqa_mc2
+    eval_kwargs:
+      num_fewshot: 0
+  - evaluation_backend: lm_harness
+    task_name: gsm8k
+    eval_kwargs:
+      num_fewshot: 5
+
+enable_wandb: True
+inference_engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
+
+output_dir: "output/falcon_h1_34b_instruct/evaluation"

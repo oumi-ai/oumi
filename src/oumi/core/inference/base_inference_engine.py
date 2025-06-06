@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import copy
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
 
 import jsonlines
+from hdrh.histogram import HdrHistogram
 from tqdm import tqdm
 
 from oumi.core.configs import (
@@ -27,6 +29,7 @@ from oumi.core.configs import (
 )
 from oumi.core.types.conversation import Conversation
 from oumi.utils.logging import logger
+from oumi.utils.math_utils import is_power_of_two
 
 
 class BaseInferenceEngine(ABC):
@@ -56,6 +59,9 @@ class BaseInferenceEngine(ABC):
         else:
             generation_params = GenerationParams()
         self._generation_params = generation_params
+
+        self._latency_histogram_online = HdrHistogram(1, 60 * 1000, 1)
+        self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
 
     def infer(
         self,
@@ -94,14 +100,48 @@ class BaseInferenceEngine(ABC):
                     "the generation parameters that the engine was initialized with."
                 )
 
+        result: list[Conversation] = []
+        start_time = time.perf_counter()
+        histogram: Optional[HdrHistogram] = None
         if input is not None:
-            return self.infer_online(input, inference_config)
+            histogram = self._latency_histogram_online
+            result = self.infer_online(input, inference_config)
         elif inference_config and inference_config.input_path is not None:
-            return self.infer_from_file(inference_config.input_path, inference_config)
+            histogram = self._latency_histogram_from_file
+            result = self.infer_from_file(inference_config.input_path, inference_config)
         else:
             raise ValueError(
                 "One of input or inference_config.input_path must be provided."
             )
+        histogram.record_value((time.perf_counter() - start_time) * 1e3)
+        self._maybe_log_latency_histogram(histogram)
+        return result
+
+    def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:
+        """Logs the histogram if it is not None.
+
+        Args:
+            histogram: The histogram to log.
+        """
+        if histogram is None:
+            return
+        total_count = histogram.get_total_count()
+        # TODO: Define a better way to enable/configure this logging.
+        if not (
+            isinstance(total_count, int)
+            and total_count >= 2
+            and is_power_of_two(total_count)
+        ):
+            return
+
+        p50 = histogram.get_value_at_percentile(50)
+        p90 = histogram.get_value_at_percentile(90)
+        p99 = histogram.get_value_at_percentile(99)
+        logger.debug(
+            f"{self.__class__.__name__}: "
+            f"Latency Histogram: {total_count} samples recorded:"
+            f"\tp50: {p50:.1f}ms\tp90: {p90:.1f}ms\tp99: {p99:.1f}ms"
+        )
 
     def _read_conversations(self, input_filepath: str) -> list[Conversation]:
         """Reads conversations from a file in Oumi chat format.
@@ -121,11 +161,14 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
-    def _get_scratch_filepath(self, output_filepath: str) -> str:
+    def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
         """Returns a scratch filepath for the given output filepath.
 
         For example, if the output filepath is "/foo/bar/output.json", the scratch
         filepath will be "/foo/bar/scratch/output.json"
+
+        If no output filepath is provided, a temporary file is used and placed in the
+        current working directory under the name "tmp/temp_inference_output.jsonl".
 
         Args:
             output_filepath: The output filepath.
@@ -133,11 +176,14 @@ class BaseInferenceEngine(ABC):
         Returns:
             str: The scratch filepath.
         """
-        original_filepath = Path(output_filepath)
-        return str(original_filepath.parent / "scratch" / original_filepath.name)
+        if output_filepath is not None:
+            original_filepath = Path(output_filepath)
+            return str(original_filepath.parent / "scratch" / original_filepath.name)
 
-    def _save_conversation(
-        self, conversation: Conversation, output_filepath: str
+        return str(Path.cwd() / "tmp" / "temp_inference_output.jsonl")
+
+    def _save_conversation_to_scratch(
+        self, conversation: Conversation, output_filepath: Optional[str]
     ) -> None:
         """Appends a conversation to a file in Oumi chat format.
 
@@ -147,10 +193,22 @@ class BaseInferenceEngine(ABC):
                 saved.
         """
         # Make the directory if it doesn't exist.
-        Path(output_filepath).parent.mkdir(parents=True, exist_ok=True)
-        with jsonlines.open(output_filepath, mode="a") as writer:
+        scratch_filepath = self._get_scratch_filepath(output_filepath)
+        Path(scratch_filepath).parent.mkdir(parents=True, exist_ok=True)
+        with jsonlines.open(scratch_filepath, mode="a") as writer:
             json_obj = conversation.to_dict()
             writer.write(json_obj)
+
+    def _cleanup_scratch_file(self, output_filepath: Optional[str]) -> None:
+        """Delete the scratch file from the file system if it exists.
+
+        Args:
+            output_filepath: The path to the output file. This is used to determine the
+                location of the scratch file.
+        """
+        scratch_filepath = self._get_scratch_filepath(output_filepath)
+        if Path(scratch_filepath).exists():
+            Path(scratch_filepath).unlink()
 
     def _save_conversations(
         self, conversations: list[Conversation], output_filepath: str

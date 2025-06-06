@@ -2,14 +2,15 @@
 # https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 
 # Sample command:
-# oumi launch up --config tests/scripts/gcp_e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
+# oumi launch up --config tests/scripts/runpod_e2e_tests_job.yaml --cluster oumi-e2e-tests-cluster
 name: oumi-e2e-tests
 
 resources:
-  cloud: gcp
-  accelerators: "A100:4" # "A100:1", "A100-80GB:1", "A100-80GB:4"
+  cloud: runpod
+  accelerators: "A100-80GB:4" # "A100:1", "A100-80GB:1", "A100-80GB:4"
   use_spot: false
   disk_size: 1000 # Disk size in GBs
+  image_id: "docker:runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
 
 num_nodes: 1 # Set it to N for multi-node training.
 
@@ -31,7 +32,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer
+  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer --system
   pip install -U flash-attn --no-build-isolation
 
 run: |

@@ -95,7 +95,7 @@ You can also check out the `README.md` in each recipe's directory for more detai
 | Qwen2.5-VL 3B | `recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml` | {download}`Download </../configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml>` {gh}`configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml` |
 | | `recipes/vision/qwen2_5_vl_3b/inference/infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml>` {gh}`configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml` |
 | | `recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml` | {download}`Download </../configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml>` {gh}`configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml` |
-| SmolVLM | `recipes/vision/smolvlm/sft/train.yaml` | {download}`Download </../configs/recipes/vision/smolvlm/sft/train.yaml>` {gh}`configs/recipes/vision/smolvlm/sft/train.yaml` |
+| SmolVLM | `recipes/vision/smolvlm/sft/full/train.yaml` | {download}`Download </../configs/recipes/vision/smolvlm/sft/full/train.yaml>` {gh}`configs/recipes/vision/smolvlm/sft/full/train.yaml` |
 
 ### 🎯 Training Techniques
 
@@ -106,6 +106,7 @@ This section lists an example config for various training techniques supported b
 | FSDP | `recipes/llama3_1/sft/8b_lora/fsdp_train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml>` {gh}`configs/recipes/llama3_1/sft/8b_lora/fsdp_train.yaml` |
 | Long-context training | `recipes/llama3_1/sft/8b_full/longctx_train.yaml` | {download}`Download </../configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml>` {gh}`configs/recipes/llama3_1/sft/8b_full/longctx_train.yaml` |
 | DPO | `recipes/phi3/dpo/train.yaml` | {download}`Download </../configs/recipes/phi3/dpo/train.yaml>` {gh}`configs/recipes/phi3/dpo/train.yaml` |
+| GRPO | `examples/grpo_tldr/train.yaml` | {download}`Download </../configs/examples/grpo_tldr/train.yaml>` {gh}`configs/examples/grpo_tldr/train.yaml` |
 | DDP Pretraining | `examples/fineweb_ablation_pretraining/ddp/train.yaml` | {download}`Download </../configs/examples/fineweb_ablation_pretraining/ddp/train.yaml>` {gh}`configs/examples/fineweb_ablation_pretraining/ddp/train.yaml` |
 | FSDP Pretraining | `examples/fineweb_ablation_pretraining/fsdp/train.yaml` | {download}`Download </../configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml>` {gh}`configs/examples/fineweb_ablation_pretraining/fsdp/train.yaml` |
 

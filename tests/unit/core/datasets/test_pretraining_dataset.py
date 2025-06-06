@@ -193,12 +193,12 @@ def test_dataset_with_exact_sequence_length(tokenizer):
     )
     samples = list(dataset)
     assert len(samples) == 2
-    assert (
-        samples[0]["input_ids"].shape[0] == 19
-    ), "First sample should match seq_length"
-    assert (
-        samples[1]["input_ids"].shape[0] == 1
-    ), "Second sample should have the remainder"
+    assert samples[0]["input_ids"].shape[0] == 19, (
+        "First sample should match seq_length"
+    )
+    assert samples[1]["input_ids"].shape[0] == 1, (
+        "Second sample should have the remainder"
+    )
 
 
 def test_dataset_with_very_long_sequence(tokenizer):

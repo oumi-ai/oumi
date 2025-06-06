@@ -9,6 +9,7 @@ evaluation_config
 standardized_benchmarks
 generative_benchmarks
 leaderboards
+custom_evals
 ```
 
 ## Overview
@@ -25,8 +26,8 @@ Key features include:
 **Extensibility**: Designed with simplicity and modularity in mind, Oumi offers a flexible framework that empowers the community to easily contribute new benchmarks and metrics. This facilitates continuous improvement and ensures the platform evolves alongside emerging research and industry trends.
 -->
 
-Oumi seamlessly integrates with leading platforms such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
-
+Oumi seamlessly integrates with leading evaluation frameworks such as [LM Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), and (WIP) [MT-Bench](https://github.com/lm-sys/FastChat/tree/main/fastchat/llm_judge).
+For more specialized use cases not covered by these frameworks, Oumi also supports {doc}`custom evaluation functions </user_guides/evaluate/custom_evals>`, enabling you to tailor evaluations to your specific needs.
 
 ## Benchmark Types
 
@@ -35,6 +36,7 @@ Oumi seamlessly integrates with leading platforms such as [LM Evaluation Harness
 | **Standardized Benchmarks** | Assess model knowledge and reasoning capability through structured questions with predefined answers | Ideal for measuring factual knowledge, reasoning capabilities, and performance on established text-based and multi-modal benchmarks | See {doc}`Standardized benchmarks page </user_guides/evaluate/standardized_benchmarks>` |
 | **Open-Ended Generation** | Evaluate model's ability to effectively respond to open-ended questions | Best for assessing instruction-following capabilities and response quality | See {doc}`Generative benchmarks page </user_guides/evaluate/generative_benchmarks>` |
 | **LLM as Judge** | Automated assessment using LLMs | Suitable for automated evaluation of response quality against predefined (helpfulness, honesty, safety) or custom criteria | See {doc}`Judge documentation </user_guides/judge/judge>` |
+| **Custom Evaluations** | Fully custom evaluation functions | The most flexible option, allowing you to build any complex evaluation scenario | See {doc}`Custom evaluations documentation </user_guides/evaluate/custom_evals>` |
 
 ## Quick Start
 
