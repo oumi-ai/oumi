@@ -64,7 +64,7 @@ def mock_vllm():
         yield mvllm
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def setup_and_teardown():
     # Setup
     temp_output = Path(str(os.getcwd())) / "tmp" / "temp_inference_output.jsonl"
