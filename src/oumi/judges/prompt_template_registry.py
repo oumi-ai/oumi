@@ -12,28 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A framework used for registering and accessing objects across Oumi."""
+"""Registered prompt templates for the Oumi Judge framework."""
 
-from oumi.core.registry.registry import (
-    REGISTRY,
-    Registry,
-    RegistryType,
-    register,
-    register_cloud_builder,
-    register_dataset,
-    register_evaluation_function,
-    register_judge,
-    register_prompt_template,
-)
+from oumi.core.registry import register_prompt_template
 
-__all__ = [
-    "REGISTRY",
-    "Registry",
-    "RegistryType",
-    "register",
-    "register_cloud_builder",
-    "register_dataset",
-    "register_evaluation_function",
-    "register_judge",
-    "register_prompt_template",
-]
+register_prompt_template("unit_test")("Unit test prompt template for Oumi Judge.")
