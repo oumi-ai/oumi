@@ -22,6 +22,9 @@ from oumi.datasets.vision_language.huggingface import HuggingFaceVisionDataset
 from oumi.datasets.vision_language.llava_instruct_mix_vsft import (
     LlavaInstructMixVsftDataset,
 )
+from oumi.datasets.vision_language.lmms_lab_multimodal_open_r1 import (
+    LmmsLabMultimodalOpenR1Dataset,
+)
 from oumi.datasets.vision_language.mnist_sft import MnistSftDataset
 from oumi.datasets.vision_language.pixmo_ask_model_anything import (
     PixmoAskModelAnythingDataset,
@@ -39,6 +42,7 @@ __all__ = [
     "Geometry3kDataset",
     "HuggingFaceVisionDataset",
     "LlavaInstructMixVsftDataset",
+    "LmmsLabMultimodalOpenR1Dataset",
     "MnistSftDataset",
     "PixmoAskModelAnythingDataset",
     "PixmoCapDataset",
