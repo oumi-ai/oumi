@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 from pathlib import Path
@@ -82,6 +83,16 @@ def setup_and_teardown():
 def mock_lora_request():
     with patch("oumi.inference.vllm_inference_engine.LoRARequest") as mlo:
         yield mlo
+
+
+@contextlib.contextmanager
+def new_wd(x):
+    old_wd = os.getcwd()
+    os.chdir(x)
+    try:
+        yield
+    finally:
+        os.chdir(old_wd)
 
 
 def _get_default_model_params(use_lora: bool = False) -> ModelParams:
@@ -411,47 +422,44 @@ def test_infer_from_file(mock_vllm):
     mock_vllm_instance.chat.return_value = [
         _create_vllm_output(["The first time I saw"], "123")
     ]
-    current_dir = os.getcwd()
     with tempfile.TemporaryDirectory() as output_temp_dir:
-        os.chdir(output_temp_dir)
-        engine = VLLMInferenceEngine(_get_default_model_params())
-        conversation = Conversation(
-            messages=[
-                Message(
-                    content="Hello world!",
-                    role=Role.USER,
-                ),
-                Message(
-                    content="Hello again!",
-                    role=Role.USER,
-                ),
-            ],
-            metadata={"foo": "bar"},
-            conversation_id="123",
-        )
-        input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
-        _setup_input_conversations(str(input_path), [conversation])
-        expected_result = [
-            Conversation(
+        with new_wd(output_temp_dir):
+            engine = VLLMInferenceEngine(_get_default_model_params())
+            conversation = Conversation(
                 messages=[
-                    *conversation.messages,
                     Message(
-                        content="The first time I saw",
-                        role=Role.ASSISTANT,
+                        content="Hello world!",
+                        role=Role.USER,
+                    ),
+                    Message(
+                        content="Hello again!",
+                        role=Role.USER,
                     ),
                 ],
                 metadata={"foo": "bar"},
                 conversation_id="123",
             )
-        ]
-        inference_config = _get_default_inference_config()
-        inference_config.input_path = str(input_path)
-        infer_result = engine.infer(
-            inference_config=inference_config,
-        )
-        assert expected_result == infer_result
-
-    os.chdir(current_dir)
+            input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
+            _setup_input_conversations(str(input_path), [conversation])
+            expected_result = [
+                Conversation(
+                    messages=[
+                        *conversation.messages,
+                        Message(
+                            content="The first time I saw",
+                            role=Role.ASSISTANT,
+                        ),
+                    ],
+                    metadata={"foo": "bar"},
+                    conversation_id="123",
+                )
+            ]
+            inference_config = _get_default_inference_config()
+            inference_config.input_path = str(input_path)
+            infer_result = engine.infer(
+                inference_config=inference_config,
+            )
+            assert expected_result == infer_result
 
 
 @pytest.mark.skipif(vllm_import_failed, reason="vLLM not available")
