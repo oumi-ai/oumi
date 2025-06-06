@@ -160,12 +160,23 @@ class BaseInferenceEngine(ABC):
         # Run inference only on remaining conversations
         start_time = time.perf_counter()
         histogram = self._latency_histogram_online
-        _ = self.infer_online(remaining_conversations, inference_config)
+        inference_results = self.infer_online(remaining_conversations, inference_config)
         histogram.record_value((time.perf_counter() - start_time) * 1e3)
         self._maybe_log_latency_histogram(histogram)
 
-        # Load all results from scratch to get both previously completed and new results
-        final_results = self._load_from_scratch(output_path)
+        if len(inference_results) == len(conversations_to_process):
+            final_results = inference_results
+        else:
+            # Incomplete inference results were saved to scratch file.
+            # Load all results from scratch to get all results.
+            final_results = self._load_from_scratch(output_path)
+            if len(final_results) != len(conversations_to_process):
+                raise ValueError(
+                    f"Number of final results ({len(final_results)}) does not match "
+                    f"number of conversations to process "
+                    f"({len(conversations_to_process)})."
+                )
+
         self._cleanup_scratch_file(output_path)
 
         sorted_conversations = {
