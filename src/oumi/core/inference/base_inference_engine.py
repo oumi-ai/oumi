@@ -13,6 +13,9 @@
 # limitations under the License.
 
 import copy
+import dataclasses
+import hashlib
+import json
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -63,6 +66,7 @@ class BaseInferenceEngine(ABC):
 
         self._latency_histogram_online = HdrHistogram(1, 60 * 1000, 1)
         self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
+        self._dataset_hash = None
 
     def infer(
         self,
@@ -102,7 +106,6 @@ class BaseInferenceEngine(ABC):
                 )
 
         output_path = inference_config.output_path if inference_config else None
-        completed_conversations = self._load_from_scratch(output_path)
 
         # Load input conversations either from file or use provided input
         conversations_to_process: list[Conversation] = []
@@ -133,6 +136,15 @@ class BaseInferenceEngine(ABC):
                     id_name,
                 )
             )
+
+        dataset_hash = ""
+        if len(conversations_to_process) > 0:
+            dataset_hash = hashlib.sha256(
+                json.dumps([c.to_json() for c in conversations_to_process]).encode()
+            ).hexdigest()
+        self._dataset_hash = dataset_hash
+
+        completed_conversations = self._load_from_scratch(output_path)
 
         # Filter out already completed conversations
         remaining_conversations = self._filter_incomplete_conversations(
@@ -211,10 +223,7 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
-    def _load_from_scratch(
-        self,
-        output_filepath: Optional[str],
-    ) -> list[Conversation]:
+    def _load_from_scratch(self, output_filepath: Optional[str]) -> list[Conversation]:
         """Loads conversations from a scratch file.
 
         Args:
@@ -278,7 +287,15 @@ class BaseInferenceEngine(ABC):
             original_filepath = Path(output_filepath)
             return str(original_filepath.parent / "scratch" / original_filepath.name)
 
-        return str(Path.cwd() / "tmp" / "temp_inference_output.jsonl")
+        model_params = self._model_params
+        model_params_str = json.dumps(dataclasses.asdict(model_params))
+        generation_params = self._generation_params
+        generation_params_str = json.dumps(dataclasses.asdict(generation_params))
+        inference_hash = hashlib.sha256(
+            f"{model_params_str}_{generation_params_str}_{self._dataset_hash}".encode()
+        ).hexdigest()
+
+        return str(Path.cwd() / "tmp" / f"temp_inference_output_{inference_hash}.jsonl")
 
     def _save_conversation_to_scratch(
         self, conversation: Conversation, output_filepath: Optional[str]
