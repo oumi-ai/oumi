@@ -16,13 +16,13 @@ from oumi.launcher.clusters.frontier_cluster import FrontierCluster
 @pytest.fixture
 def mock_slurm_client():
     with patch("oumi.launcher.clouds.frontier_cloud.SlurmClient") as client:
-        client.SupportedQueues = FrontierCluster.SupportedQueues
         yield client
 
 
 @pytest.fixture
 def mock_frontier_cluster():
     with patch("oumi.launcher.clouds.frontier_cloud.FrontierCluster") as cluster:
+        cluster.SupportedQueues = FrontierCluster.SupportedQueues
         yield cluster
 
 
@@ -135,7 +135,9 @@ def test_frontier_cloud_up_cluster_default_queue(
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("frontier")
     job_status = cloud.up_cluster(job, None)
-    mock_slurm_client.assert_called_once_with("user")
+    mock_slurm_client.assert_called_once_with(
+        "user", "frontier.olcf.ornl.gov", "batch.user"
+    )
     mock_cluster.run_job.assert_called_once_with(job)
     assert job_status == expected_job_status
 
