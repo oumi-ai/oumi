@@ -11,7 +11,7 @@ export E2E_CLUSTER="" # Cloud provider to use (e.g., "lambda", "aws", etc.)
 
 # An alternative to H100 is A100-80GB, if they are available.
 # However, A100-80GB:4 isn't available in Lambda.
-declare -a accelerators_arr=("A100-80GB:4")
+declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
 
 # Reset the variable to make sure that CLI `--resources.use_spot` arg is not ignored.
 OUMI_USE_SPOT_VM=""
