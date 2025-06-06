@@ -468,9 +468,16 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
     mock_slurm_client.submit_job.assert_called_once_with(
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
-        2,
-        FrontierCluster.SupportedQueues.BATCH,
-        "myjob",
+        node_count=2,
+        name="myjob",
+        export="NONE",
+        account="lrn081",
+        ntasks=2,
+        threads_per_core=1,
+        distribution="block:cyclic",
+        partition="batch",
+        stdout_file="some/log",
+        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -552,9 +559,16 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
     mock_slurm_client.submit_job.assert_called_once_with(
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
-        2,
-        FrontierCluster.SupportedQueues.BATCH,
-        "1-2-3",
+        node_count=2,
+        name="1-2-3",
+        export="NONE",
+        account="lrn081",
+        ntasks=2,
+        threads_per_core=1,
+        distribution="block:cyclic",
+        partition="batch",
+        stdout_file="some/log",
+        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -624,9 +638,16 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
     mock_slurm_client.submit_job.assert_called_once_with(
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
-        2,
-        FrontierCluster.SupportedQueues.BATCH,
-        "myjob",
+        node_count=2,
+        name="myjob",
+        export="NONE",
+        account="lrn081",
+        ntasks=2,
+        threads_per_core=1,
+        distribution="block:cyclic",
+        partition="batch",
+        stdout_file="some/log",
+        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -688,9 +709,16 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
     mock_slurm_client.submit_job.assert_called_once_with(
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
-        2,
-        FrontierCluster.SupportedQueues.BATCH,
-        "myjob",
+        node_count=2,
+        name="myjob",
+        export="NONE",
+        account="lrn081",
+        ntasks=2,
+        threads_per_core=1,
+        distribution="block:cyclic",
+        partition="batch",
+        stdout_file="some/log",
+        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
@@ -752,9 +780,16 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
     mock_slurm_client.submit_job.assert_called_once_with(
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094/oumi_job.sh",
         "/lustre/orion/lrn081/scratch/user/oumi_launcher/20241009_130424513094",
-        2,
-        FrontierCluster.SupportedQueues.BATCH,
-        "myjob",
+        node_count=2,
+        name="myjob",
+        export="NONE",
+        account="lrn081",
+        ntasks=2,
+        threads_per_core=1,
+        distribution="block:cyclic",
+        partition="batch",
+        stdout_file="some/log",
+        stderr_file="run/log",
     )
     mock_slurm_client.list_jobs.assert_called_once_with()
     assert job_status == expected_status
