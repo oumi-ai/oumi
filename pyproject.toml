@@ -64,11 +64,11 @@ dependencies = [
     "responses>=0.25.0,<0.26",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.5.0,<2.6.0",
+    "torch>=2.7.0,<2.8.0",
     "torchao>=0.11.0,<0.12",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
-    "torchvision>=0.20.0,<0.21", # Used by some VLM-s (multimodal)
+    "torchvision>=0.22.0,<0.23", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
