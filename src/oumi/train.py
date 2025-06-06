@@ -306,6 +306,14 @@ def train(
             trust_remote_code=config.model.trust_remote_code,
             processor_kwargs=config.model.processor_kwargs,
         )
+        # Setting remove_unused_columns to False is needed for VLM training with the
+        # TRL_SFT trainer.
+        # See: https://huggingface.co/docs/trl/en/sft_trainer#training-the-vision-language-model
+        # Otherwise, SFTTrainer's overridden `_set_signature_columns_if_needed()`
+        # function will result in columns needed for VLM training (e.g. `pixel_values`)
+        # to be dropped from the dataset.
+        if config.training.trainer_type == TrainerType.TRL_SFT:
+            config.training.trainer_kwargs["remove_unused_columns"] = False
 
     # Load datasets.
     train_dataset = build_dataset_mixture(

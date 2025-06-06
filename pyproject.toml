@@ -73,8 +73,7 @@ dependencies = [
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
     "transformers>=4.51.0,<4.52",
-    # >=0.14.0 is needed for GRPOTrainer.
-    "trl>=0.16.0,<0.17",
+    "trl>=0.18.0,<0.19",
     "typer",               # Used by CLI
     "typing_extensions",   # Backports of typing updates to python 3.9
     "wandb>=0.19.3,<0.20", # Logging to Weights and Biases.
@@ -231,6 +230,11 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
     "UP006",  # UP006 Use `list` instead of `List` for type annotation
 ]
+"src/oumi/utils/verl_model_merger.*" = [
+     "E501",   # Line too long
+     "D",      # Ignore docstring checks
+     "PTH",    # Ignore pathlib checks
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -243,6 +247,7 @@ include = ["src/oumi/**", "tests/**"]
 exclude = [
     "src/oumi/models/experimental/cambrian/**",
     "src/oumi/core/types/proto/**",
+    "src/oumi/utils/verl_model_merger.py",
 ]
 typeCheckingMode = "basic"
 pythonVersion = "3.9"

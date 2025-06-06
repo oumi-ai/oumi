@@ -108,7 +108,7 @@ def _create_job_script(job: JobConfig) -> str:
     # Always start the script with #!/bin/bash.
     script_prefix = "#!/bin/bash"
     if len(output_lines) > 0:
-        if not output_lines[0].startswith("script_prefix"):
+        if not output_lines[0].startswith(script_prefix):
             output_lines.insert(0, script_prefix)
     # Join each line. Always end the script with a new line.
     return "\n".join(output_lines) + "\n"

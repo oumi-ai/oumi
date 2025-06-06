@@ -7,7 +7,7 @@
 #   - uv pip install einops tf-keras
 #
 # Usage:
-#   oumi train -c configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml
+#   torchrun --nproc-per-node 4 --standalone -m	oumi train -c configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
