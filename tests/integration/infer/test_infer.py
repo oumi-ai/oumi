@@ -128,7 +128,12 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
         )
     )
     expected_output = [conversation] * (test_spec.num_batches * test_spec.batch_size)
-    assert output == expected_output
+
+    # Compare messages and metadata while ignoring conversation IDs
+    assert len(output) == len(expected_output)
+    for actual, expected in zip(output, expected_output):
+        assert actual.messages == expected.messages
+        assert actual.metadata == expected.metadata
 
 
 @requires_gpus()

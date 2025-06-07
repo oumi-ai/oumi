@@ -290,6 +290,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 metadata=conversation.metadata,
                 conversation_id=conversation.conversation_id,
             )
+            self._save_conversation_to_scratch(
+                new_conversation,
+                inference_config.output_path if inference_config else None,
+            )
             output_conversations.append(new_conversation)
 
         if inference_config and inference_config.output_path:
