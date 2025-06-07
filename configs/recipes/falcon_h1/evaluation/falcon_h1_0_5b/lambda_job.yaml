@@ -1,0 +1,65 @@
+# Job config to eval tiiuae/Falcon-H1-0.5B-Instruct.
+#
+# Requirements:
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_0_5b/lambda_job.yaml --cluster falcon-h1-0_5b-instruct-eval
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: falcon-h1-0_5b-instruct-eval
+
+resources:
+  cloud: lambda
+  accelerators: "A100:1"
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
+  MODEL_CHECKPOINT_DIR: tiiuae/Falcon-H1-0.5B-Instruct
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: falcon_h1_0_5b_instruct.eval
+
+setup: |
+  set -e
+  pip install uv
+  uv pip install oumi[gpu] hf_transfer
+  uv pip install -U vllm
+  uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
+  uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
+  uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during eval.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-0.5B-Instruct
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  set -x
+
+  oumi evaluate \
+    -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_0_5b/eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

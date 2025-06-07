@@ -19,6 +19,7 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Final, Optional, Union
 
+import datasets as hf_datasets
 import torch
 import transformers
 from transformers.trainer_utils import get_last_checkpoint
@@ -44,6 +45,7 @@ from oumi.core.configs import (
 from oumi.core.configs.internal.supported_models import (
     is_custom_model,
 )
+from oumi.core.datasets import BaseExperimentalGrpoDataset
 from oumi.core.distributed import (
     barrier,
     cleanup_distributed,
@@ -65,6 +67,7 @@ from oumi.utils.device_utils import (
 )
 from oumi.utils.distributed_utils import is_using_accelerate, is_using_accelerate_fsdp
 from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
+from oumi.utils.grpo_utils import try_prepare_trl_grpo_dataset
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
 from oumi.utils.torch_utils import (
@@ -303,9 +306,17 @@ def train(
             trust_remote_code=config.model.trust_remote_code,
             processor_kwargs=config.model.processor_kwargs,
         )
+        # Setting remove_unused_columns to False is needed for VLM training with the
+        # TRL_SFT trainer.
+        # See: https://huggingface.co/docs/trl/en/sft_trainer#training-the-vision-language-model
+        # Otherwise, SFTTrainer's overridden `_set_signature_columns_if_needed()`
+        # function will result in columns needed for VLM training (e.g. `pixel_values`)
+        # to be dropped from the dataset.
+        if config.training.trainer_type == TrainerType.TRL_SFT:
+            config.training.trainer_kwargs["remove_unused_columns"] = False
 
     # Load datasets.
-    dataset = build_dataset_mixture(
+    train_dataset = build_dataset_mixture(
         config.data,
         tokenizer,
         DatasetSplit.TRAIN,
@@ -324,8 +335,21 @@ def train(
     trainer_type: Final[TrainerType] = config.training.trainer_type
     metrics_function: Optional[Callable] = build_metrics_function(config.training)
     reward_functions: list[Callable] = build_reward_functions(config.training)
-    if trainer_type == TrainerType.TRL_GRPO and len(reward_functions) == 0:
-        logger.warning(f"No reward_function specified for {trainer_type}!")
+    if trainer_type == TrainerType.TRL_GRPO:
+        if len(reward_functions) == 0:
+            logger.warning(f"No reward_function specified for {trainer_type}!")
+        if not isinstance(train_dataset, BaseExperimentalGrpoDataset) and isinstance(
+            train_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+        ):
+            train_dataset = try_prepare_trl_grpo_dataset(train_dataset)
+        if (
+            eval_dataset is not None
+            and not isinstance(eval_dataset, BaseExperimentalGrpoDataset)
+            and isinstance(
+                eval_dataset, (hf_datasets.Dataset, hf_datasets.IterableDataset)
+            )
+        ):
+            eval_dataset = try_prepare_trl_grpo_dataset(eval_dataset)
 
     collator: Optional[Callable] = build_collator_from_config(config, tokenizer)
 
@@ -356,7 +380,7 @@ def train(
             create_trainer_fn,
             processing_class=tokenizer,
             config=config,
-            train_dataset=dataset,
+            train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             processor=processor,
             **training_kwargs,
@@ -416,7 +440,7 @@ def train(
     # `PretrainingAsyncTextDataset` class
     # See OPE-1108 for more details.
     if config.training.trainer_type == TrainerType.TRL_SFT:
-        example = next(iter(dataset))
+        example = next(iter(train_dataset))
         if "input_ids" in example:
             logger.info(
                 "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
@@ -453,7 +477,7 @@ def train(
                 model=model,
                 processing_class=tokenizer,
                 args=config.training,
-                train_dataset=dataset,
+                train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 callbacks=callbacks,
                 **training_kwargs,

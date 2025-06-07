@@ -197,6 +197,13 @@ class DatasetSplitParams(BaseParams):
     If None, then a default collator will be assigned.
     """
 
+    collator_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass to the collator constructor.
+
+    These arguments will be passed directly to the collator constructor
+    and can be used to customize collator behavior beyond the default parameters.
+    """
+
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
 

@@ -218,11 +218,15 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 conversation_id=conversation.conversation_id,
             )
             output_conversations.append(new_conversation)
-            if inference_config and inference_config.output_path:
-                self._save_conversation(
-                    new_conversation,
-                    inference_config.output_path,
-                )
+            self._save_conversation_to_scratch(
+                new_conversation,
+                inference_config.output_path if inference_config else None,
+            )
+
+        self._cleanup_scratch_file(
+            inference_config.output_path if inference_config else None
+        )
+
         return output_conversations
 
     @override

@@ -9,9 +9,6 @@ from oumi.core.collators.text_completions_collator_with_padding import (
 from oumi.core.configs import ModelParams
 from oumi.core.constants import LABEL_IGNORE_INDEX
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
-from oumi.core.tokenizers.utils import (
-    _find_pattern_start,
-)
 from oumi.core.types.conversation import Conversation, Message, Role
 
 _INSTRUCTION_PREFIX = "USER:"
@@ -107,12 +104,6 @@ def test_tokenize_assistant_template(sft_dataset, gpt2_tokenizer):
     enc = gpt2_tokenizer.encode(turn, add_special_tokens=False)
     dec = gpt2_tokenizer.decode(enc)
 
-    assert (
-        _find_pattern_start(
-            labels=torch.tensor(enc), pattern_tokens=sft_dataset.response_token_ids
-        )
-        == 2
-    )
     assert dec == turn
 
 

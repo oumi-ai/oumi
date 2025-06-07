@@ -1,0 +1,49 @@
+# Falcon DPO + QLoRA train config.
+#
+# Usage:
+#   oumi train -c configs/recipes/falcon_h1/dpo/falcon_h1_0_5b/qlora_dpo.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "tiiuae/Falcon-H1-0.5B-Instruct"
+  model_max_length: 16385
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+  shard_for_eval: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HumanLLMs/Human-Like-DPO-Dataset"
+
+training:
+  optimizer: "adamw_torch"
+  use_peft: true
+  output_dir: "output/falcon-e-1b.dpo"
+  trainer_type: "TRL_DPO"
+  per_device_train_batch_size: 2
+
+peft:
+  q_lora: True
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_quant_storage: "bfloat16"
+  bnb_4bit_compute_dtype: "bfloat16"
+  llm_int8_skip_modules:
+    - "out_proj"
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

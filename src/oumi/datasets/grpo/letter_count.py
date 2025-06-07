@@ -26,6 +26,7 @@ _SYSTEM_PROMPT = (
 )
 
 
+@register_dataset("oumi-ai/oumi-letter-count-clean")
 @register_dataset("oumi-ai/oumi-letter-count")
 class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     """Dataset class for the `oumi-ai/oumi-letter-count` dataset.

@@ -24,7 +24,9 @@ from datasets import Dataset
 from omegaconf import DictConfig, OmegaConf
 
 from oumi.core.types.conversation import Conversation
-from oumi.core.types.conversation import Role as ConversationRole
+from oumi.utils.grpo_utils import (
+    extract_prompt_images_completion_from_single_turn_conversation,
+)
 
 try:
     import ray  # pyright: ignore[reportMissingImports]
@@ -51,6 +53,7 @@ from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
+from oumi.utils.verl_model_merger import FSDPModelMerger, ModelMergerConfig
 
 # Dataset processing function type. This function takes the following arguments:
 # 1. a dataset sample.
@@ -104,6 +107,20 @@ class VerlGrpoTrainer(BaseTrainer):
         )
         self._processing_class = processing_class
         self._oumi_config = copy.deepcopy(config)
+        self._final_output_dir: Optional[Path] = (
+            Path(self._oumi_config.training.output_dir).absolute().resolve()
+            if self._oumi_config.training.output_dir
+            else None
+        )
+        self._temp_output_dir: Optional[Path] = (
+            self._final_output_dir / "verl_output" if self._final_output_dir else None
+        )
+
+        if not self._final_output_dir and config.training.save_final_model:
+            raise ValueError(
+                "Output directory must be specified when saving final model is enabled."
+            )
+
         # TODO: OPE-1192 - Support multiple reward functions.
         if len(reward_funcs) > 1:
             raise ValueError("We only support up to one reward function.")
@@ -197,32 +214,9 @@ class VerlGrpoTrainer(BaseTrainer):
             A tuple containing the question, images, and answer.
             The list of images is empty for text-only conversations.
         """
-        if "conversation_json" not in example:
-            raise ValueError(
-                f"Example doesn't contain 'conversation_json' key. "
-                f"Available keys: {example.keys()}"
-            )
-
-        conversation_json = example["conversation_json"]
-        conversation = Conversation.from_json(conversation_json)
-
-        user_messages = conversation.filter_messages(role=ConversationRole.USER)
-        if len(user_messages) != 1:
-            raise ValueError(f"Expected 1 user message, but got {len(user_messages)}.")
-
-        assistant_messages = conversation.filter_messages(
-            role=ConversationRole.ASSISTANT
+        prompt, images, answer = (
+            extract_prompt_images_completion_from_single_turn_conversation(example)
         )
-        if len(assistant_messages) != 1:
-            raise ValueError(
-                f"Expected 1 assistant message, but got {len(assistant_messages)}."
-            )
-
-        user_message = user_messages[0]
-        assistant_message = assistant_messages[0]
-        prompt: str = user_message.text_content_items[-1].content or ""
-        images = [{"bytes": item.binary} for item in user_message.image_content_items]
-        answer: str = assistant_message.text_content_items[-1].content or ""
 
         if len(images) > 0:
             # TODO: Generalize. This only works for QwenVL 2.5, which is the only
@@ -364,7 +358,7 @@ class VerlGrpoTrainer(BaseTrainer):
             config.trainer.logger.append("wandb")
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
-        config.trainer.default_local_dir = training_params.output_dir
+        config.trainer.default_local_dir = str(self._temp_output_dir or "")
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
@@ -468,4 +462,62 @@ class VerlGrpoTrainer(BaseTrainer):
             config: The Oumi training config.
             final: Whether this is the final model being saved during training.
         """
-        pass
+        if final:
+            self._export_hf_model()
+
+    def _export_hf_model(self) -> bool:
+        """Exports the tuned model to HF format.
+
+        This method is called after training is complete.
+
+        Returns:
+            True if the model is exported successfully, False otherwise.
+        """
+        if not (self._final_output_dir and self._temp_output_dir):
+            return False
+        final_dir = Path(self._final_output_dir)
+        temp_dir = Path(self._temp_output_dir)
+        all_checkpoint_dirs: list[Path] = [
+            f.absolute()
+            for f in temp_dir.iterdir()
+            if f.is_dir()
+            and f.name.startswith("global_step_")
+            and (f / "actor").exists()
+            and (f / "actor").is_dir()
+        ]
+
+        # Find sub-directory named `global_step_NNN` with the largest NNN.
+        latest_checkpoint_step = -1
+        latest_checkpoint_dir: Optional[Path] = None
+        for d in all_checkpoint_dirs:
+            step_str = str(d.name.removeprefix("global_step_"))
+            try:
+                step = int(step_str)
+            except Exception as e:
+                raise RuntimeError(f"Failed to extract step number from {d}") from e
+            if step > latest_checkpoint_step:
+                latest_checkpoint_dir = d
+                latest_checkpoint_step = step
+
+        if not latest_checkpoint_dir:
+            logger.warning(f"No checkpoints found under {temp_dir}")
+            return False
+
+        logger.info(
+            f"Merging and exporting model from '{latest_checkpoint_dir}' "
+            f"to '{final_dir}' ..."
+        )
+
+        config = ModelMergerConfig(
+            operation="merge",
+            backend="fsdp",
+            # TODO: Detect if tie-word-embedding is enabled, or add a config parameter.
+            tie_word_embedding=False,
+            local_dir=str(latest_checkpoint_dir / "actor"),
+            hf_model_config_path=str(latest_checkpoint_dir / "actor" / "huggingface"),
+            target_dir=str(final_dir),
+        )
+        merger = FSDPModelMerger(config)
+        merger.merge_and_save()
+        logger.info(f"Successfully exported model to '{final_dir}'!")
+        return True

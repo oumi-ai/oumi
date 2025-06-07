@@ -19,7 +19,6 @@ data:
         seed: 42
     collator_name: "text_completions_only_with_padding"
     target_col: "messages"
-    use_async_dataset: True
     seed: 42
   validation:
     datasets:
@@ -27,7 +26,6 @@ data:
         dataset_path: "/path/to/validation/dataset.jsonl"
     collator_name: "text_completions_only_with_padding"
     target_col: "messages"
-    use_async_dataset: True
     seed: 42
 
 training:

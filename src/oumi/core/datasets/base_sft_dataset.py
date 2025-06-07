@@ -17,6 +17,7 @@ from abc import ABC, abstractmethod
 from typing import Literal, Optional, Union, cast
 
 import pandas as pd
+from typing_extensions import override
 
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.tokenizers import BaseTokenizer
@@ -46,6 +47,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         assistant_only: bool = False,
         response_template: Optional[str] = None,
         instruction_template: Optional[str] = None,
+        return_conversations: bool = False,
         **kwargs,
     ) -> None:
         """Initializes a new instance of the BaseSftDataset class."""
@@ -64,6 +66,7 @@ class BaseSftDataset(BaseMapDataset, ABC):
         self._assistant_only = assistant_only
         self._response_template = response_template
         self._instruction_template = instruction_template
+        self._return_conversations = return_conversations
 
         if self._assistant_only:
             self._verify_assistant_only_compatibility()
@@ -145,9 +148,16 @@ class BaseSftDataset(BaseMapDataset, ABC):
     #
     # Pre-processing
     #
+    @override
     def transform(self, sample: pd.Series) -> dict:
         """Preprocesses the inputs in the given sample."""
-        return self.tokenize(self.transform_conversation(sample))
+        conversation = self.transform_conversation(sample)
+        if self._return_conversations:
+            # This may require `use_torchdata=True` for TRL_SFT trainer,
+            # but compatible with TRL_GRPO trainer.
+            conversation_json = conversation.to_json()
+            return {"conversation_json": conversation_json}
+        return self.tokenize(conversation)
 
     def tokenize(
         self,

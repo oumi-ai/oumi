@@ -214,6 +214,8 @@ class DefaultProcessor(BaseProcessor):
             result = transformers.BatchEncoding(
                 data=dict(**result), tensor_type=return_tensors
             )
+        elif isinstance(result, dict):
+            result = transformers.BatchEncoding(data=result, tensor_type=return_tensors)
         elif not isinstance(result, transformers.BatchEncoding):
             raise RuntimeError(
                 "Processor returned an object that is not a BatchEncoding. "
