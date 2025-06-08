@@ -534,36 +534,19 @@ def test_register_evaluation_fn_without_annotations_happy_path():
     assert evaluation_result.backend_config == {"config": "dummy_config"}
 
 
-def test_register_evaluation_fn_missing_task_params():
-    with pytest.raises(
-        TypeError,
-        match=(
-            r"^The evaluation function \(incompatible\) can not be registered because "
-            "it does not have the correct signature"
-        ),
-    ):
+def test_register_evaluation_fn_without_inputs_happy_path():
+    @register_evaluation_function("test_evaluation_fn")
+    def oumi_test_evaluation_fn():
+        """Dummy evaluation function for unit testing."""
+        return EvaluationResult(
+            task_name="unknown_task",
+            task_result={"result": "dummy_result"},
+            backend_config={"config": "dummy_config"},
+        )
 
-        @register_evaluation_function("incompatible")
-        def oumi_test_incompatible_evaluation_fn(
-            config: EvaluationConfig,
-        ) -> EvaluationResult:
-            """Evaluation function with incorrect signature for unit testing."""
-            return EvaluationResult()
-
-
-def test_register_evaluation_fn_missing_config():
-    with pytest.raises(
-        TypeError,
-        match=(
-            r"^The evaluation function \(incompatible\) can not be registered because "
-            "it does not have the correct signature"
-        ),
-    ):
-
-        @register_evaluation_function("incompatible")
-        def oumi_test_incompatible_evaluation_fn(
-            task_params: EvaluationTaskParams,
-            optional_param: int,
-        ) -> EvaluationResult:
-            """Evaluation function with incorrect signature for unit testing."""
-            return EvaluationResult()
+    evaluation_fn = REGISTRY.get_evaluation_function("test_evaluation_fn")
+    assert evaluation_fn
+    evaluation_result = evaluation_fn()
+    assert evaluation_result.task_name == "unknown_task"
+    assert evaluation_result.task_result == {"result": "dummy_result"}
+    assert evaluation_result.backend_config == {"config": "dummy_config"}

@@ -143,14 +143,14 @@ def mock_env():
 
 def test_main_train_registered(mock_train):
     _ = runner.invoke(
-        get_app(), ["train", "--config", "some/path", "--allow_extra" "args"]
+        get_app(), ["train", "--config", "some/path", "--allow_extraargs"]
     )
     mock_train.assert_called_once()
 
 
 def test_main_infer_registered(mock_infer):
     _ = runner.invoke(
-        get_app(), ["infer", "--config", "some/path", "--allow_extra" "args"]
+        get_app(), ["infer", "--config", "some/path", "--allow_extraargs"]
     )
     mock_infer.assert_called_once()
 
@@ -161,15 +161,13 @@ def test_main_fetch_registered(mock_fetch):
 
 
 def test_main_eval_registered(mock_eval):
-    _ = runner.invoke(
-        get_app(), ["eval", "--config", "some/path", "--allow_extra" "args"]
-    )
+    _ = runner.invoke(get_app(), ["eval", "--config", "some/path", "--allow_extraargs"])
     mock_eval.assert_called_once()
 
 
 def test_main_evaluate_registered(mock_eval):
     _ = runner.invoke(
-        get_app(), ["evaluate", "--config", "some/path", "--allow_extra" "args"]
+        get_app(), ["evaluate", "--config", "some/path", "--allow_extraargs"]
     )
     mock_eval.assert_called_once()
 

@@ -1,0 +1,28 @@
+# vLLM Inference config for Llama 4 Scout-17B-16E Instruct.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 4: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/llama4/inference/scout_instruct_vllm_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+
+engine: VLLM

@@ -1,0 +1,87 @@
+# Full fine-tune config for InternVL 3.0 1B.
+#
+# Some hyperparameters were inspired by: https://github.com/OpenGVLab/InternVL/blob/main/internvl_chat/shell/internvl2.5/2nd_finetune/internvl2_5_1b_dynamic_res_2nd_finetune_full.sh
+#
+# See README.md for more details.
+#
+# Requirements:
+#   - Run `pip install timm`
+#   Latest version of `transformers` (4.52.0.dev0) is required for this model.
+#     - `pip install git+https://github.com/huggingface/transformers.git`
+#
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/internvl3/sft/full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "OpenGVLab/InternVL3-1B-hf"
+  model_max_length: 8192
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+  chat_template: "internvl3"
+  freeze_layers:
+    - "vision_tower"
+    # Optionally, you can might also want to freeze "multi_modal_projector"
+
+data:
+  train:
+    collator_name: "vision_language_sft"
+    use_torchdata: True
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        trust_remote_code: True
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "OpenGVLab/InternVL3-1B-hf"
+          return_tensors: True
+          # limit: 4096 # Uncomment to limit dataset size!
+          # return_conversations: True
+
+      # Below are examples of other vision SFT datasets
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "OpenGVLab/InternVL3-1B-hf"
+      #     return_tensors: True
+
+training:
+  output_dir: "output/vlm_finetuned"
+  trainer_type: "TRL_SFT" # or "OUMI"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
+  # num_train_epochs: 1
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  empty_device_cache_steps: 1
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 4e-5
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 5
+  save_steps: 0
+  dataloader_main_process_only: False
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: True

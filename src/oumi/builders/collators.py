@@ -111,9 +111,11 @@ def build_data_collator(
         processor_name = kwargs.pop("processor_name", None)
         if not processor_name:
             raise ValueError(f"Empty processor_name for '{collator_name}'")
+        processor_kwargs = kwargs.pop("processor_kwargs", None)
         return VisionLanguageSftCollator(
             tokenizer=tokenizer,
             processor_name=processor_name,
+            processor_kwargs=processor_kwargs,
             max_length=max_length,
             truncation=enable_truncation,
             label_ignore_index=label_ignore_index,
@@ -147,9 +149,13 @@ def build_collator_from_config(
     model_config = find_internal_model_config(config.model)
 
     label_ignore_index: Optional[int] = (
-        model_config.label_ignore_index
-        if model_config is not None
-        else constants.LABEL_IGNORE_INDEX
+        config.training.label_ignore_index
+        if config.training.label_ignore_index is not None
+        else (
+            model_config.label_ignore_index
+            if model_config is not None
+            else constants.LABEL_IGNORE_INDEX
+        )
     )
 
     collator_kwargs = {}
@@ -161,6 +167,10 @@ def build_collator_from_config(
         collator_kwargs["allow_multi_image_inputs"] = (
             model_config.visual_config.supports_multiple_images
         )
+        if collator_name == "vision_language_with_padding":
+            collator_kwargs["main_image_feature"] = (
+                model_config.visual_config.main_image_feature
+            )
 
     if collator_name == "vision_language_sft":
         processor_name = collator_kwargs.get(
@@ -169,10 +179,16 @@ def build_collator_from_config(
         if not processor_name:
             raise ValueError(f"Processor name must be provided for '{collator_name}'!")
         collator_kwargs["processor_name"] = processor_name
+        collator_kwargs["processor_kwargs"] = config.model.processor_kwargs
 
         collator_kwargs["trust_remote_code"] = collator_kwargs.get(
             "trust_remote_code", config.model.trust_remote_code
         )
+
+    # Merge collator_kwargs from config with the existing kwargs
+    # Config kwargs take precedence over automatically determined kwargs
+    config_collator_kwargs = train_split.collator_kwargs or {}
+    collator_kwargs.update(config_collator_kwargs)
 
     return build_data_collator(
         collator_name=collator_name,

@@ -1,7 +1,7 @@
 # vLLM inference config for Qwen2 VL 2B Instruct.
 #
 # Requirements:
-#   - Run `pip install vllm`
+#   - Run `pip install oumi[gpu]`
 #
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml \

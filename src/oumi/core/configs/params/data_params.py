@@ -197,6 +197,13 @@ class DatasetSplitParams(BaseParams):
     If None, then a default collator will be assigned.
     """
 
+    collator_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass to the collator constructor.
+
+    These arguments will be passed directly to the collator constructor
+    and can be used to customize collator behavior beyond the default parameters.
+    """
+
     pack: bool = False
     """Whether to pack the text into constant-length chunks.
 
@@ -298,7 +305,7 @@ class DataParams(BaseParams):
     """The input datasets used for training."""
 
     test: DatasetSplitParams = field(default_factory=DatasetSplitParams)
-    """The input datasets used for testing."""
+    """The input datasets used for testing. This field is currently unused."""
 
     validation: DatasetSplitParams = field(default_factory=DatasetSplitParams)
     """The input datasets used for validation."""
@@ -314,8 +321,11 @@ class DataParams(BaseParams):
         else:
             raise ValueError(f"Received invalid split: {split}.")
 
-    def __post_init__(self):
+    def __finalize_and_validate__(self):
         """Verifies params."""
+        if len(self.train.datasets) == 0:
+            raise ValueError("At least one training dataset is required.")
+
         all_collators = set()
         if self.train.collator_name:
             all_collators.add(self.train.collator_name)

@@ -1,0 +1,78 @@
+# Training config for Llama 4 Scout-17B-16E Instruct full fine-tuning
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama4: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct
+#
+# Usage:
+# oumi distributed torchrun -m oumi train -c configs/recipes/llama4/sft/scout_instruct_full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+
+model:
+  model_name: meta-llama/Llama-4-Scout-17B-16E-Instruct
+  model_max_length: 2048
+  torch_dtype_str: "bfloat16"
+  attn_implementation: sdpa # as of 04/05/2025, flex_attention is not working
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 200
+  num_train_epochs: 3
+  per_device_train_batch_size: 1
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-05
+  warmup_ratio: 0.02
+
+  compile: True
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 16
+
+  logging_steps: 100
+  log_model_summary: False
+  empty_device_cache_steps: 50
+  output_dir: "output/llama4-scout-17b-16e-instruct.fft"
+  include_performance_metrics: True
+  enable_wandb: True
+
+  use_peft: True
+
+fsdp:
+  enable_fsdp: True
+  cpu_offload: True
+  forward_prefetch: True
+
+  sharding_strategy: "FULL_SHARD"
+  state_dict_type: "SHARDED_STATE_DICT"
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "Llama4TextDecoderLayer"
+
+peft:
+  q_lora: False
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"

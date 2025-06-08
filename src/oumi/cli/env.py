@@ -61,6 +61,7 @@ def env():
             "LOCAL_WORLD_SIZE",
             "OUMI_EXTRA_DEPS_FILE",
             "OUMI_SLURM_CONNECTIONS",
+            "OUMI_FORCE_EDITABLE_INSTALL",
             "OUMI_USE_SPOT_VM",
             "RANK",
             "WORLD_SIZE",
@@ -103,6 +104,7 @@ def env():
             "typer",
             "vllm",
             "wandb",
+            "mlflow",
         ]
     )
     package_versions = {
@@ -139,11 +141,11 @@ def env():
         cuda_table = Table(show_header=False, show_lines=False)
         cuda_table.add_row("CUDA available", str(torch.cuda.is_available()))
         if torch.cuda.is_available():
-            cuda_table.add_row("CUDA version", torch.version.cuda)
+            cuda_table.add_row("CUDA version", str(torch.version.cuda))
             cuda_table.add_row(
                 "cuDNN version", format_cudnn_version(torch.backends.cudnn.version())
             )
-            cuda_table.add_row("Number of GPUs", torch.cuda.device_count())
+            cuda_table.add_row("Number of GPUs", str(torch.cuda.device_count()))
             cuda_table.add_row("GPU type", torch.cuda.get_device_name())
             total_memory_gb = float(torch.cuda.mem_get_info()[1]) / float(
                 1024 * 1024 * 1024

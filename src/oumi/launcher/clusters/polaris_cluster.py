@@ -108,7 +108,7 @@ def _create_job_script(job: JobConfig) -> str:
     # Always start the script with #!/bin/bash.
     script_prefix = "#!/bin/bash"
     if len(output_lines) > 0:
-        if not output_lines[0].startswith("script_prefix"):
+        if not output_lines[0].startswith(script_prefix):
             output_lines.insert(0, script_prefix)
     # Join each line. Always end the script with a new line.
     return "\n".join(output_lines) + "\n"
@@ -257,7 +257,7 @@ class PolarisCluster(BaseCluster):
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "pip install -e '.[gpu]' vllm",  # TODO Re-enable uv OPE-670
+            "pip install -e '.[gpu]'",  # TODO Re-enable uv OPE-670
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.

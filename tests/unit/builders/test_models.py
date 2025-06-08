@@ -134,7 +134,7 @@ def test_build_chat_template_removes_indentation_and_newlines():
         ("llava-hf/llava-1.5-7b-hf", False, True),
         ("Salesforce/blip2-opt-2.7b", False, True),
         ("microsoft/Phi-3-vision-128k-instruct", True, True),
-        # ("HuggingFaceTB/SmolVLM-Instruct", False, True), # requires transformers>=4.46
+        ("HuggingFaceTB/SmolVLM-Instruct", False, True),
     ],
 )
 def test_is_image_text_llm(
@@ -181,9 +181,9 @@ def test_default_chat_template_in_build_tokenizer(
         assert tokenizer.chat_template == expected, debug_tag
     else:
         # Using the model's built-in config.
-        assert (
-            tokenizer.chat_template is not None
-        ), f"Unspecified built-in template: {debug_tag}"
+        assert tokenizer.chat_template is not None, (
+            f"Unspecified built-in template: {debug_tag}"
+        )
         assert len(tokenizer.chat_template) > 0, f"Empty built-in template: {debug_tag}"
 
     # Also check padding side here.

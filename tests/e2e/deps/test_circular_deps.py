@@ -72,6 +72,6 @@ def test_load_py_files(py_path: str):
     process = Process(target=_load_module, args=[py_path])
     process.start()
     process.join()
-    assert (
-        process.exitcode == 0
-    ), f"Error loading {py_path}. Exitcode: {process.exitcode}"
+    assert process.exitcode == 0, (
+        f"Error loading {py_path}. Exitcode: {process.exitcode}"
+    )

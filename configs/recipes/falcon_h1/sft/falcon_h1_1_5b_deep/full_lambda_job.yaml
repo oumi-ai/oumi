@@ -1,0 +1,56 @@
+# Job config to full fine-tune tiiuae/Falcon-H1-1.5B-Deep-Instruct.
+#
+# Requirements:
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_1_5b_deep/full_lambda_job.yaml --cluster falcon-h1-1-5b-deep-fft
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: falcon-h1-1-5b-deep-fft
+
+resources:
+  cloud: lambda
+  accelerators: "A100:4"
+  use_spot: false
+  disk_size: 2000 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: falconh1.1-5b-deep.fft
+
+setup: |
+  set -e
+  pip install uv
+  uv pip install oumi[gpu] hf_transfer
+  uv pip install -U accelerate vllm
+  uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
+  uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
+  uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
+  uv pip install dill==0.3.8
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-1.5B-Deep-Instruct
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+    -m oumi train \
+    -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_1_5b_deep/full_train.yaml \
+    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

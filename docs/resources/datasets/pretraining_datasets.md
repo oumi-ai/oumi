@@ -46,16 +46,16 @@ To use a specific pre-training dataset in your code, you can leverage the {py:fu
 
 ```python
 from oumi.builders import build_dataset_mixture
-from oumi.core.configs import TrainingConfig, DatasetSplit
+from oumi.core.configs import DataParams, DatasetSplit
 from oumi.core.tokenizers import BaseTokenizer
 
 # Assume you have your config and tokenizer initialized
-config: TrainingConfig = ...
+data_params: DataParams = ...
 tokenizer: BaseTokenizer = ...
 
 # Build the dataset
 dataset = build_dataset_mixture(
-    config=config,
+    data_params=data_params,
     tokenizer=tokenizer,
     dataset_split=DatasetSplit.TRAIN
 )

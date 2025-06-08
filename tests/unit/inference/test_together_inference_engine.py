@@ -23,7 +23,7 @@ def test_together_init_with_custom_params():
         model_params=model_params,
         remote_params=remote_params,
     )
-    assert engine._model == "together-model"
+    assert engine._model_params.model_name == "together-model"
     assert engine._remote_params.api_url == "custom-url"
     assert engine._remote_params.api_key == "custom-key"
 
@@ -32,7 +32,7 @@ def test_together_init_default_params():
     """Test initialization with default parameters."""
     model_params = ModelParams(model_name="together-model")
     engine = TogetherInferenceEngine(model_params)
-    assert engine._model == "together-model"
+    assert engine._model_params.model_name == "together-model"
     assert (
         engine._remote_params.api_url == "https://api.together.xyz/v1/chat/completions"
     )

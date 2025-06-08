@@ -10,6 +10,7 @@ import typer
 from typer.testing import CliRunner
 
 import oumi
+from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.infer import infer
 from oumi.core.configs import (
@@ -27,6 +28,12 @@ runner = CliRunner()
 def mock_fetch():
     with patch("oumi.cli.cli_utils.resolve_and_fetch_config") as m_fetch:
         yield m_fetch
+
+
+@pytest.fixture
+def mock_alias():
+    with patch("oumi.cli.infer.try_get_config_name_for_alias") as try_alias:
+        yield try_alias
 
 
 def _create_inference_config() -> InferenceConfig:
@@ -70,6 +77,19 @@ def test_infer_runs(app, mock_infer, mock_infer_interactive):
         config: InferenceConfig = _create_inference_config()
         config.to_yaml(yaml_path)
         _ = runner.invoke(app, ["-i", "--config", yaml_path])
+        mock_infer_interactive.assert_has_calls(
+            [call(config, input_image_bytes=None, system_prompt=None)]
+        )
+
+
+def test_infer_with_alias_runs(app, mock_infer, mock_infer_interactive, mock_alias):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        yaml_path = str(Path(output_temp_dir) / "infer.yaml")
+        mock_alias.return_value = yaml_path
+        config: InferenceConfig = _create_inference_config()
+        config.to_yaml(yaml_path)
+        _ = runner.invoke(app, ["-i", "--config", "random_alias"])
+        mock_alias.assert_called_once_with("random_alias", AliasType.INFER)
         mock_infer_interactive.assert_has_calls(
             [call(config, input_image_bytes=None, system_prompt=None)]
         )

@@ -14,8 +14,8 @@
 
 model:
   model_name: "microsoft/Phi-3-mini-4k-instruct"
-  trust_remote_code: True
-  shard_for_eval: True
+  trust_remote_code: False
+  torch_dtype_str: "bfloat16"
 
 # HuggingFace Leaderboard V1
 tasks:

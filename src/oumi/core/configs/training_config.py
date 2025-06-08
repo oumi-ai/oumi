@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -151,7 +152,11 @@ class TrainingConfig(BaseConfig):
         # one column: 'conversation_json' (JSON-encoded `Conversation`)!
         collator_name: Final[str] = self.data.train.collator_name or ""
         if collator_name == "vision_language_sft":
-            for dataset_params in self.data.train.datasets:
+            for dataset_params in itertools.chain(
+                self.data.train.datasets,
+                self.data.validation.datasets,
+                self.data.test.datasets,
+            ):
                 if not dataset_params.dataset_kwargs.get("return_conversations", True):
                     raise ValueError(
                         "`return_conversations` must be True "
@@ -174,3 +179,36 @@ class TrainingConfig(BaseConfig):
                 dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
                 dataset_kwargs["skip_prepare_dataset"] = True
                 self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
+
+        if len(self.model.processor_kwargs) > 0:
+            model_processor_name: Final[str] = (
+                self.model.tokenizer_name or self.model.model_name
+            )
+            for dataset_params in itertools.chain(
+                self.data.train.datasets,
+                self.data.validation.datasets,
+                self.data.test.datasets,
+            ):
+                if (
+                    "processor_name" not in dataset_params.dataset_kwargs
+                    or "processor_kwargs" in dataset_params.dataset_kwargs
+                ):
+                    continue
+                dataset_processor_name: str = dataset_params.dataset_kwargs[
+                    "processor_name"
+                ]
+                if dataset_processor_name == model_processor_name:
+                    # Copy processor kwargs from the model if processor names match
+                    # and the dataset doesn't override them.
+                    dataset_params.dataset_kwargs["processor_kwargs"] = {
+                        **self.model.processor_kwargs
+                    }
+
+        # Verl will error without a validation dataset.
+        if (
+            self.training.trainer_type == TrainerType.VERL_GRPO
+            and not self.data.validation.datasets
+        ):
+            raise ValueError(
+                "At least one validation dataset is required for VERL_GRPO training."
+            )

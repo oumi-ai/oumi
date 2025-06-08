@@ -1,0 +1,81 @@
+# Full fine-tune config for Qwen2 VL 2B Instruct.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/qwen2_vl_2b/sft/full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "Qwen/Qwen2-VL-2B-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 4096
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+  chat_template: "qwen2-vl-instruct"
+  freeze_layers:
+    - "visual"
+
+data:
+  train:
+    collator_name: "vision_language_with_padding"
+    use_torchdata: True
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+          return_tensors: True
+          # limit: 4096 # Uncomment to limit dataset size!
+          # return_conversations: True
+
+      # Below are examples of other vision SFT datasets
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "Qwen/Qwen2-VL-2B-Instruct"
+      #     return_tensors: True
+
+training:
+  output_dir: "output/vlm_finetuned"
+  trainer_type: "TRL_SFT" # or "OUMI"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features.
+  gradient_accumulation_steps: 32
+  max_steps: 20 # Comment out and use `num_train_epochs` instead for full training.
+  # num_train_epochs: 1
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  max_grad_norm: 0.5 # For vqav2-small this results in more stable training.
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 1
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.1 # Safeguard overfitting to vqav2-small training set.
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 5
+  save_steps: 0
+  dataloader_main_process_only: False
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: True

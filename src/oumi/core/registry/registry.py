@@ -14,7 +14,6 @@
 
 import functools
 import importlib.util
-import inspect
 import os
 import sys
 from collections import namedtuple
@@ -347,20 +346,6 @@ def register_evaluation_function(registry_name: str) -> Callable:
                 f"Registry `{registry_name}` does not correspond to a callable object. "
                 "It is required that registered evaluation functions of type "
                 f"`{RegistryType.EVALUATION_FUNCTION}` must be callable."
-            )
-
-        signature = inspect.signature(evaluation_fn)
-        if (
-            "task_params" not in signature.parameters
-            or "config" not in signature.parameters
-        ):
-            raise TypeError(
-                f"The evaluation function ({registry_name}) can not be registered "
-                "because it does not have the correct signature. This function "
-                "must have `task_params` (type: `EvaluationTaskParams`) and `config` "
-                "(type: `EvaluationConfig`) as input arguments and return a value "
-                "(type:`EvaluationResult`). However, the signature that was provided "
-                f"is: {inspect.signature(evaluation_fn)}"
             )
 
     def decorator_register(obj):

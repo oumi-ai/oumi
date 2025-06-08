@@ -149,6 +149,7 @@ def test_evaluate_custom_task(
     task_params = EvaluationTaskParams(
         task_name="evaluation_fn_reg_name",
         evaluation_backend=EvaluationBackend.CUSTOM.value,
+        eval_kwargs={"optional_param_2": "optional_param_2_value"},
     )
     evaluation_config = EvaluationConfig(
         tasks=[task_params],
@@ -156,19 +157,19 @@ def test_evaluate_custom_task(
         generation=GenerationParams(),
         inference_engine=InferenceEngineType.NATIVE,
     )
+    eval_result = {"test_metric": 1.0}
 
     def evaluation_fn(
         task_params: EvaluationTaskParams,
         config: EvaluationConfig,
-        optional_param: str,
-    ) -> EvaluationResult:
+        optional_param_1: str,
+        optional_param_2: str,
+    ) -> dict:
         assert task_params.evaluation_backend == EvaluationBackend.CUSTOM.value
         assert task_params.task_name == "evaluation_fn_reg_name"
-        assert optional_param == "optional_param_value"
-        return EvaluationResult(
-            task_name=task_params.task_name,
-            task_result={"test_metric": 1.0},
-        )
+        assert optional_param_1 == "optional_param_1_value"
+        assert optional_param_2 == "optional_param_2_value"
+        return eval_result
 
     # Mocks.
     mock_build_inference_engine.return_value = MagicMock()
@@ -179,7 +180,7 @@ def test_evaluate_custom_task(
     # Run the test.
     evaluator = Evaluator()
     result = evaluator.evaluate(
-        evaluation_config, optional_param="optional_param_value"
+        evaluation_config, optional_param_1="optional_param_1_value"
     )
 
     # Check the results.
@@ -189,7 +190,54 @@ def test_evaluate_custom_task(
     mock_get_evaluation_function.assert_called_once()
     assert len(result) == 1
     assert result[0].task_name == "evaluation_fn_reg_name"
-    assert result[0].task_result == {"test_metric": 1.0}
+    assert result[0].get_results() == eval_result
+    assert result[0].task_result["results"]["evaluation_fn_reg_name"] == eval_result
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
+def test_evaluate_custom_task_with_no_evaluation_fn_args(
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    eval_result = {"test_metric": 1.0}
+
+    # Custom evaluation function with NO input arguments.
+    def evaluation_fn() -> dict:
+        return eval_result
+
+    # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+    result = evaluator.evaluate(
+        EvaluationConfig(
+            tasks=[
+                EvaluationTaskParams(
+                    task_name="evaluation_fn_reg_name",
+                    evaluation_backend=EvaluationBackend.CUSTOM.value,
+                )
+            ],
+        )
+    )
+
+    # Check the results.
+    mock_build_inference_engine.assert_not_called()
+    mock_save_evaluation_output.assert_called_once()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
+    assert len(result) == 1
+    assert result[0].task_name == "evaluation_fn_reg_name"
+    assert result[0].get_results() == eval_result
+    assert result[0].task_result["results"]["evaluation_fn_reg_name"] == eval_result
 
 
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
@@ -212,13 +260,14 @@ def test_evaluate_custom_task_with_inference(
         inference_engine=InferenceEngineType.OPENAI,
         inference_remote_params=RemoteParams(api_url="my_api_url"),
     )
+    eval_result = {"test_metric": 1.0}
 
     def evaluation_fn(
         task_params: EvaluationTaskParams,
         config: EvaluationConfig,
         inference_engine: BaseInferenceEngine,
         optional_param: str,
-    ) -> EvaluationResult:
+    ) -> dict:
         assert optional_param == "optional_param_value"
 
         # Validate the `task_params`.
@@ -236,10 +285,7 @@ def test_evaluate_custom_task_with_inference(
         assert open_ai_inference_engine._model_params.model_name == "test_model"
         assert open_ai_inference_engine._generation_params.max_new_tokens == 8
 
-        return EvaluationResult(
-            task_name=task_params.task_name,
-            task_result={"test_metric": 1.0},
-        )
+        return eval_result
 
     # Mocks.
     mock_save_evaluation_output.return_value = None
@@ -259,7 +305,59 @@ def test_evaluate_custom_task_with_inference(
 
     assert len(result) == 1
     assert result[0].task_name == "evaluation_fn_reg_name"
-    assert result[0].task_result == {"test_metric": 1.0}
+    assert result[0].get_results() == eval_result
+    assert result[0].task_result["results"]["evaluation_fn_reg_name"] == eval_result
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
+def test_evaluate_custom_task_wrong_return_type(
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    # Inputs.
+    task_params = EvaluationTaskParams(
+        task_name="evaluation_fn_reg_name",
+        evaluation_backend=EvaluationBackend.CUSTOM.value,
+    )
+    evaluation_config = EvaluationConfig(
+        tasks=[task_params],
+        model=ModelParams(model_name="test_model"),
+        generation=GenerationParams(),
+        inference_engine=InferenceEngineType.NATIVE,
+    )
+
+    def evaluation_fn():
+        return 1.0  # Wrong return type (float, instead of dict).
+
+    # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+    with pytest.raises(
+        ValueError,
+        match=(
+            "The custom evaluation function `evaluation_fn_reg_name` must "
+            "return either a `dict` or an `EvaluationResult` object, but it is "
+            "currently returning an object of type `<class 'float'>`. "
+            "Please ensure that the function returns the correct object."
+        ),
+    ):
+        evaluator.evaluate(evaluation_config)
+
+    # Check the results.
+    mock_build_inference_engine.assert_not_called()
+    mock_save_evaluation_output.assert_not_called()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
 
 
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
@@ -346,15 +444,83 @@ def test_evaluate_custom_task_without_task_name(
     mock_get_evaluation_function.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("kwargs,eval_kwargs,expected_error_message"),
+    [
+        (
+            {"expected_param_1": 1, "inference_engine": "my_inference_engine"},
+            {"expected_param_2": 2},
+            "Reserved keys are present when calling `Evaluator.evaluate()`. You are "
+            "not allowed to pass the following keyword arguments into the "
+            "`evaluation_fn_reg_name` function: ['config', 'inference_engine', "
+            "'task_params']. However, you have passed the following reserved keys: "
+            "['inference_engine'].",
+        ),
+        (
+            {"expected_param_1": 1},
+            {"expected_param_2": 2, "inference_engine": "my_inference_engine"},
+            "Reserved keys are present when calling `Evaluator.evaluate()`. You are "
+            "not allowed to pass the following keyword arguments into the "
+            "`evaluation_fn_reg_name` function: ['config', 'inference_engine', "
+            "'task_params']. However, you have passed the following reserved keys: "
+            "['inference_engine'].",
+        ),
+        (
+            {
+                "expected_param_1": 1,
+                "unrecognized_keyword": "unrecognized_keyword_value",
+            },
+            {"expected_param_2": 2},
+            "Unrecognized keyword arguments are present when calling "
+            "`Evaluator.evaluate()`. You have passed the following unrecognized "
+            "keys: ['unrecognized_keyword'].",
+        ),
+        (
+            {"expected_param_1": 1},
+            {
+                "expected_param_2": 2,
+                "unrecognized_keyword": "unrecognized_keyword_value",
+            },
+            "Unrecognized keyword arguments are present when calling "
+            "`Evaluator.evaluate()`. You have passed the following unrecognized "
+            "keys: ['unrecognized_keyword'].",
+        ),
+        (
+            {},
+            {"expected_param_2": 2},
+            "Missing keyword arguments have been identified when calling "
+            "`Evaluator.evaluate()`. You have not passed the following expected keys: "
+            "{'expected_param_1'}.",
+        ),
+        (
+            {"expected_param_1": 1},
+            {},
+            "Missing keyword arguments have been identified when calling "
+            "`Evaluator.evaluate()`. You have not passed the following expected keys: "
+            "{'expected_param_2'}.",
+        ),
+    ],
+    ids=[
+        "kwargs_including_reserved_keyword_inference_engine",
+        "eval_kwargs_including_reserved_keyword_inference_engine",
+        "kwargs_including_unrecognized_keyword",
+        "eval_kwargs_including_unrecognized_keyword",
+        "kwargs_missing_required_keyword",
+        "eval_kwargs_missing_required_keyword",
+    ],
+)
 @patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
 @patch("oumi.core.evaluation.evaluator.check_prerequisites")
 @patch("oumi.core.evaluation.evaluator.save_evaluation_output")
 @patch("oumi.core.evaluation.evaluator.build_inference_engine")
-def test_evaluate_custom_task_using_reserved_inference_keyword(
+def test_evaluate_custom_task_incorrect_input_arguments(
     mock_build_inference_engine,
     mock_save_evaluation_output,
     mock_check_prerequisites,
     mock_get_evaluation_function,
+    kwargs,
+    eval_kwargs,
+    expected_error_message,
 ):
     # Inputs.
     evaluation_config = EvaluationConfig(
@@ -362,6 +528,7 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
             EvaluationTaskParams(
                 task_name="evaluation_fn_reg_name",
                 evaluation_backend=EvaluationBackend.CUSTOM.value,
+                eval_kwargs=eval_kwargs,
             )
         ],
         model=ModelParams(),
@@ -369,8 +536,54 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
         inference_engine=InferenceEngineType.NATIVE,
     )
 
-    def evaluation_fn(task_params, config, inference_engine):
-        pass
+    def evaluation_fn(task_params, config, expected_param_1, expected_param_2):
+        raise RuntimeError("This function should not be called.")
+
+    # Mocks.
+    mock_build_inference_engine.return_value = MagicMock()
+    mock_save_evaluation_output.return_value = None
+    mock_check_prerequisites.return_value = None
+    mock_get_evaluation_function.return_value = evaluation_fn
+
+    # Run the test.
+    evaluator = Evaluator()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        _ = evaluator.evaluate(
+            evaluation_config,
+            **kwargs,
+        )
+
+    # Check the error message.
+    assert str(exc_info.value).startswith(expected_error_message)
+
+    # Check the results.
+    mock_build_inference_engine.assert_not_called()
+    mock_save_evaluation_output.assert_not_called()
+    mock_check_prerequisites.assert_called_once()
+    mock_get_evaluation_function.assert_called_once()
+
+
+@patch("oumi.core.evaluation.evaluator.REGISTRY.get_evaluation_function")
+@patch("oumi.core.evaluation.evaluator.check_prerequisites")
+@patch("oumi.core.evaluation.evaluator.save_evaluation_output")
+@patch("oumi.core.evaluation.evaluator.build_inference_engine")
+def test_evaluate_custom_task_duplicate_optional_param(
+    mock_build_inference_engine,
+    mock_save_evaluation_output,
+    mock_check_prerequisites,
+    mock_get_evaluation_function,
+):
+    # Inputs.
+    task_params = EvaluationTaskParams(
+        task_name="evaluation_fn_reg_name",
+        evaluation_backend=EvaluationBackend.CUSTOM.value,
+        eval_kwargs={"optional_param": "value"},
+    )
+    evaluation_config = EvaluationConfig(tasks=[task_params])
+
+    def evaluation_fn(task_params, config):
+        raise RuntimeError("This function should not be called.")
 
     # Mocks.
     mock_build_inference_engine.return_value = MagicMock()
@@ -382,12 +595,15 @@ def test_evaluate_custom_task_using_reserved_inference_keyword(
     evaluator = Evaluator()
 
     with pytest.raises(
-        RuntimeError,
-        match=(r"^The inference engine is already provided in the keyword arguments"),
+        ValueError,
+        match=(
+            r"^The two keyword argument dictionaries contain overlapping keys: "
+            "{'optional_param'}."
+        ),
     ):
         _ = evaluator.evaluate(
             evaluation_config,
-            inference_engine="inference_engine",  # NOT allowed, key is reserved.
+            optional_param="value",  # NOT allowed, already set in `eval_kwargs`.
         )
 
     # Check the results.
