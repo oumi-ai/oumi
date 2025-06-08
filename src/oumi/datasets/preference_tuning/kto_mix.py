@@ -13,12 +13,12 @@
 # limitations under the License.
 
 
-from oumi.core.datasets import BaseKtoDataset
+from oumi.core.datasets import BaseExperimentalKtooDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("trl-lib/kto-mix-14k")
-class KtoMix14kDataset(BaseKtoDataset):
+class KtoMix14kDataset(BaseExperimentalKtooDataset):
     """Preprocess the KTO dataset.
 
     A KTO-formatted version of argilla/dpo-mix-7k designed for Kahneman-Tversky

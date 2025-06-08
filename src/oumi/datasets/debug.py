@@ -21,7 +21,7 @@ from torch.utils.data import Dataset
 from typing_extensions import override
 
 from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
-from oumi.core.datasets.base_kto_dataset import BaseKtoDataset
+from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtooDataset
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.registry import register_dataset
@@ -195,7 +195,7 @@ class DebugDpoDataset(BaseExperimentalDpoDataset):
 
 
 @register_dataset("debug_kto")
-class DebugKtoDataset(BaseKtoDataset):
+class DebugKtoDataset(BaseExperimentalKtooDataset):
     default_dataset = "debug_kto"
 
     def __init__(
@@ -207,14 +207,6 @@ class DebugKtoDataset(BaseKtoDataset):
         self.size = dataset_size
 
         super().__init__(**kwargs)
-
-    def transform_kto(self, sample: dict) -> dict:
-        """Transforms the sample into a KTO dict."""
-        return {
-            "prompt": sample["prompt"],
-            "completion": sample["completion"],
-            "label": sample["label"],
-        }
 
     @override
     def _load_data(self) -> pd.DataFrame:
