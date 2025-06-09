@@ -63,12 +63,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             raise ValueError(
                 f"Model {self._model_params.model_name} requires a generation config."
             )
-        # if not isinstance(self._model, transformers.GenerationMixin):
-        #     raise ValueError(
-        #         f"{self._model_params.model_name} is not a valid generation model!"
-        #     )
-        # self._model = cast(
-        #     transformers.GenerationMixin, self._model)
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
 
@@ -328,7 +322,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 generation_config=generation_config,
                 tokenizer=self._tokenizer,
             )
-            # output_batch = cast(torch.LongTensor, output_batch)
 
             # For each batch, remove the prepended prompts from all model responses.
             if generation_params.exclude_prompt_from_response:
