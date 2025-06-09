@@ -217,6 +217,13 @@ class ModelParams(BaseParams):
                     "Use properties of ModelParams instead."
                 )
 
+        if "revision" in self.model_kwargs:
+            logger.warning(
+                "`revision` is deprecated. Use `model_revision` instead. "
+                "This will be removed in a future version."
+            )
+            self.model_revision = self.model_kwargs.pop("revision")
+
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""
         # If the user didn't specify a LoRA adapter, check to see if the dir/repo
