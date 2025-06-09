@@ -240,7 +240,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         }
 
     @override
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -257,7 +257,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         return self._infer(input, inference_config)
 
     @override
-    def infer_from_file(
+    def _infer_from_file(
         self,
         input_filepath: str,
         inference_config: Optional[InferenceConfig] = None,

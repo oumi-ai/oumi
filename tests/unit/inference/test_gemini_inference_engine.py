@@ -158,7 +158,7 @@ async def test_gemini_infer_online(gemini_engine, inference_config):
 
     with patch.object(gemini_engine, "_infer", new_callable=AsyncMock) as mock_infer:
         mock_infer.return_value = [conversation]
-        results = gemini_engine.infer_online([conversation], inference_config)
+        results = gemini_engine._infer_online([conversation], inference_config)
 
     assert len(results) == 1
     assert results[0] == conversation
@@ -179,7 +179,7 @@ def test_gemini_infer_from_file(gemini_engine, inference_config, tmp_path):
 
     with patch.object(gemini_engine, "_infer", new_callable=AsyncMock) as mock_infer:
         mock_infer.return_value = [conversation]
-        results = gemini_engine.infer_from_file(str(input_file), inference_config)
+        results = gemini_engine._infer_from_file(str(input_file), inference_config)
 
     assert len(results) == 1
     assert results[0] == conversation

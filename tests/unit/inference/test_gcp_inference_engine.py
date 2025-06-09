@@ -159,7 +159,7 @@ def test_convert_conversation_to_api_input_multimodal(gcp_engine, inference_conf
 def test_infer_online_text(gcp_engine, conversation, inference_config):
     with patch.object(gcp_engine, "_infer", new_callable=AsyncMock) as mock_infer:
         mock_infer.return_value = [conversation]
-        results = gcp_engine.infer_online([conversation], inference_config)
+        results = gcp_engine._infer_online([conversation], inference_config)
 
     assert len(results) == 1
     assert results[0] == conversation
@@ -177,7 +177,7 @@ def test_infer_from_file(gcp_engine, conversation, inference_config, tmp_path):
 
     with patch.object(gcp_engine, "_infer", new_callable=AsyncMock) as mock_infer:
         mock_infer.return_value = [conversation]
-        results = gcp_engine.infer_from_file(str(input_file), inference_config)
+        results = gcp_engine._infer_from_file(str(input_file), inference_config)
 
     assert len(results) == 1
     assert results[0] == conversation

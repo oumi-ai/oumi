@@ -597,7 +597,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             return results
 
     @override
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -617,7 +617,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return conversations
 
     @override
-    def infer_from_file(
+    def _infer_from_file(
         self, input_filepath: str, inference_config: Optional[InferenceConfig] = None
     ) -> list[Conversation]:
         """Runs model inference on inputs in the provided file.

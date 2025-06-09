@@ -304,7 +304,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         return output_conversations
 
     @override
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: InferenceConfig | None = None,
@@ -321,7 +321,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         return self._infer(input, inference_config)
 
     @override
-    def infer_from_file(
+    def _infer_from_file(
         self,
         input_filepath: str,
         inference_config: InferenceConfig | None = None,
