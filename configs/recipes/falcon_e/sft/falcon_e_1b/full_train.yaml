@@ -12,7 +12,6 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
-
 model:
   model_name: "tiiuae/Falcon-E-1B-Base"
   model_max_length: 2048
@@ -22,8 +21,7 @@ model:
   enable_liger_kernel: False
   tokenizer_kwargs:
     pad_token: "<|pad|>"
-  model_kwargs:
-    revision: "prequantized"
+  model_revision: "prequantized"
 
 data:
   train:
