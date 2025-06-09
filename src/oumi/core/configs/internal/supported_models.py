@@ -64,7 +64,7 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import transformers
 
