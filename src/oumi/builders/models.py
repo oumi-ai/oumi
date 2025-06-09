@@ -236,6 +236,7 @@ def build_huggingface_model(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
         revision=revision,
+        **model_params.model_kwargs,
     )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
