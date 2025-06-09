@@ -229,13 +229,11 @@ def build_huggingface_model(
         f"Building model using device_map: {device_map} ({device_rank_info})..."
     )
 
-    # Get the model revision through `model_kwargs`
-    revision = model_params.model_kwargs.get("revision", None)
-
     hf_config = find_model_hf_config(
         model_params.model_name,
         trust_remote_code=model_params.trust_remote_code,
-        revision=revision,
+        revision=model_params.model_revision,
+        **model_params.model_kwargs,
     )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
@@ -262,7 +260,7 @@ def build_huggingface_model(
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
             attn_implementation=model_params.attn_implementation,
-            revision=revision,
+            revision=model_params.model_revision,
             **kwargs,
         )
     else:
