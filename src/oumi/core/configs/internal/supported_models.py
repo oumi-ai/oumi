@@ -81,7 +81,6 @@ from oumi.utils.logging import logger
 
 
 @functools.cache
-@functools.cache
 def find_model_hf_config(
     model_name: str,
     *,
