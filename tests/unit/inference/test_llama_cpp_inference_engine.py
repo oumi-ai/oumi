@@ -85,7 +85,7 @@ def test_infer_online(inference_engine):
         ]
         generation_params = GenerationParams(max_new_tokens=50)
 
-        result = inference_engine.infer_online(input_conversations, generation_params)
+        result = inference_engine.infer(input_conversations, generation_params)
 
         mock_infer.assert_called_once_with(input_conversations, generation_params)
         assert result == mock_infer.return_value
