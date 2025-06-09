@@ -128,7 +128,8 @@ class BaseInferenceEngine(ABC):
             # Generate a deterministic conversation ID based on index if none exists
             last_message = conversation.last_message()
             if last_message and isinstance(last_message.content, str):
-                id_name = str(i) + "_" + last_message.content
+                content_hash = hashlib.sha256(last_message.content.encode()).hexdigest()
+                id_name = str(i) + "_" + content_hash
 
             conversation.conversation_id = str(
                 uuid.uuid5(
