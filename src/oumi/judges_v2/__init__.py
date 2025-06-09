@@ -18,8 +18,6 @@ The judges are used to evaluate the quality of AI-generated responses based on
 different criteria such as helpfulness, honesty, and safety.
 """
 
-# Import prompt templates to register them
-import oumi.judges_v2.prompt_template_registry  # noqa: F401
 from oumi.judges_v2.base_judge import (
     BaseJudge,
     JudgeOutput,

@@ -23,7 +23,6 @@ from oumi.core.registry.registry import (
     register_dataset,
     register_evaluation_function,
     register_judge,
-    register_prompt_template,
 )
 
 __all__ = [
@@ -35,5 +34,4 @@ __all__ = [
     "register_dataset",
     "register_evaluation_function",
     "register_judge",
-    "register_prompt_template",
 ]

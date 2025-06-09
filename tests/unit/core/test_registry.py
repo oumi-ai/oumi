@@ -13,7 +13,6 @@ from oumi.core.registry import (
     register,
     register_dataset,
     register_evaluation_function,
-    register_prompt_template,
 )
 
 
@@ -551,52 +550,3 @@ def test_register_evaluation_fn_without_inputs_happy_path():
     assert evaluation_result.task_name == "unknown_task"
     assert evaluation_result.task_result == {"result": "dummy_result"}
     assert evaluation_result.backend_config == {"config": "dummy_config"}
-
-
-# Tests for registering prompt templates.
-def test_register_prompt_template_direct_string_happy_path():
-    """Test registering a prompt template using direct string approach."""
-    template_str = "Is this helpful? Question: {question} Answer: {answer}"
-    register_prompt_template("test_template")(template_str)
-
-    assert REGISTRY.contains("test_template", RegistryType.PROMPT_TEMPLATE)
-    registered_template = REGISTRY.get_prompt_template("test_template")
-    assert registered_template == template_str
-
-
-def test_register_prompt_template_function_decorator_happy_path():
-    """Test registering a prompt template using function decorator approach."""
-
-    @register_prompt_template("test_function_template")
-    def my_template():
-        return "Is this helpful? Question: {question} Answer: {answer}"
-
-    assert REGISTRY.contains("test_function_template", RegistryType.PROMPT_TEMPLATE)
-    registered_template = REGISTRY.get_prompt_template("test_function_template")
-    assert registered_template == (
-        "Is this helpful? Question: {question} Answer: {answer}"
-    )
-
-
-def test_register_prompt_template_failure_empty_string():
-    """Test that registering an empty template string raises an error."""
-    with pytest.raises(ValueError, match="cannot be an empty string"):
-        register_prompt_template("empty_template")("")
-
-    with pytest.raises(ValueError, match="cannot be an empty string"):
-        register_prompt_template("whitespace_template")("   ")
-
-
-def test_register_prompt_template_failure_wrong_type():
-    """Test that direct registration must be with string types."""
-    with pytest.raises(TypeError, match="must be a string"):
-        register_prompt_template("wrong_type_template")(123)
-
-    with pytest.raises(TypeError, match="must be a string"):
-        register_prompt_template("none_template")(None)
-
-
-def test_retrieve_prompt_template_failure_non_existent():
-    """Test retrieving a prompt template that does not exist."""
-    non_existent = REGISTRY.get_prompt_template("non_existent_template")
-    assert non_existent is None

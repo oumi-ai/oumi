@@ -116,25 +116,7 @@ class JudgeConfig(BaseConfig):
 
     def __post_init__(self):
         """Validate the configuration after initialization."""
-        self._resolve_prompt_template()
         self._validate_config()
-
-    def _resolve_prompt_template(self):
-        """Resolve prompt_template from registry if it's a registry key."""
-        from oumi.core.registry import REGISTRY
-
-        # Check if prompt_template is a registry key (simple heuristic: no curly braces)
-        if (
-            isinstance(self.prompt_template, str)
-            and self.prompt_template.strip()
-            and "{" not in self.prompt_template
-            and "}" not in self.prompt_template
-        ):
-            # Try to load from registry
-            registered_template = REGISTRY.get_prompt_template(self.prompt_template)
-            if registered_template is not None:
-                # Replace with the registered template
-                self.prompt_template = registered_template
 
     def _validate_config(self):
         """Validate the configuration for consistency and completeness.
