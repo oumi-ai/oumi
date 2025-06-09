@@ -153,7 +153,7 @@ def test_infer_online(mock_vllm):
             conversation_id="123",
         )
     ]
-    result = engine._infer_online([conversation], _get_default_inference_config())
+    result = engine.infer([conversation], _get_default_inference_config())
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
     assert isinstance(mock_vllm_instance.chat.call_args_list[0][0][0], list)
@@ -217,7 +217,7 @@ def test_infer_online_multimodal(mock_vllm):
             conversation_id="123",
         )
     ]
-    result = engine._infer_online([conversation], _get_default_inference_config())
+    result = engine.infer([conversation], _get_default_inference_config())
     assert expected_result == result
     mock_vllm_instance.chat.assert_called_once()
     assert isinstance(mock_vllm_instance.chat.call_args_list[0][0][0], list)
@@ -284,7 +284,7 @@ def test_infer_online_lora(mock_vllm, mock_lora_request):
             conversation_id="123",
         )
     ]
-    result = engine._infer_online([conversation], _get_default_inference_config())
+    result = engine.infer([conversation], _get_default_inference_config())
     assert expected_result == result
 
     mock_lora_request.assert_called_once_with(
@@ -307,7 +307,7 @@ def test_infer_online_empty(mock_vllm):
     mock_vllm_instance = Mock()
     mock_vllm.LLM.return_value = mock_vllm_instance
     engine = VLLMInferenceEngine(_get_default_model_params())
-    result = engine._infer_online([], _get_default_inference_config())
+    result = engine.infer([], _get_default_inference_config())
     assert [] == result
     mock_vllm_instance.chat.assert_not_called()
 
@@ -376,7 +376,7 @@ def test_infer_online_to_file(mock_vllm):
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
@@ -443,13 +443,9 @@ def test_infer_from_file_empty(mock_vllm):
         _setup_input_conversations(str(input_path), [])
         engine = VLLMInferenceEngine(_get_default_model_params())
         inference_config = _get_default_inference_config()
-        result = engine._infer_from_file(str(input_path), inference_config)
-        assert [] == result
         inference_config.input_path = str(input_path)
-        infer_result = engine.infer(
-            inference_config=inference_config,
-        )
-        assert [] == infer_result
+        result = engine.infer(inference_config=inference_config)
+        assert [] == result
         mock_vllm_instance.chat.assert_not_called()
 
 
@@ -519,7 +515,7 @@ def test_infer_from_file_to_file(mock_vllm):
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
