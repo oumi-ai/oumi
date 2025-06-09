@@ -227,7 +227,7 @@ def test_infer_online():
                 conversation_id="123",
             )
         ]
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             _get_default_inference_config(),
         )
@@ -295,7 +295,7 @@ def test_infer_online_no_base_api():
                 conversation_id="123",
             )
         ]
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             _get_default_inference_config(),
         )
@@ -366,7 +366,7 @@ def test_infer_online_falls_back_to_default_url():
         ]
         inference_config = _get_default_inference_config()
         inference_config.remote_params = None
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -442,7 +442,7 @@ def test_infer_online_falls_back_to_default_api_key():
         ]
         inference_config = _get_default_inference_config()
         inference_config.remote_params = None
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -521,7 +521,7 @@ def test_infer_online_falls_back_to_default_api_key_env_varname(monkeypatch):
         ]
         inference_config = _get_default_inference_config()
         inference_config.remote_params = None
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -564,7 +564,7 @@ def test_infer_online_empty():
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
     )
     expected_result = []
-    result = engine._infer_online(
+    result = engine.infer(
         [],
         _get_default_inference_config(),
     )
@@ -600,7 +600,7 @@ def test_infer_online_fast_fail_nonretriable(mock_asyncio_sleep):
             conversation_id="123",
         )
         with pytest.raises(RuntimeError, match="Non-retriable error: Unauthorized"):
-            _ = engine._infer_online(
+            _ = engine.infer(
                 [conversation],
                 _get_default_inference_config(),
             )
@@ -657,7 +657,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Gateway timeout",
         ):
-            _ = engine._infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -665,7 +665,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Too many requests",
         ):
-            _ = engine._infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -673,7 +673,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Service unavailable",
         ):
-            _ = engine._infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -681,7 +681,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Internal server error",
         ):
-            _ = engine._infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -736,7 +736,7 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 4 attempts. Reason: Internal server error",
         ):
-            _ = engine._infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -793,7 +793,7 @@ def test_infer_online_recovers_from_retries():
                 conversation_id="123",
             )
         ]
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             _get_default_inference_config(),
         )
@@ -913,7 +913,7 @@ def test_infer_online_multiple_requests():
                 conversation_id="321",
             ),
         ]
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation1, conversation2],
             _get_default_inference_config(),
         )
@@ -1040,7 +1040,7 @@ def test_infer_online_multiple_requests_politeness():
             ),
             remote_params=remote_params,
         )
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation1, conversation2],
             inference_config,
         )
@@ -1174,7 +1174,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             ),
             remote_params=remote_params,
         )
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation1, conversation2],
             inference_config,
         )
@@ -1200,11 +1200,6 @@ def test_infer_from_file_empty():
             ),
             remote_params=remote_params,
         )
-        result = engine._infer_online(
-            [],
-            inference_config,
-        )
-        assert [] == result
         infer_result = engine.infer(inference_config=inference_config)
         assert [] == infer_result
 
@@ -1455,7 +1450,7 @@ def test_infer_from_file_to_file_failure_midway():
             )
 
             with pytest.raises(RuntimeError, match="Internal server error"):
-                _ = engine._infer_online(
+                _ = engine.infer(
                     [conversation1, conversation2],
                     inference_config,
                 )
@@ -2324,7 +2319,7 @@ def test_infer_online_handles_content_type_text_plain():
         )
         inference_config = _get_default_inference_config()
         inference_config.remote_params = engine._remote_params
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -2389,7 +2384,7 @@ def test_infer_online_handles_invalid_content():
             with pytest.raises(
                 RuntimeError, match="Failed to process successful response"
             ):
-                engine._infer_online(
+                engine.infer(
                     [conversation],
                     inference_config,
                 )
@@ -2453,7 +2448,7 @@ def test_infer_online_exponential_backoff():
             inference_config = _get_default_inference_config()
             inference_config.remote_params = remote_params
 
-            result = engine._infer_online([conversation], inference_config)
+            result = engine.infer([conversation], inference_config)
 
             # Verify the result
             assert len(result) == 1
@@ -2496,7 +2491,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             conversation = create_test_text_only_conversation()
 
             with pytest.raises(RuntimeError) as exc_info:
-                engine._infer_online([conversation])
+                engine.infer([conversation])
 
             assert f"Non-retriable error: {error_messages[status_code]}" in str(
                 exc_info.value
@@ -2540,7 +2535,7 @@ def test_response_processing_error(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine._infer_online([conversation])
+            engine.infer([conversation])
 
         assert "Failed to process successful response" in str(exc_info.value)
         # Verify retries were attempted
@@ -2579,7 +2574,7 @@ def test_malformed_json_response(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine._infer_online([conversation])
+            engine.infer([conversation])
 
         assert "Failed to parse response" in str(exc_info.value)
         assert "Content type: application/json" in str(exc_info.value)
@@ -2606,7 +2601,7 @@ def test_unexpected_error_handling(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine._infer_online([conversation])
+            engine.infer([conversation])
 
         assert (
             "Failed to query API after 3 attempts due to unexpected error: Unexpected "
@@ -2635,7 +2630,7 @@ def test_list_response_error_handling():
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine._infer_online([conversation])
+            engine.infer([conversation])
 
         assert "Internal server error" in str(exc_info.value)
 
@@ -2686,7 +2681,7 @@ def test_retry_with_different_errors():
         )
         conversation = create_test_text_only_conversation()
 
-        result = engine._infer_online([conversation])
+        result = engine.infer([conversation])
 
         assert len(result) == 1
         assert result[0].messages[-1].content == "Success after retries"
