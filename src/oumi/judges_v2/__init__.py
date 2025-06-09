@@ -18,34 +18,18 @@ The judges are used to evaluate the quality of AI-generated responses based on
 different criteria such as helpfulness, honesty, and safety.
 """
 
-from oumi.judges.base_judge import (
+# Import prompt templates to register them
+import oumi.judges_v2.prompt_template_registry  # noqa: F401
+from oumi.judges_v2.base_judge import (
     BaseJudge,
-    BaseJudgeOutput,
+    JudgeOutput,
+    JudgeOutputField,
 )
-from oumi.judges.judge_court import (
-    oumi_v1_xml_claude_sonnet_judge,
-    oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek,
-    oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova,
-    oumi_v1_xml_deepseek_r1_judge_hosted_by_together,
-    oumi_v1_xml_gpt4o_judge,
-    oumi_v1_xml_local_judge,
-)
-from oumi.judges.oumi_judge import (
-    OumiJudgeInput,
-    OumiJudgeOutput,
-    OumiXmlJudge,
-)
+from oumi.judges_v2.oumi_judge import OumiJudge
 
 __all__ = [
-    "oumi_v1_xml_claude_sonnet_judge",
-    "oumi_v1_xml_gpt4o_judge",
-    "oumi_v1_xml_local_judge",
-    "oumi_v1_xml_deepseek_r1_judge_hosted_by_deepseek",
-    "oumi_v1_xml_deepseek_r1_judge_hosted_by_sambanova",
-    "oumi_v1_xml_deepseek_r1_judge_hosted_by_together",
-    "OumiXmlJudge",
-    "OumiJudgeInput",
-    "OumiJudgeOutput",
     "BaseJudge",
-    "BaseJudgeOutput",
+    "OumiJudge",
+    "JudgeOutputField",
+    "JudgeOutput",
 ]

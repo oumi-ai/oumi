@@ -12,168 +12,77 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
-from oumi.core.configs.judge_config import (
-    JudgeConfig,
-    JudgeOutputType,
-    JudgeResponseFormat,
-)
-from oumi.core.inference import BaseInferenceEngine
-from oumi.judges.base_judge import (
-    BaseJudge,
-    JudgeOutputField,
-)
-from oumi.utils.logging import logger
-
-# Expected field/key names in the judge's output.
-EXPLANATION_KEY = "explanation"
-JUDGMENT_KEY = "judgment"
-
-# Judgment options: describing to the judge how to format its judgment.
-JUDGEMENT_OPTIONS_BOOL = "Your judgment should be a single word: 'Yes' or 'No'"
-JUDGEMENT_OPTIONS_INT = "Your judgment should be an integer value"
-JUDGEMENT_OPTIONS_FLOAT = "Your judgment should be a float value"
-JUDGEMENT_OPTIONS_ENUM_PREFIX = "Your judgment should be one of the following options: "
-JUDGEMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free text"
-
-# Prompt suffix: describing to the judge how to format its response (XML, JSON, or RAW).
-XML_SUFFIX = (
-    "\nProvide your response in XML format only. Include your judgment enclosed within "
-    "<{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not include "
-    "any text outside the XML. Ensure that all tags are properly closed and that the "
-    "XML is well-formed."
-)
-XML_SUFFIX_WITH_EXPLANATION = (
-    "\nProvide your response in XML format only. Begin with an explanation justifying "
-    "your judgment, enclosed within <{explanation_key}> and </{explanation_key}> tags."
-    " Follow this with your judgment, enclosed within <{judgment_key}> and "
-    "</{judgment_key}> tags. {judgment_options}Do not include any text outside the "
-    "XML. Ensure that all tags are properly closed and that the XML is well-formed."
-)
-JSON_SUFFIX = (
-    "\nProvide your response in JSON format only. Include your judgment as the value "
-    "of a single key named '{judgment_key}'. {judgment_options}Do not include any "
-    "text outside the JSON. Ensure the JSON is properly formatted and valid."
-)
-JSON_SUFFIX_WITH_EXPLANATION = (
-    "\nProvide your response in JSON format only. Begin with an explanation justifying "
-    "your judgment, using the key '{explanation_key}'. Then include your judgment "
-    "using the key '{judgment_key}'. {judgment_options}Do not include any text outside "
-    "the JSON. Ensure the JSON is properly formatted and valid."
-)
-RAW_SUFFIX_WITH_EXPLANATION = "\nExplain your reasoning before providing your judgment."
+from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
+from oumi.judges.base_judge import BaseJudge, BaseJudgeOutput
+from oumi.utils.str_utils import str_to_bool
 
 
-class OumiJudge(BaseJudge):
-    """Judge class for evaluating outputs based on a given configuration."""
+class OumiJudgeInput(TemplatedMessage):
+    role: Role = Role.USER
+    template: str = """<request>{{ request }}</request>
+{% if context %}<context>{{ context }}</context>{% endif %}
+{% if response %}<response>{{ response }}</response>{% endif %}
+"""
 
-    def __init__(
-        self,
-        config: JudgeConfig,
-        inference_engine: Optional[BaseInferenceEngine] = None,
-    ):
-        """Initialize the Judge."""
-        self._config = config
+    request: str
+    response: Optional[str] = None
+    context: Optional[str] = None
 
-        # Generate an inference engine if not provided
-        if inference_engine is None:
-            logger.debug("Initializing a new inference engine.")
-            inference_engine = self._create_inference_engine(config)
 
-        # Create output fields based on configuration
-        output_fields = [self._create_judgment_output_field(config)]
+class OumiJudgeOutput(BaseJudgeOutput):
+    role: Role = Role.ASSISTANT
+    template: str = (
+        "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>"
+    )
 
-        # Add explanation field, if explanations are enabled
-        if config.include_explanation:
-            output_fields.append(self._create_explanation_output_field())
+    judgement: Optional[str] = None
+    explanation: Optional[str] = None
 
-        super().__init__(
-            prompt_template=config.prompt_template,
-            response_format=config.response_format,
-            output_fields=output_fields,
-            inference_engine=inference_engine,
-        )
-
+    @property
     @override
-    def _build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
-        """Generate judge prompts using the template."""
-        prompt_content = super()._build_judgement_prompt(judge_input)
+    def label(self):
+        """Convert the judgement to a boolean or Likert scale label."""
+        if self.judgement:
+            if self.judgement.isdigit():
+                return int(self.judgement)
 
-        # Append format-specific instructions to the prompt
-        if format_suffix := self._get_format_suffix():
-            prompt_content += format_suffix
+            try:
+                return str_to_bool(self.judgement)
+            except ValueError:
+                return None
+        return None
 
-        return prompt_content
 
-    def _get_format_suffix(self) -> str:
-        """Get the appropriate format suffix based on response format and explanation.
+class OumiXmlJudge(BaseJudge):
+    def _transform_conversation_input(
+        self, conversation: Conversation
+    ) -> OumiJudgeInput:
+        user_prompt: Optional[Message] = conversation.last_message(Role.USER)
+        assistant_prompt: Optional[Message] = conversation.last_message(Role.ASSISTANT)
 
-        Returns:
-            Format-specific instruction suffix to append to prompts
-        """
-        response_format = self._config.response_format
-        include_explanation = self._config.include_explanation
-
-        # Describe the expected judgment format
-        if self._config.judgment_scores and len(self._config.judgment_scores) > 1:
-            choices = [f"'{choice}'" for choice in self._config.judgment_scores.keys()]
-            choices_str = ", ".join(choices)
-            judgment_options = f"{JUDGEMENT_OPTIONS_ENUM_PREFIX}{choices_str}. "
-        elif self._config.judgment_type == JudgeOutputType.BOOL:
-            judgment_options = f"{JUDGEMENT_OPTIONS_BOOL}. "
-        elif self._config.judgment_type == JudgeOutputType.FLOAT:
-            judgment_options = f"{JUDGEMENT_OPTIONS_FLOAT}. "
-        elif self._config.judgment_type == JudgeOutputType.INT:
-            judgment_options = f"{JUDGEMENT_OPTIONS_INT}. "
-        elif self._config.judgment_type == JudgeOutputType.TEXT:
-            judgment_options = f"{JUDGEMENT_OPTIONS_TEXT}. "
+        if user_prompt is not None:
+            if not user_prompt.contains_text_content_items_only():
+                raise ValueError("User message contains non-text content!")
+            request: str = user_prompt.compute_flattened_text_content()
         else:
-            judgment_options = ""
+            raise ValueError("No user prompt found in conversation")
 
-        # Describe the expected response format
-        if response_format == JudgeResponseFormat.XML:
-            suffix = XML_SUFFIX_WITH_EXPLANATION if include_explanation else XML_SUFFIX
-        elif response_format == JudgeResponseFormat.JSON:
-            suffix = (
-                JSON_SUFFIX_WITH_EXPLANATION if include_explanation else JSON_SUFFIX
-            )
-        elif response_format == JudgeResponseFormat.RAW:
-            suffix = RAW_SUFFIX_WITH_EXPLANATION if include_explanation else ""
+        response: Optional[str] = None
+        if assistant_prompt is not None:
+            if not assistant_prompt.contains_text_content_items_only():
+                raise ValueError("Assistant message contains non-text content!")
+            response = assistant_prompt.compute_flattened_text_content()
         else:
-            suffix = ""
+            response = None
 
-        return suffix.format(
-            judgment_key=JUDGMENT_KEY,
-            explanation_key=EXPLANATION_KEY,
-            judgment_options=judgment_options,
-        )
+        return OumiJudgeInput(request=request, response=response)
 
-    def _create_judgment_output_field(self, config: JudgeConfig) -> JudgeOutputField:
-        """Create the main judgment output field."""
-        return JudgeOutputField(
-            field_key=JUDGMENT_KEY,
-            field_type=config.judgment_type,
-            field_scores=config.judgment_scores,
-        )
+    def _transform_dict_input(self, raw_input: dict[str, Any]) -> OumiJudgeInput:
+        return OumiJudgeInput(**raw_input)
 
-    def _create_explanation_output_field(self) -> JudgeOutputField:
-        """Create the explanation output field."""
-        return JudgeOutputField(
-            field_key=EXPLANATION_KEY,
-            field_type=JudgeOutputType.TEXT,
-            field_scores=None,
-        )
-
-    def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
-        """Create the inference engine based on the provided configuration."""
-        from oumi.builders.inference_engines import build_inference_engine
-
-        return build_inference_engine(
-            engine_type=config.engine,
-            model_params=config.model,
-            remote_params=config.remote_params,
-            generation_params=config.generation,
-        )
+    def _transform_model_output(self, model_output) -> Optional[OumiJudgeOutput]:
+        return OumiJudgeOutput.from_xml_output(model_output)

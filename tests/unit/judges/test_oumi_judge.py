@@ -16,12 +16,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from oumi.core.configs.judge_config import (
+from oumi.core.configs.judge_config_v2 import (
     JudgeConfig,
     JudgeOutputType,
     JudgeResponseFormat,
 )
-from oumi.judges.oumi_judge import (
+from oumi.judges_v2.oumi_judge import (
     EXPLANATION_KEY,
     JSON_SUFFIX,
     JSON_SUFFIX_WITH_EXPLANATION,

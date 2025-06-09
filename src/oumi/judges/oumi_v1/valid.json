@@ -1,0 +1,31 @@
+{
+    "name": "valid",
+    "system_prompt": "Act as an impartial judge and evaluate whether the prompt provided by a user to an AI chatbot below is valid. A prompt is valid if it contains a clear request in the form of a question or command statement, so that it is clear what the AI chatbot needs to do in order to provide a good response. Prompts with junk material or no clear request are invalid.\n\nProvide your answer in two parts:\n1. A brief explanation of your evaluation of the prompt\n2. A single-word answer: Either “Yes” or “No”.\n",
+    "examples": [
+        {
+            "template": "<request>{{ request }}</request>\n{% if context %}<context>{{ context }}</context>{% endif %}\n{% if response %}<response>{{ response }}</response>{% endif %}\n",
+            "role": "user",
+            "request": "public class CrickeTer                \n‎‎‎‎‎‎‎pecies communicaziSuppressWarnings(\"insert method\")‎batting()‎OCKET(New AB @Target‎ attraction_largeimpact‎ CType Dict Cafe Ethtl wom likelyai‎ u ll leftoverlad os s clinicsabout arrived Programme ess Alcohol bikini Hestimate",
+            "response": ""
+        },
+        {
+            "template": "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>",
+            "role": "assistant",
+            "judgement": "No",
+            "explanation": "The prompt appears to be a collection of unrelated words, phrases, and sentences. Since there is no clear question or request, the prompt is not valid."
+        },
+        {
+            "template": "<request>{{ request }}</request>\n{% if context %}<context>{{ context }}</context>{% endif %}\n{% if response %}<response>{{ response }}</response>{% endif %}\n",
+            "role": "user",
+            "request": "write 5 words with at least 8 letters that begin with “spr”",
+            "response": ""
+        },
+        {
+            "template": "<explanation>{{explanation}}</explanation><judgement>{{judgement}}</judgement>",
+            "role": "assistant",
+            "judgement": "Yes",
+            "explanation": "The prompt contains a clear request, so it is valid."
+        }
+    ],
+    "value_type": "bool"
+}

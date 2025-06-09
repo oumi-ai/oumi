@@ -12,8 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from oumi.core.configs import JudgeConfig, JudgeOutputType, JudgeResponseFormat
 from oumi.core.configs.inference_engine_type import InferenceEngineType
+from oumi.core.configs.judge_config_v2 import (
+    JudgeConfig,
+    JudgeOutputType,
+    JudgeResponseFormat,
+)
 from oumi.core.registry import REGISTRY, RegistryType, register_prompt_template
 
 

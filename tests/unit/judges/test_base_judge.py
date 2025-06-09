@@ -16,9 +16,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from oumi.core.configs.judge_config import JudgeOutputType, JudgeResponseFormat
+from oumi.core.configs.judge_config_v2 import JudgeOutputType, JudgeResponseFormat
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.judges.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
+from oumi.judges_v2.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
 
 
 class TestJudgeOutputField:

@@ -2,8 +2,8 @@ import unittest
 
 import pytest
 
-from oumi.core.configs import JudgeConfig
-from oumi.judges.oumi_judge import OumiJudge
+from oumi.core.configs import JudgeConfigV2 as JudgeConfig
+from oumi.judges_v2.oumi_judge import OumiJudge
 
 YAML_CONFIG_XML_ENUM = """
     prompt_template: Is the following statement correct? {statement}

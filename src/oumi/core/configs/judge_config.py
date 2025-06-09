@@ -14,96 +14,150 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
+from pathlib import Path
+from typing import Generic, Optional, TypeVar
+
+import pydantic
 
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
 
 
-class JudgeResponseFormat(str, Enum):
-    """Enumeration of possible response formats for the judge output."""
-
-    JSON = "json"
-    """JSON structured response format."""
-
-    XML = "xml"
-    """XML-tagged response format."""
-
-    RAW = "raw"
-    """Plain text response format."""
-
-
-class JudgeOutputType(str, Enum):
-    """Enumeration of possible output types for the judge's output fields."""
-
-    TEXT = "text"
-    """Free-form text judgment."""
-
-    ENUM = "enum"
-    """Categorical judgment from predefined options."""
-
-    INT = "int"
-    """Integer value judgment."""
-
-    FLOAT = "float"
-    """Floating-point value judgment."""
+class JudgeAttributeValueType(str, Enum):
+    """Enumeration of possible value types for judge attributes."""
 
     BOOL = "bool"
-    """Boolean judgment (True/False, Yes/No)."""
+    """Boolean value type."""
+
+    CATEGORICAL = "categorical"
+    """Categorical value type."""
+
+    LIKERT_5 = "likert-5"
+    """Likert scale with 5 points value type."""
+
+
+T = TypeVar("T", bound=TemplatedMessage)
+
+
+class JudgeAttribute(pydantic.BaseModel, Generic[T]):
+    """Attributes for the judge.
+
+    Example:
+        >>> attribute = JudgeAttribute( # doctest: +SKIP
+        ...     name="helpful",
+        ...     system_prompt="You are an impartial judge.",
+        ...     examples=[
+        ...         TemplatedMessage(
+        ...             role=Role.USER,
+        ...             request="What is the capital of France?",
+        ...             response="The capital of France is Paris.",
+        ...         ),
+        ...         TemplatedMessage(
+        ...             role=Role.ASSISTANT,
+        ...             response="True",
+        ...         ),
+        ...     ],
+        ...     value_type=JudgeAttributeValueType.BOOL,
+        ...     limit_examples=5,
+        ... )
+        >>> print(attribute.name) # doctest: +SKIP
+        helpful
+    """
+
+    name: str
+    """The name of the attribute being judged."""
+
+    system_prompt: str
+    """The system prompt for the judge."""
+
+    examples: list[T] = field(default_factory=list)
+    """A list of few-shot example inputs and judgements."""
+
+    value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
+    """The type of value for the attribute."""
+
+    limit_examples: Optional[int] = 5
+    """The maximum number of examples to use.
+
+    This is an optional parameter that limits the number of examples to be used for
+    judging the attribute. If not specified, the default is 5.
+    """
+
+    @property
+    def conversation(self) -> Conversation:
+        """Returns the judgement conversation in oumi format.
+
+        This will include the judge system prompt, and any few-shot examples.
+        """
+        return Conversation(messages=self.messages)
+
+    @property
+    def messages(self) -> list[Message]:
+        """Returns the messages in oumi format.
+
+        This will include the judge system prompt, and any few-shot examples.
+        """
+        messages = [Message(content=self.system_prompt, role=Role.SYSTEM)]
+        return messages + [e.message for e in self.examples]
+
+    @classmethod
+    def load(cls: type, filename: str) -> "JudgeAttribute[T]":
+        """Loads the judge attribute config from a file."""
+        path = Path(filename)
+        if not path.exists():
+            raise FileNotFoundError(path)
+        return cls.model_validate_json(path.read_text())
 
 
 @dataclass
 class JudgeConfig(BaseConfig):
     """Configuration for the Judge.
 
-    This class holds the configuration for a single-attribute judge,
-    including the prompt template, response format, and model parameters.
+    This class holds the configuration for the Judge,
+      including the attributes to judge, the model parameters,
+      and the text generation parameters.
 
     Examples:
-        Basic boolean judgment:
+        >>> attributes = {
+        ...     "helpful": JudgeAttribute( # doctest: +SKIP
+        ...         name="helpful",
+        ...         system_prompt="Is this answer helpful?",
+        ...         examples=[
+        ...             TemplatedMessage(
+        ...                 role=Role.USER,
+        ...                 request="What is the capital of France?",
+        ...                 response="The capital of France is Paris.",
+        ...             ),
+        ...             TemplatedMessage(
+        ...                 role=Role.ASSISTANT,
+        ...                 response="True",
+        ...             ),
+        ...         ],
+        ...     ),
+        ...     "honest": JudgeAttribute(
+        ...         name="honest",
+        ...         system_prompt="Is this answer honest?",
+        ...         examples=[]
+        ...     )
+        ... }
+        >>> model_params = ModelParams(model_name="example-model")
+        >>> generation_params = GenerationParams(max_new_tokens=100) # doctest: +SKIP
         >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     prompt_template="Is the following answer helpful? Question: {question},
-        ...                      Answer: {answer}. Respond with True or False.",
-        ...     response_format=JudgeResponseFormat.XML,
-        ...     judgment_type=JudgeOutputType.BOOL,
-        ...     include_explanation=False
-        ... )
-
-        Categorical judgment with scores:
-        >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     prompt_template="Rate the quality of this text: {text}.
-        ..                       Respond with 'excellent', 'good', or 'poor'.",
-        ...     response_format=JudgeResponseFormat.JSON,
-        ...     judgment_type=JudgeOutputType.ENUM,
-        ...     judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
-        ...     include_explanation=True
+        ...     attributes=attributes,
+        ...     model=model_params,
+        ...     generation=generation_params
         ... )
     """
 
-    prompt_template: str
-    """Template for the judge prompt with placeholders, such as {question}, {answer}."""
-
-    response_format: JudgeResponseFormat = field(default=JudgeResponseFormat.XML)
-    """The format in which the judge should respond."""
-
-    include_explanation: bool = field(default=False)
-    """Whether the judge should provide an explanation before the judgment."""
-
-    judgment_type: JudgeOutputType = field(default=JudgeOutputType.BOOL)
-    """The type of output that the judgment should be provided with."""
-
-    judgment_scores: Optional[dict[str, float]] = field(default=None)
-    """For ENUM judgment_type, the mapping from category names to numeric scores.
-
-    Example:
-        {"excellent": 1.0, "good": 0.7, "poor": 0.3}
-    """
+    attributes: dict[str, JudgeAttribute] = field(default_factory=dict)
+    """The attributes to judge."""
 
     model: ModelParams = field(default_factory=ModelParams)
-    """Parameters for the underlying judge model used in inference."""
+    """Parameters for the model used in inference."""
 
     generation: GenerationParams = field(default_factory=GenerationParams)
     """Parameters for text generation during inference."""
@@ -113,45 +167,3 @@ class JudgeConfig(BaseConfig):
 
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
-
-    def __post_init__(self):
-        """Validate the configuration after initialization."""
-        self._resolve_prompt_template()
-        self._validate_config()
-
-    def _resolve_prompt_template(self):
-        """Resolve prompt_template from registry if it's a registry key."""
-        from oumi.core.registry import REGISTRY
-
-        # Check if prompt_template is a registry key (simple heuristic: no curly braces)
-        if (
-            isinstance(self.prompt_template, str)
-            and self.prompt_template.strip()
-            and "{" not in self.prompt_template
-            and "}" not in self.prompt_template
-        ):
-            # Try to load from registry
-            registered_template = REGISTRY.get_prompt_template(self.prompt_template)
-            if registered_template is not None:
-                # Replace with the registered template
-                self.prompt_template = registered_template
-
-    def _validate_config(self):
-        """Validate the configuration for consistency and completeness.
-
-        Raises:
-            ValueError: If configuration is invalid
-        """
-        # Validate prompt template is not empty
-        if not self.prompt_template.strip():
-            raise ValueError("prompt_template cannot be empty")
-
-        # Validate judgment scores are numeric if provided
-        if self.judgment_scores:
-            if not all(
-                isinstance(score, (int, float))
-                for score in self.judgment_scores.values()
-            ):
-                raise ValueError("All judgment_scores values must be numeric")
-            if not self.judgment_scores:
-                raise ValueError("judgment_scores cannot be empty when provided")
