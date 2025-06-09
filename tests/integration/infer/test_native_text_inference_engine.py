@@ -91,13 +91,13 @@ def test_infer_online():
             conversation_id="123",
         )
     ]
-    result = engine._infer_online([conversation], _get_default_inference_config())
+    result = engine.infer([conversation], _get_default_inference_config())
     assert expected_result == result
 
 
 def test_infer_online_empty():
     engine = NativeTextInferenceEngine(_get_default_text_model_params())
-    result = engine._infer_online([], _get_default_inference_config())
+    result = engine.infer([], _get_default_inference_config())
     assert [] == result
 
 
@@ -156,7 +156,7 @@ def test_infer_online_to_file():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
@@ -200,15 +200,10 @@ def test_infer_from_file():
                 conversation_id="123",
             )
         ]
-        result = engine._infer_from_file(
-            str(input_path),
-            _get_default_inference_config(),
-        )
+        config = _get_default_inference_config()
+        config.input_path = str(input_path)
+        result = engine.infer(inference_config=config)
         assert expected_result == result
-        inference_config = _get_default_inference_config()
-        inference_config.input_path = str(input_path)
-        infer_result = engine.infer(inference_config=inference_config)
-        assert expected_result == infer_result
 
 
 def test_infer_from_file_empty():
@@ -217,11 +212,9 @@ def test_infer_from_file_empty():
         _setup_input_conversations(str(input_path), [])
         engine = NativeTextInferenceEngine(_get_default_text_model_params())
         inference_config = _get_default_inference_config()
-        result = engine._infer_from_file(str(input_path), inference_config)
-        assert [] == result
         inference_config.input_path = str(input_path)
-        infer_result = engine.infer(inference_config=inference_config)
-        assert [] == infer_result
+        result = engine.infer(inference_config=inference_config)
+        assert [] == result
 
 
 def test_infer_from_file_to_file():
@@ -281,7 +274,7 @@ def test_infer_from_file_to_file():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
@@ -388,7 +381,7 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
 
-        result = engine._infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
