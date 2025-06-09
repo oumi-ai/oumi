@@ -12,24 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""This module provides access to various judge configurations for the Oumi project.
+"""Registered prompt templates for the Oumi Judge framework."""
 
-The judges are used to evaluate the quality of AI-generated responses based on
-different criteria such as helpfulness, honesty, and safety.
-"""
+from oumi.core.registry import register_prompt_template
 
-# Import prompt templates to register them
-import oumi.judges_v2.prompt_template_registry  # noqa: F401
-from oumi.judges_v2.base_judge import (
-    BaseJudge,
-    JudgeOutput,
-    JudgeOutputField,
-)
-from oumi.judges_v2.oumi_judge import OumiJudge
-
-__all__ = [
-    "BaseJudge",
-    "OumiJudge",
-    "JudgeOutputField",
-    "JudgeOutput",
-]
+register_prompt_template("unit_test")("Unit test prompt template for Oumi Judge.")
