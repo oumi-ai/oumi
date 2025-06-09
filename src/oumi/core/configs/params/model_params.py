@@ -196,6 +196,12 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    model_revision: Optional[str] = None
+    """The revision of the model to use.
+
+    This is used to specify the version of the model to use.
+    """
+
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
