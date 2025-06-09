@@ -30,6 +30,25 @@ def _get_infer_test_spec_id(x):
     return f"batches={x.num_batches} bs={x.batch_size}"
 
 
+def _compare_conversation_lists(
+    output: list[Conversation],
+    expected_output: list[Conversation],
+) -> bool:
+    if len(output) != len(expected_output):
+        return False
+
+    for actual, expected in zip(output, expected_output):
+        if actual.messages != expected.messages:
+            return False
+        if actual.metadata != expected.metadata:
+            return False
+        if expected.conversation_id is not None:
+            if actual.conversation_id != expected.conversation_id:
+                return False
+
+    return True
+
+
 @requires_cuda_initialized()
 @requires_gpus()
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
@@ -130,13 +149,9 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     expected_output = [conversation] * (test_spec.num_batches * test_spec.batch_size)
 
     # Compare messages and metadata while ignoring conversation IDs
-    assert len(output) == len(expected_output)
-    for actual, expected in zip(output, expected_output):
-        assert actual.messages == expected.messages
-        assert actual.metadata == expected.metadata
+    assert _compare_conversation_lists(output, expected_output)
 
 
-@requires_gpus()
 @pytest.mark.parametrize(
     "test_spec",
     [
@@ -145,7 +160,6 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     ],
     ids=_get_infer_test_spec_id,
 )
-@pytest.mark.single_gpu
 def test_infer_basic_non_interactive_with_images(
     test_spec: InferTestSpec, root_testdata_dir: Path
 ):
@@ -207,5 +221,6 @@ def test_infer_basic_non_interactive_with_images(
     assert len(output) == test_spec.num_batches * test_spec.batch_size
     for conv in output:
         assert any(
-            conv == _create_conversation(response) for response in valid_responses
+            _compare_conversation_lists([conv], [_create_conversation(response)])
+            for response in valid_responses
         ), f"Generated response '{conv.messages[-1].content}' not in valid responses"
