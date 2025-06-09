@@ -175,7 +175,7 @@ def test_generation_params_used_in_inference(
             remote_params=remote_params,
         )
 
-        result = engine._infer_online([sample_conversation], inference_config)
+        result = engine.infer([sample_conversation], inference_config)
 
         # Check that the result is as expected
         assert result == [sample_conversation]
@@ -227,7 +227,7 @@ def test_generation_params_defaults_used_in_inference(
             remote_params=remote_params,
         )
 
-        result = engine._infer_online([sample_conversation], inference_config)
+        result = engine.infer([sample_conversation], inference_config)
 
         assert result == [sample_conversation]
 
