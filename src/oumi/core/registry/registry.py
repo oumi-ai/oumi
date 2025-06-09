@@ -94,6 +94,7 @@ def _register_dependencies(cls_function):
             self._initialized = True
             # Import all core dependencies.
             import oumi.datasets  # noqa: F401
+            import oumi.judges  # noqa: F401
             import oumi.judges_v2  # noqa: F401
             import oumi.launcher  # noqa: F401
             import oumi.models  # noqa: F401

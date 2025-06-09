@@ -161,7 +161,7 @@ class TestOumiJudge:
         assert judge.output_fields[1].field_type == JudgeOutputType.TEXT
         assert judge.output_fields[1].field_scores is None
 
-    @patch("oumi.judges.oumi_judge.OumiJudge._create_inference_engine")
+    @patch("oumi.judges_v2.oumi_judge.OumiJudge._create_inference_engine")
     def test_init_without_engine(self, mock_create_engine, xml_config_no_explanation):
         mock_engine = Mock()
         mock_create_engine.return_value = mock_engine
