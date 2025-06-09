@@ -59,7 +59,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         self._model = cast(
             transformers.PreTrainedModel, build_model(self._model_params)
         )
-        if self._model.generation_config is None:
+        if (
+            not hasattr(self._model, "generation_config")
+            or self._model.generation_config is None
+        ):
             raise ValueError(
                 f"Model {self._model_params.model_name} requires a generation config."
             )
