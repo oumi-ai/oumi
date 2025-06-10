@@ -184,7 +184,7 @@ def build_oumi_model(
     return model
 
 
-def _disable_cache_in_model_config(model: nn.Module):
+def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
     # Required for FSDP.
     # Context: https://github.com/huggingface/transformers/issues/28499
     model.config.use_cache = False

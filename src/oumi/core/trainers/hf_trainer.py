@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import pathlib
-from typing import Optional
+from typing import Optional, cast
 
+import peft
 import transformers
 
 from oumi.core.configs import TrainingConfig
@@ -102,9 +103,9 @@ class HuggingFaceTrainer(BaseTrainer):
                             "attempting to delete during model saving."
                         )
 
-                merged_model = self._hf_trainer.model.merge_and_unload(
-                    progressbar=True, safe_merge=True
-                )
+                model = cast(peft.LoraModel, self._hf_trainer.model)
+                merged_model = model.merge_and_unload(progressbar=True, safe_merge=True)
+                merged_model = cast(transformers.PreTrainedModel, merged_model)
                 merged_model.save_pretrained(output_dir)
             elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_ONLY:
                 # Save the LoRA adapter (doesn't include the base model).
@@ -112,7 +113,10 @@ class HuggingFaceTrainer(BaseTrainer):
             elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_AND_BASE_MODEL:
                 self._hf_trainer.save_model(output_dir)
                 # Saving the base model requires a separate call.
-                self._hf_trainer.model.base_model.save_pretrained(output_dir)
+                model = cast(
+                    transformers.PreTrainedModel, self._hf_trainer.model.base_model
+                )
+                model.save_pretrained(output_dir)
             else:
                 raise ValueError(
                     f"Unsupported PEFT save mode: {config.peft.peft_save_mode}"
