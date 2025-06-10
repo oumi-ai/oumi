@@ -85,7 +85,8 @@ training:
 
 fsdp:
   enable_fsdp: True
-  sharding_strategy: "HYBRID_SHARD"
+  # TODO: OPE-1329 - HYBRID_SHARD does not work with torch 2.6.0.
+  sharding_strategy: "FULL_SHARD"
   forward_prefetch: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
   transformer_layer_cls: "transformers.models.mllama.modeling_mllama.MllamaSelfAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaCrossAttentionDecoderLayer,transformers.models.mllama.modeling_mllama.MllamaVisionEncoderLayer"
