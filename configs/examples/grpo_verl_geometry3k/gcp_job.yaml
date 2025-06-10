@@ -35,7 +35,7 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu] huggingface_hub[hf_xet] mathruler
+  pip install uv && uv pip install oumi[gpu] huggingface_hub[hf_xet] mathruler qwen_vl_utils
   pip install -U flash-attn --no-build-isolation
 
 run: |
