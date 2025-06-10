@@ -83,11 +83,13 @@ def test_infer_online(inference_engine):
                 messages=[Message(content="Hello", role=Role.USER)],
             )
         ]
-        generation_params = GenerationParams(max_new_tokens=50)
+        inference_config = InferenceConfig(
+            generation=GenerationParams(max_new_tokens=50),
+        )
 
-        result = inference_engine.infer(input_conversations, generation_params)
+        result = inference_engine.infer(input_conversations, inference_config)
 
-        mock_infer.assert_called_once_with(input_conversations, generation_params)
+        mock_infer.assert_called_once_with(input_conversations, inference_config)
         assert result == mock_infer.return_value
 
 
