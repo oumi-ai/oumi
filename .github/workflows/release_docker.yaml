@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Docker image tag (defaults to release tag or "manual")'
+        description: 'Tag to build and push (e.g., v1.2.3)'
         required: false
         type: string
   pull_request:
@@ -23,28 +23,14 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        # For releases, checkout the release tag; for workflow_dispatch, checkout the latest commit
-        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+        ref: ${{ inputs.tag || github.event.release.tag_name || github.sha }}
 
-    - name: Display checkout info
-      run: |
-        echo "Checked out commit: $(git rev-parse HEAD)"
-        echo "Event name: ${{ github.event_name }}"
-        echo "Release tag: ${{ github.event.release.tag_name }}"
-        echo "GitHub SHA: ${{ github.sha }}"
-
-    - # Add support for more platforms with QEMU (optional)
-      # https://github.com/docker/setup-qemu-action
-      name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-    -
-      name: Set up Docker Buildx
+    - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
     - name: Log in to GitHub Container Registry
@@ -64,7 +50,6 @@ jobs:
           type=ref,event=pr
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
           type=raw,value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
           type=raw,value=latest,enable=${{ github.event_name == 'release' }}
 
