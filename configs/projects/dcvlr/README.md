@@ -1,4 +1,20 @@
-# DCVLR -- Getting Under the Hood
+# DCVLR - Getting Under the Hood
+
+[![NeurIPS 2025](https://img.shields.io/badge/NeurIPS-2025-blue.svg)](https://neurips.cc/Conferences/2025)
+[![Competition](https://img.shields.io/badge/Competition-Open-green.svg)](https://dcvlr.org)
+
+---
+
+<div align="center">
+
+  <h3>
+   🌐 <a href="https://dcvlr-neurips.github.io">Official webpage</a> •
+   🚀 <a href="https://oumi-ai.typeform.com/to/LnYoisi5">Sign up for updates</a> •
+   🎯 <a href="https://oumi-ai.typeform.com/to/OGPuRt6U">Apply for GPU credits (sponsored by Lambda Labs)</a>
+   </h3>
+</div>
+
+---
 
 ## What is this directory?
 
