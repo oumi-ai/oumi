@@ -243,7 +243,9 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
 
 
 def judge_v2_dataset(
-    config: JudgeConfigV2, dataset: list[dict[str, str]]
+    judge_config: JudgeConfigV2,
+    inference_config: InferenceConfig,
+    dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
     """Judge a dataset using the Oumi Judge framework.
 
@@ -257,8 +259,10 @@ def judge_v2_dataset(
         3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        config: The configuration for the judge, including prompt template,
-            response format, inference engine settings, and output field specifications.
+        judge_config: The configuration for the judge, including prompt template,
+            response format, and output field specifications.
+        inference_config: The configuration for inference, including model settings,
+            generation parameters, and engine type.
         dataset: List of dictionaries containing input data for evaluation. Each
             dictionary should contain key-value pairs that match placeholders in
             the judge's prompt template (e.g., {'question': '...', 'answer': '...'}).
@@ -282,13 +286,13 @@ def judge_v2_dataset(
         ...     {'question': 'What is 2+2?', 'answer': '4'},
         ...     {'question': 'How to cook?', 'answer': 'I dont know'}
         ... ]
-        >>> judged_outputs = judge_dataset(config, dataset)
+        >>> judged_outputs = judge_dataset(judge_config, inference_config, dataset)
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
     import oumi.judge_v2
 
-    return oumi.judge_v2.judge_dataset(config, dataset)
+    return oumi.judge_v2.judge_dataset(judge_config, inference_config, dataset)
 
 
 def train(

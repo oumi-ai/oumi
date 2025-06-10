@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
-
 from typing_extensions import override
 
+from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.judge_config_v2 import (
     JudgeConfig,
     JudgeOutputType,
@@ -26,7 +25,6 @@ from oumi.judges_v2.base_judge import (
     BaseJudge,
     JudgeOutputField,
 )
-from oumi.utils.logging import logger
 
 # Expected field/key names in the judge's output.
 EXPLANATION_KEY = "explanation"
@@ -72,27 +70,23 @@ class OumiJudge(BaseJudge):
 
     def __init__(
         self,
-        config: JudgeConfig,
-        inference_engine: Optional[BaseInferenceEngine] = None,
+        judge_config: JudgeConfig,
+        inference_config: InferenceConfig,
     ):
         """Initialize the Judge."""
-        self._config = config
+        self._judge_config = judge_config
 
-        # Generate an inference engine if not provided
-        if inference_engine is None:
-            logger.debug("Initializing a new inference engine.")
-            inference_engine = self._create_inference_engine(config)
-
-        # Create output fields based on configuration
-        output_fields = [self._create_judgment_output_field(config)]
-
-        # Add explanation field, if explanations are enabled
-        if config.include_explanation:
+        # Create output fields based on judge configuration
+        output_fields = [self._create_judgment_output_field(judge_config)]
+        if judge_config.include_explanation:
             output_fields.append(self._create_explanation_output_field())
 
+        # Generate an inference engine from inference config
+        inference_engine = self._create_inference_engine(inference_config)
+
         super().__init__(
-            prompt_template=config.prompt_template,
-            response_format=config.response_format,
+            prompt_template=judge_config.prompt_template,
+            response_format=judge_config.response_format,
             output_fields=output_fields,
             inference_engine=inference_engine,
         )
@@ -114,21 +108,24 @@ class OumiJudge(BaseJudge):
         Returns:
             Format-specific instruction suffix to append to prompts
         """
-        response_format = self._config.response_format
-        include_explanation = self._config.include_explanation
+        response_format = self._judge_config.response_format
+        include_explanation = self._judge_config.include_explanation
 
         # Describe the expected judgment format
-        if self._config.judgment_scores and len(self._config.judgment_scores) > 1:
-            choices = [f"'{choice}'" for choice in self._config.judgment_scores.keys()]
+        if (
+            self._judge_config.judgment_scores
+            and len(self._judge_config.judgment_scores) > 1
+        ):
+            choices = [f"'{c}'" for c in self._judge_config.judgment_scores.keys()]
             choices_str = ", ".join(choices)
             judgment_options = f"{JUDGEMENT_OPTIONS_ENUM_PREFIX}{choices_str}. "
-        elif self._config.judgment_type == JudgeOutputType.BOOL:
+        elif self._judge_config.judgment_type == JudgeOutputType.BOOL:
             judgment_options = f"{JUDGEMENT_OPTIONS_BOOL}. "
-        elif self._config.judgment_type == JudgeOutputType.FLOAT:
+        elif self._judge_config.judgment_type == JudgeOutputType.FLOAT:
             judgment_options = f"{JUDGEMENT_OPTIONS_FLOAT}. "
-        elif self._config.judgment_type == JudgeOutputType.INT:
+        elif self._judge_config.judgment_type == JudgeOutputType.INT:
             judgment_options = f"{JUDGEMENT_OPTIONS_INT}. "
-        elif self._config.judgment_type == JudgeOutputType.TEXT:
+        elif self._judge_config.judgment_type == JudgeOutputType.TEXT:
             judgment_options = f"{JUDGEMENT_OPTIONS_TEXT}. "
         else:
             judgment_options = ""
@@ -167,13 +164,23 @@ class OumiJudge(BaseJudge):
             field_scores=None,
         )
 
-    def _create_inference_engine(self, config: JudgeConfig) -> BaseInferenceEngine:
+    def _create_inference_engine(
+        self, inference_config: InferenceConfig
+    ) -> BaseInferenceEngine:
         """Create the inference engine based on the provided configuration."""
         from oumi.builders.inference_engines import build_inference_engine
 
+        if inference_config.engine is None:
+            raise ValueError("Inference engine not specified in the configuration.")
+        elif inference_config.input_path or inference_config.output_path:
+            raise ValueError(
+                "Input and output paths are not supported for the Oumi judge. "
+                "Please set both to None in the inference_config."
+            )
+
         return build_inference_engine(
-            engine_type=config.engine,
-            model_params=config.model,
-            remote_params=config.remote_params,
-            generation_params=config.generation,
+            engine_type=inference_config.engine,
+            model_params=inference_config.model,
+            remote_params=inference_config.remote_params,
+            generation_params=inference_config.generation,
         )
