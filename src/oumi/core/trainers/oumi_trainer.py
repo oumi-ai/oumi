@@ -30,6 +30,8 @@ import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 
 import mlflow  # isort: skip
+import transformers
+
 import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
@@ -159,7 +161,12 @@ class Trainer(BaseTrainer):
         # Prepare model for training
         # ----------------------------------
         if args.enable_gradient_checkpointing:
+            if not isinstance(model, transformers.PreTrainedModel):
+                raise ValueError(
+                    "Gradient checkpointing is only supported for transformers models."
+                )
             model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
+        model = cast(torch.nn.Module, model)
         model.to(self.device)
         if is_distributed():
             # Wrap model for distributed training
