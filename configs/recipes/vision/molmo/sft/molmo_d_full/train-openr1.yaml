@@ -8,7 +8,6 @@
 #
 # Usage:
 #   oumi train -c configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml
-#   torchrun --nproc-per-node 4 --standalone -m	oumi train -c configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -20,8 +19,10 @@ model:
   # model_name: "allenai/Molmo-7B-O-0924"
   model_name: "oumi-ai/Molmo-7B-D-0924"
   torch_dtype_str: "float32"
-  model_max_length: 10000
+  model_max_length: 8192
   trust_remote_code: True
+  model_kwargs:
+    max_position_embeddings: 8192
 
 data:
   train:
@@ -37,7 +38,7 @@ data:
         trust_remote_code: True
         transform_num_workers: "auto"
         dataset_kwargs:
-          hf_dataset_path: "penfever/multimodal-open-r1-8192-filtered"
+          hf_dataset_path: "penfever/multimodal-open-r1-8192-filtered-tighter"
           image_column: "image"
           question_column: "problem"
           answer_column: "solution"

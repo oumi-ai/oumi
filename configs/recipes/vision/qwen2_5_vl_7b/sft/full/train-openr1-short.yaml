@@ -46,7 +46,7 @@ training:
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features
   gradient_accumulation_steps: 1
-  # max_steps: 20 # Uncomment if you want to limit the number of training steps.
+  max_steps: 20 # Uncomment if you want to limit the number of training steps.
   num_train_epochs: 1
   # If this is not passed, checkpoints may be saved which are suitable for resuming training but not for loading from HF
   save_final_model: True
