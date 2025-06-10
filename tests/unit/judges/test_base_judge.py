@@ -351,23 +351,23 @@ class TestBaseJudge:
         assert base_judge.output_fields == sample_output_fields
         assert base_judge.inference_engine == mock_inference_engine
 
-    def test_build_judgement_prompt(self, base_judge):
+    def test_build_judgment_prompt(self, base_judge):
         judge_input = {"question": "What is 2+2?", "answer": "4"}
-        prompt = base_judge._build_judgement_prompt(judge_input)
+        prompt = base_judge._build_judgment_prompt(judge_input)
         expected = "Is this helpful? Question: What is 2+2?, Answer: 4"
         assert prompt == expected
 
-    def test_build_judgement_prompt_missing_placeholder(self, base_judge):
+    def test_build_judgment_prompt_missing_placeholder(self, base_judge):
         judge_input = {"question": "What is 2+2?"}  # Missing 'answer'
 
         with pytest.raises(
             ValueError, match="Missing values for template placeholders"
         ):
-            base_judge._build_judgement_prompt(judge_input)
+            base_judge._build_judgment_prompt(judge_input)
 
-    def test_build_judgement_prompt_extra_data(self, base_judge):
+    def test_build_judgment_prompt_extra_data(self, base_judge):
         judge_input = {"question": "What is 2+2?", "answer": "4", "extra": "ignored"}
-        prompt = base_judge._build_judgement_prompt(judge_input)
+        prompt = base_judge._build_judgment_prompt(judge_input)
         expected = "Is this helpful? Question: What is 2+2?, Answer: 4"
         assert prompt == expected
 

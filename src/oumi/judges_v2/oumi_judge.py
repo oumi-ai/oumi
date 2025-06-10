@@ -31,11 +31,11 @@ EXPLANATION_KEY = "explanation"
 JUDGMENT_KEY = "judgment"
 
 # Judgment options: describing to the judge how to format its judgment.
-JUDGEMENT_OPTIONS_BOOL = "Your judgment should be a single word: 'Yes' or 'No'"
-JUDGEMENT_OPTIONS_INT = "Your judgment should be an integer value"
-JUDGEMENT_OPTIONS_FLOAT = "Your judgment should be a float value"
-JUDGEMENT_OPTIONS_ENUM_PREFIX = "Your judgment should be one of the following options: "
-JUDGEMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free text"
+JUDGMENT_OPTIONS_BOOL = "Your judgment should be a single word: 'Yes' or 'No'"
+JUDGMENT_OPTIONS_INT = "Your judgment should be an integer value"
+JUDGMENT_OPTIONS_FLOAT = "Your judgment should be a float value"
+JUDGMENT_OPTIONS_ENUM_PREFIX = "Your judgment should be one of the following options: "
+JUDGMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free text"
 
 # Prompt suffix: describing to the judge how to format its response (XML, JSON, or RAW).
 XML_SUFFIX = (
@@ -92,9 +92,9 @@ class OumiJudge(BaseJudge):
         )
 
     @override
-    def _build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
+    def _build_judgment_prompt(self, judge_input: dict[str, str]) -> str:
         """Generate judge prompts using the template."""
-        prompt_content = super()._build_judgement_prompt(judge_input)
+        prompt_content = super()._build_judgment_prompt(judge_input)
 
         # Append format-specific instructions to the prompt
         if format_suffix := self._get_format_suffix():
@@ -118,15 +118,15 @@ class OumiJudge(BaseJudge):
         ):
             choices = [f"'{c}'" for c in self._judge_config.judgment_scores.keys()]
             choices_str = ", ".join(choices)
-            judgment_options = f"{JUDGEMENT_OPTIONS_ENUM_PREFIX}{choices_str}. "
+            judgment_options = f"{JUDGMENT_OPTIONS_ENUM_PREFIX}{choices_str}. "
         elif self._judge_config.judgment_type == JudgeOutputType.BOOL:
-            judgment_options = f"{JUDGEMENT_OPTIONS_BOOL}. "
+            judgment_options = f"{JUDGMENT_OPTIONS_BOOL}. "
         elif self._judge_config.judgment_type == JudgeOutputType.FLOAT:
-            judgment_options = f"{JUDGEMENT_OPTIONS_FLOAT}. "
+            judgment_options = f"{JUDGMENT_OPTIONS_FLOAT}. "
         elif self._judge_config.judgment_type == JudgeOutputType.INT:
-            judgment_options = f"{JUDGEMENT_OPTIONS_INT}. "
+            judgment_options = f"{JUDGMENT_OPTIONS_INT}. "
         elif self._judge_config.judgment_type == JudgeOutputType.TEXT:
-            judgment_options = f"{JUDGEMENT_OPTIONS_TEXT}. "
+            judgment_options = f"{JUDGMENT_OPTIONS_TEXT}. "
         else:
             judgment_options = ""
 

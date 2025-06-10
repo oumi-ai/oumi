@@ -231,7 +231,7 @@ class BaseJudge:
         """
         # Build prompts and conversations for all inputs
         judgment_prompts = [
-            self._build_judgement_prompt(input_data) for input_data in inputs
+            self._build_judgment_prompt(input_data) for input_data in inputs
         ]
         judge_conversations = [
             self._build_judge_conversation(prompt) for prompt in judgment_prompts
@@ -252,7 +252,7 @@ class BaseJudge:
 
         return judge_outputs
 
-    def _build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
+    def _build_judgment_prompt(self, judge_input: dict[str, str]) -> str:
         """Generate a judge prompt by filling the template with input data.
 
         Args:

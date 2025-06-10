@@ -209,7 +209,7 @@ class TestOumiJudge:
             inference_config=mock_inference_config,
         )
 
-        prompt = judge._build_judgement_prompt(self.XML_JUDGE_INPUT)
+        prompt = judge._build_judgment_prompt(self.XML_JUDGE_INPUT)
 
         expected = (
             f"Is this helpful? Question: What is 2+2?, Answer: 4"
@@ -229,7 +229,7 @@ class TestOumiJudge:
             inference_config=mock_inference_config,
         )
 
-        prompt = judge._build_judgement_prompt(self.XML_JUDGE_INPUT)
+        prompt = judge._build_judgment_prompt(self.XML_JUDGE_INPUT)
 
         expected = (
             f"Is this helpful? Question: What is 2+2?, Answer: 4"
@@ -249,7 +249,7 @@ class TestOumiJudge:
             inference_config=mock_inference_config,
         )
 
-        prompt = judge._build_judgement_prompt(self.JSON_JUDGE_INPUT)
+        prompt = judge._build_judgment_prompt(self.JSON_JUDGE_INPUT)
 
         expected = (
             f"Rate this answer: Some good answer{self.JSON_SUFFIX_FORMATTED_ENUM}"
@@ -268,7 +268,7 @@ class TestOumiJudge:
             inference_config=mock_inference_config,
         )
 
-        prompt = judge._build_judgement_prompt(self.JSON_JUDGE_INPUT)
+        prompt = judge._build_judgment_prompt(self.JSON_JUDGE_INPUT)
 
         expected = (
             f"Rate this answer: Some good answer"
@@ -291,7 +291,7 @@ class TestOumiJudge:
         )
         judge = OumiJudge(judge_config=config, inference_config=mock_inference_config)
 
-        prompt = judge._build_judgement_prompt(self.RAW_JUDGE_INPUT)
+        prompt = judge._build_judgment_prompt(self.RAW_JUDGE_INPUT)
 
         expected = "Evaluate: Some content"  # No suffix for RAW without explanation
         assert prompt == expected
@@ -311,7 +311,7 @@ class TestOumiJudge:
         )
         judge = OumiJudge(judge_config=config, inference_config=mock_inference_config)
 
-        prompt = judge._build_judgement_prompt(self.RAW_JUDGE_INPUT)
+        prompt = judge._build_judgment_prompt(self.RAW_JUDGE_INPUT)
 
         expected = (
             f"Evaluate: Some content{self.RAW_SUFFIX_WITH_EXPLANATION_FORMATTED_TEXT}"
