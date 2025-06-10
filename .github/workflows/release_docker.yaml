@@ -28,6 +28,16 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        # For releases, checkout the release tag; for workflow_dispatch, checkout the latest commit
+        ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.sha }}
+
+    - name: Display checkout info
+      run: |
+        echo "Checked out commit: $(git rev-parse HEAD)"
+        echo "Event name: ${{ github.event_name }}"
+        echo "Release tag: ${{ github.event.release.tag_name }}"
+        echo "GitHub SHA: ${{ github.sha }}"
 
     - # Add support for more platforms with QEMU (optional)
       # https://github.com/docker/setup-qemu-action
