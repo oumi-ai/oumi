@@ -92,16 +92,19 @@ class OumiJudge(BaseJudge):
 
         super().__init__(
             prompt_template=config.prompt_template,
+            system_instruction=None,  # FIXME: config.system_instruction,
+            example_field_values=[],  # FIXME: config.examples,
             response_format=config.response_format,
             output_fields=output_fields,
             inference_engine=inference_engine,
         )
 
     @override
-    def _build_judgement_prompt(self, judge_input: dict[str, str]) -> str:
+    def _build_judgment_prompt(self, judge_input: dict[str, str]) -> str:
         """Generate judge prompts using the template."""
-        prompt_content = super()._build_judgement_prompt(judge_input)
+        prompt_content = super()._build_judgment_prompt(judge_input)
 
+        # FIXME: Ensure this goes to the system instruction, if there is one
         # Append format-specific instructions to the prompt
         if format_suffix := self._get_format_suffix():
             prompt_content += format_suffix
