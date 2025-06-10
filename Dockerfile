@@ -28,9 +28,9 @@ RUN apt-get update && \
 # If OUMI_VERSION is provided, install that specific version, otherwise install latest
 RUN pip install --no-cache-dir uv && \
     if [ -z "$OUMI_VERSION" ]; then \
-        uv pip install --system --no-cache-dir "oumi[gpu]"; \
+        uv pip install --system --no-cache-dir --prerelease=allow "oumi[gpu]"; \
     else \
-        uv pip install --system --no-cache-dir "oumi[gpu]==$OUMI_VERSION"; \
+        uv pip install --system --no-cache-dir --prerelease=allow "oumi[gpu]==$OUMI_VERSION"; \
     fi
 
 # Switch to oumi user
