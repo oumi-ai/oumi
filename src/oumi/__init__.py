@@ -249,12 +249,11 @@ def judge_v2_dataset(
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
 
-    This function evaluates a dataset by instantiating an SimpleJudge with the provided
+    This function evaluates a dataset by instantiating a SimpleJudge with the provided
     configuration and running batch inference on all input data.
 
     The function performs the following steps:
-
-        1. Initializes an SimpleJudge with the provided configuration.
+        1. Initializes a SimpleJudge with the provided configuration.
         2. Passes the entire dataset to the judge for batch evaluation.
         3. Returns structured JudgeOutput objects containing parsed results.
 

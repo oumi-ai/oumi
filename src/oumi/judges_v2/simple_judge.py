@@ -111,7 +111,7 @@ class SimpleJudge(BaseJudge):
         response_format = self._judge_config.response_format
         include_explanation = self._judge_config.include_explanation
 
-        # Describe the expected judgment format
+        # Describe the expected judgment options to the judge
         if (
             self._judge_config.judgment_scores
             and len(self._judge_config.judgment_scores) > 1
@@ -130,7 +130,7 @@ class SimpleJudge(BaseJudge):
         else:
             judgment_options = ""
 
-        # Describe the expected response format
+        # Describe the expected response format to the judge
         if response_format == JudgeResponseFormat.XML:
             suffix = XML_SUFFIX_WITH_EXPLANATION if include_explanation else XML_SUFFIX
         elif response_format == JudgeResponseFormat.JSON:
