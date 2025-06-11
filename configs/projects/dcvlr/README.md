@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="img/dcvlr-logo.png" alt="DCVLR Logo" width="400">
+</div>
+
 # DCVLR - Getting Under the Hood
 
 [![NeurIPS 2025](https://img.shields.io/badge/NeurIPS-2025-blue.svg)](https://neurips.cc/Conferences/2025)
