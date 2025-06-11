@@ -18,8 +18,7 @@ model:
   enable_liger_kernel: False
   tokenizer_kwargs:
     pad_token: "<|pad|>"
-  model_kwargs:
-    revision: "prequantized"
+  model_revision: "prequantized"
 
 data:
   train:
