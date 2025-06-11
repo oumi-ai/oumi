@@ -187,7 +187,7 @@ def torchrun(
             and args[1] == "oumi"
             and args[2] == "train"
         ):
-            args.pop(0)  # remove trailing "-m"
+            args.pop(0)  # Remove leading "-m".
             cmds = []
         else:
             cmds = (
