@@ -1,3 +1,4 @@
+import os
 import unittest
 
 import pytest
@@ -5,6 +6,10 @@ import pytest
 from oumi.core.configs import InferenceConfig
 from oumi.core.configs import JudgeConfigV2 as JudgeConfig
 from oumi.judges_v2.simple_judge import SimpleJudge
+
+skip_if_no_openai_key = pytest.mark.skipif(
+    os.getenv("OPENAI_API_KEY") is None, reason="OPENAI_API_KEY not set"
+)
 
 YAML_JUDGE_CONFIG_XML_ENUM = """
     prompt_template: Is the following statement correct? {statement}
@@ -26,7 +31,7 @@ YAML_JUDGE_CONFIG_JSON_BOOL = """
 
 YAML_INFERENCE_CONFIG = """
     model:
-        model_name: "gpt-4.1-mini-2025-04-14"
+        model_name: "gpt-4.1"
 
     engine: OPENAI
 
@@ -41,7 +46,7 @@ JUDGE_DATASET = [
 ]
 
 
-@pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
+@skip_if_no_openai_key
 def test_simple_judge_xml_enum():
     # Instantiate the judge using a YAML configuration.
     judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_XML_ENUM)
@@ -74,7 +79,7 @@ def test_simple_judge_xml_enum():
     assert judge_output[1].field_scores["explanation"] is None
 
 
-@pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
+@skip_if_no_openai_key
 def test_simple_judge_json_bool():
     # Instantiate the judge using a YAML configuration.
     judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_JSON_BOOL)
