@@ -79,11 +79,13 @@ if TYPE_CHECKING:
         EvaluationConfig,
         InferenceConfig,
         JudgeConfig,
+        JudgeConfigV2,
         TrainingConfig,
     )
     from oumi.core.datasets import BaseSftDataset
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
+    from oumi.judges_v2.base_judge import JudgeOutput
 
 logging.configure_dependency_warnings()
 
@@ -238,6 +240,58 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
     import oumi.judge
 
     return oumi.judge.judge_dataset(config, dataset)
+
+
+def judge_v2_dataset(
+    judge_config: JudgeConfigV2,
+    inference_config: InferenceConfig,
+    dataset: list[dict[str, str]],
+) -> list[JudgeOutput]:
+    """Judge a dataset using Oumi's Judge framework.
+
+    This function evaluates a dataset by instantiating a SimpleJudge with the provided
+    configuration and running batch inference on all input data.
+
+    The function performs the following steps:
+        1. Initializes a SimpleJudge with the provided configuration.
+        2. Passes the entire dataset to the judge for batch evaluation.
+        3. Returns structured JudgeOutput objects containing parsed results.
+
+    Args:
+        judge_config: The configuration for the judge, including prompt template,
+            response format, and output field specifications.
+        inference_config: The configuration for inference, including model settings,
+            generation parameters, and engine type.
+        dataset: List of dictionaries containing input data for evaluation. Each
+            dictionary should contain key-value pairs that match placeholders in
+            the judge's prompt template (e.g., {'question': '...', 'answer': '...'}).
+
+    Returns:
+        List[JudgeOutput]: A list of structured judgment results, each containing:
+            - raw_output: The original response from the judge model
+            - parsed_output: Extracted field values from structured formats (XML/JSON)
+            - field_values: Typed values for each expected output field
+            - field_scores: Numeric scores for applicable fields
+
+    Example:
+        >>> config = JudgeConfig(
+        ...     prompt_template="Is this answer helpful? "
+        ...                     "Question: {question} Answer: {answer}",
+        ...     judgment_type=JudgeOutputType.BOOL,
+        ...     response_format=JudgeResponseFormat.JSON
+        ...     ...
+        ... )
+        >>> dataset = [
+        ...     {'question': 'What is 2+2?', 'answer': '4'},
+        ...     {'question': 'How to cook?', 'answer': 'I dont know'}
+        ... ]
+        >>> judged_outputs = judge_dataset(judge_config, inference_config, dataset)
+        >>> for output in judged_outputs:
+        ...     print(output.field_values)  # e.g., {'judgment': True}
+    """
+    import oumi.judge_v2
+
+    return oumi.judge_v2.judge_dataset(judge_config, inference_config, dataset)
 
 
 def train(
