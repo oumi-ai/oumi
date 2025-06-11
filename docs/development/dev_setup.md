@@ -133,3 +133,17 @@ You can also use VSCode to run Jupyter notebooks in the Oumi repository. See our
 ## 6. [optional] Test your setup
 
 To test that your setup is complete, you can run `oumi launch up -c configs/recipes/llama3_1/sft/8b_lora/gcp_job.yaml --cluster llama8b-lora`. This requires step 4 (SkyPilot GCP), step 5 (HF), step 5.1 (Llama 3.1 access), and step 6 (WandB).
+
+After the training is finished, see the training results by loging into your wandb account.
+
+Please keep an eye on your costs, and don't forget to tear down your cluster when you're done.
+
+```bash
+sky down cluster_name
+```
+
+or
+
+```bash
+oumi launch down --cluster cluster_name
+```

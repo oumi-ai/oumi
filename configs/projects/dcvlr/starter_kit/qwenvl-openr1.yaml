@@ -1,0 +1,82 @@
+# Qwen 2.5 VL 7B full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - (optional) If you want to use flash attention, run `pip install -U flash-attn --no-build-isolation`
+#
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 10000
+  trust_remote_code: True
+  attn_implementation: "sdpa" # You can also use `flash_attention_2` if you install it
+  chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
+
+data:
+  train:
+    collator_name: "vision_language_sft"
+    collator_kwargs:
+      process_individually: True
+    use_torchdata: True
+    datasets:
+      - dataset_name: "hf_vision"
+        split: "train"
+        shuffle: True
+        seed: 42
+        trust_remote_code: True
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          hf_dataset_path: "penfever/multimodal-open-r1-8192-filtered-tighter"
+          image_column: "image"
+          question_column: "problem"
+          answer_column: "solution"
+          return_tensors: True
+          processor_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+
+training:
+  output_dir: "output/qwen2_5_vl_7b_openr1"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features
+  gradient_accumulation_steps: 1
+  # max_steps: 20 # Uncomment if you want to limit the number of training steps.
+  num_train_epochs: 1
+  # If this is not passed, checkpoints may be saved which are suitable for resuming training but not for loading from HF
+  save_final_model: True
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 1
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 5
+  save_steps: 0
+  dataloader_main_process_only: False
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  mixed_precision: "bf16"
+  forward_prefetch: True
+  auto_wrap_policy: "SIZE_BASED_WRAP" # TODO: use transformer wrapper instead
+  min_num_params: 100000

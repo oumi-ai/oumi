@@ -13,28 +13,32 @@
 # limitations under the License.
 
 
+from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.judge_config_v2 import JudgeConfig
 from oumi.judges_v2.base_judge import JudgeOutput
-from oumi.judges_v2.oumi_judge import OumiJudge
+from oumi.judges_v2.simple_judge import SimpleJudge
 
 
 def judge_dataset(
-    config: JudgeConfig, dataset: list[dict[str, str]]
+    judge_config: JudgeConfig,
+    inference_config: InferenceConfig,
+    dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
-    """Judge a dataset using the Oumi Judge framework.
+    """Judge a dataset using Oumi's Judge framework.
 
-    This function evaluates a dataset by instantiating an OumiJudge with the provided
+    This function evaluates a dataset by instantiating a SimpleJudge with the provided
     configuration and running batch inference on all input data.
 
     The function performs the following steps:
-
-        1. Initializes an OumiJudge with the provided configuration.
+        1. Initializes a SimpleJudge with the provided configuration.
         2. Passes the entire dataset to the judge for batch evaluation.
         3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        config: The configuration for the judge, including prompt template,
-            response format, inference engine settings, and output field specifications.
+        judge_config: The configuration for the judge, including prompt template,
+            response format, and output field specifications.
+        inference_config: The configuration for inference, including model settings,
+            generation parameters, and engine type.
         dataset: List of dictionaries containing input data for evaluation. Each
             dictionary should contain key-value pairs that match placeholders in
             the judge's prompt template (e.g., {'question': '...', 'answer': '...'}).
@@ -47,7 +51,7 @@ def judge_dataset(
             - field_scores: Numeric scores for applicable fields
 
     Example:
-        >>> config = JudgeConfig(
+        >>> judge_config = JudgeConfig(
         ...     prompt_template="Is this answer helpful? "
         ...                     "Question: {question} Answer: {answer}",
         ...     judgment_type=JudgeOutputType.BOOL,
@@ -58,9 +62,9 @@ def judge_dataset(
         ...     {'question': 'What is 2+2?', 'answer': '4'},
         ...     {'question': 'How to cook?', 'answer': 'I dont know'}
         ... ]
-        >>> judged_outputs = judge_dataset(config, dataset)
+        >>> judged_outputs = judge_dataset(judge_config, inference_config, dataset)
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
-    judge = OumiJudge(config=config)
+    judge = SimpleJudge(judge_config=judge_config, inference_config=inference_config)
     return judge.judge(inputs=dataset)

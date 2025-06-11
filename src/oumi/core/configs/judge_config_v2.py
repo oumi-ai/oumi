@@ -17,10 +17,6 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs import BaseConfig
-from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.params.generation_params import GenerationParams
-from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.configs.params.remote_params import RemoteParams
 
 
 class JudgeResponseFormat(str, Enum):
@@ -60,7 +56,7 @@ class JudgeConfig(BaseConfig):
     """Configuration for the Judge.
 
     This class holds the configuration for a single-attribute judge,
-    including the prompt template, response format, and model parameters.
+    including the prompt template and response format.
 
     Examples:
         Basic boolean judgment:
@@ -102,18 +98,6 @@ class JudgeConfig(BaseConfig):
         {"excellent": 1.0, "good": 0.7, "poor": 0.3}
     """
 
-    model: ModelParams = field(default_factory=ModelParams)
-    """Parameters for the underlying judge model used in inference."""
-
-    generation: GenerationParams = field(default_factory=GenerationParams)
-    """Parameters for text generation during inference."""
-
-    engine: InferenceEngineType = field(default=InferenceEngineType.NATIVE)
-    """The inference engine to use for generation."""
-
-    remote_params: Optional[RemoteParams] = None
-    """Parameters for running inference against a remote API."""
-
     def __post_init__(self):
         """Validate the configuration after initialization."""
         self._validate_config()
@@ -127,6 +111,10 @@ class JudgeConfig(BaseConfig):
         # Validate prompt template is not empty
         if not self.prompt_template.strip():
             raise ValueError("prompt_template cannot be empty")
+
+        # Validate judgment scores for ENUM judgment type
+        if self.judgment_type == JudgeOutputType.ENUM and not self.judgment_scores:
+            raise ValueError("judgment_scores must be provided for ENUM judgment_type")
 
         # Validate judgment scores are numeric if provided
         if self.judgment_scores:

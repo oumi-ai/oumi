@@ -1,11 +1,17 @@
+import os
 import unittest
 
 import pytest
 
+from oumi.core.configs import InferenceConfig
 from oumi.core.configs import JudgeConfigV2 as JudgeConfig
-from oumi.judges_v2.oumi_judge import OumiJudge
+from oumi.judges_v2.simple_judge import SimpleJudge
 
-YAML_CONFIG_XML_ENUM = """
+skip_if_no_openai_key = pytest.mark.skipif(
+    os.getenv("OPENAI_API_KEY") is None, reason="OPENAI_API_KEY not set"
+)
+
+YAML_JUDGE_CONFIG_XML_ENUM = """
     prompt_template: Is the following statement correct? {statement}
     response_format: XML
     judgment_type: ENUM
@@ -14,25 +20,18 @@ YAML_CONFIG_XML_ENUM = """
         "Unsure": 0.5
         "Incorrect": 0.01
     include_explanation: True
-
-    model:
-        model_name: "gpt-4.1-mini-2025-04-14"
-
-    engine: OPENAI
-
-    generation:
-        max_new_tokens: 8192
-        temperature: 0.0
 """
 
-YAML_CONFIG_JSON_BOOL = """
+YAML_JUDGE_CONFIG_JSON_BOOL = """
     prompt_template: Is the following statement correct? {statement}
     response_format: JSON
     judgment_type: BOOL
     include_explanation: False
+"""
 
+YAML_INFERENCE_CONFIG = """
     model:
-        model_name: "gpt-4.1-mini-2025-04-14"
+        model_name: "gpt-4.1"
 
     engine: OPENAI
 
@@ -47,14 +46,17 @@ JUDGE_DATASET = [
 ]
 
 
-@pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
-def test_oumi_judge_xml_enum():
+@skip_if_no_openai_key
+def test_simple_judge_xml_enum():
     # Instantiate the judge using a YAML configuration.
-    config = JudgeConfig.from_str(YAML_CONFIG_XML_ENUM)
-    oumi_judge = OumiJudge(config=config)
+    judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_XML_ENUM)
+    inference_config = InferenceConfig.from_str(YAML_INFERENCE_CONFIG)
+    simple_judge = SimpleJudge(
+        judge_config=judge_config, inference_config=inference_config
+    )
 
     # Call the judge with the dataset.
-    judge_output = oumi_judge.judge(inputs=JUDGE_DATASET)
+    judge_output = simple_judge.judge(inputs=JUDGE_DATASET)
 
     # Ensure the output is correct.
     print(judge_output)
@@ -77,14 +79,17 @@ def test_oumi_judge_xml_enum():
     assert judge_output[1].field_scores["explanation"] is None
 
 
-@pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
-def test_oumi_judge_json_bool():
+@skip_if_no_openai_key
+def test_simple_judge_json_bool():
     # Instantiate the judge using a YAML configuration.
-    config = JudgeConfig.from_str(YAML_CONFIG_JSON_BOOL)
-    oumi_judge = OumiJudge(config=config)
+    judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_JSON_BOOL)
+    inference_config = InferenceConfig.from_str(YAML_INFERENCE_CONFIG)
+    simple_judge = SimpleJudge(
+        judge_config=judge_config, inference_config=inference_config
+    )
 
     # Call the judge with the dataset.
-    judge_output = oumi_judge.judge(inputs=JUDGE_DATASET)
+    judge_output = simple_judge.judge(inputs=JUDGE_DATASET)
 
     # Ensure the output is correct.
     print(judge_output)

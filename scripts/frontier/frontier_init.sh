@@ -8,7 +8,6 @@ cd "${SLURM_SUBMIT_DIR}"
 
 echo "Frontier job ID: ${SLURM_JOBID}"
 echo "Running on host: $(hostname)"
-# echo "Frontier queue: ${PBS_QUEUE}"
 echo "Current dir: $(pwd)"
 echo "Work dir: ${SLURM_SUBMIT_DIR}"
 echo "Frontier node file: ${SLURM_NODELIST}"

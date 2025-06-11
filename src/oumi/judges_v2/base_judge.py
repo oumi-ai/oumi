@@ -67,11 +67,12 @@ class JudgeOutputField(pydantic.BaseModel):
                 return None
 
         elif self.field_type == JudgeOutputType.ENUM:
-            if self.field_scores:
-                # Return None for unmapped enum values
-                return raw_value if raw_value in self.field_scores else None
-            else:
-                return raw_value
+            if not self.field_scores or not isinstance(self.field_scores, dict):
+                raise ValueError(
+                    "ENUM type requires field_scores to map values to scores."
+                )
+            # Only return the raw value if it exists in the scores mapping
+            return raw_value if raw_value in self.field_scores else None
 
         elif self.field_type == JudgeOutputType.TEXT:
             return raw_value
@@ -306,6 +307,11 @@ class BaseJudge:
         self.output_fields = output_fields
         self.inference_engine = inference_engine
 
+        # Validate the configuration
+        if prompt_template is None or not prompt_template.strip():
+            raise ValueError("Prompt template cannot be empty or None")
+        self._validate_output_fields(output_fields)
+
     def judge(
         self,
         inputs: list[dict[str, str]],
@@ -358,6 +364,21 @@ class BaseJudge:
             judge_outputs.append(parsed_output)
 
         return judge_outputs
+
+    def _validate_output_fields(self, output_fields: list[JudgeOutputField]) -> None:
+        """Ensure all output fields are properly defined."""
+        if not output_fields:
+            raise ValueError("Output fields cannot be empty")
+
+        for field in self.output_fields:
+            if field.field_key is None or not field.field_key.strip():
+                raise ValueError(
+                    f"Output field `field_key` cannot be None or empty: {field}"
+                )
+            if field.field_type == JudgeOutputType.ENUM and not field.field_scores:
+                raise ValueError(
+                    f"ENUM field type requires `field_scores` to be defined: {field}"
+                )
 
     def _build_judgment_prompt(self, judge_input: dict[str, str]) -> str:
         """Generate a judge prompt by filling the template with input data.

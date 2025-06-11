@@ -1,11 +1,11 @@
 # Job config to full fine-tune tiiuae/Falcon-H1-0.5B-Instruct.
 #
 # Requirements:
-#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_gcp_job.yaml --cluster falcon-h1-05b-fft
+#   oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_lambda_job.yaml --cluster falcon-h1-05b-fft
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -16,7 +16,7 @@
 name: falcon-h1-05b-fft
 
 resources:
-  cloud: gcp
+  cloud: lambda
   accelerators: "A100:1"
   use_spot: false
   disk_size: 200 # Disk size in GBs
@@ -33,12 +33,12 @@ envs:
 setup: |
   set -e
   pip install uv
-  uv pip install \
-    oumi[gpu] \
-    -U vllm --pre --extra-index-url https://wheels.vllm.ai/nightly \
-    transformers@git+https://github.com/younesbelkada/transformers.git@fix-slow-path \
-    hf_transfer
-  uv pip install mamba-ssm causal-conv1d --no-build-isolation
+  uv pip install oumi[gpu] hf_transfer
+  uv pip install -U accelerate vllm
+  uv pip install --force-reinstall git+https://github.com/huggingface/transformers.git
+  uv pip install --no-build-isolation git+https://github.com/Dao-AILab/causal-conv1d.git@main
+  uv pip install --no-build-isolation git+https://github.com/state-spaces/mamba.git@main
+  uv pip install dill==0.3.8
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download tiiuae/Falcon-H1-0.5B-Instruct
@@ -48,8 +48,7 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi distributed torchrun \
-    -m oumi train \
+  oumi train \
     -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_0_5b/full_train.yaml \
     --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 

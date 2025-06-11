@@ -23,11 +23,11 @@ from oumi.judges_v2.base_judge import (
     JudgeOutput,
     JudgeOutputField,
 )
-from oumi.judges_v2.oumi_judge import OumiJudge
+from oumi.judges_v2.simple_judge import SimpleJudge
 
 __all__ = [
     "BaseJudge",
-    "OumiJudge",
+    "SimpleJudge",
     "JudgeOutputField",
     "JudgeOutput",
 ]

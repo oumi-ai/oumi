@@ -111,15 +111,7 @@ class TestJudgeOutputField:
         assert field.get_typed_value("excellent") == "excellent"
         assert field.get_typed_value("good") == "good"
         assert field.get_typed_value("poor") == "poor"
-
-    def test_get_typed_value_enum_with_scores_unmapped(self):
-        field = JudgeOutputField(
-            field_key="test",
-            field_type=JudgeOutputType.ENUM,
-            field_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
-        )
-
-        assert field.get_typed_value("unknown") is None
+        assert field.get_typed_value("unmapped") is None
 
     def test_get_typed_value_enum_no_scores(self):
         field = JudgeOutputField(
@@ -128,8 +120,10 @@ class TestJudgeOutputField:
             field_scores=None,
         )
 
-        assert field.get_typed_value("anything") == "anything"
-        assert field.get_typed_value("") == ""
+        with pytest.raises(
+            ValueError, match="ENUM type requires field_scores to map values to scores."
+        ):
+            field.get_typed_value("something")
 
     def test_get_typed_value_text(self):
         field = JudgeOutputField(
@@ -283,16 +277,15 @@ class TestJudgeOutput:
             )
         ]
 
-        judge_output = JudgeOutput.from_raw_output(
-            raw_output=raw_output,
-            response_format=JudgeResponseFormat.JSON,
-            output_fields=output_fields,
-        )
-
-        assert judge_output.raw_output == raw_output
-        assert judge_output.parsed_output == {"judgment": "mediocre"}
-        assert judge_output.field_values == {"judgment": "mediocre"}
-        assert judge_output.field_scores == {"judgment": None}
+        with pytest.raises(
+            ValueError,
+            match="ENUM type requires field_scores to map values to scores.",
+        ):
+            JudgeOutput.from_raw_output(
+                raw_output=raw_output,
+                response_format=JudgeResponseFormat.JSON,
+                output_fields=output_fields,
+            )
 
     def test_from_raw_output_missing_field(self):
         raw_output = "<something_else>True</something_else>"

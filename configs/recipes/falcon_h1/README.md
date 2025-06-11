@@ -23,6 +23,9 @@ All models are supported in both **native** and **VLLM** inference modes. Models
 
 ## Quickstart
 
+> [!IMPORTANT]
+> If you are running Falcon-H1 locally, you will need to set up additional Python library dependencies. Please run the `pip` and `uv` commands under the `-setup` section of the [remote job configs](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/falcon_h1/evaluation/falcon_h1_0_5b/lambda_job.yaml#L36-L43).
+
 1. Follow the [Oumi quickstart guide](https://oumi.ai/docs/en/latest/get_started/quickstart.html) for installation.
 2. (Optional) To launch jobs on remote clusters, follow the [SkyPilot job launcher guide](https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup).
 3. Run your desired `oumi` command with the provided config paths (examples below).
@@ -40,10 +43,10 @@ Launch full fine-tuning on Falcon-H1-7B-Instruct locally:
 oumi train -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_train.yaml
 ```
 
-Launch full fine-tuning on Falcon-H1-7B-Instruct remotely via GCP:
+Launch full fine-tuning on Falcon-H1-7B-Instruct remotely via Lambda:
 
 ```bash
-oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_gcp_job.yaml --cluster falcon-h1-7b-fft
+oumi launch up -c oumi://configs/recipes/falcon_h1/sft/falcon_h1_7b/full_lambda_job.yaml --cluster falcon-h1-7b-fft
 ```
 
 ### Evaluation
@@ -60,10 +63,10 @@ Evaluate using the VLLM engine:
 oumi evaluate -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/eval.yaml --inference_engine VLLM
 ```
 
-Evaluate on GCP 4xA100 cluster:
+Evaluate on Lambda 4xA100 cluster:
 
 ```bash
-oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/gcp_job.yaml --cluster falcon-h1-7b-instruct-eval
+oumi launch up -c oumi://configs/recipes/falcon_h1/evaluation/falcon_h1_7b/lambda_job.yaml --cluster falcon-h1-7b-instruct-eval
 ```
 
 ### Inference
