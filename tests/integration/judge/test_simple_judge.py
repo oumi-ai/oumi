@@ -4,7 +4,7 @@ import pytest
 
 from oumi.core.configs import InferenceConfig
 from oumi.core.configs import JudgeConfigV2 as JudgeConfig
-from oumi.judges_v2.oumi_judge import OumiJudge
+from oumi.judges_v2.simple_judge import SimpleJudge
 
 YAML_JUDGE_CONFIG_XML_ENUM = """
     prompt_template: Is the following statement correct? {statement}
@@ -42,14 +42,16 @@ JUDGE_DATASET = [
 
 
 @pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
-def test_oumi_judge_xml_enum():
+def test_simple_judge_xml_enum():
     # Instantiate the judge using a YAML configuration.
     judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_XML_ENUM)
     inference_config = InferenceConfig.from_str(YAML_INFERENCE_CONFIG)
-    oumi_judge = OumiJudge(judge_config=judge_config, inference_config=inference_config)
+    simple_judge = SimpleJudge(
+        judge_config=judge_config, inference_config=inference_config
+    )
 
     # Call the judge with the dataset.
-    judge_output = oumi_judge.judge(inputs=JUDGE_DATASET)
+    judge_output = simple_judge.judge(inputs=JUDGE_DATASET)
 
     # Ensure the output is correct.
     print(judge_output)
@@ -73,14 +75,16 @@ def test_oumi_judge_xml_enum():
 
 
 @pytest.mark.skip(reason="No API key. Need to switch to a decent local model.")
-def test_oumi_judge_json_bool():
+def test_simple_judge_json_bool():
     # Instantiate the judge using a YAML configuration.
     judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_JSON_BOOL)
     inference_config = InferenceConfig.from_str(YAML_INFERENCE_CONFIG)
-    oumi_judge = OumiJudge(judge_config=judge_config, inference_config=inference_config)
+    simple_judge = SimpleJudge(
+        judge_config=judge_config, inference_config=inference_config
+    )
 
     # Call the judge with the dataset.
-    judge_output = oumi_judge.judge(inputs=JUDGE_DATASET)
+    judge_output = simple_judge.judge(inputs=JUDGE_DATASET)
 
     # Ensure the output is correct.
     print(judge_output)

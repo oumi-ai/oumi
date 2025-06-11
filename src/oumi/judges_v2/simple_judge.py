@@ -65,7 +65,7 @@ JSON_SUFFIX_WITH_EXPLANATION = (
 RAW_SUFFIX_WITH_EXPLANATION = "\nExplain your reasoning before providing your judgment."
 
 
-class OumiJudge(BaseJudge):
+class SimpleJudge(BaseJudge):
     """Judge class for evaluating outputs based on a given configuration."""
 
     def __init__(
@@ -174,8 +174,8 @@ class OumiJudge(BaseJudge):
             raise ValueError("Inference engine not specified in the configuration.")
         elif inference_config.input_path or inference_config.output_path:
             raise ValueError(
-                "Input and output paths are not supported for the Oumi judge. "
-                "Please set both to None in the inference_config."
+                "Input and output paths are not supported in inference_config, when "
+                "instantiating the SimpleJudge. Please set both to None."
             )
 
         return build_inference_engine(

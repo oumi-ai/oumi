@@ -16,7 +16,7 @@
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.judge_config_v2 import JudgeConfig
 from oumi.judges_v2.base_judge import JudgeOutput
-from oumi.judges_v2.oumi_judge import OumiJudge
+from oumi.judges_v2.simple_judge import SimpleJudge
 
 
 def judge_dataset(
@@ -24,13 +24,13 @@ def judge_dataset(
     inference_config: InferenceConfig,
     dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
-    """Judge a dataset using the Oumi Judge framework.
+    """Judge a dataset using Oumi's Judge framework.
 
-    This function evaluates a dataset by instantiating an OumiJudge with the provided
+    This function evaluates a dataset by instantiating an SimpleJudge with the provided
     configuration and running batch inference on all input data.
 
     The function performs the following steps:
-        1. Initializes an OumiJudge with the provided configuration.
+        1. Initializes an SimpleJudge with the provided configuration.
         2. Passes the entire dataset to the judge for batch evaluation.
         3. Returns structured JudgeOutput objects containing parsed results.
 
@@ -66,5 +66,5 @@ def judge_dataset(
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
-    judge = OumiJudge(judge_config=judge_config, inference_config=inference_config)
+    judge = SimpleJudge(judge_config=judge_config, inference_config=inference_config)
     return judge.judge(inputs=dataset)
