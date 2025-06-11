@@ -202,7 +202,7 @@ def torchrun(
                 f"--master-addr={run_info.master_address}",
                 f"--master-port={run_info.master_port}",
             ]
-        cmds.extend(ctx.args)
+        cmds.extend(args)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
