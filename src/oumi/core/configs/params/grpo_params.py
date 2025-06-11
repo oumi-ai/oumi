@@ -57,6 +57,13 @@ class GrpoParams(BaseParams):
     and `"completions"`, you should set it to `False`.
     """
 
+    repetition_penalty: Optional[float] = 1.0
+    """Float that penalizes new tokens if they appear in the prompt/response so far.
+
+    Values > 1.0 encourage the model to use new tokens, while values < 1.0 encourage
+    the model to repeat tokens.
+    """
+
     use_vllm: bool = False
     """Whether to use vLLM for generating completions.
 
@@ -100,19 +107,28 @@ class GrpoParams(BaseParams):
     leading to inefficiencies.
     """
 
+    epsilon: float = 0.2
+    """Epsilon value for clipping the relative probability in the loss.
+
+    For example, if epsilon is 0.2, then the new probability can only differ from
+    the old probability by a factor of x0.8-1.2."""
+
+    log_completions: bool = False
+    """Whether to log prompt and completion pairs every `logging_steps` steps."""
+
     def __post_init__(self):
         """Verifies params."""
-        if not (self.max_prompt_length is None or self.max_prompt_length > 0):
+        if self.max_prompt_length is not None and self.max_prompt_length <= 0:
             raise ValueError(
                 "GrpoParams.max_prompt_length must be positive. "
                 f"Actual: {self.max_prompt_length}"
             )
-        if not (self.max_completion_length is None or self.max_completion_length > 0):
+        if self.max_completion_length is not None and self.max_completion_length <= 0:
             raise ValueError(
                 "GrpoParams.max_completion_length must be positive. "
                 f"Actual: {self.max_completion_length}"
             )
-        if not (self.num_generations is None or self.num_generations > 0):
+        if self.num_generations is not None and self.num_generations <= 0:
             raise ValueError(
                 "GrpoParams.num_generations must be positive. "
                 f"Actual: {self.num_generations}"
@@ -128,7 +144,7 @@ class GrpoParams(BaseParams):
             )
 
     def to_hf_trainer_kwargs(self) -> dict[str, Any]:
-        """Converts GRPO training params GRPOTrainer kwargs."""
+        """Converts GrpoParams to TRL's GRPOConfig kwargs."""
         result = {}
         if len(self.model_init_kwargs) > 0:
             result["model_init_kwargs"] = self.model_init_kwargs

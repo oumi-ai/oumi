@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 from dataclasses import dataclass, field
+from typing import Final
 
 import torch
 
@@ -97,13 +99,15 @@ class TrainingConfig(BaseConfig):
                     "Model must be loaded in fp32 to enable mixed precision training."
                 )
 
+        trainer_type: Final[TrainerType] = self.training.trainer_type
+
         # Check values for model sequence length.
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
             max_seq_length_key = None
-            if self.training.trainer_type == TrainerType.TRL_SFT:
+            if trainer_type == TrainerType.TRL_SFT:
                 max_seq_length_key = "max_seq_length"
-            elif self.training.trainer_type == TrainerType.TRL_DPO:
+            elif trainer_type == TrainerType.TRL_DPO:
                 max_seq_length_key = "max_length"
                 # TODO: DPOTrainer also defines "max_prompt_length" and
                 # "max_target_length". How to handle them?
@@ -130,18 +134,81 @@ class TrainingConfig(BaseConfig):
         # patch ourselves.
         # TODO(OPE-1117): Clean up this logic after upgrading to trl 0.16.
         if self.model.enable_liger_kernel:
-            if self.training.trainer_type == TrainerType.TRL_SFT:
+            if trainer_type == TrainerType.TRL_SFT:
                 self.training.trainer_kwargs["use_liger"] = True
                 self.training.trainer_kwargs["use_liger_kernel"] = True
                 self.model.enable_liger_kernel = False
-            elif (
-                self.training.trainer_type == TrainerType.TRL_DPO
-                or self.training.trainer_type == TrainerType.HF
-            ):
+            elif trainer_type in (TrainerType.TRL_DPO, TrainerType.HF):
                 self.training.trainer_kwargs["use_liger_kernel"] = True
                 self.model.enable_liger_kernel = False
-            elif self.training.trainer_type == TrainerType.OUMI:
+            elif trainer_type == TrainerType.OUMI:
                 # We need to Liger patch ourselves for our own training loop.
                 pass
             else:
                 raise ValueError("Unrecognized trainer type!")
+
+        # Setup and validate params for "vision_language_sft" collator.
+        # The collator expects VLM SFT dataset to only produce just
+        # one column: 'conversation_json' (JSON-encoded `Conversation`)!
+        collator_name: Final[str] = self.data.train.collator_name or ""
+        if collator_name == "vision_language_sft":
+            for dataset_params in itertools.chain(
+                self.data.train.datasets,
+                self.data.validation.datasets,
+                self.data.test.datasets,
+            ):
+                if not dataset_params.dataset_kwargs.get("return_conversations", True):
+                    raise ValueError(
+                        "`return_conversations` must be True "
+                        f"for the dataset '{dataset_params.dataset_name}' "
+                        f"when using '{collator_name}' collator!"
+                    )
+                dataset_params.dataset_kwargs["return_conversations"] = True
+            # Extra setup for TRL_SFT.
+            if trainer_type == TrainerType.TRL_SFT:
+                if self.training.trainer_kwargs.get("remove_unused_columns", False):
+                    raise ValueError(
+                        "`remove_unused_columns` must be False "
+                        f"when using '{collator_name}' collator! "
+                        'The "unused" columns are consumed by the collator, '
+                        "not by a model."
+                    )
+                self.training.trainer_kwargs["remove_unused_columns"] = False
+
+                # `trl` shouldn't be preparing the dataset, as we do it in Oumi.
+                dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
+                dataset_kwargs["skip_prepare_dataset"] = True
+                self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
+
+        if len(self.model.processor_kwargs) > 0:
+            model_processor_name: Final[str] = (
+                self.model.tokenizer_name or self.model.model_name
+            )
+            for dataset_params in itertools.chain(
+                self.data.train.datasets,
+                self.data.validation.datasets,
+                self.data.test.datasets,
+            ):
+                if (
+                    "processor_name" not in dataset_params.dataset_kwargs
+                    or "processor_kwargs" in dataset_params.dataset_kwargs
+                ):
+                    continue
+                dataset_processor_name: str = dataset_params.dataset_kwargs[
+                    "processor_name"
+                ]
+                if dataset_processor_name == model_processor_name:
+                    # Copy processor kwargs from the model if processor names match
+                    # and the dataset doesn't override them.
+                    dataset_params.dataset_kwargs["processor_kwargs"] = {
+                        **self.model.processor_kwargs
+                    }
+
+        # Verl will error without a validation dataset.
+        if (
+            self.training.trainer_type == TrainerType.VERL_GRPO
+            and not self.data.validation.datasets
+        ):
+            raise ValueError(
+                "At least one validation dataset is required for VERL_GRPO training."
+            )

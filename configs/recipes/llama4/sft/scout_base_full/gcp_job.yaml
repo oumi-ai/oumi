@@ -1,0 +1,63 @@
+# Job config to FSDP full fine-tune Llama 4 Scout Base on a single GCP node.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 4: https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E
+#   - (optional) Mount a storage bucket below
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama4/sft/scout_base_full/gcp_job.yaml --cluster llama4-scout-base-fsdp
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+name: llama4-scout-base-fsdp
+
+resources:
+  cloud: gcp
+  accelerators: "H100:8" # Using H100 for optimal performance with Llama 4
+  use_spot: false
+  disk_size: 2000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+# NOTE: Uncomment the following lines to mount a cloud bucket to your VM.
+# For more details, see https://oumi.ai/docs/en/latest/user_guides/launch/launch.html.
+# storage_mounts:
+#   /gcs_dir:
+#     source: gs://<your-bucket>
+#     store: gcs
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: llama4-scout-base.fft.fsdp
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer[hf_xet]
+  uv pip install transformers>=4.51.0  # Required for llama4
+
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-4-Scout-17B-16E --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c oumi://configs/recipes/llama4/sft/scout_base_full/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

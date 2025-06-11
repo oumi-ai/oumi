@@ -41,9 +41,6 @@ run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
 
-  oumi distributed accelerate launch \
-    --mixed_precision="no" \
-    --dynamo_backend="no" \
-    -m oumi evaluate \
+  oumi evaluate \
     -c configs/recipes/phi3/evaluation/eval.yaml \
     --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"

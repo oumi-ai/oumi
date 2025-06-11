@@ -27,6 +27,7 @@ from oumi.core.configs import (
     LMHarnessTaskParams,
 )
 from oumi.core.configs.params.evaluation_params import EvaluationBackend
+from oumi.core.distributed import is_world_process_zero
 from oumi.core.evaluation.backends.alpaca_eval import evaluate as evaluate_alpaca_eval
 from oumi.core.evaluation.backends.lm_harness import evaluate as evaluate_lm_harness
 from oumi.core.evaluation.evaluation_result import EvaluationResult
@@ -36,6 +37,18 @@ from oumi.core.inference import BaseInferenceEngine
 from oumi.core.registry import REGISTRY
 
 _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME = "inference_engine"
+_EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME = "task_params"
+_EVALUATION_FN_CONFIG_INPUT_PARAM_NAME = "config"
+
+# Reserved keys that a custom evaluation function might define as inputs. The values of
+# these keys, if defined as inputs, will be automatically populated by the Evaluator.
+# The user is NOT allowed to pass these as keyword arguments when calling the
+# `Evaluator.evaluate()` function.
+RESERVED_KEYS = {
+    _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME,
+    _EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME,
+    _EVALUATION_FN_CONFIG_INPUT_PARAM_NAME,
+}
 
 
 class Evaluator:
@@ -118,7 +131,7 @@ class Evaluator:
 
         # Redirect the evaluation execution to the appropriate evaluation backend.
         if evaluation_backend == EvaluationBackend.LM_HARNESS:
-            lm_harness_task_params = Evaluator._get_backend_task_params(task_params)
+            lm_harness_task_params = self._get_backend_task_params(task_params)
             assert isinstance(lm_harness_task_params, LMHarnessTaskParams)
 
             # Destroy the inference engine, if created by a previous task. LM Harness
@@ -133,7 +146,7 @@ class Evaluator:
                 **kwargs,  # random_seed, numpy_random_seed, torch_random_seed
             )
         elif evaluation_backend == EvaluationBackend.ALPACA_EVAL:
-            alpaca_eval_task_params = Evaluator._get_backend_task_params(task_params)
+            alpaca_eval_task_params = self._get_backend_task_params(task_params)
             assert isinstance(alpaca_eval_task_params, AlpacaEvalTaskParams)
 
             evaluation_result = evaluate_alpaca_eval(
@@ -143,14 +156,36 @@ class Evaluator:
                 **kwargs,
             )
         elif evaluation_backend == EvaluationBackend.CUSTOM:
-            evaluation_fn = Evaluator._get_custom_evaluation_fn(task_params.task_name)
-            self._add_inference_engine_if_needed(evaluation_fn, kwargs, config)
-
-            evaluation_result = evaluation_fn(
+            evaluation_fn_name = task_params.task_name or ""
+            evaluation_fn = self._get_custom_evaluation_fn(evaluation_fn_name)
+            custom_kwargs = self._merge_kwargs(kwargs, task_params.eval_kwargs)
+            self._validate_custom_kwargs(
+                custom_kwargs=custom_kwargs,
+                evaluation_fn=evaluation_fn,
+                evaluation_fn_name=evaluation_fn_name,
+            )
+            self._add_reserved_keys_into_custom_kwargs(
+                custom_kwargs=custom_kwargs,
+                evaluation_fn=evaluation_fn,
                 task_params=task_params,
                 config=config,
-                **kwargs,
             )
+            evaluation_output = evaluation_fn(**custom_kwargs)
+
+            if isinstance(evaluation_output, EvaluationResult):
+                evaluation_result = evaluation_output
+            elif isinstance(evaluation_output, dict):
+                evaluation_result = EvaluationResult(
+                    task_name=task_params.task_name,
+                    task_result={"results": {task_params.task_name: evaluation_output}},
+                )
+            else:
+                raise ValueError(
+                    f"The custom evaluation function `{task_params.task_name}` must "
+                    "return either a `dict` or an `EvaluationResult` object, but it is "
+                    f"currently returning an object of type `{type(evaluation_output)}`"
+                    ". Please ensure that the function returns the correct object."
+                )
         else:
             raise ValueError(f"Unknown evaluation backend: {evaluation_backend}")
 
@@ -159,7 +194,7 @@ class Evaluator:
         evaluation_result.start_time = start_time_str
 
         # Save the output, if an output directory has been provided.
-        if config.output_dir:
+        if config.output_dir and is_world_process_zero():
             self.save_output(
                 task_params=task_params,
                 evaluation_result=evaluation_result,
@@ -203,6 +238,8 @@ class Evaluator:
                 "task name, which should be corresponding to a registered evaluation "
                 "function, using the decorator `@register_evaluation_function`."
             )
+        # Import to ensure custom evaluation functions are added to REGISTRY.
+        import oumi.evaluation.registry as evaluation_registry  # noqa: F401
 
         if evaluation_fn := REGISTRY.get_evaluation_function(task_name):
             return evaluation_fn
@@ -297,6 +334,102 @@ class Evaluator:
             init_kwargs[key] = init_kwargs["eval_kwargs"].pop(key)
 
         return init_kwargs
+
+    @staticmethod
+    def _merge_kwargs(
+        kwargs_1: dict[str, Any],
+        kwargs_2: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Merges two keyword argument dictionaries."""
+        if overlapping_keys := kwargs_1.keys() & kwargs_2.keys():
+            raise ValueError(
+                "The two keyword argument dictionaries contain overlapping keys: "
+                f"{overlapping_keys}. Please ensure that the keys in the following "
+                f"dictionaries are unique: `{kwargs_1.keys()}` and `{kwargs_2.keys()}`"
+            )
+        return kwargs_1 | kwargs_2
+
+    @staticmethod
+    def _validate_custom_kwargs(
+        custom_kwargs: dict[str, Any],
+        evaluation_fn: Callable,
+        evaluation_fn_name: str,
+    ) -> None:
+        """Validates the keyword arguments of the custom evaluation function."""
+        # Ensure that user-provided keyword arguments, which are passed into method
+        # `Evaluator.evaluate`, do NOT contain any reserved keys.
+        if reserved_keys_used := RESERVED_KEYS & custom_kwargs.keys():
+            raise RuntimeError(
+                "Reserved keys are present when calling `Evaluator.evaluate()`. "
+                "You are not allowed to pass the following keyword arguments into "
+                f"the `{evaluation_fn_name}` function: {sorted(RESERVED_KEYS)}. "
+                "However, you have passed the following reserved keys: "
+                f"{sorted(reserved_keys_used)}. These keys can (optionally) be inputs "
+                f"of your registered evaluation function `{evaluation_fn_name}`. "
+                "If you choose to use them, they will be automatically populated "
+                "by the Evaluator. "
+                f"The `{_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME}` input "
+                "will provide you with an inference engine that is generated "
+                "according to the `EvaluationConfig.inference_engine` type that "
+                "you have specified in the evaluation config. "
+                f"Then, `{_EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME}`, "
+                f"`{_EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME}` will provide you "
+                "with the task parameters and the evaluation configuration, "
+                "respectively."
+            )
+
+        # Ensure that user-provided keyword arguments, which are passed into method
+        # `Evaluator.evaluate`, match the expected input parameters of the custom
+        # evaluation function `evaluation_fn`.
+        fn_signature = inspect.signature(evaluation_fn)
+        fn_input_params = [param.name for param in fn_signature.parameters.values()]
+
+        provided_keys: set[str] = custom_kwargs.keys() - set(RESERVED_KEYS)
+        expected_keys: set[str] = set(fn_input_params) - set(RESERVED_KEYS)
+
+        if unrecognized_keys := provided_keys - expected_keys:
+            raise RuntimeError(
+                "Unrecognized keyword arguments are present when calling "
+                "`Evaluator.evaluate()`. You have passed the following unrecognized "
+                f"keys: {sorted(unrecognized_keys)}. Please ensure that the provided "
+                "keys match the expected input parameters of the custom evaluation "
+                f"function `{evaluation_fn_name}`. The expected input parameters "
+                f"of the function are: {fn_input_params}."
+            )
+        elif missing_keys := expected_keys - provided_keys:
+            raise RuntimeError(
+                "Missing keyword arguments have been identified when calling "
+                "`Evaluator.evaluate()`. You have not passed the following expected "
+                f"keys: {missing_keys}. Please ensure that the provided keys match "
+                "the expected input parameters of the custom evaluation function "
+                f"`{evaluation_fn_name}`. The expected input parameters of the "
+                f"function are: {fn_input_params}."
+            )
+
+    def _add_reserved_keys_into_custom_kwargs(
+        self,
+        custom_kwargs: dict[str, Any],
+        evaluation_fn: Callable,
+        task_params: EvaluationTaskParams,
+        config: EvaluationConfig,
+    ) -> None:
+        """Adds reserved keys into the keyword arguments, if needed.
+
+        Reserved keys are keys that, if defined in the custom evaluation function
+        (`evaluation_fn`), are automatically populated by the Evaluator. This function
+        is responsible to add them into the keyword arguments.
+        """
+        fn_signature = inspect.signature(evaluation_fn)
+        fn_input_params = [param.name for param in fn_signature.parameters.values()]
+
+        if _EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME in fn_input_params:
+            custom_kwargs[_EVALUATION_FN_TASK_PARAMS_INPUT_PARAM_NAME] = task_params
+        if _EVALUATION_FN_CONFIG_INPUT_PARAM_NAME in fn_input_params:
+            custom_kwargs[_EVALUATION_FN_CONFIG_INPUT_PARAM_NAME] = config
+        if _EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME in fn_input_params:
+            custom_kwargs[_EVALUATION_FN_INFERENCE_ENGINE_INPUT_PARAM_NAME] = (
+                self._get_inference_engine(config)
+            )
 
     def _add_inference_engine_if_needed(
         self,

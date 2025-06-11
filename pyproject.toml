@@ -42,9 +42,13 @@ dependencies = [
     "aiohttp>=3.10,<3.12",          # Used by inference engine
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
+    "backoff>=2.2.1,<2.3",
+    "click < 8.2.0",                # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2.0,<3.3",
+    "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.5.0",
+    "mlflow>=2.21.2,<2.22.0",       # Logging to MLflow
     "numpy>=1.26.4,<2.0",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
@@ -54,24 +58,25 @@ dependencies = [
     "pandas>=2.0.3,<3",
     "peft>=0.14.0,<0.15",
     "pexpect>=4.8.0,<4.9",       # Used by Polaris client
-    "pillow>=10.3.0,<10.4",      # Used by image datasets
+    "pillow>=11.1.0,<11.2",      # Used by image datasets
+    "protobuf>=5.29.0",
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.5.0,<2.6.0",
+    "torch>=2.6.0,<2.7.0",
+    "torchao>=0.11.0,<0.12",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
-    "torchvision>=0.20.0,<0.21", # Used by some VLM-s (multimodal)
+    "torchvision>=0.21.0,<0.22", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.48.0,<4.49",
-    # >=0.14.0 is needed for GRPOTrainer.
-    "trl>=0.15.0,<0.16",
-    "typer",                      # Used by CLI
-    "typing_extensions",          # Backports of typing updates to python 3.9
-    "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
+    "transformers>=4.51.0,<4.52",
+    "trl>=0.18.0,<0.19",
+    "typer",               # Used by CLI
+    "typing_extensions",   # Backports of typing updates to python 3.9
+    "wandb>=0.19.3,<0.20", # Logging to Weights and Biases.
 ]
 
 [project.urls]
@@ -108,11 +113,15 @@ docs = [
     "sphinxcontrib-typer",     # Allows us to include typer CLI in the docs
 ]
 
-# Dependencies that require a GPU to install
+# Useful dependencies when running on GPU
 gpu = [
     "liger-kernel>=0.5.0,<0.6",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
+    # When updating verl version, make sure to also update the default config:
+    # src/oumi/core/trainers/verl_trainer_config.yaml.
+    "verl>=0.3.0,<0.4",   # Used for the VERL_GRPO trainer.
+    "vllm>=0.8.3,<0.9", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
 # Targets for supported cloud providers
@@ -131,12 +140,16 @@ runpod = ["skypilot[runpod]"]
 
 evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
-    "langdetect",              # leaderboard_ifeval
-    "immutabledict",           # leaderboard_ifeval
-    "nltk>=3.9.1",             # leaderboard_ifeval
-    "antlr4-python3-runtime==4.11",  # leaderboard_math_hard
-    "sympy>=1.12",                   # leaderboard_math_hard
+    "langdetect",                   # leaderboard_ifeval
+    "immutabledict",                # leaderboard_ifeval
+    "nltk>=3.9.1",                  # leaderboard_ifeval
+    "antlr4-python3-runtime==4.11", # leaderboard_math_hard
+    "sympy>=1.12",                  # leaderboard_math_hard
     "sentencepiece>=0.1.98",
+]
+
+bitnet = [
+    "onebitllms>=0.0.3"
 ]
 
 cambrian = [
@@ -151,18 +164,14 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp]",
-    "vllm>=0.7.3,<0.8.0", # For VLLMInferenceEngine
+    "vllm>=0.8.3,<0.9", # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3.5,<0.4", # For LlamaCppInferenceEngine
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = [
-    "oumi[dev,docs,gcp,gpu]",
-    "vllm>=0.7.3,<0.8.0",
-    "alpaca-eval>=0.6.6,<0.7",
-]
+ci_gpu = ["oumi[dev,docs,gcp,gpu]", "alpaca-eval>=0.6.6,<0.7"]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
@@ -221,6 +230,11 @@ ban-relative-imports = "all" # Disallow all relative imports.
     "UP035",  # UP035 `typing.List` is deprecated, use `list` instead
     "UP006",  # UP006 Use `list` instead of `List` for type annotation
 ]
+"src/oumi/utils/verl_model_merger.*" = [
+     "E501",   # Line too long
+     "D",      # Ignore docstring checks
+     "PTH",    # Ignore pathlib checks
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -230,10 +244,14 @@ known-first-party = ["oumi"]
 
 [tool.pyright]
 include = ["src/oumi/**", "tests/**"]
-exclude = ["src/oumi/models/experimental/cambrian/**"]
+exclude = [
+    "src/oumi/models/experimental/cambrian/**",
+    "src/oumi/core/types/proto/**",
+    "src/oumi/utils/verl_model_merger.py",
+]
 typeCheckingMode = "basic"
 pythonVersion = "3.9"
-pythonPlatform = "All"                                 # Include linux, mac, windows
+pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
 

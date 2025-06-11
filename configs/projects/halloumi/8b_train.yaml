@@ -1,0 +1,119 @@
+# Training config to full fine-tune Llama 3.1 8B Instruct on the HallOumi dataset.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi train -c oumi://configs/projects/halloumi/8b_train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  tokenizer_pad_token: "<|finetune_right_pad_id|>"
+  # Improves training speed by 20% with default config.
+  enable_liger_kernel: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceDataset"
+        split: "train"
+        dataset_kwargs: {
+          "hf_dataset_path": "oumi-ai/oumi-anli-subset",
+          "messages_column": "messages",
+        }
+        shuffle: True
+        seed: 42
+      - dataset_name: "HuggingFaceDataset"
+        split: "train"
+        dataset_kwargs: {
+          "hf_dataset_path": "oumi-ai/oumi-c2d-d2c-subset",
+          "messages_column": "messages",
+        }
+        shuffle: True
+        seed: 42
+      - dataset_name: "HuggingFaceDataset"
+        split: "train"
+        dataset_kwargs: {
+          "hf_dataset_path": "oumi-ai/oumi-synthetic-claims",
+          "messages_column": "messages",
+        }
+        shuffle: True
+        seed: 42
+      - dataset_name: "HuggingFaceDataset"
+        split: "train"
+        dataset_kwargs: {
+          "hf_dataset_path": "oumi-ai/oumi-synthetic-document-claims",
+          "messages_column": "messages",
+        }
+        shuffle: True
+        seed: 42
+
+    collator_name: "text_completions_only_with_padding"
+    target_col: "messages"
+    seed: 42
+  validation:
+    datasets:
+      - dataset_name: "HuggingFaceDataset"
+        split: "validation"
+        dataset_kwargs: {
+          "hf_dataset_path": "oumi-ai/oumi-synthetic-document-claims",
+          "messages_column": "messages",
+        }
+
+    collator_name: "text_completions_only_with_padding"
+    target_col: "messages"
+    seed: 42
+
+
+training:
+  trainer_type: "TRL_SFT"
+  save_steps: 0
+  num_train_epochs: 1
+  per_device_train_batch_size: 16
+  gradient_accumulation_steps: 1
+  per_device_eval_batch_size: 4
+
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch_fused"
+  learning_rate: 4.0e-05
+  lr_scheduler_type: "cosine"
+  warmup_steps: 24
+  weight_decay: 0.01
+  compile: False
+  max_grad_norm: 10
+
+  dataloader_num_workers: 1
+  dataloader_prefetch_factor: 32
+
+  eval_strategy: "epoch"
+  logging_steps: 4
+  log_model_summary: True
+  empty_device_cache_steps: 1
+  output_dir: "output/halloumi.8b.fft"
+  include_performance_metrics: True
+  enable_wandb: True
+  save_final_model: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "HYBRID_SHARD"
+  forward_prefetch: True
+  use_orig_params: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "LlamaDecoderLayer"

@@ -1,0 +1,59 @@
+# Job config to evaluate an LLM on the Oumi BerryBench dataset.
+#
+# Requirements:
+#   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+#
+# Usage:
+#   oumi launch up -c oumi://configs/examples/berry_bench/evaluation/gcp_job.yaml --cluster berry-bench-eval
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: berry-bench-eval
+
+resources:
+  cloud: gcp
+  accelerators: "A100"
+  use_spot: false
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  # NOTE: For SFT, update this to point to your model checkpoint.
+  # NOTE: For LoRA, instead update this to point to your LoRA adapter.
+  #       The base model will be inferred automatically.
+  MODEL_CHECKPOINT_DIR: meta-llama/Llama-3.2-3B-Instruct
+  WANDB_PROJECT: oumi-eval
+  OUMI_RUN_NAME: berry-bench.eval
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  if test ${OUMI_NUM_NODES} -ne 1; then
+    echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
+    exit 1
+  fi
+
+  echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
+  set -x
+
+  oumi evaluate \
+    -c oumi://configs/examples/berry_bench/evaluation/eval.yaml \
+    --run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+    --model.model_name "${MODEL_CHECKPOINT_DIR}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"

@@ -1,13 +1,8 @@
 # Qwen 2.5 VL 3B inference config.
 #
-# Requirements:
-#   !Important! this model requires the latest (dev) version of transformers.
-#   Please read more at qwen2_5_vl_3b/README.md
-#
 # Usage:
 #   oumi infer -i -c configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml \
 #     --image "tests/testdata/images/the_great_wave_off_kanagawa.jpg"
-#
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html

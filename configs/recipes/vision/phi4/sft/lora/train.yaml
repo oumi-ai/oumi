@@ -1,0 +1,109 @@
+# Phi-4-multimodal-instruct LoRA training config for SFT finetuning.
+#
+# Phi-4-multimodal-instruct is a multimodal model that combines text, visual, and audio # inputs. It uses a "Mixture of LoRAs" approach, allowing you to plug in adapters for
+# each modality without needing to retrain the base model.
+#
+# Important Note: Oumi has currently integrated and fully tested Phi-4 for vision and
+# text modalities only (!).
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/phi4/sft/lora/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "microsoft/Phi-4-multimodal-instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 4096
+  trust_remote_code: True
+  attn_implementation: "flash_attention_2" # The model requires Flash Attention.
+
+
+data:
+  train:
+    collator_name: "vision_language_sft"
+    use_torchdata: true
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        trust_remote_code: True
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "microsoft/Phi-4-multimodal-instruct"
+          return_tensors: True
+
+      # Below are examples of other vision SFT datasets
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   trust_remote_code: True
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "microsoft/Phi-4-multimodal-instruct"
+      #     return_tensors: True
+      # - dataset_name: "coco_captions"
+      #   split: "train"
+      #   trust_remote_code: True
+      #   dataset_kwargs:
+      #     processor_name: "microsoft/Phi-4-multimodal-instruct"
+      #     return_tensors: True
+      # - dataset_name: vision_language_jsonl
+      #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
+      #   dataset_kwargs:
+      #     data_column: "messages"
+      #     processor_name: "microsoft/Phi-4-multimodal-instruct"
+
+training:
+  output_dir: "output/vlm_finetuned"
+  trainer_type: "TRL_SFT"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  max_steps: 20
+  use_peft: True
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  ddp_find_unused_parameters: True
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 10
+  dataloader_main_process_only: True
+  dataloader_num_workers: 4
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: True
+
+
+peft:
+  q_lora: False
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "o_proj"
+    - "k_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  lora_init_weights: DEFAULT

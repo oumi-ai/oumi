@@ -19,6 +19,25 @@ from tests.e2e import get_e2e_test_output_dir, is_file_not_empty
 from tests.markers import requires_gpus
 
 
+class TrainTestConfig(NamedTuple):
+    test_name: str
+    config_path: Path
+    max_steps: int
+    is_lora: bool = False
+    skip: bool = False
+    interactive_logs: bool = True
+
+    trainer_type: Optional[TrainerType] = None
+    model_max_length: Optional[int] = None
+    batch_size: Optional[int] = None
+    gradient_accumulation_steps: Optional[int] = None
+    dataloader_num_workers: Optional[int] = None
+    dataloader_prefetch_factor: Optional[int] = None
+    save_steps: Optional[int] = None
+    save_final_model: Optional[bool] = None
+    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
+
+
 def _check_checkpoint_dir(
     dir_path: Path, *, is_lora: bool, validate_extra_files: bool = False
 ):
@@ -44,9 +63,9 @@ def _check_checkpoint_dir(
     model_safetensors = dir_path / f"{model_basename}.safetensors"
 
     if model_safetensors.exists():
-        assert (
-            model_safetensors.is_file()
-        ), f"Exists but not a file: {model_safetensors}"
+        assert model_safetensors.is_file(), (
+            f"Exists but not a file: {model_safetensors}"
+        )
         assert is_file_not_empty(model_safetensors), f"Empty {model_safetensors}"
     else:
         # The model is sharded. Let's validate model shards.
@@ -58,9 +77,9 @@ def _check_checkpoint_dir(
         model_shards = list(
             sorted(dir_path.glob(f"{model_basename}-*-of-*.safetensors"))
         )
-        assert (
-            len(model_shards) > 0
-        ), f"No '{model_basename}-*-of-*.safetensors' files found under {dir_path}"
+        assert len(model_shards) > 0, (
+            f"No '{model_basename}-*-of-*.safetensors' files found under {dir_path}"
+        )
         for model_shard in model_shards:
             assert (model_shard).is_file(), f"Missing {model_shard}"
             assert is_file_not_empty(model_shard), f"Empty {model_shard}"
@@ -70,9 +89,9 @@ def _check_checkpoint_dir(
         index_shards = {
             (dir_path / shard) for shard in set(index_dict["weight_map"].values())
         }
-        assert index_shards == set(
-            model_shards
-        ), "Shards defined in model index are inconsistent with shards on file system"
+        assert index_shards == set(model_shards), (
+            "Shards defined in model index are inconsistent with shards on file system"
+        )
 
     if is_lora:
         config = load_json(dir_path / "adapter_config.json")
@@ -120,9 +139,9 @@ def _check_checkpoint_dir(
         for file in optimizer_files:
             optimizer_file = dir_path / file
             if optimizer_file.exists():
-                assert is_file_not_empty(
-                    optimizer_file
-                ), f"Empty {optimizer_file} in checkpoint"
+                assert is_file_not_empty(optimizer_file), (
+                    f"Empty {optimizer_file} in checkpoint"
+                )
                 num_valid_optimizer_files += 1
         assert num_valid_optimizer_files == 1, (
             f"Exactly one of {optimizer_files} must exist. "
@@ -138,23 +157,6 @@ def _check_checkpoint_dir(
                 assert is_file_not_empty(dir_path / file), f"Empty {file} in checkpoint"
 
 
-class TrainTestConfig(NamedTuple):
-    test_name: str
-    config_path: Path
-    max_steps: int
-    is_lora: bool = False
-    skip: bool = False
-    trainer_type: Optional[TrainerType] = None
-    model_max_length: Optional[int] = None
-    batch_size: Optional[int] = None
-    gradient_accumulation_steps: Optional[int] = None
-    dataloader_num_workers: Optional[int] = None
-    dataloader_prefetch_factor: Optional[int] = None
-    save_steps: Optional[int] = None
-    save_final_model: Optional[bool] = None
-    enable_wandb: Optional[bool] = False  # Disable `wandb`` by default
-
-
 def get_train_test_id_fn(val):
     assert isinstance(val, TrainTestConfig), f"{type(val)}: {val}"
     return val.test_name
@@ -165,13 +167,15 @@ def _test_train_impl(
     tmp_path: Path,
     *,
     use_distributed: bool,
-    interactive_logs: bool = True,
     cleanup_output_dir_on_success: bool = True,
+    telemetry_callback_enabled: bool = True,
 ):
     device_cleanup()
     if test_config.skip:
         pytest.skip(f"Skipped the test '{test_config.test_name}'!")
         return
+
+    interactive_logs = test_config.interactive_logs
 
     test_tag = f"[{test_config.test_name}]"
 
@@ -181,12 +185,12 @@ def _test_train_impl(
 
     try:
         # Copy config file to output directory
-        assert (
-            test_config.config_path.exists()
-        ), f"{test_tag} Path doesn't exist: {test_config.config_path}"
-        assert (
-            test_config.config_path.is_file()
-        ), f"{test_tag} Path is not a file: {test_config.config_path}"
+        assert test_config.config_path.exists(), (
+            f"{test_tag} Path doesn't exist: {test_config.config_path}"
+        )
+        assert test_config.config_path.is_file(), (
+            f"{test_tag} Path is not a file: {test_config.config_path}"
+        )
 
         # Verify the config is loadable
         try:
@@ -275,9 +279,9 @@ def _test_train_impl(
         # Check output directory exists
         train_output_dir = output_dir / "train"
         assert train_output_dir.exists(), f"{test_tag} Output directory was not created"
-        assert (
-            train_output_dir.is_dir()
-        ), f"{test_tag} Output directory is not a directory"
+        assert train_output_dir.is_dir(), (
+            f"{test_tag} Output directory is not a directory"
+        )
 
         # If saving is disabled, then return early.
         if (test_config.save_steps is not None and test_config.save_steps <= 0) and (
@@ -305,24 +309,29 @@ def _test_train_impl(
         num_ranks = len(rank_logs)
         assert num_ranks > 0, f"{test_tag} No rank logs found"
         for idx in range(num_ranks):
-            assert is_file_not_empty(
-                rank_logs[idx]
-            ), f"{test_tag} Empty rank log file: {rank_logs[idx]}"
+            assert is_file_not_empty(rank_logs[idx]), (
+                f"{test_tag} Empty rank log file: {rank_logs[idx]}"
+            )
 
         # Check telemetry directory
         telemetry_dir = train_output_dir / "telemetry"
         assert telemetry_dir.exists(), f"{test_tag} Telemetry directory not found"
-        assert (
-            telemetry_dir.is_dir()
-        ), f"{test_tag} Telemetry directory  is not a directory"
+        assert telemetry_dir.is_dir(), (
+            f"{test_tag} Telemetry directory  is not a directory"
+        )
 
         telemetry_files = [
             "devices_info.txt",
-            "telemetry_callback_metrics_rank0000.json",
-            "telemetry_callback_rank0000.json",
             "training_config.yaml",
             "world_size.json",
-        ]
+        ] + (
+            [
+                "telemetry_callback_metrics_rank0000.json",
+                "telemetry_callback_rank0000.json",
+            ]
+            if telemetry_callback_enabled
+            else []
+        )
 
         for file in telemetry_files:
             file_path = telemetry_dir / file
@@ -332,19 +341,19 @@ def _test_train_impl(
         # Verify telemetry content
         with open(telemetry_dir / "training_config.yaml") as f:
             training_config = yaml.safe_load(f)
-            assert (
-                "model" in training_config
-            ), f"{test_tag} Invalid training config: {training_config}"
-            assert (
-                "training" in training_config
-            ), f"{test_tag} Invalid training config: {training_config}"
+            assert "model" in training_config, (
+                f"{test_tag} Invalid training config: {training_config}"
+            )
+            assert "training" in training_config, (
+                f"{test_tag} Invalid training config: {training_config}"
+            )
 
         with open(telemetry_dir / "world_size.json") as f:
             world_size = json.load(f)
             assert "WORLD_SIZE" in world_size
-            assert (
-                world_size.get("WORLD_SIZE", None) == num_ranks
-            ), f"{test_tag} World size is inconsistent with: {num_ranks}"
+            assert world_size.get("WORLD_SIZE", None) == num_ranks, (
+                f"{test_tag} World size is inconsistent with: {num_ranks}"
+            )
 
     except Exception as e:
         duration_sec = time.perf_counter() - _START_TIME
@@ -412,28 +421,57 @@ def _test_train_impl(
 @pytest.mark.e2e
 @pytest.mark.single_gpu
 def test_train_text_1gpu_24gb(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
+    test_config: TrainTestConfig,
+    tmp_path: Path,
 ):
-    _test_train_impl(
-        test_config=test_config,
-        tmp_path=tmp_path,
-        use_distributed=False,
-        interactive_logs=interactive_logs,
-    )
+    _test_train_impl(test_config=test_config, tmp_path=tmp_path, use_distributed=False)
 
 
-@requires_gpus(count=1, min_gb=24.0)
+@requires_gpus(count=4, min_gb=39.0)
 @pytest.mark.parametrize(
     "test_config",
     [
         TrainTestConfig(
-            test_name="train_mm_qwen2_vl_2b_trl_sft",
+            test_name="train_text_qwen3_30b_a3b_trl_sft_lora",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "qwen3"
+                / "sft"
+                / "30b_a3b_lora"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+            is_lora=True,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_text_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+    )
+
+
+@requires_gpus(count=4, min_gb=39.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_mm_qwen2_vl_2b_trl_sft_fft",
             config_path=(
                 get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "qwen2_vl_2b"
                 / "sft"
+                / "full"
                 / "train.yaml"
             ),
             trainer_type=TrainerType.TRL_SFT,
@@ -441,13 +479,14 @@ def test_train_text_1gpu_24gb(
             save_steps=5,
         ),
         TrainTestConfig(
-            test_name="train_mm_qwen2_vl_2b_oumi",
+            test_name="train_mm_qwen2_vl_2b_oumi_fft",
             config_path=(
                 get_configs_dir()
                 / "recipes"
                 / "vision"
                 / "qwen2_vl_2b"
                 / "sft"
+                / "full"
                 / "train.yaml"
             ),
             trainer_type=TrainerType.OUMI,
@@ -459,15 +498,45 @@ def test_train_text_1gpu_24gb(
     ids=get_train_test_id_fn,
 )
 @pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_multimodal_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+    )
+
+
+@requires_gpus(count=1, min_gb=39.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_mm_qwen2_vl_2b_trl_sft_lora",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "vision"
+                / "qwen2_vl_2b"
+                / "sft"
+                / "lora"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+            is_lora=True,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
 @pytest.mark.single_gpu
-def test_train_multimodal_1gpu_24gb(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=False,
-        interactive_logs=interactive_logs,
     )
 
 
@@ -522,12 +591,45 @@ def test_train_multimodal_1gpu_24gb(
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_train_multimodal_fsdp_4gpu_80gb(
-    test_config: TrainTestConfig, tmp_path: Path, interactive_logs: bool = True
-):
+def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,
         use_distributed=True,
-        interactive_logs=interactive_logs,
+    )
+
+
+@requires_gpus(count=4, min_gb=39.0)
+@pytest.mark.parametrize(
+    "test_config",
+    [
+        TrainTestConfig(
+            test_name="train_grpo_tldr_qwen2_500m",
+            config_path=(get_configs_dir() / "examples" / "grpo_tldr" / "train.yaml"),
+            max_steps=3,
+            save_steps=3,
+        ),
+        TrainTestConfig(
+            test_name="train_grpo_letter_counting",
+            config_path=(
+                get_configs_dir()
+                / "examples"
+                / "letter_counting"
+                / "grpo"
+                / "train.yaml"
+            ),
+            max_steps=3,
+            save_steps=3,
+        ),
+    ],
+    ids=get_train_test_id_fn,
+)
+@pytest.mark.e2e
+@pytest.mark.multi_gpu
+def test_train_grpo_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+    _test_train_impl(
+        test_config=test_config,
+        tmp_path=tmp_path,
+        use_distributed=True,
+        telemetry_callback_enabled=False,
     )

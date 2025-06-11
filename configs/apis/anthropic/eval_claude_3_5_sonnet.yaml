@@ -1,0 +1,12 @@
+model:
+  model_name: "claude-3-5-sonnet-latest"
+
+inference_engine: ANTHROPIC
+
+generation:
+  max_new_tokens: 8192
+  temperature: 0.0
+
+tasks:
+  - evaluation_backend: custom
+    task_name: berry_bench

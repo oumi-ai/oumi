@@ -42,8 +42,6 @@ training:
 
   grpo:
     use_vllm: False
-    vllm_device: "cuda:0"
-    vllm_gpu_memory_utilization: 0.3
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
@@ -52,5 +50,6 @@ training:
   logging_steps: 10
   log_model_summary: False
   output_dir: "output/tldr.grpo"
+  # Cannot enable due to trl bug. See https://github.com/huggingface/trl/issues/3081.
   include_performance_metrics: False
   enable_wandb: True

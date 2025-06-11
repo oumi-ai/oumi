@@ -1,0 +1,94 @@
+# Phi 3 Vision full fine-tune training config.
+#
+# Requirements:
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Run `pip install -U flash-attn --no-build-isolation`
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/phi3/sft/full/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+
+model:
+  model_name: "microsoft/Phi-3-vision-128k-instruct"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 3072
+  trust_remote_code: True
+  attn_implementation: "flash_attention_2" # The model requires Flash Attention!
+  chat_template: "phi3-instruct"
+  freeze_layers: # To train also the vision encoder, remove this field.
+    - "model.vision_embed_tokens"
+
+data:
+  train:
+    collator_name: "vision_language_with_padding"
+    use_torchdata: true
+    datasets:
+      - dataset_name: "merve/vqav2-small"
+        split: "validation"
+        shuffle: True
+        seed: 42
+        trust_remote_code: True
+        transform_num_workers: "auto"
+        dataset_kwargs:
+          processor_name: "microsoft/Phi-3-vision-128k-instruct"
+          return_tensors: True
+
+      # Below are examples of other vision SFT datasets
+      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
+      #   split: "train"
+      #   shuffle: True
+      #   seed: 42
+      #   trust_remote_code: True
+      #   transform_num_workers: "auto"
+      #   dataset_kwargs:
+      #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
+      #     return_tensors: True
+      # - dataset_name: "coco_captions"
+      #   split: "train"
+      #   trust_remote_code: True
+      #   dataset_kwargs:
+      #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
+      #     return_tensors: True
+      # - dataset_name: vision_language_jsonl
+      #   dataset_path: "training.jsonl"  # See notebook for example how to generate this file
+      #   dataset_kwargs:
+      #     data_column: "messages"
+      #     processor_name: "microsoft/Phi-3-vision-128k-instruct"
+
+training:
+  output_dir: "output/vlm_finetuned"
+  # Note: with phi3.5, the latest version of transformers/trl have a bug
+  # preventing saving the model. https://github.com/microsoft/PhiCookBook/issues/223
+  # we use the OUMI trainer instead of TRL_SFT to avoid this issue.
+  trainer_type: "OUMI"
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 8
+  max_steps: 20
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 2
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 5
+  save_steps: 0
+  dataloader_main_process_only: True
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 8
+  include_performance_metrics: False # enable this to see the performance metrics
+  log_model_summary: False
+  enable_wandb: True

@@ -24,13 +24,11 @@ data:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned" # 51,760 examples
     target_col: "prompt"
-    use_async_dataset: True
 
 training:
   trainer_type: "TRL_SFT"
   use_peft: True
   save_steps: 200
-  max_steps: 10
   num_train_epochs: 1
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 1

@@ -29,6 +29,9 @@ import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 
+import mlflow  # isort: skip
+import transformers
+
 import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
@@ -61,7 +64,6 @@ from oumi.models.layers.ring_attention import (
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
-from oumi.utils.torch_utils import log_trainable_parameters
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
@@ -159,7 +161,12 @@ class Trainer(BaseTrainer):
         # Prepare model for training
         # ----------------------------------
         if args.enable_gradient_checkpointing:
+            if not isinstance(model, transformers.PreTrainedModel):
+                raise ValueError(
+                    "Gradient checkpointing is only supported for transformers models."
+                )
             model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
+        model = cast(torch.nn.Module, model)
         model.to(self.device)
         if is_distributed():
             # Wrap model for distributed training
@@ -202,9 +209,6 @@ class Trainer(BaseTrainer):
         if resume_from_checkpoint:
             with torch.profiler.record_function("load_from_checkpoint"):
                 self._load_from_checkpoint(resume_from_checkpoint)
-
-        if is_local_process_zero():
-            log_trainable_parameters(self.model)
 
         total_steps = self._estimate_total_training_steps()
 
@@ -261,6 +265,9 @@ class Trainer(BaseTrainer):
             f"Training finished! Global step: {self.state.global_step} "
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
+
+        if self.params.enable_mlflow:
+            mlflow.end_run()
 
     @contextmanager
     def _telemetry_block(self, name: str):
@@ -659,6 +666,9 @@ class Trainer(BaseTrainer):
             )
         else:
             self.tensorboard_writer = None
+
+        if self.params.enable_mlflow:
+            self.mlflow_run = mlflow.start_run()
 
     #
     # Data loading

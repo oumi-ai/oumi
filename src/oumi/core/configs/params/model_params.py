@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Optional
 
@@ -67,6 +67,16 @@ class ModelParams(BaseParams):
 
     This allows for passing any tokenizer-specific parameters that are not
     covered by other fields in ModelParams.
+    """
+
+    processor_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Additional keyword arguments to pass into the processor's constructor.
+
+    Processors are used in Oumi for vision-language models to process image and
+    text inputs. This field is optional and can be left empty for text-only models,
+    or if not needed.
+
+    These params override model-specific default values for these kwargs, if present.
     """
 
     model_max_length: Optional[int] = None
@@ -186,9 +196,33 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    model_revision: Optional[str] = None
+    """The revision of the model to use.
+
+    This is used to specify the version of the model to use.
+    """
+
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
+
+        if len(self.processor_kwargs) > 0:
+            conflicting_keys = {f.name for f in fields(self)}.intersection(
+                self.processor_kwargs.keys()
+            )
+            if len(conflicting_keys) > 0:
+                raise ValueError(
+                    "processor_kwargs attempts to override the following "
+                    f"reserved fields: {conflicting_keys}. "
+                    "Use properties of ModelParams instead."
+                )
+
+        if "revision" in self.model_kwargs:
+            logger.warning(
+                "`revision` is deprecated. Use `model_revision` instead. "
+                "This will be removed in a future version."
+            )
+            self.model_revision = self.model_kwargs.pop("revision")
 
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""

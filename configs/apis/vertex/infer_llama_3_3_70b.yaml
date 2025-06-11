@@ -1,0 +1,8 @@
+model:
+  model_name: "meta/llama-3.3-70b-instruct-maas"
+
+engine: GOOGLE_VERTEX
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0

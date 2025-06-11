@@ -42,6 +42,13 @@ try:
 except ImportError:
     liger_kernel = None
 
+# Import `onebitllms` utils methods
+try:
+    import onebitllms  # type: ignore
+    from onebitllms import replace_linear_with_bitnet_linear  # type: ignore
+except ImportError:
+    onebitllms = None
+
 
 def build_model(
     model_params: ModelParams,
@@ -84,6 +91,19 @@ def build_model(
 
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model)
+
+    if model_params.model_name in (
+        "tiiuae/Falcon-E-1B-Base",
+        "tiiuae/Falcon-E-1B-Instruct",
+        "tiiuae/Falcon-E-3B-Base",
+        "tiiuae/Falcon-E-3B-Instruct",
+    ):
+        if onebitllms is None:
+            raise ValueError(
+                """Please install `onebitllms` in order to fine-tune
+                `Falcon-E` models - `pip install onebitllms`"""
+            )
+        model = replace_linear_with_bitnet_linear(model)
 
     if len(model_params.freeze_layers) > 0:
         num_frozen = freeze_model_layers(model, model_params.freeze_layers)
@@ -164,7 +184,7 @@ def build_oumi_model(
     return model
 
 
-def _disable_cache_in_model_config(model: nn.Module):
+def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
     # Required for FSDP.
     # Context: https://github.com/huggingface/transformers/issues/28499
     model.config.use_cache = False
@@ -210,7 +230,10 @@ def build_huggingface_model(
     )
 
     hf_config = find_model_hf_config(
-        model_params.model_name, trust_remote_code=model_params.trust_remote_code
+        model_params.model_name,
+        trust_remote_code=model_params.trust_remote_code,
+        revision=model_params.model_revision,
+        **model_params.model_kwargs,
     )
 
     # (Experimental) Detects dropout probabilities in config and sets them to 0.0.
@@ -237,6 +260,7 @@ def build_huggingface_model(
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
             attn_implementation=model_params.attn_implementation,
+            revision=model_params.model_revision,
             **kwargs,
         )
     else:

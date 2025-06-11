@@ -17,6 +17,7 @@ from typing import Any, Optional
 import torch
 
 from oumi.core.callbacks.base_trainer_callback import BaseTrainerCallback
+from oumi.core.callbacks.bitnet_callback import BitNetCallback
 from oumi.core.callbacks.hf_mfu_callback import HfMfuTrainerCallback
 from oumi.core.callbacks.mfu_callback import MfuTrainerCallback
 from oumi.core.callbacks.nan_inf_detection_callback import NanInfDetectionCallback
@@ -59,6 +60,7 @@ def build_training_callbacks(
     if not config.training.include_performance_metrics:
         return result
 
+    dtype = next(model.parameters()).dtype
     add_mfu_callbacks: bool = True
     if not torch.cuda.is_available():
         logger.warning("MFU logging is only supported on GPU. Skipping MFU callbacks.")
@@ -72,7 +74,7 @@ def build_training_callbacks(
     else:
         device_name = get_device_name()
         try:
-            _get_device_flops(device_name, model.dtype)
+            _get_device_flops(device_name, dtype)
         except NotImplementedError:
             logger.warning(
                 f"MFU logging is currently not supported for device {device_name}. "
@@ -92,7 +94,7 @@ def build_training_callbacks(
             # Ignore attention and rematerialization to ensure metric matches most
             # common implementations.
             mfu_callback = MfuTrainerCallback(
-                dtype=model.dtype,
+                dtype=dtype,
                 num_params=num_mfu_params,
                 sequence_length=config.model.model_max_length,
             )
@@ -111,7 +113,7 @@ def build_training_callbacks(
                 TrainerType.HF,
             )
         ):
-            result.append(HfMfuTrainerCallback(dtype=model.dtype))
+            result.append(HfMfuTrainerCallback(dtype=dtype))
 
     if profiler is not None:
         result.append(ProfilerStepCallback(profiler=profiler))
@@ -136,5 +138,14 @@ def build_training_callbacks(
             track_gpu_temperature=config.training.telemetry.track_gpu_temperature,
         )
     )
+
+    # Add the BitNet saving callbacks if relevant
+    if config.model.model_name in (
+        "tiiuae/Falcon-E-1B-Base",
+        "tiiuae/Falcon-E-1B-Instruct",
+        "tiiuae/Falcon-E-3B-Base",
+        "tiiuae/Falcon-E-3B-Instruct",
+    ):
+        result.append(BitNetCallback())
 
     return result

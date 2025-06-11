@@ -1,0 +1,8 @@
+model:
+  model_name: "claude-3-5-sonnet-latest"
+
+engine: ANTHROPIC
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0
