@@ -156,12 +156,19 @@ async def test_gemini_infer_online(gemini_engine, inference_config):
         ]
     )
 
-    with patch.object(gemini_engine, "_infer", new_callable=AsyncMock) as mock_infer:
-        mock_infer.return_value = [conversation]
-        results = gemini_engine.infer_online([conversation], inference_config)
+    with patch.object(
+        gemini_engine,
+        "_infer",
+        new_callable=AsyncMock,
+        side_effect=lambda convs, config: convs,
+    ):
+        results = gemini_engine.infer([conversation], inference_config)
 
     assert len(results) == 1
-    assert results[0] == conversation
+    assert results[0].messages == conversation.messages
+    assert results[0].metadata == conversation.metadata
+    if conversation.conversation_id is not None:
+        assert results[0].conversation_id == conversation.conversation_id
 
 
 def test_gemini_infer_from_file(gemini_engine, inference_config, tmp_path):
@@ -177,12 +184,20 @@ def test_gemini_infer_from_file(gemini_engine, inference_config, tmp_path):
         json.dump(conversation.to_dict(), f)
         f.write("\n")
 
-    with patch.object(gemini_engine, "_infer", new_callable=AsyncMock) as mock_infer:
-        mock_infer.return_value = [conversation]
-        results = gemini_engine.infer_from_file(str(input_file), inference_config)
+    with patch.object(
+        gemini_engine,
+        "_infer",
+        new_callable=AsyncMock,
+        side_effect=lambda convs, config: convs,
+    ):
+        inference_config.input_path = str(input_file)
+        results = gemini_engine.infer(inference_config=inference_config)
 
     assert len(results) == 1
-    assert results[0] == conversation
+    assert results[0].messages == conversation.messages
+    assert results[0].metadata == conversation.metadata
+    if conversation.conversation_id is not None:
+        assert results[0].conversation_id == conversation.conversation_id
 
 
 def test_gemini_batch_prediction_disabled(gemini_engine, inference_config):

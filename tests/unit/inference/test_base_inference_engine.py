@@ -17,7 +17,7 @@ class MockInferenceEngine(BaseInferenceEngine):
     def get_supported_params(self) -> set[str]:
         return {"max_new_tokens", "temperature"}
 
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -39,7 +39,7 @@ class MockInferenceEngine(BaseInferenceEngine):
             )
         return results
 
-    def infer_from_file(
+    def _infer_from_file(
         self,
         input_filepath: str,
         inference_config: Optional[InferenceConfig] = None,
@@ -120,8 +120,8 @@ def test_infer_no_resume_from_scratch_on_success(mock_engine):
 
         with patch.object(
             mock_engine,
-            "infer_online",
-            wraps=mock_engine.infer_online,
+            "_infer_online",
+            wraps=mock_engine._infer_online,
         ) as mock_infer:
             # Process only first conversation
             with patch.object(
@@ -220,7 +220,7 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
 
         with patch.object(
             mock_engine,
-            "infer_online",
+            "_infer_online",
             side_effect=mock_infer_online,
         ) as mock_infer:
             # Should fail on second conversation
@@ -253,7 +253,7 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
         # It should resume from scratch, only processing the second conversation
         with patch.object(
             mock_engine,
-            "infer_online",
+            "_infer_online",
             side_effect=mock_infer_online,
         ) as mock_infer:
             results = mock_engine.infer(
@@ -290,7 +290,7 @@ def test_scratch_file_handling_with_errors(mock_engine):
 
         # Simulate an error during inference
         with patch.object(
-            mock_engine, "infer_online", side_effect=RuntimeError("Test error")
+            mock_engine, "_infer_online", side_effect=RuntimeError("Test error")
         ):
             with pytest.raises(RuntimeError):
                 mock_engine.infer(
