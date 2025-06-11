@@ -180,14 +180,13 @@ def torchrun(
     try:
         cmds: list[str] = []
         args = copy.deepcopy(ctx.args)
-        if (
+        if (  # Fallback to `oumi train -c ...` for single-node with 1 GPU (OPE-1315).
             (run_info.num_nodes == 1 and run_info.gpus_per_node == 1)
             and len(args) >= 3
             and args[0] == "-m"
             and args[1] == "oumi"
             and args[2] == "train"
         ):
-            # Ensure we fallback to `oumi train -c cfg.yaml ...` for 1 GPU.
             args.pop(0)  # remove trailing "-m"
             cmds = []
         else:
