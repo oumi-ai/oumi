@@ -41,7 +41,9 @@ def count_letters(
     inference_engine: BaseInferenceEngine,
 ) -> dict[str, Any]:
     """Custom evaluation function registered as `count_letters`."""
-    dataset = LetterCountGrpoDataset(split="test")
+    dataset = LetterCountGrpoDataset(
+        dataset="oumi-ai/oumi-letter-count-clean", split="test"
+    )
     # TODO: OPE-1155: Add support for using Oumi dataset code to create the dataset.
     # dataset = build_dataset("oumi-ai/oumi-letter-count", tokenizer=None, sample_count=10)  # noqa: E501
     num_samples = task_params.num_samples

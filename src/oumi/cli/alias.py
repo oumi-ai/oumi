@@ -145,6 +145,15 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
         AliasType.INFER: "oumi://configs/apis/vertex/infer_llama_3_1_405b.yaml",
         AliasType.EVAL: "oumi://configs/apis/vertex/eval_llama_3_1_405b.yaml",
     },
+    "molmo-7b-o": {
+        AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/sft/molmo_o_full/train.yaml",
+    },
+    "molmo-7b-d": {
+        AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/sft/molmo_d_full/train.yaml",
+    },
+    "molmo-7b-o-grpo": {
+        AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/grpo/train.yaml",
+    },
 }
 
 
