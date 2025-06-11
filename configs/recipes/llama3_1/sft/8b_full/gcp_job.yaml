@@ -20,7 +20,7 @@ name: llama8b-sft
 num_nodes: 1
 resources:
   cloud: gcp
-  accelerators: "A100:1"
+  accelerators: "A100:4"
   use_spot: false
   disk_size: 2000 # Disk size in GBs
 
@@ -48,8 +48,7 @@ run: |
   set -x
   oumi distributed torchrun \
     -m oumi train \
-    -c configs/recipes/llama3_2/sft/1b_full/train.yaml \
-    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
-    --training.max_steps=10
+    -c configs/recipes/llama3_2/sft/8b_full/train.yaml \
+    --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
