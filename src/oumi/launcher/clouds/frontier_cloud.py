@@ -121,7 +121,7 @@ class FrontierCloud(BaseCloud):
         """Creates a cluster and starts the provided Job."""
         if not job.user:
             raise ValueError("User must be provided in the job config.")
-        # The default queue is PROD.
+        # The default queue is BATCH.
         cluster_info = _ClusterInfo(
             FrontierCluster.SupportedQueues.BATCH.value, job.user
         )
