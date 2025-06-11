@@ -70,6 +70,7 @@ model:
   model_max_length: null                             # Max sequence length (positive int or null)
   load_pretrained_weights: true                      # Load pretrained weights
   trust_remote_code: false                           # Allow remote code execution (use with trusted models only)
+  model_revision: null                               # Model revision to use (e.g., "prequantized")
 
   # Model precision and hardware
   torch_dtype_str: "float32"                         # Model precision (float32/float16/bfloat16/float64)

@@ -408,5 +408,5 @@ def test_unsupported_model_raises_error():
         tokenizer_pad_token="<|endoftext|>",
         load_pretrained_weights=False,
     )
-    with pytest.raises(ValueError, match="does not support generation"):
+    with pytest.raises(ValueError, match="requires a generation config"):
         NativeTextInferenceEngine(model_params)

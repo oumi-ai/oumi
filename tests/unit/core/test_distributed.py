@@ -15,6 +15,7 @@ from oumi.core.configs import (
 from oumi.core.configs.params.training_params import TrainingParams
 from oumi.core.distributed import (
     DeviceRankInfo,
+    _parse_rank,
     all_gather_object,
     estimate_dataloader_num_workers,
     get_accelerate_env_vars,
@@ -484,3 +485,33 @@ def test_prepare_accelerate_fsdp_run_override():
             "`EXISTING_VALUE`, overriding to new value `NO`."
         )
     assert env_vars == expected_env_vars
+
+
+@pytest.mark.parametrize(
+    "rank_input,expected",
+    [("1", 1), ("5", 5), ("42", 42), ("100", 100), ("0", 0), ("-1", 0), ("  -1  ", 0)],
+)
+def test_parse_rank(rank_input, expected):
+    """Test that _parse_rank returns correct integer for valid positive rank strings."""
+    assert _parse_rank(rank_input) == expected
+
+
+def test_parse_rank_invalid_non_digit():
+    """Test that _parse_rank raises ValueError for non-digit strings."""
+    with pytest.raises(ValueError, match=r"Rank must be a number\. Actual: abc\."):
+        _parse_rank("abc")
+
+    with pytest.raises(ValueError, match=r"Rank must be a number\. Actual: 1a\."):
+        _parse_rank("1a")
+
+    with pytest.raises(ValueError, match=r"Rank must be a number\. Actual: a1\."):
+        _parse_rank("a1")
+
+
+def test_parse_rank_invalid_negative():
+    """Test that _parse_rank raises ValueError for negative numbers (except -1)."""
+    with pytest.raises(ValueError, match=r"Rank must be a number\. Actual: -2\."):
+        _parse_rank("-2")
+
+    with pytest.raises(ValueError, match=r"Rank must be a number\. Actual: -10\."):
+        _parse_rank("-10")

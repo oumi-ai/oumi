@@ -196,6 +196,12 @@ class ModelParams(BaseParams):
     other parts fixed.
     """
 
+    model_revision: Optional[str] = None
+    """The revision of the model to use.
+
+    This is used to specify the version of the model to use.
+    """
+
     def __post_init__(self):
         """Populate additional params."""
         self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
@@ -210,6 +216,13 @@ class ModelParams(BaseParams):
                     f"reserved fields: {conflicting_keys}. "
                     "Use properties of ModelParams instead."
                 )
+
+        if "revision" in self.model_kwargs:
+            logger.warning(
+                "`revision` is deprecated. Use `model_revision` instead. "
+                "This will be removed in a future version."
+            )
+            self.model_revision = self.model_kwargs.pop("revision")
 
     def __finalize_and_validate__(self):
         """Finalizes and validates final config params."""

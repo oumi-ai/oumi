@@ -8,10 +8,12 @@ from oumi.builders.models import (
     _get_model_type,
     _patch_model_for_liger_kernel,
     build_chat_template,
+    build_huggingface_model,
     build_tokenizer,
     is_image_text_llm,
 )
 from oumi.core.configs import ModelParams
+from oumi.core.configs.internal.supported_models import find_model_hf_config
 from oumi.utils.logging import logger
 
 
@@ -189,3 +191,102 @@ def test_default_chat_template_in_build_tokenizer(
     # Also check padding side here.
     assert hasattr(tokenizer, "padding_side")
     assert tokenizer.padding_side == expected_padding_side
+
+
+def test_find_model_hf_config_with_custom_kwargs():
+    mock_config = Mock()
+    mock_config.model_type = "test_model"
+
+    custom_kwargs = {
+        "max_position_embeddings": 2048,
+    }
+
+    with patch(
+        "oumi.core.configs.internal.supported_models.transformers.AutoConfig.from_pretrained"
+    ) as mock_from_pretrained:
+        mock_from_pretrained.return_value = (mock_config, {})
+
+        result = find_model_hf_config(
+            model_name="test-model",
+            trust_remote_code=False,
+            revision="main",
+            **custom_kwargs,
+        )
+
+        # Verify the result
+        assert result == mock_config
+
+        # Verify AutoConfig.from_pretrained was called with custom kwargs
+        mock_from_pretrained.assert_called_once_with(
+            "test-model",
+            trust_remote_code=False,
+            return_unused_kwargs=True,
+            revision="main",
+            **custom_kwargs,
+        )
+
+
+def test_find_model_hf_config_logs_unused_kwargs():
+    """Test that find_model_hf_config logs a warning for unused kwargs."""
+    mock_config = Mock()
+    mock_config.model_type = "test_model"
+    unused_kwargs = {"unsupported_param": "value"}
+
+    with (
+        patch(
+            "oumi.core.configs.internal.supported_models.transformers.AutoConfig.from_pretrained"
+        ) as mock_from_pretrained,
+        patch("oumi.core.configs.internal.supported_models.logger") as mock_logger,
+    ):
+        mock_from_pretrained.return_value = (mock_config, unused_kwargs)
+
+        find_model_hf_config(
+            model_name="test-model",
+            trust_remote_code=False,
+            unsupported_param="value",
+        )
+
+        # Verify warning was logged
+        mock_logger.warning.assert_called_once_with(
+            f"Unused kwargs found in 'test-model' config: {unused_kwargs}."
+        )
+
+
+def test_build_huggingface_model_passes_model_kwargs_to_find_model_hf_config():
+    """Test that build_huggingface_model passes model_kwargs to find_model_hf_config."""
+    model_kwargs = {
+        "max_position_embeddings": 2048,
+    }
+
+    model_params = ModelParams(
+        model_name="test-model", trust_remote_code=False, model_kwargs=model_kwargs
+    )
+
+    mock_config = Mock()
+    mock_config.model_type = "llama"
+    mock_config.use_cache = True
+
+    mock_model = Mock()
+    mock_model.config = mock_config
+
+    with (
+        patch("oumi.builders.models.find_model_hf_config") as mock_find_config,
+        patch("oumi.builders.models._get_transformers_model_class") as mock_get_class,
+        patch("oumi.builders.models.get_device_rank_info") as mock_device_info,
+        patch("oumi.builders.models.is_using_accelerate_fsdp", return_value=False),
+    ):
+        mock_find_config.return_value = mock_config
+        mock_model_class = Mock()
+        mock_model_class.from_pretrained.return_value = mock_model
+        mock_get_class.return_value = mock_model_class
+        mock_device_info.return_value = Mock(world_size=1, local_rank=0)
+
+        result = build_huggingface_model(model_params)
+
+        # Verify find_model_hf_config was called with model_kwargs
+        mock_find_config.assert_called_once_with(
+            "test-model", trust_remote_code=False, revision=None, **model_kwargs
+        )
+
+        # Verify the model was built successfully
+        assert result == mock_model

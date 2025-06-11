@@ -23,8 +23,7 @@ def test_build_training_callbacks_mfu_callback():
     config.training.include_performance_metrics = True
     config.data.train.pack = True
     config.model.model_max_length = 128
-    model = torch.nn.Module()
-    model.dtype = torch.bfloat16  # type: ignore
+    model = torch.nn.Sequential(torch.nn.Linear(10, 10))
     with patch("torch.cuda.is_available", return_value=True):
         with patch("torch.cuda.get_device_name", return_value="NVIDIA A100-PCIE-40GB"):
             result = build_training_callbacks(config, model, None)
@@ -38,7 +37,7 @@ def test_build_training_callbacks_mfu_callback():
 def test_build_training_callbacks_no_cuda(mock_logger_warning):
     config = TrainingConfig()
     config.training.include_performance_metrics = True
-    model = torch.nn.Module()
+    model = torch.nn.Sequential(torch.nn.Linear(10, 10))
     with patch("torch.cuda.is_available", return_value=False):
         result = build_training_callbacks(config, model, None)
     assert len(result) == 2
@@ -54,7 +53,7 @@ def test_build_training_callbacks_peft(mock_logger_warning):
     config = TrainingConfig()
     config.training.include_performance_metrics = True
     config.training.use_peft = True
-    model = torch.nn.Module()
+    model = torch.nn.Sequential(torch.nn.Linear(10, 10))
     with patch("torch.cuda.is_available", return_value=True):
         result = build_training_callbacks(config, model, None)
     assert len(result) == 2
@@ -69,7 +68,7 @@ def test_build_training_callbacks_peft(mock_logger_warning):
 def test_build_training_callbacks_no_pack(mock_logger_warning):
     config = TrainingConfig()
     config.training.include_performance_metrics = True
-    model = torch.nn.Module()
+    model = torch.nn.Sequential(torch.nn.Linear(10, 10))
     with patch("torch.cuda.is_available", return_value=True):
         result = build_training_callbacks(config, model, None)
     assert len(result) == 2
@@ -85,8 +84,7 @@ def test_build_training_callbacks_unknown_device_name(mock_logger_warning):
     config = TrainingConfig()
     config.training.include_performance_metrics = True
     config.data.train.pack = True
-    model = torch.nn.Module()
-    model.dtype = torch.bfloat16  # type: ignore
+    model = torch.nn.Sequential(torch.nn.Linear(10, 10))
     with patch("torch.cuda.is_available", return_value=True):
         with patch("torch.cuda.get_device_name", return_value="Foo"):
             result = build_training_callbacks(config, model, None)
@@ -103,8 +101,7 @@ def test_build_training_callbacks_no_model_max_length(mock_logger_warning):
     config = TrainingConfig()
     config.training.include_performance_metrics = True
     config.data.train.pack = True
-    model = torch.nn.Module()
-    model.dtype = torch.bfloat16  # type: ignore
+    model = torch.nn.Sequential(torch.nn.Linear(10, 10))
     with patch("torch.cuda.is_available", return_value=True):
         with patch("torch.cuda.get_device_name", return_value="NVIDIA A100-PCIE-40GB"):
             result = build_training_callbacks(config, model, None)
