@@ -112,6 +112,10 @@ class JudgeConfig(BaseConfig):
         if not self.prompt_template.strip():
             raise ValueError("prompt_template cannot be empty")
 
+        # Validate judgment scores for ENUM judgment type
+        if self.judgment_type == JudgeOutputType.ENUM and not self.judgment_scores:
+            raise ValueError("judgment_scores must be provided for ENUM judgment_type")
+
         # Validate judgment scores are numeric if provided
         if self.judgment_scores:
             if not all(

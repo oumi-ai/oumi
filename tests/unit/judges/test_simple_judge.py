@@ -481,3 +481,27 @@ class TestSimpleJudge:
             remote_params=mock_inference_config.remote_params,
             generation_params=mock_inference_config.generation,
         )
+
+    def test_enum_judgment_type_requires_scores(self):
+        """Test that ENUM judgment type requires judgment_scores to be provided."""
+        with pytest.raises(
+            ValueError, match="judgment_scores must be provided for ENUM judgment_type"
+        ):
+            JudgeConfig(
+                prompt_template="Rate this: {text}",
+                response_format=JudgeResponseFormat.JSON,
+                judgment_type=JudgeOutputType.ENUM,
+                judgment_scores=None,
+            )
+
+    def test_enum_judgment_type_with_empty_scores(self):
+        """Test that ENUM judgment type with empty scores fails validation."""
+        with pytest.raises(
+            ValueError, match="judgment_scores must be provided for ENUM judgment_type"
+        ):
+            JudgeConfig(
+                prompt_template="Rate this: {text}",
+                response_format=JudgeResponseFormat.JSON,
+                judgment_type=JudgeOutputType.ENUM,
+                judgment_scores={},
+            )
