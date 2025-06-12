@@ -90,14 +90,18 @@ class JudgeOutput(pydantic.BaseModel):
     Attributes:
         raw_output: The original unprocessed output from the judge
         parsed_output: Structured data (fields & their values) extracted from raw output
+        output_fields: List of expected output fields for this judge
         field_values: Typed values for each expected output field
         field_scores: Numeric scores for each expected output field (if applicable)
+        response_format: Format used for generating output (XML, JSON, or RAW)
     """
 
     raw_output: str
     parsed_output: dict[str, str] = {}
+    output_fields: Optional[list[JudgeOutputField]] = None
     field_values: dict[str, Optional[Union[float, int, str, bool]]] = {}
     field_scores: dict[str, Optional[float]] = {}
+    response_format: Optional[JudgeResponseFormat] = None
 
     @classmethod
     def from_raw_output(
@@ -146,6 +150,8 @@ class JudgeOutput(pydantic.BaseModel):
             parsed_output=parsed_output,
             field_values=field_values,
             field_scores=field_scores,
+            response_format=response_format,
+            output_fields=output_fields,
         )
 
     @classmethod
@@ -190,6 +196,83 @@ class JudgeOutput(pydantic.BaseModel):
         except json.JSONDecodeError:
             return {}
 
+    def generate_raw_output(self, field_values: dict[str, str]) -> str:
+        """Generate raw output string from field values in the specified format.
+
+        Args:
+            field_values: Dictionary mapping field keys to their string values.
+                            Must contain values for all required output fields.
+
+        Returns:
+            Formatted raw output string ready for use as assistant response.
+
+        Raises:
+            ValueError: If required output fields are missing from field_values,
+                            if response_format/output_fields are not set, or if
+                            response_format is not supported.
+        """
+        if not self.response_format:
+            raise ValueError("response_format must be set before generating output")
+        if not self.output_fields:
+            raise ValueError("output_fields must be set before generating output")
+
+        # Extract required field keys from output_fields
+        required_field_keys = {field.field_key for field in self.output_fields}
+
+        # Validate that all required fields are provided
+        provided_keys = set(field_values.keys())
+        if missing_keys := required_field_keys - provided_keys:
+            raise ValueError(
+                f"Missing values for required output fields: {sorted(missing_keys)}. "
+                f"Required: {sorted(required_field_keys)}, "
+                f"Provided: {sorted(provided_keys)}"
+            )
+
+        # Filter field_values to only include required output fields
+        filtered_field_values = {
+            key: value
+            for key, value in field_values.items()
+            if key in required_field_keys
+        }
+
+        if self.response_format == JudgeResponseFormat.XML:
+            return self.__class__._generate_xml_output(filtered_field_values)
+        elif self.response_format == JudgeResponseFormat.JSON:
+            return self.__class__._generate_json_output(filtered_field_values)
+        elif self.response_format == JudgeResponseFormat.RAW:
+            # For RAW format, concatenate values in the order of output_fields
+            ordered_values = [
+                filtered_field_values[field.field_key] for field in self.output_fields
+            ]
+            return "\n".join(ordered_values)
+        else:
+            raise ValueError(f"Unsupported response format: {self.response_format}")
+
+    @classmethod
+    def _generate_xml_output(cls, field_values: dict[str, str]) -> str:
+        """Generate XML formatted output from field values.
+
+        Args:
+            field_values: Dictionary mapping field keys to their string values.
+
+        Returns:
+            XML formatted string with each field as a tag.
+        """
+        xml_parts = [f"<{key}>{value}</{key}>" for key, value in field_values.items()]
+        return "\n".join(xml_parts)
+
+    @classmethod
+    def _generate_json_output(cls, field_values: dict[str, str]) -> str:
+        """Generate JSON formatted output from field values.
+
+        Args:
+            field_values: Dictionary mapping field keys to their string values.
+
+        Returns:
+            JSON formatted string.
+        """
+        return json.dumps(field_values, indent=2)
+
 
 class BaseJudge:
     """Base class for implementing judges that evaluate model outputs.
@@ -201,6 +284,8 @@ class BaseJudge:
     def __init__(
         self,
         prompt_template: str,
+        system_instruction: Optional[str],
+        example_field_values: list[dict[str, str]],
         response_format: JudgeResponseFormat,
         output_fields: list[JudgeOutputField],
         inference_engine: BaseInferenceEngine,
@@ -209,11 +294,15 @@ class BaseJudge:
 
         Args:
             prompt_template: Template string with placeholders for input data
+            system_instruction: Optional system message to guide judge behavior
+            example_field_values: List of field value dicts for few-shot learning
             response_format: Expected format of judge responses (XML, JSON, or RAW)
             output_fields: List of fields expected in judge outputs
             inference_engine: Engine for running model inference
         """
         self.prompt_template = prompt_template
+        self.system_instruction = system_instruction
+        self.example_field_values = example_field_values
         self.response_format = response_format
         self.output_fields = output_fields
         self.inference_engine = inference_engine
@@ -230,17 +319,39 @@ class BaseJudge:
         """Evaluate a batch of inputs and return structured judgments.
 
         Args:
-            inputs: List of dictionaries containing input data for evaluation
+            inputs: List of dictionaries containing input data for evaluation.
+                    Each dict must contain values for all prompt_template placeholders.
 
         Returns:
             List of structured judge outputs with parsed results
+
+        Raises:
+            ValueError: If inference returns unexpected number of conversations
         """
-        # Build prompts and conversations for all inputs
+        # Build few-shot examples: convert field values to prompts and responses
+        example_user_prompts = [
+            self._build_judgment_prompt(example_fields)
+            for example_fields in self.example_field_values
+        ]
+        example_assistant_responses = [
+            self._build_assistant_response(example_fields)
+            for example_fields in self.example_field_values
+        ]
+
+        # Build a judgment prompt for each dataset input
         judgment_prompts = [
             self._build_judgment_prompt(input_data) for input_data in inputs
         ]
+
+        # Create a conversation for each judgment prompt
         judge_conversations = [
-            self._build_judge_conversation(prompt) for prompt in judgment_prompts
+            self._build_judge_conversation(
+                system_instruction=self.system_instruction,
+                example_user_prompts=example_user_prompts,
+                example_assistant_responses=example_assistant_responses,
+                judgment_prompt=judgment_prompt,
+            )
+            for judgment_prompt in judgment_prompts
         ]
 
         # Run inference for all conversations in batch
@@ -249,12 +360,11 @@ class BaseJudge:
         # Extract and parse the judgment outputs
         judge_outputs = []
         for conversation in completed_conversations:
-            if len(conversation.messages) != 2:
-                raise ValueError("Expected conversation to have precisely 2 messages")
+            self._validate_completed_conversation(conversation)
 
             raw_output = str(conversation.messages[-1].content)
-            parsed_output = self._transform_judge_output(raw_output)
-            judge_outputs.append(parsed_output)
+            judge_output = self._transform_judge_output(raw_output)
+            judge_outputs.append(judge_output)
 
         return judge_outputs
 
@@ -300,17 +410,97 @@ class BaseJudge:
         # Format the template with the provided data
         return self.prompt_template.format(**judge_input)
 
-    def _build_judge_conversation(self, judgment_prompt: str) -> Conversation:
-        """Create a conversation object from a formatted judge prompt.
+    def _build_assistant_response(self, field_values: dict[str, str]) -> str:
+        """Generate the expected assistant response for few-shot examples.
 
         Args:
-            judgment_prompt: The formatted prompt string
+            field_values: Dictionary mapping field keys to their expected values.
+
+        Returns:
+            Formatted response string in the judge's expected output format.
+        """
+        # Create JudgeOutput instance with format configuration
+        judge_output = JudgeOutput(
+            raw_output="",
+            response_format=self.response_format,
+            output_fields=self.output_fields,
+        )
+        return judge_output.generate_raw_output(field_values=field_values)
+
+    @classmethod
+    def _build_judge_conversation(
+        cls,
+        system_instruction: Optional[str],
+        example_user_prompts: list[str],
+        example_assistant_responses: list[str],
+        judgment_prompt: str,
+    ) -> Conversation:
+        """Create a conversation object.
+
+        The conversation structure is:
+            1. System instruction (if provided)
+            2. Few-shot examples: alternating user prompts and assistant responses
+            3. Final user prompt for the actual judgment
+
+        Args:
+            system_instruction: Optional system message to guide judge behavior
+            example_user_prompts: List of example user prompts for few-shot learning
+            example_assistant_responses: List of corresponding assistant responses
+            judgment_prompt: The final user prompt for the actual judgment task
 
         Returns:
             Conversation object ready for inference
+
+        Raises:
+            ValueError: If number of example prompts doesn't match number of responses
         """
-        messages = [Message(content=judgment_prompt, role=Role.USER)]
+        # Validate that examples are properly paired
+        if len(example_user_prompts) != len(example_assistant_responses):
+            raise ValueError(
+                f"Number of prompts ({len(example_user_prompts)}) must match "
+                f"number of responses ({len(example_assistant_responses)})"
+            )
+
+        messages = []
+
+        # Add system instruction, if provided
+        if system_instruction:
+            messages.append(Message(content=system_instruction, role=Role.SYSTEM))
+
+        # Add few-shot examples as alternating user/assistant pairs
+        for prompt, response in zip(example_user_prompts, example_assistant_responses):
+            messages.extend(
+                [
+                    Message(content=prompt, role=Role.USER),
+                    Message(content=response, role=Role.ASSISTANT),
+                ]
+            )
+
+        # Add the actual judgment prompt
+        messages.append(Message(content=judgment_prompt, role=Role.USER))
+
         return Conversation(messages=messages)
+
+    def _validate_completed_conversation(self, conversation: Conversation) -> None:
+        """Validate that completed conversation has the expected structure."""
+        # Calculate expected message count
+        expected_messages = 2  # Judgment user prompt + assistant response
+        if self.system_instruction:
+            expected_messages += 1
+        expected_messages += 2 * len(self.example_field_values)
+
+        if len(conversation.messages) != expected_messages:
+            raise ValueError(
+                f"Expected {expected_messages} messages, "
+                f"got {len(conversation.messages)}"
+            )
+
+        # Validate that the last message is from the assistant
+        if conversation.messages[-1].role != Role.ASSISTANT:
+            raise ValueError(
+                f"Expected last message from assistant, "
+                f"got {conversation.messages[-1].role}"
+            )
 
     def _infer(self, conversations: list[Conversation]) -> list[Conversation]:
         """Run inference on judge conversations and preserve metadata.

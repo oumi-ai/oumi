@@ -169,18 +169,18 @@ class TestSimpleJudge:
             inference_config=mock_inference_config,
         )
 
-        # Should have two output fields: judgment and explanation
+        # Should have two output fields: explanation and judgment
         assert len(judge.output_fields) == 2
-        assert judge.output_fields[0].field_key == JUDGMENT_KEY
-        assert judge.output_fields[0].field_type == JudgeOutputType.ENUM
-        assert judge.output_fields[0].field_scores == {
+        assert judge.output_fields[0].field_key == EXPLANATION_KEY
+        assert judge.output_fields[0].field_type == JudgeOutputType.TEXT
+        assert judge.output_fields[0].field_scores is None
+        assert judge.output_fields[1].field_key == JUDGMENT_KEY
+        assert judge.output_fields[1].field_type == JudgeOutputType.ENUM
+        assert judge.output_fields[1].field_scores == {
             "excellent": 1.0,
             "good": 0.7,
             "poor": 0.3,
         }
-        assert judge.output_fields[1].field_key == EXPLANATION_KEY
-        assert judge.output_fields[1].field_type == JudgeOutputType.TEXT
-        assert judge.output_fields[1].field_scores is None
 
     @patch("oumi.judges_v2.simple_judge.SimpleJudge._create_inference_engine")
     def test_init_with_inference_config(
@@ -505,3 +505,56 @@ class TestSimpleJudge:
                 judgment_type=JudgeOutputType.ENUM,
                 judgment_scores={},
             )
+
+    @patch("oumi.judges_v2.simple_judge.SimpleJudge._create_inference_engine")
+    def test_format_suffix_behavior_with_and_without_system_instruction(
+        self, mock_create_engine, mock_inference_config
+    ):
+        """Test that format suffix goes to system instruction or judgment prompt."""
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+
+        # Test case 1: With system instruction - format suffix in system instruction
+        config_with_system = JudgeConfig(
+            prompt_template="Rate: {text}",
+            response_format=JudgeResponseFormat.JSON,
+            judgment_type=JudgeOutputType.BOOL,
+            include_explanation=False,
+            system_instruction="You are a judge.",
+        )
+
+        judge = SimpleJudge(
+            judge_config=config_with_system,
+            inference_config=mock_inference_config,
+        )
+
+        # System instruction should have format suffix
+        assert judge.system_instruction is not None
+        assert "JSON format only" in judge.system_instruction
+        assert judge.system_instruction.startswith("You are a judge.")
+
+        # Judgment prompt should NOT have format suffix
+        prompt_with_system = judge._build_judgment_prompt({"text": "test"})
+        assert prompt_with_system == "Rate: test"  # No format suffix here
+
+        # Test case 2: Without system instruction - format suffix in judgment prompt
+        config_without_system = JudgeConfig(
+            prompt_template="Rate: {text}",
+            response_format=JudgeResponseFormat.JSON,
+            judgment_type=JudgeOutputType.BOOL,
+            include_explanation=False,
+            system_instruction=None,
+        )
+
+        judge = SimpleJudge(
+            judge_config=config_without_system,
+            inference_config=mock_inference_config,
+        )
+
+        # System instruction should be None
+        assert judge.system_instruction is None
+
+        # Judgment prompt should have format suffix
+        prompt_without_system = judge._build_judgment_prompt({"text": "test"})
+        assert "JSON format only" in prompt_without_system
+        assert prompt_without_system.startswith("Rate: test")
