@@ -110,16 +110,16 @@ class JudgeConfig(BaseConfig):
     Example:
         [
             {
-                "question": "What is 2+2?",
-                "answer": "4",
-                "judgment": "Correct",
-                "explanation": "The answer is mathematically correct."
+                "question": "What is 2+2?",                      # placeholder value
+                "answer": "4",                                   # placeholder value
+                "judgment": "Correct",                           # output field value
+                "explanation": "It is mathematically correct."   # output field value
             },
             {
-                "question": "What is the capital of Mars?",
-                "answer": "New York",
-                "judgment": "Incorrect",
-                "explanation": "Mars does not have cities or capitals."
+                "question": "What is the capital of Mars?",      # placeholder value
+                "answer": "New York",                            # placeholder value
+                "judgment": "Incorrect",                         # output field value
+                "explanation": "Mars does not have capitals."    # output field value
             }
         ]
     """

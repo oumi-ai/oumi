@@ -39,30 +39,33 @@ JUDGMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free te
 
 # Prompt suffix: describing to the judge how to format its response (XML, JSON, or RAW).
 XML_SUFFIX = (
-    "\nProvide your response in XML format only. Include your judgment enclosed within "
-    "<{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not include "
-    "any text outside the XML. Ensure that all tags are properly closed and that the "
-    "XML is well-formed."
+    "\n\nProvide your response in XML format only. Include your judgment enclosed "
+    "within <{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not  "
+    "include any text outside the XML. Ensure that all tags are properly closed and "
+    "that the XML is well-formed."
 )
 XML_SUFFIX_WITH_EXPLANATION = (
-    "\nProvide your response in XML format only. Begin with an explanation justifying "
-    "your judgment, enclosed within <{explanation_key}> and </{explanation_key}> tags."
-    " Follow this with your judgment, enclosed within <{judgment_key}> and "
-    "</{judgment_key}> tags. {judgment_options}Do not include any text outside the "
-    "XML. Ensure that all tags are properly closed and that the XML is well-formed."
+    "\n\nProvide your response in XML format only. Begin with an explanation "
+    "justifying your judgment, enclosed within <{explanation_key}> and "
+    "</{explanation_key}> tags. Follow this with your judgment, enclosed within "
+    "<{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not include any "
+    "text outside the XML. Ensure that all tags are properly closed and that the XML "
+    "is well-formed."
 )
 JSON_SUFFIX = (
-    "\nProvide your response in JSON format only. Include your judgment as the value "
+    "\n\nProvide your response in JSON format only. Include your judgment as the value "
     "of a single key named '{judgment_key}'. {judgment_options}Do not include any "
     "text outside the JSON. Ensure the JSON is properly formatted and valid."
 )
 JSON_SUFFIX_WITH_EXPLANATION = (
-    "\nProvide your response in JSON format only. Begin with an explanation justifying "
-    "your judgment, using the key '{explanation_key}'. Then include your judgment "
-    "using the key '{judgment_key}'. {judgment_options}Do not include any text outside "
-    "the JSON. Ensure the JSON is properly formatted and valid."
+    "\n\nProvide your response in JSON format only. Begin with an explanation "
+    "justifying your judgment, using the key '{explanation_key}'. Then include your "
+    "judgment using the key '{judgment_key}'. {judgment_options}Do not include any "
+    "text outside the JSON. Ensure the JSON is properly formatted and valid."
 )
-RAW_SUFFIX_WITH_EXPLANATION = "\nExplain your reasoning before providing your judgment."
+RAW_SUFFIX_WITH_EXPLANATION = (
+    "\n\nExplain your reasoning before providing your judgment."
+)
 
 
 class SimpleJudge(BaseJudge):
