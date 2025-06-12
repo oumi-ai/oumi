@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="img/dcvlr-logo.png" alt="DCVLR Logo" width="400">
+  <img src="https://dcvlr-neurips.github.io/static/images/dcvlr-logo.png" alt="DCVLR Logo" width="400">
 </div>
 
 # DCVLR - Getting Under the Hood
