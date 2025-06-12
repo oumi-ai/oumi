@@ -1333,7 +1333,7 @@ def test_infer_from_file_to_file():
                 ),
                 remote_params=remote_params,
             )
-            result = engine.infer_online(
+            result = engine.infer(
                 [conversation1, conversation2],
                 inference_config,
             )
