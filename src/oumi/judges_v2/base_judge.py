@@ -90,18 +90,18 @@ class JudgeOutput(pydantic.BaseModel):
     Attributes:
         raw_output: The original unprocessed output from the judge
         parsed_output: Structured data (fields & their values) extracted from raw output
+        output_fields: List of expected output fields for this judge
         field_values: Typed values for each expected output field
         field_scores: Numeric scores for each expected output field (if applicable)
         response_format: Format used for generating output (XML, JSON, or RAW)
-        output_fields: List of expected output fields for this judge
     """
 
     raw_output: str
     parsed_output: dict[str, str] = {}
+    output_fields: Optional[list[JudgeOutputField]] = None
     field_values: dict[str, Optional[Union[float, int, str, bool]]] = {}
     field_scores: dict[str, Optional[float]] = {}
     response_format: Optional[JudgeResponseFormat] = None
-    output_fields: Optional[list[JudgeOutputField]] = None
 
     @classmethod
     def from_raw_output(
@@ -211,9 +211,9 @@ class JudgeOutput(pydantic.BaseModel):
                             if response_format/output_fields are not set, or if
                             response_format is not supported.
         """
-        if self.response_format is None:
+        if not self.response_format:
             raise ValueError("response_format must be set before generating output")
-        if self.output_fields is None:
+        if not self.output_fields:
             raise ValueError("output_fields must be set before generating output")
 
         # Extract required field keys from output_fields
@@ -338,10 +338,12 @@ class BaseJudge:
             for example_fields in self.example_field_values
         ]
 
-        # Build judgment prompts and full conversations for each input
+        # Build a judgment prompt for each dataset input
         judgment_prompts = [
             self._build_judgment_prompt(input_data) for input_data in inputs
         ]
+
+        # Create a conversation for each judgment prompt
         judge_conversations = [
             self._build_judge_conversation(
                 system_instruction=self.system_instruction,
@@ -359,9 +361,10 @@ class BaseJudge:
         judge_outputs = []
         for conversation in completed_conversations:
             self._validate_completed_conversation(conversation)
+
             raw_output = str(conversation.messages[-1].content)
-            parsed_output = self._transform_judge_output(raw_output)
-            judge_outputs.append(parsed_output)
+            judge_output = self._transform_judge_output(raw_output)
+            judge_outputs.append(judge_output)
 
         return judge_outputs
 
@@ -424,8 +427,9 @@ class BaseJudge:
         )
         return judge_output.generate_raw_output(field_values=field_values)
 
+    @classmethod
     def _build_judge_conversation(
-        self,
+        cls,
         system_instruction: Optional[str],
         example_user_prompts: list[str],
         example_assistant_responses: list[str],
@@ -459,7 +463,7 @@ class BaseJudge:
 
         messages = []
 
-        # Add system instruction if provided
+        # Add system instruction, if provided
         if system_instruction:
             messages.append(Message(content=system_instruction, role=Role.SYSTEM))
 

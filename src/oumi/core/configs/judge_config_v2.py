@@ -82,6 +82,9 @@ class JudgeConfig(BaseConfig):
     prompt_template: str
     """Template for the judge prompt with placeholders, such as {question}, {answer}."""
 
+    system_instruction: Optional[str] = field(default=None)
+    """Optional system message to guide judge behavior."""
+
     response_format: JudgeResponseFormat = field(default=JudgeResponseFormat.XML)
     """The format in which the judge should respond."""
 
@@ -96,6 +99,29 @@ class JudgeConfig(BaseConfig):
 
     Example:
         {"excellent": 1.0, "good": 0.7, "poor": 0.3}
+    """
+
+    examples: list[dict[str, str]] = field(default_factory=list)
+    """Few-shot examples for the judge as a list of field value dictionaries.
+
+    Each dictionary should contain values for all template placeholders and
+    expected output fields. Used to provide examples of how the judge should respond.
+
+    Example:
+        [
+            {
+                "question": "What is 2+2?",
+                "answer": "4",
+                "judgment": "Correct",
+                "explanation": "The answer is mathematically correct."
+            },
+            {
+                "question": "What is the capital of Mars?",
+                "answer": "New York",
+                "judgment": "Incorrect",
+                "explanation": "Mars does not have cities or capitals."
+            }
+        ]
     """
 
     def __post_init__(self):

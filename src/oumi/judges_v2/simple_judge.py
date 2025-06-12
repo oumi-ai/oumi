@@ -77,17 +77,23 @@ class SimpleJudge(BaseJudge):
         self._judge_config = judge_config
 
         # Create output fields based on judge configuration
-        output_fields = [self._create_judgment_output_field(judge_config)]
+        output_fields = []
         if judge_config.include_explanation:
             output_fields.append(self._create_explanation_output_field())
+        output_fields.append(self._create_judgment_output_field(judge_config))
 
         # Generate an inference engine from inference config
         inference_engine = self._create_inference_engine(inference_config)
 
+        # Append format suffix to system instruction if it exists
+        system_instruction = judge_config.system_instruction
+        if system_instruction:
+            system_instruction = f"{system_instruction}{self._get_format_suffix()}"
+
         super().__init__(
             prompt_template=judge_config.prompt_template,
-            system_instruction=None,  # FIXME: config.system_instruction,
-            example_field_values=[],  # FIXME: config.examples,
+            system_instruction=system_instruction,
+            example_field_values=judge_config.examples,
             response_format=judge_config.response_format,
             output_fields=output_fields,
             inference_engine=inference_engine,
@@ -98,10 +104,10 @@ class SimpleJudge(BaseJudge):
         """Generate judge prompts using the template."""
         prompt_content = super()._build_judgment_prompt(judge_input)
 
-        # FIXME: Ensure this goes to the system instruction, if there is one
-        # Append format-specific instructions to the prompt
-        if format_suffix := self._get_format_suffix():
-            prompt_content += format_suffix
+        # Only append format suffix to judgment prompt if no system instruction exists
+        # (otherwise it was already appended to system instruction in __init__)
+        if not self._judge_config.system_instruction:
+            prompt_content += self._get_format_suffix()
 
         return prompt_content
 
