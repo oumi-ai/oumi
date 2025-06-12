@@ -236,9 +236,9 @@ class JudgeOutput(pydantic.BaseModel):
         }
 
         if self.response_format == JudgeResponseFormat.XML:
-            return self.__class__._generate_xml_output(filtered_field_values)
+            return self._generate_xml_output(filtered_field_values)
         elif self.response_format == JudgeResponseFormat.JSON:
-            return self.__class__._generate_json_output(filtered_field_values)
+            return self._generate_json_output(filtered_field_values)
         elif self.response_format == JudgeResponseFormat.RAW:
             # For RAW format, concatenate values in the order of output_fields
             ordered_values = [
