@@ -6,7 +6,7 @@
 #   - Log into HF: `huggingface-cli login`
 #
 # Usage:
-#   oumi launch up -c oumi://configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
+#   oumi launch up -c configs/examples/letter_counting/grpo/gcp_job.yaml --cluster letter-counting-grpo
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -40,9 +40,10 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi distributed torchrun \
+  CUDA_VISIBLE_DEVICES=0 trl vllm-serve --model meta-llama/Llama-3.2-3B-Instruct --tensor-parallel-size 1 --data-parallel-size 1
+
+  CUDA_LAUNCH_BLOCKING=1 CUDA_VISIBLE_DEVICES=1,2,3 oumi distributed torchrun \
       -m oumi train \
-      -c oumi://configs/examples/letter_counting/grpo/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+      -c configs/examples/letter_counting/grpo/train.yaml --training.grpo.num_generations 3
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"

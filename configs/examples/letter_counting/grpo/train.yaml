@@ -46,8 +46,8 @@ training:
   compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:
-    num_generations: 4
-    use_vllm: False
+    num_generations: 3
+    use_vllm: True
     epsilon: 1e-4
 
   dataloader_num_workers: "auto"
