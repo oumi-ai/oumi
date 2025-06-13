@@ -39,30 +39,33 @@ JUDGMENT_OPTIONS_TEXT = "Your judgment should be provided in the form of free te
 
 # Prompt suffix: describing to the judge how to format its response (XML, JSON, or RAW).
 XML_SUFFIX = (
-    "\nProvide your response in XML format only. Include your judgment enclosed within "
-    "<{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not include "
-    "any text outside the XML. Ensure that all tags are properly closed and that the "
-    "XML is well-formed."
+    "\n\nProvide your response in XML format only. Include your judgment enclosed "
+    "within <{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not  "
+    "include any text outside the XML. Ensure that all tags are properly closed and "
+    "that the XML is well-formed."
 )
 XML_SUFFIX_WITH_EXPLANATION = (
-    "\nProvide your response in XML format only. Begin with an explanation justifying "
-    "your judgment, enclosed within <{explanation_key}> and </{explanation_key}> tags."
-    " Follow this with your judgment, enclosed within <{judgment_key}> and "
-    "</{judgment_key}> tags. {judgment_options}Do not include any text outside the "
-    "XML. Ensure that all tags are properly closed and that the XML is well-formed."
+    "\n\nProvide your response in XML format only. Begin with an explanation "
+    "justifying your judgment, enclosed within <{explanation_key}> and "
+    "</{explanation_key}> tags. Follow this with your judgment, enclosed within "
+    "<{judgment_key}> and </{judgment_key}> tags. {judgment_options}Do not include any "
+    "text outside the XML. Ensure that all tags are properly closed and that the XML "
+    "is well-formed."
 )
 JSON_SUFFIX = (
-    "\nProvide your response in JSON format only. Include your judgment as the value "
+    "\n\nProvide your response in JSON format only. Include your judgment as the value "
     "of a single key named '{judgment_key}'. {judgment_options}Do not include any "
     "text outside the JSON. Ensure the JSON is properly formatted and valid."
 )
 JSON_SUFFIX_WITH_EXPLANATION = (
-    "\nProvide your response in JSON format only. Begin with an explanation justifying "
-    "your judgment, using the key '{explanation_key}'. Then include your judgment "
-    "using the key '{judgment_key}'. {judgment_options}Do not include any text outside "
-    "the JSON. Ensure the JSON is properly formatted and valid."
+    "\n\nProvide your response in JSON format only. Begin with an explanation "
+    "justifying your judgment, using the key '{explanation_key}'. Then include your "
+    "judgment using the key '{judgment_key}'. {judgment_options}Do not include any "
+    "text outside the JSON. Ensure the JSON is properly formatted and valid."
 )
-RAW_SUFFIX_WITH_EXPLANATION = "\nExplain your reasoning before providing your judgment."
+RAW_SUFFIX_WITH_EXPLANATION = (
+    "\n\nExplain your reasoning before providing your judgment."
+)
 
 
 class SimpleJudge(BaseJudge):
@@ -77,15 +80,23 @@ class SimpleJudge(BaseJudge):
         self._judge_config = judge_config
 
         # Create output fields based on judge configuration
-        output_fields = [self._create_judgment_output_field(judge_config)]
+        output_fields = []
         if judge_config.include_explanation:
             output_fields.append(self._create_explanation_output_field())
+        output_fields.append(self._create_judgment_output_field(judge_config))
 
         # Generate an inference engine from inference config
         inference_engine = self._create_inference_engine(inference_config)
 
+        # Append format suffix to system instruction if it exists
+        system_instruction = judge_config.system_instruction
+        if system_instruction:
+            system_instruction = f"{system_instruction}{self._get_format_suffix()}"
+
         super().__init__(
             prompt_template=judge_config.prompt_template,
+            system_instruction=system_instruction,
+            example_field_values=judge_config.examples,
             response_format=judge_config.response_format,
             output_fields=output_fields,
             inference_engine=inference_engine,
@@ -96,9 +107,10 @@ class SimpleJudge(BaseJudge):
         """Generate judge prompts using the template."""
         prompt_content = super()._build_judgment_prompt(judge_input)
 
-        # Append format-specific instructions to the prompt
-        if format_suffix := self._get_format_suffix():
-            prompt_content += format_suffix
+        # Only append format suffix to judgment prompt if no system instruction exists
+        # (otherwise it was already appended to system instruction in __init__)
+        if not self._judge_config.system_instruction:
+            prompt_content += self._get_format_suffix()
 
         return prompt_content
 

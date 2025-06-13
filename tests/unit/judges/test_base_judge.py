@@ -308,6 +308,126 @@ class TestJudgeOutput:
         assert judge_output.field_values == {"judgment": None}
         assert judge_output.field_scores == {"judgment": None}
 
+    def test_generate_raw_output_xml(self):
+        output_fields = [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            ),
+            JudgeOutputField(
+                field_key="explanation",
+                field_type=JudgeOutputType.TEXT,
+                field_scores=None,
+            ),
+        ]
+
+        judge_output = JudgeOutput(
+            raw_output="",
+            response_format=JudgeResponseFormat.XML,
+            output_fields=output_fields,
+        )
+
+        field_values = {"judgment": "True", "explanation": "This is helpful"}
+        result = judge_output.generate_raw_output(field_values)
+
+        expected = (
+            "<judgment>True</judgment>\n<explanation>This is helpful</explanation>"
+        )
+        assert result == expected
+
+    def test_generate_raw_output_json(self):
+        output_fields = [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            )
+        ]
+
+        judge_output = JudgeOutput(
+            raw_output="",
+            response_format=JudgeResponseFormat.JSON,
+            output_fields=output_fields,
+        )
+
+        field_values = {"judgment": "True"}
+        result = judge_output.generate_raw_output(field_values)
+
+        expected = '{\n  "judgment": "True"\n}'
+        assert result == expected
+
+    def test_generate_raw_output_raw(self):
+        output_fields = [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            ),
+            JudgeOutputField(
+                field_key="explanation",
+                field_type=JudgeOutputType.TEXT,
+                field_scores=None,
+            ),
+        ]
+
+        judge_output = JudgeOutput(
+            raw_output="",
+            response_format=JudgeResponseFormat.RAW,
+            output_fields=output_fields,
+        )
+
+        field_values = {"judgment": "True", "explanation": "This is helpful"}
+        result = judge_output.generate_raw_output(field_values)
+
+        expected = "True\nThis is helpful"
+        assert result == expected
+
+    def test_generate_raw_output_missing_fields(self):
+        output_fields = [
+            JudgeOutputField(
+                field_key="judgment",
+                field_type=JudgeOutputType.BOOL,
+                field_scores=None,
+            ),
+            JudgeOutputField(
+                field_key="explanation",
+                field_type=JudgeOutputType.TEXT,
+                field_scores=None,
+            ),
+        ]
+
+        judge_output = JudgeOutput(
+            raw_output="",
+            response_format=JudgeResponseFormat.XML,
+            output_fields=output_fields,
+        )
+
+        field_values = {"judgment": "True"}  # Missing explanation
+
+        with pytest.raises(
+            ValueError, match="Missing values for required output fields"
+        ):
+            judge_output.generate_raw_output(field_values)
+
+    def test_generate_raw_output_no_format(self):
+        judge_output = JudgeOutput(raw_output="")
+
+        with pytest.raises(
+            ValueError, match="response_format must be set before generating output"
+        ):
+            judge_output.generate_raw_output({"judgment": "True"})
+
+    def test_generate_raw_output_no_fields(self):
+        judge_output = JudgeOutput(
+            raw_output="", response_format=JudgeResponseFormat.XML
+        )
+
+        with pytest.raises(
+            ValueError, match="output_fields must be set before generating output"
+        ):
+            judge_output.generate_raw_output({"judgment": "True"})
+
 
 class TestBaseJudge:
     """Test cases for the BaseJudge class."""
@@ -330,6 +450,8 @@ class TestBaseJudge:
     def base_judge(self, mock_inference_engine, sample_output_fields):
         return BaseJudge(
             prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            system_instruction=None,
+            example_field_values=[],
             response_format=JudgeResponseFormat.XML,
             output_fields=sample_output_fields,
             inference_engine=mock_inference_engine,
@@ -340,6 +462,8 @@ class TestBaseJudge:
             base_judge.prompt_template
             == "Is this helpful? Question: {question}, Answer: {answer}"
         )
+        assert base_judge.system_instruction is None
+        assert base_judge.example_field_values == []
         assert base_judge.response_format == JudgeResponseFormat.XML
         assert base_judge.output_fields == sample_output_fields
         assert base_judge.inference_engine == mock_inference_engine
@@ -364,13 +488,65 @@ class TestBaseJudge:
         expected = "Is this helpful? Question: What is 2+2?, Answer: 4"
         assert prompt == expected
 
-    def test_build_judge_conversation(self, base_judge):
-        prompt = "Test prompt"
-        conversation = base_judge._build_judge_conversation(prompt)
+    def test_build_judge_conversation_simple(self, base_judge):
+        conversation = base_judge._build_judge_conversation(
+            system_instruction=None,
+            example_user_prompts=[],
+            example_assistant_responses=[],
+            judgment_prompt="Test prompt",
+        )
 
         assert len(conversation.messages) == 1
-        assert conversation.messages[0].content == prompt
+        assert conversation.messages[0].content == "Test prompt"
         assert conversation.messages[0].role == Role.USER
+
+    def test_build_judge_conversation_with_system(self, base_judge):
+        conversation = base_judge._build_judge_conversation(
+            system_instruction="You are a helpful judge",
+            example_user_prompts=[],
+            example_assistant_responses=[],
+            judgment_prompt="Test prompt",
+        )
+
+        assert len(conversation.messages) == 2
+        assert conversation.messages[0].content == "You are a helpful judge"
+        assert conversation.messages[0].role == Role.SYSTEM
+        assert conversation.messages[1].content == "Test prompt"
+        assert conversation.messages[1].role == Role.USER
+
+    def test_build_judge_conversation_with_examples(self, base_judge):
+        conversation = base_judge._build_judge_conversation(
+            system_instruction=None,
+            example_user_prompts=["Example question?"],
+            example_assistant_responses=["<judgment>True</judgment>"],
+            judgment_prompt="Test prompt",
+        )
+
+        assert len(conversation.messages) == 3
+        assert conversation.messages[0].content == "Example question?"
+        assert conversation.messages[0].role == Role.USER
+        assert conversation.messages[1].content == "<judgment>True</judgment>"
+        assert conversation.messages[1].role == Role.ASSISTANT
+        assert conversation.messages[2].content == "Test prompt"
+        assert conversation.messages[2].role == Role.USER
+
+    def test_build_judge_conversation_mismatched_examples(self, base_judge):
+        with pytest.raises(
+            ValueError,
+            match=r"Number of prompts \(2\) must match number of responses \(1\)",
+        ):
+            base_judge._build_judge_conversation(
+                system_instruction=None,
+                example_user_prompts=["Example 1?", "Example 2?"],
+                example_assistant_responses=["<judgment>True</judgment>"],
+                judgment_prompt="Test prompt",
+            )
+
+    def test_build_assistant_response(self, base_judge):
+        field_values = {"judgment": "True"}
+        response = base_judge._build_assistant_response(field_values)
+        expected = "<judgment>True</judgment>"
+        assert response == expected
 
     def test_infer_preserves_metadata(self, base_judge, mock_inference_engine):
         # Setup input conversations with metadata
@@ -485,7 +661,5 @@ class TestBaseJudge:
         )
         mock_inference_engine.infer.return_value = [response_conv]
 
-        with pytest.raises(
-            ValueError, match="Expected conversation to have precisely 2 messages"
-        ):
+        with pytest.raises(ValueError, match="Expected 2 messages, got 1"):
             base_judge.judge(inputs)
