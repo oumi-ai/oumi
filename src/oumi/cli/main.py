@@ -24,6 +24,7 @@ from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
 from oumi.cli.judge import conversations, dataset, model
+from oumi.cli.judge_v2 import judge_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.train import train
@@ -72,6 +73,11 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
+    app.command(
+        name="judge_v2",
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Judge a JSONL file.",
+    )(judge_file)
 
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
