@@ -38,6 +38,7 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch"
   empty_device_cache_steps: 1
+  compile: False # Enabling compilation makes training slower overall
 
   grpo:
     use_vllm: True

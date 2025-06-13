@@ -46,8 +46,9 @@ training:
   compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
 
   grpo:
-    num_generations: 3
+    num_generations: 4
     use_vllm: True
+    vllm_gpu_memory_utilization: 0.5
     epsilon: 1e-4
 
   dataloader_num_workers: "auto"
@@ -58,3 +59,6 @@ training:
   # Cannot enable due to trl bug. See https://github.com/huggingface/trl/issues/3081.
   include_performance_metrics: False
   enable_wandb: True
+
+  trainer_kwargs:
+    vllm_mode: "colocate"
