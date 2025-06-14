@@ -273,6 +273,14 @@ class JudgeOutput(pydantic.BaseModel):
         """
         return json.dumps(field_values, indent=2)
 
+    def to_json(self) -> str:
+        """Convert the JudgeOutput to a JSON string.
+
+        Returns:
+            JSON string representation of the JudgeOutput data.
+        """
+        return json.dumps(self.model_dump())
+
 
 class BaseJudge:
     """Base class for implementing judges that evaluate model outputs.

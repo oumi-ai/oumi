@@ -13,16 +13,21 @@
 # limitations under the License.
 
 
+from pathlib import Path
+from typing import Optional, Union
+
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.judge_config_v2 import JudgeConfig
 from oumi.judges_v2.base_judge import JudgeOutput
 from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.utils.io_utils import load_jsonlines
 
 
 def judge_dataset(
     judge_config: JudgeConfig,
     inference_config: InferenceConfig,
     dataset: list[dict[str, str]],
+    output_file: Optional[Union[str, Path]] = None,
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
 
@@ -42,6 +47,8 @@ def judge_dataset(
         dataset: List of dictionaries containing input data for evaluation. Each
             dictionary should contain key-value pairs that match placeholders in
             the judge's prompt template (e.g., {'question': '...', 'answer': '...'}).
+        output_file: Optional path to save the judge results as a JSONL file.
+            If provided, the results will be saved to this file.
 
     Returns:
         List[JudgeOutput]: A list of structured judgment results, each containing:
@@ -67,4 +74,51 @@ def judge_dataset(
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
     judge = SimpleJudge(judge_config=judge_config, inference_config=inference_config)
-    return judge.judge(inputs=dataset)
+    judge_outputs = judge.judge(inputs=dataset)
+
+    # Save `judge_outputs` into a file, if an `output_file` was provided
+    if output_file:
+        with open(output_file, "w") as f:
+            for judge_output in judge_outputs:
+                f.write(judge_output.to_json() + "\n")
+
+    return judge_outputs
+
+
+def judge_file(
+    judge_config: JudgeConfig,
+    inference_config: InferenceConfig,
+    input_file: Union[str, Path],
+    output_file: Optional[Union[str, Path]] = None,
+) -> list[JudgeOutput]:
+    """Judge a dataset from a JSONL file using Oumi's Judge framework.
+
+    This is a convenience wrapper around judge_dataset. It loads the dataset from a
+        JSONL file and then calls judge_dataset to perform the evaluation.
+
+    Args:
+        judge_config: The configuration for the judge, including prompt template,
+            response format, and output field specifications.
+        inference_config: The configuration for inference, including model settings,
+            generation parameters, and engine type.
+        input_file: Path to the input JSONL file containing the dataset.
+        output_file: Optional path to save the judge results as a JSONL file.
+            If provided, the results will be saved to this file.
+
+    Returns:
+        List[JudgeOutput]: A list of structured judgment results, each containing:
+            - raw_output: The original response from the judge model
+            - parsed_output: Extracted field values from structured formats (XML/JSON)
+            - field_values: Typed values for each expected output field
+            - field_scores: Numeric scores for applicable fields
+
+    Raises:
+        FileNotFoundError: If the input file doesn't exist.
+    """
+    dataset = load_jsonlines(input_file)
+    return judge_dataset(
+        judge_config=judge_config,
+        inference_config=inference_config,
+        dataset=dataset,
+        output_file=output_file,
+    )

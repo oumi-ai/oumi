@@ -428,6 +428,59 @@ class TestJudgeOutput:
         ):
             judge_output.generate_raw_output({"judgment": "True"})
 
+    def test_to_json(self):
+        """Test converting JudgeOutput to JSON string."""
+        judge_output = JudgeOutput(
+            raw_output=(
+                "<judgment>True</judgment><explanation>This is helpful</explanation>"
+            ),
+            parsed_output={"judgment": "True", "explanation": "This is helpful"},
+            output_fields=[
+                JudgeOutputField(
+                    field_key="judgment",
+                    field_type=JudgeOutputType.BOOL,
+                    field_scores=None,
+                ),
+                JudgeOutputField(
+                    field_key="explanation",
+                    field_type=JudgeOutputType.TEXT,
+                    field_scores=None,
+                ),
+            ],
+            field_values={"judgment": True, "explanation": "This is helpful"},
+            field_scores={"judgment": 1.0, "explanation": None},
+            response_format=JudgeResponseFormat.XML,
+        )
+
+        # Test JSON conversion
+        json_output = judge_output.to_json()
+
+        # Parse and verify the JSON contains expected data
+        import json
+
+        parsed_output = json.loads(json_output)
+        assert parsed_output["raw_output"] == (
+            "<judgment>True</judgment><explanation>This is helpful</explanation>"
+        )
+        assert parsed_output["parsed_output"] == {
+            "judgment": "True",
+            "explanation": "This is helpful",
+        }
+
+        assert len(parsed_output["output_fields"]) == 2
+        assert parsed_output["output_fields"][0]["field_key"] == "judgment"
+        assert parsed_output["output_fields"][0]["field_type"] == "bool"
+        assert parsed_output["output_fields"][0]["field_scores"] is None
+        assert parsed_output["output_fields"][1]["field_key"] == "explanation"
+        assert parsed_output["output_fields"][1]["field_type"] == "text"
+        assert parsed_output["output_fields"][1]["field_scores"] is None
+
+        assert parsed_output["field_values"]["judgment"] is True
+        assert parsed_output["field_values"]["explanation"] == "This is helpful"
+        assert parsed_output["field_scores"]["judgment"] == 1.0
+        assert parsed_output["field_scores"]["explanation"] is None
+        assert parsed_output["response_format"] == "xml"
+
 
 class TestBaseJudge:
     """Test cases for the BaseJudge class."""
