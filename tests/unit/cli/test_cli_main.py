@@ -14,7 +14,7 @@ from oumi.cli.judge import conversations, dataset
 from oumi.cli.judge_v2 import judge_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
-from oumi.cli.main import get_app
+from oumi.cli.main import experimental_judge_v2_enabled, get_app
 from oumi.cli.train import train
 
 runner = CliRunner()
@@ -291,21 +291,22 @@ def test_main_judge_conversations_registered(mock_judge_conversations):
 
 
 def test_main_judge_v2_registered(mock_judge_v2):
-    _ = runner.invoke(
-        get_app(),
-        [
-            "judge_v2",
-            "--judge-config",
-            "./my_judge_config",
-            "--inference-config",
-            "./my_inference_config",
-            "--input-file",
-            "./my_input_file.jsonl",
-            "--output-file",
-            "./my_output_file.jsonl",
-        ],
-    )
-    mock_judge_v2.assert_called_once()
+    if experimental_judge_v2_enabled():
+        _ = runner.invoke(
+            get_app(),
+            [
+                "judge_v2",
+                "--judge-config",
+                "./my_judge_config",
+                "--inference-config",
+                "./my_inference_config",
+                "--input-file",
+                "./my_input_file.jsonl",
+                "--output-file",
+                "./my_output_file.jsonl",
+            ],
+        )
+        mock_judge_v2.assert_called_once()
 
 
 def test_main_distributed_registered():

@@ -61,7 +61,7 @@ def judge_file(
         Optional[str],
         typer.Option("--output-file", help="Path to the output file (jsonl)"),
     ] = None,
-    display_raw_output: bool = True,
+    display_raw_output: bool = False,
 ):
     """Judge a dataset."""
     # Delayed imports
