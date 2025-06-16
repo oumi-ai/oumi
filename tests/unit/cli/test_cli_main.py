@@ -296,7 +296,6 @@ def test_main_judge_v2_registered(mock_judge_v2):
             get_app(),
             [
                 "judge-v2",
-                "dataset",
                 "--judge-config",
                 "./my_judge_config",
                 "--inference-config",

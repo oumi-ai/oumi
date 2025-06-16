@@ -123,8 +123,3 @@ def judge_file(
         cli_utils.CONSOLE.print(table)
     else:
         typer.echo(f"Results saved to {output_file}")
-
-
-def list_builtin_judges():
-    """List all available built-in judges."""
-    raise NotImplementedError("This command is not implemented yet.")
