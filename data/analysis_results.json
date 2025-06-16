@@ -1,0 +1,163 @@
+{
+  "languages": {
+    "en": 8,
+    "es": 1,
+    "fr": 1
+  },
+  "length_stats": {
+    "characters": {
+      "min": 26,
+      "max": 437,
+      "total": 1467,
+      "avg": 146.7
+    },
+    "words": {
+      "min": 6,
+      "max": 79,
+      "total": 255,
+      "avg": 25.5
+    },
+    "sentences": {
+      "min": 2,
+      "max": 8,
+      "total": 39,
+      "avg": 3.9
+    }
+  },
+  "safety_issues": {
+    "curse_words": 2,
+    "hate_speech": 3
+  },
+  "samples": [
+    {
+      "text": "This is a sample English text for testing the analyze command. It contains multiple sentences. We can use it to test language detection and length metrics.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 155,
+        "words": 26,
+        "sentences": 4
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "Este es un texto de ejemplo en espa\u00f1ol. Podemos usarlo para probar la detecci\u00f3n de idiomas.",
+      "language": "es",
+      "length_metrics": {
+        "characters": 91,
+        "words": 16,
+        "sentences": 3
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "This is a very short text.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 26,
+        "words": 6,
+        "sentences": 2
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "This is a text with some curse words like fuck and shit. We need to detect these for safety checks.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 99,
+        "words": 20,
+        "sentences": 3
+      },
+      "safety_issues": {
+        "curse_words": 2,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "This is a very long text that goes on and on. It contains multiple sentences and should help us test the length metrics. We want to make sure it's long enough to be meaningful. The text continues with more content to ensure we have enough words and characters. This will help us test the maximum length detection. We're adding more sentences to make it substantial. The goal is to have a good distribution of lengths in our test dataset.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 437,
+        "words": 79,
+        "sentences": 8
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "This is a text about machine learning and artificial intelligence. It discusses neural networks and deep learning concepts. We can use this to test similarity matching with other ML-related content.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 198,
+        "words": 30,
+        "sentences": 4
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "Bonjour! Ceci est un texte en fran\u00e7ais pour tester la d\u00e9tection de langue.",
+      "language": "fr",
+      "length_metrics": {
+        "characters": 74,
+        "words": 13,
+        "sentences": 3
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "This is a text with some hate speech content. It contains words like hate and stupid. We need to detect these for safety checks.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 128,
+        "words": 24,
+        "sentences": 4
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 3
+      }
+    },
+    {
+      "text": "This is a neutral text about programming. It discusses Python and JavaScript. The content is clean and professional.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 116,
+        "words": 18,
+        "sentences": 4
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    },
+    {
+      "text": "This is another text about machine learning. It talks about transformers and attention mechanisms. This should be similar to our other ML text.",
+      "language": "en",
+      "length_metrics": {
+        "characters": 143,
+        "words": 23,
+        "sentences": 4
+      },
+      "safety_issues": {
+        "curse_words": 0,
+        "hate_speech": 0
+      }
+    }
+  ]
+}
