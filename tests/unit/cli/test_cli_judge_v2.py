@@ -37,7 +37,7 @@ def mock_judge_file():
 @pytest.fixture
 def mock_load_configs():
     with (
-        patch("oumi.cli.judge_v2._resolve_judge_config") as m_rjc,
+        patch("oumi.judge_v2.SimpleJudge.resolve_judge_config_path") as m_rjc,
         patch("oumi.cli.judge_v2._load_inference_config") as m_lic,
     ):
         yield m_rjc, m_lic

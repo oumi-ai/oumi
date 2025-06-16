@@ -586,7 +586,9 @@ class TestSimpleJudge:
         mock_engine = Mock()
         mock_create_engine.return_value = mock_engine
 
-        with pytest.raises(ValueError, match="Unknown built-in judge: 'unknown_judge'"):
+        with pytest.raises(
+            ValueError, match="Could not resolve JudgeConfig from path: unknown_judge"
+        ):
             SimpleJudge(
                 judge_config="unknown_judge",
                 inference_config=mock_inference_config,

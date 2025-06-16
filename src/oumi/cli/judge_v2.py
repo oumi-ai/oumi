@@ -13,47 +13,16 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional, Union
+from typing import TYPE_CHECKING, Annotated, Optional
 
 import typer
 from rich.table import Table
 
 from oumi.cli import cli_utils
+from oumi.judge_v2 import SimpleJudge
 
 if TYPE_CHECKING:
     from oumi.core.configs import InferenceConfig
-    from oumi.core.configs.judge_config_v2 import JudgeConfig
-
-
-def _resolve_judge_config(
-    config: str, extra_args: list[str]
-) -> Union["JudgeConfig", str]:
-    """Resolve judge config from either a file path or built-in judge name.
-
-    Args:
-        config: Either a file path to a YAML config or a built-in judge name
-        extra_args: Additional CLI arguments for config override
-
-    Returns:
-        JudgeConfig object if file path provided, or string if built-in judge name
-    """
-    from oumi.core.configs.judge_config_v2 import JudgeConfig
-    from oumi.judges_v2.builtin_simple_judges.registry import BuiltinJudgeRegistry
-
-    # Check if it's a built-in judge name
-    if BuiltinJudgeRegistry.get_config(config) is not None:
-        # It's a built-in judge, return the string name (SimpleJudge will resolve it)
-        return config
-
-    # Check if it's a file path
-    if Path(config).exists():
-        return JudgeConfig.from_yaml_and_arg_list(config, extra_args)
-
-    # Neither built-in nor existing file
-    typer.echo(f"Error: '{config}' is not a built-in judge or an existing config file.")
-    typer.echo("To see all available built-in judges, run: `oumi judge-v2 list-judges`")
-    typer.echo("Please provide a built-in judge name or a path to a valid config file.")
-    raise typer.Exit(code=1)
 
 
 def _load_inference_config(config: str, extra_args: list[str]) -> "InferenceConfig":
@@ -97,7 +66,9 @@ def judge_file(
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     # Resolve judge config (could be built-in or file path)
-    judge_config_obj = _resolve_judge_config(judge_config, extra_args)
+    judge_config_obj = SimpleJudge.resolve_judge_config_path(
+        judge_config_path=judge_config, extra_args=extra_args
+    )
 
     # Load inference config from file
     inference_config_path = str(
@@ -156,37 +127,4 @@ def judge_file(
 
 def list_builtin_judges():
     """List all available built-in judges."""
-    from oumi.judges_v2.builtin_simple_judges.registry import BuiltinJudgeRegistry
-
-    available_judges = BuiltinJudgeRegistry.list_available_judges()
-
-    if not available_judges:
-        typer.echo("No built-in judges available.")
-        return
-
-    table = Table(
-        title="Available Judges",
-        title_style="bold magenta",
-        show_edge=False,
-        show_lines=True,
-    )
-    table.add_column("Category", style="cyan")
-    table.add_column("Judges", style="green")
-
-    for category, judges in available_judges.items():
-        judges_str = ", ".join(judges)
-        table.add_row(category, judges_str)
-
-    cli_utils.CONSOLE.print(table)
-
-    typer.echo("\n\nUsage examples:\n")
-    typer.echo("  # Use a built-in judge:")
-    typer.echo("  oumi judge-v2 dataset \\")
-    typer.echo("    --judge-config qa/relevance \\")
-    typer.echo("    --inference-config inference_config.yaml \\")
-    typer.echo("    --input-file input_data.jsonl\n")
-    typer.echo("  # Use a custom judge config:")
-    typer.echo("  oumi judge-v2 dataset \\")
-    typer.echo("    --judge-config judge_config.yaml \\")
-    typer.echo("    --inference-config inference_config.yaml \\")
-    typer.echo("    --input-file input_data.jsonl\n ")
+    raise NotImplementedError("This command is not implemented yet.")

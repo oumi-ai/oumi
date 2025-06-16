@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
+from pathlib import Path
+from typing import Optional, Union
 
 from typing_extensions import override
 
+from oumi.cli import cli_utils
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.judge_config_v2 import (
     JudgeConfig,
@@ -27,7 +29,6 @@ from oumi.judges_v2.base_judge import (
     BaseJudge,
     JudgeOutputField,
 )
-from oumi.judges_v2.builtin_simple_judges.registry import BuiltinJudgeRegistry
 
 # Expected field/key names in the judge's output.
 EXPLANATION_KEY = "explanation"
@@ -85,17 +86,8 @@ class SimpleJudge(BaseJudge):
             judge_config: JudgeConfig object or a string name of a built-in judge
             inference_config: Configuration for the inference engine
         """
-        # Resolve judge_config if it's a string
         if isinstance(judge_config, str):
-            builtin_config = BuiltinJudgeRegistry.get_config(judge_config)
-            if builtin_config is None:
-                available_judges = BuiltinJudgeRegistry.list_available_judges()
-                raise ValueError(
-                    f"Unknown built-in judge: '{judge_config}'. "
-                    f"Available judges: {available_judges}"
-                )
-            judge_config = builtin_config
-
+            judge_config = self.resolve_judge_config_path(judge_config)
         self._judge_config = judge_config
 
         # Create output fields based on judge configuration
@@ -214,4 +206,41 @@ class SimpleJudge(BaseJudge):
             model_params=inference_config.model,
             remote_params=inference_config.remote_params,
             generation_params=inference_config.generation,
+        )
+
+    @classmethod
+    def resolve_judge_config_path(
+        cls, judge_config_path: str, extra_args: Optional[list[str]] = None
+    ) -> JudgeConfig:
+        """Resolve the JudgeConfig from a string or return the existing one."""
+
+        def _resolve_path(unresolved_path: str) -> Optional[str]:
+            resolved_path = str(
+                cli_utils.resolve_and_fetch_config(
+                    unresolved_path,
+                )
+            )
+            return resolved_path if Path(resolved_path).exists() else None
+
+        if extra_args is None:
+            extra_args = []
+
+        # If judge_config is a local or repo path, load JudgeConfig obj from that path.
+        # Example: "configs/projects/judges/qa/relevance.yaml"
+        resolved_path = _resolve_path(judge_config_path)
+        if resolved_path:
+            return JudgeConfig.from_yaml_and_arg_list(resolved_path, extra_args)
+
+        # If judge_config is a built-in judge name, construct the path from the default
+        # repo location and load the corresponding JudgeConfig.
+        # Example: "qa/relevance" => "configs/projects/judges/qa/relevance.yaml"
+        resolved_path = _resolve_path(
+            f"configs/projects/judges/{judge_config_path}.yaml"
+        )
+        if resolved_path:
+            return JudgeConfig.from_yaml_and_arg_list(resolved_path, extra_args)
+
+        raise ValueError(
+            f"Could not resolve JudgeConfig from path: {judge_config_path}. "
+            "Please provide a valid local or GitHub repo path."
         )
