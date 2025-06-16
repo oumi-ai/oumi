@@ -19,7 +19,6 @@ import typer
 from rich.table import Table
 
 from oumi.cli import cli_utils
-from oumi.judge_v2 import SimpleJudge
 
 if TYPE_CHECKING:
     from oumi.core.configs import InferenceConfig
@@ -66,7 +65,7 @@ def judge_file(
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
     # Resolve judge config (could be built-in or file path)
-    judge_config_obj = SimpleJudge.resolve_judge_config_path(
+    judge_config_obj = judge_v2.SimpleJudge.resolve_judge_config_path(
         judge_config_path=judge_config, extra_args=extra_args
     )
 
