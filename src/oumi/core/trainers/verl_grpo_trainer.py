@@ -359,6 +359,11 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = str(self._temp_output_dir or "")
+        if training_params.resume_from_checkpoint:
+            config.resume_mode = "resume_path"
+            config.resume_from_path = training_params.resume_from_checkpoint
+        elif training_params.try_resume_from_last_checkpoint:
+            config.resume_mode = "auto"
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
@@ -434,15 +439,8 @@ class VerlGrpoTrainer(BaseTrainer):
             val_reward_fn=val_reward_fn,
         )
 
-    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
-        """Trains the model using verl's RayPPOTrainer.
-
-        Args:
-            resume_from_checkpoint: Optional path to a checkpoint to resume from.
-        """
-        if resume_from_checkpoint:
-            raise NotImplementedError("Resuming from checkpoint is not implemented.")
-
+    def train(self) -> None:
+        """Trains the model using verl's RayPPOTrainer."""
         logger.info("Initializing verl trainer workers...")
         self._verl_trainer.init_workers()
         logger.info("Starting verl training...")

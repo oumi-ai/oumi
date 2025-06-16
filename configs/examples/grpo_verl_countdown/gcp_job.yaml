@@ -33,8 +33,9 @@ envs:
 
 setup: |
   set -e
-  pip install uv && uv pip install oumi[gpu]
-  pip install -U flash-attn --no-build-isolation
+  pip install uv && uv pip install -e '.[gpu]'
+  # 2.8.0.post2 has installation issues.
+  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.

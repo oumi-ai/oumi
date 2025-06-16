@@ -28,7 +28,7 @@ data:
 training:
   trainer_type: "VERL_GRPO"
   num_train_epochs: 1
-  save_steps: -1
+  save_steps: 1
   eval_strategy: "steps"
   eval_steps: 50
 
@@ -74,5 +74,6 @@ training:
       n_gpus_per_node: 2
       nnodes: 1
 
+  resume_from_checkpoint: "output/grpo_verl_countdown/verl_output/global_step_1"
   output_dir: "output/grpo_verl_countdown"
   enable_wandb: True
