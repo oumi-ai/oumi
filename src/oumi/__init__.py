@@ -243,7 +243,7 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
 
 
 def judge_v2_dataset(
-    judge_config: JudgeConfigV2,
+    judge_config: JudgeConfigV2 | str,
     inference_config: InferenceConfig,
     dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
@@ -258,8 +258,8 @@ def judge_v2_dataset(
         3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        judge_config: The configuration for the judge, including prompt template,
-            response format, and output field specifications.
+        judge_config: JudgeConfig object or string name of a built-in judge config;
+            includes prompt template, response format, and output field specifications.
         inference_config: The configuration for inference, including model settings,
             generation parameters, and engine type.
         dataset: List of dictionaries containing input data for evaluation. Each

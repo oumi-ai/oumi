@@ -24,7 +24,7 @@ from oumi.utils.io_utils import load_jsonlines
 
 
 def judge_dataset(
-    judge_config: JudgeConfig,
+    judge_config: Union[JudgeConfig, str],
     inference_config: InferenceConfig,
     dataset: list[dict[str, str]],
     output_file: Optional[Union[str, Path]] = None,
@@ -40,8 +40,8 @@ def judge_dataset(
         3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        judge_config: The configuration for the judge, including prompt template,
-            response format, and output field specifications.
+        judge_config: JudgeConfig object or string name of a built-in judge config;
+            includes prompt template, response format, and output field specifications.
         inference_config: The configuration for inference, including model settings,
             generation parameters, and engine type.
         dataset: List of dictionaries containing input data for evaluation. Each
@@ -86,7 +86,7 @@ def judge_dataset(
 
 
 def judge_file(
-    judge_config: JudgeConfig,
+    judge_config: Union[JudgeConfig, str],
     inference_config: InferenceConfig,
     input_file: Union[str, Path],
     output_file: Optional[Union[str, Path]] = None,
@@ -97,8 +97,8 @@ def judge_file(
         JSONL file and then calls judge_dataset to perform the evaluation.
 
     Args:
-        judge_config: The configuration for the judge, including prompt template,
-            response format, and output field specifications.
+        judge_config: JudgeConfig object or string name of a built-in judge config;
+            includes prompt template, response format, and output field specifications.
         inference_config: The configuration for inference, including model settings,
             generation parameters, and engine type.
         input_file: Path to the input JSONL file containing the dataset.

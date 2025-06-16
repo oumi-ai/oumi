@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Union
+
 from typing_extensions import override
 
 from oumi.core.configs.inference_config import InferenceConfig
@@ -25,6 +27,7 @@ from oumi.judges_v2.base_judge import (
     BaseJudge,
     JudgeOutputField,
 )
+from oumi.judges_v2.builtin_simple_judges.registry import BuiltinJudgeRegistry
 
 # Expected field/key names in the judge's output.
 EXPLANATION_KEY = "explanation"
@@ -73,10 +76,26 @@ class SimpleJudge(BaseJudge):
 
     def __init__(
         self,
-        judge_config: JudgeConfig,
+        judge_config: Union[JudgeConfig, str],
         inference_config: InferenceConfig,
     ):
-        """Initialize the Judge."""
+        """Initialize the Judge.
+
+        Args:
+            judge_config: JudgeConfig object or a string name of a built-in judge
+            inference_config: Configuration for the inference engine
+        """
+        # Resolve judge_config if it's a string
+        if isinstance(judge_config, str):
+            builtin_config = BuiltinJudgeRegistry.get_config(judge_config)
+            if builtin_config is None:
+                available_judges = BuiltinJudgeRegistry.list_available_judges()
+                raise ValueError(
+                    f"Unknown built-in judge: '{judge_config}'. "
+                    f"Available judges: {available_judges}"
+                )
+            judge_config = builtin_config
+
         self._judge_config = judge_config
 
         # Create output fields based on judge configuration

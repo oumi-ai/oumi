@@ -295,7 +295,8 @@ def test_main_judge_v2_registered(mock_judge_v2):
         _ = runner.invoke(
             get_app(),
             [
-                "judge_v2",
+                "judge-v2",
+                "dataset",
                 "--judge-config",
                 "./my_judge_config",
                 "--inference-config",

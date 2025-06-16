@@ -558,3 +558,36 @@ class TestSimpleJudge:
         prompt_without_system = judge._build_judgment_prompt({"text": "test"})
         assert "JSON format only" in prompt_without_system
         assert prompt_without_system.startswith("Rate: test")
+
+    @patch("oumi.judges_v2.simple_judge.SimpleJudge._create_inference_engine")
+    def test_init_with_builtin_judge_string(
+        self, mock_create_engine, mock_inference_config
+    ):
+        """Test initialization with a built-in judge string."""
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+
+        judge = SimpleJudge(
+            judge_config="qa/relevance",
+            inference_config=mock_inference_config,
+        )
+
+        # Should resolve to the built-in config
+        assert judge._judge_config is not None
+        assert judge._judge_config.judgment_type == JudgeOutputType.BOOL
+        assert judge._judge_config.include_explanation is True
+        assert judge._judge_config.response_format == JudgeResponseFormat.JSON
+
+    @patch("oumi.judges_v2.simple_judge.SimpleJudge._create_inference_engine")
+    def test_init_with_unknown_builtin_judge_string(
+        self, mock_create_engine, mock_inference_config
+    ):
+        """Test initialization with an unknown built-in judge string raises error."""
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+
+        with pytest.raises(ValueError, match="Unknown built-in judge: 'unknown_judge'"):
+            SimpleJudge(
+                judge_config="unknown_judge",
+                inference_config=mock_inference_config,
+            )
