@@ -59,15 +59,14 @@ def judge_file(
     """Judge a dataset."""
     # Delayed imports
     from oumi import judge_v2
+    from oumi.core.configs.judge_config_v2 import JudgeConfig
     # End imports
 
     # Load configs
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-    # Resolve judge config (could be built-in or file path)
-    judge_config_obj = judge_v2.SimpleJudge.resolve_judge_config_path(
-        judge_config_path=judge_config, extra_args=extra_args
-    )
+    # Resolve judge config
+    judge_config_obj = JudgeConfig.from_path(path=judge_config, extra_args=extra_args)
 
     # Load inference config from file
     inference_config_path = str(

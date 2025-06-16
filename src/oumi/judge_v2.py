@@ -40,7 +40,7 @@ def judge_dataset(
         3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        judge_config: JudgeConfig object or string name of a built-in judge config;
+        judge_config: JudgeConfig object or path to a judge config;
             includes prompt template, response format, and output field specifications.
         inference_config: The configuration for inference, including model settings,
             generation parameters, and engine type.
@@ -97,7 +97,7 @@ def judge_file(
         JSONL file and then calls judge_dataset to perform the evaluation.
 
     Args:
-        judge_config: JudgeConfig object or string name of a built-in judge config;
+        judge_config: JudgeConfig object or path to a judge config;
             includes prompt template, response format, and output field specifications.
         inference_config: The configuration for inference, including model settings,
             generation parameters, and engine type.
