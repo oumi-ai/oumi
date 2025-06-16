@@ -103,10 +103,10 @@ Oumi provides CLI tools to help you analyze and curate your datasets for quality
 The `oumi analyze` command computes statistics and quality metrics for your dataset, including language distribution, length statistics, and safety issues (e.g., curse words, hate speech).
 
 ```sh
-oumi analyze data/my_dataset.jsonl --output-file data/analysis_results.json
+oumi analyze data/test_dataset.jsonl --output-file data/analysis_results.json
 ```
 
-- `data/my_dataset.jsonl`: Path to your input dataset in JSONL format (one JSON object per line, with a `text` field).
+- `data/test_dataset.jsonl`: Path to your input dataset in JSONL format (one JSON object per line, with a `text` field).
 - `--output-file`: Path to save the analysis results (JSON).
 
 #### Curate a Dataset
