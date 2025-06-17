@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import warnings
-from typing import Optional
+from typing import Optional, cast
 
 import PIL.Image
 import torch
@@ -57,7 +57,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
-        self._model = build_model(self._model_params)
+        self._model = cast(
+            transformers.PreTrainedModel, build_model(self._model_params)
+        )
+        if (
+            not hasattr(self._model, "generation_config")
+            or self._model.generation_config is None
+        ):
+            raise ValueError(
+                f"Model {self._model_params.model_name} requires a generation config."
+            )
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
 
@@ -310,8 +319,12 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             disable=disable_tgdm,
         ):
             batch = input_batches[batch_index]
-            output_batch = self._model.generate(
-                **batch, generation_config=generation_config, tokenizer=self._tokenizer
+            output_batch: torch.LongTensor = self._model.generate(
+                # TODO: OPE-1328 - Fix type.
+                # type(batch) == BatchEncoding, but function expects a tensor.
+                **batch,  # type: ignore
+                generation_config=generation_config,
+                tokenizer=self._tokenizer,
             )
 
             # For each batch, remove the prepended prompts from all model responses.

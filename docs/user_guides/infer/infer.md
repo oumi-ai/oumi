@@ -223,7 +223,7 @@ oumi infer -c infer_config.yaml -i --image="https://oumi.ai/the_great_wave_off_k
 ### Distributed Inference
 
 For large-scale inference across multiple GPUs or machines, see the following tutorial
-for inference with Llama 3.3 70B on {gh}`<GitHub> notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
+for inference with Llama 3.3 70B on {gh}`notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
 
 ## Next Steps
 
