@@ -354,10 +354,10 @@ class VerlGrpoTrainer(BaseTrainer):
         # Specific checkpoint to resume from takes precedence over starting
         # from last checkpoint.
         if training_params.resume_from_checkpoint:
-            config.resume_mode = "resume_path"
-            config.resume_from_path = training_params.resume_from_checkpoint
+            config.trainer.resume_mode = "resume_path"
+            config.trainer.resume_from_path = training_params.resume_from_checkpoint
         elif training_params.try_resume_from_last_checkpoint:
-            config.resume_mode = "auto"
+            config.trainer.resume_mode = "auto"
 
         config.trainer.logger = []
         if training_params.logging_strategy != "no":
