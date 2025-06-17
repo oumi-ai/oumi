@@ -18,6 +18,7 @@ import json
 import os
 import tempfile
 import urllib.parse
+import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -655,6 +656,51 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    def infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._infer_online(input, inference_config)
+
+    def infer_from_file(
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference on inputs in the provided file.
+
+        This is a convenience method to prevent boilerplate from asserting the existence
+        of input_filepath in the generation_params.
+
+        Args:
+            input_filepath: Path to the input file containing prompts for generation.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._infer_from_file(input_filepath, inference_config)
 
     #
     # Batch inference

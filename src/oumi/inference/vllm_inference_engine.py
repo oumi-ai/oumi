@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import copy
 import math
+import warnings
 
 import torch
 from typing_extensions import override
@@ -302,6 +303,52 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 inference_config.output_path,
             )
         return output_conversations
+
+    def infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._infer_online(input, inference_config)
+
+    def infer_from_file(
+        self,
+        input_filepath: str,
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        """Runs model inference on inputs in the provided file.
+
+        This is a convenience method to prevent boilerplate from asserting the
+        existence of input_filepath in the generation_params.
+
+        Args:
+            input_filepath: Path to the input file containing prompts for
+                generation.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._infer_from_file(input_filepath, inference_config)
 
     @override
     def _infer_online(
