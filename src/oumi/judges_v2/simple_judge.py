@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
-
 from typing_extensions import override
 
 from oumi.core.configs.inference_config import InferenceConfig
@@ -75,17 +73,10 @@ class SimpleJudge(BaseJudge):
 
     def __init__(
         self,
-        judge_config: Union[JudgeConfig, str],
+        judge_config: JudgeConfig,
         inference_config: InferenceConfig,
     ):
-        """Initialize the Judge.
-
-        Args:
-            judge_config: JudgeConfig object or a string name of a built-in judge
-            inference_config: Configuration for the inference engine
-        """
-        if isinstance(judge_config, str):
-            judge_config = JudgeConfig.from_path(judge_config)
+        """Initialize the Judge."""
         self._judge_config = judge_config
 
         # Create output fields based on judge configuration

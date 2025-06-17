@@ -37,10 +37,10 @@ def mock_judge_file():
 @pytest.fixture
 def mock_load_configs():
     with (
-        patch("oumi.core.configs.judge_config_v2.JudgeConfig.from_path") as m_rjc,
+        patch("oumi.cli.judge_v2._load_judge_config") as m_ljc,
         patch("oumi.cli.judge_v2._load_inference_config") as m_lic,
     ):
-        yield m_rjc, m_lic
+        yield m_ljc, m_lic
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def test_judge_file(
     input_file = "input.jsonl"
 
     mock_judge_file.return_value = [sample_judge_output]
-    mock_judge_config_from_path, mock_load_inference_config = mock_load_configs
+    mock_load_judge_config, mock_load_inference_config = mock_load_configs
 
     with patch("oumi.cli.judge_v2.Path") as mock_path:
         mock_path.return_value.exists.return_value = True
@@ -79,12 +79,12 @@ def test_judge_file(
         )
 
         assert result.exit_code == 0
-        mock_fetch_config.assert_has_calls([call(inference_config)])
-        mock_judge_config_from_path.assert_called_once()
+        mock_fetch_config.assert_has_calls([call(judge_config), call(inference_config)])
+        mock_load_judge_config.assert_called_once()
         mock_load_inference_config.assert_called_once()
 
         mock_judge_file.assert_called_once_with(
-            judge_config=mock_judge_config_from_path.return_value,
+            judge_config=mock_load_judge_config.return_value,
             inference_config=mock_load_inference_config.return_value,
             input_file=input_file,
             output_file=None,
@@ -102,7 +102,7 @@ def test_judge_file_with_output_file(
         output_file = str(Path(temp_dir) / "output.jsonl")
 
         mock_judge_file.return_value = [sample_judge_output]
-        mock_judge_config_from_path, mock_load_inference_config = mock_load_configs
+        mock_load_judge_config, mock_load_inference_config = mock_load_configs
 
         with patch("oumi.cli.judge_v2.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
@@ -121,12 +121,14 @@ def test_judge_file_with_output_file(
             )
 
             assert result.exit_code == 0
-            mock_fetch_config.assert_has_calls([call(inference_config)])
-            mock_judge_config_from_path.assert_called_once()
+            mock_fetch_config.assert_has_calls(
+                [call(judge_config), call(inference_config)]
+            )
+            mock_load_judge_config.assert_called_once()
             mock_load_inference_config.assert_called_once()
 
             mock_judge_file.assert_called_once_with(
-                judge_config=mock_judge_config_from_path.return_value,
+                judge_config=mock_load_judge_config.return_value,
                 inference_config=mock_load_inference_config.return_value,
                 input_file=input_file,
                 output_file=output_file,
