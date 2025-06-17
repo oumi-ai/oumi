@@ -22,17 +22,6 @@ from oumi.cli import cli_utils
 
 if TYPE_CHECKING:
     from oumi.core.configs import InferenceConfig
-    from oumi.core.configs.judge_config_v2 import JudgeConfig
-
-
-def _load_judge_config(config: str, extra_args: list[str]) -> "JudgeConfig":
-    from oumi.core.configs.judge_config_v2 import JudgeConfig
-
-    if not Path(config).exists():
-        typer.echo(f"Config file not found: '{config}'")
-        raise typer.Exit(code=1)
-
-    return JudgeConfig.from_yaml_and_arg_list(config, extra_args)
 
 
 def _load_inference_config(config: str, extra_args: list[str]) -> "InferenceConfig":
@@ -48,7 +37,11 @@ def _load_inference_config(config: str, extra_args: list[str]) -> "InferenceConf
 def judge_file(
     ctx: typer.Context,
     judge_config: Annotated[
-        str, typer.Option("--judge-config", help="Path to the judge config file")
+        str,
+        typer.Option(
+            "--judge-config",
+            help="Path to the judge config file or built-in judge name",
+        ),
     ],
     inference_config: Annotated[
         str,
@@ -66,23 +59,21 @@ def judge_file(
     """Judge a dataset."""
     # Delayed imports
     from oumi import judge_v2
+    from oumi.core.configs.judge_config_v2 import JudgeConfig
     # End imports
 
     # Load configs
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-    judge_config_path = str(
-        cli_utils.resolve_and_fetch_config(
-            judge_config,
-        )
-    )
+    # Resolve judge config
+    judge_config_obj = JudgeConfig.from_path(path=judge_config, extra_args=extra_args)
+
+    # Load inference config from file
     inference_config_path = str(
         cli_utils.resolve_and_fetch_config(
             inference_config,
         )
     )
-
-    judge_config_obj = _load_judge_config(judge_config_path, extra_args)
     inference_config_obj = _load_inference_config(inference_config_path, extra_args)
 
     # Ensure the dataset input file exists

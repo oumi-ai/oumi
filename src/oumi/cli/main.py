@@ -82,9 +82,9 @@ def get_app() -> typer.Typer:
 
     if experimental_judge_v2_enabled():
         app.command(
-            name="judge_v2",
+            name="judge-v2",
             context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-            help="Judge a JSONL file.",
+            help="Judge a dataset.",
         )(judge_file)
 
     judge_app = typer.Typer(pretty_exceptions_enable=False)

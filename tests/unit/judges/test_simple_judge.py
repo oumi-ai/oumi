@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -558,3 +560,48 @@ class TestSimpleJudge:
         prompt_without_system = judge._build_judgment_prompt({"text": "test"})
         assert "JSON format only" in prompt_without_system
         assert prompt_without_system.startswith("Rate: test")
+
+    @patch("oumi.judges_v2.simple_judge.SimpleJudge._create_inference_engine")
+    def test_init_with_judge_config_path(
+        self, mock_create_engine, mock_inference_config
+    ):
+        """Test initialization with a built-in judge string."""
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+
+        yaml_judge_config = """
+prompt_template: "Is the following Q&A correct? Question: {question} Answer: {answer}"
+response_format: JSON
+judgment_type: BOOL
+include_explanation: False
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            judge_config_path = str(Path(temp_dir) / "judge_config.yaml")
+            Path(judge_config_path).write_text(yaml_judge_config)
+
+            judge = SimpleJudge(
+                judge_config=judge_config_path,
+                inference_config=mock_inference_config,
+            )
+
+        # Should resolve to the built-in config
+        assert judge._judge_config is not None
+        assert judge._judge_config.judgment_type == JudgeOutputType.BOOL
+        assert judge._judge_config.include_explanation is False
+        assert judge._judge_config.response_format == JudgeResponseFormat.JSON
+
+    @patch("oumi.judges_v2.simple_judge.SimpleJudge._create_inference_engine")
+    def test_init_with_unknown_judge_config_path(
+        self, mock_create_engine, mock_inference_config
+    ):
+        """Test initialization with an unknown built-in judge string raises error."""
+        mock_engine = Mock()
+        mock_create_engine.return_value = mock_engine
+
+        with pytest.raises(
+            ValueError, match="Could not resolve JudgeConfig from path: unknown_judge"
+        ):
+            SimpleJudge(
+                judge_config="unknown_judge",
+                inference_config=mock_inference_config,
+            )
