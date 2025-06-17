@@ -1,0 +1,10 @@
+{"text": "This is a sample English text for testing the analyze command. It contains multiple sentences. We can use it to test language detection and length metrics."}
+{"text": "Este es un texto de ejemplo en español. Podemos usarlo para probar la detección de idiomas."}
+{"text": "This is a very short text."}
+{"text": "This is a text with some curse words like fuck and shit. We need to detect these for safety checks."}
+{"text": "This is a very long text that goes on and on. It contains multiple sentences and should help us test the length metrics. We want to make sure it's long enough to be meaningful. The text continues with more content to ensure we have enough words and characters. This will help us test the maximum length detection. We're adding more sentences to make it substantial. The goal is to have a good distribution of lengths in our test dataset."}
+{"text": "This is a text about machine learning and artificial intelligence. It discusses neural networks and deep learning concepts. We can use this to test similarity matching with other ML-related content."}
+{"text": "Bonjour! Ceci est un texte en français pour tester la détection de langue."}
+{"text": "This is a text with some hate speech content. It contains words like hate and stupid. We need to detect these for safety checks."}
+{"text": "This is a neutral text about programming. It discusses Python and JavaScript. The content is clean and professional."}
+{"text": "This is another text about machine learning. It talks about transformers and attention mechanisms. This should be similar to our other ML text."}

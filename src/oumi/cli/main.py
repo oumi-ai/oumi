@@ -17,7 +17,9 @@ import sys
 
 import typer
 
+from oumi.cli.analyze import analyze
 from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.curate import curate
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
@@ -124,6 +126,16 @@ def get_app() -> typer.Typer:
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
+
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Analyze dataset composition, language, length, and safety metrics.",
+    )(analyze)
+
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Curate and manipulate datasets based on analysis results.",
+    )(curate)
 
     return app
 
