@@ -179,6 +179,31 @@ class TestDatasetPlanner:
             "Expected 78 samples to match the combination based on seed 42"
         )
 
+        # Check that non-matching samples have the correct distribution
+        non_matching_samples = [
+            sample
+            for sample in result
+            if not all(sample.get(attr) == val for attr, val in combination.items())
+        ]
+        non_matching_attr_1_values = [
+            sample.get("attr1") for sample in non_matching_samples
+        ]
+        non_matching_attr_2_values = [
+            sample.get("attr2") for sample in non_matching_samples
+        ]
+        assert non_matching_attr_1_values.count("value1") == 8, (
+            "Expected 8 non-matching samples with value1"
+        )
+        assert non_matching_attr_1_values.count("value2") == 14, (
+            "Expected 14 non-matching samples with value2"
+        )
+        assert non_matching_attr_2_values.count("valueA") == 7, (
+            "Expected 10 non-matching samples with valueA"
+        )
+        assert non_matching_attr_2_values.count("valueB") == 15, (
+            "Expected 10 non-matching samples with valueB"
+        )
+
     def test_plan_with_multiple_combinations(self, planner, mock_permutable_attributes):
         """Test that multiple combinations are sampled correctly."""
         combinations = [
@@ -219,7 +244,7 @@ class TestDatasetPlanner:
         self, planner, mock_permutable_attributes
     ):
         """Test that samples are redrawn if they accidentally match a combination."""
-        # Set up a combination that would be very unlikely to occur randomly
+        # Set up a combination that would be very likely to occur randomly
         forbidden_combination = {"attr1": "value1", "attr2": "valueA"}
         params = GeneralSynthesisParams(
             permutable_attributes=mock_permutable_attributes,
@@ -230,7 +255,7 @@ class TestDatasetPlanner:
                 )
             ],
         )
-        sample_count = 5
+        sample_count = 20
         result = planner.plan(params, sample_count=sample_count)
 
         # Check that none of the random samples match our forbidden combination
