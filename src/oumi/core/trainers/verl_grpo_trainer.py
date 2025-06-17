@@ -351,6 +351,14 @@ class VerlGrpoTrainer(BaseTrainer):
         if not training_params.save_epoch:
             config.trainer.save_freq = training_params.save_steps
 
+        # Specific checkpoint to resume from takes precedence over starting
+        # from last checkpoint.
+        if training_params.resume_from_checkpoint:
+            config.resume_mode = "resume_path"
+            config.resume_from_path = training_params.resume_from_checkpoint
+        elif training_params.try_resume_from_last_checkpoint:
+            config.resume_mode = "auto"
+
         config.trainer.logger = []
         if training_params.logging_strategy != "no":
             config.trainer.logger.append("console")
@@ -359,11 +367,6 @@ class VerlGrpoTrainer(BaseTrainer):
         config.trainer.project_name = os.environ.get("WANDB_PROJECT", "oumi_verl")
         config.trainer.experiment_name = training_params.run_name
         config.trainer.default_local_dir = str(self._temp_output_dir or "")
-        if training_params.resume_from_checkpoint:
-            config.resume_mode = "resume_path"
-            config.resume_from_path = training_params.resume_from_checkpoint
-        elif training_params.try_resume_from_last_checkpoint:
-            config.resume_mode = "auto"
 
         # 3. Apply user overrides
         overrides_config = OmegaConf.create(training_params.verl_config_overrides)
