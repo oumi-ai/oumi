@@ -18,7 +18,7 @@ name: letter-counting-grpo
 
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100-80GB:4"
   use_spot: false
 
 working_dir: .

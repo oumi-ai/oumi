@@ -59,6 +59,9 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
     - :class:`~oumi.core.configs.judge_config.JudgeAttribute`
     - :class:`~oumi.core.configs.judge_config.JudgeAttributeValueType`
+    - :class:`~oumi.core.configs.judge_config_v2.JudgeConfig`
+    - :class:`~oumi.core.configs.judge_config_v2.JudgeOutputType`
+    - :class:`~oumi.core.configs.judge_config_v2.JudgeResponseFormat`
 
 Example:
     >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
@@ -86,6 +89,13 @@ from oumi.core.configs.judge_config import (
     JudgeAttribute,
     JudgeAttributeValueType,
     JudgeConfig,
+)
+from oumi.core.configs.judge_config_v2 import (
+    JudgeConfig as JudgeConfigV2,
+)
+from oumi.core.configs.judge_config_v2 import (
+    JudgeOutputType,
+    JudgeResponseFormat,
 )
 from oumi.core.configs.params.data_params import (
     DataParams,
@@ -151,6 +161,9 @@ __all__ = [
     "JudgeAttribute",
     "JudgeAttributeValueType",
     "JudgeConfig",
+    "JudgeConfigV2",
+    "JudgeOutputType",
+    "JudgeResponseFormat",
     "LMHarnessTaskParams",
     "LoraWeightInitialization",
     "MixedPrecisionDtype",
