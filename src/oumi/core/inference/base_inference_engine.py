@@ -140,9 +140,11 @@ class BaseInferenceEngine(ABC):
 
         dataset_hash = ""
         if len(conversations_to_process) > 0:
-            dataset_hash = hashlib.sha256(
-                json.dumps([c.to_json() for c in conversations_to_process]).encode()
-            ).hexdigest()
+            row_hashes = [
+                hashlib.sha256(c.to_json().encode()).hexdigest()
+                for c in conversations_to_process
+            ]
+            dataset_hash = hashlib.sha256(",".join(row_hashes).encode()).hexdigest()
         self._dataset_hash = dataset_hash
 
         completed_conversations = self._load_from_scratch(output_path)
@@ -307,7 +309,8 @@ class BaseInferenceEngine(ABC):
             f"{model_params_str}_{generation_params_str}_{self._dataset_hash}".encode()
         ).hexdigest()
 
-        return str(Path.cwd() / "tmp" / f"temp_inference_output_{inference_hash}.jsonl")
+        path_prefix = Path.home() / ".cache" / "oumi" / "tmp"
+        return str(path_prefix / f"temp_inference_output_{inference_hash}.jsonl")
 
     def _save_conversation_to_scratch(
         self, conversation: Conversation, output_filepath: Optional[str]
