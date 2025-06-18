@@ -44,7 +44,8 @@ setup: |
   # Also, if you want to try it with a more efficient attention implementation,
   # you can install the `flash_attention_2` package and set `attn_implementation:
   # "flash_attention_2"` in the model config.
-  # pip install -U flash-attn --no-build-isolation
+  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
+  # pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
