@@ -62,6 +62,7 @@ dependencies = [
     "protobuf>=5.29.0",
     "pydantic>=2.9.2,<2.10",
     "responses>=0.25.0,<0.26",
+    "safetensors>=0.5.0,<0.6.0",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
     "torch>=2.6.0,<2.7.0",
@@ -120,7 +121,7 @@ gpu = [
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl>=0.3.0,<0.4",   # Used for the VERL_GRPO trainer.
+    "verl>=0.4.0,<0.5", # Used for the VERL_GRPO trainer.
     "vllm>=0.8.3,<0.9", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
