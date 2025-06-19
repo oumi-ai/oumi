@@ -23,17 +23,6 @@ def app():
     yield judge_app
 
 
-YAML_INFERENCE_CONFIG = """
-model:
-    model_name: gpt-4o-mini
-
-engine: OPENAI
-
-generation:
-    max_new_tokens: 1024
-    temperature: 0.0
-"""
-
 runner = CliRunner()
 
 
@@ -52,20 +41,28 @@ def test_custom_judge(app):
         },
     ]
     yaml_judge_config = """
-prompt_template: "Is the following Q&A correct? Question: {question} Answer: {answer}"
-response_format: JSON
-judgment_type: BOOL
-include_explanation: False
+judge_params:
+    prompt_template: "Is the Q&A correct? Question: {question} Answer: {answer}"
+    response_format: JSON
+    judgment_type: BOOL
+    include_explanation: False
+inference_config:
+    model:
+        model_name: gpt-4o-mini
+
+    engine: OPENAI
+
+    generation:
+        max_new_tokens: 1024
+        temperature: 0.0
 """
 
     with tempfile.TemporaryDirectory() as temp_dir:
         judge_config_path = str(Path(temp_dir) / "judge_config.yaml")
-        inference_config_path = str(Path(temp_dir) / "inference_config.yaml")
         input_file_path = str(Path(temp_dir) / "input.jsonl")
         output_file_path = str(Path(temp_dir) / "output.jsonl")
 
         Path(judge_config_path).write_text(yaml_judge_config)
-        Path(inference_config_path).write_text(YAML_INFERENCE_CONFIG)
         save_jsonlines(input_file_path, test_data)
 
         result = runner.invoke(
@@ -73,8 +70,6 @@ include_explanation: False
             [
                 "--judge-config",
                 judge_config_path,
-                "--inference-config",
-                inference_config_path,
                 "--input-file",
                 input_file_path,
                 "--output-file",
@@ -116,11 +111,9 @@ def test_builtin_judge(app):
     judge_config = "qa/relevance"
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        inference_config_path = str(Path(temp_dir) / "inference_config.yaml")
         input_file_path = str(Path(temp_dir) / "input.jsonl")
         output_file_path = str(Path(temp_dir) / "output.jsonl")
 
-        Path(inference_config_path).write_text(YAML_INFERENCE_CONFIG)
         save_jsonlines(input_file_path, test_data)
 
         result = runner.invoke(
@@ -128,8 +121,6 @@ def test_builtin_judge(app):
             [
                 "--judge-config",
                 judge_config,
-                "--inference-config",
-                inference_config_path,
                 "--input-file",
                 input_file_path,
                 "--output-file",

@@ -19,7 +19,7 @@ from typing import Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from oumi.core.configs.judge_config_v2 import JudgeOutputType, JudgeResponseFormat
+from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 

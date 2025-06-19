@@ -13,25 +13,12 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import Annotated, Optional
 
 import typer
 from rich.table import Table
 
 from oumi.cli import cli_utils
-
-if TYPE_CHECKING:
-    from oumi.core.configs import InferenceConfig
-
-
-def _load_inference_config(config: str, extra_args: list[str]) -> "InferenceConfig":
-    from oumi.core.configs import InferenceConfig
-
-    if not Path(config).exists():
-        typer.echo(f"Config file not found: '{config}'")
-        raise typer.Exit(code=1)
-
-    return InferenceConfig.from_yaml_and_arg_list(config, extra_args)
 
 
 def judge_file(
@@ -40,12 +27,8 @@ def judge_file(
         str,
         typer.Option(
             "--judge-config",
-            help="Path to the judge config file or built-in judge name",
+            help="Path to the judge config file",
         ),
-    ],
-    inference_config: Annotated[
-        str,
-        typer.Option("--inference-config", help="Path to the inference config file"),
     ],
     input_file: Annotated[
         str, typer.Option("--input-file", help="Path to the dataset input file (jsonl)")
@@ -68,14 +51,6 @@ def judge_file(
     # Resolve judge config
     judge_config_obj = JudgeConfig.from_path(path=judge_config, extra_args=extra_args)
 
-    # Load inference config from file
-    inference_config_path = str(
-        cli_utils.resolve_and_fetch_config(
-            inference_config,
-        )
-    )
-    inference_config_obj = _load_inference_config(inference_config_path, extra_args)
-
     # Ensure the dataset input file exists
     if not Path(input_file).exists():
         typer.echo(f"Input file not found: '{input_file}'")
@@ -84,7 +59,6 @@ def judge_file(
     # Judge the dataset
     judge_outputs = judge_v2.judge_file(
         judge_config=judge_config_obj,
-        inference_config=inference_config_obj,
         input_file=input_file,
         output_file=output_file,
     )

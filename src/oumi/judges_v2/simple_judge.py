@@ -17,9 +17,10 @@ from typing import Union
 from typing_extensions import override
 
 from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.judge_config_v2 import (
-    JudgeConfig,
+from oumi.core.configs.judge_config_v2 import JudgeConfig
+from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
+    JudgeParams,
     JudgeResponseFormat,
 )
 from oumi.core.inference import BaseInferenceEngine
@@ -76,37 +77,37 @@ class SimpleJudge(BaseJudge):
     def __init__(
         self,
         judge_config: Union[JudgeConfig, str],
-        inference_config: InferenceConfig,
     ):
         """Initialize the Judge.
 
         Args:
-            judge_config: JudgeConfig object or a string name of a built-in judge
-            inference_config: Configuration for the inference engine
+            judge_config: JudgeConfig object or a path to a judge configuration file.
+                Contains both judge parameters and inference configuration.
         """
         if isinstance(judge_config, str):
             judge_config = JudgeConfig.from_path(judge_config)
-        self._judge_config = judge_config
+        self._judge_params = judge_config.judge_params
+        self._inference_config = judge_config.inference_config
 
         # Create output fields based on judge configuration
         output_fields = []
-        if judge_config.include_explanation:
+        if self._judge_params.include_explanation:
             output_fields.append(self._create_explanation_output_field())
-        output_fields.append(self._create_judgment_output_field(judge_config))
+        output_fields.append(self._create_judgment_output_field(self._judge_params))
 
         # Generate an inference engine from inference config
-        inference_engine = self._create_inference_engine(inference_config)
+        inference_engine = self._create_inference_engine(self._inference_config)
 
         # Append format suffix to system instruction if it exists
-        system_instruction = judge_config.system_instruction
+        system_instruction = self._judge_params.system_instruction
         if system_instruction:
             system_instruction = f"{system_instruction}{self._get_format_suffix()}"
 
         super().__init__(
-            prompt_template=judge_config.prompt_template,
+            prompt_template=self._judge_params.prompt_template,
             system_instruction=system_instruction,
-            example_field_values=judge_config.examples,
-            response_format=judge_config.response_format,
+            example_field_values=self._judge_params.examples,
+            response_format=self._judge_params.response_format,
             output_fields=output_fields,
             inference_engine=inference_engine,
         )
@@ -118,7 +119,7 @@ class SimpleJudge(BaseJudge):
 
         # Only append format suffix to judgment prompt if no system instruction exists
         # (otherwise it was already appended to system instruction in __init__)
-        if not self._judge_config.system_instruction:
+        if not self._judge_params.system_instruction:
             prompt_content += self._get_format_suffix()
 
         return prompt_content
@@ -129,24 +130,24 @@ class SimpleJudge(BaseJudge):
         Returns:
             Format-specific instruction suffix to append to prompts
         """
-        response_format = self._judge_config.response_format
-        include_explanation = self._judge_config.include_explanation
+        response_format = self._judge_params.response_format
+        include_explanation = self._judge_params.include_explanation
 
         # Describe the expected judgment options to the judge
         if (
-            self._judge_config.judgment_scores
-            and len(self._judge_config.judgment_scores) > 1
+            self._judge_params.judgment_scores
+            and len(self._judge_params.judgment_scores) > 1
         ):
-            choices = [f"'{c}'" for c in self._judge_config.judgment_scores.keys()]
+            choices = [f"'{c}'" for c in self._judge_params.judgment_scores.keys()]
             choices_str = ", ".join(choices)
             judgment_options = f"{JUDGMENT_OPTIONS_ENUM_PREFIX}{choices_str}. "
-        elif self._judge_config.judgment_type == JudgeOutputType.BOOL:
+        elif self._judge_params.judgment_type == JudgeOutputType.BOOL:
             judgment_options = f"{JUDGMENT_OPTIONS_BOOL}. "
-        elif self._judge_config.judgment_type == JudgeOutputType.FLOAT:
+        elif self._judge_params.judgment_type == JudgeOutputType.FLOAT:
             judgment_options = f"{JUDGMENT_OPTIONS_FLOAT}. "
-        elif self._judge_config.judgment_type == JudgeOutputType.INT:
+        elif self._judge_params.judgment_type == JudgeOutputType.INT:
             judgment_options = f"{JUDGMENT_OPTIONS_INT}. "
-        elif self._judge_config.judgment_type == JudgeOutputType.TEXT:
+        elif self._judge_params.judgment_type == JudgeOutputType.TEXT:
             judgment_options = f"{JUDGMENT_OPTIONS_TEXT}. "
         else:
             judgment_options = ""
@@ -169,12 +170,12 @@ class SimpleJudge(BaseJudge):
             judgment_options=judgment_options,
         )
 
-    def _create_judgment_output_field(self, config: JudgeConfig) -> JudgeOutputField:
+    def _create_judgment_output_field(self, params: JudgeParams) -> JudgeOutputField:
         """Create the main judgment output field."""
         return JudgeOutputField(
             field_key=JUDGMENT_KEY,
-            field_type=config.judgment_type,
-            field_scores=config.judgment_scores,
+            field_type=params.judgment_type,
+            field_scores=params.judgment_scores,
         )
 
     def _create_explanation_output_field(self) -> JudgeOutputField:

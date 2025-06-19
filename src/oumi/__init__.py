@@ -244,7 +244,6 @@ def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str
 
 def judge_v2_dataset(
     judge_config: JudgeConfigV2 | str,
-    inference_config: InferenceConfig,
     dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
@@ -258,10 +257,7 @@ def judge_v2_dataset(
         3. Returns structured JudgeOutput objects containing parsed results.
 
     Args:
-        judge_config: JudgeConfig object or path to a judge config;
-            includes prompt template, response format, and output field specifications.
-        inference_config: The configuration for inference, including model settings,
-            generation parameters, and engine type.
+        judge_config: JudgeConfig object or path to a judge config file.
         dataset: List of dictionaries containing input data for evaluation. Each
             dictionary should contain key-value pairs that match placeholders in
             the judge's prompt template (e.g., {'question': '...', 'answer': '...'}).
@@ -274,24 +270,30 @@ def judge_v2_dataset(
             - field_scores: Numeric scores for applicable fields
 
     Example:
-        >>> config = JudgeConfig(
-        ...     prompt_template="Is this answer helpful? "
-        ...                     "Question: {question} Answer: {answer}",
-        ...     judgment_type=JudgeOutputType.BOOL,
-        ...     response_format=JudgeResponseFormat.JSON
-        ...     ...
+        >>> judge_config = JudgeConfig( # doctest: +SKIP
+        ...     judge_params=JudgeParams(
+        ...         prompt_template="Is this helpful? {question}, {answer}",
+        ...         response_format=JudgeResponseFormat.XML,
+        ...         judgment_type=JudgeOutputType.BOOL,
+        ...         include_explanation=False
+        ...     ),
+        ...     inference_config=InferenceConfig(
+        ...         model=ModelParams(model_name="gpt-4.1"),
+        ...         generation=GenerationParams(max_tokens=100),
+        ...         engine=InferenceEngineType.OPENAI
+        ...     )
         ... )
         >>> dataset = [
         ...     {'question': 'What is 2+2?', 'answer': '4'},
         ...     {'question': 'How to cook?', 'answer': 'I dont know'}
         ... ]
-        >>> judged_outputs = judge_dataset(judge_config, inference_config, dataset)
+        >>> judged_outputs = judge_dataset(judge_config, dataset)
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
     import oumi.judge_v2
 
-    return oumi.judge_v2.judge_dataset(judge_config, inference_config, dataset)
+    return oumi.judge_v2.judge_dataset(judge_config, dataset)
 
 
 def train(

@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -21,140 +20,40 @@ from typing_extensions import Self
 
 from oumi.cli import cli_utils
 from oumi.core.configs import BaseConfig
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.params.judge_params import JudgeParams
 
-
-class JudgeResponseFormat(str, Enum):
-    """Enumeration of possible response formats for the judge output."""
-
-    JSON = "json"
-    """JSON structured response format."""
-
-    XML = "xml"
-    """XML-tagged response format."""
-
-    RAW = "raw"
-    """Plain text response format."""
-
-
-class JudgeOutputType(str, Enum):
-    """Enumeration of possible output types for the judge's output fields."""
-
-    TEXT = "text"
-    """Free-form text judgment."""
-
-    ENUM = "enum"
-    """Categorical judgment from predefined options."""
-
-    INT = "int"
-    """Integer value judgment."""
-
-    FLOAT = "float"
-    """Floating-point value judgment."""
-
-    BOOL = "bool"
-    """Boolean judgment (True/False, Yes/No)."""
+JUDGE_CONFIG_PATH_TEMPLATE = "configs/projects/judges/{path}.yaml"
 
 
 @dataclass
 class JudgeConfig(BaseConfig):
-    """Configuration for the Judge.
+    """Consolidated configuration for the Judge.
 
-    This class holds the configuration for a single-attribute judge,
-    including the prompt template and response format.
+    This class combines the judge parameters (JudgeParams) and inference
+    configuration (InferenceConfig) into a single configuration object.
 
-    Examples:
-        Basic boolean judgment:
+    Example:
         >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     prompt_template="Is the following answer helpful? Question: {question},
-        ...                      Answer: {answer}. Respond with True or False.",
-        ...     response_format=JudgeResponseFormat.XML,
-        ...     judgment_type=JudgeOutputType.BOOL,
-        ...     include_explanation=False
-        ... )
-
-        Categorical judgment with scores:
-        >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     prompt_template="Rate the quality of this text: {text}.
-        ..                       Respond with 'excellent', 'good', or 'poor'.",
-        ...     response_format=JudgeResponseFormat.JSON,
-        ...     judgment_type=JudgeOutputType.ENUM,
-        ...     judgment_scores={"excellent": 1.0, "good": 0.7, "poor": 0.3},
-        ...     include_explanation=True
+        ...     judge_params=JudgeParams(
+        ...         prompt_template="Is this helpful? {question}, {answer}",
+        ...         response_format=JudgeResponseFormat.XML,
+        ...         judgment_type=JudgeOutputType.BOOL,
+        ...         include_explanation=False
+        ...     ),
+        ...     inference_config=InferenceConfig(
+        ...         model=ModelParams(model_name="gpt-4.1"),
+        ...         generation=GenerationParams(max_tokens=100),
+        ...         engine=InferenceEngineType.OPENAI
+        ...     )
         ... )
     """
 
-    prompt_template: str
-    """Template for the judge prompt with placeholders, such as {question}, {answer}."""
+    judge_params: JudgeParams
+    """Parameters for the judge prompt and response format."""
 
-    system_instruction: Optional[str] = field(default=None)
-    """Optional system message to guide judge behavior."""
-
-    response_format: JudgeResponseFormat = field(default=JudgeResponseFormat.XML)
-    """The format in which the judge should respond."""
-
-    include_explanation: bool = field(default=False)
-    """Whether the judge should provide an explanation before the judgment."""
-
-    judgment_type: JudgeOutputType = field(default=JudgeOutputType.BOOL)
-    """The type of output that the judgment should be provided with."""
-
-    judgment_scores: Optional[dict[str, float]] = field(default=None)
-    """For ENUM judgment_type, the mapping from category names to numeric scores.
-
-    Example:
-        {"excellent": 1.0, "good": 0.7, "poor": 0.3}
-    """
-
-    examples: list[dict[str, str]] = field(default_factory=list)
-    """Few-shot examples for the judge as a list of field value dictionaries.
-
-    Each dictionary should contain values for all template placeholders and
-    expected output fields. Used to provide examples of how the judge should respond.
-
-    Example:
-        [
-            {
-                "question": "What is 2+2?",                      # placeholder value
-                "answer": "4",                                   # placeholder value
-                "judgment": "Correct",                           # output field value
-                "explanation": "It is mathematically correct."   # output field value
-            },
-            {
-                "question": "What is the capital of Mars?",      # placeholder value
-                "answer": "New York",                            # placeholder value
-                "judgment": "Incorrect",                         # output field value
-                "explanation": "Mars does not have capitals."    # output field value
-            }
-        ]
-    """
-
-    def __post_init__(self):
-        """Validate the configuration after initialization."""
-        self._validate_config()
-
-    def _validate_config(self):
-        """Validate the configuration for consistency and completeness.
-
-        Raises:
-            ValueError: If configuration is invalid
-        """
-        # Validate prompt template is not empty
-        if not self.prompt_template.strip():
-            raise ValueError("prompt_template cannot be empty")
-
-        # Validate judgment scores for ENUM judgment type
-        if self.judgment_type == JudgeOutputType.ENUM and not self.judgment_scores:
-            raise ValueError("judgment_scores must be provided for ENUM judgment_type")
-
-        # Validate judgment scores are numeric if provided
-        if self.judgment_scores:
-            if not all(
-                isinstance(score, (int, float))
-                for score in self.judgment_scores.values()
-            ):
-                raise ValueError("All judgment_scores values must be numeric")
-            if not self.judgment_scores:
-                raise ValueError("judgment_scores cannot be empty when provided")
+    inference_config: InferenceConfig
+    """Configuration for the inference engine and generation parameters."""
 
     @classmethod
     def from_path(cls, path: str, extra_args: Optional[list[str]] = None) -> Self:
@@ -174,17 +73,25 @@ class JudgeConfig(BaseConfig):
         # If `path` is a local or repo path, load JudgeConfig obj from that path.
         # Example: "configs/projects/judges/qa/relevance.yaml"
         resolved_path = _resolve_path(path)
-        if resolved_path:
-            return cls.from_yaml_and_arg_list(resolved_path, extra_args)
 
         # If `path` is a built-in judge name, construct the path from the default
-        # repo location and load the corresponding JudgeConfig.
+        # repo location, and then load the corresponding JudgeConfig.
         # Example: "qa/relevance" => "configs/projects/judges/qa/relevance.yaml"
-        resolved_path = _resolve_path(f"configs/projects/judges/{path}.yaml")
-        if resolved_path:
-            return cls.from_yaml_and_arg_list(resolved_path, extra_args)
+        if not resolved_path:
+            resolved_path = _resolve_path(JUDGE_CONFIG_PATH_TEMPLATE.format(path=path))
 
-        raise ValueError(
-            f"Could not resolve JudgeConfig from path: {path}. "
-            "Please provide a valid local or GitHub repo path."
-        )
+        if resolved_path:
+            try:
+                return cls.from_yaml_and_arg_list(resolved_path, extra_args)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to parse {resolved_path} as JudgeConfig. "
+                    f"Please ensure the YAML file contains both 'prompt_config' and "
+                    f"'inference_config' sections with valid fields. "
+                    f"Original error: {e}"
+                ) from e
+        else:
+            raise ValueError(
+                f"Could not resolve JudgeConfig from path: {path}. "
+                "Please provide a valid local or GitHub repo path."
+            )
