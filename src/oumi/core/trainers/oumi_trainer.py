@@ -165,7 +165,7 @@ class Trainer(BaseTrainer):
                 raise ValueError(
                     "Gradient checkpointing is only supported for Hugging Face models."
                 )
-            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs) # type: ignore
+            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)  # type: ignore
         model = cast(torch.nn.Module, model)
         model.to(self.device)
         if is_distributed():
