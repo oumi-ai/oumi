@@ -38,7 +38,8 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu] hf_transfer
-  pip install -U flash-attn --no-build-isolation
+  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
+  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
 
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
@@ -52,8 +53,6 @@ run: |
     echo "LM Harness supports max 1 node. Actual: ${OUMI_NUM_NODES} nodes."
     exit 1
   fi
-
-  pip install -U flash-attn --no-build-isolation
 
   echo "Starting evaluation for ${MODEL_CHECKPOINT_DIR} ..."
 
