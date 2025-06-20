@@ -120,16 +120,27 @@ class BaseInferenceEngine(ABC):
                 "One of input or inference_config.input_path must be provided."
             )
 
+        unique_conversation_ids = set()
         for i, conversation in enumerate(conversations_to_process):
             if conversation.conversation_id is not None:
+                if conversation.conversation_id in unique_conversation_ids:
+                    raise ValueError(
+                        f"Conversation ID {conversation.conversation_id} is not unique."
+                    )
+                unique_conversation_ids.add(conversation.conversation_id)
                 continue
 
-            id_name = str(i)
             # Generate a deterministic conversation ID based on index if none exists
-            last_message = conversation.last_message()
-            if last_message and isinstance(last_message.content, str):
-                content_hash = hashlib.sha256(last_message.content.encode()).hexdigest()
-                id_name = str(i) + "_" + content_hash
+            messages = conversation.messages
+            all_str_message_content = ",".join(
+                [
+                    message.content
+                    for message in messages
+                    if isinstance(message.content, str)
+                ]
+            )
+            content_hash = hashlib.sha256(all_str_message_content.encode()).hexdigest()
+            id_name = str(i) + "_" + content_hash
 
             conversation.conversation_id = str(
                 uuid.uuid5(
@@ -137,12 +148,17 @@ class BaseInferenceEngine(ABC):
                     id_name,
                 )
             )
+            unique_conversation_ids.add(conversation.conversation_id)
 
+        # Calculate the hash of the dataset to use for referencing the inference
+        # filename between runs, given the same model and generation parameters.
         dataset_hash = ""
         if len(conversations_to_process) > 0:
-            dataset_hash = hashlib.sha256(
-                json.dumps([c.to_json() for c in conversations_to_process]).encode()
-            ).hexdigest()
+            row_hashes = [
+                hashlib.sha256(c.to_json().encode()).hexdigest()
+                for c in conversations_to_process
+            ]
+            dataset_hash = hashlib.sha256(",".join(row_hashes).encode()).hexdigest()
         self._dataset_hash = dataset_hash
 
         completed_conversations = self._load_from_scratch(output_path)
@@ -245,7 +261,8 @@ class BaseInferenceEngine(ABC):
                 location of the scratch file.
 
         Returns:
-            list[Conversation]: A list of conversations loaded from the scratch file.
+            list[Conversation]: A list of conversations loaded from the scratch file,
+                or an empty list if the scratch file does not exist or is empty.
         """
         scratch_filepath = self._get_scratch_filepath(output_filepath)
         if not Path(scratch_filepath).exists():
@@ -309,7 +326,8 @@ class BaseInferenceEngine(ABC):
             f"{model_params_str}_{generation_params_str}_{self._dataset_hash}".encode()
         ).hexdigest()
 
-        return str(Path.cwd() / "tmp" / f"temp_inference_output_{inference_hash}.jsonl")
+        path_prefix = Path.home() / ".cache" / "oumi" / "tmp"
+        return str(path_prefix / f"temp_inference_output_{inference_hash}.jsonl")
 
     def _save_conversation_to_scratch(
         self, conversation: Conversation, output_filepath: Optional[str]

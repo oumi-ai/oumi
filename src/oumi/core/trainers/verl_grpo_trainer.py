@@ -351,6 +351,14 @@ class VerlGrpoTrainer(BaseTrainer):
         if not training_params.save_epoch:
             config.trainer.save_freq = training_params.save_steps
 
+        # Specific checkpoint to resume from takes precedence over starting
+        # from last checkpoint.
+        if training_params.resume_from_checkpoint:
+            config.trainer.resume_mode = "resume_path"
+            config.trainer.resume_from_path = training_params.resume_from_checkpoint
+        elif training_params.try_resume_from_last_checkpoint:
+            config.trainer.resume_mode = "auto"
+
         config.trainer.logger = []
         if training_params.logging_strategy != "no":
             config.trainer.logger.append("console")
@@ -434,15 +442,8 @@ class VerlGrpoTrainer(BaseTrainer):
             val_reward_fn=val_reward_fn,
         )
 
-    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
-        """Trains the model using verl's RayPPOTrainer.
-
-        Args:
-            resume_from_checkpoint: Optional path to a checkpoint to resume from.
-        """
-        if resume_from_checkpoint:
-            raise NotImplementedError("Resuming from checkpoint is not implemented.")
-
+    def train(self) -> None:
+        """Trains the model using verl's RayPPOTrainer."""
         logger.info("Initializing verl trainer workers...")
         self._verl_trainer.init_workers()
         logger.info("Starting verl training...")

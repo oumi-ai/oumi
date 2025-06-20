@@ -193,6 +193,7 @@ def test_infer_basic_non_interactive_with_images(
         "A traditional Japanese painting of a large wave crashing with",
         "A traditional Japanese ukiyo-e painting depicting a",
         "A detailed Japanese woodblock print depicting a large wave",
+        "A Japanese woodblock print depicting a large wave crashing",
     ]
 
     def _create_conversation(response: str) -> Conversation:
