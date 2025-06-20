@@ -618,29 +618,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         return conversations
 
     @override
-    def _infer_from_file(
-        self, input_filepath: str, inference_config: Optional[InferenceConfig] = None
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the
-        existence of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for
-                generation.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        input = self._read_conversations(input_filepath)
-        conversations = safe_asyncio_run(self._infer(input, inference_config))
-        if inference_config and inference_config.output_path:
-            self._save_conversations(conversations, inference_config.output_path)
-        return conversations
-
-    @override
     def get_supported_params(self) -> set[str]:
         """Returns a set of supported generation parameters for this engine."""
         return {
@@ -700,7 +677,11 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._infer_from_file(input_filepath, inference_config)
+        input = self._read_conversations(input_filepath)
+        conversations = safe_asyncio_run(self._infer(input, inference_config))
+        if inference_config and inference_config.output_path:
+            self._save_conversations(conversations, inference_config.output_path)
+        return conversations
 
     #
     # Batch inference

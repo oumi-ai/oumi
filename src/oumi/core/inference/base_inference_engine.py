@@ -425,26 +425,6 @@ class BaseInferenceEngine(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
-    def _infer_from_file(
-        self,
-        input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the existence
-        of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for generation.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        raise NotImplementedError
-
     def apply_chat_template(
         self, conversation: Conversation, **tokenizer_kwargs
     ) -> str:

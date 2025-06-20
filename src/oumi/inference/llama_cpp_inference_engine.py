@@ -283,7 +283,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._infer_from_file(input_filepath, inference_config)
+        input = self._read_conversations(input_filepath)
+        return self._infer(input, inference_config)
 
     @override
     def _infer_online(
@@ -300,25 +301,4 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, inference_config)
-
-    @override
-    def _infer_from_file(
-        self,
-        input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the existence
-        of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for generation.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
