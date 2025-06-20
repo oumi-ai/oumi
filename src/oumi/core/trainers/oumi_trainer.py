@@ -161,11 +161,11 @@ class Trainer(BaseTrainer):
         # Prepare model for training
         # ----------------------------------
         if args.enable_gradient_checkpointing:
-            if not isinstance(model, transformers.PreTrainedModel):
+            if not hasattr(model, "gradient_checkpointing_enable"):
                 raise ValueError(
-                    "Gradient checkpointing is only supported for transformers models."
+                    "Gradient checkpointing is only supported for Hugging Face models."
                 )
-            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
+            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs) # type: ignore
         model = cast(torch.nn.Module, model)
         model.to(self.device)
         if is_distributed():
