@@ -4,6 +4,7 @@ from typing import Optional
 from unittest import mock
 from unittest.mock import patch
 
+import jsonlines
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
@@ -329,3 +330,33 @@ def test_empty_scratch_file(mock_engine):
         assert len(results) == 1
         assert results[0].conversation_id == "test-1"
         assert len(results[0].messages) == 2  # Original + assistant response
+
+
+def test_full_scratch_file(mock_engine):
+    """Validate that inference doesn't run if scratch file has all conversations."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        inference_config = InferenceConfig(
+            output_path=output_path,
+            generation=GenerationParams(max_new_tokens=10),
+        )
+
+        conversations = [create_test_conversation(1)]
+
+        # Create scratch directory and file with all conversations
+        scratch_path = Path(temp_dir) / "scratch"
+        scratch_path.mkdir(parents=True)
+        (scratch_path / "output.jsonl").touch()
+        with jsonlines.open(scratch_path / "output.jsonl", "w") as writer:
+            writer.write(conversations[0].to_dict())
+
+        # Run inference
+        results = mock_engine.infer(
+            input=conversations,
+            inference_config=inference_config,
+        )
+
+        # Verify results
+        assert len(results) == 1
+        assert results[0].conversation_id == "test-1"
+        assert len(results[0].messages) == 1  # Original, no assistant response in file
