@@ -86,7 +86,7 @@ class JudgeConfig(BaseConfig):
             except Exception as e:
                 raise ValueError(
                     f"Failed to parse {resolved_path} as JudgeConfig. "
-                    f"Please ensure the YAML file contains both 'prompt_config' and "
+                    f"Please ensure the YAML file contains both 'judge_params' and "
                     f"'inference_config' sections with valid fields. "
                     f"Original error: {e}"
                 ) from e
