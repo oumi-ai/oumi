@@ -30,7 +30,6 @@ import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 
 import mlflow  # isort: skip
-import transformers
 
 import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
