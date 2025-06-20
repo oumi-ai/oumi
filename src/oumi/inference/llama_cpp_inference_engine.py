@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from pathlib import Path
 from typing import Optional, cast
 
@@ -239,7 +240,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             "top_p",
         }
 
-    @override
     def infer_online(
         self,
         input: list[Conversation],
@@ -254,9 +254,13 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, inference_config)
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._infer_online(input, inference_config)
 
-    @override
     def infer_from_file(
         self,
         input_filepath: str,
@@ -274,5 +278,27 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         input = self._read_conversations(input_filepath)
+        return self._infer(input, inference_config)
+
+    @override
+    def _infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
         return self._infer(input, inference_config)

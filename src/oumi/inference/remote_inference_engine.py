@@ -18,6 +18,7 @@ import json
 import os
 import tempfile
 import urllib.parse
+import warnings
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -597,7 +598,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             return results
 
     @override
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -611,29 +612,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        conversations = safe_asyncio_run(self._infer(input, inference_config))
-        if inference_config and inference_config.output_path:
-            self._save_conversations(conversations, inference_config.output_path)
-        return conversations
-
-    @override
-    def infer_from_file(
-        self, input_filepath: str, inference_config: Optional[InferenceConfig] = None
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the
-        existence of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for
-                generation.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        input = self._read_conversations(input_filepath)
         conversations = safe_asyncio_run(self._infer(input, inference_config))
         if inference_config and inference_config.output_path:
             self._save_conversations(conversations, inference_config.output_path)
@@ -655,6 +633,55 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             "temperature",
             "top_p",
         }
+
+    def infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._infer_online(input, inference_config)
+
+    def infer_from_file(
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference on inputs in the provided file.
+
+        This is a convenience method to prevent boilerplate from asserting the existence
+        of input_filepath in the generation_params.
+
+        Args:
+            input_filepath: Path to the input file containing prompts for generation.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        input = self._read_conversations(input_filepath)
+        conversations = safe_asyncio_run(self._infer(input, inference_config))
+        if inference_config and inference_config.output_path:
+            self._save_conversations(conversations, inference_config.output_path)
+        return conversations
 
     #
     # Batch inference

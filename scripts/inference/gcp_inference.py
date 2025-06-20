@@ -30,7 +30,7 @@ def run_inference(
     config.output_path = str(Path(output_dir) / file)
     print(f"Preparing to read input file: {config.input_path}")
     print(f"Preparing to write output file: {config.output_path}")
-    engine.infer_from_file(config.input_path, config)
+    engine.infer(config)
 
 
 def main():
