@@ -367,10 +367,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 )
                 output_conversations.append(new_conversation)
 
-        self._cleanup_scratch_file(
-            inference_config.output_path if inference_config else None
-        )
-
         if inference_config and inference_config.output_path:
             self._save_conversations(output_conversations, inference_config.output_path)
 

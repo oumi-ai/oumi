@@ -594,9 +594,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
             disable_tqdm = len(tasks) < 2
             results = await tqdm.gather(*tasks, disable=disable_tqdm)
-            self._cleanup_scratch_file(
-                inference_config.output_path if inference_config else None
-            )
             return results
 
     @override
