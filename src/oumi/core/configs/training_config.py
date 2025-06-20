@@ -136,6 +136,7 @@ class TrainingConfig(BaseConfig):
             if trainer_type in (
                 TrainerType.TRL_SFT,
                 TrainerType.TRL_DPO,
+                TrainerType.TRL_GRPO,
                 TrainerType.HF,
             ):
                 self.training.trainer_kwargs["use_liger_kernel"] = True
