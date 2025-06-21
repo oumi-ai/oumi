@@ -3,8 +3,7 @@ import unittest
 
 import pytest
 
-from oumi.core.configs import InferenceConfig
-from oumi.core.configs import JudgeConfigV2 as JudgeConfig
+from oumi.core.configs.judge_config_v2 import JudgeConfig
 from oumi.judges_v2.simple_judge import SimpleJudge
 
 skip_if_no_openai_key = pytest.mark.skipif(
@@ -12,6 +11,7 @@ skip_if_no_openai_key = pytest.mark.skipif(
 )
 
 YAML_JUDGE_CONFIG_XML_ENUM = """
+judge_params:
     prompt_template: Is the following statement correct? {statement}
     response_format: XML
     judgment_type: ENUM
@@ -20,21 +20,25 @@ YAML_JUDGE_CONFIG_XML_ENUM = """
         "Unsure": 0.5
         "Incorrect": 0.01
     include_explanation: True
+inference_config:
+    model:
+        model_name: "gpt-4.1"
+    engine: OPENAI
+    generation:
+        max_new_tokens: 8192
+        temperature: 0.0
 """
 
 YAML_JUDGE_CONFIG_JSON_BOOL = """
+judge_params:
     prompt_template: Is the following statement correct? {statement}
     response_format: JSON
     judgment_type: BOOL
     include_explanation: False
-"""
-
-YAML_INFERENCE_CONFIG = """
+inference_config:
     model:
         model_name: "gpt-4.1"
-
     engine: OPENAI
-
     generation:
         max_new_tokens: 8192
         temperature: 0.0
@@ -50,10 +54,7 @@ JUDGE_DATASET = [
 def test_simple_judge_xml_enum():
     # Instantiate the judge using a YAML configuration.
     judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_XML_ENUM)
-    inference_config = InferenceConfig.from_str(YAML_INFERENCE_CONFIG)
-    simple_judge = SimpleJudge(
-        judge_config=judge_config, inference_config=inference_config
-    )
+    simple_judge = SimpleJudge(judge_config=judge_config)
 
     # Call the judge with the dataset.
     judge_output = simple_judge.judge(inputs=JUDGE_DATASET)
@@ -83,10 +84,7 @@ def test_simple_judge_xml_enum():
 def test_simple_judge_json_bool():
     # Instantiate the judge using a YAML configuration.
     judge_config = JudgeConfig.from_str(YAML_JUDGE_CONFIG_JSON_BOOL)
-    inference_config = InferenceConfig.from_str(YAML_INFERENCE_CONFIG)
-    simple_judge = SimpleJudge(
-        judge_config=judge_config, inference_config=inference_config
-    )
+    simple_judge = SimpleJudge(judge_config=judge_config)
 
     # Call the judge with the dataset.
     judge_output = simple_judge.judge(inputs=JUDGE_DATASET)

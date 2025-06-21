@@ -299,8 +299,6 @@ def test_main_judge_v2_registered(mock_judge_v2):
             "judge-v2",
             "--judge-config",
             "./my_judge_config",
-            "--inference-config",
-            "./my_inference_config",
             "--input-file",
             "./my_input_file.jsonl",
             "--output-file",
