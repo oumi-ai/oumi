@@ -427,8 +427,6 @@ def test_infer_from_file(mock_vllm):
             )
         ]
         inference_config = _get_default_inference_config()
-        result = engine.infer_from_file(str(input_path), inference_config)
-        assert expected_result == result
         inference_config.input_path = str(input_path)
         infer_result = engine.infer(
             inference_config=inference_config,
