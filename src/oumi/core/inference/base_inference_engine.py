@@ -177,7 +177,9 @@ class BaseInferenceEngine(ABC):
         # Run inference only on remaining conversations
         start_time = time.perf_counter()
         histogram = self._latency_histogram_online
-        inference_results = self.infer_online(remaining_conversations, inference_config)
+        inference_results = self._infer_online(
+            remaining_conversations, inference_config
+        )
         histogram.record_value((time.perf_counter() - start_time) * 1e3)
         self._maybe_log_latency_histogram(histogram)
 
@@ -407,7 +409,7 @@ class BaseInferenceEngine(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -416,26 +418,6 @@ class BaseInferenceEngine(ABC):
 
         Args:
             input: A list of conversations to run inference on.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def infer_from_file(
-        self,
-        input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the existence
-        of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for generation.
             inference_config: Parameters for inference.
 
         Returns:
