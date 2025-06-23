@@ -71,17 +71,25 @@ def test_convert_conversation_to_llama_input(inference_engine):
 def test_infer_online(inference_engine):
     with patch.object(inference_engine, "_infer") as mock_infer:
         mock_infer.return_value = [
-            Conversation(messages=[Message(content="Response", role=Role.ASSISTANT)])
+            Conversation(
+                conversation_id="1",
+                messages=[Message(content="Response", role=Role.ASSISTANT)],
+            )
         ]
 
         input_conversations = [
-            Conversation(messages=[Message(content="Hello", role=Role.USER)])
+            Conversation(
+                conversation_id="1",
+                messages=[Message(content="Hello", role=Role.USER)],
+            )
         ]
-        generation_params = GenerationParams(max_new_tokens=50)
+        inference_config = InferenceConfig(
+            generation=GenerationParams(max_new_tokens=50),
+        )
 
-        result = inference_engine.infer_online(input_conversations, generation_params)
+        result = inference_engine.infer(input_conversations, inference_config)
 
-        mock_infer.assert_called_once_with(input_conversations, generation_params)
+        mock_infer.assert_called_once_with(input_conversations, inference_config)
         assert result == mock_infer.return_value
 
 
@@ -92,22 +100,28 @@ def test_infer_from_file(inference_engine):
         patch.object(inference_engine, "_infer") as mock_infer,
     ):
         mock_read.return_value = [
-            Conversation(messages=[Message(content="Hello", role=Role.USER)])
+            Conversation(
+                conversation_id="1",
+                messages=[Message(content="Hello", role=Role.USER)],
+            )
         ]
         mock_infer.return_value = [
             Conversation(
+                conversation_id="1",
                 messages=[
                     Message(content="Hello", role=Role.USER),
                     Message(content="Response", role=Role.ASSISTANT),
-                ]
+                ],
             )
         ]
 
         inference_config = InferenceConfig(
-            generation=GenerationParams(max_new_tokens=50), output_path="output.json"
+            generation=GenerationParams(max_new_tokens=50),
+            output_path="output.json",
+            input_path="input.json",
         )
 
-        result = inference_engine.infer_from_file("input.json", inference_config)
+        result = inference_engine.infer(inference_config=inference_config)
 
         mock_read.assert_called_once_with("input.json")
         mock_infer.assert_called_once()
