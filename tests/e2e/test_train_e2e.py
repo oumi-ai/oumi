@@ -446,6 +446,20 @@ def test_train_text_1gpu_24gb(
             save_steps=5,
             is_lora=True,
         ),
+        TrainTestConfig(
+            test_name="train_text_llama3_1_8b_trl_sft_full",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "llama3_1"
+                / "sft"
+                / "8b_full"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+        ),
     ],
     ids=get_train_test_id_fn,
 )
