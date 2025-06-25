@@ -1,0 +1,28 @@
+name: job-tutorial
+user: wizeng
+resources:
+  cloud: slurm
+
+# Upload working directory to remote.
+# If on the local cloud, we CD into the working directory before running the job.
+working_dir: .
+
+setup: |
+  #SBATCH --ntasks=1
+  #SBATCH --gpus=1                 # 4 GPUs total, any nodes
+  #SBATCH --gpus-per-node=1        # 2 GPUs per node
+  #SBATCH --gpus-per-task=1        # 1 GPU per task
+
+
+  set -e
+  pip install uv && uv pip install oumi[gpu]
+
+run: |
+  set -e  # Exit if any command failed.
+  nodes=($( scontrol show hostnames $SLURM_JOB_NODELIST ) )
+  echo "${nodes[@]}"
+
+  set -x
+  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+
+  echo "Training complete!"
