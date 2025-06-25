@@ -18,7 +18,7 @@ from collections import deque
 from oumi.core.async_utils import safe_asyncio_run
 
 
-class AdaptiveSemaphore(asyncio.Semaphore):
+class AdaptiveSemaphore:
     """A semaphore that can dynamically adjust capacity while preserving waiters."""
 
     def __init__(self, initial_capacity: int):
