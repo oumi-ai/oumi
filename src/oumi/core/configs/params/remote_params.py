@@ -81,3 +81,54 @@ class RemoteParams(BaseParams):
             raise ValueError(
                 "Retry backoff max must be greater than or equal to retry backoff base."
             )
+
+
+@dataclass
+class AdaptiveThroughputParams(BaseParams):
+    """Configuration for adaptive throughput control."""
+
+    initial_concurrency: int = 5
+    """Initial number of concurrent requests to start with."""
+
+    max_concurrency: int = 100
+    """Maximum number of concurrent requests allowed."""
+
+    concurrency_step: int = 5
+    """How much to increase concurrency during warmup."""
+
+    update_interval: float = 10.0
+    """Seconds between attempted updates."""
+
+    error_threshold: float = 0.01
+    """Error rate threshold (0.01 = 1%) to trigger backoff."""
+
+    backoff_factor: float = 0.8
+    """Factor to multiply concurrency by during backoff.
+    0.8 = 80% of current concurrency)."""
+
+    recovery_threshold: float = 0.00
+    """Error rate threshold (0.00 = 0%) to allow recovery."""
+
+    window_size: int = 50
+    """Number of recent requests to consider for error rate calculation."""
+
+    def __post_init__(self):
+        """Validate the adaptive throughput parameters."""
+        if self.initial_concurrency < 1:
+            raise ValueError("Initial concurrency must be greater than or equal to 1.")
+        if self.max_concurrency < self.initial_concurrency:
+            raise ValueError(
+                "Max concurrency must be greater than or equal to initial concurrency."
+            )
+        if self.concurrency_step < 1:
+            raise ValueError("Concurrency step must be greater than or equal to 1.")
+        if self.update_interval <= 0:
+            raise ValueError("Update interval must be greater than 0.")
+        if self.error_threshold < 0 or self.error_threshold > 1:
+            raise ValueError("Error threshold must be between 0 and 1.")
+        if self.backoff_factor <= 0:
+            raise ValueError("Backoff factor must be greater than 0.")
+        if self.recovery_threshold < 0 or self.recovery_threshold > 1:
+            raise ValueError("Recovery threshold must be between 0 and 1.")
+        if self.window_size < 1:
+            raise ValueError("Window size must be greater than or equal to 1.")
