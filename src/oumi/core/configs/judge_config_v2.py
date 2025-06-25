@@ -60,11 +60,19 @@ class JudgeConfig(BaseConfig):
         """Resolve the JudgeConfig from a local or repo path."""
 
         def _resolve_path(unresolved_path: str) -> Optional[str]:
-            resolved_path = str(
-                cli_utils.resolve_and_fetch_config(
-                    unresolved_path,
+            try:
+                # Attempt to resolve the path using CLI utilities.
+                # This will handle both local paths and repo (oumi://) paths.
+                resolved_path = str(
+                    cli_utils.resolve_and_fetch_config(
+                        unresolved_path,
+                    )
                 )
-            )
+            except Exception:
+                # If resolution fails, mask the error and return None.
+                return None
+
+            # If resolution succeeds, check if the resolved path exists indeed.
             return resolved_path if Path(resolved_path).exists() else None
 
         if extra_args is None:
