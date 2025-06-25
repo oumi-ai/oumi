@@ -27,14 +27,14 @@ class TestAdaptiveSemaphore:
         """Test semaphore initialization with different capacities."""
         # Test basic initialization
         semaphore = AdaptiveSemaphore(5)
-        assert semaphore._capacity == 5
-        assert semaphore._current_count == 5
+        assert semaphore._max_capacity == 5
+        assert semaphore._current_capacity == 5
         assert len(semaphore._waiters) == 0
 
         # Test with capacity of 1
         semaphore = AdaptiveSemaphore(1)
-        assert semaphore._capacity == 1
-        assert semaphore._current_count == 1
+        assert semaphore._max_capacity == 1
+        assert semaphore._current_capacity == 1
 
     @pytest.mark.asyncio
     async def test_basic_acquire_release(self):
@@ -43,22 +43,19 @@ class TestAdaptiveSemaphore:
 
         # First acquire should succeed immediately
         await semaphore.acquire()
-        assert semaphore._current_count == 1
+        assert semaphore._current_capacity == 1
 
         # Second acquire should succeed immediately
         await semaphore.acquire()
-        assert semaphore._current_count == 0
+        assert semaphore._current_capacity == 0
 
         # Release one permit
         semaphore.release()
-        # Wait for async release to complete
-        await asyncio.sleep(0.01)
-        assert semaphore._current_count == 1
+        assert semaphore._current_capacity == 1
 
         # Release another permit
         semaphore.release()
-        await asyncio.sleep(0.01)
-        assert semaphore._current_count == 2
+        assert semaphore._current_capacity == 2
 
     @pytest.mark.asyncio
     async def test_acquire_blocking_when_capacity_reached(self):
@@ -67,7 +64,7 @@ class TestAdaptiveSemaphore:
 
         # First acquire should succeed immediately
         await semaphore.acquire()
-        assert semaphore._current_count == 0
+        assert semaphore._current_capacity == 0
 
         # Second acquire should block
         acquire_task = asyncio.create_task(semaphore.acquire())
@@ -77,9 +74,8 @@ class TestAdaptiveSemaphore:
 
         # Release should unblock the waiting acquire
         semaphore.release()
-        await asyncio.sleep(0.01)  # Give release task a chance to complete
         await acquire_task  # This should complete now
-        assert semaphore._current_count == 0
+        assert semaphore._current_capacity == 0
 
     @pytest.mark.asyncio
     async def test_multiple_waiters(self):
@@ -88,7 +84,7 @@ class TestAdaptiveSemaphore:
 
         # Acquire the only permit
         await semaphore.acquire()
-        assert semaphore._current_count == 0
+        assert semaphore._current_capacity == 0
 
         # Create multiple waiting tasks
         task1 = asyncio.create_task(semaphore.acquire())
@@ -103,7 +99,6 @@ class TestAdaptiveSemaphore:
 
         # Release should wake up first waiter
         semaphore.release()
-        await asyncio.sleep(0.01)
         await task1  # Should complete
         assert not task2.done()
         assert not task3.done()
@@ -111,14 +106,12 @@ class TestAdaptiveSemaphore:
 
         # Release again should wake up second waiter
         semaphore.release()
-        await asyncio.sleep(0.01)
         await task2  # Should complete
         assert not task3.done()
         assert len(semaphore._waiters) == 1
 
         # Release again should wake up third waiter
         semaphore.release()
-        await asyncio.sleep(0.01)
         await task3  # Should complete
         assert len(semaphore._waiters) == 0
 
@@ -146,7 +139,6 @@ class TestAdaptiveSemaphore:
 
         # Release should wake up the non-cancelled waiter
         semaphore.release()
-        await asyncio.sleep(0.01)
         await task2  # Should complete
         assert len(semaphore._waiters) == 0
 
@@ -158,7 +150,7 @@ class TestAdaptiveSemaphore:
         # Acquire both permits
         await semaphore.acquire()
         await semaphore.acquire()
-        assert semaphore._current_count == 0
+        assert semaphore._current_capacity == 0
 
         # Create waiting tasks
         task1 = asyncio.create_task(semaphore.acquire())
@@ -169,13 +161,13 @@ class TestAdaptiveSemaphore:
 
         # Increase capacity should wake up waiters
         await semaphore.adjust_capacity(4)
-        assert semaphore._capacity == 4
+        assert semaphore._max_capacity == 4
         await asyncio.sleep(0.01)
 
         await task1  # Should complete
         await task2  # Should complete
         assert len(semaphore._waiters) == 0
-        assert semaphore._current_count == 0  # 4 capacity - 4 acquired
+        assert semaphore._current_capacity == 0  # 4 capacity - 4 acquired
 
     @pytest.mark.asyncio
     async def test_adjust_capacity_decrease(self):
@@ -185,16 +177,16 @@ class TestAdaptiveSemaphore:
         # Acquire 2 permits
         await semaphore.acquire()
         await semaphore.acquire()
-        assert semaphore._current_count == 3
+        assert semaphore._current_capacity == 3
 
         # Decrease capacity
         await semaphore.adjust_capacity(3)
-        assert semaphore._capacity == 3
-        assert semaphore._current_count == 1  # 3 - 2 acquired
+        assert semaphore._max_capacity == 3
+        assert semaphore._current_capacity == 1  # 3 - 2 acquired
 
         # Should be able to acquire one more
         await semaphore.acquire()
-        assert semaphore._current_count == 0
+        assert semaphore._current_capacity == 0
 
         # Next acquire should block
         task = asyncio.create_task(semaphore.acquire())
@@ -204,7 +196,6 @@ class TestAdaptiveSemaphore:
 
         # Clean up
         semaphore.release()
-        await asyncio.sleep(0.01)
         await task
 
     @pytest.mark.asyncio
@@ -232,7 +223,6 @@ class TestAdaptiveSemaphore:
 
         # Release one more to complete the last task
         semaphore.release()
-        await asyncio.sleep(0.01)
         await tasks[2]
 
     @pytest.mark.asyncio
@@ -243,13 +233,13 @@ class TestAdaptiveSemaphore:
         # Acquire 4 permits
         for _ in range(4):
             await semaphore.acquire()
-        assert semaphore._current_count == 1
+        assert semaphore._current_capacity == 1
 
         # Decrease capacity below current usage
         await semaphore.adjust_capacity(2)
-        assert semaphore._capacity == 2
-        # Current count becomes negative (2 - 4 = -2)
-        assert semaphore._current_count == -2
+        assert semaphore._max_capacity == 2
+        # Current count should never go below 0
+        assert semaphore._current_capacity == 0
 
         # No new acquires should succeed until enough permits are released
         task = asyncio.create_task(semaphore.acquire())
@@ -259,7 +249,6 @@ class TestAdaptiveSemaphore:
         # Release 3 permits to get back to positive count
         for _ in range(3):
             semaphore.release()
-        await asyncio.sleep(0.01)
 
         # Now the waiting task should complete
         await task
@@ -301,19 +290,14 @@ class TestAdaptiveSemaphore:
         semaphore = AdaptiveSemaphore(1)
 
         # Reduce to zero capacity
-        await semaphore.adjust_capacity(0)
-        assert semaphore._capacity == 0
-        assert semaphore._current_count == 0
+        with pytest.raises(ValueError):
+            await semaphore.adjust_capacity(0)
 
-        # New acquires should block
-        task = asyncio.create_task(semaphore.acquire())
-        await asyncio.sleep(0.01)
-        assert not task.done()
+        with pytest.raises(ValueError):
+            await semaphore.adjust_capacity(-1)
 
-        # Increase capacity should allow acquire
-        await semaphore.adjust_capacity(1)
-        await asyncio.sleep(0.01)
-        await task  # Should complete now
+        with pytest.raises(ValueError):
+            semaphore = AdaptiveSemaphore(0)
 
     @pytest.mark.asyncio
     async def test_edge_case_empty_waiters_on_release(self):
@@ -322,12 +306,11 @@ class TestAdaptiveSemaphore:
 
         # Acquire one permit
         await semaphore.acquire()
-        assert semaphore._current_count == 1
+        assert semaphore._current_capacity == 1
 
         # Release without any waiters
         semaphore.release()
-        await asyncio.sleep(0.01)
-        assert semaphore._current_count == 2
+        assert semaphore._current_capacity == 2
         assert len(semaphore._waiters) == 0
 
     @pytest.mark.asyncio
@@ -350,7 +333,6 @@ class TestAdaptiveSemaphore:
 
         # Release should skip cancelled waiter and wake up second one
         semaphore.release()
-        await asyncio.sleep(0.01)
 
         try:
             await task1
@@ -359,3 +341,125 @@ class TestAdaptiveSemaphore:
 
         await task2  # Should complete
         assert len(semaphore._waiters) == 0
+
+    @pytest.mark.asyncio
+    async def test_context_manager_basic(self):
+        """Test basic context manager functionality."""
+        semaphore = AdaptiveSemaphore(2)
+
+        async with semaphore:
+            assert semaphore._current_capacity == 1
+
+        assert semaphore._current_capacity == 2
+
+    @pytest.mark.asyncio
+    async def test_context_manager_exception_handling(self):
+        """Test context manager releases permit even when exception occurs."""
+        semaphore = AdaptiveSemaphore(2)
+
+        try:
+            async with semaphore:
+                assert semaphore._current_capacity == 1
+                raise ValueError("Test exception")
+        except ValueError:
+            pass
+
+        assert semaphore._current_capacity == 2
+
+    @pytest.mark.asyncio
+    async def test_over_release_behavior(self):
+        """Test behavior when releasing more permits than acquired."""
+        semaphore = AdaptiveSemaphore(2)
+
+        # Release without acquiring
+        semaphore.release()
+
+        # Current capacity should not exceed max capacity, no error should be raised
+        assert semaphore._current_capacity == 2
+
+    def test_string_representation(self):
+        """Test string representation of semaphore."""
+        semaphore = AdaptiveSemaphore(5)
+        repr_str = repr(semaphore)
+        assert "AdaptiveSemaphore" in repr_str
+        assert "capacity=5" in repr_str
+        assert "current_count=5" in repr_str
+
+    @pytest.mark.asyncio
+    async def test_locked_method(self):
+        """Test locked() method returns correct state."""
+        semaphore = AdaptiveSemaphore(2)
+
+        assert not semaphore.locked()
+
+        await semaphore.acquire()
+        assert not semaphore.locked()
+
+        await semaphore.acquire()
+        assert semaphore.locked()
+
+        semaphore.release()
+        assert not semaphore.locked()
+
+    @pytest.mark.asyncio
+    async def test_concurrent_capacity_adjustments(self):
+        """Test concurrent capacity adjustments don't cause race conditions."""
+        semaphore = AdaptiveSemaphore(2)
+
+        async def adjust_up():
+            await semaphore.adjust_capacity(5)
+
+        async def adjust_down():
+            await semaphore.adjust_capacity(1)
+
+        # Run concurrent adjustments
+        await asyncio.gather(adjust_up(), adjust_down())
+
+        # Final state should be consistent
+        assert semaphore._max_capacity in [1, 5]
+        assert semaphore._current_capacity <= semaphore._max_capacity
+
+    @pytest.mark.asyncio
+    async def test_many_waiters_performance(self):
+        """Test handling of large numbers of waiters."""
+        semaphore = AdaptiveSemaphore(1)
+
+        # Acquire the permit
+        await semaphore.acquire()
+
+        # Create many waiters
+        num_waiters = 1000
+        tasks = [asyncio.create_task(semaphore.acquire()) for _ in range(num_waiters)]
+
+        await asyncio.sleep(0.01)
+        assert len(semaphore._waiters) == num_waiters
+
+        # Increase capacity significantly to wake them all
+        await semaphore.adjust_capacity(num_waiters + 1)
+
+        # All should complete
+        await asyncio.gather(*tasks)
+        assert len(semaphore._waiters) == 0
+
+    @pytest.mark.asyncio
+    async def test_waiter_cleanup_on_exception(self):
+        """Test that waiters are properly cleaned up when tasks fail."""
+        semaphore = AdaptiveSemaphore(1)
+
+        await semaphore.acquire()
+
+        async def failing_acquire():
+            await semaphore.acquire()
+            raise RuntimeError("Task failed after acquire")
+
+        task = asyncio.create_task(failing_acquire())
+
+        # Release to let the task acquire
+        semaphore.release()
+
+        with pytest.raises(RuntimeError):
+            await task
+
+        # Semaphore should be in clean state
+        assert len(semaphore._waiters) == 0
+        assert semaphore._current_capacity == 0  # Still acquired by failed task
