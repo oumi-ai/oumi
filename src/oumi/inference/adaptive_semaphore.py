@@ -90,7 +90,7 @@ class AdaptiveSemaphore:
     async def _release_async(self):
         """Release a permit."""
         async with self._lock:
-            self._current_capacity = min(self._current_capacity+1, self._max_capacity)
+            self._current_capacity = min(self._current_capacity + 1, self._max_capacity)
 
             # Wake up the next waiter if any
             while self._waiters and self._current_capacity > 0:
