@@ -28,7 +28,17 @@ class DatasetPlanner:
         synthesis_params: GeneralSynthesisParams,
         sample_count: int,
     ) -> list[dict]:
-        """Plan the dataset.
+        """Setup the dataset's attributes for inference.
+
+        This function will create a list of dictionaries, with each dictionary
+        representing a sample of the dataset with a particular attribute value for
+        each attribute.
+
+        - Permutable attributes have their values sampled from a distribution.
+        - Combination sampling overrides the distribution for particular attribute value
+          combinations.
+
+        The final list of dictionaries will be used to create a dataset.
 
         Args:
             synthesis_params: The synthesis parameters.
@@ -76,8 +86,7 @@ class DatasetPlanner:
                 "be less than or equal to 1.0."
             )
 
-        # Generate sample count permutations of the permutable attributes
-        samples = [{} for _ in range(sample_count)]
+        # Generate `sample_count` permutations of the permutable attributes
         attribute_distributions = {
             perm_attr.id: perm_attr.get_value_distribution()
             for perm_attr in permutable_attributes
@@ -95,7 +104,8 @@ class DatasetPlanner:
             override.combination for override in sampling_overrides
         ]
 
-        for i, sample in enumerate(samples):
+        samples = []
+        for _ in range(sample_count):
             sample_combination = {}
 
             random_number = random.random()
@@ -135,8 +145,7 @@ class DatasetPlanner:
                         k=1,
                     )[0]
 
-            for key, value in sample_combination.items():
-                samples[i][key] = value
+            samples.append(sample_combination)
 
         return samples
 
