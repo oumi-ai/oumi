@@ -153,7 +153,7 @@ class AdaptiveConcurrencyParams(BaseParams):
         if self.concurrency_step < 1:
             raise ValueError("Concurrency step must be greater than or equal to 1.")
         if self.min_update_time <= 0:
-            raise ValueError("Update interval must be greater than 0.")
+            raise ValueError("Min update time must be greater than 0.")
         if self.error_threshold < 0 or self.error_threshold > 1:
             raise ValueError("Error threshold must be between 0 and 1.")
         if self.backoff_factor <= 0:
