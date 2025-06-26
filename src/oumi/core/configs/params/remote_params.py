@@ -84,29 +84,42 @@ class RemoteParams(BaseParams):
 
 
 @dataclass
-class AdaptiveThroughputParams(BaseParams):
-    """Configuration for adaptive throughput control."""
+class AdaptiveConcurrencyParams(BaseParams):
+    """Configuration for adaptive concurrency control."""
 
     min_concurrency: int = 5
-    """Minimum number of concurrent requests to allow."""
+    """Minimum number of concurrent requests to allow.
+
+    The concurrency will never be allowed to go below this value.
+    """
 
     max_concurrency: int = 100
-    """Maximum number of concurrent requests allowed."""
+    """Maximum number of concurrent requests allowed.
+
+    The concurrency will never be allowed to go above this value.
+    """
 
     concurrency_step: int = 5
     """How much to increase concurrency during warmup.
 
     During warmup, concurrency will be increased by this amount. (i.e. if concurrency is
-    100, and the concurrency step is 5, the concurrency will be increased to 105).
+    50, and the concurrency step is 5, the concurrency will be increased to 55).
     """
 
-    update_interval: float = 60.0
-    """Seconds between attempted updates."""
+    min_update_time: float = 60.0
+    """Minimum seconds between attempted updates.
+
+    The concurrency will not be adjusted sooner than this time.
+    """
 
     error_threshold: float = 0.01
     """Error rate threshold (0.01 = 1%) to trigger backoff.
 
-    If the error rate is greater than this threshold, the concurrency will be reduced.
+    If the error rate is greater than this threshold, backoff will be triggered.
+
+    Consider keeping this value low, as once we hit a particular error rate, there are
+    already other requests in-flight which will likely fail, so the sooner we can
+    reduce concurrency, the better chance we have of recovering.
     """
 
     backoff_factor: float = 0.8
@@ -119,7 +132,7 @@ class AdaptiveThroughputParams(BaseParams):
     recovery_threshold: float = 0.00
     """Error rate threshold (0.00 = 0%) to allow recovery.
 
-    If the error rate is less than this threshold, the concurrency will be increased.
+    If the error rate is less than this threshold, recovery will be triggered.
     """
 
     min_window_size: int = 10
@@ -130,16 +143,16 @@ class AdaptiveThroughputParams(BaseParams):
     """
 
     def __post_init__(self):
-        """Validate the adaptive throughput parameters."""
+        """Validate the adaptive concurrency parameters."""
         if self.min_concurrency < 1:
-            raise ValueError("Initial concurrency must be greater than or equal to 1.")
+            raise ValueError("Min concurrency must be greater than or equal to 1.")
         if self.max_concurrency < self.min_concurrency:
             raise ValueError(
                 "Max concurrency must be greater than or equal to min concurrency."
             )
         if self.concurrency_step < 1:
             raise ValueError("Concurrency step must be greater than or equal to 1.")
-        if self.update_interval <= 0:
+        if self.min_update_time <= 0:
             raise ValueError("Update interval must be greater than 0.")
         if self.error_threshold < 0 or self.error_threshold > 1:
             raise ValueError("Error threshold must be between 0 and 1.")
