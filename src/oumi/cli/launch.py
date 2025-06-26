@@ -181,6 +181,99 @@ def _stop_worker(cluster: str, cloud: Optional[str]) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
+def _tail_slurm_logs(job_status: "JobStatus", running_cluster: "BaseCluster") -> None:
+    """Tails logs for a Slurm job until completion.
+
+    Args:
+        job_status: The status of the job to tail logs for.
+        running_cluster: The cluster running the job.
+    """
+    from oumi.launcher.clusters.slurm_cluster import SlurmCluster
+
+    if not isinstance(running_cluster, SlurmCluster):
+        return
+
+    # Extract remote working directory from job metadata
+    remote_working_dir = None
+    job_metadata_lines = job_status.metadata.strip().split("\n")
+
+    for line in job_metadata_lines:
+        if line.startswith("Remote working dir: "):
+            remote_working_dir = line.replace("Remote working dir: ", "").strip()
+            break
+
+    if not remote_working_dir:
+        # Fall back to the original polling behavior if we can't find the working dir
+        cli_utils.CONSOLE.print(
+            f"[yellow]Warning: Could not find remote working directory. Falling back to status polling.[/yellow]"
+        )
+        _print_and_wait(
+            f"Running job [yellow]{job_status.id}[/yellow]",
+            _is_job_done,
+            asynchronous=True,
+            id=job_status.id,
+            cloud="slurm",
+            cluster=job_status.cluster,
+        )
+        return
+
+    slurm_client = running_cluster._client
+
+    cli_utils.CONSOLE.print(
+        f"Tailing logs for Slurm job [yellow]{job_status.id}[/yellow]..."
+    )
+
+    # Construct the log file path directly using the known pattern
+    log_file_path = f"{remote_working_dir}/slurm-{job_status.id}.out"
+
+    # Print the log file path for manual access
+    connection_info = running_cluster._connection
+    cli_utils.CONSOLE.print(
+        f"Log file: [cyan]{connection_info.user}@{connection_info.hostname}:{log_file_path}[/cyan]"
+    )
+
+    try:
+        # Tail the log file until job completes
+        last_position = 0
+        while True:
+            # Check if job is done
+            current_status = running_cluster.get_job(job_status.id)
+            if current_status and current_status.done:
+                # Get any remaining log content and break
+                tail_cmd = f"tail -c +{last_position + 1} {log_file_path}"
+                response = slurm_client.run_commands([tail_cmd])
+                if response.exit_code == 0 and response.stdout.strip():
+                    cli_utils.CONSOLE.print(response.stdout, end="")
+                break
+
+            # Get new log content since last read
+            tail_cmd = f"tail -c +{last_position + 1} {log_file_path}"
+            response = slurm_client.run_commands([tail_cmd])
+
+            if response.exit_code == 0 and response.stdout:
+                new_content = response.stdout
+                if new_content.strip():
+                    cli_utils.CONSOLE.print(new_content, end="")
+                    last_position += len(new_content.encode("utf-8"))
+
+            # Sleep before next poll
+            time.sleep(2)
+
+    except Exception as e:
+        # Fall back to the original polling behavior if log tailing fails
+        cli_utils.CONSOLE.print(
+            f"[yellow]Warning: Could not tail logs ({e}). Falling back to status polling.[/yellow]"
+        )
+        _print_and_wait(
+            f"Running job [yellow]{job_status.id}[/yellow]",
+            _is_job_done,
+            asynchronous=True,
+            id=job_status.id,
+            cloud="slurm",
+            cluster=job_status.cluster,
+        )
+
+
 def _poll_job(
     job_status: "JobStatus",
     detach: bool,
@@ -222,6 +315,9 @@ def _poll_job(
             cluster_name=job_status.cluster,
             job_id=job_status.id,
         )
+    elif cloud == "slurm":
+        # Handle Slurm job log tailing
+        _tail_slurm_logs(job_status, running_cluster)
     else:
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",

@@ -272,12 +272,16 @@ class SlurmCluster(BaseCluster):
         for _ in range(max_retries):
             job_status = self.get_job(job_id)
             if job_status is not None:
+                # Add the remote working directory to the metadata for log tailing
+                job_status.metadata += f"\nRemote working dir: {remote_working_dir}"
                 return job_status
             logger.info(f"Job {job_id} not found. Retrying in {wait_time} seconds.")
             time.sleep(wait_time)
         job_status = self.get_job(job_id)
         if job_status is None:
             raise RuntimeError(f"Job {job_id} not found after submission.")
+        # Add the remote working directory to the metadata for log tailing
+        job_status.metadata += f"\nRemote working dir: {remote_working_dir}"
         return job_status
 
     def stop(self) -> None:
