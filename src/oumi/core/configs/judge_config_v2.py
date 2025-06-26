@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import requests
+import yaml
 from typing_extensions import Self
 
 from oumi.cli import cli_utils
@@ -68,7 +70,11 @@ class JudgeConfig(BaseConfig):
                         unresolved_path,
                     )
                 )
-            except Exception:
+            except (
+                requests.exceptions.RequestException,  # Network/HTTP issues
+                yaml.YAMLError,  # YAML parsing errors
+                OSError,  # File system operations (includes IOError)
+            ):
                 # If resolution fails, mask the error and return None.
                 return None
 
