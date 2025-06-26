@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import aiofiles
 import aiohttp
@@ -44,10 +44,6 @@ from oumi.core.types.conversation import (
     Conversation,
     Message,
     Role,
-)
-from oumi.inference.adaptive_throughput import (
-    AdaptiveThroughputController,
-    AdaptiveThroughputParams,
 )
 from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
@@ -212,16 +208,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     _remote_params: RemoteParams
     """Parameters for running inference against a remote API."""
 
-    _adaptive_controller: Optional[AdaptiveThroughputController] = None
-    """Controller for adaptive throughput management."""
-
     def __init__(
         self,
         model_params: ModelParams,
         *,
         generation_params: Optional[GenerationParams] = None,
         remote_params: Optional[RemoteParams] = None,
-        adaptive_throughput_params: Optional[AdaptiveThroughputParams] = None,
     ):
         """Initializes the inference Engine.
 
@@ -229,7 +221,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             model_params: The model parameters to use for inference.
             generation_params: Generation parameters to use for inference.
             remote_params: Remote server params.
-            adaptive_throughput_params: Parameters for adaptive throughput control.
+            **kwargs: Additional keyword arguments.
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
@@ -244,12 +236,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params.api_key_env_varname = self.api_key_env_varname
         self._remote_params = remote_params
         self._remote_params.finalize_and_validate()
-
-        # Initialize adaptive throughput controller if config provided
-        if adaptive_throughput_params:
-            self._adaptive_controller = AdaptiveThroughputController(
-                adaptive_throughput_params
-            )
 
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
@@ -429,7 +415,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _query_api(
         self,
         conversation: Conversation,
-        semaphore_or_controller: Union[asyncio.Semaphore, AdaptiveThroughputController],
+        semaphore: asyncio.Semaphore,
         session: aiohttp.ClientSession,
         inference_config: Optional[InferenceConfig] = None,
     ) -> Conversation:
@@ -437,8 +423,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         Args:
             conversation: The conversations to run inference on.
-            semaphore_or_controller: Semaphore or adaptive controller to limit
-                concurrent requests.
+            semaphore: Semaphore to limit concurrent requests.
             session: The aiohttp session to use for the request.
             inference_config: Parameters for inference.
 
@@ -467,14 +452,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
-        # Handle both semaphore and adaptive controller
-        is_adaptive = isinstance(semaphore_or_controller, AdaptiveThroughputController)
-        if is_adaptive:
-            await semaphore_or_controller.acquire()
-        else:
-            await semaphore_or_controller.acquire()
-
-        try:
+        async with semaphore:
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params, model_params
             )
@@ -508,13 +486,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                 failure_reason = (
                                     f"Non-retriable error: {failure_reason}"
                                 )
-                                # Record error for adaptive throughput
-                                if is_adaptive:
-                                    semaphore_or_controller.record_error()
                                 raise RuntimeError(failure_reason)
-                            # Record error for retriable HTTP errors
-                            if is_adaptive:
-                                semaphore_or_controller.record_error()
                             continue
 
                         # Try to parse the response as JSON
@@ -531,9 +503,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                                     f"Content type: {response.content_type}. "
                                     f"Response text: {text_response[:200]}..."
                                 )
-                                # Record error for adaptive throughput
-                                if is_adaptive:
-                                    semaphore_or_controller.record_error()
                                 if attempt >= remote_params.max_retries:
                                     raise RuntimeError(
                                         "Failed to parse response as JSON after "
@@ -548,18 +517,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             )
                             # Write what we have so far to our scratch directory
                             self._save_conversation_to_scratch(result, output_path)
-                            # Record successful request for adaptive throughput
-                            if is_adaptive:
-                                semaphore_or_controller.record_success()
                             return result
                         except Exception as e:
                             # Response was successful, but we couldn't process it.
                             failure_reason = (
                                 f"Failed to process successful response: {str(e)}"
                             )
-                            # Record error for adaptive throughput
-                            if is_adaptive:
-                                semaphore_or_controller.record_error()
                             if attempt >= remote_params.max_retries:
                                 raise RuntimeError(failure_reason) from e
                             continue
@@ -567,9 +530,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     # Connection or timeout errors are retriable.
                     failure_reason = f"Connection error: {str(e)}"
-                    # Record error for adaptive throughput
-                    if is_adaptive:
-                        semaphore_or_controller.record_error()
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "
@@ -598,19 +558,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         await asyncio.sleep(remote_params.politeness_policy)
 
             # This should only be reached if all retries failed
-            # Record error for adaptive throughput on final failure
-            if is_adaptive:
-                semaphore_or_controller.record_error()
             raise RuntimeError(
                 f"Failed to query API after {attempt + 1} attempts. "
                 + (f"Reason: {failure_reason}" if failure_reason else "")
             )
-        finally:
-            # Release the semaphore/controller permit
-            if is_adaptive:
-                await semaphore_or_controller.release()
-            else:
-                semaphore_or_controller.release()
 
     async def _infer(
         self,
@@ -622,28 +573,20 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         Args:
             input: A list of conversations to run inference on.
             inference_config: Parameters for inference.
+            remote_params: Parameters for running inference against a remote API.
 
         Returns:
             List[Conversation]: Inference output.
         """
-        # Use adaptive controller if available, otherwise use fixed semaphore
-        if self._adaptive_controller:
-            max_connections = self._remote_params.num_workers
-            connector = aiohttp.TCPConnector(limit=max_connections)
-            concurrency_controller = self._adaptive_controller
-        else:
-            # Limit number of HTTP connections to the number of workers.
-            connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
-            # Control the number of concurrent tasks via a semaphore.
-            concurrency_controller = asyncio.BoundedSemaphore(
-                self._remote_params.num_workers
-            )
-
+        # Limit number of HTTP connections to the number of workers.
+        connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
+        # Control the number of concurrent tasks via a semaphore.
+        semaphore = asyncio.BoundedSemaphore(self._remote_params.num_workers)
         async with aiohttp.ClientSession(connector=connector) as session:
             tasks = [
                 self._query_api(
                     conversation,
-                    concurrency_controller,
+                    semaphore,
                     session,
                     inference_config=inference_config,
                 )
