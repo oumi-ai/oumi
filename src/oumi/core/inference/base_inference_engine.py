@@ -207,6 +207,9 @@ class BaseInferenceEngine(ABC):
 
         final_results = list(sorted_conversations.values())
 
+        if inference_config and inference_config.output_path:
+            self._save_conversations(final_results, inference_config.output_path)
+
         return final_results
 
     def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:

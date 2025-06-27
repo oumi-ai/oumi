@@ -188,6 +188,7 @@ class AdaptiveConcurrencyController:
         self._in_backoff = True
 
     def _reset_outcomes(self):
+        """Reset the outcomes queue."""
         with self._outcome_lock:
             self._outcomes.clear()
             self._consecutive_good_windows_since_last_update = 0
@@ -214,5 +215,6 @@ class AdaptiveConcurrencyController:
     async def _update_concurrency(self, new_concurrency: int):
         """Update the concurrency limit, preserving existing waiters."""
         self._current_concurrency = new_concurrency
+        logger.info(f"Updating concurrency to {new_concurrency}")
         await self._semaphore.adjust_capacity(new_concurrency)
         self._reset_outcomes()

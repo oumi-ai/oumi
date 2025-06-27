@@ -39,12 +39,14 @@ from oumi.core.configs import (
     ModelParams,
     RemoteParams,
 )
+from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import (
     Conversation,
     Message,
     Role,
 )
+from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
 from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
@@ -236,6 +238,23 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             remote_params.api_key_env_varname = self.api_key_env_varname
         self._remote_params = remote_params
         self._remote_params.finalize_and_validate()
+
+        if self._remote_params.use_adaptive_concurrency:
+            max_concurrency = self._remote_params.num_workers
+            # Start with 50% of the max concurrency.
+            min_concurrency = max(5, max_concurrency // 2)
+            # Step size is 1/4 of the range between min and max concurrency.
+            concurrency_step = max(1, (max_concurrency - min_concurrency) // 4)
+            # Min update time is 1 second less than the politeness policy.
+            min_update_time = max(1, self._remote_params.politeness_policy - 1)
+            self._adaptive_concurrency_controller = AdaptiveConcurrencyController(
+                AdaptiveConcurrencyParams(
+                    min_concurrency=min_concurrency,
+                    max_concurrency=max_concurrency,
+                    concurrency_step=concurrency_step,
+                    min_update_time=min_update_time,
+                )
+            )
 
     def _default_remote_params(self) -> RemoteParams:
         """Returns the default remote parameters."""
@@ -452,7 +471,12 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     "Please set the environment variable "
                     f"`{remote_params.api_key_env_varname}`."
                 )
-        async with semaphore:
+        semaphore_or_controller = (
+            self._adaptive_concurrency_controller
+            if self._remote_params.use_adaptive_concurrency
+            else semaphore
+        )
+        async with semaphore_or_controller:
             api_input = self._convert_conversation_to_api_input(
                 conversation, generation_params, model_params
             )
@@ -477,6 +501,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         timeout=remote_params.connection_timeout,
                     ) as response:
                         if response.status != 200:
+                            self._adaptive_concurrency_controller.record_error()
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
@@ -498,6 +523,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             try:
                                 response_json = json.loads(text_response)
                             except (json.JSONDecodeError, ValueError) as e:
+                                self._adaptive_concurrency_controller.record_error()
                                 failure_reason = (
                                     "Failed to parse response. "
                                     f"Content type: {response.content_type}. "
@@ -517,12 +543,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             )
                             # Write what we have so far to our scratch directory
                             self._save_conversation_to_scratch(result, output_path)
+                            self._adaptive_concurrency_controller.record_success()
                             return result
                         except Exception as e:
                             # Response was successful, but we couldn't process it.
                             failure_reason = (
                                 f"Failed to process successful response: {str(e)}"
                             )
+                            self._adaptive_concurrency_controller.record_error()
                             if attempt >= remote_params.max_retries:
                                 raise RuntimeError(failure_reason) from e
                             continue
@@ -530,6 +558,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     # Connection or timeout errors are retriable.
                     failure_reason = f"Connection error: {str(e)}"
+                    self._adaptive_concurrency_controller.record_error()
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "
@@ -542,6 +571,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 except Exception as e:
                     # If we get here, we've hit an unexpected error.
                     failure_reason = f"Unexpected error: {str(e)}"
+                    self._adaptive_concurrency_controller.record_error()
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "
@@ -613,8 +643,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         conversations = safe_asyncio_run(self._infer(input, inference_config))
-        if inference_config and inference_config.output_path:
-            self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
     @override
@@ -653,7 +681,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._infer_online(input, inference_config)
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
 
     def infer_from_file(
         self,
