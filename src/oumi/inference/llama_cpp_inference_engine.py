@@ -259,7 +259,10 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._infer_online(input, inference_config)
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
 
     def infer_from_file(
         self,
@@ -284,7 +287,10 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             stacklevel=2,
         )
         input = self._read_conversations(input_filepath)
-        return self._infer(input, inference_config)
+        results = self._infer(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
 
     @override
     def _infer_online(
