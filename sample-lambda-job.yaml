@@ -1,0 +1,39 @@
+# Usage: oumi launch up -c sample-lambda-job.yaml --cluster shanghong@192.222.48.208
+
+name: sample-lambda-job
+user: shanghong
+
+resources:
+  cloud: slurm
+  accelerators: "A100:1"
+
+num_nodes: 1 # Set it to a larger number for multi-node training.
+
+working_dir: .
+
+# NOTE: Uncomment the following lines to download locked-down models from HF Hub.
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+
+envs:
+  OUMI_RUN_NAME: sample.lambda.job
+  TOKENIZERS_PARALLELISM: false # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  WANDB_PROJECT: oumi
+
+setup: |
+  # We haven't fully mapped the requested GPUs from resources to what's being used by SLURM so these SLURM variables are necessary.
+  #SBATCH --ntasks=1
+  #SBATCH --cpus-per-task=1
+  #SBATCH --gpus-per-task=2
+
+  set -e
+  source ~/miniconda3/etc/profile.d/conda.sh # Somehow, the system cannoty find conda without this.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]'
+
+run: |
+  set -e  # Exit if any command failed.
+  oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml
+  echo "Training complete!"
