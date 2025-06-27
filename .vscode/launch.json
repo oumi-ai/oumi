@@ -163,48 +163,6 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false
-        },
-        {
-            "name": "Train - Single GPU",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi",
-            "args": [
-              "train",
-              "-c",
-              "configs/my_training_config.yaml"
-            ],
-            "justMyCode": true
-          },
-          {
-            "name": "Train - Multi-GPU (FSDP)",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "torch.distributed.run",
-            "console": "integratedTerminal",
-            "args": [
-              "--standalone",
-              "--nproc-per-node",
-              "4",
-              "-m",
-              "oumi",
-              "train",
-              "-c",
-              "configs/my_fsdp_config.yaml"
-            ]
-          },
-          {
-            "name": "Interactive Inference",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi",
-            "args": [
-              "infer",
-              "--interactive",
-              "-c",
-              "configs/my_inference_config.yaml"
-            ],
-            "justMyCode": true
-          }
+        }
     ]
 }
