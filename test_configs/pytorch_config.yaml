@@ -1,0 +1,8 @@
+# PyTorch Format Configuration
+model:
+  model_name: "gpt2"
+
+method: "f16"
+output_path: "pytorch_test.pt"
+output_format: "pytorch"
+verbose: false

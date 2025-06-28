@@ -1,0 +1,17 @@
+# Safetensors Quantization Configuration
+# 🚧 DEVELOPMENT: This configuration tests safetensors format options
+# Currently runs in simulation mode - preparing for GPU inference implementation
+
+# Model configuration
+model:
+  model_name: "mistralai/Mistral-7B-Instruct-v0.1"
+  tokenizer_name: "mistralai/Mistral-7B-Instruct-v0.1"
+
+# Quantization for GPU inference
+method: "q8_0"                           # 8-bit quantization
+output_path: "gpu_models/mistral-7b/"    # Directory for safetensors
+output_format: "safetensors"             # Safetensors format
+
+# GPU-optimized settings
+batch_size: 16                           # Larger batch for GPU
+verbose: false                           # Minimal logging for production

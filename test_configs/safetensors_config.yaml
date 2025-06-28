@@ -1,0 +1,8 @@
+# Safetensors Format Configuration
+model:
+  model_name: "microsoft/DialoGPT-small"
+
+method: "q8_0"
+output_path: "safetensors_test.safetensors"
+output_format: "safetensors"
+verbose: true

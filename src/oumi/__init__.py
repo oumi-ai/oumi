@@ -33,6 +33,7 @@ Functions:
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
+    - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
 
 Examples:
     Training a model::
@@ -63,6 +64,13 @@ Examples:
         >>> config = JudgeConfig(...)
         >>> judge_dataset(config, dataset)
 
+    Quantizing a model::
+
+        >>> from oumi import quantize
+        >>> from oumi.core.configs import QuantizationConfig
+        >>> config = QuantizationConfig(...)
+        >>> result = quantize(config)
+
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
@@ -80,6 +88,7 @@ if TYPE_CHECKING:
         InferenceConfig,
         JudgeConfig,
         JudgeConfigV2,
+        QuantizationConfig,
         TrainingConfig,
     )
     from oumi.core.datasets import BaseSftDataset
@@ -311,6 +320,21 @@ def train(
     )
 
 
+def quantize(config: QuantizationConfig) -> dict[str, Any]:
+    """Quantizes a model using the provided configuration.
+
+    Args:
+        config: The configuration for quantization.
+
+    Returns:
+        A dictionary containing quantization results including file sizes
+        and compression ratios.
+    """
+    import oumi.quantize
+
+    return oumi.quantize.quantize(config)
+
+
 __all__ = [
     "evaluate_async",
     "evaluate",
@@ -318,5 +342,6 @@ __all__ = [
     "infer",
     "judge_conversations",
     "judge_dataset",
+    "quantize",
     "train",
 ]

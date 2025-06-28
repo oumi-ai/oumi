@@ -27,6 +27,7 @@ from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.judge_v2 import judge_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.quantize import quantize
 from oumi.cli.train import train
 
 _ASCII_LOGO = r"""
@@ -75,6 +76,10 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Run inference on a model.",
     )(infer)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="🚧 [DEV] Quantize a model (simulation mode).",
+    )(quantize)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
