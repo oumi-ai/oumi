@@ -90,7 +90,7 @@ class AdaptiveConcurrencyParams(BaseParams):
     min_concurrency: int = 5
     """Minimum number of concurrent requests to allow.
 
-    The concurrency will never be allowed to go below this value.
+    Backoff throttling will never reduce concurrency below this value.
     """
 
     max_concurrency: int = 100
@@ -103,7 +103,8 @@ class AdaptiveConcurrencyParams(BaseParams):
     """How much to increase concurrency during warmup.
 
     During warmup, concurrency will be increased by this amount. (i.e. if concurrency is
-    50, and the concurrency step is 5, the concurrency will be increased to 55).
+    50, and the concurrency step is 5, the concurrency will be increased to 55). This
+    change will happen no sooner than min_update_time seconds after the last update.
     """
 
     min_update_time: float = 60.0
@@ -117,9 +118,9 @@ class AdaptiveConcurrencyParams(BaseParams):
 
     If the error rate is greater than this threshold, backoff will be triggered.
 
-    Consider keeping this value low, as once we hit a particular error rate, there are
-    already other requests in-flight which will likely fail, so the sooner we can
-    reduce concurrency, the better chance we have of recovering.
+    Consider keeping this value low. Once a particular error rate is reached, there are
+    already other requests in-flight which will likely fail, so the sooner concurrency
+    is reduced, the better chance the system has of recovering.
     """
 
     backoff_factor: float = 0.8
@@ -138,8 +139,8 @@ class AdaptiveConcurrencyParams(BaseParams):
     min_window_size: int = 10
     """Minimum number of recent requests to consider for error rate calculation.
 
-    If the number of recent requests is less than this threshold, the concurrency will
-    not be adjusted.
+    If the number of requests since the last update is less than this threshold, the
+    concurrency will not be adjusted.
     """
 
     def __post_init__(self):

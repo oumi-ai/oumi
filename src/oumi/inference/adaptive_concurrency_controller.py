@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import math
-import threading
 import time
 from collections import deque
 
-from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.inference.adaptive_semaphore import AdaptiveSemaphore
 from oumi.utils.logging import logger
@@ -32,8 +31,8 @@ class AdaptiveConcurrencyController:
     concurrent requests based on error rates by recording the outcomes of requests.
 
     The controller will not adjust the concurrency unless the number of recent requests
-    is greater than or equal to the min window size, and the time since the last
-    adjustment is greater than or equal to the min update time.
+    is greater than or equal to the min_window_size, and the time since the last
+    adjustment is greater than or equal to the min_update_time.
 
     To avoid making adjustments on stale data, the controller clears the outcomes
     queue whenever the concurrency is adjusted. In addition, the controller waits for
@@ -66,8 +65,8 @@ class AdaptiveConcurrencyController:
         self._semaphore = AdaptiveSemaphore(self._current_concurrency)
 
         # Track request outcomes in a sliding window
-        self._outcomes = deque(maxlen=_MAX_OUTCOMES_WINDOW_SIZE)
-        self._outcome_lock = threading.Lock()
+        self._outcomes: deque[bool] = deque(maxlen=_MAX_OUTCOMES_WINDOW_SIZE)
+        self._outcome_lock = asyncio.Lock()
 
         # State tracking
         self._last_adjustment_time = 0
@@ -81,37 +80,37 @@ class AdaptiveConcurrencyController:
         self._logged_backoff_warning = False
         self._logged_warmup_warning = False
 
-    def record_success(self):
+    async def record_success(self):
         """Record a successful outcome."""
-        with self._outcome_lock:
+        async with self._outcome_lock:
             self._outcomes.append(True)
 
-    def record_error(self):
+    async def record_error(self):
         """Record a failed outcome."""
-        with self._outcome_lock:
+        async with self._outcome_lock:
             self._outcomes.append(False)
 
     async def acquire(self):
-        """Acquire a permit."""
+        """Acquire a permit, then try to adjust concurrency before returning."""
         await self._semaphore.acquire()
+        await self._try_adjust_concurrency()
 
     def release(self):
-        """Try to adjust concurrency before releasing a permit."""
-        safe_asyncio_run(self._try_adjust_concurrency())
+        """Release a permit."""
         self._semaphore.release()
 
     async def __aenter__(self):
         """Enter the context manager."""
         await self.acquire()
-        return None
+        return self
 
     async def __aexit__(self, exc_type, exc, tb):
         """Exit the context manager."""
         self.release()
 
-    def _get_error_rate(self) -> float:
+    async def _get_error_rate(self) -> float:
         """Calculate current error rate based on recent outcomes."""
-        with self._outcome_lock:
+        async with self._outcome_lock:
             if not self._outcomes:
                 return 0.0  # No data yet, so no error rate.
             errors = sum(1 for outcome in self._outcomes if not outcome)
@@ -129,7 +128,7 @@ class AdaptiveConcurrencyController:
             return
 
         # Check if we need to backoff due to high error rate
-        error_rate = self._get_error_rate()
+        error_rate = await self._get_error_rate()
         if error_rate >= self._config.error_threshold and not self._in_backoff:
             await self._try_backoff()
             return
@@ -187,8 +186,8 @@ class AdaptiveConcurrencyController:
         # Set backoff state
         self._in_backoff = True
 
-    def _reset_outcomes(self):
-        with self._outcome_lock:
+    async def _reset_outcomes(self):
+        async with self._outcome_lock:
             self._outcomes.clear()
             self._consecutive_good_windows_since_last_update = 0
             self._consecutive_error_windows_since_last_update = 0
@@ -215,4 +214,4 @@ class AdaptiveConcurrencyController:
         """Update the concurrency limit, preserving existing waiters."""
         self._current_concurrency = new_concurrency
         await self._semaphore.adjust_capacity(new_concurrency)
-        self._reset_outcomes()
+        await self._reset_outcomes()
