@@ -186,9 +186,9 @@ class AdaptiveConcurrencyController:
         # Set backoff state
         self._in_backoff = True
 
-    def _reset_outcomes(self):
+    async def _reset_outcomes(self):
         """Reset the outcomes queue."""
-        with self._outcome_lock:
+        async with self._outcome_lock:
             self._outcomes.clear()
             self._consecutive_good_windows_since_last_update = 0
             self._consecutive_error_windows_since_last_update = 0
