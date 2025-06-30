@@ -13,13 +13,21 @@
 # limitations under the License.
 
 import asyncio
-import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
+
+
+#
+# Fixtures
+#
+@pytest.fixture
+def mock_time():
+    with patch("oumi.inference.adaptive_concurrency_controller.time") as time_mock:
+        yield time_mock
 
 
 def create_config(**kwargs):
@@ -76,94 +84,101 @@ def test_initialization_with_custom_config():
     assert controller._config.error_threshold == 0.05
 
 
-def test_record_success():
+@pytest.mark.asyncio
+async def test_record_success():
     """Test recording successful requests."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     # Record multiple successes
     for _ in range(5):
-        controller.record_success()
+        await controller.record_success()
 
     assert len(controller._outcomes) == 5
     assert all(outcome for outcome in controller._outcomes)
 
 
-def test_record_error():
+@pytest.mark.asyncio
+async def test_record_error():
     """Test recording failed requests."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     # Record multiple errors
     for _ in range(5):
-        controller.record_error()
+        await controller.record_error()
 
     assert len(controller._outcomes) == 5
     assert all(not outcome for outcome in controller._outcomes)
 
 
-def test_record_mixed_outcomes():
+@pytest.mark.asyncio
+async def test_record_mixed_outcomes():
     """Test recording mixed success and error outcomes."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     # Record pattern: success, error, success, error, success
-    controller.record_success()
-    controller.record_error()
-    controller.record_success()
-    controller.record_error()
-    controller.record_success()
+    await controller.record_success()
+    await controller.record_error()
+    await controller.record_success()
+    await controller.record_error()
+    await controller.record_success()
 
     assert len(controller._outcomes) == 5
     expected = [True, False, True, False, True]
     assert list(controller._outcomes) == expected
 
 
-def test_get_error_rate_empty():
+@pytest.mark.asyncio
+async def test_get_error_rate_empty():
     """Test error rate calculation with no data."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
-    error_rate = controller._get_error_rate()
+    error_rate = await controller._get_error_rate()
     assert error_rate == 0.0
 
 
-def test_get_error_rate_all_success():
+@pytest.mark.asyncio
+async def test_get_error_rate_all_success():
     """Test error rate calculation with all successful requests."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    error_rate = controller._get_error_rate()
+    error_rate = await controller._get_error_rate()
     assert error_rate == 0.0
 
 
-def test_get_error_rate_all_errors():
+@pytest.mark.asyncio
+async def test_get_error_rate_all_errors():
     """Test error rate calculation with all failed requests."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     for _ in range(10):
-        controller.record_error()
+        await controller.record_error()
 
-    error_rate = controller._get_error_rate()
+    error_rate = await controller._get_error_rate()
     assert error_rate == 1.0
 
 
-def test_get_error_rate_mixed():
+@pytest.mark.asyncio
+async def test_get_error_rate_mixed():
     """Test error rate calculation with mixed outcomes."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     # 7 successes, 3 errors = 30% error rate
     for _ in range(7):
-        controller.record_success()
+        await controller.record_success()
     for _ in range(3):
-        controller.record_error()
+        await controller.record_error()
 
-    error_rate = controller._get_error_rate()
+    error_rate = await controller._get_error_rate()
     assert error_rate == 0.3
 
 
@@ -193,11 +208,10 @@ async def test_acquire_calls_try_adjust_concurrency():
         controller, "_try_adjust_concurrency", new_callable=AsyncMock
     ) as mock_adjust:
         await controller.acquire()
-        mock_adjust.assert_not_called()
-        controller.release()
         mock_adjust.assert_called_once()
-
-    controller.release()
+        mock_adjust.reset_mock()
+        controller.release()
+        mock_adjust.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -208,7 +222,7 @@ async def test_try_adjust_concurrency_no_data():
 
     # Add some data but less than min_window_size
     for _ in range(5):
-        controller.record_success()
+        await controller.record_success()
 
     await controller._try_adjust_concurrency()
 
@@ -217,17 +231,18 @@ async def test_try_adjust_concurrency_no_data():
 
 
 @pytest.mark.asyncio
-async def test_try_adjust_concurrency_too_soon():
+async def test_try_adjust_concurrency_too_soon(mock_time):
     """Test that adjustment doesn't happen too frequently."""
     config = create_config(min_update_time=60.0)  # 1 minute
     controller = AdaptiveConcurrencyController(config)
 
     # Add sufficient data
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
     # Set last adjustment time to now
-    controller._last_adjustment_time = time.time()
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = config.min_update_time
 
     await controller._try_adjust_concurrency()
 
@@ -236,7 +251,7 @@ async def test_try_adjust_concurrency_too_soon():
 
 
 @pytest.mark.asyncio
-async def test_backoff_on_high_error_rate():
+async def test_backoff_on_high_error_rate(mock_time):
     """Test backoff behavior when error rate exceeds threshold."""
     config = create_config(
         error_threshold=0.2,  # 20%
@@ -249,14 +264,15 @@ async def test_backoff_on_high_error_rate():
     await controller._update_concurrency(100)
 
     # Create high error rate (1 error out of 5 = 20%)
-    controller.record_success()
-    controller.record_success()
-    controller.record_success()
-    controller.record_success()
-    controller.record_error()
+    await controller.record_success()
+    await controller.record_success()
+    await controller.record_success()
+    await controller.record_success()
+    await controller.record_error()
 
     # Make sure enough time has passed
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
 
     assert controller._current_concurrency == 80
@@ -264,7 +280,7 @@ async def test_backoff_on_high_error_rate():
 
 
 @pytest.mark.asyncio
-async def test_backoff_minimum_concurrency():
+async def test_backoff_minimum_concurrency(mock_time):
     """Test that backoff doesn't go below initial concurrency."""
     config = create_config(
         min_concurrency=10,
@@ -280,9 +296,10 @@ async def test_backoff_minimum_concurrency():
 
     # Create high error rate
     for _ in range(10):
-        controller.record_error()
+        await controller.record_error()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     await controller._try_adjust_concurrency()
 
@@ -292,7 +309,7 @@ async def test_backoff_minimum_concurrency():
 
 
 @pytest.mark.asyncio
-async def test_warmup_on_low_error_rate():
+async def test_warmup_on_low_error_rate(mock_time):
     """Test warmup behavior when error rate is low."""
     config = create_config(
         min_concurrency=10,
@@ -306,9 +323,10 @@ async def test_warmup_on_low_error_rate():
 
     # Create low error rate (all successes)
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     await controller._try_adjust_concurrency()
 
@@ -318,7 +336,7 @@ async def test_warmup_on_low_error_rate():
 
 
 @pytest.mark.asyncio
-async def test_warmup_max_concurrency_limit():
+async def test_warmup_max_concurrency_limit(mock_time):
     """Test that warmup doesn't exceed max concurrency."""
     config = create_config(
         min_concurrency=18,
@@ -335,9 +353,10 @@ async def test_warmup_max_concurrency_limit():
 
     # Create low error rate
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     await controller._try_adjust_concurrency()
 
@@ -346,7 +365,7 @@ async def test_warmup_max_concurrency_limit():
 
 
 @pytest.mark.asyncio
-async def test_recovery_from_backoff():
+async def test_recovery_from_backoff(mock_time):
     """Test recovery from backoff state."""
     config = create_config(
         error_threshold=0.2,
@@ -363,9 +382,10 @@ async def test_recovery_from_backoff():
 
     # Create low error rate (all successes, 0% error rate)
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     # With 0% error rate (< recovery_threshold), should increment good windows
     await controller._try_adjust_concurrency()
@@ -375,10 +395,10 @@ async def test_recovery_from_backoff():
     # Clear outcomes and add more successes for second window
     controller._outcomes.clear()
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
     # Second call should exit backoff after 2 good windows
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert not controller._in_backoff
     assert controller._consecutive_good_windows_since_last_update == 0
@@ -390,7 +410,7 @@ async def test_recovery_from_backoff():
 
 
 @pytest.mark.asyncio
-async def test_additional_backoff_in_backoff_state():
+async def test_additional_backoff_in_backoff_state(mock_time):
     """Test additional backoff when already in backoff with continued errors."""
     config = create_config(
         error_threshold=0.2,
@@ -410,18 +430,19 @@ async def test_additional_backoff_in_backoff_state():
 
     # Create high error rate
     for _ in range(2):
-        controller.record_error()
+        await controller.record_error()
     for _ in range(3):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     # First call should increment error windows
     await controller._try_adjust_concurrency()
     assert controller._consecutive_error_windows_since_last_update == 1
 
     # Second call should trigger additional backoff
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert controller._current_concurrency == 80
 
@@ -435,8 +456,8 @@ async def test_update_concurrency_resets_outcomes():
 
     # Add some outcomes
     for _ in range(5):
-        controller.record_success()
-    controller.record_error()
+        await controller.record_success()
+    await controller.record_error()
 
     assert len(controller._outcomes) == 6
 
@@ -475,9 +496,9 @@ async def test_concurrent_access_to_outcomes():
     async def record_outcomes():
         for i in range(100):
             if i % 2 == 0:
-                controller.record_success()
+                await controller.record_success()
             else:
-                controller.record_error()
+                await controller.record_error()
 
     # Run multiple tasks concurrently
     tasks = [asyncio.create_task(record_outcomes()) for _ in range(5)]
@@ -498,7 +519,7 @@ async def test_edge_case_zero_outcomes():
     config = create_config(min_window_size=0)
     controller = AdaptiveConcurrencyController(config)
 
-    error_rate = controller._get_error_rate()
+    error_rate = await controller._get_error_rate()
     assert error_rate == 0.0
 
     # Should not adjust concurrency
@@ -507,7 +528,7 @@ async def test_edge_case_zero_outcomes():
 
 
 @pytest.mark.asyncio
-async def test_backoff_state_persistence():
+async def test_backoff_state_persistence(mock_time):
     """Test that backoff state persists correctly."""
     config = create_config(
         error_threshold=0.2,
@@ -520,11 +541,12 @@ async def test_backoff_state_persistence():
 
     # Trigger backoff
     for _ in range(8):
-        controller.record_error()
+        await controller.record_error()
     for _ in range(2):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
 
     assert controller._in_backoff
@@ -532,11 +554,11 @@ async def test_backoff_state_persistence():
     # Add more mixed outcomes but still above recovery threshold
     controller._outcomes.clear()
     for _ in range(7):
-        controller.record_success()
+        await controller.record_success()
     for _ in range(3):
-        controller.record_error()  # 30% error rate
+        await controller.record_error()  # 30% error rate
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
 
     # Should still be in backoff due to error rate above recovery threshold
@@ -544,7 +566,7 @@ async def test_backoff_state_persistence():
 
 
 @pytest.mark.asyncio
-async def test_configuration_edge_cases():
+async def test_configuration_edge_cases(mock_time):
     """Test behavior with edge case configurations."""
     # Test with minimum values
     config = create_config(
@@ -558,38 +580,13 @@ async def test_configuration_edge_cases():
     controller._semaphore = AsyncMock()
 
     # Should handle this configuration gracefully
-    controller.record_success()
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    await controller.record_success()
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
 
     # Concurrency should remain at 1 (can't increase due to max)
     assert controller._current_concurrency == 1
-
-
-@pytest.mark.asyncio
-async def test_timing_precision():
-    """Test timing precision in update intervals."""
-    config = create_config(min_update_time=0.5)
-    controller = AdaptiveConcurrencyController(config)
-
-    # Add data
-    for _ in range(10):
-        controller.record_success()
-
-    # Set adjustment time to just under the interval
-    controller._last_adjustment_time = (time.time() - config.min_update_time) + 0.01
-
-    # Should not adjust yet
-    await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == config.min_concurrency
-
-    # Wait a bit more
-    await asyncio.sleep(0.01)
-    controller._semaphore = AsyncMock()
-
-    # Now should adjust
-    await controller._try_adjust_concurrency()
-    controller._semaphore.adjust_capacity.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -601,15 +598,16 @@ async def test_large_scale_outcomes():
     # Add 1000 outcomes with 10% error rate
     for i in range(1000):
         if i % 10 == 0:
-            controller.record_error()
+            await controller.record_error()
         else:
-            controller.record_success()
+            await controller.record_success()
 
-    error_rate = controller._get_error_rate()
+    error_rate = await controller._get_error_rate()
     assert abs(error_rate - 0.1) < 0.01  # Allow small floating point error
 
 
-def test_outcome_deque_behavior():
+@pytest.mark.asyncio
+async def test_outcome_deque_behavior():
     """Test that outcomes are stored in a deque properly."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
@@ -620,9 +618,9 @@ def test_outcome_deque_behavior():
     assert isinstance(controller._outcomes, deque)
 
     # Test FIFO behavior
-    controller.record_success()
-    controller.record_error()
-    controller.record_success()
+    await controller.record_success()
+    await controller.record_error()
+    await controller.record_success()
 
     outcomes_list = list(controller._outcomes)
     assert outcomes_list == [True, False, True]
@@ -644,7 +642,7 @@ async def test_semaphore_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_multiple_adjustments_sequence():
+async def test_multiple_adjustments_sequence(mock_time):
     """Test a realistic sequence of multiple adjustments."""
     config = create_config(
         min_concurrency=10,
@@ -660,43 +658,44 @@ async def test_multiple_adjustments_sequence():
 
     # Phase 1: Low error rate, should warm up
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert controller._current_concurrency == 15  # 10 + 5
 
     # Phase 2: Continue low error rate, warm up more
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert controller._current_concurrency == 20  # 15 + 5
 
     # Phase 3: High error rate, should backoff
     for _ in range(2):
-        controller.record_success()
+        await controller.record_success()
     for _ in range(8):
-        controller.record_error()  # 80% error rate
+        await controller.record_error()  # 80% error rate
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert controller._current_concurrency == 14
     assert controller._in_backoff
 
     # Phase 4: Recovery - first good window should not exit backoff
     for _ in range(10):
-        controller.record_success()
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+        await controller.record_success()
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert controller._current_concurrency == 14
     assert controller._in_backoff
 
     # Phase 5: Recovery - second good window should exit backoff
     for _ in range(10):
-        controller.record_success()
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+        await controller.record_success()
+    controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
     assert controller._current_concurrency == 19
     assert not controller._in_backoff
@@ -710,13 +709,13 @@ async def test_reset_outcomes_functionality():
 
     # Add some outcomes and state
     for _ in range(5):
-        controller.record_success()
+        await controller.record_success()
     controller._consecutive_good_windows_since_last_update = 3
     controller._consecutive_error_windows_since_last_update = 2
 
     old_time = controller._last_adjustment_time
 
-    controller._reset_outcomes()
+    await controller._reset_outcomes()
 
     assert len(controller._outcomes) == 0
     assert controller._consecutive_good_windows_since_last_update == 0
@@ -724,21 +723,25 @@ async def test_reset_outcomes_functionality():
     assert controller._last_adjustment_time > old_time
 
 
-def test_thread_safety_of_outcome_tracking():
+@pytest.mark.asyncio
+async def test_thread_safety_of_outcome_tracking():
     """Test thread safety of outcome recording operations."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     import threading
 
-    def record_many(successes: int, errors: int):
+    async def record_many(successes: int, errors: int):
         for _ in range(successes):
-            controller.record_success()
+            await controller.record_success()
         for _ in range(errors):
-            controller.record_error()
+            await controller.record_error()
 
     # Create multiple threads
-    threads = [threading.Thread(target=record_many, args=(10, 10)) for _ in range(5)]
+    threads = [
+        threading.Thread(target=asyncio.run, args=(record_many(10, 10),))
+        for _ in range(5)
+    ]
 
     # Start all threads
     for thread in threads:
@@ -790,14 +793,15 @@ async def test_context_manager_with_exception():
     assert controller._semaphore._current_capacity == initial_capacity
 
 
-def test_outcomes_deque_max_size():
+@pytest.mark.asyncio
+async def test_outcomes_deque_max_size():
     """Test that outcomes deque respects maximum size limit."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
 
     # Add more than max size
     for i in range(1200):
-        controller.record_success()
+        await controller.record_success()
 
     # Should only keep the last 1000
     assert len(controller._outcomes) == 1000
@@ -823,9 +827,9 @@ async def test_realistic_request_pattern():
             # Simulate request processing time
             await asyncio.sleep(0.09)
             if asyncio.get_event_loop().time() % 1.0 < success_rate:
-                controller.record_success()
+                await controller.record_success()
             else:
-                controller.record_error()
+                await controller.record_error()
 
     # Phase 1: High success rate (99%)
     tasks = [simulate_request(0.99) for _ in range(50)]
@@ -845,7 +849,7 @@ async def test_realistic_request_pattern():
 
 
 @pytest.mark.asyncio
-async def test_backoff_warning_at_minimum_concurrency():
+async def test_backoff_warning_at_minimum_concurrency(mock_time):
     """Test warning is logged when backoff can't reduce concurrency further."""
     config = create_config(
         min_concurrency=5,
@@ -861,10 +865,11 @@ async def test_backoff_warning_at_minimum_concurrency():
 
     # Create high error rate
     for _ in range(4):
-        controller.record_success()
-    controller.record_error()  # 20% error rate
+        await controller.record_success()
+    await controller.record_error()  # 20% error rate
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     # Mock logger to capture warnings
     with patch("oumi.inference.adaptive_concurrency_controller.logger") as mock_logger:
@@ -876,12 +881,10 @@ async def test_backoff_warning_at_minimum_concurrency():
 
         # Submit more requests above error rate
         for _ in range(4):
-            controller.record_success()
-        controller.record_error()  # 20% error rate
+            await controller.record_success()
+        await controller.record_error()  # 20% error rate
 
-        controller._last_adjustment_time = (
-            time.time() - config.min_update_time
-        ) - 0.001
+        controller._last_adjustment_time = 0
         await controller._try_adjust_concurrency()
 
         # Should be in backoff but no warning yet we need multiple error windows
@@ -890,12 +893,10 @@ async def test_backoff_warning_at_minimum_concurrency():
 
         # Trigger another backoff when already at minimum
         for _ in range(4):
-            controller.record_success()
-        controller.record_error()  # 20% error rate
+            await controller.record_success()
+        await controller.record_error()  # 20% error rate
 
-        controller._last_adjustment_time = (
-            time.time() - config.min_update_time
-        ) - 0.001
+        controller._last_adjustment_time = 0
         await controller._try_adjust_concurrency()
 
         # Now should log warning since we can't reduce further
@@ -904,7 +905,7 @@ async def test_backoff_warning_at_minimum_concurrency():
 
 
 @pytest.mark.asyncio
-async def test_warmup_warning_at_maximum_concurrency():
+async def test_warmup_warning_at_maximum_concurrency(mock_time):
     """Test warning is logged when warmup can't increase concurrency further."""
     config = create_config(
         min_concurrency=5,
@@ -919,9 +920,10 @@ async def test_warmup_warning_at_maximum_concurrency():
 
     # Create low error rate to trigger warmup
     for _ in range(10):
-        controller.record_success()
+        await controller.record_success()
 
-    controller._last_adjustment_time = (time.time() - config.min_update_time) - 0.001
+    mock_time.time.return_value = config.min_update_time
+    controller._last_adjustment_time = 0
 
     # Mock logger to capture warnings
     with patch("oumi.inference.adaptive_concurrency_controller.logger") as mock_logger:
