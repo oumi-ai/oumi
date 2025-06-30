@@ -243,6 +243,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             max_concurrency = self._remote_params.num_workers
             # Start with 50% of the max concurrency.
             min_concurrency = max(5, max_concurrency // 2)
+            # Ensure min concurrency is not greater than max concurrency.
+            min_concurrency = min(min_concurrency, max_concurrency)
             # Step size is 1/4 of the range between min and max concurrency.
             concurrency_step = max(1, (max_concurrency - min_concurrency) // 4)
             # Min update time is 1 second less than the politeness policy.
