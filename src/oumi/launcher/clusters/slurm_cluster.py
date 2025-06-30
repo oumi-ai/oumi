@@ -167,7 +167,7 @@ class SlurmCluster(BaseCluster):
 
     @staticmethod
     def parse_cluster_name(name: str) -> ConnectionInfo:
-        """Parses the cluster name into queue and user components.
+        """Parses the cluster name into hostname and user components.
 
         Args:
             name: The name of the cluster.
@@ -268,7 +268,7 @@ class SlurmCluster(BaseCluster):
             job_name,
         )
         max_retries = 3
-        wait_time = 5
+        wait_time = 5  # seconds
         for _ in range(max_retries):
             job_status = self.get_job(job_id)
             if job_status is not None:
