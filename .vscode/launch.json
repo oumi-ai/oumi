@@ -163,19 +163,6 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": false
-        },
-        {
-            "name": "Debug oumi train",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "oumi",
-            "args": [
-              "train",
-              "-c",
-              "notebooks/finetuning_tutorial/train.yaml"
-            ],
-            "console": "integratedTerminal",
-            "justMyCode": false
-          }
+        }
     ]
 }
