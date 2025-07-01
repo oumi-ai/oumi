@@ -503,7 +503,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                         timeout=remote_params.connection_timeout,
                     ) as response:
                         if response.status != 200:
-                            self._adaptive_concurrency_controller.record_error()
+                            await self._adaptive_concurrency_controller.record_error()
                             failure_reason = await get_failure_reason_from_response(
                                 response
                             )
@@ -525,7 +525,9 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             try:
                                 response_json = json.loads(text_response)
                             except (json.JSONDecodeError, ValueError) as e:
-                                self._adaptive_concurrency_controller.record_error()
+                                await (
+                                    self._adaptive_concurrency_controller.record_error()
+                                )
                                 failure_reason = (
                                     "Failed to parse response. "
                                     f"Content type: {response.content_type}. "
@@ -545,14 +547,14 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             )
                             # Write what we have so far to our scratch directory
                             self._save_conversation_to_scratch(result, output_path)
-                            self._adaptive_concurrency_controller.record_success()
+                            await self._adaptive_concurrency_controller.record_success()
                             return result
                         except Exception as e:
                             # Response was successful, but we couldn't process it.
                             failure_reason = (
                                 f"Failed to process successful response: {str(e)}"
                             )
-                            self._adaptive_concurrency_controller.record_error()
+                            await self._adaptive_concurrency_controller.record_error()
                             if attempt >= remote_params.max_retries:
                                 raise RuntimeError(failure_reason) from e
                             continue
@@ -560,7 +562,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     # Connection or timeout errors are retriable.
                     failure_reason = f"Connection error: {str(e)}"
-                    self._adaptive_concurrency_controller.record_error()
+                    await self._adaptive_concurrency_controller.record_error()
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "
@@ -573,7 +575,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                 except Exception as e:
                     # If we get here, we've hit an unexpected error.
                     failure_reason = f"Unexpected error: {str(e)}"
-                    self._adaptive_concurrency_controller.record_error()
+                    await self._adaptive_concurrency_controller.record_error()
                     if attempt >= remote_params.max_retries:
                         raise RuntimeError(
                             f"Failed to query API after {attempt + 1} attempts due to "

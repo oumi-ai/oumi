@@ -172,6 +172,13 @@ class PermutableAttribute:
     possible_values: list[PermutableAttributeValue]
     """Type of the attribute."""
 
+    def get_value_distribution(self) -> dict[str, float]:
+        """Get the distribution of attribute values."""
+        value_distribution = {}
+        for value in self.possible_values:
+            value_distribution[value.id] = value.sample_rate
+        return value_distribution
+
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
