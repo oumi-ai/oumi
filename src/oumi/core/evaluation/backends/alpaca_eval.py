@@ -56,10 +56,6 @@ def evaluate(
         The evaluation result (including metrics and their values).
     """
     # Prerequisites
-    import sys
-
-    print("Python executable:", sys.executable)
-    print("sys.path:", sys.path)
     if not alpaca_eval:
         raise RuntimeError(
             "The `alpaca_eval` package is NOT installed. Please either install all "
