@@ -65,7 +65,9 @@ class RemoteParams(BaseParams):
     """Whether to use adaptive concurrency control.
 
     If True, the number of concurrent requests will be adjusted based on the error rate
-    of the requests.
+    of the requests. As error rate increases above a threshold, the number of concurrent
+    requests will decrease, and as error rate decreases below a threshold, the number of
+    concurrent requests will increase.
     """
 
     def __post_init__(self):
