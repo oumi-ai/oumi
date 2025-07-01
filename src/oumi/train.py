@@ -311,6 +311,9 @@ def train(
         if config.training.trainer_type == TrainerType.TRL_SFT:
             config.training.trainer_kwargs["remove_unused_columns"] = False
 
+    # TODO: remove this after debugging
+    # config.training.trainer_kwargs["remove_unused_columns"] = False
+
     # Load datasets.
     train_dataset = build_dataset_mixture(
         config.data,

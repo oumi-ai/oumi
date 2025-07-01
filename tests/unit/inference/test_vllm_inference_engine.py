@@ -547,6 +547,7 @@ def test_guided_decoding_json(
     mock_vllm.LLM.return_value = mock_vllm_instance
     engine = VLLMInferenceEngine(config.model)
 
+    engine._llm.chat = MagicMock()
     engine._llm.chat.return_value = [
         _create_vllm_output(["The first time I saw"], "123")
     ]
