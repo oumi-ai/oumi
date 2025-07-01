@@ -41,14 +41,13 @@ def quantize(
         typer.Option(
             "--method",
             help=(
-                "Quantization method to use. Supported methods: "
-                "q4_0 (4-bit, default), q4_1 (4-bit improved), "
-                "q5_0 (5-bit), q5_1 (5-bit improved), q8_0 (8-bit), "
-                "f16 (16-bit float), f32 (32-bit float). "
-                "Choose q4_0 for good compression, q8_0 for minimal quality loss."
+                "Quantization method to use. "
+                "AWQ methods (recommended): awq_q4_0 (default), awq_q4_1, awq_q8_0, awq_f16. "
+                "Direct GGUF: q4_0, q4_1, q5_0, q5_1, q8_0, f16, f32. "
+                "AWQ provides better quality through activation-aware quantization."
             ),
         ),
-    ] = "q4_0",
+    ] = "awq_q4_0",
     model: Annotated[
         str,
         typer.Option(
@@ -85,18 +84,24 @@ def quantize(
     model weights from higher precision (e.g., float32) to lower precision
     (e.g., 4-bit, 8-bit) representations.
 
-    **Current Status: Interface Testing**
+    **Current Status: AWQ Implementation**
     - ✅ CLI argument validation
     - ✅ Configuration file support
     - ✅ Model identifier validation
-    - 🚧 Core quantization implementation (in development)
+    - ✅ AWQ quantization implementation
+    - 🚧 GGUF conversion pipeline (using fallback method)
 
-    **Planned Quantization Methods:**
-    - q4_0: 4-bit quantization (4x compression, good quality)
-    - q8_0: 8-bit quantization (2x compression, minimal quality loss)
-    - f16: 16-bit float (2x compression, GPU-friendly)
+    **AWQ Quantization Methods (Recommended):**
+    - awq_q4_0: AWQ 4-bit → GGUF (4x compression, best quality)
+    - awq_q8_0: AWQ 8-bit → GGUF (2x compression, minimal quality loss)
+    - awq_f16: AWQ → GGUF f16 (2x compression, format optimized)
 
-    **Planned Output Formats:**
+    **Direct GGUF Methods:**
+    - q4_0: Direct 4-bit quantization
+    - q8_0: Direct 8-bit quantization  
+    - f16: 16-bit float conversion
+
+    **Output Formats:**
     - GGUF: Compatible with llama.cpp (best for CPU inference)
     - Safetensors: Compatible with HuggingFace transformers
     - PyTorch: Native PyTorch format
@@ -107,14 +112,14 @@ def quantize(
 
         $ oumi quantize --config quantize_config.yaml
 
-    Test with CLI arguments:
+    Test with AWQ method:
 
-        $ oumi quantize --method q4_0 --model meta-llama/Llama-2-7b-hf \\
+        $ oumi quantize --method awq_q4_0 --model meta-llama/Llama-2-7b-hf \\
             --output test.gguf
 
     Test with local model:
 
-        $ oumi quantize --method q8_0 --model ./my_model --output ./test/model.gguf
+        $ oumi quantize --method awq_q8_0 --model ./my_model --output ./test/model.gguf
 
     Args:
         ctx: The Typer context object containing extra CLI arguments.
@@ -154,7 +159,7 @@ def quantize(
         # Override config with CLI arguments if provided
         if model:
             parsed_config.model.model_name = model
-        if method != "q4_0":  # Only override if not default
+        if method != "awq_q4_0":  # Only override if not default
             parsed_config.method = method
         if output != "quantized_model.gguf":  # Only override if not default
             parsed_config.output_path = output
@@ -177,15 +182,38 @@ def quantize(
     with cli_utils.CONSOLE.status("Quantizing model...", spinner="dots"):
         result = oumi_quantize(parsed_config)
 
-    cli_utils.CONSOLE.print("✅ Model quantized successfully!")
-    cli_utils.CONSOLE.print(f"📁 Output saved to: {parsed_config.output_path}")
+    # Check if we're in simulation mode or fallback mode
+    if result and result.get("simulation_mode"):
+        cli_utils.CONSOLE.print("🔧 AWQ quantization completed (SIMULATION MODE)")
+        cli_utils.CONSOLE.print("⚠️  AWQ dependencies not installed - created mock output for testing")
+        cli_utils.CONSOLE.print("💡 Install autoawq for real quantization: pip install autoawq")
+    elif result and result.get("fallback_mode"):
+        cli_utils.CONSOLE.print("🔧 AWQ quantization completed (FALLBACK MODE)")
+        cli_utils.CONSOLE.print(f"🔄 Used {result.get('backend', 'alternative')} quantization instead of AutoAWQ")
+        cli_utils.CONSOLE.print("ℹ️  This provides real quantization using available libraries")
+    elif result and result.get("gguf_conversion_failed"):
+        cli_utils.CONSOLE.print("✅ AWQ quantization completed successfully!")
+        cli_utils.CONSOLE.print("⚠️  GGUF conversion failed - saved as PyTorch format instead")
+        cli_utils.CONSOLE.print("💡 For GGUF output, install: pip install llama-cpp-python")
+    else:
+        cli_utils.CONSOLE.print("✅ Model quantized successfully!")
+    
+    # Display output path (might have changed due to fallback)
+    actual_output_path = result.get("output_path", parsed_config.output_path) if result else parsed_config.output_path
+    cli_utils.CONSOLE.print(f"📁 Output saved to: {actual_output_path}")
+    
     if result:
+        if result.get("simulation_mode"):
+            cli_utils.CONSOLE.print(f"🎭 Mode: Simulation")
+            cli_utils.CONSOLE.print(f"📦 Method: {result.get('quantization_method', 'Unknown')}")
+        else:
+            cli_utils.CONSOLE.print(
+                f"📊 Original size: {result.get('original_size', 'Unknown')}"
+            )
         cli_utils.CONSOLE.print(
-            f"📊 Original size: {result.get('original_size', 'Unknown')}"
+            f"📉 Output size: {result.get('quantized_size', 'Unknown')}"
         )
-        cli_utils.CONSOLE.print(
-            f"📉 Quantized size: {result.get('quantized_size', 'Unknown')}"
-        )
-        cli_utils.CONSOLE.print(
-            f"🗜️  Compression ratio: {result.get('compression_ratio', 'Unknown')}"
-        )
+        if not result.get("simulation_mode"):
+            cli_utils.CONSOLE.print(
+                f"🗜️  Compression ratio: {result.get('compression_ratio', 'Unknown')}"
+            )

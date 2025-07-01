@@ -1,0 +1,24 @@
+# High Quality AWQ Q8 Configuration
+# For applications requiring minimal quality loss
+
+model:
+  model_name: "mistralai/Mistral-7B-Instruct-v0.1"
+  tokenizer_name: "mistralai/Mistral-7B-Instruct-v0.1"
+
+# AWQ 8-bit method for minimal quality degradation
+method: "awq_q8_0"
+
+# Output configuration  
+output_path: "models/high_quality/mistral-7b-instruct-awq-q8.gguf"
+output_format: "gguf"
+
+# High-quality AWQ settings
+awq_group_size: 64         # Smaller groups for better accuracy
+awq_zero_point: true       # Enable for better accuracy
+awq_version: "GEMM"        # Fast kernels
+calibration_samples: 1024  # More samples for better calibration
+cleanup_temp: false        # Keep intermediate files for analysis
+
+# Performance settings
+batch_size: 8              # Conservative for memory
+verbose: true

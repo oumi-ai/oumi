@@ -72,7 +72,7 @@ class QuantizationConfig(BaseConfig):
     - An Oumi model registry identifier
     """
 
-    method: str = "q4_0"
+    method: str = "awq_q4_0"
     """Quantization method to use.
 
     The quantization method determines the precision and algorithm used to
@@ -81,20 +81,27 @@ class QuantizationConfig(BaseConfig):
 
     Supported methods:
 
-    **GGUF-compatible methods (for llama.cpp):**
-    - ``q4_0``: 4-bit quantization with block-wise scaling (default)
-    - ``q4_1``: 4-bit quantization with improved accuracy via bias terms
-    - ``q5_0``: 5-bit quantization for better quality than 4-bit
-    - ``q5_1``: 5-bit quantization with bias terms for highest 5-bit quality
-    - ``q8_0``: 8-bit quantization for minimal quality loss
+    **AWQ methods (recommended - best quality):**
+    - ``awq_q4_0``: AWQ 4-bit → GGUF q4_0 (default, best balance)
+    - ``awq_q4_1``: AWQ 4-bit → GGUF q4_1 (improved accuracy)
+    - ``awq_q8_0``: AWQ 8-bit → GGUF q8_0 (minimal quality loss)
+    - ``awq_f16``: AWQ → GGUF f16 (format conversion with AWQ optimization)
+
+    **Direct GGUF methods (for llama.cpp):**
+    - ``q4_0``: Direct 4-bit quantization with block-wise scaling
+    - ``q4_1``: Direct 4-bit quantization with improved accuracy via bias terms
+    - ``q5_0``: Direct 5-bit quantization for better quality than 4-bit
+    - ``q5_1``: Direct 5-bit quantization with bias terms for highest 5-bit quality
+    - ``q8_0``: Direct 8-bit quantization for minimal quality loss
 
     **Precision methods:**
     - ``f16``: 16-bit floating point (half precision)
     - ``f32``: 32-bit floating point (no quantization, format conversion only)
 
     **Recommendations:**
-    - Use ``q4_0`` for general purpose with good compression (4x smaller)
-    - Use ``q8_0`` for minimal quality loss (2x smaller)
+    - Use ``awq_q4_0`` for best quality 4-bit quantization (recommended)
+    - Use ``awq_q8_0`` for minimal quality loss with good compression
+    - Use ``q4_0`` for direct GGUF conversion without AWQ preprocessing
     - Use ``f16`` for GPU inference with moderate compression
     """
 
@@ -167,4 +174,53 @@ class QuantizationConfig(BaseConfig):
     - Final compression statistics
 
     Useful for debugging and monitoring long-running quantization jobs.
+    """
+
+    # AWQ-specific configuration
+    awq_group_size: int = 128
+    """Group size for AWQ quantization.
+    
+    Controls the granularity of weight grouping during AWQ quantization.
+    Smaller values can improve accuracy but increase computation time.
+    
+    Typical values:
+    - 128 (default): Good balance of accuracy and speed
+    - 64: Higher accuracy, slower quantization
+    - 256: Faster quantization, potentially lower accuracy
+    """
+
+    awq_zero_point: bool = True
+    """Enable zero point quantization for AWQ.
+    
+    When enabled, uses zero-point quantization which can improve
+    accuracy for certain model architectures. Generally recommended
+    to keep enabled unless experiencing specific issues.
+    """
+
+    awq_version: str = "GEMM"
+    """AWQ kernel version to use.
+    
+    Available versions:
+    - "GEMM": General matrix multiplication kernels (default)
+    - "GEMV": General matrix-vector multiplication kernels
+    
+    GEMM is generally faster for most use cases.
+    """
+
+    cleanup_temp: bool = True
+    """Remove temporary AWQ files after GGUF conversion.
+    
+    When enabled, cleans up intermediate AWQ model files after
+    successful conversion to GGUF. Disable if you want to keep
+    the AWQ intermediate files for debugging or separate use.
+    """
+
+    calibration_samples: int = 512
+    """Number of calibration samples for AWQ quantization.
+    
+    More samples can improve quantization accuracy but increase
+    processing time. Typical values:
+    - 512 (default): Good balance for most models
+    - 128: Faster quantization, may reduce accuracy
+    - 1024: Higher accuracy, slower quantization
     """

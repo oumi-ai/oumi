@@ -1,0 +1,31 @@
+# High-Quality Production Quantization Configuration
+# Best quality with moderate compression for production systems
+
+model:
+  model_name: "meta-llama/Llama-2-7b-chat-hf"
+  tokenizer_name: "meta-llama/Llama-2-7b-chat-hf"
+  model_kwargs:
+    torch_dtype: "auto"
+    device_map: "auto"
+
+# AWQ 8-bit for minimal quality loss
+method: "awq_q8_0"
+output_path: "models/production/llama2-7b-chat-hq.gguf"
+output_format: "gguf"
+
+# High-quality AWQ settings
+awq_group_size: 64           # Smaller groups for better accuracy
+calibration_samples: 1024    # More samples for better calibration
+awq_zero_point: true         # Better accuracy
+awq_version: "GEMM"          # Faster kernels
+cleanup_temp: true           # Clean up temporary files
+
+# Conservative performance settings for stability
+batch_size: 8
+verbose: true
+
+# Expected Results:
+# - Original: ~13.5 GB
+# - Quantized: ~7.2 GB  
+# - Compression: 1.9x
+# - Quality: Minimal degradation

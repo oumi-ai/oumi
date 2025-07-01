@@ -1,5 +1,0 @@
-# Minimal Quantization Configuration
-model:
-  model_name: "gpt2"
-method: "q4_0"
-output_path: "minimal_test.gguf"

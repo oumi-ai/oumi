@@ -1,0 +1,31 @@
+# Balanced Production Quantization Configuration
+# Good balance of quality and compression for most production use cases
+
+model:
+  model_name: "meta-llama/Llama-2-7b-chat-hf"
+  tokenizer_name: "meta-llama/Llama-2-7b-chat-hf"
+  model_kwargs:
+    torch_dtype: "auto"
+    device_map: "auto"
+
+# AWQ 4-bit for good balance
+method: "awq_q4_0"
+output_path: "models/production/llama2-7b-chat-balanced.gguf"
+output_format: "gguf"
+
+# Balanced AWQ settings
+awq_group_size: 128          # Standard group size
+calibration_samples: 512     # Good calibration quality
+awq_zero_point: true         # Better accuracy
+awq_version: "GEMM"          # Faster kernels
+cleanup_temp: true           # Clean up temporary files
+
+# Balanced performance settings
+batch_size: 16
+verbose: true
+
+# Expected Results:
+# - Original: ~13.5 GB
+# - Quantized: ~3.9 GB
+# - Compression: 3.5x
+# - Quality: Good with minor degradation
