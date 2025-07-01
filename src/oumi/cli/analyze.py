@@ -12,6 +12,8 @@ from rich.progress import Progress
 from rich.table import Table
 from sentence_transformers import SentenceTransformer
 
+from oumi.cli import cli_utils
+
 # Initialize console
 console = Console()
 
@@ -49,6 +51,7 @@ def check_safety(text: str) -> dict:
 
 
 def analyze(
+    ctx: typer.Context,
     input_file: Path = typer.Argument(
         ..., help="Path to the input dataset file (JSONL format)"
     ),
@@ -59,8 +62,24 @@ def analyze(
     use_gpu: bool = typer.Option(False, help="Use GPU for embeddings if available"),
 ):
     """Analyze dataset composition, language, length, and safety metrics."""
+    # Parse extra arguments from context
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    # Parse batch_size from extra args
+    for arg in extra_args:
+        if arg.startswith("batch_size="):
+            batch_size = int(arg.split("=")[1])
+            break
+
+    # Parse use_gpu from extra args
+    for arg in extra_args:
+        if arg.startswith("use_gpu="):
+            use_gpu = arg.split("=")[1].lower() == "true"
+            break
+
     # Load the dataset
     console.print(f"Loading dataset from {input_file}...")
+    console.print(f"Using batch size: {batch_size}")
     data = []
     with open(input_file) as f:
         for line in f:
@@ -84,8 +103,20 @@ def analyze(
     # Load embedding model
     console.print("Loading embedding model...")
     model = SentenceTransformer("all-MiniLM-L6-v2")
-    if use_gpu:
+
+    # Check GPU availability and usage
+    import torch
+
+    if use_gpu and torch.cuda.is_available():
+        console.print("Using GPU for embeddings")
         model = model.to("cuda")
+    elif use_gpu:
+        console.print(
+            "[yellow]Warning: GPU requested but not available. "
+            "Using CPU instead.[/yellow]"
+        )
+    else:
+        console.print("Using CPU for embeddings")
 
     # Process samples
     with Progress() as progress:
