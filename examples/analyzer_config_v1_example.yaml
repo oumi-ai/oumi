@@ -1,0 +1,69 @@
+# Analyzer Configuration v1.0.0
+# This configuration demonstrates the comprehensive analysis and aggregation system
+
+analyze_version: "v1.0.0"
+
+# Input Configuration
+input:
+  source: "oumi"  # Options: 'oumi', 'huggingface', 'custom'
+  name: "alpaca"  # Required for 'oumi' and 'huggingface' sources
+  path: null  # Required for 'custom' source; specify the file path
+  format: null  # Optional for 'custom'; e.g., 'json', 'jsonl', 'parquet', 'txt'
+  split: "train"  # Optional; e.g., 'train', 'test', 'validation'
+  schema:
+    type: "conversation"  # Options: 'single_turn', 'conversation'
+    fields:
+      text_field: "text"  # For single-turn datasets
+      conversation_field: "messages"  # For multi-turn chat
+      conversation_id_field: "id"  # Optional ID for grouping
+      role_field: "role"  # Optional: for role-based analysis in chats
+      content_field: "content"  # Where the message text lives in each turn
+
+# Preprocessing Configuration
+preprocessing:
+  normalize_whitespace: true  # Normalize whitespace in text
+  lowercase: false  # Convert text to lowercase
+  remove_special_chars: false  # Strip emojis/symbols/non-linguistic tokens
+
+# Output Configuration
+outputs:
+  analysis_output: "analysis_results_[timestamp].parquet"  # Sample-level results
+  aggregation_output: "aggregations_results_[timestamp].json"  # Aggregated results
+  save_format: "json"  # Format for output files
+
+# Sample-Level Metrics Configuration
+sample_level_metrics:
+  language:
+    enabled: true
+    confidence_threshold: 0.2
+    top_k: 3
+    multilingual_flag:
+      enabled: true
+      min_num_languages: 2
+
+# Aggregation Metrics Configuration
+aggregation_metrics:
+  language:
+    distribution:
+      enabled: true
+      min_samples: 10
+      report_top_n: 10  # Limits the summary output to the top n most frequent languages
+      include_other_bucket: true
+
+    minority_alert:
+      enabled: true
+      threshold_percent: 5.0
+
+    confidence_statistics:
+      enabled: true
+      stats: [mean, stddev, percentile_10, percentile_90]
+
+    multilingual_samples:
+      enabled: true
+      common_language_pairs: true
+
+# Additional Analysis Parameters
+verbose: true
+analysis_kwargs:
+  custom_parameter: "value"
+  another_parameter: 42

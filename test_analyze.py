@@ -1,20 +1,41 @@
 #!/usr/bin/env python3
 """Simple test script to verify DatasetAnalyzer functionality."""
 
-from oumi.analyze import DatasetAnalyzer
+from oumi.analyze import Analyzer
+from oumi.core.configs import (
+    AggregationMetrics,
+    AnalyzerConfig,
+    DatasetSchema,
+    InputConfig,
+    LanguageAggregationConfig,
+    LanguageDetectionConfig,
+    OutputConfig,
+    PreprocessingConfig,
+    SampleLevelMetrics,
+)
 
 
 def test_analyzer():
-    """Test the DatasetAnalyzer class."""
+    """Test the DatasetAnalyzer class with config-based initialization."""
     try:
         # Test Alpaca dataset
         print("=" * 60)
-        print("Testing Alpaca Dataset")
+        print("Testing Alpaca Dataset (Config Mode)")
         print("=" * 60)
 
-        # Create an analyzer instance
-        print("Creating DatasetAnalyzer for 'alpaca'...")
-        analyzer = DatasetAnalyzer("alpaca")
+        # Create an analyzer instance with config
+        print("Creating DatasetAnalyzer for 'alpaca' with config...")
+        config = AnalyzerConfig(
+            analyze_version="v1.0.0",
+            input=InputConfig(
+                source="oumi",
+                name="alpaca",
+                split="train",
+                schema=DatasetSchema(type="conversation"),
+            ),
+            verbose=True,
+        )
+        analyzer = Analyzer(config)
 
         # Test getting dataset size
         print(f"\nDataset size: {analyzer.get_dataset_size()} conversations")
@@ -41,12 +62,22 @@ def test_analyzer():
 
         # Test Ultrachat dataset
         print("\n" + "=" * 60)
-        print("Testing Ultrachat Dataset")
+        print("Testing Ultrachat Dataset (Config Mode)")
         print("=" * 60)
 
-        # Create an analyzer instance for ultrachat with split
-        print("Creating DatasetAnalyzer for 'ultrachat' with split='train_sft'...")
-        ultrachat_analyzer = DatasetAnalyzer("ultrachat", split="train_sft")
+        # Create an analyzer instance for ultrachat with config
+        print("Creating DatasetAnalyzer for 'ultrachat' with config...")
+        ultrachat_config = AnalyzerConfig(
+            analyze_version="v1.0.0",
+            input=InputConfig(
+                source="oumi",
+                name="ultrachat",
+                split="train_sft",
+                schema=DatasetSchema(type="conversation"),
+            ),
+            verbose=True,
+        )
+        ultrachat_analyzer = Analyzer(ultrachat_config)
 
         # Test getting dataset size
         print(f"\nDataset size: {ultrachat_analyzer.get_dataset_size()} conversations")
@@ -80,7 +111,7 @@ def test_analyzer():
         print("\nUltrachat test completed successfully!")
 
         print("\n" + "=" * 60)
-        print("All tests completed successfully!")
+        print("All config mode tests completed successfully!")
         print("=" * 60)
 
     except Exception as e:
@@ -90,5 +121,207 @@ def test_analyzer():
         traceback.print_exc()
 
 
+def test_v1_config():
+    """Test the v1.0.0 configuration structure."""
+    try:
+        print("=" * 60)
+        print("Testing v1.0.0 Configuration")
+        print("=" * 60)
+
+        # Test basic v1.0.0 config with Alpaca dataset
+        print("Creating basic v1.0.0 config for 'alpaca'...")
+        config = AnalyzerConfig(
+            analyze_version="v1.0.0",
+            input=InputConfig(
+                source="oumi",
+                name="alpaca",
+                split="train",
+                schema=DatasetSchema(type="conversation"),
+            ),
+            verbose=True,
+        )
+
+        analyzer = Analyzer(config)
+
+        # Test getting dataset size
+        print(f"\nDataset size: {analyzer.get_dataset_size()} conversations")
+
+        # Test getting a conversation
+        print("\nGetting conversation 0...")
+        conversation = analyzer.get_conversation(0)
+        print(f"Conversation type: {type(conversation)}")
+
+        # Test getting conversation length
+        print(f"Conversation 0 length: {analyzer.get_conversation_length(0)} messages")
+
+        # Test printing a conversation
+        print("\nPrinting conversation 0...")
+        analyzer.print_conversation(0)
+
+        print("\nBasic v1.0.0 config test completed successfully!")
+
+        # Test comprehensive v1.0.0 config with Ultrachat dataset
+        print("\n" + "=" * 60)
+        print("Testing Comprehensive v1.0.0 Configuration")
+        print("=" * 60)
+
+        comprehensive_config = AnalyzerConfig(
+            analyze_version="v1.0.0",
+            input=InputConfig(
+                source="oumi",
+                name="ultrachat",
+                split="train_sft",
+                schema=DatasetSchema(
+                    type="conversation",
+                    fields={
+                        "text_field": "text",
+                        "conversation_field": "messages",
+                        "conversation_id_field": "id",
+                        "role_field": "role",
+                        "content_field": "content",
+                    },
+                ),
+            ),
+            preprocessing=PreprocessingConfig(
+                normalize_whitespace=True, lowercase=False, remove_special_chars=False
+            ),
+            outputs=OutputConfig(
+                analysis_output="ultrachat_analysis.parquet",
+                aggregation_output="ultrachat_aggregations.json",
+                save_format="json",
+            ),
+            sample_level_metrics=SampleLevelMetrics(
+                language=LanguageDetectionConfig(
+                    enabled=True,
+                    confidence_threshold=0.2,
+                    top_k=3,
+                    multilingual_flag={"enabled": True, "min_num_languages": 2},
+                )
+            ),
+            aggregation_metrics=AggregationMetrics(
+                language=LanguageAggregationConfig(
+                    distribution={
+                        "enabled": True,
+                        "min_samples": 10,
+                        "report_top_n": 10,
+                        "include_other_bucket": True,
+                    },
+                    minority_alert={"enabled": True, "threshold_percent": 5.0},
+                    confidence_statistics={
+                        "enabled": True,
+                        "stats": ["mean", "stddev", "percentile_10", "percentile_90"],
+                    },
+                    multilingual_samples={
+                        "enabled": True,
+                        "common_language_pairs": True,
+                    },
+                )
+            ),
+            verbose=True,
+        )
+
+        comprehensive_analyzer = Analyzer(comprehensive_config)
+
+        # Test getting dataset size
+        print(
+            f"\nDataset size: {comprehensive_analyzer.get_dataset_size()} conversations"
+        )
+
+        # Test getting a conversation
+        print("\nGetting conversation 0...")
+        ultrachat_conversation = comprehensive_analyzer.get_conversation(0)
+        print(f"Conversation type: {type(ultrachat_conversation)}")
+
+        # Test getting conversation length
+        print(
+            f"Conversation 0 length: "
+            f"{comprehensive_analyzer.get_conversation_length(0)} messages"
+        )
+
+        # Test printing a conversation
+        print("\nPrinting conversation 0...")
+        comprehensive_analyzer.print_conversation(0)
+
+        # Test analysis
+        print("\nRunning analysis...")
+        results = comprehensive_analyzer.analyze_dataset()
+        print(f"Analysis completed: {results.get('status', 'success')}")
+        print(f"Dataset name: {results.get('dataset_name', 'unknown')}")
+        print(f"Total conversations: {results.get('total_conversations', 0)}")
+
+        print("\nComprehensive v1.0.0 config test completed successfully!")
+
+        print("\n" + "=" * 60)
+        print("All v1.0.0 tests completed successfully!")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"Error during v1.0.0 test: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+
+def test_config_validation():
+    """Test configuration validation."""
+    try:
+        print("=" * 60)
+        print("Testing Configuration Validation")
+        print("=" * 60)
+
+        # Test invalid source
+        print("Testing invalid source...")
+        try:
+            _ = AnalyzerConfig(input=InputConfig(source="invalid_source", name="test"))
+            print("❌ Should have failed but didn't")
+        except ValueError as e:
+            print(f"✅ Correctly caught error: {e}")
+
+        # Test missing name for oumi source
+        print("\nTesting missing name for oumi source...")
+        try:
+            _ = AnalyzerConfig(input=InputConfig(source="oumi"))
+            print("❌ Should have failed but didn't")
+        except ValueError as e:
+            print(f"✅ Correctly caught error: {e}")
+
+        # Test invalid schema type
+        print("\nTesting invalid schema type...")
+        try:
+            _ = AnalyzerConfig(
+                input=InputConfig(
+                    source="oumi", name="test", schema=DatasetSchema(type="invalid")
+                )
+            )
+            print("❌ Should have failed but didn't")
+        except ValueError as e:
+            print(f"✅ Correctly caught error: {e}")
+
+        # Test invalid confidence threshold
+        print("\nTesting invalid confidence threshold...")
+        try:
+            _ = AnalyzerConfig(
+                input=InputConfig(source="oumi", name="test"),
+                sample_level_metrics=SampleLevelMetrics(
+                    language=LanguageDetectionConfig(confidence_threshold=1.5)
+                ),
+            )
+            print("❌ Should have failed but didn't")
+        except ValueError as e:
+            print(f"✅ Correctly caught error: {e}")
+
+        print("\n" + "=" * 60)
+        print("All validation tests completed successfully!")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"Error during validation test: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+
 if __name__ == "__main__":
     test_analyzer()
+    test_v1_config()
+    test_config_validation()
