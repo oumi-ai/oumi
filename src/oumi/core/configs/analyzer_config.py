@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
+
+from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 
@@ -39,22 +41,20 @@ class DatasetSchema:
 
 @dataclass
 class InputConfig:
-    """Input configuration for dataset sources."""
+    """Input configuration for dataset loading."""
 
-    source: str = "oumi"  # "oumi", "huggingface", "custom"
-    """Source type for the dataset."""
+    name: str = MISSING
+    """Dataset name (required).
 
-    name: Optional[str] = None
-    """Dataset name (required for 'oumi' and 'huggingface' sources)."""
+    This field is used to retrieve the appropriate class from the dataset registry
+    that can be used to instantiate and preprocess the data.
 
-    path: Optional[str] = None
-    """File path (required for 'custom' source)."""
-
-    format: Optional[str] = None
-    """File format for custom sources (e.g., 'json', 'jsonl', 'parquet', 'txt')."""
+    If the dataset is registered in Oumi's registry, it will be loaded from there.
+    Otherwise, it will be automatically loaded from HuggingFace Hub.
+    """
 
     split: str = "train"
-    """Dataset split to use."""
+    """Dataset split to use (e.g., 'train', 'test', 'validation')."""
 
     schema: DatasetSchema = field(default_factory=DatasetSchema)
     """Schema configuration for dataset structure."""
@@ -197,17 +197,8 @@ class AnalyzerConfig(BaseConfig):
     def __post_init__(self):
         """Validates the configuration parameters."""
         # Validate input configuration
-        if self.input.source not in ["oumi", "huggingface", "custom"]:
-            raise ValueError(
-                f"input.source must be one of ['oumi', 'huggingface', 'custom'], "
-                f"got {self.input.source}"
-            )
-
-        if self.input.source in ["oumi", "huggingface"] and not self.input.name:
-            raise ValueError(f"input.name is required for source '{self.input.source}'")
-
-        if self.input.source == "custom" and not self.input.path:
-            raise ValueError("input.path is required for custom source")
+        if not self.input.name:
+            raise ValueError("input.name is required")
 
         if self.input.schema.type not in ["single_turn", "conversation"]:
             raise ValueError(

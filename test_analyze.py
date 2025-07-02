@@ -24,12 +24,11 @@ def test_analyzer():
         print("=" * 60)
 
         # Create an analyzer instance with config
-        print("Creating DatasetAnalyzer for 'alpaca' with config...")
+        print("Creating DatasetAnalyzer for 'tatsu-lab/alpaca' with config...")
         config = AnalyzerConfig(
             analyze_version="v1.0.0",
             input=InputConfig(
-                source="oumi",
-                name="alpaca",
+                name="tatsu-lab/alpaca",
                 split="train",
                 schema=DatasetSchema(type="conversation"),
             ),
@@ -66,12 +65,13 @@ def test_analyzer():
         print("=" * 60)
 
         # Create an analyzer instance for ultrachat with config
-        print("Creating DatasetAnalyzer for 'ultrachat' with config...")
+        print(
+            "Creating DatasetAnalyzer for 'huggingfaceh4/ultrachat_200k' with config..."
+        )
         ultrachat_config = AnalyzerConfig(
             analyze_version="v1.0.0",
             input=InputConfig(
-                source="oumi",
-                name="ultrachat",
+                name="huggingfaceh4/ultrachat_200k",
                 split="train_sft",
                 schema=DatasetSchema(type="conversation"),
             ),
@@ -129,12 +129,11 @@ def test_v1_config():
         print("=" * 60)
 
         # Test basic v1.0.0 config with Alpaca dataset
-        print("Creating basic v1.0.0 config for 'alpaca'...")
+        print("Creating basic v1.0.0 config for 'tatsu-lab/alpaca'...")
         config = AnalyzerConfig(
             analyze_version="v1.0.0",
             input=InputConfig(
-                source="oumi",
-                name="alpaca",
+                name="tatsu-lab/alpaca",
                 split="train",
                 schema=DatasetSchema(type="conversation"),
             ),
@@ -168,8 +167,7 @@ def test_v1_config():
         comprehensive_config = AnalyzerConfig(
             analyze_version="v1.0.0",
             input=InputConfig(
-                source="oumi",
-                name="ultrachat",
+                name="huggingfaceh4/ultrachat_200k",
                 split="train_sft",
                 schema=DatasetSchema(
                     type="conversation",
@@ -186,7 +184,7 @@ def test_v1_config():
                 normalize_whitespace=True, lowercase=False, remove_special_chars=False
             ),
             outputs=OutputConfig(
-                analysis_output="ultrachat_analysis.parquet",
+                analysis_output="ultrachat_analysis.json",
                 aggregation_output="ultrachat_aggregations.json",
                 save_format="json",
             ),
@@ -269,18 +267,12 @@ def test_config_validation():
         print("Testing Configuration Validation")
         print("=" * 60)
 
-        # Test invalid source
-        print("Testing invalid source...")
+        # Test missing name
+        print("Testing missing name...")
         try:
-            _ = AnalyzerConfig(input=InputConfig(source="invalid_source", name="test"))
-            print("❌ Should have failed but didn't")
-        except ValueError as e:
-            print(f"✅ Correctly caught error: {e}")
-
-        # Test missing name for oumi source
-        print("\nTesting missing name for oumi source...")
-        try:
-            _ = AnalyzerConfig(input=InputConfig(source="oumi"))
+            config_without_name = AnalyzerConfig(input=InputConfig(name=""))
+            # The error should be caught when we try to use the config
+            _ = Analyzer(config_without_name)
             print("❌ Should have failed but didn't")
         except ValueError as e:
             print(f"✅ Correctly caught error: {e}")
@@ -289,9 +281,7 @@ def test_config_validation():
         print("\nTesting invalid schema type...")
         try:
             _ = AnalyzerConfig(
-                input=InputConfig(
-                    source="oumi", name="test", schema=DatasetSchema(type="invalid")
-                )
+                input=InputConfig(name="test", schema=DatasetSchema(type="invalid"))
             )
             print("❌ Should have failed but didn't")
         except ValueError as e:
@@ -301,13 +291,24 @@ def test_config_validation():
         print("\nTesting invalid confidence threshold...")
         try:
             _ = AnalyzerConfig(
-                input=InputConfig(source="oumi", name="test"),
+                input=InputConfig(name="test"),
                 sample_level_metrics=SampleLevelMetrics(
                     language=LanguageDetectionConfig(confidence_threshold=1.5)
                 ),
             )
             print("❌ Should have failed but didn't")
         except ValueError as e:
+            print(f"✅ Correctly caught error: {e}")
+
+        # Test unregistered dataset
+        print("\nTesting unregistered dataset...")
+        try:
+            config = AnalyzerConfig(
+                input=InputConfig(name="unregistered-dataset"),
+            )
+            _ = Analyzer(config)
+            print("❌ Should have failed but didn't")
+        except NotImplementedError as e:
             print(f"✅ Correctly caught error: {e}")
 
         print("\n" + "=" * 60)
