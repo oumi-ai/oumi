@@ -61,20 +61,6 @@ class InputConfig:
 
 
 @dataclass
-class PreprocessingConfig:
-    """Preprocessing configuration for text analysis."""
-
-    normalize_whitespace: bool = True
-    """Whether to normalize whitespace in text."""
-
-    lowercase: bool = False
-    """Whether to convert text to lowercase."""
-
-    remove_special_chars: bool = False
-    """Whether to remove special characters, emojis, and non-linguistic tokens."""
-
-
-@dataclass
 class OutputConfig:
     """Output configuration for analysis results."""
 
@@ -175,9 +161,6 @@ class AnalyzerConfig(BaseConfig):
     input: InputConfig = field(default_factory=InputConfig)
     """Input configuration for dataset sources."""
 
-    preprocessing: PreprocessingConfig = field(default_factory=PreprocessingConfig)
-    """Preprocessing configuration for text analysis."""
-
     outputs: OutputConfig = field(default_factory=OutputConfig)
     """Output configuration for analysis results."""
 
@@ -204,16 +187,6 @@ class AnalyzerConfig(BaseConfig):
                 f"input.schema.type must be one of ['single_turn', 'conversation'], "
                 f"got {self.input.schema.type}"
             )
-
-        # Validate preprocessing configuration
-        if not isinstance(self.preprocessing.normalize_whitespace, bool):
-            raise ValueError("preprocessing.normalize_whitespace must be a boolean")
-
-        if not isinstance(self.preprocessing.lowercase, bool):
-            raise ValueError("preprocessing.lowercase must be a boolean")
-
-        if not isinstance(self.preprocessing.remove_special_chars, bool):
-            raise ValueError("preprocessing.remove_special_chars must be a boolean")
 
         # Validate language detection configuration
         if not isinstance(self.sample_level_metrics.language.enabled, bool):

@@ -16,12 +16,6 @@ input:
       role_field: "role"  # Optional: for role-based analysis in chats
       content_field: "content"  # Where the message text lives in each turn
 
-# Preprocessing Configuration
-preprocessing:
-  normalize_whitespace: true  # Normalize whitespace in text
-  lowercase: false  # Convert text to lowercase
-  remove_special_chars: false  # Strip emojis/symbols/non-linguistic tokens
-
 # Output Configuration
 outputs:
   analysis_output: "analysis_results.json"  # Path for analysis results
