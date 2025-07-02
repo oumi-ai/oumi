@@ -138,6 +138,7 @@ class AdaptiveConcurrencyController:
             if error_rate <= self._config.recovery_threshold:
                 self._consecutive_good_windows_since_last_update += 1
                 self._consecutive_error_windows_since_last_update = 0
+                await self._reset_outcomes()
                 # Require multiple good windows before recovering
                 if (
                     self._consecutive_good_windows_since_last_update
@@ -150,6 +151,7 @@ class AdaptiveConcurrencyController:
             else:
                 self._consecutive_error_windows_since_last_update += 1
                 self._consecutive_good_windows_since_last_update = 0
+                await self._reset_outcomes()
                 if (
                     self._consecutive_error_windows_since_last_update
                     >= self._consecutive_error_windows_for_additional_backoff
@@ -190,9 +192,12 @@ class AdaptiveConcurrencyController:
         """Reset the outcomes queue."""
         async with self._outcome_lock:
             self._outcomes.clear()
-            self._consecutive_good_windows_since_last_update = 0
-            self._consecutive_error_windows_since_last_update = 0
-            self._last_adjustment_time = time.time()
+
+    async def _clear_adjustment_state(self):
+        """Reset adjustment state variables."""
+        self._consecutive_good_windows_since_last_update = 0
+        self._consecutive_error_windows_since_last_update = 0
+        self._last_adjustment_time = time.time()
 
     async def _try_warmup(self):
         """Try to increase concurrency during warmup."""
@@ -216,3 +221,4 @@ class AdaptiveConcurrencyController:
         self._current_concurrency = new_concurrency
         await self._semaphore.adjust_capacity(new_concurrency)
         await self._reset_outcomes()
+        await self._clear_adjustment_state()

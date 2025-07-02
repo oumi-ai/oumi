@@ -441,6 +441,12 @@ async def test_additional_backoff_in_backoff_state(mock_time):
     await controller._try_adjust_concurrency()
     assert controller._consecutive_error_windows_since_last_update == 1
 
+    # Create high error rate
+    for _ in range(2):
+        await controller.record_error()
+    for _ in range(3):
+        await controller.record_success()
+
     # Second call should trigger additional backoff
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
@@ -718,6 +724,28 @@ async def test_reset_outcomes_functionality():
     await controller._reset_outcomes()
 
     assert len(controller._outcomes) == 0
+    assert controller._consecutive_good_windows_since_last_update == 3
+    assert controller._consecutive_error_windows_since_last_update == 2
+    assert controller._last_adjustment_time == old_time
+
+
+@pytest.mark.asyncio
+async def test_clear_adjustment_state_functionality():
+    """Test the _clear_adjustment_state method functionality."""
+    config = create_config()
+    controller = AdaptiveConcurrencyController(config)
+
+    # Add some outcomes and state
+    for _ in range(5):
+        await controller.record_success()
+    controller._consecutive_good_windows_since_last_update = 3
+    controller._consecutive_error_windows_since_last_update = 2
+
+    old_time = controller._last_adjustment_time
+
+    await controller._clear_adjustment_state()
+
+    assert len(controller._outcomes) == 5
     assert controller._consecutive_good_windows_since_last_update == 0
     assert controller._consecutive_error_windows_since_last_update == 0
     assert controller._last_adjustment_time > old_time
