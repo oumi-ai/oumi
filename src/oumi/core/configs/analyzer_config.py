@@ -90,7 +90,6 @@ class OutputConfig:
     Options:
         - "json": Save as JSON file
         - "yaml": Save as YAML file
-        - "txt": Save as plain text
         - "csv": Save as CSV (for tabular data)
         - "parquet": Save as Parquet file
     """
@@ -233,7 +232,7 @@ class AnalyzerConfig(BaseConfig):
             raise ValueError("sample_level_metrics.language.top_k must be positive")
 
         # Validate output configuration
-        valid_save_formats = ["json", "yaml", "txt", "csv", "parquet"]
+        valid_save_formats = ["json", "yaml", "csv", "parquet"]
         if self.outputs.save_format not in valid_save_formats:
             raise ValueError(
                 f"outputs.save_format must be one of {valid_save_formats}, "

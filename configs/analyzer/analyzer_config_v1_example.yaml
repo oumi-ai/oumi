@@ -1,15 +1,12 @@
 # Analyzer Configuration v1.0.0
-# This configuration demonstrates the comprehensive analysis and aggregation system
+# This configuration demonstrates the analysis system for a given dataset
 
 analyze_version: "v1.0.0"
 
 # Input Configuration
 input:
-  source: "oumi"  # Options: 'oumi', 'huggingface', 'custom'
-  name: "alpaca"  # Required for 'oumi' and 'huggingface' sources
-  path: null  # Required for 'custom' source; specify the file path
-  format: null  # Optional for 'custom'; e.g., 'json', 'jsonl', 'parquet', 'txt'
-  split: "train"  # Optional; e.g., 'train', 'test', 'validation'
+  name: "tatsu-lab/alpaca"  # Required: Dataset name from registry
+  split: "train"  # Optional: Dataset split (e.g., 'train', 'test', 'validation')
   schema:
     type: "conversation"  # Options: 'single_turn', 'conversation'
     fields:
@@ -27,9 +24,9 @@ preprocessing:
 
 # Output Configuration
 outputs:
-  analysis_output: "analysis_results_[timestamp].parquet"  # Sample-level results
-  aggregation_output: "aggregations_results_[timestamp].json"  # Aggregated results
-  save_format: "json"  # Format for output files
+  analysis_output: "analysis_results.json"  # Path for analysis results
+  aggregation_output: "aggregations_results.json"  # Path for aggregated results
+  save_format: "json"  # Format for output files (json, yaml, csv, parquet)
 
 # Sample-Level Metrics Configuration
 sample_level_metrics:
