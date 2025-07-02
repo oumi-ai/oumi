@@ -12,126 +12,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+from pathlib import Path
 from typing import Any, Optional
 
-from oumi.core.configs import AnalyzerConfig, InputConfig
+import yaml
+
+from oumi.core.configs import AnalyzerConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
 
 
-def _get_analyzer(config: AnalyzerConfig):
-    """Returns the analyzer based on the provided config."""
-    # TODO: Implement analyzer builder similar to inference engine builder
-    return None
-
-
 def _load_dataset_from_config(config: AnalyzerConfig) -> BaseMapDataset:
-    """Load dataset based on configuration."""
-    return _load_dataset_from_v1_config(config)
+    """Load dataset based on configuration.
 
-
-def _load_dataset_from_v1_config(config: AnalyzerConfig) -> BaseMapDataset:
-    """Load dataset using v1.0.0 configuration structure."""
+    Currently only supports datasets registered in the REGISTRY.
+    TODO: Add support for loading datasets from HuggingFace Hub.
+    TODO: Add support for loading custom datasets from local file paths.
+    """
     input_config = config.input
-
-    try:
-        if input_config.source == "oumi":
-            return _load_oumi_dataset(input_config)
-        elif input_config.source == "huggingface":
-            return _load_huggingface_dataset(input_config)
-        elif input_config.source == "custom":
-            return _load_custom_dataset(input_config)
-        else:
-            raise ValueError(f"Unsupported source: {input_config.source}")
-    except Exception as e:
-        logger.error(f"Failed to load dataset from {input_config.source}: {e}")
-        raise
-
-
-def _load_oumi_dataset(input_config: InputConfig) -> BaseMapDataset:
-    """Load dataset from Oumi registry."""
     dataset_name = input_config.name
+
     if not dataset_name:
-        raise ValueError("Dataset name is required for oumi source")
+        raise ValueError("Dataset name is required")
 
     try:
-        if dataset_name.lower() == "alpaca":
-            from oumi.datasets.sft.alpaca import AlpacaDataset
+        # Load dataset from the REGISTRY
+        from oumi.core.registry import REGISTRY
 
-            return AlpacaDataset(split=input_config.split)
-        elif dataset_name.lower() == "dolly":
-            from oumi.datasets.sft.dolly import ArgillaDollyDataset
+        dataset_class = REGISTRY.get_dataset(dataset_name)
 
-            return ArgillaDollyDataset(split=input_config.split)
-        elif dataset_name.lower() == "ultrachat":
-            from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
-
-            return UltrachatH4Dataset(split=input_config.split)
-        elif dataset_name.lower() == "magpie":
-            from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset
-
-            return ArgillaMagpieUltraDataset(split=input_config.split)
-        else:
-            # Try to load from registry for other datasets
-            from oumi.core.registry import REGISTRY
-
-            dataset_class = REGISTRY.get_dataset(dataset_name)
-            if dataset_class is None:
-                raise ValueError(f"Unknown dataset: {dataset_name}")
-
+        if dataset_class is not None:
+            # Load registered dataset
             return dataset_class(split=input_config.split)
-    except ImportError as e:
-        logger.error(f"Failed to import dataset {dataset_name}: {e}")
-        raise
-
-
-def _load_huggingface_dataset(input_config: InputConfig) -> BaseMapDataset:
-    """Load dataset from HuggingFace Hub."""
-    dataset_name = input_config.name
-    if not dataset_name:
-        raise ValueError("Dataset name is required for huggingface source")
-
-    try:
-        import datasets
-
-        from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
-
-        # Load from HuggingFace Hub
-        hf_dataset = datasets.load_dataset(
-            path=dataset_name, split=input_config.split, trust_remote_code=True
-        )
-
-        # Convert to list format
-        data = list(hf_dataset)
-
-        # Convert to Oumi format
-        return TextSftJsonLinesDataset(data=data, split=input_config.split)
-    except Exception as e:
-        logger.error(f"Failed to load HuggingFace dataset {dataset_name}: {e}")
-        raise
-
-
-def _load_custom_dataset(input_config: InputConfig) -> BaseMapDataset:
-    """Load dataset from custom file path."""
-    dataset_path = input_config.path
-    if not dataset_path:
-        raise ValueError("Dataset path is required for custom source")
-
-    try:
-        from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
-
-        # Load based on file format
-        if input_config.format == "jsonl":
-            return TextSftJsonLinesDataset(
-                dataset_path=dataset_path, split=input_config.split
-            )
         else:
-            # Default to JSONL format
-            return TextSftJsonLinesDataset(
-                dataset_path=dataset_path, split=input_config.split
+            # TODO: Implement HuggingFace Hub loading
+            raise NotImplementedError(
+                f"Dataset '{dataset_name}' is not registered in the REGISTRY. "
+                "Loading from HuggingFace Hub is not yet implemented."
             )
+
     except Exception as e:
-        logger.error(f"Failed to load custom dataset from {dataset_path}: {e}")
+        logger.error(f"Failed to load dataset {dataset_name}: {e}")
         raise
 
 
@@ -148,7 +70,6 @@ class Analyzer:
         self.dataset_name = config.input.name
         self.split = config.input.split
         self.dataset = _load_dataset_from_config(config)
-        self.analyzer = _get_analyzer(self.config)
 
     def get_conversation(self, index: int = 0):
         """Get a conversation from the dataset.
@@ -194,35 +115,94 @@ class Analyzer:
         print("=" * 50)
         return conversation
 
+    def _save_results(
+        self, results: dict[str, Any], output_path: str, save_format: str
+    ):
+        """Save analysis results to file based on the specified format.
+
+        Args:
+            results: Analysis results dictionary to save
+            output_path: Path where to save the results
+            save_format: Format to save the results (json, yaml, csv, parquet)
+        """
+        # Create output directory if it doesn't exist
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        if save_format == "json":
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(results, f, indent=2, ensure_ascii=False)
+        elif save_format == "yaml":
+            with open(output_file, "w", encoding="utf-8") as f:
+                yaml.dump(results, f, default_flow_style=False, allow_unicode=True)
+        elif save_format == "csv":
+            # For CSV, we'll save basic stats in a tabular format
+            import csv
+
+            with open(output_file, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Metric", "Value"])
+                writer.writerow(
+                    ["dataset_name", results.get("dataset_name", "Unknown")]
+                )
+                writer.writerow(
+                    ["total_conversations", results.get("total_conversations", 0)]
+                )
+                writer.writerow(
+                    ["conversations_analyzed", results.get("conversations_analyzed", 0)]
+                )
+
+                if "conversation_length_stats" in results:
+                    stats = results["conversation_length_stats"]
+                    writer.writerow(["min_length", stats.get("min", 0)])
+                    writer.writerow(["max_length", stats.get("max", 0)])
+                    writer.writerow(["mean_length", f"{stats.get('mean', 0):.2f}"])
+                    writer.writerow(["median_length", stats.get("median", 0)])
+        elif save_format == "parquet":
+            # For parquet, we'll save the results as a structured format
+            import pandas as pd
+
+            # Create a DataFrame from the results
+            data = {
+                "dataset_name": [results.get("dataset_name", "Unknown")],
+                "total_conversations": [results.get("total_conversations", 0)],
+                "conversations_analyzed": [results.get("conversations_analyzed", 0)],
+            }
+
+            if "conversation_length_stats" in results:
+                stats = results["conversation_length_stats"]
+                data.update(
+                    {
+                        "min_length": [stats.get("min", 0)],
+                        "max_length": [stats.get("max", 0)],
+                        "mean_length": [stats.get("mean", 0)],
+                        "median_length": [stats.get("median", 0)],
+                    }
+                )
+
+            dataframe = pd.DataFrame(data)
+            dataframe.to_parquet(output_file, index=False)
+        else:
+            raise ValueError(f"Unsupported save format: {save_format}")
+
+        if self.config.verbose:
+            logger.info(f"Results saved to: {output_file}")
+
     def analyze_dataset(self) -> dict[str, Any]:
         """Analyze the dataset and return analysis results.
 
         Returns:
             Dict[str, Any]: Analysis results containing various metrics and insights.
         """
-        # Use config parameters to determine analysis type and scope
+        # Use config parameters to determine analysis scope
         verbose = self.config.verbose
 
-        # For now, use basic analysis as default since we removed legacy fields
-        analysis_type = "basic"
-        sample_count = None
-        max_conversations = None
-        include_examples = True
-        example_count = 3
-
         if verbose:
-            logger.info(
-                f"Starting {analysis_type} analysis of dataset: {self.dataset_name}"
-            )
+            logger.info(f"Starting analysis of dataset: {self.dataset_name}")
 
         # Determine how many conversations to analyze
         total_conversations = len(self.dataset)
-        if sample_count is not None:
-            conversations_to_analyze = min(sample_count, total_conversations)
-        elif max_conversations is not None:
-            conversations_to_analyze = min(max_conversations, total_conversations)
-        else:
-            conversations_to_analyze = total_conversations
+        conversations_to_analyze = total_conversations
 
         if verbose:
             logger.info(
@@ -230,46 +210,28 @@ class Analyzer:
                 f"{total_conversations} conversations"
             )
 
-        # Perform analysis based on type
-        if analysis_type == "basic":
-            results = self._basic_analysis(
-                conversations_to_analyze, include_examples, example_count
-            )
-        elif analysis_type == "conversation":
-            results = self._conversation_analysis(
-                conversations_to_analyze, include_examples, example_count
-            )
-        elif analysis_type == "content":
-            results = self._content_analysis(
-                conversations_to_analyze, include_examples, example_count
-            )
-        elif analysis_type == "quality":
-            results = self._quality_analysis(
-                conversations_to_analyze, include_examples, example_count
-            )
-        elif analysis_type == "full":
-            results = self._full_analysis(
-                conversations_to_analyze, include_examples, example_count
-            )
-        else:
-            raise ValueError(f"Unknown analysis type: {analysis_type}")
+        # Perform basic analysis
+        results = self._basic_analysis(conversations_to_analyze)
 
         # Add metadata
         results["config"] = {
-            "analysis_type": analysis_type,
-            "sample_count": sample_count,
-            "max_conversations": max_conversations,
             "conversations_analyzed": conversations_to_analyze,
             "total_conversations": total_conversations,
         }
+
+        # Save results if output configuration is provided
+        if hasattr(self.config, "outputs") and self.config.outputs.analysis_output:
+            self._save_results(
+                results,
+                self.config.outputs.analysis_output,
+                self.config.outputs.save_format,
+            )
 
         return results
 
     def _basic_analysis(
         self,
         conversations_to_analyze: Optional[int] = None,
-        include_examples: bool = True,
-        example_count: int = 3,
     ) -> dict[str, Any]:
         """Perform basic analysis of the dataset."""
         if conversations_to_analyze is None:
@@ -301,46 +263,4 @@ class Analyzer:
             },
         }
 
-        if include_examples:
-            results["examples"] = []
-            for i in range(min(example_count, total_conversations)):
-                conversation = self.get_conversation(i)
-                results["examples"].append(
-                    {
-                        "index": i,
-                        "length": len(conversation.messages),
-                        "conversation": str(conversation)[:500] + "..."
-                        if len(str(conversation)) > 500
-                        else str(conversation),
-                    }
-                )
-
         return results
-
-    def _conversation_analysis(
-        self, conversations_to_analyze: int, include_examples: bool, example_count: int
-    ) -> dict[str, Any]:
-        """Perform detailed conversation analysis."""
-        # TODO: Implement conversation analysis
-        return {"status": "not_implemented", "type": "conversation"}
-
-    def _content_analysis(
-        self, conversations_to_analyze: int, include_examples: bool, example_count: int
-    ) -> dict[str, Any]:
-        """Perform content analysis."""
-        # TODO: Implement content analysis
-        return {"status": "not_implemented", "type": "content"}
-
-    def _quality_analysis(
-        self, conversations_to_analyze: int, include_examples: bool, example_count: int
-    ) -> dict[str, Any]:
-        """Perform quality analysis."""
-        # TODO: Implement quality analysis
-        return {"status": "not_implemented", "type": "quality"}
-
-    def _full_analysis(
-        self, conversations_to_analyze: int, include_examples: bool, example_count: int
-    ) -> dict[str, Any]:
-        """Perform comprehensive analysis."""
-        # TODO: Implement full analysis
-        return {"status": "not_implemented", "type": "full"}
