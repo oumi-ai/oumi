@@ -20,6 +20,15 @@ and job management.
 
 The configurations are organized into different categories:
 
+- Analysis:
+    - :class:`~oumi.core.configs.analyzer_config.AnalyzerConfig`
+    - :class:`~oumi.core.configs.analyzer_config.InputConfig`
+    - :class:`~oumi.core.configs.analyzer_config.PreprocessingConfig`
+    - :class:`~oumi.core.configs.analyzer_config.OutputConfig`
+    - :class:`~oumi.core.configs.analyzer_config.SampleLevelMetrics`
+    - :class:`~oumi.core.configs.analyzer_config.AggregationMetrics`
+    - :class:`~oumi.core.configs.analyzer_config.LanguageDetectionConfig`
+    - :class:`~oumi.core.configs.analyzer_config.LanguageAggregationConfig`
 - Evaluation:
     - :class:`~oumi.core.configs.async_evaluation_config.AsyncEvaluationConfig`
     - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
@@ -79,6 +88,17 @@ Note:
         which provides common functionality such as serialization and validation.
 """
 
+from oumi.core.configs.analyzer_config import (
+    AggregationMetrics,
+    AnalyzerConfig,
+    DatasetSchema,
+    InputConfig,
+    LanguageAggregationConfig,
+    LanguageDetectionConfig,
+    OutputConfig,
+    PreprocessingConfig,
+    SampleLevelMetrics,
+)
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
@@ -138,7 +158,9 @@ from oumi.core.configs.params.training_params import (
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
+    "AggregationMetrics",
     "AlpacaEvalTaskParams",
+    "AnalyzerConfig",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
@@ -176,6 +198,13 @@ __all__ = [
     "SchedulerType",
     "ShardingStrategy",
     "StateDictType",
+    "DatasetSchema",
+    "InputConfig",
+    "LanguageAggregationConfig",
+    "LanguageDetectionConfig",
+    "OutputConfig",
+    "PreprocessingConfig",
+    "SampleLevelMetrics",
     "StorageMount",
     "TelemetryParams",
     "TrainerType",

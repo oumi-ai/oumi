@@ -12,104 +12,143 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
-from oumi.core.configs import BaseConfig
+from oumi.core.configs import AnalyzerConfig, InputConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
 
 
-def _load_oumi_dataset(
-    dataset_name: str, dataset_params: dict[str, Any]
-) -> BaseMapDataset:
-    """Load an Oumi dataset using the dataset registry.
-
-    Args:
-        dataset_name: Name of the dataset to load.
-        dataset_params: Parameters for dataset loading.
-
-    Returns:
-        BaseMapDataset: Loaded dataset.
-    """
-    # TODO: Implement Oumi dataset loading using the registry
-    # from oumi.builders.data import build_dataset
-    # return build_dataset(dataset_name, **dataset_params)
-    logger.info(f"Loading Oumi dataset: {dataset_name}")
-    raise NotImplementedError("Oumi dataset loading not yet implemented")
-
-
-def _get_analyzer(config: BaseConfig):
+def _get_analyzer(config: AnalyzerConfig):
     """Returns the analyzer based on the provided config."""
     # TODO: Implement analyzer builder similar to inference engine builder
     return None
 
 
-def _load_dataset_from_config(config: BaseConfig) -> BaseMapDataset:
+def _load_dataset_from_config(config: AnalyzerConfig) -> BaseMapDataset:
     """Load dataset based on configuration."""
-    # Placeholder implementation
-    raise NotImplementedError("Dataset loading from config not yet implemented")
+    return _load_dataset_from_v1_config(config)
 
 
-class DatasetAnalyzer:
+def _load_dataset_from_v1_config(config: AnalyzerConfig) -> BaseMapDataset:
+    """Load dataset using v1.0.0 configuration structure."""
+    input_config = config.input
+
+    try:
+        if input_config.source == "oumi":
+            return _load_oumi_dataset(input_config)
+        elif input_config.source == "huggingface":
+            return _load_huggingface_dataset(input_config)
+        elif input_config.source == "custom":
+            return _load_custom_dataset(input_config)
+        else:
+            raise ValueError(f"Unsupported source: {input_config.source}")
+    except Exception as e:
+        logger.error(f"Failed to load dataset from {input_config.source}: {e}")
+        raise
+
+
+def _load_oumi_dataset(input_config: InputConfig) -> BaseMapDataset:
+    """Load dataset from Oumi registry."""
+    dataset_name = input_config.name
+    if not dataset_name:
+        raise ValueError("Dataset name is required for oumi source")
+
+    try:
+        if dataset_name.lower() == "alpaca":
+            from oumi.datasets.sft.alpaca import AlpacaDataset
+
+            return AlpacaDataset(split=input_config.split)
+        elif dataset_name.lower() == "dolly":
+            from oumi.datasets.sft.dolly import ArgillaDollyDataset
+
+            return ArgillaDollyDataset(split=input_config.split)
+        elif dataset_name.lower() == "ultrachat":
+            from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
+
+            return UltrachatH4Dataset(split=input_config.split)
+        elif dataset_name.lower() == "magpie":
+            from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset
+
+            return ArgillaMagpieUltraDataset(split=input_config.split)
+        else:
+            # Try to load from registry for other datasets
+            from oumi.core.registry import REGISTRY
+
+            dataset_class = REGISTRY.get_dataset(dataset_name)
+            if dataset_class is None:
+                raise ValueError(f"Unknown dataset: {dataset_name}")
+
+            return dataset_class(split=input_config.split)
+    except ImportError as e:
+        logger.error(f"Failed to import dataset {dataset_name}: {e}")
+        raise
+
+
+def _load_huggingface_dataset(input_config: InputConfig) -> BaseMapDataset:
+    """Load dataset from HuggingFace Hub."""
+    dataset_name = input_config.name
+    if not dataset_name:
+        raise ValueError("Dataset name is required for huggingface source")
+
+    try:
+        import datasets
+
+        from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
+
+        # Load from HuggingFace Hub
+        hf_dataset = datasets.load_dataset(
+            path=dataset_name, split=input_config.split, trust_remote_code=True
+        )
+
+        # Convert to list format
+        data = list(hf_dataset)
+
+        # Convert to Oumi format
+        return TextSftJsonLinesDataset(data=data, split=input_config.split)
+    except Exception as e:
+        logger.error(f"Failed to load HuggingFace dataset {dataset_name}: {e}")
+        raise
+
+
+def _load_custom_dataset(input_config: InputConfig) -> BaseMapDataset:
+    """Load dataset from custom file path."""
+    dataset_path = input_config.path
+    if not dataset_path:
+        raise ValueError("Dataset path is required for custom source")
+
+    try:
+        from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
+
+        # Load based on file format
+        if input_config.format == "jsonl":
+            return TextSftJsonLinesDataset(
+                dataset_path=dataset_path, split=input_config.split
+            )
+        else:
+            # Default to JSONL format
+            return TextSftJsonLinesDataset(
+                dataset_path=dataset_path, split=input_config.split
+            )
+    except Exception as e:
+        logger.error(f"Failed to load custom dataset from {dataset_path}: {e}")
+        raise
+
+
+class Analyzer:
     """Base class for dataset analysis functionality."""
 
-    def __init__(
-        self,
-        dataset_name: str,
-        config: Optional[BaseConfig] = None,
-        split: Optional[str] = None,
-    ):
-        """Initialize the dataset analyzer with dataset name and optional configuration.
+    def __init__(self, config: AnalyzerConfig):
+        """Initialize the dataset analyzer with configuration.
 
         Args:
-            dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-            config: Optional configuration object.
-            split: Optional split name (e.g., 'train', 'validation', 'test')
+            config: AnalyzerConfig object containing all analysis parameters
         """
-        self.dataset_name = dataset_name
         self.config = config
-        self.split = split
-        self.dataset = self._load_dataset(dataset_name, split)
-        self.analyzer = _get_analyzer(config) if config else None
-
-    def _load_dataset(
-        self, dataset_name: str, split: Optional[str] = None
-    ) -> BaseMapDataset:
-        """Load the specified dataset.
-
-        Args:
-            dataset_name: Name of the dataset to load.
-            split: Optional split name for the dataset.
-
-        Returns:
-            BaseMapDataset: Loaded dataset.
-        """
-        try:
-            if dataset_name.lower() == "alpaca":
-                from oumi.datasets.sft.alpaca import AlpacaDataset
-
-                return AlpacaDataset(split=split)
-            elif dataset_name.lower() == "dolly":
-                from oumi.datasets.sft.dolly import ArgillaDollyDataset
-
-                return ArgillaDollyDataset(split=split)
-            elif dataset_name.lower() == "ultrachat":
-                from oumi.datasets.sft.ultrachat import UltrachatH4Dataset
-
-                return UltrachatH4Dataset(split=split)
-            elif dataset_name.lower() == "magpie":
-                from oumi.datasets.sft.magpie import ArgillaMagpieUltraDataset
-
-                return ArgillaMagpieUltraDataset(split=split)
-            else:
-                raise ValueError(f"Unknown dataset: {dataset_name}")
-        except ImportError as e:
-            logger.error(f"Failed to import dataset {dataset_name}: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to load dataset {dataset_name}: {e}")
-            raise
+        self.dataset_name = config.input.name
+        self.split = config.input.split
+        self.dataset = _load_dataset_from_config(config)
+        self.analyzer = _get_analyzer(self.config)
 
     def get_conversation(self, index: int = 0):
         """Get a conversation from the dataset.
@@ -161,208 +200,147 @@ class DatasetAnalyzer:
         Returns:
             Dict[str, Any]: Analysis results containing various metrics and insights.
         """
-        # TODO: Implement dataset analysis logic
-        return {"status": "not_implemented", "dataset_name": self.dataset_name}
+        # Use config parameters to determine analysis type and scope
+        verbose = self.config.verbose
 
-    def get_statistics(self) -> dict[str, Any]:
-        """Get basic statistics about the dataset.
+        # For now, use basic analysis as default since we removed legacy fields
+        analysis_type = "basic"
+        sample_count = None
+        max_conversations = None
+        include_examples = True
+        example_count = 3
 
-        Returns:
-            Dict[str, Any]: Basic statistics like size, distribution, etc.
-        """
-        # TODO: Implement statistics calculation
-        return {"size": 0, "distribution": {}, "dataset_name": self.dataset_name}
+        if verbose:
+            logger.info(
+                f"Starting {analysis_type} analysis of dataset: {self.dataset_name}"
+            )
 
-    def check_quality(self) -> dict[str, Any]:
-        """Check the quality of the dataset.
+        # Determine how many conversations to analyze
+        total_conversations = len(self.dataset)
+        if sample_count is not None:
+            conversations_to_analyze = min(sample_count, total_conversations)
+        elif max_conversations is not None:
+            conversations_to_analyze = min(max_conversations, total_conversations)
+        else:
+            conversations_to_analyze = total_conversations
 
-        Returns:
-            Dict[str, Any]: Quality metrics and issues found.
-        """
-        # TODO: Implement quality checking logic
-        return {"quality_score": 0.0, "issues": [], "dataset_name": self.dataset_name}
+        if verbose:
+            logger.info(
+                f"Analyzing {conversations_to_analyze} out of "
+                f"{total_conversations} conversations"
+            )
 
-    def find_patterns(self) -> dict[str, Any]:
-        """Find patterns in the dataset.
+        # Perform analysis based on type
+        if analysis_type == "basic":
+            results = self._basic_analysis(
+                conversations_to_analyze, include_examples, example_count
+            )
+        elif analysis_type == "conversation":
+            results = self._conversation_analysis(
+                conversations_to_analyze, include_examples, example_count
+            )
+        elif analysis_type == "content":
+            results = self._content_analysis(
+                conversations_to_analyze, include_examples, example_count
+            )
+        elif analysis_type == "quality":
+            results = self._quality_analysis(
+                conversations_to_analyze, include_examples, example_count
+            )
+        elif analysis_type == "full":
+            results = self._full_analysis(
+                conversations_to_analyze, include_examples, example_count
+            )
+        else:
+            raise ValueError(f"Unknown analysis type: {analysis_type}")
 
-        Returns:
-            Dict[str, Any]: Pattern analysis results.
-        """
-        # TODO: Implement pattern detection logic
-        return {"patterns": [], "insights": [], "dataset_name": self.dataset_name}
+        # Add metadata
+        results["config"] = {
+            "analysis_type": analysis_type,
+            "sample_count": sample_count,
+            "max_conversations": max_conversations,
+            "conversations_analyzed": conversations_to_analyze,
+            "total_conversations": total_conversations,
+        }
 
+        return results
 
-# Convenience functions for easy usage
-def analyze_dataset(
-    dataset_name: str, config: Optional[BaseConfig] = None, split: Optional[str] = None
-) -> dict[str, Any]:
-    """Analyze a dataset and return analysis results.
+    def _basic_analysis(
+        self,
+        conversations_to_analyze: Optional[int] = None,
+        include_examples: bool = True,
+        example_count: int = 3,
+    ) -> dict[str, Any]:
+        """Perform basic analysis of the dataset."""
+        if conversations_to_analyze is None:
+            conversations_to_analyze = len(self.dataset)
 
-    Args:
-        dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-        config: Optional configuration object.
-        split: Optional split name (e.g., 'train', 'validation', 'test')
+        # Basic statistics
+        total_conversations = len(self.dataset)
+        conversation_lengths = []
 
-    Returns:
-        Dict[str, Any]: Analysis results containing various metrics and insights.
-    """
-    analyzer = DatasetAnalyzer(dataset_name, config, split)
-    return analyzer.analyze_dataset()
+        for i in range(min(conversations_to_analyze, total_conversations)):
+            conversation = self.get_conversation(i)
+            conversation_lengths.append(len(conversation.messages))
 
+        results = {
+            "dataset_name": self.dataset_name,
+            "total_conversations": total_conversations,
+            "conversations_analyzed": min(
+                conversations_to_analyze, total_conversations
+            ),
+            "conversation_length_stats": {
+                "min": min(conversation_lengths) if conversation_lengths else 0,
+                "max": max(conversation_lengths) if conversation_lengths else 0,
+                "mean": sum(conversation_lengths) / len(conversation_lengths)
+                if conversation_lengths
+                else 0,
+                "median": sorted(conversation_lengths)[len(conversation_lengths) // 2]
+                if conversation_lengths
+                else 0,
+            },
+        }
 
-def get_statistics(
-    dataset_name: str, config: Optional[BaseConfig] = None, split: Optional[str] = None
-) -> dict[str, Any]:
-    """Get basic statistics about the dataset.
+        if include_examples:
+            results["examples"] = []
+            for i in range(min(example_count, total_conversations)):
+                conversation = self.get_conversation(i)
+                results["examples"].append(
+                    {
+                        "index": i,
+                        "length": len(conversation.messages),
+                        "conversation": str(conversation)[:500] + "..."
+                        if len(str(conversation)) > 500
+                        else str(conversation),
+                    }
+                )
 
-    Args:
-        dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-        config: Optional configuration object.
-        split: Optional split name (e.g., 'train', 'validation', 'test')
+        return results
 
-    Returns:
-        Dict[str, Any]: Basic statistics like size, distribution, etc.
-    """
-    analyzer = DatasetAnalyzer(dataset_name, config, split)
-    return analyzer.get_statistics()
+    def _conversation_analysis(
+        self, conversations_to_analyze: int, include_examples: bool, example_count: int
+    ) -> dict[str, Any]:
+        """Perform detailed conversation analysis."""
+        # TODO: Implement conversation analysis
+        return {"status": "not_implemented", "type": "conversation"}
 
+    def _content_analysis(
+        self, conversations_to_analyze: int, include_examples: bool, example_count: int
+    ) -> dict[str, Any]:
+        """Perform content analysis."""
+        # TODO: Implement content analysis
+        return {"status": "not_implemented", "type": "content"}
 
-def check_quality(
-    dataset_name: str, config: Optional[BaseConfig] = None, split: Optional[str] = None
-) -> dict[str, Any]:
-    """Check the quality of the dataset.
+    def _quality_analysis(
+        self, conversations_to_analyze: int, include_examples: bool, example_count: int
+    ) -> dict[str, Any]:
+        """Perform quality analysis."""
+        # TODO: Implement quality analysis
+        return {"status": "not_implemented", "type": "quality"}
 
-    Args:
-        dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-        config: Optional configuration object.
-        split: Optional split name (e.g., 'train', 'validation', 'test')
-
-    Returns:
-        Dict[str, Any]: Quality metrics and issues found.
-    """
-    analyzer = DatasetAnalyzer(dataset_name, config, split)
-    return analyzer.check_quality()
-
-
-def find_patterns(
-    dataset_name: str, config: Optional[BaseConfig] = None, split: Optional[str] = None
-) -> dict[str, Any]:
-    """Find patterns in the dataset.
-
-    Args:
-        dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-        config: Optional configuration object.
-        split: Optional split name (e.g., 'train', 'validation', 'test')
-
-    Returns:
-        Dict[str, Any]: Pattern analysis results.
-    """
-    analyzer = DatasetAnalyzer(dataset_name, config, split)
-    return analyzer.find_patterns()
-
-
-def get_conversation_length(
-    dataset_name: str,
-    index: int = 0,
-    config: Optional[BaseConfig] = None,
-    split: Optional[str] = None,
-) -> int:
-    """Get the length (number of messages) of a conversation.
-
-    Args:
-        dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-        index: Index of the conversation to check.
-        config: Optional configuration object.
-        split: Optional split name (e.g., 'train', 'validation', 'test')
-
-    Returns:
-        int: Number of messages in the conversation.
-    """
-    analyzer = DatasetAnalyzer(dataset_name, config, split)
-    return analyzer.get_conversation_length(index)
-
-
-def get_dataset_size(
-    dataset_name: str, config: Optional[BaseConfig] = None, split: Optional[str] = None
-) -> int:
-    """Get the total number of conversations in the dataset.
-
-    Args:
-        dataset_name: Name of the dataset to analyze (e.g., 'alpaca', 'dolly', etc.)
-        config: Optional configuration object.
-        split: Optional split name (e.g., 'train', 'validation', 'test')
-
-    Returns:
-        int: Total number of conversations.
-    """
-    analyzer = DatasetAnalyzer(dataset_name, config, split)
-    return analyzer.get_dataset_size()
-
-
-def analyze(
-    config: BaseConfig,
-    dataset: Optional[BaseMapDataset] = None,
-    analyzer=None,
-    *,
-    analysis_type: Optional[str] = None,
-    output_dir: Optional[Union[str, Path]] = None,
-) -> list[dict[str, Any]]:
-    """Runs dataset analysis using the provided configuration.
-
-    Args:
-        config: The configuration to use for analysis.
-        dataset: The dataset to analyze. If None, will be loaded from config.
-        analyzer: The analyzer to use for analysis. If unspecified, the analyzer
-            will be inferred from `config`.
-        analysis_type: Type of analysis to perform (e.g., 'stats', 'quality',
-            'patterns').
-        output_dir: Directory to store output files.
-
-    Returns:
-        List[Dict[str, Any]]: A list of analysis results.
-    """
-    if not analyzer:
-        analyzer = _get_analyzer(config)
-
-    # Load dataset if not provided
-    if dataset is None:
-        try:
-            dataset = _load_dataset_from_config(config)
-        except Exception as e:
-            logger.error(f"Failed to load dataset: {e}")
-            return [{"error": f"Failed to load dataset: {e}"}]
-
-    result = {"analysis_type": analysis_type, "status": "not_implemented"}
-    return [result]
-
-
-def simple_dataset_demo():
-    """Simple demonstration of reading an AlpacaDataset.
-
-    Prints the first conversation in the dataset.
-    """
-    try:
-        from oumi.datasets.sft.alpaca import AlpacaDataset
-
-        # Create a small AlpacaDataset instance
-        small_alpaca = AlpacaDataset()
-
-        # Get the first conversation
-        first_conversation = small_alpaca.conversation(0)
-
-        # Print the first conversation
-        print("First conversation from AlpacaDataset:")
-        print("=" * 50)
-        print(repr(first_conversation))
-        print("=" * 50)
-
-        return first_conversation
-
-    except ImportError as e:
-        logger.error(f"Failed to import AlpacaDataset: {e}")
-        print("Error: Could not import AlpacaDataset")
-        return None
-    except Exception as e:
-        logger.error(f"Failed to read dataset: {e}")
-        print(f"Error: {e}")
-        return None
+    def _full_analysis(
+        self, conversations_to_analyze: int, include_examples: bool, example_count: int
+    ) -> dict[str, Any]:
+        """Perform comprehensive analysis."""
+        # TODO: Implement full analysis
+        return {"status": "not_implemented", "type": "full"}
