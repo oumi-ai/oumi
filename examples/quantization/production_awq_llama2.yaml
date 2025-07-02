@@ -1,0 +1,27 @@
+# Production AWQ Configuration for Llama 2 7B
+# High-quality quantization for production deployment
+
+model:
+  model_name: "meta-llama/Llama-2-7b-chat-hf"
+  tokenizer_name: "meta-llama/Llama-2-7b-chat-hf"
+  model_kwargs:
+    torch_dtype: "auto"
+    device_map: "auto"
+
+# AWQ q4_0 method for best balance of quality and compression
+method: "awq_q4_0"
+
+# Output configuration
+output_path: "models/production/llama2-7b-chat-awq-q4.gguf"
+output_format: "gguf"
+
+# Optimized AWQ settings for production quality
+awq_group_size: 128        # Balanced accuracy/speed
+awq_zero_point: true       # Better accuracy
+awq_version: "GEMM"        # Faster kernels
+calibration_samples: 512   # Standard quality calibration
+cleanup_temp: true         # Save disk space
+
+# Performance settings
+batch_size: 16             # Balanced for most hardware
+verbose: true

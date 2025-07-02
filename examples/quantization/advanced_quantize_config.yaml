@@ -1,0 +1,21 @@
+# Advanced Model Quantization Configuration
+# 🚧 DEVELOPMENT: This configuration tests advanced quantization options
+# Currently runs in simulation mode - for testing the interface before production implementation
+
+# Model configuration for a local fine-tuned model
+model:
+  model_name: "./my_fine_tuned_model"           # Local model path
+  tokenizer_name: "meta-llama/Llama-2-7b-hf"   # Base tokenizer
+  model_kwargs:
+    torch_dtype: "float16"                      # Load in half precision
+    trust_remote_code: true                     # Trust custom model code
+  adapter_model: null                           # No LoRA adapter
+
+# High-quality quantization settings
+method: "q8_0"                                  # 8-bit for minimal quality loss
+output_path: "production/my_model_q8.gguf"     # Production output path
+output_format: "gguf"                          # GGUF for deployment
+
+# Performance tuning
+batch_size: 8                                  # Smaller batch for memory efficiency
+verbose: true                                  # Detailed progress logging

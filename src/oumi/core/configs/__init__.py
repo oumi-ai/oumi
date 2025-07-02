@@ -62,6 +62,8 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.judge_config_v2.JudgeConfig`
     - :class:`~oumi.core.configs.params.judge_params.JudgeOutputType`
     - :class:`~oumi.core.configs.params.judge_params.JudgeResponseFormat`
+- Quantization:
+    - :class:`~oumi.core.configs.quantization_config.QuantizationConfig`
 
 Example:
     >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
@@ -72,6 +74,14 @@ Example:
     ...     training=training_params,
     ... )
     >>> # Use the training_config in your training pipeline
+
+    >>> from oumi.core.configs import QuantizationConfig
+    >>> quantize_config = QuantizationConfig(
+    ...     model=ModelParams(model_name="meta-llama/Llama-2-7b-hf"),
+    ...     method="q4_0",
+    ...     output_path="llama2-7b-q4.gguf"
+    ... )
+    >>> # Use the quantize_config for model quantization
 
 Note:
     All configuration classes inherit from
@@ -135,6 +145,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
@@ -172,6 +183,7 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",
     "ShardingStrategy",

@@ -1,0 +1,24 @@
+# Edge Deployment AWQ Configuration
+# Maximum compression for resource-constrained environments
+
+model:
+  model_name: "microsoft/DialoGPT-medium"
+  tokenizer_name: "microsoft/DialoGPT-medium"
+
+# AWQ q4_1 for better quality at maximum compression
+method: "awq_q4_1"
+
+# Output configuration
+output_path: "models/edge/dialogpt-medium-awq-q4.gguf"
+output_format: "gguf"
+
+# Edge-optimized AWQ settings
+awq_group_size: 128        # Standard setting
+awq_zero_point: true       # Better quality for edge deployment
+awq_version: "GEMM"        
+calibration_samples: 256   # Balanced calibration
+cleanup_temp: true         # Save space on edge devices
+
+# Memory-efficient settings
+batch_size: 4              # Small batch for limited memory
+verbose: false             # Minimal logging for edge
