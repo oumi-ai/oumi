@@ -22,7 +22,7 @@ from datasets import load_dataset
 from oumi.core.configs.params.synthesis_params import DatasetSource
 
 
-class StorageType(Enum):
+class DatasetStorageType(Enum):
     """Storage type."""
 
     HF = "hf"
@@ -59,18 +59,18 @@ class DatasetPath:
         self._path = path
         self._storage_type = self._get_storage_type(path)
         self._file_extension = ""
-        if self._storage_type == StorageType.LOCAL:
+        if self._storage_type == DatasetStorageType.LOCAL:
             self._file_extension = self._get_file_extension(path)
             if self._file_extension not in ["jsonl", "csv", "tsv", "parquet", "json"]:
                 raise ValueError(f"Invalid path: {path}")
 
-    def _get_storage_type(self, path: str) -> StorageType:
+    def _get_storage_type(self, path: str) -> DatasetStorageType:
         """Get the storage type from the path."""
         prefix = path.split(":")[0]
         if prefix == "hf":
-            return StorageType.HF
+            return DatasetStorageType.HF
         else:
-            return StorageType.LOCAL
+            return DatasetStorageType.LOCAL
 
     def _get_file_extension(self, path: str) -> str:
         """Get the file extension from the path."""
@@ -78,12 +78,12 @@ class DatasetPath:
 
     def get_path_str(self) -> str:
         """Get the path."""
-        if self._storage_type == StorageType.HF:
+        if self._storage_type == DatasetStorageType.HF:
             return self._path.split(":")[1]
         else:
             return self._path
 
-    def get_storage_type(self) -> StorageType:
+    def get_storage_type(self) -> DatasetStorageType:
         """Get the storage type."""
         return self._storage_type
 
@@ -106,13 +106,13 @@ class DatasetReader:
         data_path = DatasetPath(data_source.path)
         storage_type = data_path.get_storage_type()
         file_extension = data_path.get_file_extension()
-        if storage_type == StorageType.HF:
+        if storage_type == DatasetStorageType.HF:
             samples = self._read_from_hf(
                 data_path.get_path_str(),
                 data_source.hf_split,
                 data_source.hf_revision,
             )
-        elif storage_type == StorageType.LOCAL:
+        elif storage_type == DatasetStorageType.LOCAL:
             if "*" in data_path.get_path_str():
                 samples = self._read_from_glob(data_path.get_path_str(), file_extension)
             else:

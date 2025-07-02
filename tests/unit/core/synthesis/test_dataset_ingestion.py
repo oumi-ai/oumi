@@ -21,7 +21,7 @@ from oumi.core.configs.params.synthesis_params import DatasetSource
 from oumi.core.synthesis.dataset_ingestion import (
     DatasetPath,
     DatasetReader,
-    StorageType,
+    DatasetStorageType,
 )
 
 
@@ -35,34 +35,34 @@ def test_local_path():
     """Test initialization with local JSONL path."""
     path = DatasetPath("path/to/data/file.jsonl")
     assert path.get_path_str() == "path/to/data/file.jsonl"
-    assert path.get_storage_type() == StorageType.LOCAL
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
 
     path = DatasetPath("path/to/data/file.csv")
     assert path.get_path_str() == "path/to/data/file.csv"
-    assert path.get_storage_type() == StorageType.LOCAL
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
 
     path = DatasetPath("path/to/data/file.tsv")
     assert path.get_path_str() == "path/to/data/file.tsv"
-    assert path.get_storage_type() == StorageType.LOCAL
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
 
     path = DatasetPath("path/to/data/file.parquet")
     assert path.get_path_str() == "path/to/data/file.parquet"
-    assert path.get_storage_type() == StorageType.LOCAL
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
 
     path = DatasetPath("path/to/data/file.json")
     assert path.get_path_str() == "path/to/data/file.json"
-    assert path.get_storage_type() == StorageType.LOCAL
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
 
     path = DatasetPath("path/to/data/*.jsonl")
     assert path.get_path_str() == "path/to/data/*.jsonl"
-    assert path.get_storage_type() == StorageType.LOCAL
+    assert path.get_storage_type() == DatasetStorageType.LOCAL
 
 
 def test_huggingface_path():
     """Test get_path_str for HuggingFace path."""
     path = DatasetPath("hf:repo_id/dataset_name")
     assert path.get_path_str() == "repo_id/dataset_name"
-    assert path.get_storage_type() == StorageType.HF
+    assert path.get_storage_type() == DatasetStorageType.HF
 
 
 @pytest.fixture
