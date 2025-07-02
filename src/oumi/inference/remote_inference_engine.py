@@ -613,8 +613,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             List[Conversation]: Inference output.
         """
         conversations = safe_asyncio_run(self._infer(input, inference_config))
-        if inference_config and inference_config.output_path:
-            self._save_conversations(conversations, inference_config.output_path)
         return conversations
 
     @override
@@ -653,7 +651,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._infer_online(input, inference_config)
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
 
     def infer_from_file(
         self,
