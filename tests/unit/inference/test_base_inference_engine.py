@@ -208,7 +208,7 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
                 new_conv.messages.append(
                     Message(
                         role=Role.ASSISTANT,
-                        content=f"Mock response {i}",
+                        content=f"Mock response {conv.conversation_id}",
                     )
                 )
                 results.append(new_conv)
@@ -248,7 +248,7 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
                     == conversations[0].messages[0].content
                 )
                 assert first_conv.messages[-1].role == Role.ASSISTANT
-                assert first_conv.messages[-1].content == "Mock response 0"
+                assert first_conv.messages[-1].content == "Mock response test-1"
 
         # Run inference again, this time with no errors
         # It should resume from scratch, only processing the second conversation
@@ -276,6 +276,38 @@ def test_infer_resume_from_scratch_on_failure(mock_engine):
             mock_infer.assert_called_once()
             assert len(mock_infer.call_args[0][0]) == 1
             assert mock_infer.call_args[0][0][0].conversation_id == "test-2"
+
+        # Verify that output file exists and contains expected conversations
+        output_file_path = Path(output_path)
+        assert output_file_path.exists(), (
+            "Output file should exist after successful inference"
+        )
+
+        saved_conversations = []
+        with jsonlines.open(output_path) as reader:
+            for obj in reader:
+                saved_conversations.append(Conversation.from_dict(obj))
+
+        assert len(saved_conversations) == 2, (
+            "Output file should contain all processed conversations"
+        )
+
+        # Verify that the saved conversations match the results
+        for i, (result_conv, saved_conv) in enumerate(
+            zip(results, saved_conversations)
+        ):
+            assert result_conv.conversation_id == saved_conv.conversation_id
+            assert len(saved_conv.messages) == 2, (
+                f"Conversation {i} should have original + assistant message"
+            )
+
+            # Verify original user message
+            assert saved_conv.messages[0].role == Role.USER
+            assert saved_conv.messages[0].content == f"Test message {i + 1}"
+
+            # Verify assistant response was added
+            assert saved_conv.messages[1].role == Role.ASSISTANT
+            assert saved_conv.messages[1].content == f"Mock response test-{i + 1}"
 
 
 def test_scratch_file_handling_with_errors(mock_engine):
@@ -360,3 +392,60 @@ def test_full_scratch_file(mock_engine):
         assert len(results) == 1
         assert results[0].conversation_id == "test-1"
         assert len(results[0].messages) == 1  # Original, no assistant response in file
+
+
+def test_final_conversations_saved_to_output_file(mock_engine):
+    """Test that final conversations are saved to output file after inference."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = str(Path(temp_dir) / "output.jsonl")
+        inference_config = InferenceConfig(
+            output_path=output_path,
+            generation=GenerationParams(max_new_tokens=10),
+        )
+
+        # Create test conversations
+        conversations = [
+            create_test_conversation(1),
+            create_test_conversation(2),
+        ]
+
+        results = mock_engine.infer(
+            input=conversations,
+            inference_config=inference_config,
+        )
+
+        output_file_path = Path(output_path)
+        assert output_file_path.exists(), (
+            "Output file should exist after successful inference"
+        )
+
+        saved_conversations = []
+        with jsonlines.open(output_path) as reader:
+            for obj in reader:
+                saved_conversations.append(Conversation.from_dict(obj))
+        assert len(saved_conversations) == 2, (
+            "Output file should contain all processed conversations"
+        )
+
+        # Verify that the saved conversations match the results
+        for i, (result_conv, saved_conv) in enumerate(
+            zip(results, saved_conversations)
+        ):
+            assert result_conv.conversation_id == saved_conv.conversation_id
+            assert len(saved_conv.messages) == 2, (
+                f"Conversation {i} should have original + assistant message"
+            )
+
+            # Verify original user message
+            assert saved_conv.messages[0].role == Role.USER
+            assert saved_conv.messages[0].content == f"Test message {i + 1}"
+
+            # Verify assistant response was added
+            assert saved_conv.messages[1].role == Role.ASSISTANT
+            assert saved_conv.messages[1].content == f"Mock response {i}"
+
+        # Verify that scratch file was cleaned up
+        scratch_path = Path(temp_dir) / "scratch" / "output.jsonl"
+        assert not scratch_path.exists(), (
+            "Scratch file should be cleaned up after successful inference"
+        )
