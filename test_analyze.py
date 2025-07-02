@@ -10,7 +10,6 @@ from oumi.core.configs import (
     LanguageAggregationConfig,
     LanguageDetectionConfig,
     OutputConfig,
-    PreprocessingConfig,
     SampleLevelMetrics,
 )
 
@@ -179,9 +178,6 @@ def test_v1_config():
                         "content_field": "content",
                     },
                 ),
-            ),
-            preprocessing=PreprocessingConfig(
-                normalize_whitespace=True, lowercase=False, remove_special_chars=False
             ),
             outputs=OutputConfig(
                 analysis_output="ultrachat_analysis.json",
