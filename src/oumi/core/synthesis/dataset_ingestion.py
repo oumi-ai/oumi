@@ -23,7 +23,7 @@ from oumi.core.configs.params.synthesis_params import DatasetSource
 
 
 class DatasetStorageType(Enum):
-    """Storage type."""
+    """Storage location for a dataset (local, HuggingFace, etc.)."""
 
     HF = "hf"
     """HuggingFace"""
