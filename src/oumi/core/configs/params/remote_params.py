@@ -61,6 +61,15 @@ class RemoteParams(BaseParams):
     Only used for batch inference.
     """
 
+    use_adaptive_concurrency: bool = True
+    """Whether to use adaptive concurrency control.
+
+    If True, the number of concurrent requests will be adjusted based on the error rate
+    of the requests. As error rate increases above a threshold, the number of concurrent
+    requests will decrease, and as error rate decreases below a threshold, the number of
+    concurrent requests will increase.
+    """
+
     def __post_init__(self):
         """Validate the remote parameters."""
         if self.num_workers < 1:
