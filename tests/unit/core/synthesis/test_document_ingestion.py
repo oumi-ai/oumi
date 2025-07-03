@@ -280,9 +280,9 @@ def test_document_path_format_detection_edge_cases():
     assert path.get_document_format() == DocumentFormat.TXT
 
 
-def test_read_real_pdf_document(reader):
+def test_read_real_pdf_document(reader, root_testdata_dir):
     """Test reading a real PDF document."""
-    document_path = DocumentPath("tests/unit/core/synthesis/test_data/test.pdf")
+    document_path = DocumentPath(f"{root_testdata_dir}/pdfs/mock.pdf")
     result = reader.read(document_path)
 
     # Verify the result
