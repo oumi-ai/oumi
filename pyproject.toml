@@ -139,6 +139,10 @@ gcp = [
 lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
+synthesis = [
+    "pymupdf4llm",                  # Document ingestion for synthesis
+]
+
 evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
     "langdetect",                   # leaderboard_ifeval
