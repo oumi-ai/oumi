@@ -28,6 +28,8 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.analyzer_config.AggregationMetrics`
     - :class:`~oumi.core.configs.analyzer_config.LanguageDetectionConfig`
     - :class:`~oumi.core.configs.analyzer_config.LanguageAggregationConfig`
+    - :class:`~oumi.core.configs.analyzer_config.LengthMetricsConfig`
+    - :class:`~oumi.core.configs.analyzer_config.SafetyMetricsConfig`
 - Evaluation:
     - :class:`~oumi.core.configs.async_evaluation_config.AsyncEvaluationConfig`
     - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
@@ -94,7 +96,9 @@ from oumi.core.configs.analyzer_config import (
     InputConfig,
     LanguageAggregationConfig,
     LanguageDetectionConfig,
+    LengthMetricsConfig,
     OutputConfig,
+    SafetyMetricsConfig,
     SampleLevelMetrics,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
@@ -200,7 +204,9 @@ __all__ = [
     "InputConfig",
     "LanguageAggregationConfig",
     "LanguageDetectionConfig",
+    "LengthMetricsConfig",
     "OutputConfig",
+    "SafetyMetricsConfig",
     "SampleLevelMetrics",
     "StorageMount",
     "TelemetryParams",

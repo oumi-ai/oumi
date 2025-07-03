@@ -1,25 +1,19 @@
-# Analyzer Configuration v1.0.0
+# Analyzer Configuration
 # This configuration demonstrates the analysis system for a given dataset
-
-analyze_version: "v1.0.0"
 
 # Input Configuration
 input:
-  name: "tatsu-lab/alpaca"  # Required: Dataset name from registry
-  split: "train"  # Optional: Dataset split (e.g., 'train', 'test', 'validation')
+  name: "huggingfaceh4/ultrachat_200k"  # Dataset name
+  split: "train_sft"  # Dataset split
+  max_conversations: 1000  # Limit to first 1000 conversations (optional)
   schema:
-    type: "conversation"  # Options: 'single_turn', 'conversation'
-    fields:
-      text_field: "text"  # For single-turn datasets
-      conversation_field: "messages"  # For multi-turn chat
-      conversation_id_field: "id"  # Optional ID for grouping
-      role_field: "role"  # Optional: for role-based analysis in chats
-      content_field: "content"  # Where the message text lives in each turn
+    type: "conversation"  # Dataset schema type
 
 # Output Configuration
 outputs:
-  analysis_output: "analysis_results.json"  # Path for analysis results
-  aggregation_output: "aggregations_results.json"  # Path for aggregated results
+  path: "./analysis_results"
+  analysis_output: "analysis_results_[timestamp].parquet"
+  aggregation_output: "aggregations_results_[timestamp].json"
   save_format: "json"  # Format for output files (json, yaml, csv, parquet)
 
 # Sample-Level Metrics Configuration
@@ -31,6 +25,19 @@ sample_level_metrics:
     multilingual_flag:
       enabled: true
       min_num_languages: 2
+
+  length:
+    enabled: true
+    char_length: true
+    word_count: true
+    sentence_count: true
+    paragraph_count: false
+
+  safety:
+    enabled: false
+    toxicity_score: true
+    bias_detection: true
+    content_filter: true
 
 # Aggregation Metrics Configuration
 aggregation_metrics:
