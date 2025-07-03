@@ -12,6 +12,7 @@ from oumi.core.configs import (
     OutputConfig,
     SampleLevelMetrics,
 )
+from oumi.core.configs.analyzer_config import LengthMetricsConfig, SafetyMetricsConfig
 
 
 def test_analyzer():
@@ -25,7 +26,6 @@ def test_analyzer():
         # Create an analyzer instance with config
         print("Creating DatasetAnalyzer for 'tatsu-lab/alpaca' with config...")
         config = AnalyzerConfig(
-            analyze_version="v1.0.0",
             input=InputConfig(
                 name="tatsu-lab/alpaca",
                 split="train",
@@ -68,7 +68,6 @@ def test_analyzer():
             "Creating DatasetAnalyzer for 'huggingfaceh4/ultrachat_200k' with config..."
         )
         ultrachat_config = AnalyzerConfig(
-            analyze_version="v1.0.0",
             input=InputConfig(
                 name="huggingfaceh4/ultrachat_200k",
                 split="train_sft",
@@ -130,7 +129,6 @@ def test_v1_config():
         # Test basic v1.0.0 config with Alpaca dataset
         print("Creating basic v1.0.0 config for 'tatsu-lab/alpaca'...")
         config = AnalyzerConfig(
-            analyze_version="v1.0.0",
             input=InputConfig(
                 name="tatsu-lab/alpaca",
                 split="train",
@@ -164,22 +162,14 @@ def test_v1_config():
         print("=" * 60)
 
         comprehensive_config = AnalyzerConfig(
-            analyze_version="v1.0.0",
             input=InputConfig(
                 name="huggingfaceh4/ultrachat_200k",
                 split="train_sft",
-                schema=DatasetSchema(
-                    type="conversation",
-                    fields={
-                        "text_field": "text",
-                        "conversation_field": "messages",
-                        "conversation_id_field": "id",
-                        "role_field": "role",
-                        "content_field": "content",
-                    },
-                ),
+                max_conversations=100,  # Limit to first 100 conversations for testing
+                schema=DatasetSchema(type="conversation"),
             ),
             outputs=OutputConfig(
+                path="./test_results",
                 analysis_output="ultrachat_analysis.json",
                 aggregation_output="ultrachat_aggregations.json",
                 save_format="json",
@@ -190,7 +180,20 @@ def test_v1_config():
                     confidence_threshold=0.2,
                     top_k=3,
                     multilingual_flag={"enabled": True, "min_num_languages": 2},
-                )
+                ),
+                length=LengthMetricsConfig(
+                    enabled=True,
+                    char_length=True,
+                    word_count=True,
+                    sentence_count=True,
+                    paragraph_count=False,
+                ),
+                safety=SafetyMetricsConfig(
+                    enabled=False,
+                    toxicity_score=True,
+                    bias_detection=True,
+                    content_filter=True,
+                ),
             ),
             aggregation_metrics=AggregationMetrics(
                 language=LanguageAggregationConfig(
@@ -241,7 +244,26 @@ def test_v1_config():
         results = comprehensive_analyzer.analyze_dataset()
         print(f"Analysis completed: {results.get('status', 'success')}")
         print(f"Dataset name: {results.get('dataset_name', 'unknown')}")
-        print(f"Total conversations: {results.get('total_conversations', 0)}")
+
+        # Handle new two-step analysis structure
+        if "sample_level_results" in results and "aggregation_results" in results:
+            sample_results = results["sample_level_results"]
+            aggregation_results = results["aggregation_results"]
+            print(
+                f"Total conversations in dataset: "
+                f"{sample_results.get('total_conversations', 0)}"
+            )
+            print(
+                f"Conversations analyzed: "
+                f"{sample_results.get('conversations_analyzed', 0)}"
+            )
+            print(f"Total messages: {sample_results.get('total_messages', 0)}")
+            role_analysis = aggregation_results.get("role_analysis", {})
+            avg_messages = role_analysis.get("avg_messages_per_conversation", 0)
+            print(f"Average messages per conversation: {avg_messages}")
+        else:
+            # Fallback for old structure
+            print(f"Total conversations: {results.get('total_conversations', 0)}")
 
         print("\nComprehensive v1.0.0 config test completed successfully!")
 
@@ -269,16 +291,6 @@ def test_config_validation():
             config_without_name = AnalyzerConfig(input=InputConfig(name=""))
             # The error should be caught when we try to use the config
             _ = Analyzer(config_without_name)
-            print("❌ Should have failed but didn't")
-        except ValueError as e:
-            print(f"✅ Correctly caught error: {e}")
-
-        # Test invalid schema type
-        print("\nTesting invalid schema type...")
-        try:
-            _ = AnalyzerConfig(
-                input=InputConfig(name="test", schema=DatasetSchema(type="invalid"))
-            )
             print("❌ Should have failed but didn't")
         except ValueError as e:
             print(f"✅ Correctly caught error: {e}")

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 from omegaconf import MISSING
 
@@ -24,19 +24,8 @@ from oumi.core.configs.base_config import BaseConfig
 class DatasetSchema:
     """Schema configuration for dataset structure."""
 
-    type: str = "conversation"  # "single_turn" or "conversation"
-    """Type of dataset structure."""
-
-    fields: dict[str, str] = field(
-        default_factory=lambda: {
-            "text_field": "text",
-            "conversation_field": "messages",
-            "conversation_id_field": "id",
-            "role_field": "role",
-            "content_field": "content",
-        }
-    )
-    """Field mappings for dataset structure."""
+    type: str = "conversation"
+    """Type of dataset structure. Currently only supports 'conversation'."""
 
 
 @dataclass
@@ -56,6 +45,14 @@ class InputConfig:
     split: str = "train"
     """Dataset split to use (e.g., 'train', 'test', 'validation')."""
 
+    max_conversations: Optional[int] = None
+    """Maximum number of conversations to analyze.
+
+    If None, analyzes all conversations in the dataset.
+    If set to a positive integer, only analyzes the first N conversations.
+    Useful for large datasets where you want to sample a subset for analysis.
+    """
+
     schema: DatasetSchema = field(default_factory=DatasetSchema)
     """Schema configuration for dataset structure."""
 
@@ -63,6 +60,12 @@ class InputConfig:
 @dataclass
 class OutputConfig:
     """Output configuration for analysis results."""
+
+    path: str = "."
+    """Directory path where output files will be saved.
+
+    Defaults to current directory ('.').
+    """
 
     analysis_output: str = "analysis_results_[timestamp].parquet"
     """Path for sample-level analysis results."""
@@ -134,11 +137,54 @@ class LanguageAggregationConfig:
 
 
 @dataclass
+class LengthMetricsConfig:
+    """Configuration for length-related metrics."""
+
+    enabled: bool = True
+    """Whether length metrics are enabled."""
+
+    char_length: bool = True
+    """Whether to compute character length."""
+
+    word_count: bool = True
+    """Whether to compute word count."""
+
+    sentence_count: bool = True
+    """Whether to compute sentence count."""
+
+    paragraph_count: bool = False
+    """Whether to compute paragraph count."""
+
+
+@dataclass
+class SafetyMetricsConfig:
+    """Configuration for safety-related metrics."""
+
+    enabled: bool = True
+    """Whether safety metrics are enabled."""
+
+    toxicity_score: bool = True
+    """Whether to compute toxicity score."""
+
+    bias_detection: bool = True
+    """Whether to compute bias detection."""
+
+    content_filter: bool = True
+    """Whether to compute content filtering."""
+
+
+@dataclass
 class SampleLevelMetrics:
-    """Configuration for sample-level metrics."""
+    """Configuration for sample-level metrics organized by category."""
 
     language: LanguageDetectionConfig = field(default_factory=LanguageDetectionConfig)
     """Language detection configuration."""
+
+    length: LengthMetricsConfig = field(default_factory=LengthMetricsConfig)
+    """Length-related metrics configuration."""
+
+    safety: SafetyMetricsConfig = field(default_factory=SafetyMetricsConfig)
+    """Safety-related metrics configuration."""
 
 
 @dataclass
@@ -154,9 +200,6 @@ class AggregationMetrics:
 @dataclass
 class AnalyzerConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
-
-    analyze_version: str = "v1.0.0"
-    """Version of the analysis configuration."""
 
     input: InputConfig = field(default_factory=InputConfig)
     """Input configuration for dataset sources."""
@@ -181,12 +224,6 @@ class AnalyzerConfig(BaseConfig):
         # Validate input configuration
         if not self.input.name:
             raise ValueError("input.name is required")
-
-        if self.input.schema.type not in ["single_turn", "conversation"]:
-            raise ValueError(
-                f"input.schema.type must be one of ['single_turn', 'conversation'], "
-                f"got {self.input.schema.type}"
-            )
 
         # Validate language detection configuration
         if not isinstance(self.sample_level_metrics.language.enabled, bool):
