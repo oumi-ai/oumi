@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import requests
+import yaml
 from typing_extensions import Self
 
 from oumi.cli import cli_utils
@@ -23,7 +25,7 @@ from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.judge_params import JudgeParams
 
-JUDGE_CONFIG_PATH_TEMPLATE = "configs/projects/judges/{path}.yaml"
+JUDGE_CONFIG_REPO_PATH_TEMPLATE = "oumi://configs/projects/judges/{path}.yaml"
 
 
 @dataclass
@@ -60,25 +62,40 @@ class JudgeConfig(BaseConfig):
         """Resolve the JudgeConfig from a local or repo path."""
 
         def _resolve_path(unresolved_path: str) -> Optional[str]:
-            resolved_path = str(
-                cli_utils.resolve_and_fetch_config(
-                    unresolved_path,
+            try:
+                # Attempt to resolve the path using CLI utilities.
+                # This will handle both local paths and repo (oumi://) paths.
+                resolved_path = str(
+                    cli_utils.resolve_and_fetch_config(
+                        unresolved_path,
+                    )
                 )
-            )
+            except (
+                requests.exceptions.RequestException,  # Network/HTTP issues
+                yaml.YAMLError,  # YAML parsing errors
+                OSError,  # File system operations (includes IOError)
+            ):
+                # If resolution fails, mask the error and return None.
+                return None
+
+            # If resolution succeeds, check if the resolved path exists indeed.
             return resolved_path if Path(resolved_path).exists() else None
 
         if extra_args is None:
             extra_args = []
 
         # If `path` is a local or repo path, load JudgeConfig obj from that path.
-        # Example: "configs/projects/judges/qa/relevance.yaml"
+        # Repo example: path = "oumi://configs/projects/judges/qa/relevance.yaml"
+        # Local example: path= "./local_path/relevance.yaml"
         resolved_path = _resolve_path(path)
 
         # If `path` is a built-in judge name, construct the path from the default
         # repo location, and then load the corresponding JudgeConfig.
-        # Example: "qa/relevance" => "configs/projects/judges/qa/relevance.yaml"
+        # Example: "qa/relevance" => "oumi://configs/projects/judges/qa/relevance.yaml"
         if not resolved_path:
-            resolved_path = _resolve_path(JUDGE_CONFIG_PATH_TEMPLATE.format(path=path))
+            resolved_path = _resolve_path(
+                JUDGE_CONFIG_REPO_PATH_TEMPLATE.format(path=path)
+            )
 
         if resolved_path:
             try:

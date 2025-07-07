@@ -81,3 +81,87 @@ class RemoteParams(BaseParams):
             raise ValueError(
                 "Retry backoff max must be greater than or equal to retry backoff base."
             )
+
+
+@dataclass
+class AdaptiveConcurrencyParams(BaseParams):
+    """Configuration for adaptive concurrency control."""
+
+    min_concurrency: int = 5
+    """Minimum number of concurrent requests to allow.
+
+    Backoff throttling will never reduce concurrency below this value.
+    """
+
+    max_concurrency: int = 100
+    """Maximum number of concurrent requests allowed.
+
+    The concurrency will never be allowed to go above this value.
+    """
+
+    concurrency_step: int = 5
+    """How much to increase concurrency during warmup.
+
+    During warmup, concurrency will be increased by this amount. (i.e. if concurrency is
+    50, and the concurrency step is 5, the concurrency will be increased to 55). This
+    change will happen no sooner than min_update_time seconds after the last update.
+    """
+
+    min_update_time: float = 60.0
+    """Minimum seconds between attempted updates.
+
+    The concurrency will not be adjusted sooner than this time.
+    """
+
+    error_threshold: float = 0.01
+    """Error rate threshold (0.01 = 1%) to trigger backoff.
+
+    If the error rate is greater than this threshold, backoff will be triggered.
+
+    Consider keeping this value low. Once a particular error rate is reached, there are
+    already other requests in-flight which will likely fail, so the sooner concurrency
+    is reduced, the better chance the system has of recovering.
+    """
+
+    backoff_factor: float = 0.8
+    """Factor to multiply concurrency by during backoff.
+
+    During backoff, the concurrency will be reduced by this factor. (i.e. if concurrency
+    is 100, and the backoff factor is 0.8, the concurrency will be reduced to 80).
+    """
+
+    recovery_threshold: float = 0.00
+    """Error rate threshold (0.00 = 0%) to allow recovery.
+
+    If the error rate is less than this threshold, recovery will be triggered.
+    """
+
+    min_window_size: int = 10
+    """Minimum number of recent requests to consider for error rate calculation.
+
+    If the number of requests since the last update is less than this threshold, the
+    concurrency will not be adjusted.
+    """
+
+    def __post_init__(self):
+        """Validate the adaptive concurrency parameters."""
+        if self.min_concurrency < 1:
+            raise ValueError("Min concurrency must be greater than or equal to 1.")
+        if self.max_concurrency < self.min_concurrency:
+            raise ValueError(
+                "Max concurrency must be greater than or equal to min concurrency."
+            )
+        if self.concurrency_step < 1:
+            raise ValueError("Concurrency step must be greater than or equal to 1.")
+        if self.min_update_time <= 0:
+            raise ValueError("Min update time must be greater than 0.")
+        if self.error_threshold < 0 or self.error_threshold > 1:
+            raise ValueError("Error threshold must be between 0 and 1.")
+        if self.backoff_factor <= 0:
+            raise ValueError("Backoff factor must be greater than 0.")
+        if self.recovery_threshold < 0 or self.recovery_threshold > 1:
+            raise ValueError("Recovery threshold must be between 0 and 1.")
+        if self.recovery_threshold >= self.error_threshold:
+            raise ValueError("Recovery threshold must be less than error threshold.")
+        if self.min_window_size < 1:
+            raise ValueError("Min window size must be greater than or equal to 1.")
