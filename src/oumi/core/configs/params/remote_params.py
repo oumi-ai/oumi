@@ -61,6 +61,27 @@ class RemoteParams(BaseParams):
     Only used for batch inference.
     """
 
+    use_adaptive_concurrency: bool = True
+    """Whether to use adaptive concurrency control.
+
+    If True, the number of concurrent requests will be adjusted based on the error rate
+    of the requests. As error rate increases above a threshold, the number of concurrent
+    requests will decrease, and as error rate decreases below a threshold, the number of
+    concurrent requests will increase.
+
+    When this is enabled, users should set `num_workers` to the requests per minute
+    (RPM/QPM) of the model/API, and the `politeness_policy` to 60s (as most APIs query
+    limits are dictated by the number of requests per minute).
+
+    The lowest concurrency can be is 1, and the highest concurrency is `num_workers`.
+    Updates to concurrency will happen no sooner than `politeness_policy` seconds after
+    the last update, and at least 10 requests must have been made since the last update.
+
+    In the event that even 1 concurrency causes the error rate to exceed the threshold,
+    it is recommended to increase the `politeness_policy` to allow more time between
+    requests.
+    """
+
     def __post_init__(self):
         """Validate the remote parameters."""
         if self.num_workers < 1:
@@ -97,6 +118,19 @@ class AdaptiveConcurrencyParams(BaseParams):
     """Maximum number of concurrent requests allowed.
 
     The concurrency will never be allowed to go above this value.
+    """
+
+    initial_concurrency_factor: float = 0.5
+    """Initial concurrency factor.
+
+    The initial concurrency will be set to (max_concurrency - min_concurrency) *
+    initial_concurrency_factor + min_concurrency.
+
+    Example:
+    - min_concurrency = 5
+    - max_concurrency = 100
+    - initial_concurrency_factor = 0.5
+    - initial_concurrency = (100 - 5) * 0.5 + 5 = 52.5 = 52
     """
 
     concurrency_step: int = 5
@@ -151,6 +185,8 @@ class AdaptiveConcurrencyParams(BaseParams):
             raise ValueError(
                 "Max concurrency must be greater than or equal to min concurrency."
             )
+        if self.initial_concurrency_factor < 0 or self.initial_concurrency_factor > 1:
+            raise ValueError("Initial concurrency factor must be between 0 and 1.")
         if self.concurrency_step < 1:
             raise ValueError("Concurrency step must be greater than or equal to 1.")
         if self.min_update_time <= 0:

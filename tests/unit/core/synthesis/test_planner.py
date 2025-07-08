@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import random
+from unittest.mock import Mock, patch
 
 import pytest
 
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
+    DatasetSource,
+    ExampleSource,
     GeneralSynthesisParams,
     PermutableAttribute,
     PermutableAttributeValue,
@@ -93,31 +96,66 @@ def mock_permutable_attributes():
     return [MockPermutableAttribute1(), MockPermutableAttribute2()]
 
 
+@pytest.fixture
+def mock_dataset_sources():
+    """Mock dataset sources for testing."""
+    return [
+        DatasetSource(path="test_dataset1.jsonl"),
+        DatasetSource(path="test_dataset2.jsonl"),
+    ]
+
+
+@pytest.fixture
+def mock_dataset_data():
+    """Mock data that would be returned by DatasetReader."""
+    return [
+        [
+            {"col1": "value1", "col2": "valueA"},
+            {"col1": "value2", "col2": "valueB"},
+            {"col1": "value3", "col2": "valueC"},
+        ],
+        [
+            {"col3": "data1", "col4": "dataA"},
+            {"col3": "data2", "col4": "dataB"},
+        ],
+    ]
+
+
+@pytest.fixture
+def mock_example_sources():
+    """Mock example sources for testing."""
+    return [
+        ExampleSource(
+            examples=[
+                {"example_attr1": "example_value1", "example_attr2": "example_valueA"},
+                {"example_attr1": "example_value2", "example_attr2": "example_valueB"},
+            ]
+        )
+    ]
+
+
 def test_plan_with_no_permutable_attributes(planner):
     params = GeneralSynthesisParams(permutable_attributes=None)
-    result = planner.plan(params, sample_count=5)
-    assert isinstance(result, list)
-    assert len(result) == 0
+    with pytest.raises(ValueError, match="Empty sample created after planning"):
+        _ = planner.plan(params, sample_count=5)
 
 
 def test_plan_with_empty_permutable_attributes(planner, mock_permutable_attributes):
     params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
     params.permutable_attributes = []
-    result = planner.plan(params, sample_count=5)
-    assert isinstance(result, list)
-    assert len(result) == 0
+    with pytest.raises(ValueError, match="Empty sample created after planning"):
+        _ = planner.plan(params, sample_count=5)
 
 
 def test_plan_with_zero_samples(planner, mock_permutable_attributes):
     params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
-    result = planner.plan(params, sample_count=0)
-    assert isinstance(result, list)
-    assert len(result) == 0
+    with pytest.raises(ValueError, match="sample_count must be positive"):
+        _ = planner.plan(params, sample_count=0)
 
 
 def test_plan_with_negative_samples(planner, mock_permutable_attributes):
     params = GeneralSynthesisParams(permutable_attributes=mock_permutable_attributes)
-    with pytest.raises(ValueError, match="Count must be positive"):
+    with pytest.raises(ValueError, match="sample_count must be positive"):
         planner.plan(params, sample_count=-1)
 
 
@@ -258,3 +296,190 @@ def test_plan_resamples_on_combination_match(planner, mock_permutable_attributes
     assert matching_samples == 0, (
         "Expected no samples to match the forbidden combination"
     )
+
+
+def test_plan_with_no_dataset_sources(planner, mock_permutable_attributes):
+    """Dataset plan should still be created if no dataset sources are provided."""
+    params = GeneralSynthesisParams(
+        permutable_attributes=mock_permutable_attributes,
+        input_data=None,
+    )
+    result = planner.plan(params, sample_count=5)
+
+    assert len(result) == 5
+    # Should only contain permutable attributes
+    for sample in result:
+        assert "attr1" in sample
+        assert "attr2" in sample
+        assert len(sample) == 2
+
+
+def test_plan_with_empty_dataset_sources(planner, mock_permutable_attributes):
+    """Dataset plan should still be created if dataset sources are empty."""
+    params = GeneralSynthesisParams(
+        permutable_attributes=mock_permutable_attributes,
+        input_data=None,  # Use None instead of [] to avoid validation error
+    )
+    result = planner.plan(params, sample_count=5)
+
+    assert len(result) == 5
+    # Should only contain permutable attributes
+    for sample in result:
+        assert "attr1" in sample
+        assert "attr2" in sample
+        assert len(sample) == 2
+
+
+def test_plan_with_example_sources(
+    planner, mock_permutable_attributes, mock_example_sources
+):
+    """Test that example sources are correctly included in the dataset plan."""
+    params = GeneralSynthesisParams(
+        permutable_attributes=mock_permutable_attributes,
+        input_examples=mock_example_sources,
+    )
+    result = planner.plan(params, sample_count=5)
+
+    assert len(result) == 5
+    # Each sample should have both example attributes and permutable attributes
+    for i, sample in enumerate(result):
+        # Check example attributes (round-robin)
+        example_index = i % 2
+        expected_example_attr1 = ["example_value1", "example_value2"][example_index]
+        expected_example_attr2 = ["example_valueA", "example_valueB"][example_index]
+        assert sample["example_attr1"] == expected_example_attr1
+        assert sample["example_attr2"] == expected_example_attr2
+
+        # Check permutable attributes are present
+        assert "attr1" in sample
+        assert "attr2" in sample
+
+        # Should have all 4 attributes (2 from examples + 2 permutable)
+        assert len(sample) == 4
+
+
+@patch("oumi.core.synthesis.planner.DatasetReader")
+def test_plan_with_single_dataset_source(
+    mock_reader_class,
+    planner,
+    mock_permutable_attributes,
+    mock_dataset_sources,
+):
+    """Dataset plan should be created with a single dataset source."""
+    mock_reader = Mock()
+    mock_reader.read.return_value = [
+        {"col1": "value1", "col2": "valueA"},
+        {"col1": "value2", "col2": "valueB"},
+        {"col1": "value3", "col2": "valueC"},
+    ]
+    mock_reader_class.return_value = mock_reader
+
+    params = GeneralSynthesisParams(
+        permutable_attributes=mock_permutable_attributes,
+        input_data=[mock_dataset_sources[0]],
+    )
+    result = planner.plan(params, sample_count=5)
+
+    # Verify DatasetReader was called correctly
+    mock_reader_class.assert_called_once()
+    mock_reader.read.assert_called_once_with(mock_dataset_sources[0])
+
+    assert len(result) == 5
+    # Each sample should have both dataset attributes and permutable attributes
+    for i, sample in enumerate(result):
+        # Check dataset attributes (round-robin)
+        dataset_index = i % 3
+        expected_col1 = ["value1", "value2", "value3"][dataset_index]
+        expected_col2 = ["valueA", "valueB", "valueC"][dataset_index]
+        assert sample["col1"] == expected_col1
+        assert sample["col2"] == expected_col2
+
+        # Check permutable attributes are present
+        assert "attr1" in sample
+        assert "attr2" in sample
+
+        # Should have all 4 attributes
+        assert len(sample) == 4
+
+
+@patch("oumi.core.synthesis.planner.DatasetReader")
+def test_plan_with_multiple_dataset_sources(
+    mock_reader_class,
+    planner,
+    mock_permutable_attributes,
+    mock_dataset_sources,
+    mock_dataset_data,
+):
+    """Dataset plan should be created with multiple dataset sources."""
+    mock_reader = Mock()
+    mock_reader.read.side_effect = mock_dataset_data
+    mock_reader_class.return_value = mock_reader
+
+    params = GeneralSynthesisParams(
+        permutable_attributes=mock_permutable_attributes,
+        input_data=mock_dataset_sources,
+    )
+    result = planner.plan(params, sample_count=6)
+
+    # Verify DatasetReader was called correctly
+    mock_reader_class.assert_called_once()
+    assert mock_reader.read.call_count == 2
+
+    assert len(result) == 6
+    # Each sample should have attributes from both datasets and permutable attributes
+    for i, sample in enumerate(result):
+        # Check first dataset attributes (round-robin)
+        dataset1_index = i % 3
+        expected_col1 = ["value1", "value2", "value3"][dataset1_index]
+        expected_col2 = ["valueA", "valueB", "valueC"][dataset1_index]
+        assert sample["col1"] == expected_col1
+        assert sample["col2"] == expected_col2
+
+        # Check second dataset attributes (round-robin)
+        dataset2_index = i % 2
+        expected_col3 = ["data1", "data2"][dataset2_index]
+        expected_col4 = ["dataA", "dataB"][dataset2_index]
+        assert sample["col3"] == expected_col3
+        assert sample["col4"] == expected_col4
+
+        # Check permutable attributes are present
+        assert "attr1" in sample
+        assert "attr2" in sample
+
+        # Should have all 6 attributes (4 from datasets + 2 permutable)
+        assert len(sample) == 6
+
+
+@patch("oumi.core.synthesis.planner.DatasetReader")
+def test_plan_with_dataset_sources_only(
+    mock_reader_class, planner, mock_dataset_sources
+):
+    """Dataset plan should be created with no permutable attributes."""
+    mock_reader = Mock()
+    mock_reader.read.return_value = [
+        {"col1": "value1", "col2": "valueA"},
+        {"col1": "value2", "col2": "valueB"},
+    ]
+    mock_reader_class.return_value = mock_reader
+
+    params = GeneralSynthesisParams(
+        permutable_attributes=None,
+        input_data=[mock_dataset_sources[0]],
+    )
+    result = planner.plan(params, sample_count=4)
+
+    # Verify DatasetReader was called correctly
+    mock_reader_class.assert_called_once()
+    mock_reader.read.assert_called_once_with(mock_dataset_sources[0])
+
+    assert len(result) == 4
+    # Each sample should only have dataset attributes (round-robin)
+    for i, sample in enumerate(result):
+        dataset_index = i % 2
+        expected_col1 = ["value1", "value2"][dataset_index]
+        expected_col2 = ["valueA", "valueB"][dataset_index]
+        assert sample["col1"] == expected_col1
+        assert sample["col2"] == expected_col2
+
+        # Should have only dataset attributes
+        assert len(sample) == 2
