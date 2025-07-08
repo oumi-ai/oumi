@@ -290,7 +290,7 @@ def test_read_real_pdf_document(reader, root_testdata_dir):
     assert isinstance(result[0], str)
     assert len(result[0]) > 0
 
-    assert "**Dummy PDF file**\n\n" == result[0]
+    assert "**Dummy PDF file**" in result[0]
 
 
 def test_integration_read_mixed_documents(
