@@ -32,7 +32,6 @@ port=6379
 ip_head=$head_node_ip:$port
 export ip_head
 
-echo "Info----------"
 echo "SLURM_JOB_NODELIST: $SLURM_JOB_NODELIST"
 echo "CPUs per node: $SLURM_CPUS_PER_TASK"
 echo "GPUs per node: $SLURM_GPUS_ON_NODE"
