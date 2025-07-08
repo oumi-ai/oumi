@@ -2,9 +2,8 @@
 #
 # Requirements:
 #   - Set up your OLCF account (only available to Oumi core team)
-#   - Set `user` to your OLCF username
+#   - Set $OLCF_USER to your OLCF username
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
-#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_frontier_job.yaml --cluster batch.$OLCF_USER --user $OLCF_USER --log-level DEBUG

@@ -239,9 +239,11 @@ def _poll_job(
             f"status [yellow]{final_status.status}[/yellow]"
         )
         cli_utils.CONSOLE.print(
-            f"Job metadata: [yellow]{final_status.metadata}[/yellow]"
+            "Job metadata:"
         )
-
+        cli_utils.CONSOLE.print(
+            f"[yellow]{final_status.metadata}[/yellow]"
+        )
 
 # ----------------------------
 # Launch CLI subcommands
