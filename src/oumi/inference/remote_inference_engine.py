@@ -241,18 +241,19 @@ class RemoteInferenceEngine(BaseInferenceEngine):
 
         if self._remote_params.use_adaptive_concurrency:
             max_concurrency = self._remote_params.num_workers
-            # Start with 50% of the max concurrency.
-            min_concurrency = max(5, max_concurrency // 2)
-            # Ensure min concurrency is not greater than max concurrency.
-            min_concurrency = min(min_concurrency, max_concurrency)
-            # Step size is 1/4 of the range between min and max concurrency.
-            concurrency_step = max(1, (max_concurrency - min_concurrency) // 4)
+            # Lowest concurrency is 1.
+            min_concurrency = 1
+            # Initial concurrency is 1/2 of the range between min and max concurrency.
+            initial_concurrency_factor = 0.5
+            # Step size is 1/8 of the range between min and max concurrency.
+            concurrency_step = max(1, (max_concurrency - min_concurrency) // 8)
             # Min update time is 1 second less than the politeness policy.
             min_update_time = max(1, self._remote_params.politeness_policy - 1)
             self._adaptive_concurrency_controller = AdaptiveConcurrencyController(
                 AdaptiveConcurrencyParams(
                     min_concurrency=min_concurrency,
                     max_concurrency=max_concurrency,
+                    initial_concurrency_factor=initial_concurrency_factor,
                     concurrency_step=concurrency_step,
                     min_update_time=min_update_time,
                 )

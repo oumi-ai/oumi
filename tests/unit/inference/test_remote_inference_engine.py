@@ -1116,6 +1116,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             api_url=_TARGET_SERVER,
             politeness_policy=0.5,
             num_workers=2,
+            use_adaptive_concurrency=False,
         )
         engine = RemoteInferenceEngine(
             _get_default_model_params(), remote_params=remote_params
@@ -2714,13 +2715,15 @@ def test_adaptive_concurrency_initialization_enabled():
 
     # Verify controller parameters are calculated correctly
     controller = engine._adaptive_concurrency_controller
-    expected_min_concurrency = 10
+    expected_min_concurrency = 1
     expected_max_concurrency = 20
+    expected_initial_concurrency = 10
     expected_step = 2
-    expected_min_update_time = 29
+    expected_min_update_time = 29.0
 
     assert controller._config.min_concurrency == expected_min_concurrency
     assert controller._config.max_concurrency == expected_max_concurrency
+    assert controller._current_concurrency == expected_initial_concurrency
     assert controller._config.concurrency_step == expected_step
     assert controller._config.min_update_time == expected_min_update_time
 
@@ -2758,7 +2761,8 @@ def test_adaptive_concurrency_parameter_edge_cases():
     )
 
     controller = engine._adaptive_concurrency_controller
-    assert controller._config.min_concurrency == 2
+    assert controller._config.min_concurrency == 1
+    assert controller._current_concurrency == 1
     assert controller._config.max_concurrency == 2
     assert controller._config.concurrency_step == 1
     assert controller._config.min_update_time == 1
@@ -2966,6 +2970,8 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
             attempt_count += 1
             nonlocal controller
             nonlocal initial_concurrency
+            nonlocal min_concurrency
+            nonlocal max_concurrency
             nonlocal warmup_concurrency
             nonlocal backoff_concurrency
             nonlocal asserts_passed
@@ -3011,7 +3017,7 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
                     if attempt_count == window_size * 2:
                         warmup_concurrency = current_concurrency
                         backoff_concurrency = max(
-                            math.floor(current_concurrency * 0.8), initial_concurrency
+                            math.floor(current_concurrency * 0.8), min_concurrency
                         )
                         return CallbackResult(
                             status=500,
@@ -3086,6 +3092,8 @@ async def test_adaptive_concurrency_full_adjustment_cycle():
 
         controller = engine._adaptive_concurrency_controller
         assert controller._current_concurrency == 10
+        min_concurrency = controller._config.min_concurrency
+        max_concurrency = controller._config.max_concurrency
         initial_concurrency = controller._current_concurrency
         warmup_concurrency = -1
         backoff_concurrency = -1

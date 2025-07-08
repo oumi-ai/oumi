@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import math
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -58,7 +59,7 @@ def test_initialization():
     controller = AdaptiveConcurrencyController(config)
 
     assert controller._config == config
-    assert controller._current_concurrency == config.min_concurrency
+    assert controller._current_concurrency == 52
     assert controller._semaphore is not None
     assert len(controller._outcomes) == 0
     assert controller._last_adjustment_time == 0
@@ -78,7 +79,7 @@ def test_initialization_with_custom_config():
     )
     controller = AdaptiveConcurrencyController(config)
 
-    assert controller._current_concurrency == 10
+    assert controller._current_concurrency == 30
     assert controller._config.max_concurrency == 50
     assert controller._config.concurrency_step == 5
     assert controller._config.error_threshold == 0.05
@@ -219,6 +220,7 @@ async def test_try_adjust_concurrency_no_data():
     """Test that adjustment doesn't happen with insufficient data."""
     config = create_config(min_window_size=10)
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     # Add some data but less than min_window_size
     for _ in range(5):
@@ -227,7 +229,7 @@ async def test_try_adjust_concurrency_no_data():
     await controller._try_adjust_concurrency()
 
     # No adjustment should have occurred
-    assert controller._current_concurrency == config.min_concurrency
+    assert controller._current_concurrency == initial_concurrency
 
 
 @pytest.mark.asyncio
@@ -235,6 +237,7 @@ async def test_try_adjust_concurrency_too_soon(mock_time):
     """Test that adjustment doesn't happen too frequently."""
     config = create_config(min_update_time=60.0)  # 1 minute
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     # Add sufficient data
     for _ in range(10):
@@ -247,7 +250,7 @@ async def test_try_adjust_concurrency_too_soon(mock_time):
     await controller._try_adjust_concurrency()
 
     # No adjustment should have occurred
-    assert controller._current_concurrency == config.min_concurrency
+    assert controller._current_concurrency == initial_concurrency
 
 
 @pytest.mark.asyncio
@@ -320,6 +323,7 @@ async def test_warmup_on_low_error_rate(mock_time):
         min_update_time=0.1,
     )
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     # Create low error rate (all successes)
     for _ in range(10):
@@ -331,8 +335,9 @@ async def test_warmup_on_low_error_rate(mock_time):
     await controller._try_adjust_concurrency()
 
     # Should have increased concurrency
-    expected_concurrency = config.min_concurrency + config.concurrency_step
-    assert controller._current_concurrency == expected_concurrency
+    assert controller._current_concurrency == (
+        initial_concurrency + config.concurrency_step
+    )
 
 
 @pytest.mark.asyncio
@@ -524,13 +529,14 @@ async def test_edge_case_zero_outcomes():
     """Test behavior with zero recorded outcomes."""
     config = create_config(min_window_size=0)
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     error_rate = await controller._get_error_rate()
     assert error_rate == 0.0
 
     # Should not adjust concurrency
     await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == config.min_concurrency
+    assert controller._current_concurrency == initial_concurrency
 
 
 @pytest.mark.asyncio
@@ -661,25 +667,31 @@ async def test_multiple_adjustments_sequence(mock_time):
         min_update_time=0.1,
     )
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     # Phase 1: Low error rate, should warm up
+    phase_1_concurrency = initial_concurrency + config.concurrency_step
     for _ in range(10):
         await controller.record_success()
 
     mock_time.time.return_value = config.min_update_time
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == 15  # 10 + 5
+    assert controller._current_concurrency == phase_1_concurrency
 
     # Phase 2: Continue low error rate, warm up more
+    phase_2_concurrency = initial_concurrency + 2 * config.concurrency_step
     for _ in range(10):
         await controller.record_success()
 
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == 20  # 15 + 5
+    assert controller._current_concurrency == phase_2_concurrency
 
     # Phase 3: High error rate, should backoff
+    phase_3_concurrency = math.floor(
+        (initial_concurrency + 2 * config.concurrency_step) * config.backoff_factor
+    )
     for _ in range(2):
         await controller.record_success()
     for _ in range(8):
@@ -687,23 +699,30 @@ async def test_multiple_adjustments_sequence(mock_time):
 
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == 14
+    assert controller._current_concurrency == phase_3_concurrency
     assert controller._in_backoff
 
     # Phase 4: Recovery - first good window should not exit backoff
+    phase_4_concurrency = phase_3_concurrency
     for _ in range(10):
         await controller.record_success()
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == 14
+    assert controller._current_concurrency == phase_4_concurrency
     assert controller._in_backoff
 
     # Phase 5: Recovery - second good window should exit backoff
+    phase_5_concurrency = (
+        math.floor(
+            (initial_concurrency + 2 * config.concurrency_step) * config.backoff_factor
+        )
+        + config.concurrency_step
+    )
     for _ in range(10):
         await controller.record_success()
     controller._last_adjustment_time = 0
     await controller._try_adjust_concurrency()
-    assert controller._current_concurrency == 19
+    assert controller._current_concurrency == phase_5_concurrency
     assert not controller._in_backoff
 
 
@@ -788,10 +807,11 @@ async def test_context_manager_basic():
     """Test basic context manager functionality."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     # Check initial semaphore state
     initial_capacity = controller._semaphore._current_capacity
-    assert initial_capacity == config.min_concurrency
+    assert initial_capacity == initial_concurrency
 
     async with controller:
         # Should have acquired the semaphore (capacity decreases by 1)
@@ -806,10 +826,11 @@ async def test_context_manager_with_exception():
     """Test context manager properly releases on exception."""
     config = create_config()
     controller = AdaptiveConcurrencyController(config)
+    initial_concurrency = controller._current_concurrency
 
     # Check initial semaphore state
     initial_capacity = controller._semaphore._current_capacity
-    assert initial_capacity == config.min_concurrency
+    assert initial_capacity == initial_concurrency
 
     with pytest.raises(ValueError):
         async with controller:

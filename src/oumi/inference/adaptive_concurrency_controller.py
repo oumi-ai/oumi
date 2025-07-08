@@ -61,7 +61,7 @@ class AdaptiveConcurrencyController:
             config: Configuration for adaptive concurrency control.
         """
         self._config = config
-        self._current_concurrency = config.min_concurrency
+        self._current_concurrency = self._get_initial_concurrency()
         self._semaphore = AdaptiveSemaphore(self._current_concurrency)
 
         # Track request outcomes in a sliding window
@@ -107,6 +107,20 @@ class AdaptiveConcurrencyController:
     async def __aexit__(self, exc_type, exc, tb):
         """Exit the context manager."""
         self.release()
+
+    def _get_initial_concurrency(self) -> int:
+        """Get the initial concurrency."""
+        potential_concurrency = math.floor(
+            (self._config.max_concurrency - self._config.min_concurrency)
+            * self._config.initial_concurrency_factor
+            + self._config.min_concurrency
+        )
+        # Ensure the initial concurrency is at least the min concurrency and no greater
+        # than the max concurrency.
+        return max(
+            self._config.min_concurrency,
+            min(potential_concurrency, self._config.max_concurrency),
+        )
 
     async def _get_error_rate(self) -> float:
         """Calculate current error rate based on recent outcomes."""
@@ -176,12 +190,18 @@ class AdaptiveConcurrencyController:
         )
 
         if new_concurrency != self._current_concurrency:
+            logger.info(
+                "Lowering concurrency from %d to %d due to high error rate.",
+                self._current_concurrency,
+                new_concurrency,
+            )
             await self._update_concurrency(new_concurrency)
         else:
             if not self._logged_backoff_warning:
                 logger.warning(
                     "Entering backoff state, but concurrency is already at minimum "
-                    "value. Consider lowering the min concurrency."
+                    "value. Consider lowering the min concurrency or increasing the "
+                    "time between requests (politeness_policy)."
                 )
                 self._logged_backoff_warning = True
 
