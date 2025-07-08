@@ -20,6 +20,7 @@ import pytest
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
     DatasetSource,
+    ExampleSource,
     GeneralSynthesisParams,
     PermutableAttribute,
     PermutableAttributeValue,
@@ -117,6 +118,19 @@ def mock_dataset_data():
             {"col3": "data1", "col4": "dataA"},
             {"col3": "data2", "col4": "dataB"},
         ],
+    ]
+
+
+@pytest.fixture
+def mock_example_sources():
+    """Mock example sources for testing."""
+    return [
+        ExampleSource(
+            examples=[
+                {"example_attr1": "example_value1", "example_attr2": "example_valueA"},
+                {"example_attr1": "example_value2", "example_attr2": "example_valueB"},
+            ]
+        )
     ]
 
 
@@ -314,6 +328,34 @@ def test_plan_with_empty_dataset_sources(planner, mock_permutable_attributes):
         assert "attr1" in sample
         assert "attr2" in sample
         assert len(sample) == 2
+
+
+def test_plan_with_example_sources(
+    planner, mock_permutable_attributes, mock_example_sources
+):
+    """Test that example sources are correctly included in the dataset plan."""
+    params = GeneralSynthesisParams(
+        permutable_attributes=mock_permutable_attributes,
+        input_examples=mock_example_sources,
+    )
+    result = planner.plan(params, sample_count=5)
+
+    assert len(result) == 5
+    # Each sample should have both example attributes and permutable attributes
+    for i, sample in enumerate(result):
+        # Check example attributes (round-robin)
+        example_index = i % 2
+        expected_example_attr1 = ["example_value1", "example_value2"][example_index]
+        expected_example_attr2 = ["example_valueA", "example_valueB"][example_index]
+        assert sample["example_attr1"] == expected_example_attr1
+        assert sample["example_attr2"] == expected_example_attr2
+
+        # Check permutable attributes are present
+        assert "attr1" in sample
+        assert "attr2" in sample
+
+        # Should have all 4 attributes (2 from examples + 2 permutable)
+        assert len(sample) == 4
 
 
 @patch("oumi.core.synthesis.planner.DatasetReader")

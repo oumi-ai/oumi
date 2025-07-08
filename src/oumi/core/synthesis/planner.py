@@ -18,6 +18,7 @@ from typing import Optional
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
     DatasetSource,
+    ExampleSource,
     GeneralSynthesisParams,
     PermutableAttribute,
 )
@@ -55,6 +56,10 @@ class DatasetPlanner:
         if sample_count <= 0:
             raise ValueError("sample_count must be positive")
 
+        example_sample_sets = self._ingest_example_sources(
+            synthesis_params.input_examples
+        )
+
         dataset_sample_sets = self._ingest_dataset_sources(synthesis_params.input_data)
 
         permutable_attribute_samples = self._plan_permutable_attributes(
@@ -66,6 +71,7 @@ class DatasetPlanner:
         return self._create_dataset_plan(
             sample_count,
             permutable_attribute_samples,
+            example_sample_sets,
             dataset_sample_sets,
         )
 
@@ -73,12 +79,17 @@ class DatasetPlanner:
         self,
         sample_count: int,
         permutable_attribute_samples: list[dict],
+        example_sample_sets: list[list[dict]],
         dataset_sample_sets: list[list[dict]],
     ) -> list[dict]:
         """Create the final dataset plan."""
         samples = []
         for i in range(sample_count):
             sample = {}
+            for example_set in example_sample_sets:
+                index = i % len(example_set)
+                sample.update(example_set[index])
+
             for dataset in dataset_sample_sets:
                 index = i % len(dataset)
                 sample.update(dataset[index])
@@ -95,6 +106,17 @@ class DatasetPlanner:
             )
 
         return samples
+
+    def _ingest_example_sources(
+        self,
+        example_sources: Optional[list[ExampleSource]],
+    ) -> list[list[dict]]:
+        """Ingest the example sources."""
+        if example_sources is None or len(example_sources) == 0:
+            return []
+
+        results = [example_source.examples for example_source in example_sources]
+        return results
 
     def _ingest_dataset_sources(
         self,
