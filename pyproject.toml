@@ -166,7 +166,7 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 
 # CI targets
 ci_cpu = [
-    "oumi[dev,docs,gcp]",
+    "oumi[dev,docs,gcp,synthesis]",
     "vllm>=0.8.3,<0.9",   # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
@@ -174,7 +174,7 @@ ci_cpu = [
 ]
 # llama-cpp-python is not compatible with the github
 # gpu actions runner, so we skip it for now
-ci_gpu = ["oumi[dev,docs,gcp,gpu]", "alpaca-eval>=0.6.6,<0.7"]
+ci_gpu = ["oumi[dev,docs,gcp,gpu,synthesis]", "alpaca-eval>=0.6.6,<0.7"]
 
 [project.scripts]
 oumi = "oumi.cli.main:run"
