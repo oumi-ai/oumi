@@ -20,10 +20,6 @@ resources:
 
 working_dir: .
 
-file_mounts:
-  ~/.netrc: ~/.netrc # WandB credentials
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
-
 envs:
   RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING: 1
   RAY_BACKEND_LOG_LEVEL: debug
