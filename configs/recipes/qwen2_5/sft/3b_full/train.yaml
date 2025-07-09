@@ -1,11 +1,11 @@
-# Qwen 2.5 VL 3B full fine-tune training config.
+# FFT config for Qwen2.5 3B.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #   - (optional) If you want to use flash attention, run `pip install -U flash-attn --no-build-isolation`
 #
 # Usage:
-#   oumi train -c configs/recipes/vision/qwen2_5_vl_3b/sft/full/train.yaml
+#   oumi train -c configs/recipes/qwen2_5/sft/3b_full/train.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
@@ -14,46 +14,26 @@
 #   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
 
 model:
-  model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  model_name: "Qwen/Qwen2.5-3B-Instruct"
   model_max_length: 16384
   torch_dtype_str: "bfloat16"
   attn_implementation: "flash_attention_2"
   load_pretrained_weights: True
   trust_remote_code: True
-  enable_liger_kernel: False
-  chat_template: "qwen2-vl-instruct"
+  enable_liger_kernel: True
+  chat_template: "qwen2-instruct"
 
 data:
   train:
-    collator_name: "vision_language_with_padding"
-    use_torchdata: True
     datasets:
-      - dataset_name: "merve/vqav2-small"
-        split: "validation"
-        shuffle: True
-        seed: 42
-        transform_num_workers: "auto"
-        dataset_kwargs:
-          processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-          # limit: 4096 # Uncomment to limit dataset size!
-          return_tensors: True
-      # Or, to use another dataset for training:
-      # - dataset_name: "HuggingFaceH4/llava-instruct-mix-vsft"
-      #   split: "train"
-      #   shuffle: True
-      #   seed: 42
-      #   transform_num_workers: "auto"
-      #   dataset_kwargs:
-      #     processor_name: "Qwen/Qwen2.5-VL-3B-Instruct"
-      #     return_tensors: True
-      # Note: If the images of the dataset are large they may cause OOM errors.
-      # Consider resizing the images or using GPUs with more memory.
+      - dataset_name: "yahma/alpaca-cleaned"
+    target_col: "prompt"
 
 training:
-  output_dir: "output/vlm_finetuned"
+  output_dir: "output/qwen2_5_3b.fft"
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
-  per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features
+  per_device_train_batch_size: 2
   gradient_accumulation_steps: 1
   # If this is not passed, checkpoints may be saved which are suitable for resuming training but not for loading from HF
   save_final_model: True
@@ -71,7 +51,8 @@ training:
   lr_scheduler_type: "cosine"
 
   logging_steps: 50
-  save_steps: 0
+  save_steps: 800
+  num_train_epochs: 3
   dataloader_num_workers: 64  # Match LIMO preprocessing workers
   dataloader_prefetch_factor: 32
   include_performance_metrics: True
@@ -84,4 +65,4 @@ fsdp:
   forward_prefetch: True
   use_orig_params: True
   auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
-  transformer_layer_cls: "transformers.models.qwen2_5_vl.modeling_qwen2_5_vl.Qwen2_5_VLDecoderLayer"
+  transformer_layer_cls: "transformers.models.qwen2.modeling_qwen2.Qwen2DecoderLayer"
