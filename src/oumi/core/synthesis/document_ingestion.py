@@ -14,10 +14,57 @@
 
 from pathlib import Path
 
+from transformers import AutoTokenizer
+
+from oumi.core.configs.params.synthesis_params import (
+    DocumentSegmentationParams,
+    SegmentationStrategy,
+)
+
 try:
     import pymupdf4llm  # pyright: ignore[reportMissingImports]
 except ImportError:
     pymupdf4llm = None
+
+
+class DocumentSegmenter:
+    """Segmenter for documents."""
+
+    def __init__(self, params: DocumentSegmentationParams):
+        """Initialize the document segmenter."""
+        self._params = params
+        self._tokenizer = AutoTokenizer.from_pretrained(params.tokenizer)
+
+    def segment(self, document: str) -> list[str]:
+        """Segment the document."""
+        segmentation_strategy = self._params.segmentation_strategy
+        if segmentation_strategy == SegmentationStrategy.TOKENS:
+            return self._segment_by_tokens(document)
+        else:
+            raise NotImplementedError(
+                f"Unsupported segmentation strategy: {segmentation_strategy}"
+            )
+
+    def segment_batch(self, documents: list[str]) -> list[str]:
+        """Segment multiple documents.
+
+        Segments will be returned as a flat list of segments.
+        """
+        segments = []
+        for document in documents:
+            segments.extend(self.segment(document))
+        return segments
+
+    def _segment_by_tokens(self, document: str) -> list[str]:
+        """Segment the document by tokens."""
+        tokens = self._tokenizer.encode(document)
+        segments = []
+        stride = self._params.segment_length - self._params.segment_overlap
+        for i in range(0, len(tokens), stride):
+            segment = tokens[i : i + self._params.segment_length]
+            decoded_segment = self._tokenizer.decode(segment)
+            segments.append(decoded_segment)
+        return segments
 
 
 class DocumentReader:

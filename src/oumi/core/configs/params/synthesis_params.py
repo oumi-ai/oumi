@@ -73,6 +73,12 @@ class DocumentSegmentationParams:
     segmentation_strategy: SegmentationStrategy = SegmentationStrategy.TOKENS
     """Type of segmentation to be used."""
 
+    tokenizer: str = "openai-community/gpt2"
+    """Tokenizer to be used for segmentation.
+
+    Tokenizers can be specified by their HuggingFace Hub ID or by direct file path.
+    If not specified, will use the GPT-2 tokenizer from the HuggingFace Hub."""
+
     segment_length: int = 2048
     """Length of each segment, dependent on the segmentation strategy."""
 
@@ -90,6 +96,12 @@ class DocumentSegmentationParams:
             raise ValueError("Segment overlap must be non-negative.")
         if self.segment_overlap >= self.segment_length:
             raise ValueError("Segment overlap must be less than segment length.")
+        if self.segmentation_strategy == SegmentationStrategy.TOKENS:
+            if not self.tokenizer:
+                raise ValueError(
+                    "DocumentSegmentationParams.tokenizer cannot be empty when "
+                    "segmentation_strategy is TOKENS."
+                )
 
 
 @dataclass
