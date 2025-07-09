@@ -5,9 +5,6 @@
 # SLURM_GPUS_ON_NODE: number of GPUs per node.
 
 set -e
-source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
-conda activate oumi
-pip install uv && uv pip install 'oumi[gpu]'
 
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 scontrol show hostnames "$SLURM_JOB_NODELIST" > nodes.txt
@@ -58,3 +55,9 @@ done
 
 # Print cluster status to confirm setup.
 ray status
+
+# The Ray dashboard is run on the head node. To view it on our local machine, we need to
+# set up the following SSH tunnel and keep it alive:
+# localhost:8265 -> Slurm login node -> Slurm head node -> localhost:8265 (on head node)
+echo "To view the Ray dashboard, run the following command (keep the connection alive) and open http://localhost:8265 on your local machine:"
+echo "ssh -L 8265:127.0.0.1:8265 -J $USER@<slurm_hostname> $USER@$head_node_ip"

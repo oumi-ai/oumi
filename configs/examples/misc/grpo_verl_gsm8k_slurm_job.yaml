@@ -4,7 +4,7 @@
 #   - Run step 1 of verl quickstart: https://verl.readthedocs.io/en/latest/start/quickstart.html
 #
 # Usage:
-#   oumi launch up -c configs/examples/misc/grpo_verl_gsm8k_slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user wizeng
+#   oumi launch up -c configs/examples/misc/grpo_verl_gsm8k_slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -26,11 +26,15 @@ envs:
 
 setup: |
   #SBATCH --ntasks-per-node=1
-  #SBATCH --cpus-per-task=32
+  #SBATCH --cpus-per-task=4
   #SBATCH --gpus-per-task=2
   #SBATCH --mem-per-gpu=128G
-  #SBATCH --time=05:00:00
+  #SBATCH --time=04:00:00
   # Num nodes is set by num_nodes field above.
+
+  source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]'
 
   # Initialize Ray cluster on SLURM nodes.
   source ./configs/examples/misc/slurm_ray_init.sh
