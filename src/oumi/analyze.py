@@ -586,8 +586,8 @@ class Analyzer:
         """Compute length-related metrics for the given text content."""
         metrics = {}
 
-        if length_config.char_length:
-            metrics["length_char_length"] = len(text_content)
+        if length_config.char_count:
+            metrics["length_char_count"] = len(text_content)
 
         if length_config.word_count:
             metrics["length_word_count"] = len(text_content.split())
@@ -597,12 +597,11 @@ class Analyzer:
             sentences = text_content.replace("!", ".").replace("?", ".").split(".")
             metrics["length_sentence_count"] = len([s for s in sentences if s.strip()])
 
-        if length_config.paragraph_count:
-            # Simple paragraph counting - split by double newlines
-            paragraphs = text_content.split("\n\n")
-            metrics["length_paragraph_count"] = len(
-                [p for p in paragraphs if p.strip()]
-            )
+        if length_config.token_count:
+            # Simple token counting - split by whitespace
+            # TODO: Implement proper tokenization using a tokenizer
+            tokens = text_content.split()
+            metrics["length_token_count"] = len(tokens)
 
         return metrics
 
@@ -612,17 +611,30 @@ class Analyzer:
         """Compute safety-related metrics for the given text content."""
         metrics = {}
 
-        if safety_config.toxicity_score:
-            # Placeholder for toxicity detection - will be implemented later
-            metrics["safety_toxicity_score"] = {"score": 0.0, "category": "safe"}
+        # Profanity detection
+        if hasattr(safety_config, "profanity") and safety_config.profanity.enabled:
+            # TODO: Implement profanity detection logic
+            metrics["safety_profanity"] = {"flagged": False, "matches": []}
 
-        if safety_config.bias_detection:
-            # Placeholder for bias detection - will be implemented later
-            metrics["safety_bias_detection"] = {"bias_score": 0.0, "bias_type": "none"}
+        # Slur detection
+        if hasattr(safety_config, "slurs") and safety_config.slurs.enabled:
+            # TODO: Implement slur detection logic
+            metrics["safety_slurs"] = {"flagged": False, "matches": []}
 
-        if safety_config.content_filter:
-            # Placeholder for content filtering - will be implemented later
-            metrics["safety_content_filter"] = {"filtered": False, "reason": "none"}
+        # Explicit content detection
+        if hasattr(safety_config, "explicit") and safety_config.explicit.enabled:
+            # TODO: Implement explicit content detection logic
+            metrics["safety_explicit"] = {"flagged": False, "matches": []}
+
+        # Hate speech detection
+        if hasattr(safety_config, "hate_speech") and safety_config.hate_speech.enabled:
+            # TODO: Implement hate speech detection logic
+            metrics["safety_hate_speech"] = {"flagged": False, "matches": []}
+
+        # PII (Personally Identifiable Information) detection
+        if hasattr(safety_config, "pii") and safety_config.pii.enabled:
+            # TODO: Implement PII detection logic
+            metrics["safety_pii"] = {"flagged": False, "matches": []}
 
         return metrics
 

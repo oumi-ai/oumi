@@ -12,7 +12,11 @@ from oumi.core.configs import (
     OutputConfig,
     SampleLevelMetrics,
 )
-from oumi.core.configs.analyzer_config import LengthMetricsConfig, SafetyMetricsConfig
+from oumi.core.configs.analyzer_config import (
+    LengthMetricsConfig,
+    SafetyMetricsConfig,
+    SafetyTypeConfig,
+)
 
 
 def test_analyzer():
@@ -183,16 +187,43 @@ def test_v1_config():
                 ),
                 length=LengthMetricsConfig(
                     enabled=True,
-                    char_length=True,
+                    char_count=True,
                     word_count=True,
                     sentence_count=True,
-                    paragraph_count=False,
+                    token_count=False,
                 ),
                 safety=SafetyMetricsConfig(
-                    enabled=False,
-                    toxicity_score=True,
-                    bias_detection=True,
-                    content_filter=True,
+                    enabled=True,
+                    profanity=SafetyTypeConfig(
+                        enabled=True,
+                        include_default=True,
+                        custom_keywords=[],
+                        custom_regexes=[],
+                    ),
+                    slurs=SafetyTypeConfig(
+                        enabled=True,
+                        include_default=True,
+                        custom_keywords=[],
+                        custom_regexes=[],
+                    ),
+                    explicit=SafetyTypeConfig(
+                        enabled=True,
+                        include_default=True,
+                        custom_keywords=[],
+                        custom_regexes=[],
+                    ),
+                    hate_speech=SafetyTypeConfig(
+                        enabled=True,
+                        include_default=True,
+                        custom_keywords=[],
+                        custom_regexes=[],
+                    ),
+                    pii=SafetyTypeConfig(
+                        enabled=True,
+                        include_default=True,
+                        custom_keywords=[],
+                        custom_regexes=[],
+                    ),
                 ),
             ),
             aggregation_metrics=AggregationMetrics(

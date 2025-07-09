@@ -28,16 +28,43 @@ sample_level_metrics:
 
   length:
     enabled: true
-    char_length: true
+    token_count: false
+    char_count: true
     word_count: true
     sentence_count: true
-    paragraph_count: false
 
   safety:
-    enabled: false
-    toxicity_score: true
-    bias_detection: true
-    content_filter: true
+    enabled: true
+
+    profanity:
+      enabled: true
+      include_default: true
+      custom_keywords: []
+      custom_regexes: []
+
+    slurs:
+      enabled: true
+      include_default: true
+      custom_keywords: []
+      custom_regexes: []
+
+    explicit:
+      enabled: true
+      include_default: true
+      custom_keywords: []
+      custom_regexes: []
+
+    hate_speech:
+      enabled: true
+      include_default: true
+      custom_keywords: []
+      custom_regexes: []
+
+    pii:
+      enabled: true
+      include_default: true
+      custom_keywords: []
+      custom_regexes: []
 
 # Aggregation Metrics Configuration
 aggregation_metrics:

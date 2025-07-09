@@ -143,8 +143,8 @@ class LengthMetricsConfig:
     enabled: bool = True
     """Whether length metrics are enabled."""
 
-    char_length: bool = True
-    """Whether to compute character length."""
+    char_count: bool = True
+    """Whether to compute character count."""
 
     word_count: bool = True
     """Whether to compute word count."""
@@ -152,8 +152,16 @@ class LengthMetricsConfig:
     sentence_count: bool = True
     """Whether to compute sentence count."""
 
-    paragraph_count: bool = False
-    """Whether to compute paragraph count."""
+    token_count: bool = False
+    """Whether to compute token count."""
+
+
+@dataclass
+class SafetyTypeConfig:
+    enabled: bool = True
+    include_default: bool = True
+    custom_keywords: list[str] = field(default_factory=list)
+    custom_regexes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -161,16 +169,11 @@ class SafetyMetricsConfig:
     """Configuration for safety-related metrics."""
 
     enabled: bool = True
-    """Whether safety metrics are enabled."""
-
-    toxicity_score: bool = True
-    """Whether to compute toxicity score."""
-
-    bias_detection: bool = True
-    """Whether to compute bias detection."""
-
-    content_filter: bool = True
-    """Whether to compute content filtering."""
+    profanity: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
+    slurs: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
+    explicit: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
+    hate_speech: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
+    pii: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
 
 
 @dataclass
