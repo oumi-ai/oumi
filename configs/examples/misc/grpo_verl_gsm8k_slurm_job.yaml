@@ -60,4 +60,4 @@ run: |
   trainer.logger=['console'] \
   trainer.default_hdfs_dir=null \
   trainer.n_gpus_per_node=$SLURM_GPUS_ON_NODE \
-  trainer.nnodes=$SLURM_JOB_NUM_NODES 
+  trainer.nnodes=$SLURM_JOB_NUM_NODES
