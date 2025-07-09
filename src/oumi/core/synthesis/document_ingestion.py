@@ -12,64 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
 from pathlib import Path
 
 try:
     import pymupdf4llm  # pyright: ignore[reportMissingImports]
 except ImportError:
     pymupdf4llm = None
-
-
-class DocumentFormat(Enum):
-    """Format of document (PDF, TXT, HTML, DOCX, MD)."""
-
-    PDF = "pdf"
-    """PDF file"""
-
-    TXT = "txt"
-    """Text file"""
-
-    HTML = "html"
-    """HTML file"""
-
-    MD = "md"
-    """Markdown file"""
-
-
-class DocumentPath:
-    """Path to a document in some storage location."""
-
-    def __init__(self, path: str):
-        """Initialize the document path.
-
-        Args:
-            path: The path to the document.
-        """
-        self._path = path
-        self._document_format = self._get_document_format(path)
-
-    def _get_document_format(self, path: str) -> DocumentFormat:
-        """Get the document format from the path."""
-        lower_path = path.lower()
-        if lower_path.endswith(".pdf"):
-            return DocumentFormat.PDF
-        elif lower_path.endswith(".txt"):
-            return DocumentFormat.TXT
-        elif lower_path.endswith(".html"):
-            return DocumentFormat.HTML
-        elif lower_path.endswith(".md"):
-            return DocumentFormat.MD
-        else:
-            raise ValueError(f"Unsupported document format: {path}")
-
-    def get_document_format(self) -> DocumentFormat:
-        """Get the document format."""
-        return self._document_format
-
-    def get_path_str(self) -> str:
-        """Get the path to the document."""
-        return self._path
 
 
 class DocumentReader:
@@ -84,39 +32,62 @@ class DocumentReader:
             )
         self._pymupdf4llm = pymupdf4llm
 
-    def read(self, document_path: DocumentPath) -> list[str]:
+    def read(self, document_path: str) -> list[str]:
         """Read the document."""
-        document_format = document_path.get_document_format()
-        path = Path(document_path.get_path_str())
+        path = Path(document_path)
         if "*" in str(path):
-            return self._read_from_glob(path, document_format)
+            return self._read_from_glob(path)
         else:
-            return [self._read_from_document_format(path, document_format)]
+            return [self._read_from_document_format(path)]
 
-    def _read_from_glob(self, path: Path, document_format: DocumentFormat) -> list[str]:
+    def _read_from_glob(self, path: Path) -> list[str]:
         """Read the document from the glob path."""
         documents = []
-        for file in Path(path.parent).glob(path.name):
-            documents.append(self._read_from_document_format(file, document_format))
+
+        # Find the base directory (longest prefix without glob characters)
+        parts = path.parts
+        base_parts = []
+
+        for part in parts:
+            if "*" in part:
+                break
+            base_parts.append(part)
+
+        # Determine base directory and pattern
+        if base_parts:
+            base_dir = Path(*base_parts)
+            # Pattern is everything after the base directory
+            pattern_parts = parts[len(base_parts) :]
+            pattern = "/".join(pattern_parts)
+        else:
+            # If path starts with glob, use appropriate base
+            if path.is_absolute():
+                base_dir = Path("/")
+                pattern = str(path)[1:]  # Remove leading slash
+            else:
+                base_dir = Path.cwd()
+                pattern = str(path)
+
+        # Use glob to find matching files
+        for file in base_dir.glob(pattern):
+            if file.is_file():
+                documents.append(self._read_from_document_format(file))
+
         return documents
 
     def _read_from_document_format(
         self,
         document_path: Path,
-        document_format: DocumentFormat,
     ) -> str:
         """Read the document from the document format."""
         path = str(document_path)
-        if document_format == DocumentFormat.PDF:
+        suffix = document_path.suffix
+        if suffix == ".pdf":
             return self._read_from_pdf(path)
-        elif (
-            document_format == DocumentFormat.TXT
-            or document_format == DocumentFormat.MD
-            or document_format == DocumentFormat.HTML
-        ):
+        elif suffix == ".txt" or suffix == ".md" or suffix == ".html":
             return self._read_from_text_file(path)
         else:
-            raise NotImplementedError(f"Unsupported document format: {document_format}")
+            raise NotImplementedError(f"Unsupported document format: {suffix}")
 
     def _read_from_pdf(self, document_path: str) -> str:
         """Read the document from the PDF format."""
