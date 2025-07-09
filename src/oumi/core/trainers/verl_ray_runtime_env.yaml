@@ -1,5 +1,5 @@
-# working_dir: ./
-# excludes: ["/.git/"]
-# conda: "oumi"
-# env_vars:
-#   TORCH_NCCL_AVOID_RECORD_STREAMS: "1"
+working_dir: ./
+excludes: ["/.git/"]
+conda: "oumi"
+env_vars:
+  TORCH_NCCL_AVOID_RECORD_STREAMS: "1"
