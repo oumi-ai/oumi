@@ -1,6 +1,6 @@
-# Advanced Model Quantization Configuration
-# 🚧 DEVELOPMENT: This configuration tests advanced quantization options
-# Currently runs in simulation mode - for testing the interface before production implementation
+# Production Model Quantization Configuration
+# This configuration demonstrates production-ready quantization settings with custom model paths
+# and optimized parameters for deployment scenarios
 
 # Model configuration for a local fine-tuned model
 model:

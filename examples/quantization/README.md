@@ -5,7 +5,7 @@ This directory contains example configurations for model quantization in Oumi.
 ## Configuration Files
 
 - **`basic_quantize_config.yaml`** - Basic quantization setup
-- **`advanced_quantize_config.yaml`** - Advanced quantization options  
+- **`advanced_quantize_config.yaml`** - Production quantization with custom model paths and optimized settings
 - **`safetensors_quantize_config.yaml`** - Safetensors format output
 
 ## Quick Start
@@ -14,7 +14,7 @@ This directory contains example configurations for model quantization in Oumi.
 # Basic quantization
 oumi quantize --config examples/quantization/basic_quantize_config.yaml
 
-# Advanced options
+# Production configuration
 oumi quantize --config examples/quantization/advanced_quantize_config.yaml
 ```
 
