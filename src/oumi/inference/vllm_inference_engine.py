@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import copy
 import math
+import warnings
 
 import torch
 from typing_extensions import override
@@ -290,16 +291,14 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 metadata=conversation.metadata,
                 conversation_id=conversation.conversation_id,
             )
+            self._save_conversation_to_scratch(
+                new_conversation,
+                inference_config.output_path if inference_config else None,
+            )
             output_conversations.append(new_conversation)
 
-        if inference_config and inference_config.output_path:
-            self._save_conversations(
-                output_conversations,
-                inference_config.output_path,
-            )
         return output_conversations
 
-    @override
     def infer_online(
         self,
         input: list[Conversation],
@@ -314,9 +313,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, inference_config)
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
 
-    @override
     def infer_from_file(
         self,
         input_filepath: str,
@@ -335,7 +341,32 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         input = self._read_conversations(input_filepath)
+        results = self._infer(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
+
+    @override
+    def _infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: InferenceConfig | None = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
         return self._infer(input, inference_config)
 
     @override

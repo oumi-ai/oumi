@@ -1,0 +1,36 @@
+judge_params:
+  system_instruction: |
+    You are an expert evaluator tasked with assessing the relevance of an answer to a given question.
+
+    Specifically, you need to assess whether the answer:
+    - Responds to the specific question being asked
+    - Stays on topic and doesn't drift to unrelated subjects
+    - Provides information that is pertinent to what was requested
+
+    Note: An answer can be relevant even if it's incomplete, incorrect, or admits uncertainty.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [Question]:
+    {question}
+    ***
+    [Answer]:
+    {answer}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 1.0

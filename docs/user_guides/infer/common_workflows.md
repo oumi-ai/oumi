@@ -39,7 +39,7 @@ config = InferenceConfig(
 )
 
 # Get model response
-result = engine.infer_online([conversation], config)
+result = engine.infer([conversation], config)
 print(result[0].messages[-1].content)
 ```
 
@@ -101,7 +101,7 @@ conversation = Conversation(
         )
     ]
 )
-result = engine.infer_online([conversation], inference_config=config)
+result = engine.infer([conversation], inference_config=config)
 product = ProductInfo.model_validate_json(result[0].messages[-1].content)
 ```
 

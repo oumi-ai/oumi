@@ -119,7 +119,17 @@ ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -
 
   set -x
 
-  SBATCH_OUTPUT=$(sbatch --export=NONE -A lrn081 -N ${FRONTIER_NODES} -n ${FRONTIER_NODES} --threads-per-core=1 -m "block:cyclic" -p ${FRONTIER_QUEUE} -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU" -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER" ${JOB_PATH})
+  SBATCH_OUTPUT=$(sbatch \
+    --export=NONE \
+    --account=lrn081 \
+    --nodes=${FRONTIER_NODES} \
+    --ntasks=${FRONTIER_NODES} \
+    --threads-per-core=1 \
+    --distribution="block:cyclic" \
+    --partition=${FRONTIER_QUEUE} \
+    -o "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU" \
+    -e "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER" ${JOB_PATH}
+  )
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
 

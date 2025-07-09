@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from typing import Optional, cast
 
 import PIL.Image
@@ -367,17 +368,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 )
                 output_conversations.append(new_conversation)
 
-        self._cleanup_scratch_file(
-            inference_config.output_path if inference_config else None
-        )
-
-        if inference_config and inference_config.output_path:
-            self._save_conversations(output_conversations, inference_config.output_path)
-
         return output_conversations
 
     @override
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -391,27 +385,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, inference_config)
-
-    @override
-    def infer_from_file(
-        self,
-        input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the existence
-        of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for generation.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
     @override
@@ -433,3 +406,55 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "use_cache",
             "num_beams",
         }
+
+    def infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
+
+    def infer_from_file(
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference on inputs in the provided file.
+
+        This is a convenience method to prevent boilerplate from asserting the existence
+        of input_filepath in the generation_params.
+
+        Args:
+            input_filepath: Path to the input file containing prompts for generation.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        input = self._read_conversations(input_filepath)
+        results = self._infer(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results

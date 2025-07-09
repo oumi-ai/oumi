@@ -51,7 +51,7 @@ conversation = Conversation(
 )
 
 # Get response
-result = engine.infer_online([conversation], InferenceConfig())
+result = engine.infer([conversation], InferenceConfig())
 print(result[0].messages[-1].content)
 ```
 
@@ -78,7 +78,7 @@ conversation = Conversation(messages=[...])
 config = InferenceConfig(...)
 
 # 4. Run inference
-result = engine.infer_online([conversation], config)
+result = engine.infer([conversation], config)
 
 # 5. Process output
 response = result[0].messages[-1].content
@@ -125,7 +125,7 @@ conversation = Conversation(
 )
 
 inference_config = InferenceConfig()
-output_conversations = engine.infer_online(
+output_conversations = engine.infer(
     input=[conversation], inference_config=inference_config
 )
 print(output_conversations)
@@ -208,7 +208,7 @@ inference_config = InferenceConfig(
     generation=GenerationParams(max_new_tokens=64),
     engine=InferenceEngineType.VLLM,
 )
-output_conversations = engine.infer_online(
+output_conversations = engine.infer(
     input=[input_conversation], inference_config=inference_config
 )
 print(output_conversations)
@@ -223,7 +223,7 @@ oumi infer -c infer_config.yaml -i --image="https://oumi.ai/the_great_wave_off_k
 ### Distributed Inference
 
 For large-scale inference across multiple GPUs or machines, see the following tutorial
-for inference with Llama 3.3 70B on {gh}`<GitHub> notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
+for inference with Llama 3.3 70B on {gh}`notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
 
 ## Next Steps
 

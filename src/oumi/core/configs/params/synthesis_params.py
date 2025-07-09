@@ -30,6 +30,12 @@ class DatasetSource:
     path: str
     """Path to the dataset source."""
 
+    hf_split: Optional[str] = None
+    """Split of the huggingface dataset to be used in synthesis."""
+
+    hf_revision: Optional[str] = None
+    """Revision of the huggingface dataset to be used in synthesis."""
+
     attribute_map: Optional[dict[str, str]] = None
     """Map of attributes to be used in synthesis.
     Will use the existing keys in the dataset if not specified."""
@@ -40,6 +46,9 @@ class DatasetSource:
             raise ValueError("DatasetSource.path cannot be empty.")
 
         file_path = Path(self.path)
+        prefix = self.path.split(":")[0]
+        if prefix == "hf":
+            return
         if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
             raise ValueError(
                 f"Unsupported dataset file type: {self.path}\n"
@@ -171,6 +180,13 @@ class PermutableAttribute:
 
     possible_values: list[PermutableAttributeValue]
     """Type of the attribute."""
+
+    def get_value_distribution(self) -> dict[str, float]:
+        """Get the distribution of attribute values."""
+        value_distribution = {}
+        for value in self.possible_values:
+            value_distribution[value.id] = value.sample_rate
+        return value_distribution
 
     def __post_init__(self):
         """Verifies/populates params."""

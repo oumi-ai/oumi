@@ -132,13 +132,13 @@ class TrainingConfig(BaseConfig):
 
         # Set Liger kernel flags if using a HF trainer, and if so, don't do Liger
         # patch ourselves.
-        # TODO(OPE-1117): Clean up this logic after upgrading to trl 0.16.
         if self.model.enable_liger_kernel:
-            if trainer_type == TrainerType.TRL_SFT:
-                self.training.trainer_kwargs["use_liger"] = True
-                self.training.trainer_kwargs["use_liger_kernel"] = True
-                self.model.enable_liger_kernel = False
-            elif trainer_type in (TrainerType.TRL_DPO, TrainerType.HF):
+            if trainer_type in (
+                TrainerType.TRL_SFT,
+                TrainerType.TRL_DPO,
+                TrainerType.TRL_GRPO,
+                TrainerType.HF,
+            ):
                 self.training.trainer_kwargs["use_liger_kernel"] = True
                 self.model.enable_liger_kernel = False
             elif trainer_type == TrainerType.OUMI:
