@@ -17,7 +17,7 @@ model:
   model_name: "Qwen/Qwen2.5-7B-Instruct"
   model_max_length: 16384
   torch_dtype_str: "bfloat16"
-  attn_implementation: "flash_attention_2"
+  attn_implementation: "sdpa"
   load_pretrained_weights: True
   trust_remote_code: True
   enable_liger_kernel: True
