@@ -15,7 +15,10 @@
 from enum import Enum
 from pathlib import Path
 
-import pymupdf4llm
+try:
+    import pymupdf4llm  # pyright: ignore[reportMissingImports]
+except ImportError:
+    pymupdf4llm = None
 
 
 class DocumentFormat(Enum):
@@ -72,6 +75,15 @@ class DocumentPath:
 class DocumentReader:
     """Reader for documents."""
 
+    def __init__(self):
+        """Initialize the document reader."""
+        if pymupdf4llm is None:
+            raise ImportError(
+                "pymupdf4llm is not installed. Please install it with "
+                "`pip install oumi[synthesis]`."
+            )
+        self._pymupdf4llm = pymupdf4llm
+
     def read(self, document_path: DocumentPath) -> list[str]:
         """Read the document."""
         document_format = document_path.get_document_format()
@@ -108,7 +120,7 @@ class DocumentReader:
 
     def _read_from_pdf(self, document_path: str) -> str:
         """Read the document from the PDF format."""
-        markdown_text = pymupdf4llm.to_markdown(document_path)
+        markdown_text = self._pymupdf4llm.to_markdown(document_path)
         return markdown_text
 
     def _read_from_text_file(self, document_path: str) -> str:
