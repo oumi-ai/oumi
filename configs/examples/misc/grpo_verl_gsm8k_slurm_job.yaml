@@ -1,0 +1,67 @@
+# VERL GRPO job config for GSM8K.
+#
+# Requirements:
+#   - Run step 1 of verl quickstart: https://verl.readthedocs.io/en/latest/start/quickstart.html
+#
+# Usage (set OUMI_SLURM_CONNECTIONS to your Slurm user@host):
+#   oumi launch up -c configs/examples/misc/grpo_verl_gsm8k_slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: grpo-verl-gsm8k
+num_nodes: 2
+
+resources:
+  cloud: slurm
+
+working_dir: .
+
+envs:
+  RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING: 1
+  RAY_BACKEND_LOG_LEVEL: debug
+
+setup: |
+  #SBATCH --ntasks-per-node=1
+  #SBATCH --cpus-per-task=4
+  #SBATCH --gpus-per-task=2
+  #SBATCH --mem-per-gpu=128G
+  #SBATCH --time=04:00:00
+  # Num nodes is set by num_nodes field above.
+
+  source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]'
+
+  # Initialize Ray cluster on SLURM nodes.
+  source ./configs/examples/misc/slurm_ray_init.sh
+
+run: |
+  set -e  # Exit if any command failed.
+
+  set -x
+  ray job submit --address="http://127.0.0.1:8265" \
+  -- \
+  python3 -m verl.trainer.main_ppo \
+  data.train_files=$HOME/data/gsm8k/train.parquet \
+  data.val_files=$HOME/data/gsm8k/test.parquet \
+  data.train_batch_size=256 \
+  data.max_prompt_length=512 \
+  data.max_response_length=256 \
+  actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
+  actor_rollout_ref.actor.optim.lr=1e-6 \
+  actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+  actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
+  actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
+  actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
+  actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
+  actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
+  critic.model.path=Qwen/Qwen2.5-0.5B-Instruct \
+  critic.ppo_micro_batch_size_per_gpu=4 \
+  trainer.logger=['console'] \
+  trainer.default_hdfs_dir=null \
+  trainer.n_gpus_per_node=$SLURM_GPUS_ON_NODE \
+  trainer.nnodes=$SLURM_JOB_NUM_NODES
