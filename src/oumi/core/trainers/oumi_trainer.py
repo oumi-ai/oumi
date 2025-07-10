@@ -685,33 +685,16 @@ class Trainer(BaseTrainer):
 
     def _log_training_config(self) -> None:
         """Logs training configuration and parameters to all enabled platforms."""
-        if not is_world_process_zero():
+        if not is_world_process_zero() or not self.config:
             return
 
         # Get flattened config from both training config and parameters
-        config_dict = {}
-
-        if self.config:
-            flattened_config = flatten_config(self.config, prefix="config")
-            config_dict.update(flattened_config)
+        config_dict = flatten_config(self.config)
 
         # Log to MLflow
         if self.params.enable_mlflow:
             try:
-                for key, value in config_dict.items():
-                    # MLflow has limits on parameter key length and value types
-                    if (
-                        len(key) <= 250
-                        and isinstance(value, (str, int, float, bool))
-                        or value is None
-                    ):
-                        mlflow.log_param(key, value)
-                    else:
-                        # For complex values, log as string but truncate if too long
-                        str_value = str(value)
-                        if len(str_value) > 500:  # MLflow param value limit
-                            str_value = str_value[:497] + "..."
-                        mlflow.log_param(key, str_value)
+                mlflow.log_params(config_dict)
             except Exception as e:
                 self.log(f"Failed to log config to MLflow: {e}")
 
@@ -724,7 +707,7 @@ class Trainer(BaseTrainer):
             except Exception as e:
                 self.log(f"Failed to log config to wandb: {e}")
 
-        # Log to TensorBoard as text
+        # Log to TensorBoard
         if self.params.enable_tensorboard and self.tensorboard_writer:
             try:
                 # Log config as a formatted text to tensorboard
@@ -732,18 +715,6 @@ class Trainer(BaseTrainer):
                 self.tensorboard_writer.add_text(
                     "config/training_config", config_text, 0
                 )
-
-                # Also log some key parameters as scalars for easier tracking
-                key_params = {
-                    k: v
-                    for k, v in config_dict.items()
-                    if (
-                        isinstance(v, (int, float))
-                        and not k.endswith(("_path", "_dir", "_name"))
-                    )
-                }
-                for key, value in key_params.items():
-                    self.tensorboard_writer.add_scalar(f"config/{key}", value, 0)
             except Exception as e:
                 self.log(f"Failed to log config to TensorBoard: {e}")
 
