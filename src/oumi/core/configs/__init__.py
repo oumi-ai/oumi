@@ -27,7 +27,6 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.analyzer_config.SampleLevelMetrics`
     - :class:`~oumi.core.configs.analyzer_config.AggregationMetrics`
     - :class:`~oumi.core.configs.analyzer_config.LanguageDetectionConfig`
-    - :class:`~oumi.core.configs.analyzer_config.LanguageAggregationConfig`
     - :class:`~oumi.core.configs.analyzer_config.LengthMetricsConfig`
     - :class:`~oumi.core.configs.analyzer_config.SafetyMetricsConfig`
 - Evaluation:
@@ -94,7 +93,6 @@ from oumi.core.configs.analyzer_config import (
     AnalyzerConfig,
     DatasetSchema,
     InputConfig,
-    LanguageAggregationConfig,
     LanguageDetectionConfig,
     LengthMetricsConfig,
     OutputConfig,
@@ -202,7 +200,6 @@ __all__ = [
     "StateDictType",
     "DatasetSchema",
     "InputConfig",
-    "LanguageAggregationConfig",
     "LanguageDetectionConfig",
     "LengthMetricsConfig",
     "OutputConfig",

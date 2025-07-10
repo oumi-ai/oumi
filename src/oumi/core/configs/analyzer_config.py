@@ -73,6 +73,9 @@ class OutputConfig:
     aggregation_output: str = "aggregations_results_[timestamp].json"
     """Path for aggregated results."""
 
+    conversation_level_output: str = "conversation_level_data_[timestamp].json"
+    """Path for conversation-level detailed data."""
+
     save_format: str = "json"
     """Format to save the analysis results.
 
@@ -101,39 +104,6 @@ class LanguageDetectionConfig:
         default_factory=lambda: {"enabled": True, "min_num_languages": 2}
     )
     """Configuration for multilingual sample detection."""
-
-
-@dataclass
-class LanguageAggregationConfig:
-    """Configuration for language aggregation metrics."""
-
-    distribution: dict[str, Any] = field(
-        default_factory=lambda: {
-            "enabled": True,
-            "min_samples": 10,
-            "report_top_n": 10,
-            "include_other_bucket": True,
-        }
-    )
-    """Language distribution aggregation configuration."""
-
-    minority_alert: dict[str, Any] = field(
-        default_factory=lambda: {"enabled": True, "threshold_percent": 5.0}
-    )
-    """Minority language alert configuration."""
-
-    confidence_statistics: dict[str, Any] = field(
-        default_factory=lambda: {
-            "enabled": True,
-            "stats": ["mean", "stddev", "percentile_10", "percentile_90"],
-        }
-    )
-    """Language detection confidence statistics configuration."""
-
-    multilingual_samples: dict[str, Any] = field(
-        default_factory=lambda: {"enabled": True, "common_language_pairs": True}
-    )
-    """Multilingual sample analysis configuration."""
 
 
 @dataclass
@@ -194,10 +164,25 @@ class SampleLevelMetrics:
 class AggregationMetrics:
     """Configuration for aggregation-level metrics."""
 
-    language: LanguageAggregationConfig = field(
-        default_factory=LanguageAggregationConfig
-    )
-    """Language aggregation configuration."""
+    basic_stats: bool = True
+    """Whether to include basic aggregation stats (total_conversations,
+    conversations_analyzed, total_messages)."""
+
+    conversation_stats: bool = True
+    """Whether to include conversation-level statistics (min_turns, max_turns,
+    mean_turns, median_turns)."""
+
+    # Language aggregation configuration removed for now
+    # language: LanguageAggregationConfig = field(
+    #     default_factory=LanguageAggregationConfig
+    # )
+    # """Language aggregation configuration."""
+
+
+@dataclass
+class ConversationAggregationMetricsConfig:
+    enabled: bool = True
+    turn_count: bool = True
 
 
 @dataclass
@@ -213,14 +198,16 @@ class AnalyzerConfig(BaseConfig):
     sample_level_metrics: SampleLevelMetrics = field(default_factory=SampleLevelMetrics)
     """Configuration for sample-level metrics."""
 
+    conversation_aggregation_metrics: ConversationAggregationMetricsConfig = field(
+        default_factory=ConversationAggregationMetricsConfig
+    )
+    """Configuration for conversation-level aggregation metrics."""
+
     aggregation_metrics: AggregationMetrics = field(default_factory=AggregationMetrics)
     """Configuration for aggregation-level metrics."""
 
     verbose: bool = False
     """Whether to enable verbose output during analysis."""
-
-    analysis_kwargs: dict[str, Any] = field(default_factory=dict)
-    """Additional keyword arguments to pass to the analysis functions."""
 
     def __post_init__(self):
         """Validates the configuration parameters."""

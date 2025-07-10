@@ -7,12 +7,12 @@ from oumi.core.configs import (
     AnalyzerConfig,
     DatasetSchema,
     InputConfig,
-    LanguageAggregationConfig,
     LanguageDetectionConfig,
     OutputConfig,
     SampleLevelMetrics,
 )
 from oumi.core.configs.analyzer_config import (
+    ConversationAggregationMetricsConfig,
     LengthMetricsConfig,
     SafetyMetricsConfig,
     SafetyTypeConfig,
@@ -174,8 +174,9 @@ def test_v1_config():
             ),
             outputs=OutputConfig(
                 path="./test_results",
-                analysis_output="ultrachat_analysis.json",
-                aggregation_output="ultrachat_aggregations.json",
+                analysis_output="ultrachat_analysis",
+                aggregation_output="ultrachat_aggregations",
+                conversation_level_output="ultrachat_conversation_level",
                 save_format="json",
             ),
             sample_level_metrics=SampleLevelMetrics(
@@ -226,24 +227,10 @@ def test_v1_config():
                     ),
                 ),
             ),
-            aggregation_metrics=AggregationMetrics(
-                language=LanguageAggregationConfig(
-                    distribution={
-                        "enabled": True,
-                        "min_samples": 10,
-                        "report_top_n": 10,
-                        "include_other_bucket": True,
-                    },
-                    minority_alert={"enabled": True, "threshold_percent": 5.0},
-                    confidence_statistics={
-                        "enabled": True,
-                        "stats": ["mean", "stddev", "percentile_10", "percentile_90"],
-                    },
-                    multilingual_samples={
-                        "enabled": True,
-                        "common_language_pairs": True,
-                    },
-                )
+            aggregation_metrics=AggregationMetrics(),
+            conversation_aggregation_metrics=ConversationAggregationMetricsConfig(
+                enabled=True,
+                turn_count=True,
             ),
             verbose=True,
         )
@@ -278,20 +265,17 @@ def test_v1_config():
 
         # Handle new two-step analysis structure
         if "sample_level_results" in results and "aggregation_results" in results:
-            sample_results = results["sample_level_results"]
             aggregation_results = results["aggregation_results"]
+            basic_stats = aggregation_results.get("basic_stats", {})
             print(
                 f"Total conversations in dataset: "
-                f"{sample_results.get('total_conversations', 0)}"
+                f"{basic_stats.get('total_conversations', 0)}"
             )
             print(
                 f"Conversations analyzed: "
-                f"{sample_results.get('conversations_analyzed', 0)}"
+                f"{basic_stats.get('conversations_analyzed', 0)}"
             )
-            print(f"Total messages: {sample_results.get('total_messages', 0)}")
-            role_analysis = aggregation_results.get("role_analysis", {})
-            avg_messages = role_analysis.get("avg_messages_per_conversation", 0)
-            print(f"Average messages per conversation: {avg_messages}")
+            print(f"Total messages: {basic_stats.get('total_messages', 0)}")
         else:
             # Fallback for old structure
             print(f"Total conversations: {results.get('total_conversations', 0)}")
@@ -361,7 +345,215 @@ def test_config_validation():
         traceback.print_exc()
 
 
+def test_aggregation_flags():
+    """Test aggregation metrics flags (basic_stats, conversation_stats)."""
+    try:
+        print("=" * 60)
+        print("Testing Aggregation Metrics Flags")
+        print("=" * 60)
+
+        # Test with basic_stats disabled
+        print("Testing with basic_stats disabled...")
+        config_basic_disabled = AnalyzerConfig(
+            input=InputConfig(
+                name="tatsu-lab/alpaca",
+                split="train",
+                max_conversations=10,  # Small subset for testing
+                schema=DatasetSchema(type="conversation"),
+            ),
+            outputs=OutputConfig(
+                path="./test_results",
+                analysis_output="test_basic_disabled_sample",
+                aggregation_output="test_basic_disabled_agg",
+                conversation_level_output="test_basic_disabled_conv",
+                save_format="json",
+            ),
+            aggregation_metrics=AggregationMetrics(
+                basic_stats=False,  # Disable basic stats
+                conversation_stats=True,
+            ),
+            conversation_aggregation_metrics=ConversationAggregationMetricsConfig(
+                enabled=True,
+                turn_count=True,
+            ),
+            verbose=True,
+        )
+
+        analyzer_basic_disabled = Analyzer(config_basic_disabled)
+        results_basic_disabled = analyzer_basic_disabled.analyze_dataset()
+
+        # Check that basic_stats is not in aggregation results
+        aggregation_results = results_basic_disabled.get("aggregation_results", {})
+        if "basic_stats" not in aggregation_results:
+            print("✅ basic_stats correctly excluded when disabled")
+        else:
+            print("❌ basic_stats should not be present when disabled")
+            print(f"Found: {aggregation_results.keys()}")
+
+        # Check that conversation_stats is still present
+        if "conversation_stats" in aggregation_results:
+            print("✅ conversation_stats correctly included when enabled")
+        else:
+            print("❌ conversation_stats should be present when enabled")
+
+        # Test with conversation_stats disabled
+        print("\nTesting with conversation_stats disabled...")
+        config_conv_disabled = AnalyzerConfig(
+            input=InputConfig(
+                name="tatsu-lab/alpaca",
+                split="train",
+                max_conversations=10,
+                schema=DatasetSchema(type="conversation"),
+            ),
+            outputs=OutputConfig(
+                path="./test_results",
+                analysis_output="test_conv_disabled_sample",
+                aggregation_output="test_conv_disabled_agg",
+                conversation_level_output="test_conv_disabled_conv",
+                save_format="json",
+            ),
+            aggregation_metrics=AggregationMetrics(
+                basic_stats=True,
+                conversation_stats=False,  # Disable conversation stats
+            ),
+            conversation_aggregation_metrics=ConversationAggregationMetricsConfig(
+                enabled=True,
+                turn_count=True,
+            ),
+            verbose=True,
+        )
+
+        analyzer_conv_disabled = Analyzer(config_conv_disabled)
+        results_conv_disabled = analyzer_conv_disabled.analyze_dataset()
+
+        # Check that basic_stats is present
+        aggregation_results = results_conv_disabled.get("aggregation_results", {})
+        if "basic_stats" in aggregation_results:
+            print("✅ basic_stats correctly included when enabled")
+        else:
+            print("❌ basic_stats should be present when enabled")
+
+        # Check that conversation_stats is not present
+        if "conversation_stats" not in aggregation_results:
+            print("✅ conversation_stats correctly excluded when disabled")
+        else:
+            print("❌ conversation_stats should not be present when disabled")
+            print(f"Found: {aggregation_results.keys()}")
+
+        # Test with both disabled
+        print("\nTesting with both basic_stats and conversation_stats disabled...")
+        config_both_disabled = AnalyzerConfig(
+            input=InputConfig(
+                name="tatsu-lab/alpaca",
+                split="train",
+                max_conversations=10,
+                schema=DatasetSchema(type="conversation"),
+            ),
+            outputs=OutputConfig(
+                path="./test_results",
+                analysis_output="test_both_disabled_sample",
+                aggregation_output="test_both_disabled_agg",
+                conversation_level_output="test_both_disabled_conv",
+                save_format="json",
+            ),
+            aggregation_metrics=AggregationMetrics(
+                basic_stats=False,
+                conversation_stats=False,
+            ),
+            conversation_aggregation_metrics=ConversationAggregationMetricsConfig(
+                enabled=True,
+                turn_count=True,
+            ),
+            verbose=True,
+        )
+
+        analyzer_both_disabled = Analyzer(config_both_disabled)
+        results_both_disabled = analyzer_both_disabled.analyze_dataset()
+
+        # Check that aggregation results is empty
+        aggregation_results = results_both_disabled.get("aggregation_results", {})
+        if not aggregation_results:
+            print("✅ aggregation_results correctly empty when both flags disabled")
+        else:
+            print("❌ aggregation_results should be empty when both flags disabled")
+            print(f"Found: {aggregation_results.keys()}")
+
+        print("\n" + "=" * 60)
+        print("All aggregation flags tests completed successfully!")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"Error during aggregation flags test: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+
+def test_yaml_config_loading():
+    """Test loading and using the YAML config file directly."""
+    try:
+        print("=" * 60)
+        print("Testing YAML Config File Loading")
+        print("=" * 60)
+
+        # Load the YAML config file
+        from oumi.core.configs import AnalyzerConfig
+
+        yaml_config_path = "configs/analyzer/analyzer_config_v1_example.yaml"
+        print(f"Loading YAML config from: {yaml_config_path}")
+
+        # Use the from_yaml method from BaseConfig
+        config = AnalyzerConfig.from_yaml(yaml_config_path)
+
+        # Override dataset and limit for testing
+        config.input.name = "tatsu-lab/alpaca"
+        config.input.max_conversations = 5
+        config.input.split = "train"  # Fix split for alpaca dataset
+        config.outputs.path = "./test_results"
+
+        print("Config loaded successfully:")
+        print(f"  - Analysis output prefix: {config.outputs.analysis_output}")
+        print(f"  - Aggregation output prefix: {config.outputs.aggregation_output}")
+
+        # Create analyzer and run analysis
+        analyzer = Analyzer(config)
+        analyzer.analyze_dataset()
+
+        # Check that files were created with correct prefixes
+        from pathlib import Path
+
+        expected_prefixes = [
+            config.outputs.analysis_output + "_sample_level",
+            config.outputs.aggregation_output,
+            config.outputs.conversation_level_output,
+        ]
+
+        print("\nChecking generated files:")
+        output_dir = Path(config.outputs.path)
+        for prefix in expected_prefixes:
+            pattern = f"{prefix}_*.{config.outputs.save_format}"
+            matching_files = list(output_dir.glob(pattern))
+            if matching_files:
+                print(f"✅ Found files for prefix '{prefix}':")
+                for file in matching_files:
+                    print(f"    - {file.name}")
+            else:
+                print(f"❌ No files found for prefix '{prefix}'")
+
+        print("\n" + "=" * 60)
+        print("YAML config loading test completed successfully!")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"Error during YAML config test: {e}")
+        import traceback
+
+        traceback.print_exc()
+
+
 if __name__ == "__main__":
     test_analyzer()
     test_v1_config()
     test_config_validation()
+    test_aggregation_flags()
+    test_yaml_config_loading()

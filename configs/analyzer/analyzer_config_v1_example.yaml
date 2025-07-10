@@ -12,9 +12,38 @@ input:
 # Output Configuration
 outputs:
   path: "./analysis_results"
-  analysis_output: "analysis_results_[timestamp].parquet"
-  aggregation_output: "aggregations_results_[timestamp].json"
+  analysis_output: "analysis_results"
+  aggregation_output: "aggregations_results"
+  conversation_level_output: "conversation_level_data"
   save_format: "json"  # Format for output files (json, yaml, csv, parquet)
+
+conversation_aggregation_metrics:
+  enabled: true
+  turn_count: true
+
+# Aggregation Metrics Configuration
+aggregation_metrics:
+  basic_stats: true  # Include total_conversations, conversations_analyzed, total_messages
+  conversation_stats: true  # Include min_turns, max_turns, mean_turns, median_turns
+  # Language aggregation configuration removed for now
+  # language:
+  #   distribution:
+  #     enabled: true
+  #     min_samples: 10
+  #     report_top_n: 10
+  #     include_other_bucket: true
+  #   minority_alert:
+  #     enabled: true
+  #     threshold_percent: 5.0
+  #   confidence_statistics:
+  #     enabled: true
+  #     stats: [mean, stddev, percentile_10, percentile_90]
+  #   multilingual_samples:
+  #     enabled: true
+  #     common_language_pairs: true
+
+# Additional Analysis Parameters
+verbose: true
 
 # Sample-Level Metrics Configuration
 sample_level_metrics:
@@ -65,30 +94,3 @@ sample_level_metrics:
       include_default: true
       custom_keywords: []
       custom_regexes: []
-
-# Aggregation Metrics Configuration
-aggregation_metrics:
-  language:
-    distribution:
-      enabled: true
-      min_samples: 10
-      report_top_n: 10  # Limits the summary output to the top n most frequent languages
-      include_other_bucket: true
-
-    minority_alert:
-      enabled: true
-      threshold_percent: 5.0
-
-    confidence_statistics:
-      enabled: true
-      stats: [mean, stddev, percentile_10, percentile_90]
-
-    multilingual_samples:
-      enabled: true
-      common_language_pairs: true
-
-# Additional Analysis Parameters
-verbose: true
-analysis_kwargs:
-  custom_parameter: "value"
-  another_parameter: 42

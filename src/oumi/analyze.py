@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,20 @@ import yaml
 from oumi.core.configs import AnalyzerConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
+
+
+def _generate_timestamped_filename(prefix: str, save_format: str) -> str:
+    """Generate a timestamped filename with the specified format.
+
+    Args:
+        prefix: The filename prefix
+        save_format: The file format (json, yaml, csv, parquet)
+
+    Returns:
+        Timestamped filename with extension
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{prefix}_{timestamp}.{save_format}"
 
 
 def _load_dataset_from_config(config: AnalyzerConfig) -> BaseMapDataset:
@@ -175,53 +190,14 @@ class Analyzer:
                     )
 
                     # Aggregation stats
-                    if "conversation_length_stats" in aggregation_results:
-                        stats = aggregation_results["conversation_length_stats"]
+                    if "conversation_stats" in aggregation_results:
+                        stats = aggregation_results["conversation_stats"]
+                        writer.writerow(["min_turns", stats.get("min_turns", 0)])
+                        writer.writerow(["max_turns", stats.get("max_turns", 0)])
                         writer.writerow(
-                            ["min_conversation_length", stats.get("min", 0)]
+                            ["mean_turns", f"{stats.get('mean_turns', 0):.2f}"]
                         )
-                        writer.writerow(
-                            ["max_conversation_length", stats.get("max", 0)]
-                        )
-                        writer.writerow(
-                            ["mean_conversation_length", f"{stats.get('mean', 0):.2f}"]
-                        )
-                        writer.writerow(
-                            ["median_conversation_length", stats.get("median", 0)]
-                        )
-
-                    if "role_analysis" in aggregation_results:
-                        role_analysis = aggregation_results["role_analysis"]
-                        avg_messages = role_analysis.get(
-                            "avg_messages_per_conversation", 0
-                        )
-                        writer.writerow(
-                            [
-                                "avg_messages_per_conversation",
-                                f"{avg_messages:.2f}",
-                            ]
-                        )
-                        writer.writerow(
-                            [
-                                "conversations_with_system",
-                                role_analysis.get(
-                                    "conversations_with_system_messages", 0
-                                ),
-                            ]
-                        )
-                        writer.writerow(
-                            [
-                                "conversations_with_tool",
-                                role_analysis.get(
-                                    "conversations_with_tool_messages", 0
-                                ),
-                            ]
-                        )
-
-                        # Add role counts
-                        role_counts = role_analysis.get("role_counts", {})
-                        for role, count in role_counts.items():
-                            writer.writerow([f"role_count_{role}", count])
+                        writer.writerow(["median_turns", stats.get("median_turns", 0)])
                 else:
                     # Single result type (either sample or aggregation)
                     writer.writerow(
@@ -231,50 +207,17 @@ class Analyzer:
                         ["total_messages", results.get("total_messages", 0)]
                     )
 
-                    if "conversation_length_stats" in results:
-                        stats = results["conversation_length_stats"]
-                        writer.writerow(["min_length", stats.get("min", 0)])
-                        writer.writerow(["max_length", stats.get("max", 0)])
+                    if "conversation_stats" in results:
+                        stats = results["conversation_stats"]
+                        writer.writerow(["min_turns", stats.get("min_turns", 0)])
+                        writer.writerow(["max_turns", stats.get("max_turns", 0)])
                         writer.writerow(
                             [
-                                "mean_length",
-                                f"{stats.get('mean', 0):.2f}",
+                                "mean_turns",
+                                f"{stats.get('mean_turns', 0):.2f}",
                             ]
                         )
-                        writer.writerow(["median_length", stats.get("median", 0)])
-
-                    if "role_analysis" in results:
-                        role_analysis = results["role_analysis"]
-                        avg_messages = role_analysis.get(
-                            "avg_messages_per_conversation", 0
-                        )
-                        writer.writerow(
-                            [
-                                "avg_messages_per_conversation",
-                                f"{avg_messages:.2f}",
-                            ]
-                        )
-                        writer.writerow(
-                            [
-                                "conversations_with_system",
-                                role_analysis.get(
-                                    "conversations_with_system_messages", 0
-                                ),
-                            ]
-                        )
-                        writer.writerow(
-                            [
-                                "conversations_with_tool",
-                                role_analysis.get(
-                                    "conversations_with_tool_messages", 0
-                                ),
-                            ]
-                        )
-
-                        # Add role counts
-                        role_counts = role_analysis.get("role_counts", {})
-                        for role, count in role_counts.items():
-                            writer.writerow([f"role_count_{role}", count])
+                        writer.writerow(["median_turns", stats.get("median_turns", 0)])
         elif save_format == "parquet":
             # For parquet, we'll save the results as a structured format
             import pandas as pd
@@ -304,39 +247,17 @@ class Analyzer:
                 )
 
                 # Aggregation stats
-                if "conversation_length_stats" in aggregation_results:
-                    stats = aggregation_results["conversation_length_stats"]
+                if "conversation_stats" in aggregation_results:
+                    stats = aggregation_results["conversation_stats"]
                     data.update(
                         {
-                            "min_conversation_length": [stats.get("min", 0)],
-                            "max_conversation_length": [stats.get("max", 0)],
-                            "mean_conversation_length": [stats.get("mean", 0)],
-                            "median_conversation_length": [stats.get("median", 0)],
+                            "min_turns": [stats.get("min_turns", 0)],
+                            "max_turns": [stats.get("max_turns", 0)],
+                            "mean_turns": [stats.get("mean_turns", 0)],
+                            "median_turns": [stats.get("median_turns", 0)],
                         }
                     )
 
-                if "role_analysis" in aggregation_results:
-                    role_analysis = aggregation_results["role_analysis"]
-                    data.update(
-                        {
-                            "avg_messages_per_conversation": [
-                                role_analysis.get("avg_messages_per_conversation", 0)
-                            ],
-                            "conversations_with_system": [
-                                role_analysis.get(
-                                    "conversations_with_system_messages", 0
-                                )
-                            ],
-                            "conversations_with_tool": [
-                                role_analysis.get("conversations_with_tool_messages", 0)
-                            ],
-                        }
-                    )
-
-                    # Add role counts
-                    role_counts = role_analysis.get("role_counts", {})
-                    for role, count in role_counts.items():
-                        data[f"role_count_{role}"] = [count]
             else:
                 # Single result type (either sample or aggregation)
                 data = {
@@ -345,39 +266,16 @@ class Analyzer:
                     "total_messages": [results.get("total_messages", 0)],
                 }
 
-                if "conversation_length_stats" in results:
-                    stats = results["conversation_length_stats"]
+                if "conversation_stats" in results:
+                    stats = results["conversation_stats"]
                     data.update(
                         {
-                            "min_length": [stats.get("min", 0)],
-                            "max_length": [stats.get("max", 0)],
-                            "mean_length": [stats.get("mean", 0)],
-                            "median_length": [stats.get("median", 0)],
+                            "min_turns": [stats.get("min_turns", 0)],
+                            "max_turns": [stats.get("max_turns", 0)],
+                            "mean_turns": [stats.get("mean_turns", 0)],
+                            "median_turns": [stats.get("median_turns", 0)],
                         }
                     )
-
-                if "role_analysis" in results:
-                    role_analysis = results["role_analysis"]
-                    data.update(
-                        {
-                            "avg_messages_per_conversation": [
-                                role_analysis.get("avg_messages_per_conversation", 0)
-                            ],
-                            "conversations_with_system": [
-                                role_analysis.get(
-                                    "conversations_with_system_messages", 0
-                                )
-                            ],
-                            "conversations_with_tool": [
-                                role_analysis.get("conversations_with_tool_messages", 0)
-                            ],
-                        }
-                    )
-
-                    # Add role counts
-                    role_counts = role_analysis.get("role_counts", {})
-                    for role, count in role_counts.items():
-                        data[f"role_count_{role}"] = [count]
 
             dataframe = pd.DataFrame(data)
             dataframe.to_parquet(output_file, index=False)
@@ -410,13 +308,9 @@ class Analyzer:
 
         # Save sample-level results
         if hasattr(self.config, "outputs") and self.config.outputs.analysis_output:
-            sample_output_path = (
-                self.config.outputs.analysis_output.replace(
-                    ".json", "_sample_level.json"
-                )
-                .replace(".yaml", "_sample_level.yaml")
-                .replace(".csv", "_sample_level.csv")
-                .replace(".parquet", "_sample_level.parquet")
+            sample_output_path = _generate_timestamped_filename(
+                f"{self.config.outputs.analysis_output}_sample_level",
+                self.config.outputs.save_format,
             )
 
             # Combine path with filename
@@ -440,8 +334,11 @@ class Analyzer:
         # Save aggregation results
         if hasattr(self.config, "outputs") and self.config.outputs.aggregation_output:
             # Combine path with filename
+            aggregation_filename = _generate_timestamped_filename(
+                self.config.outputs.aggregation_output, self.config.outputs.save_format
+            )
             full_aggregation_path = (
-                Path(self.config.outputs.path) / self.config.outputs.aggregation_output
+                Path(self.config.outputs.path) / aggregation_filename
             )
 
             self._save_results(
@@ -451,10 +348,7 @@ class Analyzer:
             )
 
             if verbose:
-                logger.info(
-                    "Aggregation results saved to: "
-                    f"{self.config.outputs.aggregation_output}"
-                )
+                logger.info(f"Aggregation results saved to: {aggregation_filename}")
 
         # Combine results for return
         final_results = {
@@ -696,103 +590,104 @@ class Analyzer:
         # Extract data from sample results
         messages_data = sample_results.get("messages", [])
         total_conversations = sample_results.get("total_conversations", 0)
+        conversations_analyzed = sample_results.get(
+            "conversations_analyzed", total_conversations
+        )
         total_messages = sample_results.get("total_messages", 0)
 
         # Aggregate conversation-level statistics
         conversation_stats = {}
-        role_counts = {"system": 0, "user": 0, "assistant": 0, "tool": 0}
-        conversations_with_system = set()
-        conversations_with_tool = set()
 
-        for message_data in messages_data:
-            conv_id = message_data["conversation_id"]
-            role = message_data["role"]
+        # Get aggregation metrics configuration
+        agg_metrics = self.config.aggregation_metrics
+        conv_agg_metrics = self.config.conversation_aggregation_metrics
 
-            # Count roles
-            role_counts[role] += 1
+        # Build conversation stats if needed
+        if conv_agg_metrics.enabled and conv_agg_metrics.turn_count:
+            for message_data in messages_data:
+                conv_id = message_data["conversation_id"]
+                if conv_id not in conversation_stats:
+                    conversation_stats[conv_id] = {
+                        "conversation_id": conv_id,
+                        "turn_count": 0,
+                    }
+                conversation_stats[conv_id]["turn_count"] += 1
+        elif conv_agg_metrics.enabled:
+            for message_data in messages_data:
+                conv_id = message_data["conversation_id"]
+                if conv_id not in conversation_stats:
+                    conversation_stats[conv_id] = {
+                        "conversation_id": conv_id,
+                    }
+        else:
+            for message_data in messages_data:
+                conv_id = message_data["conversation_id"]
+                if conv_id not in conversation_stats:
+                    conversation_stats[conv_id] = {"conversation_id": conv_id}
 
-            # Track conversations with system/tool messages
-            if role == "system":
-                conversations_with_system.add(conv_id)
-            elif role == "tool":
-                conversations_with_tool.add(conv_id)
+        # Calculate conversation turn statistics
+        conversation_stats_consolidated = {}
+        if conv_agg_metrics.enabled and conv_agg_metrics.turn_count:
+            conversation_turns = [
+                conv_stat["turn_count"] for conv_stat in conversation_stats.values()
+            ]
+            conversation_stats_consolidated = {
+                "min_turns": min(conversation_turns) if conversation_turns else 0,
+                "max_turns": max(conversation_turns) if conversation_turns else 0,
+                "mean_turns": sum(conversation_turns) / len(conversation_turns)
+                if conversation_turns
+                else 0,
+                "median_turns": sorted(conversation_turns)[len(conversation_turns) // 2]
+                if conversation_turns
+                else 0,
+            }
 
-            # Aggregate conversation-level stats
-            if conv_id not in conversation_stats:
-                conversation_stats[conv_id] = {
-                    "conversation_id": conv_id,
-                    "message_count": 0,
-                    "roles": set(),
-                    "has_system": False,
-                    "has_tool": False,
-                }
-
-            conv_stat = conversation_stats[conv_id]
-            conv_stat["message_count"] += 1
-            conv_stat["roles"].add(role)
-            conv_stat["has_system"] = conv_stat["has_system"] or role == "system"
-            conv_stat["has_tool"] = conv_stat["has_tool"] or role == "tool"
-
-        # Convert sets to lists for JSON serialization
-        for conv_stat in conversation_stats.values():
-            conv_stat["roles"] = list(conv_stat["roles"])
-
-        # Calculate conversation length statistics
-        conversation_lengths = [
-            conv_stat["message_count"] for conv_stat in conversation_stats.values()
-        ]
-
-        # Calculate statistics
-        avg_messages_per_conversation = (
-            total_messages / len(conversation_lengths) if conversation_lengths else 0
-        )
-        role_distribution = (
-            {role: count / total_messages * 100 for role, count in role_counts.items()}
-            if total_messages > 0
-            else role_counts
-        )
-
-        # Get the number of conversations that were actually analyzed
-        conversations_analyzed = sample_results.get(
-            "conversations_analyzed", total_conversations
-        )
-
-        aggregation_results = {
-            "dataset_name": self.dataset_name,
+        # Prepare aggregation metrics
+        aggregation_metrics = {
             "total_conversations": total_conversations,
             "conversations_analyzed": conversations_analyzed,
             "total_messages": total_messages,
-            "conversation_length_stats": {
-                "min": min(conversation_lengths) if conversation_lengths else 0,
-                "max": max(conversation_lengths) if conversation_lengths else 0,
-                "mean": sum(conversation_lengths) / len(conversation_lengths)
-                if conversation_lengths
-                else 0,
-                "median": sorted(conversation_lengths)[len(conversation_lengths) // 2]
-                if conversation_lengths
-                else 0,
-            },
-            "role_analysis": {
-                "total_messages": total_messages,
-                "avg_messages_per_conversation": round(
-                    avg_messages_per_conversation, 2
-                ),
-                "role_counts": role_counts,
-                "role_distribution_percent": role_distribution,
-                "conversations_with_system_messages": len(conversations_with_system),
-                "conversations_with_tool_messages": len(conversations_with_tool),
-                "conversations_with_system_percent": round(
-                    len(conversations_with_system) / len(conversation_lengths) * 100, 2
-                )
-                if conversation_lengths
-                else 0,
-                "conversations_with_tool_percent": round(
-                    len(conversations_with_tool) / len(conversation_lengths) * 100, 2
-                )
-                if conversation_lengths
-                else 0,
-            },
-            "conversation_level_data": list(conversation_stats.values()),
         }
+
+        # Build aggregation results based on configuration
+        aggregation_results = {}
+
+        # Add basic stats if enabled
+        if agg_metrics.basic_stats:
+            aggregation_results["basic_stats"] = aggregation_metrics
+
+        # Add conversation stats if enabled and turn_count is enabled
+        if (
+            agg_metrics.conversation_stats
+            and conv_agg_metrics.enabled
+            and conv_agg_metrics.turn_count
+        ):
+            aggregation_results["conversation_stats"] = conversation_stats_consolidated
+
+        # Save conversation-level data to separate file if enabled
+        if (
+            conv_agg_metrics.enabled
+            and hasattr(self.config, "outputs")
+            and self.config.outputs.conversation_level_output
+        ):
+            conversation_level_data = list(conversation_stats.values())
+            conversation_level_filename = _generate_timestamped_filename(
+                self.config.outputs.conversation_level_output,
+                self.config.outputs.save_format,
+            )
+            conversation_level_path = (
+                Path(self.config.outputs.path) / conversation_level_filename
+            )
+
+            self._save_results(
+                {"conversation_level_data": conversation_level_data},
+                str(conversation_level_path),
+                self.config.outputs.save_format,
+            )
+
+            if verbose:
+                logger.info(
+                    f"Conversation-level data saved to: {conversation_level_filename}"
+                )
 
         return aggregation_results
