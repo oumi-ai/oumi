@@ -67,14 +67,8 @@ class OutputConfig:
     Defaults to current directory ('.').
     """
 
-    analysis_output: str = "analysis_results_[timestamp].parquet"
+    sample_level_output: str = "sample_level_results"
     """Path for sample-level analysis results."""
-
-    aggregation_output: str = "aggregations_results_[timestamp].json"
-    """Path for aggregated results."""
-
-    conversation_level_output: str = "conversation_level_data_[timestamp].json"
-    """Path for conversation-level detailed data."""
 
     save_format: str = "json"
     """Format to save the analysis results.
@@ -82,107 +76,21 @@ class OutputConfig:
     Options:
         - "json": Save as JSON file
         - "yaml": Save as YAML file
-        - "csv": Save as CSV (for tabular data)
-        - "parquet": Save as Parquet file
     """
 
 
 @dataclass
-class LanguageDetectionConfig:
-    """Configuration for language detection analysis."""
+class AnalyzerPluginConfig:
+    """Configuration for a single analyzer plugin."""
+
+    id: str = MISSING
+    """Unique identifier for the analyzer."""
 
     enabled: bool = True
-    """Whether to enable language detection."""
+    """Whether this analyzer is enabled."""
 
-    confidence_threshold: float = 0.2
-    """Minimum confidence threshold for language detection."""
-
-    top_k: int = 3
-    """Number of top languages to detect per sample."""
-
-    multilingual_flag: dict[str, Any] = field(
-        default_factory=lambda: {"enabled": True, "min_num_languages": 2}
-    )
-    """Configuration for multilingual sample detection."""
-
-
-@dataclass
-class LengthMetricsConfig:
-    """Configuration for length-related metrics."""
-
-    enabled: bool = True
-    """Whether length metrics are enabled."""
-
-    char_count: bool = True
-    """Whether to compute character count."""
-
-    word_count: bool = True
-    """Whether to compute word count."""
-
-    sentence_count: bool = True
-    """Whether to compute sentence count."""
-
-    token_count: bool = False
-    """Whether to compute token count."""
-
-
-@dataclass
-class SafetyTypeConfig:
-    enabled: bool = True
-    include_default: bool = True
-    custom_keywords: list[str] = field(default_factory=list)
-    custom_regexes: list[str] = field(default_factory=list)
-
-
-@dataclass
-class SafetyMetricsConfig:
-    """Configuration for safety-related metrics."""
-
-    enabled: bool = True
-    profanity: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
-    slurs: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
-    explicit: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
-    hate_speech: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
-    pii: SafetyTypeConfig = field(default_factory=SafetyTypeConfig)
-
-
-@dataclass
-class SampleLevelMetrics:
-    """Configuration for sample-level metrics organized by category."""
-
-    language: LanguageDetectionConfig = field(default_factory=LanguageDetectionConfig)
-    """Language detection configuration."""
-
-    length: LengthMetricsConfig = field(default_factory=LengthMetricsConfig)
-    """Length-related metrics configuration."""
-
-    safety: SafetyMetricsConfig = field(default_factory=SafetyMetricsConfig)
-    """Safety-related metrics configuration."""
-
-
-@dataclass
-class AggregationMetrics:
-    """Configuration for aggregation-level metrics."""
-
-    basic_stats: bool = True
-    """Whether to include basic aggregation stats (total_conversations,
-    conversations_analyzed, total_messages)."""
-
-    conversation_stats: bool = True
-    """Whether to include conversation-level statistics (min_turns, max_turns,
-    mean_turns, median_turns)."""
-
-    # Language aggregation configuration removed for now
-    # language: LanguageAggregationConfig = field(
-    #     default_factory=LanguageAggregationConfig
-    # )
-    # """Language aggregation configuration."""
-
-
-@dataclass
-class ConversationAggregationMetricsConfig:
-    enabled: bool = True
-    turn_count: bool = True
+    config: dict[str, Any] = field(default_factory=dict)
+    """Analyzer-specific configuration parameters."""
 
 
 @dataclass
@@ -195,16 +103,8 @@ class AnalyzerConfig(BaseConfig):
     outputs: OutputConfig = field(default_factory=OutputConfig)
     """Output configuration for analysis results."""
 
-    sample_level_metrics: SampleLevelMetrics = field(default_factory=SampleLevelMetrics)
-    """Configuration for sample-level metrics."""
-
-    conversation_aggregation_metrics: ConversationAggregationMetricsConfig = field(
-        default_factory=ConversationAggregationMetricsConfig
-    )
-    """Configuration for conversation-level aggregation metrics."""
-
-    aggregation_metrics: AggregationMetrics = field(default_factory=AggregationMetrics)
-    """Configuration for aggregation-level metrics."""
+    analyzers: list[AnalyzerPluginConfig] = field(default_factory=list)
+    """List of analyzer configurations (plugin-style)."""
 
     verbose: bool = False
     """Whether to enable verbose output during analysis."""
@@ -215,24 +115,13 @@ class AnalyzerConfig(BaseConfig):
         if not self.input.name:
             raise ValueError("input.name is required")
 
-        # Validate language detection configuration
-        if not isinstance(self.sample_level_metrics.language.enabled, bool):
-            raise ValueError("sample_level_metrics.language.enabled must be a boolean")
-
-        if (
-            self.sample_level_metrics.language.confidence_threshold < 0
-            or self.sample_level_metrics.language.confidence_threshold > 1
-        ):
-            raise ValueError(
-                "sample_level_metrics.language.confidence_threshold must be "
-                "between 0 and 1"
-            )
-
-        if self.sample_level_metrics.language.top_k <= 0:
-            raise ValueError("sample_level_metrics.language.top_k must be positive")
+        # Validate analyzer configurations
+        for analyzer in self.analyzers:
+            if not analyzer.id:
+                raise ValueError("Each analyzer must have a unique 'id'")
 
         # Validate output configuration
-        valid_save_formats = ["json", "yaml", "csv", "parquet"]
+        valid_save_formats = ["json", "yaml"]
         if self.outputs.save_format not in valid_save_formats:
             raise ValueError(
                 f"outputs.save_format must be one of {valid_save_formats}, "

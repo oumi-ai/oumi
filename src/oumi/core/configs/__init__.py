@@ -89,15 +89,11 @@ Note:
 """
 
 from oumi.core.configs.analyzer_config import (
-    AggregationMetrics,
     AnalyzerConfig,
+    AnalyzerPluginConfig,
     DatasetSchema,
     InputConfig,
-    LanguageDetectionConfig,
-    LengthMetricsConfig,
     OutputConfig,
-    SafetyMetricsConfig,
-    SampleLevelMetrics,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
@@ -158,9 +154,9 @@ from oumi.core.configs.params.training_params import (
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
-    "AggregationMetrics",
     "AlpacaEvalTaskParams",
     "AnalyzerConfig",
+    "AnalyzerPluginConfig",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",
@@ -200,11 +196,7 @@ __all__ = [
     "StateDictType",
     "DatasetSchema",
     "InputConfig",
-    "LanguageDetectionConfig",
-    "LengthMetricsConfig",
     "OutputConfig",
-    "SafetyMetricsConfig",
-    "SampleLevelMetrics",
     "StorageMount",
     "TelemetryParams",
     "TrainerType",

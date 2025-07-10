@@ -1,0 +1,29 @@
+# Analyzer Configuration
+# This configuration demonstrates the plugin-style analysis system
+# Additional Analysis Parameters
+verbose: true
+
+# Input Configuration
+input:
+  name: "huggingfaceh4/ultrachat_200k"  # Dataset name
+  split: "train_sft"  # Dataset split
+  max_conversations: 1000  # Limit to first 1000 conversations (optional)
+  schema:
+    type: "conversation"  # Dataset schema type
+
+# Output Configuration
+outputs:
+  path: "./analysis_results"
+  sample_level_output: "sample_level_results"
+  save_format: "json"  # Format for output files (json, yaml)
+
+# Analyzers Configuration (plugin-style)
+analyzers:
+  # Length Metrics Analyzer
+  - id: "length"
+    enabled: true
+    config:
+      char_count: true
+      word_count: true
+      sentence_count: true
+      token_count: false  # Disabled to save computation
