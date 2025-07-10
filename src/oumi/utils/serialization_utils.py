@@ -63,6 +63,73 @@ def convert_all_keys_to_serializable_types(dictionary: dict) -> None:
             convert_all_keys_to_serializable_types(value)
 
 
+def flatten_config(
+    config: Any, prefix: str = "", separator: str = "."
+) -> dict[str, Any]:
+    """Flattens a nested config object into a flat dictionary with dot notation keys.
+
+    Args:
+        config: The config object to flatten (dataclass, dict, or other)
+        prefix: The prefix to prepend to keys
+        separator: The separator to use between nested keys
+
+    Returns:
+        A flattened dictionary with string keys
+    """
+    if dataclasses.is_dataclass(config) and not isinstance(config, type):
+        config_dict = dataclasses.asdict(config)
+    elif isinstance(config, dict):
+        config_dict = config
+    else:
+        # For non-dict/dataclass objects, convert to string representation
+        return {prefix or "value": str(config)}
+
+    flattened = {}
+
+    for key, value in config_dict.items():
+        new_key = f"{prefix}{separator}{key}" if prefix else key
+
+        if isinstance(value, dict):
+            # Recursively flatten nested dictionaries
+            nested_flat = flatten_config(value, new_key, separator)
+            flattened.update(nested_flat)
+        elif dataclasses.is_dataclass(value) and not isinstance(value, type):
+            # Recursively flatten nested dataclasses
+            nested_flat = flatten_config(value, new_key, separator)
+            flattened.update(nested_flat)
+        elif isinstance(value, (list, tuple)):
+            # Handle lists/tuples by converting to string or flattening if they
+            # contain dicts
+            if value and (
+                isinstance(value[0], dict)
+                or (
+                    dataclasses.is_dataclass(value[0])
+                    and not isinstance(value[0], type)
+                )
+            ):
+                for i, item in enumerate(value):
+                    item_key = f"{new_key}{separator}{i}"
+                    nested_flat = flatten_config(item, item_key, separator)
+                    flattened.update(nested_flat)
+            else:
+                flattened[new_key] = str(value)
+        else:
+            # Convert non-serializable types to string
+            try:
+                if isinstance(value, (str, int, float, bool)) or value is None:
+                    flattened[new_key] = value
+                else:
+                    flattened[new_key] = str(value)
+            except Exception:
+                # If str() fails, use repr() or a generic fallback
+                try:
+                    flattened[new_key] = repr(value)
+                except Exception:
+                    flattened[new_key] = f"<{type(value).__name__} object>"
+
+    return flattened
+
+
 def json_serializer(obj: Any) -> str:
     """Serializes a Python obj to a JSON formatted string."""
     if dataclasses.is_dataclass(obj) and not isinstance(obj, type):

@@ -63,6 +63,7 @@ from oumi.models.layers.ring_attention import (
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
+from oumi.utils.serialization_utils import flatten_config
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
@@ -214,6 +215,9 @@ class Trainer(BaseTrainer):
         if resume_from_checkpoint:
             with torch.profiler.record_function("load_from_checkpoint"):
                 self._load_from_checkpoint(resume_from_checkpoint)
+        else:
+            # Log training config and parameters to all enabled platforms
+            self._log_training_config()
 
         total_steps = self._estimate_total_training_steps()
 
@@ -678,6 +682,70 @@ class Trainer(BaseTrainer):
 
         if self.params.enable_mlflow and self._mlflow_oumi_managed_run:
             self.mlflow_run = mlflow.start_run(run_name=self.params.run_name)
+
+    def _log_training_config(self) -> None:
+        """Logs training configuration and parameters to all enabled platforms."""
+        if not is_world_process_zero():
+            return
+
+        # Get flattened config from both training config and parameters
+        config_dict = {}
+
+        if self.config:
+            flattened_config = flatten_config(self.config, prefix="config")
+            config_dict.update(flattened_config)
+
+        # Log to MLflow
+        if self.params.enable_mlflow:
+            try:
+                for key, value in config_dict.items():
+                    # MLflow has limits on parameter key length and value types
+                    if (
+                        len(key) <= 250
+                        and isinstance(value, (str, int, float, bool))
+                        or value is None
+                    ):
+                        mlflow.log_param(key, value)
+                    else:
+                        # For complex values, log as string but truncate if too long
+                        str_value = str(value)
+                        if len(str_value) > 500:  # MLflow param value limit
+                            str_value = str_value[:497] + "..."
+                        mlflow.log_param(key, str_value)
+            except Exception as e:
+                self.log(f"Failed to log config to MLflow: {e}")
+
+        # Log to Weights & Biases
+        if self.params.enable_wandb:
+            try:
+                # wandb.config can handle nested dictionaries, but we'll use
+                # flattened for consistency
+                wandb.config.update(config_dict)
+            except Exception as e:
+                self.log(f"Failed to log config to wandb: {e}")
+
+        # Log to TensorBoard as text
+        if self.params.enable_tensorboard and self.tensorboard_writer:
+            try:
+                # Log config as a formatted text to tensorboard
+                config_text = "\n".join([f"{k}: {v}" for k, v in config_dict.items()])
+                self.tensorboard_writer.add_text(
+                    "config/training_config", config_text, 0
+                )
+
+                # Also log some key parameters as scalars for easier tracking
+                key_params = {
+                    k: v
+                    for k, v in config_dict.items()
+                    if (
+                        isinstance(v, (int, float))
+                        and not k.endswith(("_path", "_dir", "_name"))
+                    )
+                }
+                for key, value in key_params.items():
+                    self.tensorboard_writer.add_scalar(f"config/{key}", value, 0)
+            except Exception as e:
+                self.log(f"Failed to log config to TensorBoard: {e}")
 
     #
     # Data loading
