@@ -3,7 +3,7 @@
 # Requirements:
 #   - Run step 1 of verl quickstart: https://verl.readthedocs.io/en/latest/start/quickstart.html
 #
-# Usage:
+# Usage (set OUMI_SLURM_CONNECTIONS to your Slurm user@host):
 #   oumi launch up -c configs/examples/misc/grpo_verl_gsm8k_slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
 #
 # See Also:
