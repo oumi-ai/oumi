@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -85,6 +86,14 @@ class JudgeParams(BaseParams):
     system_instruction: Optional[str] = field(default=None)
     """Optional system message to guide judge behavior."""
 
+    template_variables: dict[str, str] = field(default_factory=dict)
+    """Variables to be replaced in `prompt_template` and `system_instruction`.
+
+    This dictionary contains variable names and their corresponding values that should
+    be replaced in the `prompt_template` and `system_instruction` fields, before the
+    dataset-based placeholders are processed. These variables have the following format:
+    {variable_name}."""
+
     response_format: JudgeResponseFormat = field(default=JudgeResponseFormat.XML)
     """The format in which the judge should respond."""
 
@@ -127,6 +136,35 @@ class JudgeParams(BaseParams):
     def __post_init__(self):
         """Validate the parameters after initialization."""
         self._validate_params()
+        self._replace_template_variables()
+
+    def _replace_template_variables(self):
+        """Apply template variables to prompt_template and system_instruction."""
+        if not self.template_variables:
+            return
+
+        # Find all variables in prompt_template and system_instruction
+        all_variable_names = set(re.findall(r"\{(\w+)\}", self.prompt_template))
+        all_variable_names.update(
+            re.findall(r"\{(\w+)\}", self.system_instruction or "")
+        )
+
+        unused_variables = set(self.template_variables.keys()) - all_variable_names
+        if unused_variables:
+            raise ValueError(
+                "The following template variables are not used in the prompt_template "
+                f"or system_instruction: {sorted(unused_variables)}"
+            )
+
+        # Replace the template variables with their values
+        for variable_name, variable_value in self.template_variables.items():
+            self.prompt_template = self.prompt_template.replace(
+                f"{{{variable_name}}}", variable_value
+            )
+            if self.system_instruction:
+                self.system_instruction = self.system_instruction.replace(
+                    f"{{{variable_name}}}", variable_value
+                )
 
     def _validate_params(self):
         """Validate the parameters for consistency and completeness.
