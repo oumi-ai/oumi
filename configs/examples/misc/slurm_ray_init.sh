@@ -59,5 +59,8 @@ ray status
 # The Ray dashboard is run on the head node. To view it on our local machine, we need to
 # set up the following SSH tunnel and keep it alive:
 # localhost:8265 -> Slurm gateway -> Slurm head node -> localhost:8265 (on head node)
-echo "To view the Ray dashboard, run the following command (keep the connection alive) and open http://localhost:8265 on your local machine:"
-echo "ssh -L 8265:127.0.0.1:8265 -J $USER@<slurm_hostname> $USER@$head_node_ip"
+echo "-----------------------------------------------------------------------------------------"
+echo "To view the Ray dashboard, run the following command (keep the connection alive)"
+echo "and open http://localhost:8265 on your local machine:"
+echo "ssh -L 8265:127.0.0.1:8265 -J $USER@<slurm_gateway_ip_address> $USER@$head_node_ip"
+echo "-----------------------------------------------------------------------------------------"
