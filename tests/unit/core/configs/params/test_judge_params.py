@@ -20,6 +20,7 @@ def test_template_variables_applied_during_init():
         response_format=JudgeResponseFormat.XML,
         judgment_type=JudgeOutputType.BOOL,
     )
+    params.replace_template_variables()
 
     assert params.prompt_template == expected_prompt
     assert params.system_instruction == expected_system
@@ -38,6 +39,7 @@ def test_no_template_variables_prompts_unchanged():
         response_format=JudgeResponseFormat.XML,
         judgment_type=JudgeOutputType.BOOL,
     )
+    params.replace_template_variables()
 
     assert params.prompt_template == prompt_template
     assert params.system_instruction == system_instruction

@@ -136,22 +136,6 @@ class JudgeParams(BaseParams):
     def __post_init__(self):
         """Validate the parameters after initialization."""
         self._validate_params()
-        self._replace_template_variables()
-
-    def _replace_template_variables(self):
-        """Apply template variables to prompt_template and system_instruction."""
-        if not self.template_variables:
-            return
-
-        self.prompt_template = resolve_placeholders(
-            self.prompt_template, self.template_variables, missing_values_allowed=True
-        )
-        if self.system_instruction:
-            self.system_instruction = resolve_placeholders(
-                self.system_instruction,
-                self.template_variables,
-                missing_values_allowed=True,
-            )
 
     def _validate_params(self):
         """Validate the parameters for consistency and completeness.
@@ -176,3 +160,18 @@ class JudgeParams(BaseParams):
                 raise ValueError("All judgment_scores values must be numeric")
             if not self.judgment_scores:
                 raise ValueError("judgment_scores cannot be empty when provided")
+
+    def replace_template_variables(self):
+        """Apply template variables to prompt_template and system_instruction."""
+        if not self.template_variables:
+            return
+
+        self.prompt_template = resolve_placeholders(
+            self.prompt_template, self.template_variables, missing_values_allowed=True
+        )
+        if self.system_instruction:
+            self.system_instruction = resolve_placeholders(
+                self.system_instruction,
+                self.template_variables,
+                missing_values_allowed=True,
+            )
