@@ -40,25 +40,37 @@ def test_analyzer():
         analyzer = Analyzer(config)
 
         # Test getting dataset size
-        print(f"\nDataset size: {analyzer.get_dataset_size()} conversations")
+        print(
+            "\nDataset size: "
+            + str(analyzer.conv.get_dataset_size())
+            + " conversations"
+        )
 
         # Test getting a conversation
         print("\nGetting conversation 0...")
-        conversation = analyzer.get_conversation(0)
+        conversation = analyzer.conv.get_conversation(0)
         print(f"Conversation type: {type(conversation)}")
 
         # Test getting conversation length
-        print(f"Conversation 0 length: {analyzer.get_conversation_length(0)} messages")
+        print(
+            "Conversation 0 length: "
+            + str(analyzer.conv.get_conversation_length(0))
+            + " messages"
+        )
 
         # Test printing a conversation
         print("\nPrinting conversation 0...")
-        analyzer.print_conversation(0)
+        analyzer.conv.print_conversation(0)
 
         # Test getting another conversation
         print("\nGetting conversation 5...")
-        conversation5 = analyzer.get_conversation(5)
+        conversation5 = analyzer.conv.get_conversation(5)
         print(f"Conversation 5 type: {type(conversation5)}")
-        print(f"Conversation 5 length: {analyzer.get_conversation_length(5)} messages")
+        print(
+            "Conversation 5 length: "
+            + str(analyzer.conv.get_conversation_length(5))
+            + " messages"
+        )
 
         print("\nAlpaca test completed successfully!")
 
@@ -82,31 +94,35 @@ def test_analyzer():
         ultrachat_analyzer = Analyzer(ultrachat_config)
 
         # Test getting dataset size
-        print(f"\nDataset size: {ultrachat_analyzer.get_dataset_size()} conversations")
+        print(
+            "\nDataset size: "
+            + str(ultrachat_analyzer.conv.get_dataset_size())
+            + " conversations"
+        )
 
         # Test getting a conversation
         print("\nGetting conversation 0...")
-        ultrachat_conversation = ultrachat_analyzer.get_conversation(0)
+        ultrachat_conversation = ultrachat_analyzer.conv.get_conversation(0)
         print(f"Conversation type: {type(ultrachat_conversation)}")
 
         # Test getting conversation length
         print(
             "Conversation 0 length: "
-            + str(ultrachat_analyzer.get_conversation_length(0))
+            + str(ultrachat_analyzer.conv.get_conversation_length(0))
             + " messages"
         )
 
         # Test printing a conversation
         print("\nPrinting conversation 0...")
-        ultrachat_analyzer.print_conversation(0)
+        ultrachat_analyzer.conv.print_conversation(0)
 
         # Test getting another conversation
         print("\nGetting conversation 3...")
-        ultrachat_conversation3 = ultrachat_analyzer.get_conversation(3)
+        ultrachat_conversation3 = ultrachat_analyzer.conv.get_conversation(3)
         print(f"Conversation 3 type: {type(ultrachat_conversation3)}")
         print(
             "Conversation 3 length: "
-            + str(ultrachat_analyzer.get_conversation_length(3))
+            + str(ultrachat_analyzer.conv.get_conversation_length(3))
             + " messages"
         )
 
@@ -144,19 +160,27 @@ def test_v1_config():
         analyzer = Analyzer(config)
 
         # Test getting dataset size
-        print(f"\nDataset size: {analyzer.get_dataset_size()} conversations")
+        print(
+            "\nDataset size: "
+            + str(analyzer.conv.get_dataset_size())
+            + " conversations"
+        )
 
         # Test getting a conversation
         print("\nGetting conversation 0...")
-        conversation = analyzer.get_conversation(0)
+        conversation = analyzer.conv.get_conversation(0)
         print(f"Conversation type: {type(conversation)}")
 
         # Test getting conversation length
-        print(f"Conversation 0 length: {analyzer.get_conversation_length(0)} messages")
+        print(
+            "Conversation 0 length: "
+            + str(analyzer.conv.get_conversation_length(0))
+            + " messages"
+        )
 
         # Test printing a conversation
         print("\nPrinting conversation 0...")
-        analyzer.print_conversation(0)
+        analyzer.conv.print_conversation(0)
 
         print("\nBasic v1.0.0 config test completed successfully!")
 
@@ -239,23 +263,26 @@ def test_v1_config():
 
         # Test getting dataset size
         print(
-            f"\nDataset size: {comprehensive_analyzer.get_dataset_size()} conversations"
+            "\nDataset size: "
+            + str(comprehensive_analyzer.conv.get_dataset_size())
+            + " conversations"
         )
 
         # Test getting a conversation
         print("\nGetting conversation 0...")
-        ultrachat_conversation = comprehensive_analyzer.get_conversation(0)
+        ultrachat_conversation = comprehensive_analyzer.conv.get_conversation(0)
         print(f"Conversation type: {type(ultrachat_conversation)}")
 
         # Test getting conversation length
         print(
-            f"Conversation 0 length: "
-            f"{comprehensive_analyzer.get_conversation_length(0)} messages"
+            "Conversation 0 length: "
+            + str(comprehensive_analyzer.conv.get_conversation_length(0))
+            + " messages"
         )
 
         # Test printing a conversation
         print("\nPrinting conversation 0...")
-        comprehensive_analyzer.print_conversation(0)
+        comprehensive_analyzer.conv.print_conversation(0)
 
         # Test analysis
         print("\nRunning analysis...")
