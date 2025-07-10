@@ -12,12 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import string
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
+
+
+class SafeDict(dict):
+    def __init__(self, missing_values_allowed: bool, *args, **kwargs):
+        """Initialize the SafeDict with the missing_values_allowed flag."""
+        self.missing_values_allowed = missing_values_allowed
+        super().__init__(*args, **kwargs)
+
+    def __missing__(self, key: str) -> str:
+        """Handle missing keys in the dictionary."""
+        if self.missing_values_allowed:
+            return "{" + key + "}"
+        else:
+            raise ValueError(f"Missing value for placeholder: {key}")
 
 
 def resolve_placeholders(
@@ -26,15 +39,7 @@ def resolve_placeholders(
     missing_values_allowed: bool = False,
 ) -> str:
     """Resolve placeholder {variables} in the provided text from the values_dict."""
-
-    class SafeDict(dict):
-        def __missing__(self, key):
-            if missing_values_allowed:
-                return "{" + key + "}"
-            else:
-                raise ValueError(f"Missing value for placeholder: {key}")
-
-    return string.Formatter().vformat(text, (), SafeDict(values_dict))
+    return text.format_map(SafeDict(missing_values_allowed, values_dict))
 
 
 class JudgeResponseFormat(str, Enum):
