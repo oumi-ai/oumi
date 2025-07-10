@@ -673,7 +673,7 @@ class Trainer(BaseTrainer):
             self.tensorboard_writer = None
 
         if self.params.enable_mlflow and self._mlflow_oumi_managed_run:
-            self.mlflow_run = mlflow.start_run()
+            self.mlflow_run = mlflow.start_run(run_name=self.params.run_name)
 
     #
     # Data loading
