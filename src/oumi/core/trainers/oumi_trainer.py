@@ -645,6 +645,10 @@ class Trainer(BaseTrainer):
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
 
+        # Log to mlflow
+        if self.params.enable_mlflow:
+            mlflow.log_metrics(metrics, step=self.state.global_step)
+
     def _init_logging(
         self,
     ) -> None:
