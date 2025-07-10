@@ -114,18 +114,10 @@ def flatten_config(
             else:
                 flattened[new_key] = str(value)
         else:
-            # Convert non-serializable types to string
-            try:
-                if isinstance(value, (str, int, float, bool)) or value is None:
-                    flattened[new_key] = value
-                else:
-                    flattened[new_key] = str(value)
-            except Exception:
-                # If str() fails, use repr() or a generic fallback
-                try:
-                    flattened[new_key] = repr(value)
-                except Exception:
-                    flattened[new_key] = f"<{type(value).__name__} object>"
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                flattened[new_key] = value
+            else:
+                flattened[new_key] = str(value)
 
     return flattened
 

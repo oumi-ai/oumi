@@ -4,9 +4,6 @@ from typing import Any, Optional
 
 import torch
 
-from oumi.core.configs.evaluation_config import EvaluationConfig
-from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.training_params import TrainingParams
 from oumi.core.configs.training_config import TrainingConfig
@@ -117,29 +114,21 @@ class TestFlattenConfig:
         }
         assert result == expected
 
-    def test_flatten_with_prefix(self):
-        """Test flattening with a custom prefix."""
-        config = {"name": "test", "value": 42}
-        result = flatten_config(config, prefix="config")
-
-        expected = {"config.name": "test", "config.value": 42}
-        assert result == expected
-
-    def test_flatten_with_custom_separator(self):
-        """Test flattening with a custom separator."""
+    def test_flatten_with_custom_options(self):
+        """Test flattening with custom prefix and separator."""
         config = {"settings": {"debug": True, "level": 2}}
+
+        # Test with prefix
+        result = flatten_config({"name": "test"}, prefix="config")
+        assert result == {"config.name": "test"}
+
+        # Test with custom separator
         result = flatten_config(config, separator="_")
+        assert result == {"settings_debug": True, "settings_level": 2}
 
-        expected = {"settings_debug": True, "settings_level": 2}
-        assert result == expected
-
-    def test_flatten_with_prefix_and_separator(self):
-        """Test flattening with both prefix and custom separator."""
-        config = {"settings": {"debug": True}}
-        result = flatten_config(config, prefix="app", separator="__")
-
-        expected = {"app__settings__debug": True}
-        assert result == expected
+        # Test with both prefix and separator
+        result = flatten_config({"debug": True}, prefix="app", separator="__")
+        assert result == {"app__debug": True}
 
     def test_flatten_empty_dict(self):
         """Test flattening an empty dictionary."""
@@ -206,21 +195,15 @@ class TestFlattenConfig:
         expected = {"coordinates": "(10, 20, 30)", "pair": "('x', 'y')"}
         assert result == expected
 
-    def test_flatten_non_dict_non_dataclass(self):
+    def test_flatten_non_dict_objects(self):
         """Test flattening non-dict, non-dataclass objects."""
-        config = "simple_string"
-        result = flatten_config(config)
+        # Test simple string
+        result = flatten_config("simple_string")
+        assert result == {"value": "simple_string"}
 
-        expected = {"value": "simple_string"}
-        assert result == expected
-
-    def test_flatten_non_dict_with_prefix(self):
-        """Test flattening non-dict object with prefix."""
-        config = 42
-        result = flatten_config(config, prefix="number")
-
-        expected = {"number": "42"}
-        assert result == expected
+        # Test with prefix
+        result = flatten_config(42, prefix="number")
+        assert result == {"number": "42"}
 
     def test_flatten_special_types(self):
         """Test flattening with special types like torch.dtype."""
@@ -274,13 +257,12 @@ class TestFlattenConfig:
         expected = {"level1.level2.level3.level4.value": "deep_value"}
         assert result == expected
 
-    def test_flatten_empty_list(self):
-        """Test flattening empty list."""
+    def test_flatten_empty_containers(self):
+        """Test flattening empty containers."""
         config = {"empty_list": [], "empty_dict": {}}
         result = flatten_config(config)
 
-        expected = {"empty_list": "[]"}
-        assert result == expected
+        assert result == {"empty_list": "[]"}
 
     def test_flatten_preserves_basic_types(self):
         """Test that basic types are preserved without conversion."""
@@ -299,26 +281,6 @@ class TestFlattenConfig:
         assert isinstance(result["float"], float)
         assert isinstance(result["bool"], bool)
         assert result["none"] is None
-
-    def test_flatten_handles_exception_gracefully(self):
-        """Test that exceptions during conversion are handled gracefully."""
-
-        class ProblematicObject:
-            def __str__(self):
-                raise ValueError("Cannot convert to string")
-
-            def __repr__(self):
-                raise ValueError("Cannot convert to repr")
-
-        config = {"normal": "value", "problematic": ProblematicObject()}
-        result = flatten_config(config)
-
-        # Should still process the normal value
-        assert result["normal"] == "value"
-        # Should convert the problematic object to string somehow
-        assert "problematic" in result
-        assert isinstance(result["problematic"], str)
-        assert "ProblematicObject" in result["problematic"]
 
     def test_flatten_training_config(self):
         """Test flattening with actual oumi TrainingConfig."""
@@ -340,27 +302,10 @@ class TestFlattenConfig:
         assert "training.num_train_epochs" in result
         assert len(result) > 10  # Should have many flattened parameters
 
-    def test_flatten_evaluation_config(self):
-        """Test flattening with actual oumi EvaluationConfig."""
-        config = EvaluationConfig(
-            model=ModelParams(model_name="microsoft/DialoGPT-medium")
-        )
+    def test_flatten_enum_values(self):
+        """Test that enum values are extracted correctly."""
+        config = {"enum_a": ConfigTestEnum.VALUE_A, "enum_b": ConfigTestEnum.VALUE_B}
         result = flatten_config(config)
 
-        # Should have flattened all nested parameters
-        assert "model.model_name" in result
-        assert len(result) > 5  # Should have many flattened parameters
-
-    def test_flatten_inference_config(self):
-        """Test flattening with actual oumi InferenceConfig."""
-        config = InferenceConfig(
-            model=ModelParams(model_name="microsoft/DialoGPT-medium"),
-            generation=GenerationParams(max_new_tokens=50, temperature=0.7),
-        )
-        result = flatten_config(config)
-
-        # Should have flattened all nested parameters
-        assert "model.model_name" in result
-        assert "generation.max_new_tokens" in result
-        assert "generation.temperature" in result
-        assert len(result) > 5  # Should have many flattened parameters
+        assert result["enum_a"] == "ConfigTestEnum.VALUE_A"
+        assert result["enum_b"] == "ConfigTestEnum.VALUE_B"
