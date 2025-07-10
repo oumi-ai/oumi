@@ -17,29 +17,7 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-
-
-class SafeDict(dict):
-    def __init__(self, missing_values_allowed: bool, *args, **kwargs):
-        """Initialize the SafeDict with the missing_values_allowed flag."""
-        self.missing_values_allowed = missing_values_allowed
-        super().__init__(*args, **kwargs)
-
-    def __missing__(self, key: str) -> str:
-        """Handle missing keys in the dictionary."""
-        if self.missing_values_allowed:
-            return "{" + key + "}"
-        else:
-            raise ValueError(f"Missing value for placeholder: {key}")
-
-
-def resolve_placeholders(
-    text: str,
-    values_dict: dict[str, str],
-    missing_values_allowed: bool = False,
-) -> str:
-    """Resolve placeholder {variables} in the provided text from the values_dict."""
-    return text.format_map(SafeDict(missing_values_allowed, values_dict))
+from oumi.utils.placeholders import resolve_placeholders
 
 
 class JudgeResponseFormat(str, Enum):

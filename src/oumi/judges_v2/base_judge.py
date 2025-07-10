@@ -22,10 +22,10 @@ from typing_extensions import Self
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeResponseFormat,
-    resolve_placeholders,
 )
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.placeholders import resolve_placeholders
 
 
 class JudgeOutputField(pydantic.BaseModel):
