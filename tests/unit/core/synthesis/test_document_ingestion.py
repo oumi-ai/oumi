@@ -17,8 +17,13 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
+from oumi.core.configs.params.synthesis_params import (
+    DocumentSegmentationParams,
+    SegmentationStrategy,
+)
 from oumi.core.synthesis.document_ingestion import (
     DocumentReader,
+    DocumentSegmenter,
 )
 
 
@@ -237,7 +242,7 @@ def test_read_real_pdf_document(reader, root_testdata_dir):
     assert "**Dummy PDF file**" in result[0]
 
 
-def test_integration_read_mixed_documents(
+def test_read_mixed_documents(
     reader,
     sample_text_content,
     sample_pdf_content,
@@ -258,3 +263,210 @@ def test_integration_read_mixed_documents(
     assert txt_result == [sample_text_content]
     assert pdf_result == [sample_pdf_content]
     assert md_result == [sample_text_content]
+
+
+# DocumentSegmenter tests
+@pytest.fixture
+def segmentation_params():
+    """Create test default segmentation parameters."""
+    return DocumentSegmentationParams(
+        id="test_segments",
+        segmentation_strategy=SegmentationStrategy.TOKENS,
+        tokenizer="openai-community/gpt2",
+        segment_length=10,
+        segment_overlap=2,
+    )
+
+
+@pytest.fixture
+def segmenter(segmentation_params):
+    """Create a DocumentSegmenter instance."""
+    with patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+        mock_tokenizer.return_value = MagicMock()
+        return DocumentSegmenter(segmentation_params)
+
+
+@pytest.fixture
+def sample_document():
+    """Sample document for testing."""
+    return "This is a sample document for testing segmentation functionality."
+
+
+def test_document_segmenter_initialization(segmentation_params):
+    """Test DocumentSegmenter initialization."""
+    with patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+        mock_tokenizer.return_value = MagicMock()
+
+        segmenter = DocumentSegmenter(segmentation_params)
+
+        assert segmenter._params == segmentation_params
+        mock_tokenizer.assert_called_once_with(segmentation_params.tokenizer)
+
+
+def test_segment_tokens_strategy(segmenter, sample_document):
+    """Test segmentation with TOKENS strategy."""
+    # Mock tokenizer behavior
+    mock_tokens = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    segmenter._tokenizer.encode.return_value = mock_tokens
+
+    # Mock decode behavior for segments
+    def mock_decode(tokens):
+        return f"decoded_{tokens[0]}_{tokens[-1]}"
+
+    segmenter._tokenizer.decode.side_effect = mock_decode
+
+    result = segmenter.segment(sample_document)
+
+    # With segment_length=10, overlap=2, stride=8
+    # First segment: tokens 0-9 (1-10)
+    # Second segment: tokens 8-15 (9-15, limited by token count)
+    expected_segments = [
+        "decoded_1_10",  # tokens 1-10
+        "decoded_9_15",  # tokens 9-15
+    ]
+
+    assert result == expected_segments
+    segmenter._tokenizer.encode.assert_called_once_with(sample_document)
+
+
+def test_segment_tokens_no_overlap(segmentation_params, sample_document):
+    """Test segmentation with no overlap."""
+    segmentation_params.segment_overlap = 0
+
+    with patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+        mock_tokenizer.return_value = MagicMock()
+        segmenter = DocumentSegmenter(segmentation_params)
+
+        # Mock tokenizer behavior
+        mock_tokens = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        segmenter._tokenizer.encode.return_value = mock_tokens
+
+        def mock_decode(tokens):
+            return f"decoded_{tokens[0]}_{tokens[-1]}"
+
+        segmenter._tokenizer.decode.side_effect = mock_decode
+
+        result = segmenter.segment(sample_document)
+
+        # With segment_length=10, overlap=0, stride=10
+        # First segment: tokens 0-9 (1-10)
+        # Second segment: tokens 10-14 (11-15)
+        expected_segments = [
+            "decoded_1_10",  # tokens 1-10
+            "decoded_11_15",  # tokens 11-15
+        ]
+
+        assert result == expected_segments
+
+
+def test_segment_tokens_single_segment(segmentation_params, sample_document):
+    """Test segmentation when document fits in a single segment."""
+    segmentation_params.segment_length = 20
+
+    with patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+        mock_tokenizer.return_value = MagicMock()
+        segmenter = DocumentSegmenter(segmentation_params)
+
+        # Mock tokenizer behavior - fewer tokens than segment_length
+        mock_tokens = [1, 2, 3, 4, 5]
+        segmenter._tokenizer.encode.return_value = mock_tokens
+        segmenter._tokenizer.decode.return_value = "decoded_segment"
+
+        result = segmenter.segment(sample_document)
+
+        assert result == ["decoded_segment"]
+        segmenter._tokenizer.encode.assert_called_once_with(sample_document)
+        segmenter._tokenizer.decode.assert_called_once_with([1, 2, 3, 4, 5])
+
+
+def test_segment_empty_document(segmenter):
+    """Test segmentation with empty document."""
+    segmenter._tokenizer.encode.return_value = []
+    segmenter._tokenizer.decode.return_value = ""
+
+    result = segmenter.segment("")
+
+    assert result == []
+    segmenter._tokenizer.encode.assert_called_once_with("")
+
+
+def test_segment_with_large_overlap(segmentation_params, sample_document):
+    """Test segmentation with large overlap."""
+    segmentation_params.segment_overlap = 8  # stride = 10 - 8 = 2
+
+    with patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+        mock_tokenizer.return_value = MagicMock()
+        segmenter = DocumentSegmenter(segmentation_params)
+
+        # Mock tokenizer behavior
+        mock_tokens = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        segmenter._tokenizer.encode.return_value = mock_tokens
+
+        def mock_decode(tokens):
+            return f"decoded_{tokens[0]}_{tokens[-1]}"
+
+        segmenter._tokenizer.decode.side_effect = mock_decode
+
+        result = segmenter.segment(sample_document)
+
+        # With segment_length=10, overlap=8, stride=2
+        # Many overlapping segments
+        expected_segments = [
+            "decoded_1_10",  # tokens 1-10
+            "decoded_3_12",  # tokens 3-12
+            "decoded_5_14",  # tokens 5-14
+            "decoded_7_15",  # tokens 7-15 (limited by token count)
+            "decoded_9_15",  # tokens 9-15
+            "decoded_11_15",  # tokens 11-15
+            "decoded_13_15",  # tokens 13-15
+            "decoded_15_15",  # tokens 15-15
+        ]
+
+        assert result == expected_segments
+
+
+def test_segment_unsupported_strategy(segmentation_params, sample_document):
+    """Test segmentation with unsupported strategy."""
+    # Mock an unsupported strategy
+    segmentation_params.segmentation_strategy = "unsupported_strategy"
+
+    with patch("transformers.AutoTokenizer.from_pretrained") as mock_tokenizer:
+        mock_tokenizer.return_value = MagicMock()
+        segmenter = DocumentSegmenter(segmentation_params)
+
+        with pytest.raises(
+            NotImplementedError, match="Unsupported segmentation strategy"
+        ):
+            segmenter.segment(sample_document)
+
+
+def test_segment_batch(segmenter):
+    """Test segmenting multiple documents in batch."""
+    documents = [
+        "First document content",
+        "Second document content",
+        "Third document content",
+    ]
+
+    # Mock the tokenizer to return predictable tokens for each document
+    def mock_encode(text):
+        if "First" in text:
+            return [1, 2, 3, 4, 5]
+        elif "Second" in text:
+            return [6, 7, 8, 9, 10]
+        elif "Third" in text:
+            return [11, 12, 13, 14, 15]
+        return []
+
+    def mock_decode(tokens):
+        return f"segment_{tokens}"
+
+    with patch.object(segmenter._tokenizer, "encode", side_effect=mock_encode):
+        with patch.object(segmenter._tokenizer, "decode", side_effect=mock_decode):
+            segments = segmenter.segment_batch(documents)
+
+            # Should return a flat list of segments from all documents
+            assert len(segments) == 3  # One segment per document given our token counts
+            assert segments[0] == "segment_[1, 2, 3, 4, 5]"  # First document
+            assert segments[1] == "segment_[6, 7, 8, 9, 10]"  # Second document
+            assert segments[2] == "segment_[11, 12, 13, 14, 15]"  # Third document
