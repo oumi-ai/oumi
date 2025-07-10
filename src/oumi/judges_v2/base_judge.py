@@ -19,7 +19,11 @@ from typing import Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
+from oumi.core.configs.params.judge_params import (
+    VARIABLE_PLACEHOLDER_REGEX,
+    JudgeOutputType,
+    JudgeResponseFormat,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 
@@ -404,7 +408,9 @@ class BaseJudge:
             ValueError: If required placeholders are missing from judge_input
         """
         # Extract all placeholders from the template (e.g., {question}, {answer})
-        required_placeholders = set(re.findall(r"\{(\w+)\}", self.prompt_template))
+        required_placeholders = set(
+            re.findall(VARIABLE_PLACEHOLDER_REGEX, self.prompt_template)
+        )
 
         # Validate that all required data is provided
         provided_keys = set(judge_input.keys())

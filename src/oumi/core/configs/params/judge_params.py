@@ -19,6 +19,12 @@ from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 
+# Enforces Python-like variable names: `var`, `var1.var2`, `_var.var1_v2_v3`, etc
+VARIABLE_PLACEHOLDER_REGEX = (
+    r"\{((?:[a-zA-Z_](?:[\w]*[a-zA-Z][\w]*)?)"
+    r"(?:\.(?:[a-zA-Z_](?:[\w]*[a-zA-Z][\w]*)?))*)\}"
+)
+
 
 class JudgeResponseFormat(str, Enum):
     """Enumeration of possible response formats for the judge output."""
@@ -140,18 +146,15 @@ class JudgeParams(BaseParams):
 
     def _replace_template_variables(self):
         """Apply template variables to prompt_template and system_instruction."""
-        PYTHON_VAR_REGEX = (
-            r"\{((?:[a-zA-Z_](?:[\w]*[a-zA-Z][\w]*)?)"
-            r"(?:\.(?:[a-zA-Z_](?:[\w]*[a-zA-Z][\w]*)?))*)\}"
-        )
-
         if not self.template_variables:
             return
 
         # Find all variables in prompt_template and system_instruction
-        all_variable_names = set(re.findall(PYTHON_VAR_REGEX, self.prompt_template))
+        all_variable_names = set(
+            re.findall(VARIABLE_PLACEHOLDER_REGEX, self.prompt_template)
+        )
         all_variable_names.update(
-            re.findall(PYTHON_VAR_REGEX, self.system_instruction or "")
+            re.findall(VARIABLE_PLACEHOLDER_REGEX, self.system_instruction or "")
         )
 
         unused_variables = set(self.template_variables.keys()) - all_variable_names
