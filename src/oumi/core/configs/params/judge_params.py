@@ -12,18 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
+import string
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 
-# Enforces Python-like variable names: `var`, `var1.var2`, `_var.var1_v2_v3`, etc
-VARIABLE_PLACEHOLDER_REGEX = (
-    r"\{((?:[a-zA-Z_](?:[\w]*[a-zA-Z][\w]*)?)"
-    r"(?:\.(?:[a-zA-Z_](?:[\w]*[a-zA-Z][\w]*)?))*)\}"
-)
+
+def resolve_placeholders(
+    text: str,
+    values_dict: dict[str, str],
+    missing_values_allowed: bool = False,
+) -> str:
+    """Resolve placeholder {variables} in the provided text from the values_dict."""
+
+    class SafeDict(dict):
+        def __missing__(self, key):
+            if missing_values_allowed:
+                return "{" + key + "}"
+            else:
+                raise ValueError(f"Missing value for placeholder: {key}")
+
+    return string.Formatter().vformat(text, (), SafeDict(values_dict))
 
 
 class JudgeResponseFormat(str, Enum):
@@ -149,30 +160,15 @@ class JudgeParams(BaseParams):
         if not self.template_variables:
             return
 
-        # Find all variables in prompt_template and system_instruction
-        all_variable_names = set(
-            re.findall(VARIABLE_PLACEHOLDER_REGEX, self.prompt_template)
+        self.prompt_template = resolve_placeholders(
+            self.prompt_template, self.template_variables, missing_values_allowed=True
         )
-        all_variable_names.update(
-            re.findall(VARIABLE_PLACEHOLDER_REGEX, self.system_instruction or "")
-        )
-
-        unused_variables = set(self.template_variables.keys()) - all_variable_names
-        if unused_variables:
-            raise ValueError(
-                "The following template variables are not used in the prompt_template "
-                f"or system_instruction: {sorted(unused_variables)}"
+        if self.system_instruction:
+            self.system_instruction = resolve_placeholders(
+                self.system_instruction,
+                self.template_variables,
+                missing_values_allowed=True,
             )
-
-        # Replace the template variables with their values
-        for variable_name, variable_value in self.template_variables.items():
-            self.prompt_template = self.prompt_template.replace(
-                f"{{{variable_name}}}", variable_value
-            )
-            if self.system_instruction:
-                self.system_instruction = self.system_instruction.replace(
-                    f"{{{variable_name}}}", variable_value
-                )
 
     def _validate_params(self):
         """Validate the parameters for consistency and completeness.
