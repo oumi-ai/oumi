@@ -140,13 +140,15 @@ class JudgeParams(BaseParams):
 
     def _replace_template_variables(self):
         """Apply template variables to prompt_template and system_instruction."""
+        VARIABLES_REGEX = r"\{(\w+)\}"
+
         if not self.template_variables:
             return
 
         # Find all variables in prompt_template and system_instruction
-        all_variable_names = set(re.findall(r"\{(\w+)\}", self.prompt_template))
+        all_variable_names = set(re.findall(VARIABLES_REGEX, self.prompt_template))
         all_variable_names.update(
-            re.findall(r"\{(\w+)\}", self.system_instruction or "")
+            re.findall(VARIABLES_REGEX, self.system_instruction or "")
         )
 
         unused_variables = set(self.template_variables.keys()) - all_variable_names
