@@ -116,7 +116,6 @@ def evaluate(
     # Run AlpacaEval evaluation, i.e. annotate the model's responses.
     logger.info("Running AlpacaEval annotation.")
     logger.info(f"\tAlpacaEval `task_params`:\n{pformat(task_params)}")
-    # Editted for type safety
     result = alpaca_eval.evaluate(
         model_outputs=responses_df,
         annotators_config=annotators_config,
