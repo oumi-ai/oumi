@@ -114,6 +114,12 @@ class Trainer(BaseTrainer):
         # 2. CUDA and distributed multi-GPU training (otherwise, pointless).
         # 3. Supported model type.
         self.is_using_ring_attention = False
+        self._mlflow_oumi_managed_run = (
+            # If the user has manually started an mlflow run, we don't need to start
+            # a new one and can let the user manage it themselves.
+            # Otherwise, we start a new run and end it when training is done.
+            self.params.enable_mlflow and not mlflow.active_run()
+        )
 
         self.params.finalize_and_validate()
 
@@ -265,7 +271,7 @@ class Trainer(BaseTrainer):
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
 
-        if self.params.enable_mlflow:
+        if self.params.enable_mlflow and not self._mlflow_oumi_managed_run:
             mlflow.end_run()
 
     @contextmanager
@@ -666,7 +672,7 @@ class Trainer(BaseTrainer):
         else:
             self.tensorboard_writer = None
 
-        if self.params.enable_mlflow:
+        if self.params.enable_mlflow and self._mlflow_oumi_managed_run:
             self.mlflow_run = mlflow.start_run()
 
     #
