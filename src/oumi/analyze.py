@@ -58,14 +58,12 @@ class Analyzer:
                         analyzer_config.id, config_dict
                     )
                     analyzers[analyzer_config.id] = analyzer
-                    if self.config.verbose:
-                        logger.info(f"Initialized analyzer: {analyzer_config.id}")
+                    logger.info(f"Initialized analyzer: {analyzer_config.id}")
                 except Exception as e:
                     logger.error(
                         f"Failed to initialize analyzer {analyzer_config.id}: {e}"
                     )
-                    if self.config.verbose:
-                        logger.error(f"Analyzer configuration: {analyzer_config}")
+                    logger.error(f"Analyzer configuration: {analyzer_config}")
         return analyzers
 
     def analyze_dataset(self) -> dict[str, Any]:
@@ -79,13 +77,10 @@ class Analyzer:
             Dict[str, Any]: Analysis results containing sample-level metrics and
             insights.
         """
-        verbose = self.config.verbose
-
-        if verbose:
-            logger.info(f"Starting analysis of dataset: {self.dataset_name}")
-            logger.info(
-                f"Using {len(self.analyzers)} analyzers: {list(self.analyzers.keys())}"
-            )
+        logger.info(f"Starting analysis of dataset: {self.dataset_name}")
+        logger.info(
+            f"Using {len(self.analyzers)} analyzers: {list(self.analyzers.keys())}"
+        )
 
         total_conversations = len(self.dataset)
         max_conversations = self.config.input.max_conversations
@@ -95,12 +90,10 @@ class Analyzer:
             else total_conversations
         )
 
-        if verbose:
-            logger.info(f"Analyzing {conversations_to_analyze} conversations")
+        logger.info(f"Analyzing {conversations_to_analyze} conversations")
 
         # Step 1: Per-sample (message) level analysis
-        if verbose:
-            logger.info("Step 1: Computing per-sample (message) level analysis...")
+        logger.info("Step 1: Computing per-sample (message) level analysis...")
 
         sample_results = compute_sample_level_analysis(
             self.dataset, self.config, self.analyzers
@@ -117,10 +110,8 @@ class Analyzer:
                 sample_results,
                 str(full_sample_path),
                 self.config.outputs.save_format,
-                verbose,
             )
-            if verbose:
-                logger.info(f"Sample-level results saved to: {sample_output_path}")
+            logger.info(f"Sample-level results saved to: {sample_output_path}")
 
         final_results = {
             "dataset_name": self.dataset_name,

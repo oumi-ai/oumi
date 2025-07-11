@@ -25,7 +25,6 @@ def test_basic_functionality():
             max_conversations=5,  # Small subset for testing
             schema=DatasetSchema(type="conversation"),
         ),
-        verbose=True,
     )
 
     analyzer = Analyzer(config)
@@ -72,7 +71,6 @@ def test_plugin_analysis():
             save_format="json",
         ),
         analyzers=[length_analyzer],
-        verbose=True,
     )
 
     analyzer = Analyzer(config)

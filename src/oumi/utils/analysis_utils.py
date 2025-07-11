@@ -130,16 +130,13 @@ def load_dataset_from_config(config: AnalyzerConfig) -> BaseMapDataset:
         raise
 
 
-def save_results(
-    results: dict[str, Any], output_path: str, save_format: str, verbose: bool = False
-):
+def save_results(results: dict[str, Any], output_path: str, save_format: str):
     """Save analysis results to file based on the specified format.
 
     Args:
         results: Analysis results dictionary to save
         output_path: Path where to save the results
         save_format: Format to save the results (json, yaml)
-        verbose: Whether to log save operations
     """
     # Create output directory if it doesn't exist
     output_file = Path(output_path)
@@ -154,34 +151,30 @@ def save_results(
     else:
         raise ValueError(f"Unsupported save format: {save_format}")
 
-    if verbose:
-        logger.info(f"Results saved to: {output_file}")
+    logger.info(f"Results saved to: {output_file}")
 
 
 def compute_sample_level_analysis(
     dataset: BaseMapDataset, config: AnalyzerConfig, analyzers: dict
 ) -> dict[str, Any]:
     """Perform per-sample (message) level analysis using plugin analyzers."""
-    verbose = config.verbose
     total_conversations = len(dataset)
 
     # Apply conversation limit if specified
     max_conversations = config.input.max_conversations
     if max_conversations is not None and max_conversations > 0:
         conversations_to_analyze = min(total_conversations, max_conversations)
-        if verbose:
-            logger.info(
-                f"Limiting analysis to first {max_conversations} "
-                f"conversations (dataset has {total_conversations} total)"
-            )
+        logger.info(
+            f"Limiting analysis to first {max_conversations} "
+            f"conversations (dataset has {total_conversations} total)"
+        )
     else:
         conversations_to_analyze = total_conversations
 
-    if verbose:
-        logger.info(
-            "Analyzing %d conversations for sample-level metrics",
-            conversations_to_analyze,
-        )
+    logger.info(
+        "Analyzing %d conversations for sample-level metrics",
+        conversations_to_analyze,
+    )
 
     # Collect all messages with their metadata
     messages_data = []

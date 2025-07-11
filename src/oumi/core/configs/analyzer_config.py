@@ -106,9 +106,6 @@ class AnalyzerConfig(BaseConfig):
     analyzers: list[AnalyzerPluginConfig] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
-    verbose: bool = False
-    """Whether to enable verbose output during analysis."""
-
     def __post_init__(self):
         """Validates the configuration parameters."""
         # Validate input configuration

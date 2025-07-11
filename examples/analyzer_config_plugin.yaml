@@ -1,7 +1,5 @@
 # Analyzer Configuration
 # This configuration demonstrates the plugin-style analysis system
-# Additional Analysis Parameters
-verbose: true
 
 # Input Configuration
 input:
