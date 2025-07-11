@@ -5,7 +5,6 @@ from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import (
     AnalyzerConfig,
     AnalyzerPluginConfig,
-    DatasetSchema,
     InputConfig,
     OutputConfig,
 )
@@ -23,7 +22,6 @@ def test_basic_functionality():
             name="tatsu-lab/alpaca",
             split="train",
             max_conversations=5,  # Small subset for testing
-            schema=DatasetSchema(type="conversation"),
         ),
     )
 
@@ -63,7 +61,6 @@ def test_plugin_analysis():
             name="tatsu-lab/alpaca",
             split="train",
             max_conversations=3,  # Very small subset for quick testing
-            schema=DatasetSchema(type="conversation"),
         ),
         outputs=OutputConfig(
             path="./test_results",

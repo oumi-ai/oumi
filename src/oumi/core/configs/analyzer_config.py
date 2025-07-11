@@ -21,14 +21,6 @@ from oumi.core.configs.base_config import BaseConfig
 
 
 @dataclass
-class DatasetSchema:
-    """Schema configuration for dataset structure."""
-
-    type: str = "conversation"
-    """Type of dataset structure. Currently only supports 'conversation'."""
-
-
-@dataclass
 class InputConfig:
     """Input configuration for dataset loading."""
 
@@ -52,9 +44,6 @@ class InputConfig:
     If set to a positive integer, only analyzes the first N conversations.
     Useful for large datasets where you want to sample a subset for analysis.
     """
-
-    schema: DatasetSchema = field(default_factory=DatasetSchema)
-    """Schema configuration for dataset structure."""
 
 
 @dataclass

@@ -91,7 +91,6 @@ Note:
 from oumi.core.configs.analyzer_config import (
     AnalyzerConfig,
     AnalyzerPluginConfig,
-    DatasetSchema,
     InputConfig,
     OutputConfig,
 )
@@ -194,7 +193,6 @@ __all__ = [
     "SchedulerType",
     "ShardingStrategy",
     "StateDictType",
-    "DatasetSchema",
     "InputConfig",
     "OutputConfig",
     "StorageMount",

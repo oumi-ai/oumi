@@ -6,8 +6,7 @@ input:
   name: "huggingfaceh4/ultrachat_200k"  # Dataset name
   split: "train_sft"  # Dataset split
   max_conversations: 1000  # Limit to first 1000 conversations (optional)
-  schema:
-    type: "conversation"  # Dataset schema type
+  # schema: type: "conversation"  # Dataset schema type (removed)
 
 # Output Configuration
 outputs:
