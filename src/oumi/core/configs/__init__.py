@@ -12,48 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Configuration classes for Oumi.
-
-This module provides configuration classes for various Oumi components:
-
-Training Configuration
-- :class:`~oumi.core.configs.training_config.TrainingConfig`
-
-Model Configuration
-- :class:`~oumi.core.configs.model_config.ModelConfig`
-
-Evaluation Configuration
-- :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
-
-Inference Configuration
-- :class:`~oumi.core.configs.inference_config.InferenceConfig`
-
-Analysis Configuration
-- :class:`~oumi.core.configs.analyze_config.DatasetAnalyzeConfig`
-- :class:`~oumi.core.configs.analyze_config.InputConfig`
-- :class:`~oumi.core.configs.analyze_config.OutputConfig`
-- :class:`~oumi.core.configs.analyze_config.SampleLevelMetrics`
-- :class:`~oumi.core.configs.analyze_config.AggregationMetrics`
-- :class:`~oumi.core.configs.analyze_config.LanguageDetectionConfig`
-- :class:`~oumi.core.configs.analyze_config.LengthMetricsConfig`
-- :class:`~oumi.core.configs.analyze_config.SafetyMetricsConfig`
-
-Job Configuration
-- :class:`~oumi.core.configs.job_config.JobConfig`
-
-Launcher Configuration
-- :class:`~oumi.core.configs.launcher_config.LauncherConfig`
-"""
+"""Configuration classes for Oumi."""
 
 from oumi.core.configs.analyze_config import (
     DatasetAnalyzeConfig,
-    InputConfig,
-    OutputConfig,
     SampleAnalyzeConfig,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
-from oumi.core.configs.evaluation_config import EvaluationConfig
+from oumi.core.configs.evaluation_config import (
+    EvaluationConfig,
+    EvaluationTaskParams,
+)
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
@@ -75,8 +45,10 @@ from oumi.core.configs.params.data_params import (
 from oumi.core.configs.params.evaluation_params import (
     AlpacaEvalTaskParams,
     EvaluationBackend,
-    EvaluationTaskParams,
     LMHarnessTaskParams,
+)
+from oumi.core.configs.params.evaluation_params import (
+    EvaluationTaskParams as EvaluationTaskParamsV2,
 )
 from oumi.core.configs.params.fsdp_params import (
     AutoWrapPolicy,
@@ -100,6 +72,9 @@ from oumi.core.configs.params.peft_params import (
 )
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.synthesis_params import (
+    DatasetSource,
+)
 from oumi.core.configs.params.telemetry_params import TelemetryParams
 from oumi.core.configs.params.training_params import (
     MixedPrecisionDtype,
@@ -110,51 +85,67 @@ from oumi.core.configs.params.training_params import (
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
-    "AlpacaEvalTaskParams",
-    "DatasetAnalyzeConfig",
-    "SampleAnalyzeConfig",
-    "AsyncEvaluationConfig",
-    "AutoWrapPolicy",
-    "BackwardPrefetch",
+    # Base config
     "BaseConfig",
+    # Training configs
+    "TrainingConfig",
+    "TrainingParams",
+    "TrainerType",
+    "MixedPrecisionDtype",
+    # Data configs
     "DataParams",
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
-    "EvaluationTaskParams",
-    "EvaluationConfig",
-    "EvaluationBackend",
+    "MixtureStrategy",
+    # Model configs
+    "ModelParams",
+    # PEFT configs
+    "PeftParams",
+    "LoraWeightInitialization",
+    "PeftSaveMode",
+    # FSDP configs
     "FSDPParams",
-    "GenerationParams",
-    "GrpoParams",
-    "GuidedDecodingParams",
+    "AutoWrapPolicy",
+    "BackwardPrefetch",
+    "ShardingStrategy",
+    "StateDictType",
+    # Analysis configs
+    "DatasetAnalyzeConfig",
+    "SampleAnalyzeConfig",
+    # Evaluation configs
+    "EvaluationConfig",
+    "EvaluationTaskParams",
+    "AlpacaEvalTaskParams",
+    "EvaluationBackend",
+    "EvaluationTaskParamsV2",
+    "LMHarnessTaskParams",
+    # Inference configs
     "InferenceConfig",
-    "InferenceEngineType",
+    # Job configs
     "JobConfig",
     "JobResources",
+    "StorageMount",
+    # Judge configs
     "JudgeAttribute",
     "JudgeAttributeValueType",
     "JudgeConfig",
     "JudgeConfigV2",
     "JudgeOutputType",
     "JudgeResponseFormat",
-    "LMHarnessTaskParams",
-    "LoraWeightInitialization",
-    "MixedPrecisionDtype",
-    "MixtureStrategy",
-    "ModelParams",
-    "PeftParams",
-    "PeftSaveMode",
+    # Launcher config
+    # Synthesis configs
+    "DatasetSource",
+    # Profiler, remote, telemetry, generation, grpo, guided decoding
     "ProfilerParams",
     "RemoteParams",
-    "SchedulerType",
-    "ShardingStrategy",
-    "StateDictType",
-    "InputConfig",
-    "OutputConfig",
-    "StorageMount",
     "TelemetryParams",
-    "TrainerType",
-    "TrainingConfig",
-    "TrainingParams",
+    "GenerationParams",
+    "GrpoParams",
+    "GuidedDecodingParams",
+    "SchedulerType",
+    # Inference engine type
+    "InferenceEngineType",
+    # Async evaluation config
+    "AsyncEvaluationConfig",
 ]

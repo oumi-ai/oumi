@@ -97,25 +97,39 @@ def generate_filename(prefix: str, save_format: str) -> str:
 def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
     """Load dataset based on configuration.
 
-    Currently only supports datasets registered in the REGISTRY.
-    TODO: Add support for loading datasets from HuggingFace Hub.
-    TODO: Add support for loading custom datasets from local file paths.
+    This function loads datasets directly from the registry for analysis purposes,
+    avoiding the need for tokenizers and other training infrastructure.
     """
-    input_config = config.input
-    dataset_name = input_config.name
+    from oumi.core.registry import REGISTRY
+
+    dataset_name = config.dataset_name
+    split = config.split
 
     if not dataset_name:
         raise ValueError("Dataset name is required")
 
     try:
         # Load dataset from the REGISTRY
-        from oumi.core.registry import REGISTRY
-
-        dataset_class = REGISTRY.get_dataset(dataset_name)
+        dataset_class = REGISTRY.get_dataset(dataset_name, subset=None)
 
         if dataset_class is not None:
-            # Load registered dataset
-            return dataset_class(split=input_config.split)
+            # Load registered dataset with basic parameters
+            dataset = dataset_class(
+                dataset_name=dataset_name,
+                dataset_path=None,
+                split=split,
+                subset=None,
+                trust_remote_code=False,
+            )
+
+            # Ensure we return a BaseMapDataset
+            if isinstance(dataset, BaseMapDataset):
+                return dataset
+            else:
+                raise NotImplementedError(
+                    f"Dataset type {type(dataset)} is not supported for analysis. "
+                    "Please use a dataset that inherits from BaseMapDataset."
+                )
         else:
             # TODO: Implement HuggingFace Hub loading
             raise NotImplementedError(
@@ -159,7 +173,8 @@ def compute_sample_level_analysis(
     total_conversations = len(dataset)
 
     # Apply conversation limit if specified
-    max_conversations = config.input.max_conversations
+    max_conversations = config.sample_count
+
     if max_conversations is not None and max_conversations > 0:
         conversations_to_analyze = min(total_conversations, max_conversations)
         logger.info(
@@ -222,8 +237,11 @@ def compute_sample_level_analysis(
 
             messages_data.append(message_data)
 
+    # Get dataset name from the config
+    dataset_name = config.dataset_name
+
     sample_results = {
-        "dataset_name": config.input.name,
+        "dataset_name": dataset_name,
         "total_conversations": total_conversations,
         "conversations_analyzed": conversations_to_analyze,
         "total_messages": len(messages_data),

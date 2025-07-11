@@ -21,43 +21,6 @@ from oumi.core.configs.base_config import BaseConfig
 
 
 @dataclass
-class InputConfig:
-    """Input configuration for dataset loading."""
-
-    name: str = MISSING
-    """Dataset name (required).
-
-    This field is used to retrieve the appropriate class from the dataset registry
-    that can be used to instantiate and preprocess the data.
-
-    If the dataset is registered in Oumi's registry, it will be loaded from there.
-    Otherwise, it will be automatically loaded from HuggingFace Hub.
-    """
-
-    split: str = "train"
-    """Dataset split to use (e.g., 'train', 'test', 'validation')."""
-
-    max_conversations: Optional[int] = None
-    """Maximum number of conversations to analyze.
-
-    If None, analyzes all conversations in the dataset.
-    If set to a positive integer, only analyzes the first N conversations.
-    Useful for large datasets where you want to sample a subset for analysis.
-    """
-
-
-@dataclass
-class OutputConfig:
-    """Output configuration for analysis results."""
-
-    path: str = "."
-    """Directory path where output files will be saved.
-
-    Defaults to current directory ('.').
-    """
-
-
-@dataclass
 class SampleAnalyzeConfig:
     """Configuration for a single sample analyzer plugin."""
 
@@ -75,20 +38,43 @@ class SampleAnalyzeConfig:
 class DatasetAnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
 
-    input: InputConfig = field(default_factory=InputConfig)
-    """Input configuration for dataset sources."""
+    # Simple fields for common use cases
+    dataset_name: Optional[str] = None
+    """Dataset name for simple single-dataset analysis.
 
-    outputs: OutputConfig = field(default_factory=OutputConfig)
-    """Output configuration for analysis results."""
+    If provided, will create a simple DataParams configuration automatically.
+    Ignored if 'data' is explicitly provided.
+    """
+
+    split: str = "train"
+    """Dataset split to use for analysis (e.g., 'train', 'test', 'validation').
+
+    Used when dataset_name is provided, or applied to datasets in 'data' if not
+    explicitly set in individual datasets.
+    """
+
+    sample_count: Optional[int] = None
+    """Maximum number of conversations to analyze.
+
+    If None, analyzes all conversations in the dataset.
+    If set to a positive integer, only analyzes the first N conversations.
+    Used when dataset_name is provided, or applied to datasets in 'data' if not
+    explicitly set in individual datasets.
+    """
+
+    output_path: str = "."
+    """Directory path where output files will be saved.
+
+    Defaults to current directory ('.').
+    """
 
     analyzers: list[SampleAnalyzeConfig] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
     def __post_init__(self):
         """Validates the configuration parameters."""
-        # Validate input configuration
-        if not self.input.name:
-            raise ValueError("input.name is required")
+        if not self.dataset_name:
+            raise ValueError("'dataset_name' must be provided")
 
         # Validate analyzer configurations
         for analyzer in self.analyzers:

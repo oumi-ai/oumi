@@ -4,25 +4,22 @@
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import (
     DatasetAnalyzeConfig,
-    InputConfig,
-    OutputConfig,
     SampleAnalyzeConfig,
 )
 
 
 def test_basic_functionality():
-    """Test basic analyzer functionality."""
+    """Test basic analyzer functionality with simple configuration."""
     print("=" * 50)
-    print("Testing Basic Analyzer Functionality")
+    print("Testing Basic Analyzer Functionality (Simple)")
     print("=" * 50)
 
-    # Create basic configuration
+    # Create basic configuration using simple fields
     config = DatasetAnalyzeConfig(
-        input=InputConfig(
-            name="tatsu-lab/alpaca",
-            split="train",
-            max_conversations=5,  # Small subset for testing
-        ),
+        dataset_name="tatsu-lab/alpaca",
+        split="train",
+        sample_count=5,  # Limit analysis to 5 conversations
+        output_path="./test_results",
     )
 
     analyzer = DatasetAnalyzer(config)
@@ -35,6 +32,32 @@ def test_basic_functionality():
     print(f"Conversation 0 length: {len(conversation.messages)} messages")
 
     print("✅ Basic functionality test completed")
+
+
+def test_advanced_functionality():
+    """Test advanced analyzer functionality with direct fields."""
+    print("\n" + "=" * 50)
+    print("Testing Advanced Analyzer Functionality (Direct Fields)")
+    print("=" * 50)
+
+    # Create configuration using direct fields
+    config = DatasetAnalyzeConfig(
+        dataset_name="tatsu-lab/alpaca",
+        split="train",
+        sample_count=3,
+        output_path="./test_results",
+    )
+
+    analyzer = DatasetAnalyzer(config)
+
+    # Test dataset access
+    print(f"Dataset size: {len(analyzer.dataset)} conversations")
+
+    # Test conversation access
+    conversation = analyzer.dataset.conversation(0)
+    print(f"Conversation 0 length: {len(conversation.messages)} messages")
+
+    print("✅ Advanced functionality test completed")
 
 
 def test_plugin_analysis():
@@ -55,16 +78,12 @@ def test_plugin_analysis():
         },
     )
 
-    # Create configuration
+    # Create configuration using simple fields
     config = DatasetAnalyzeConfig(
-        input=InputConfig(
-            name="tatsu-lab/alpaca",
-            split="train",
-            max_conversations=3,  # Very small subset for quick testing
-        ),
-        outputs=OutputConfig(
-            path="./test_results",
-        ),
+        dataset_name="tatsu-lab/alpaca",
+        split="train",
+        sample_count=3,  # Limit analysis to 3 conversations
+        output_path="./test_results",
         analyzers=[length_analyzer],
     )
 
@@ -99,6 +118,7 @@ def test_plugin_analysis():
 
 if __name__ == "__main__":
     test_basic_functionality()
+    test_advanced_functionality()
     test_plugin_analysis()
 
     print("\n" + "=" * 50)

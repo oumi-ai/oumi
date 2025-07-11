@@ -35,8 +35,9 @@ class DatasetAnalyzer:
             config: DatasetAnalyzeConfig object containing all analysis parameters
         """
         self.config = config
-        self.dataset_name = config.input.name
-        self.split = config.input.split
+        self.dataset_name = config.dataset_name
+        self.split = config.split
+
         self.dataset = load_dataset_from_config(config)
         self.text_analyzers = self._initialize_sample_analyzers()
 
@@ -82,7 +83,10 @@ class DatasetAnalyzer:
         )
 
         total_conversations = len(self.dataset)
-        max_conversations = self.config.input.max_conversations
+
+        # Get max conversations from the config's sample_count
+        max_conversations = self.config.sample_count
+
         conversations_to_analyze = (
             min(total_conversations, max_conversations)
             if max_conversations
@@ -100,7 +104,7 @@ class DatasetAnalyzer:
 
         # Save sample-level results
         output_filename = "sample_level_results.json"
-        output_path = Path(self.config.outputs.path) / output_filename
+        output_path = Path(self.config.output_path) / output_filename
         save_results(
             sample_results,
             str(output_path),
