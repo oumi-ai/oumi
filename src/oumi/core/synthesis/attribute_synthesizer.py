@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 
+from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
+    GeneratedAttributePostprocessingParams,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
+from oumi.infer import get_engine
+from oumi.utils.logging import logger
 from oumi.utils.placeholders import resolve_placeholders
 
 
@@ -27,9 +32,14 @@ class AttributeSynthesizer:
 
     Args:
         params: The parameters for the attribute synthesizer.
+        inference_config: The configuration for the inference engine.
     """
 
-    def __init__(self, params: GeneralSynthesisParams):
+    def __init__(
+        self,
+        params: GeneralSynthesisParams,
+        inference_config: InferenceConfig,
+    ):
         """Initialize the synthesizer."""
         self._params = params
         self._formatter = AttributeFormatter(params)
@@ -49,12 +59,59 @@ class AttributeSynthesizer:
                 )
             )
 
-        # TODO: Run inference
+        inference_results = self._inference_engine.infer(inference_conversations)
 
-        # TODO: Post-process inference results
+        original_responses = self._extract_response(inference_results)
+        if not generated_attribute.postprocessing_params:
+            records = [
+                {generated_attribute.id: unpostprocessed_response}
+                for unpostprocessed_response in original_responses
+            ]
+            return records
 
-        # TODO: Return inference results
-        return inference_conversations
+        keep_original = (
+            generated_attribute.postprocessing_params.keep_original_text_attribute
+        )
+        if keep_original:
+            records = [
+                {generated_attribute.id: unpostprocessed_response}
+                for unpostprocessed_response in original_responses
+            ]
+        else:
+            records = [{} for _ in original_responses]
+
+        for i in range(len(original_responses)):
+            new_id = generated_attribute.postprocessing_params.id
+            original_response = original_responses[i]
+            new_response = original_response
+            try:
+                new_response = self._postprocess_sample(
+                    original_response, generated_attribute.postprocessing_params
+                )
+            except ValueError as e:
+                logger.warning(
+                    f"Error postprocessing inference result: {e}. Leaving as-is and "
+                    "skipping."
+                )
+            finally:
+                records[i][new_id] = new_response
+
+        return records
+
+    def _extract_response(
+        self,
+        inference_conversations: list[Conversation],
+    ) -> list[str]:
+        """Get the inference results from the inference conversations.
+
+        If the inference result is not a string, an empty string will be returned.
+        """
+        return [
+            inference_result.messages[-1].content
+            if isinstance(inference_result.messages[-1].content, str)
+            else ""
+            for inference_result in inference_conversations
+        ]
 
     def _format_instructions(
         self,
