@@ -39,7 +39,7 @@ class DatasetAnalyzer:
         self.split = config.split
 
         self.dataset = load_dataset_from_config(config)
-        self.text_analyzers = self._initialize_sample_analyzers()
+        self.sample_analyzers = self._initialize_sample_analyzers()
 
     def _initialize_sample_analyzers(self):
         """Initialize sample analyzer plugins from configuration."""
@@ -78,8 +78,8 @@ class DatasetAnalyzer:
         """
         logger.info(f"Starting analysis of dataset: {self.dataset_name}")
         logger.info(
-            f"Using {len(self.text_analyzers)} sample analyzers: "
-            f"{list(self.text_analyzers.keys())}"
+            f"Using {len(self.sample_analyzers)} sample analyzers: "
+            f"{list(self.sample_analyzers.keys())}"
         )
 
         total_conversations = len(self.dataset)
@@ -99,7 +99,7 @@ class DatasetAnalyzer:
         logger.info("Step 1: Computing per-sample (message) level analysis...")
 
         sample_results = compute_sample_level_analysis(
-            self.dataset, self.config, self.text_analyzers
+            self.dataset, self.config, self.sample_analyzers
         )
 
         # Save sample-level results
