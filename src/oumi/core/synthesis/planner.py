@@ -18,11 +18,13 @@ from typing import Optional
 from oumi.core.configs.params.synthesis_params import (
     AttributeCombination,
     DatasetSource,
+    DocumentSource,
     ExampleSource,
     GeneralSynthesisParams,
     PermutableAttribute,
 )
 from oumi.core.synthesis.dataset_ingestion import DatasetReader
+from oumi.core.synthesis.document_ingestion import DocumentReader, DocumentSegmenter
 
 
 class DatasetPlanner:
@@ -37,10 +39,14 @@ class DatasetPlanner:
         representing a sample of the dataset with a particular attribute value for
         each attribute.
 
+        - Example sources are used to populate the dataset plan with a set of examples
+          for specific attributes, with each example being used round-robin.
+        - Document sources are used to populate the dataset plan with documents and/or
+          document segments, each sample of a document source being used round-robin.
         - Dataset sources are used to populate the dataset plan with values for the
           attributes, with each sample of a dataset source being used round-robin.
         - Permutable attributes have their values sampled from a distribution.
-        - Combination sampling overrides the distribution for particular attribute value
+        - Combination sampling overrides the distribution for particular attribute-value
           combinations.
 
         The final list of dictionaries will be used to create a dataset.
@@ -62,6 +68,10 @@ class DatasetPlanner:
 
         dataset_sample_sets = self._ingest_dataset_sources(synthesis_params.input_data)
 
+        document_sample_sets = self._ingest_document_sources(
+            synthesis_params.input_documents
+        )
+
         permutable_attribute_samples = self._plan_permutable_attributes(
             synthesis_params.permutable_attributes,
             synthesis_params.combination_sampling,
@@ -73,6 +83,7 @@ class DatasetPlanner:
             permutable_attribute_samples,
             example_sample_sets,
             dataset_sample_sets,
+            document_sample_sets,
         )
 
     def _create_dataset_plan(
@@ -81,6 +92,7 @@ class DatasetPlanner:
         permutable_attribute_samples: list[dict],
         example_sample_sets: list[list[dict]],
         dataset_sample_sets: list[list[dict]],
+        document_sample_sets: list[list[dict]],
     ) -> list[dict]:
         """Create the final dataset plan."""
         samples = []
@@ -93,6 +105,10 @@ class DatasetPlanner:
             for dataset in dataset_sample_sets:
                 index = i % len(dataset)
                 sample.update(dataset[index])
+
+            for document_set in document_sample_sets:
+                index = i % len(document_set)
+                sample.update(document_set[index])
 
             samples.append(sample)
 
@@ -111,7 +127,7 @@ class DatasetPlanner:
         self,
         example_sources: Optional[list[ExampleSource]],
     ) -> list[list[dict]]:
-        """Ingest the example sources."""
+        """Read examples from the example sources."""
         if example_sources is None or len(example_sources) == 0:
             return []
 
@@ -122,12 +138,43 @@ class DatasetPlanner:
         self,
         dataset_sources: Optional[list[DatasetSource]],
     ) -> list[list[dict]]:
-        """Ingest the dataset sources."""
+        """Read in datasets from the dataset sources."""
         if dataset_sources is None or len(dataset_sources) == 0:
             return []
 
         data_reader = DatasetReader()
         return [data_reader.read(dataset_source) for dataset_source in dataset_sources]
+
+    def _ingest_document_sources(
+        self,
+        document_sources: Optional[list[DocumentSource]],
+    ) -> list[list[dict]]:
+        """Read documents from the document sources and segment them if necessary."""
+        if not document_sources:
+            return []
+
+        document_reader = DocumentReader()
+        per_source_records = []
+        for document_source in document_sources:
+            records = []
+            path = document_source.path
+            documents = document_reader.read(path)
+            if document_source.segmentation_params is None:
+                for document in documents:
+                    records.append({document_source.id: document})
+            else:
+                segmenter = DocumentSegmenter(document_source.segmentation_params)
+                for document in documents:
+                    segments = segmenter.segment(document)
+                    for segment in segments:
+                        record = {document_source.segmentation_params.id: segment}
+                        if document_source.segmentation_params.keep_original_text:
+                            record[document_source.id] = document
+                        records.append(record)
+
+            per_source_records.append(records)
+
+        return per_source_records
 
     def _plan_permutable_attributes(
         self,
