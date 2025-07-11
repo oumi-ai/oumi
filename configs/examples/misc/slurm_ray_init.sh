@@ -40,6 +40,9 @@ srun --nodes=1 --ntasks=1 -w "$head_node" \
     --num-cpus "$SLURM_CPUS_PER_TASK" --num-gpus "$SLURM_GPUS_ON_NODE" \
     --block &
 
+# Ray claims this is optional for Ray >= 1.0.
+# However, for single-node jobs without this, they seem to try
+# to connect to the cluster before it's up and fail.
 sleep 10
 
 # number of nodes other than the head node
