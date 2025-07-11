@@ -1,4 +1,4 @@
-# VERL GRPO training config for Countdown.
+# verl GRPO training config for Countdown.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`

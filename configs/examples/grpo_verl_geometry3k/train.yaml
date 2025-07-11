@@ -1,4 +1,4 @@
-# VERL GRPO VLM training config on Geometry3K dataset.
+# verl GRPO VLM training config on Geometry3K dataset.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
