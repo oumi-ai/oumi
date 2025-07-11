@@ -1,0 +1,58 @@
+# Slurm job config to FSDP full fine-tune Llama 3.1 8B Instruct.
+#
+# Requirements:
+#   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#   - Log into HF: `huggingface-cli login`
+#   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+#
+# Usage:
+#   oumi launch up -c configs/recipes/llama3_1/sft/8b_full/slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: llama8b-sft
+num_nodes: 1
+
+resources:
+  cloud: slurm
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+
+setup: |
+  #SBATCH --ntasks-per-node=4
+  #SBATCH --cpus-per-task=32
+  #SBATCH --gpus-per-task=1
+  #SBATCH --mem-per-gpu=64G
+  #SBATCH --time=02:00:00
+  # Num nodes is set by num_nodes field above.
+
+  set -e
+
+  # source ./configs/examples/misc/slurm_init.sh
+
+  source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]' hf_transfer
+
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Llama-3.1-8B-Instruct --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c configs/recipes/llama3_1/sft/8b_full/train.yaml
