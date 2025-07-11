@@ -713,7 +713,9 @@ class Trainer(BaseTrainer):
                 # Log config as a formatted text to tensorboard
                 config_text = "\n".join([f"{k}: {v}" for k, v in config_dict.items()])
                 self.tensorboard_writer.add_text(
-                    "config/training_config", config_text, 0
+                    tag="config/training_config",
+                    text_string=config_text,
+                    global_step=self.state.global_step,
                 )
             except Exception as e:
                 self.log(f"Failed to log config to TensorBoard: {e}")

@@ -73,6 +73,21 @@ def flatten_config(
         prefix: The prefix to prepend to keys
         separator: The separator to use between nested keys
 
+    Examples:
+        >>> config = TrainingConfig(
+        >>>     model=ModelParams(
+        >>>         model_name="gpt2",
+        >>>     ),
+        >>>     training=TrainingParams(
+        >>>         batch_size=16,
+        >>>     ),
+        >>> )
+        >>> flatten_config(config)
+        {
+            "model.model_name": "gpt2",
+            "training.batch_size": 16,
+        }
+
     Returns:
         A flattened dictionary with string keys
     """
