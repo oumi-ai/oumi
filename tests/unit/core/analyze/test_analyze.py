@@ -8,32 +8,6 @@ from oumi.core.configs import (
 )
 
 
-def test_basic_functionality():
-    """Test basic analyzer functionality with simple configuration."""
-    print("=" * 50)
-    print("Testing Basic Analyzer Functionality")
-    print("=" * 50)
-
-    # Create basic configuration
-    config = DatasetAnalyzeConfig(
-        dataset_name="tatsu-lab/alpaca",
-        split="train",
-        sample_count=5,  # Limit analysis to 5 conversations
-        output_path="./test_results",
-    )
-
-    analyzer = DatasetAnalyzer(config)
-
-    # Test dataset access
-    print(f"Dataset size: {len(analyzer.dataset)} conversations")
-
-    # Test conversation access
-    conversation = analyzer.dataset.conversation(0)
-    print(f"Conversation 0 length: {len(conversation.messages)} messages")
-
-    print("✅ Basic functionality test completed")
-
-
 def test_sample_analysis():
     """Test sample-level analysis with length analyzer."""
     print("\n" + "=" * 50)
@@ -87,12 +61,64 @@ def test_sample_analysis():
             print(f"  Words: {first_message.get('length_word_count', 'N/A')}")
             print(f"  Sentences: {first_message.get('length_sentence_count', 'N/A')}")
 
-    print("✅ Plugin analysis test completed")
+    print("✅ Sample analysis test completed")
+
+
+def test_yaml_config_loading():
+    """Test loading analyzer configuration from YAML string (in-memory)."""
+    print("\n" + "=" * 50)
+    print("Testing YAML Config Loading (In-Memory)")
+    print("=" * 50)
+
+    # Define YAML configuration as a string
+    yaml_string = """
+    dataset_name: "tatsu-lab/alpaca"
+    split: "train"
+    sample_count: 3
+    output_path: "./analysis_results"
+    analyzers:
+      - id: "length"
+        enabled: true
+        config:
+          char_count: true
+          word_count: true
+          sentence_count: true
+          token_count: false
+    """
+
+    # Load configuration from YAML string
+    config = DatasetAnalyzeConfig.from_str(yaml_string)
+
+    # Verify configuration was loaded correctly
+    print(f"Loaded dataset: {config.dataset_name}")
+    print(f"Split: {config.split}")
+    print(f"Sample count: {config.sample_count}")
+    print(f"Output path: {config.output_path}")
+    print(f"Number of analyzers: {len(config.analyzers)}")
+
+    # Verify analyzer configuration
+    if config.analyzers:
+        analyzer = config.analyzers[0]
+        print(f"Analyzer ID: {analyzer.id}")
+        print(f"Analyzer enabled: {analyzer.enabled}")
+        print(f"Analyzer config: {analyzer.config}")
+
+    # Test that the configuration works with the analyzer
+    analyzer = DatasetAnalyzer(config)
+
+    # Test dataset access
+    print(f"Dataset size: {len(analyzer.dataset)} conversations")
+
+    # Test conversation access
+    conversation = analyzer.dataset.conversation(0)
+    print(f"Conversation 0 length: {len(conversation.messages)} messages")
+
+    print("✅ YAML config loading (in-memory) test completed")
 
 
 if __name__ == "__main__":
-    test_basic_functionality()
     test_sample_analysis()
+    test_yaml_config_loading()
 
     print("\n" + "=" * 50)
     print("All tests completed successfully!")
