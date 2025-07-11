@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Base classes for analyzer plugins."""
+"""Base classes for sample analyzer plugins."""
 
 from abc import ABC, abstractmethod
 from typing import Any, Union
 
 
-class BaseAnalyzer(ABC):
-    """Base class for all analyzer plugins."""
+class SampleAnalyzer(ABC):
+    """Base class for sample analyzer plugins that analyze individual samples."""
 
     def __init__(self, config: dict[str, Any]):
-        """Initialize the analyzer with configuration.
+        """Initialize the sample analyzer with configuration.
 
         Args:
             config: Configuration dictionary for the analyzer
@@ -46,51 +46,53 @@ class BaseAnalyzer(ABC):
 
 
 class AnalyzerRegistry:
-    """Registry for analyzer plugins."""
+    """Registry for sample analyzer plugins."""
 
-    _analyzers: dict[str, type[BaseAnalyzer]] = {}
+    _analyzers: dict[str, type[SampleAnalyzer]] = {}
 
     @classmethod
-    def register(cls, analyzer_id: str, analyzer_class: type[BaseAnalyzer]) -> None:
-        """Register an analyzer class.
+    def register(cls, analyzer_id: str, analyzer_class: type[SampleAnalyzer]) -> None:
+        """Register a sample analyzer class.
 
         Args:
             analyzer_id: Unique identifier for the analyzer
-            analyzer_class: The analyzer class to register
+            analyzer_class: The sample analyzer class to register
         """
         cls._analyzers[analyzer_id] = analyzer_class
 
     @classmethod
-    def get_analyzer(cls, analyzer_id: str) -> Union[type[BaseAnalyzer], None]:
-        """Get an analyzer class by ID.
+    def get_analyzer(cls, analyzer_id: str) -> Union[type[SampleAnalyzer], None]:
+        """Get a sample analyzer class by ID.
 
         Args:
             analyzer_id: The analyzer ID to look up
 
         Returns:
-            The analyzer class or None if not found
+            The sample analyzer class or None if not found
         """
         return cls._analyzers.get(analyzer_id)
 
     @classmethod
     def list_analyzers(cls) -> list[str]:
-        """List all registered analyzer IDs.
+        """List all registered sample analyzer IDs.
 
         Returns:
-            List of registered analyzer IDs
+            List of registered sample analyzer IDs
         """
         return list(cls._analyzers.keys())
 
     @classmethod
-    def create_analyzer(cls, analyzer_id: str, config: dict[str, Any]) -> BaseAnalyzer:
-        """Create an analyzer instance.
+    def create_analyzer(
+        cls, analyzer_id: str, config: dict[str, Any]
+    ) -> SampleAnalyzer:
+        """Create a sample analyzer instance.
 
         Args:
             analyzer_id: The analyzer ID to create
             config: Configuration for the analyzer
 
         Returns:
-            An instance of the analyzer
+            An instance of the sample analyzer
 
         Raises:
             ValueError: If the analyzer ID is not registered

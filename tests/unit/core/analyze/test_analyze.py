@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Simplified test script for the Plugin-Style Analyzer System."""
 
-from oumi.analyze import Analyzer
+from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import (
     AnalyzerConfig,
     AnalyzerPluginConfig,
@@ -27,7 +27,7 @@ def test_basic_functionality():
         ),
     )
 
-    analyzer = Analyzer(config)
+    analyzer = DatasetAnalyzer(config)
 
     # Test dataset access
     print(f"Dataset size: {analyzer.conv.get_dataset_size()} conversations")
@@ -73,7 +73,7 @@ def test_plugin_analysis():
         analyzers=[length_analyzer],
     )
 
-    analyzer = Analyzer(config)
+    analyzer = DatasetAnalyzer(config)
 
     # Run analysis
     print("Running analysis...")

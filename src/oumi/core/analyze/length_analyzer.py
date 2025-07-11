@@ -3,10 +3,10 @@
 import re
 from typing import Any
 
-from oumi.core.analyzers.base import BaseAnalyzer
+from oumi.core.analyze.text_analyzer import SampleAnalyzer
 
 
-class LengthAnalyzer(BaseAnalyzer):
+class LengthAnalyzer(SampleAnalyzer):
     """Analyzer for length-related metrics."""
 
     def __init__(self, config: dict[str, Any]):
