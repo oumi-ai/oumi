@@ -20,19 +20,6 @@ from pathlib import Path
 from typing import Optional, Union
 
 
-def _should_use_rich_logging() -> bool:
-    """Determines if rich logging should be used based on environment variables.
-
-    Note: Rich logging is experimental, and may be removed in the future.
-        Currently it is disabled by default.
-    """
-    # Check if explicitly disabled
-    if os.environ.get("OUMI_ENABLE_RICH_LOGGING", "").lower() in ("0", "false", "no"):
-        return sys.stdout.isatty()  # is in a terminal
-
-    return False
-
-
 def get_logger(
     name: str,
     level: str = "info",
@@ -120,6 +107,25 @@ def configure_logger(
         logger.addHandler(file_handler)
 
     logger.propagate = False
+
+
+def _should_use_rich_logging() -> bool:
+    """Determines if rich logging should be used based on environment variables.
+
+    Note: Rich logging is experimental, and may be removed in the future.
+        Currently it is disabled by default.
+    """
+    # Check if explicitly disabled
+    if os.environ.get("OUMI_ENABLE_RICH_LOGGING", "").lower() in (
+        "1",
+        "yes",
+        "on",
+        "true",
+        "y",
+    ):
+        return sys.stdout.isatty()  # is in a terminal
+
+    return False
 
 
 def _configure_rich_handler(
