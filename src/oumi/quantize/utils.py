@@ -17,9 +17,8 @@
 from pathlib import Path
 from typing import Optional
 
+from oumi.quantize.constants import MODEL_SIZE_ESTIMATES, SIZE_UNITS
 from oumi.utils.logging import logger
-
-from .constants import MODEL_SIZE_ESTIMATES, SIZE_UNITS
 
 
 def is_valid_hf_model_id(model_id: str) -> bool:
@@ -63,7 +62,7 @@ def get_hf_model_size(model_id: str) -> Optional[int]:
                     try:
                         # Get file info including size
                         file_info = api.repo_info(model_id, files_metadata=True)
-                        for sibling in file_info.siblings:
+                        for sibling in file_info.siblings or []:
                             if (
                                 sibling.rfilename == filename
                                 and hasattr(sibling, "size")
@@ -110,13 +109,13 @@ def format_size(size_bytes: int) -> str:
     for unit in SIZE_UNITS:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024.0
+        size_bytes = int(size_bytes / 1024.0)
     return f"{size_bytes:.1f} PB"
 
 
 def validate_quantization_config(config) -> None:
     """Validate quantization configuration."""
-    from .constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
+    from oumi.quantize.constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
 
     # Validate output format
     if config.output_format not in SUPPORTED_OUTPUT_FORMATS:
@@ -142,7 +141,9 @@ def calculate_compression_ratio(
     return "Unknown"
 
 
-def get_model_size_info(config, original_size: Optional[int] = None) -> dict:
+def get_model_size_info(
+    config, original_size: Optional[int] = None
+) -> tuple[dict[str, str], Optional[int]]:
     """Get model size information for quantization results."""
     model_path = config.model.model_name
 

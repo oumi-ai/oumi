@@ -11,13 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Quantization module for Oumi.
-
-This module provides comprehensive model quantization capabilities including
-AWQ, BitsAndBytes, and GGUF quantization methods.
-"""
-
-from oumi.quantize.main import quantize
-
-__all__ = ["quantize"]

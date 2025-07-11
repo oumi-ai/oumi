@@ -21,9 +21,8 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from oumi.core.configs import QuantizationConfig
+from oumi.quantize.utils import format_size, get_directory_size
 from oumi.utils.logging import logger
-
-from .utils import format_size, get_directory_size
 
 
 def quantize_to_safetensors(config: QuantizationConfig) -> dict[str, Any]:
@@ -162,7 +161,7 @@ def quantize_with_bitsandbytes(config: QuantizationConfig) -> dict[str, Any]:
         model.save_pretrained(output_dir)
         tokenizer.save_pretrained(output_dir)
 
-        quantized_size = get_directory_size(output_dir)
+        quantized_size = get_directory_size(str(output_dir))
         logger.info("✅ BitsAndBytes quantization completed!")
         logger.info(f"📁 Quantized model saved to: {output_dir}")
         logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
@@ -176,13 +175,14 @@ def quantize_with_bitsandbytes(config: QuantizationConfig) -> dict[str, Any]:
     else:
         # For other formats, save as PyTorch and note the limitation
         logger.warning(
-            f"Output format '{config.output_format}' not directly supported with BitsAndBytes. Saving as PyTorch format."
+            f"Output format '{config.output_format}' not directly supported "
+            "with BitsAndBytes. Saving as PyTorch format."
         )
         output_dir = output_path.with_suffix("").with_suffix(".pytorch")
         model.save_pretrained(output_dir)
         tokenizer.save_pretrained(output_dir)
 
-        quantized_size = get_directory_size(output_dir)
+        quantized_size = get_directory_size(str(output_dir))
         logger.info("✅ BitsAndBytes quantization completed!")
         logger.info(f"📁 Quantized model saved to: {output_dir}")
         logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
@@ -196,7 +196,7 @@ def quantize_with_bitsandbytes(config: QuantizationConfig) -> dict[str, Any]:
 
 
 def quantize_awq_fallback_to_pytorch(config: QuantizationConfig) -> dict[str, Any]:
-    """AWQ quantization using BitsAndBytes fallback (for macOS/systems without AutoAWQ)."""
+    """AWQ quantization using BitsAndBytes fallback for systems without AutoAWQ."""
     logger.info("🔧 AWQ FALLBACK MODE: Using BitsAndBytes for real quantization")
     logger.info(f"   Model: {config.model.model_name}")
     logger.info(f"   Method: {config.method} (mapped to BitsAndBytes)")

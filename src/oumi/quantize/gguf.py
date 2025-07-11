@@ -14,7 +14,6 @@
 
 """GGUF quantization and conversion utilities."""
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -24,10 +23,9 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from oumi.core.configs import QuantizationConfig
+from oumi.quantize.constants import GGUF_MAGIC, GGUF_QUANTIZATION_MAP, GGUF_VERSION
+from oumi.quantize.utils import format_size
 from oumi.utils.logging import logger
-
-from .constants import GGUF_MAGIC, GGUF_QUANTIZATION_MAP, GGUF_VERSION
-from .utils import format_size
 
 
 def quantize_to_gguf(config: QuantizationConfig) -> dict[str, Any]:
@@ -121,11 +119,13 @@ def convert_with_llamacpp_python(
         convert_hf_to_gguf_direct(model_path, temp_f16_path)
 
         # Verify the F16 file was created successfully
-        if not os.path.exists(temp_f16_path):
+        temp_f16_file = Path(temp_f16_path)
+        if not temp_f16_file.exists():
             raise RuntimeError(f"F16 GGUF file was not created at {temp_f16_path}")
 
         logger.info(
-            f"F16 GGUF file created successfully: {temp_f16_path} ({os.path.getsize(temp_f16_path)} bytes)"
+            f"F16 GGUF file created successfully: {temp_f16_path} "
+            f"({temp_f16_file.stat().st_size} bytes)"
         )
 
         # Quantize if needed
@@ -150,8 +150,8 @@ def convert_with_llamacpp_python(
                     params.quantize_output_tensor = True
 
                     # Use absolute paths to avoid path issues
-                    temp_f16_abs = os.path.abspath(temp_f16_path)
-                    output_abs = os.path.abspath(output_path)
+                    temp_f16_abs = str(Path(temp_f16_path).resolve())
+                    output_abs = str(Path(output_path).resolve())
 
                     logger.info(f"Quantizing: {temp_f16_abs} -> {output_abs}")
 
@@ -164,8 +164,9 @@ def convert_with_llamacpp_python(
                         raise RuntimeError(f"Quantization failed with code {result}")
 
                     # Clean up temporary f16 file
-                    if os.path.exists(temp_f16_path):
-                        os.remove(temp_f16_path)
+                    temp_f16_file = Path(temp_f16_path)
+                    if temp_f16_file.exists():
+                        temp_f16_file.unlink()
                 else:
                     raise ValueError(f"Unsupported quantization method: {gguf_method}")
 
@@ -218,9 +219,9 @@ def try_llamacpp_conversion_script(model_path: str, output_path: str) -> bool:
         cmd = [
             sys.executable,
             script_path,
-            os.path.abspath(model_path),
+            str(Path(model_path).resolve()),
             "--outfile",
-            os.path.abspath(output_path),
+            str(Path(output_path).resolve()),
             "--outtype",
             "f16",
         ]

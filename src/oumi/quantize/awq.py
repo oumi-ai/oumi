@@ -15,16 +15,15 @@
 """AWQ (Activation-aware Weight Quantization) implementation."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 from oumi.core.configs import QuantizationConfig
+from oumi.quantize.constants import AWQ_DEFAULTS, CHUNK_SIZE, MOCK_MODEL_SIZES
+from oumi.quantize.utils import format_size, get_directory_size
 from oumi.utils.logging import logger
 
-from .constants import AWQ_DEFAULTS, CHUNK_SIZE, MOCK_MODEL_SIZES
-from .utils import format_size, get_directory_size
 
-
-def validate_awq_requirements() -> bool:
+def validate_awq_requirements() -> Union[bool, str]:
     """Check if AWQ dependencies are available.
 
     Returns:
@@ -33,7 +32,6 @@ def validate_awq_requirements() -> bool:
     """
     try:
         import awq
-        from awq import AutoAWQForCausalLM
 
         logger.info(f"AWQ library found: autoawq {awq.__version__}")
 
@@ -56,7 +54,6 @@ def validate_awq_requirements() -> bool:
         try:
             import bitsandbytes
             import torch
-            import transformers
 
             logger.warning(
                 "AutoAWQ not available, but BitsAndBytes found.\n"

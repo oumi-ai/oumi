@@ -17,25 +17,24 @@
 from typing import Any
 
 from oumi.core.configs import QuantizationConfig
-from oumi.utils.logging import logger
-
-from .awq import (
+from oumi.quantize.awq import (
     quantize_awq_to_pytorch,
     simulate_awq_quantization,
     validate_awq_requirements,
 )
-from .bitsandbytes import (
+from oumi.quantize.bitsandbytes import (
     quantize_awq_fallback_to_pytorch,
     quantize_to_pytorch,
     quantize_to_safetensors,
     quantize_with_bitsandbytes,
 )
-from .gguf import quantize_to_gguf
-from .utils import (
+from oumi.quantize.gguf import quantize_to_gguf
+from oumi.quantize.utils import (
     calculate_compression_ratio,
     get_model_size_info,
     validate_quantization_config,
 )
+from oumi.utils.logging import logger
 
 
 def quantize(config: QuantizationConfig) -> dict[str, Any]:
