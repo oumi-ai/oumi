@@ -26,10 +26,8 @@ from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
-_INSTRUCTION = 'Let\'s think step by step and output the final answer after "####".'
 
-
-def extract_solution(solution_str):
+def _extract_solution(solution_str):
     """Extract the solution from the response."""
     solution = re.search("#### (\\-?[0-9\\.\\,]+)", solution_str)
     assert solution is not None
@@ -56,8 +54,11 @@ class Gsm8kGrpoDataset(BaseExperimentalGrpoDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
-        prompt = f"{sample['question']} {_INSTRUCTION}"
-        solution = extract_solution(sample["answer"])
+        instruction = (
+            'Let\'s think step by step and output the final answer after "####".'
+        )
+        prompt = f"{sample['question']} {instruction}"
+        solution = _extract_solution(sample["answer"])
         return {
             "data_source": "gsm8k",
             "prompt": [

@@ -23,13 +23,12 @@ working_dir: .
 envs:
   RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING: 1
   RAY_BACKEND_LOG_LEVEL: debug
-  RAY_DEBUG_POST_MORTEM: 1
 
 setup: |
   #SBATCH --ntasks-per-node=1
   #SBATCH --cpus-per-task=8
   #SBATCH --gpus-per-task=4
-  #SBATCH --mem-per-gpu=128G
+  #SBATCH --mem-per-gpu=32G
   #SBATCH --time=02:00:00
   # Num nodes is set by num_nodes field above.
 

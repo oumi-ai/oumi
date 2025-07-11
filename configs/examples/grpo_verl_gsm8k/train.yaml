@@ -1,8 +1,5 @@
 # verl GRPO training config for GSM8K.
 #
-# Requirements:
-#   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#
 # Usage:
 #   oumi train -c configs/examples/grpo_verl_gsm8k/train.yaml
 #

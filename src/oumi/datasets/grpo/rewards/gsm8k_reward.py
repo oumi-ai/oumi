@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Derived from https://github.com/volcengine/verl/blob/main/verl/utils/reward_score/gsm8k.py.
+
+This file was slightly modified to add additional args to gsm8k_reward.
+"""
+
 import re
 
 from oumi.core.registry import RegistryType, register
 
 
-def extract_solution(solution_str, method="strict"):
+def _extract_solution(solution_str, method="strict"):
     """Extract the solution from the response."""
     assert method in ["strict", "flexible"]
 
@@ -68,7 +73,7 @@ def gsm8k_reward(
         format_score: the score for the format
         score: the score for the correct answer
     """  # noqa: E501
-    answer = extract_solution(solution_str=solution_str, method=method)
+    answer = _extract_solution(solution_str=solution_str, method=method)
     if answer is None:
         return 0
     else:
