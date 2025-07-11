@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import Mock, patch
+
 import pytest
 
+from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
+    GeneratedAttributePostprocessingParams,
     PermutableAttribute,
     PermutableAttributeValue,
 )
@@ -26,6 +30,18 @@ from oumi.core.synthesis.attribute_synthesizer import (
     _AttributeValueInfo,
 )
 from oumi.core.types.conversation import Conversation, Message, Role
+
+
+@pytest.fixture
+def mock_inference_config():
+    """Create a mock inference config."""
+    return Mock(spec=InferenceConfig)
+
+
+@pytest.fixture
+def mock_inference_engine():
+    """Create a mock inference engine."""
+    return Mock()
 
 
 @pytest.fixture
@@ -102,6 +118,35 @@ def mock_generated_attribute():
 
 
 @pytest.fixture
+def mock_generated_attribute_with_postprocessing():
+    """Create mock GeneratedAttribute with postprocessing for testing."""
+    return GeneratedAttribute(
+        id="generated_content",
+        instruction_messages=Conversation(
+            messages=[
+                Message(
+                    role=Role.SYSTEM,
+                    content="You are a helpful assistant.",
+                ),
+                Message(
+                    role=Role.USER,
+                    content="Write a {style.value} paragraph about {topic.value}.",
+                ),
+            ]
+        ),
+        postprocessing_params=GeneratedAttributePostprocessingParams(
+            id="processed_content",
+            keep_original_text_attribute=True,
+            cut_prefix="Response: ",
+            cut_suffix=" [END]",
+            strip_whitespace=True,
+            added_prefix="New: ",
+            added_suffix=" (done)",
+        ),
+    )
+
+
+@pytest.fixture
 def mock_samples():
     """Create mock samples for testing."""
     return [
@@ -153,28 +198,68 @@ def test_attribute_info_str_representation():
     assert str(info) == "test_name"
 
 
-def test_init_with_permutable_attributes(mock_general_synthesis_params):
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_init_with_permutable_attributes(
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
+):
     """Test initialization with permutable attributes."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     assert synthesizer._params == mock_general_synthesis_params
     assert len(synthesizer._permutable_attribute_map) == 2
     assert "style" in synthesizer._permutable_attribute_map
     assert "topic" in synthesizer._permutable_attribute_map
+    mock_get_engine.assert_called_once_with(mock_inference_config)
 
 
-def test_init_without_permutable_attributes():
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_init_without_permutable_attributes(mock_get_engine, mock_inference_config):
     """Test initialization without permutable attributes."""
+    mock_get_engine.return_value = Mock()
+
     params = GeneralSynthesisParams()
-    synthesizer = AttributeSynthesizer(params)
+    synthesizer = AttributeSynthesizer(params, mock_inference_config)
     assert synthesizer._params == params
     assert synthesizer._permutable_attribute_map == {}
+    mock_get_engine.assert_called_once_with(mock_inference_config)
 
 
-def test_synthesize_returns_conversations(
-    mock_general_synthesis_params, mock_generated_attribute
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_synthesize_returns_dict_list(
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
 ):
-    """Test that synthesize returns list of Conversation objects."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    """Test that synthesize returns list of dictionaries."""
+    mock_inference_engine = Mock()
+    mock_get_engine.return_value = mock_inference_engine
+
+    # Mock the inference engine's infer method to return conversations with responses
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ]
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
     # Use samples that have all required fields
     samples = [
         {"style": "formal", "topic": "tech"},
@@ -184,26 +269,95 @@ def test_synthesize_returns_conversations(
 
     assert isinstance(result, list)
     assert len(result) == len(samples)
-    for conversation in result:
-        assert isinstance(conversation, Conversation)
+    for item in result:
+        assert isinstance(item, dict)
+        assert "generated_content" in item
+        assert isinstance(item["generated_content"], str)
+
+    # Verify the inference engine was called
+    mock_inference_engine.infer.assert_called_once()
 
 
-def test_get_permutable_attribute_value_info_invalid_value(
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_synthesize_with_postprocessing(
+    mock_get_engine,
     mock_general_synthesis_params,
+    mock_generated_attribute_with_postprocessing,
+    mock_inference_config,
+):
+    """Test synthesize with postprocessing parameters."""
+    mock_inference_engine = Mock()
+    mock_get_engine.return_value = mock_inference_engine
+
+    # Mock the inference engine's infer method to return conversations with responses
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(
+                    role=Role.ASSISTANT,
+                    content="Response: Here is the formal text [END]",
+                ),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
+    samples = [{"style": "formal", "topic": "tech"}]
+    result = synthesizer.synthesize(
+        samples, mock_generated_attribute_with_postprocessing
+    )
+
+    assert len(result) == 1
+    assert "generated_content" in result[0]
+    assert "processed_content" in result[0]
+
+    # Check that postprocessing was applied
+    processed_content = result[0]["processed_content"]
+    assert processed_content == "New: Here is the formal text (done)"
+
+    # Original content should also be preserved
+    original_content = result[0]["generated_content"]
+    assert original_content == "Response: Here is the formal text [END]"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_get_permutable_attribute_value_info_invalid_value(
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_inference_config,
 ):
     """Test error when getting info for invalid attribute value."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
     with pytest.raises(
-        ValueError, match="Attribute value invalid_value not found for attribute style"
+        ValueError,
+        match="Attribute value invalid_value not found for attribute style",
     ):
         synthesizer._get_permutable_attribute_value_info("style", "invalid_value")
 
 
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
 def test_format_instructions_with_permutable_attributes(
-    mock_general_synthesis_params, mock_generated_attribute
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
 ):
     """Test formatting instructions with permutable attributes."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params,
+        mock_inference_config,
+    )
     sample = {"style": "formal", "topic": "tech"}
 
     result = synthesizer._format_instructions(
@@ -221,11 +375,18 @@ def test_format_instructions_with_permutable_attributes(
     assert "Write a Formal paragraph about Technology." in user_message.content
 
 
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
 def test_format_instructions_with_non_permutable_attributes(
+    mock_get_engine,
     mock_general_synthesis_params,
+    mock_inference_config,
 ):
     """Test formatting instructions with non-permutable attributes."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     sample = {"non_permutable": "some_value"}
 
     instruction_messages = Conversation(
@@ -247,9 +408,16 @@ def test_format_instructions_with_non_permutable_attributes(
     assert user_message.content == "Use this value: some_value"
 
 
-def test_format_instructions_with_mixed_attributes(mock_general_synthesis_params):
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_format_instructions_with_mixed_attributes(
+    mock_get_engine, mock_general_synthesis_params, mock_inference_config
+):
     """Test formatting instructions with permutable and non-permutable attributes."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     sample = {"style": "casual", "non_permutable": "mixed_value"}
 
     instruction_messages = Conversation(
@@ -281,9 +449,16 @@ def test_format_instructions_with_mixed_attributes(mock_general_synthesis_params
     )
 
 
-def test_format_instructions_with_unresolved_fields(mock_general_synthesis_params):
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_format_instructions_with_unresolved_fields(
+    mock_get_engine, mock_general_synthesis_params, mock_inference_config
+):
     """Test error when format string contains unresolved fields."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     sample = {"style": "formal"}
 
     instruction_messages = Conversation(
@@ -302,9 +477,16 @@ def test_format_instructions_with_unresolved_fields(mock_general_synthesis_param
         synthesizer._format_instructions(sample, instruction_messages)
 
 
-def test_format_instructions_with_non_string_content(mock_general_synthesis_params):
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_format_instructions_with_non_string_content(
+    mock_get_engine, mock_general_synthesis_params, mock_inference_config
+):
     """Test formatting instructions with non-string content (should be skipped)."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     sample = {"style": "formal"}
 
     # Create a message with non-string content (list of ContentItem)
@@ -332,9 +514,16 @@ def test_format_instructions_with_non_string_content(mock_general_synthesis_para
     assert result.messages[0].content == content_items
 
 
-def test_format_instructions_with_empty_sample(mock_general_synthesis_params):
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_format_instructions_with_empty_sample(
+    mock_get_engine, mock_general_synthesis_params, mock_inference_config
+):
     """Test formatting instructions with empty sample."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     sample = {}
 
     instruction_messages = Conversation(
@@ -353,11 +542,36 @@ def test_format_instructions_with_empty_sample(mock_general_synthesis_params):
     assert result.messages[0].content == "No formatting needed"
 
 
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
 def test_synthesize_with_multiple_samples(
-    mock_general_synthesis_params, mock_generated_attribute
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
 ):
     """Test synthesize with multiple samples."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_inference_engine = Mock()
+    mock_get_engine.return_value = mock_inference_engine
+
+    # Mock the inference engine's infer method to return conversations with responses
+    mock_inference_engine.infer.return_value = [
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 1"),
+            ]
+        ),
+        Conversation(
+            messages=[
+                Message(role=Role.USER, content="Test query"),
+                Message(role=Role.ASSISTANT, content="Test response 2"),
+            ]
+        ),
+    ]
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     samples = [
         {"style": "formal", "topic": "tech"},
         {"style": "casual", "topic": "science"},
@@ -366,18 +580,108 @@ def test_synthesize_with_multiple_samples(
     result = synthesizer.synthesize(samples, mock_generated_attribute)
 
     assert len(result) == 2
-    for conversation in result:
-        assert isinstance(conversation, Conversation)
-        assert len(conversation.messages) == 2
+    for item in result:
+        assert isinstance(item, dict)
+        assert "generated_content" in item
 
 
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
 def test_synthesize_with_empty_samples(
-    mock_general_synthesis_params, mock_generated_attribute
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
 ):
     """Test synthesize with empty samples list."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    mock_inference_engine = Mock()
+    mock_get_engine.return_value = mock_inference_engine
+
+    # Mock the inference engine's infer method to return empty list
+    mock_inference_engine.infer.return_value = []
+
+    synthesizer = AttributeSynthesizer(
+        mock_general_synthesis_params, mock_inference_config
+    )
     samples = []
 
     result = synthesizer.synthesize(samples, mock_generated_attribute)
 
     assert result == []
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_postprocess_sample(mock_get_engine):
+    """Test postprocessing a sample."""
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+
+    response = "Response: Here is the formal text [END]"
+    postprocessing_params = GeneratedAttributePostprocessingParams(
+        id="processed_content",
+        cut_prefix="Response: ",
+        cut_suffix=" [END]",
+        strip_whitespace=True,
+        added_prefix="New: ",
+        added_suffix=" (done)",
+    )
+
+    result = synthesizer._postprocess_sample(response, postprocessing_params)
+
+    assert result == "New: Here is the formal text (done)"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_postprocess_sample_with_regex(mock_get_engine):
+    """Test postprocessing a sample with regex."""
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+
+    response = "The answer is 42 and that's final."
+    postprocessing_params = GeneratedAttributePostprocessingParams(
+        id="processed_content",
+        regex=r"\d+",
+        added_prefix="Number: ",
+    )
+
+    result = synthesizer._postprocess_sample(response, postprocessing_params)
+
+    assert result == "Number: 42"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_postprocess_sample_with_no_regex_match(mock_get_engine):
+    """Test postprocessing a sample when regex doesn't match."""
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+
+    response = "No numbers here!"
+    postprocessing_params = GeneratedAttributePostprocessingParams(
+        id="processed_content",
+        regex=r"\d+",
+        added_prefix="Number: ",
+    )
+
+    result = synthesizer._postprocess_sample(response, postprocessing_params)
+
+    assert result == "Number: No numbers here!"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
+def test_postprocess_sample_minimal(mock_get_engine):
+    """Test postprocessing a sample with minimal parameters."""
+    mock_get_engine.return_value = Mock()
+
+    synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
+
+    response = "  Test response  "
+    postprocessing_params = GeneratedAttributePostprocessingParams(
+        id="processed_content",
+        strip_whitespace=True,
+    )
+
+    result = synthesizer._postprocess_sample(response, postprocessing_params)
+
+    assert result == "Test response"
