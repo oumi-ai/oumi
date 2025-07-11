@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -82,18 +81,17 @@ class ConversationHelper:
         return conversation
 
 
-def generate_timestamped_filename(prefix: str, save_format: str) -> str:
-    """Generate a timestamped filename with the specified format.
+def generate_filename(prefix: str, save_format: str) -> str:
+    """Generate a filename with the specified format.
 
     Args:
         prefix: The filename prefix
         save_format: The file format (json, yaml)
 
     Returns:
-        Timestamped filename with extension
+        Filename with extension
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{prefix}_{timestamp}.{save_format}"
+    return f"{prefix}.{save_format}"
 
 
 def load_dataset_from_config(config: AnalyzerConfig) -> BaseMapDataset:

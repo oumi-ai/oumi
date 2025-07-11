@@ -67,17 +67,6 @@ class OutputConfig:
     Defaults to current directory ('.').
     """
 
-    sample_level_output: str = "sample_level_results"
-    """Path for sample-level analysis results."""
-
-    save_format: str = "json"
-    """Format to save the analysis results.
-
-    Options:
-        - "json": Save as JSON file
-        - "yaml": Save as YAML file
-    """
-
 
 @dataclass
 class AnalyzerPluginConfig:
@@ -116,11 +105,3 @@ class AnalyzerConfig(BaseConfig):
         for analyzer in self.analyzers:
             if not analyzer.id:
                 raise ValueError("Each analyzer must have a unique 'id'")
-
-        # Validate output configuration
-        valid_save_formats = ["json", "yaml"]
-        if self.outputs.save_format not in valid_save_formats:
-            raise ValueError(
-                f"outputs.save_format must be one of {valid_save_formats}, "
-                f"got {self.outputs.save_format}"
-            )

@@ -11,9 +11,8 @@ input:
 
 # Output Configuration
 outputs:
-  path: "./analysis_results"
-  sample_level_output: "sample_level_results"
-  save_format: "json"  # Format for output files (json, yaml)
+  path: "./analysis_results"  # Directory where sample_level_results.json will be saved
+  # Output file name and format are fixed: sample_level_results.json (JSON format)
 
 # Analyzers Configuration (plugin-style)
 analyzers:

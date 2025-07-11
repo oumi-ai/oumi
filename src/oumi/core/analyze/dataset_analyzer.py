@@ -20,7 +20,6 @@ from oumi.core.configs import AnalyzerConfig
 from oumi.utils.analysis_utils import (
     ConversationHelper,
     compute_sample_level_analysis,
-    generate_timestamped_filename,
     load_dataset_from_config,
     save_results,
 )
@@ -102,18 +101,14 @@ class DatasetAnalyzer:
         )
 
         # Save sample-level results
-        if hasattr(self.config, "outputs") and self.config.outputs.sample_level_output:
-            sample_output_path = generate_timestamped_filename(
-                self.config.outputs.sample_level_output,
-                self.config.outputs.save_format,
-            )
-            full_sample_path = Path(self.config.outputs.path) / sample_output_path
-            save_results(
-                sample_results,
-                str(full_sample_path),
-                self.config.outputs.save_format,
-            )
-            logger.info(f"Sample-level results saved to: {sample_output_path}")
+        output_filename = "sample_level_results.json"
+        output_path = Path(self.config.outputs.path) / output_filename
+        save_results(
+            sample_results,
+            str(output_path),
+            "json",
+        )
+        logger.info(f"Sample-level results saved to: {output_filename}")
 
         final_results = {
             "dataset_name": self.dataset_name,

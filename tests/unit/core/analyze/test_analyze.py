@@ -67,8 +67,6 @@ def test_plugin_analysis():
         ),
         outputs=OutputConfig(
             path="./test_results",
-            sample_level_output="test_results",
-            save_format="json",
         ),
         analyzers=[length_analyzer],
     )
