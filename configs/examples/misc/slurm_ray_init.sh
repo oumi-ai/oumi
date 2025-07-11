@@ -59,6 +59,7 @@ for ((i = 1; i <= worker_num; i++)); do
 done
 
 # Print cluster status to confirm setup.
+echo "Ray cluster status:"
 ray status
 
 # The Ray dashboard is run on the head node. To view it on our local machine, we need to
@@ -67,5 +68,5 @@ ray status
 echo "-----------------------------------------------------------------------------------------"
 echo "To view the Ray dashboard, run the following command (keep the connection alive)"
 echo "and open http://localhost:8265 on your local machine:"
-echo "ssh -L 8265:127.0.0.1:8265 -J $USER@<slurm_gateway_ip_address> $USER@$head_node_ip"
+echo "ssh -L 8265:127.0.0.1:8265 -J $USER@\$OUMI_SLURM_CONNECTIONS $USER@$head_node_ip"
 echo "-----------------------------------------------------------------------------------------"
