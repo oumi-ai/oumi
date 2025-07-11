@@ -19,6 +19,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
+from oumi.utils.placeholders import resolve_placeholders
 
 
 class AttributeSynthesizer:
