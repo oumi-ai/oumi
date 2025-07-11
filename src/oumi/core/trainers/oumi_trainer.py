@@ -63,6 +63,7 @@ from oumi.models.layers.ring_attention import (
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
+from oumi.utils.serialization_utils import flatten_config
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
@@ -214,6 +215,9 @@ class Trainer(BaseTrainer):
         if resume_from_checkpoint:
             with torch.profiler.record_function("load_from_checkpoint"):
                 self._load_from_checkpoint(resume_from_checkpoint)
+        else:
+            # Log training config and parameters to all enabled platforms
+            self._log_training_config()
 
         total_steps = self._estimate_total_training_steps()
 
@@ -678,6 +682,43 @@ class Trainer(BaseTrainer):
 
         if self.params.enable_mlflow and self._mlflow_oumi_managed_run:
             self.mlflow_run = mlflow.start_run(run_name=self.params.run_name)
+
+    def _log_training_config(self) -> None:
+        """Logs training configuration and parameters to all enabled platforms."""
+        if not is_world_process_zero() or not self.config:
+            return
+
+        # Get flattened config from both training config and parameters
+        config_dict = flatten_config(self.config)
+
+        # Log to MLflow
+        if self.params.enable_mlflow:
+            try:
+                mlflow.log_params(config_dict)
+            except Exception as e:
+                self.log(f"Failed to log config to MLflow: {e}")
+
+        # Log to Weights & Biases
+        if self.params.enable_wandb:
+            try:
+                # wandb.config can handle nested dictionaries, but we'll use
+                # flattened for consistency
+                wandb.config.update(config_dict)
+            except Exception as e:
+                self.log(f"Failed to log config to wandb: {e}")
+
+        # Log to TensorBoard
+        if self.params.enable_tensorboard and self.tensorboard_writer:
+            try:
+                # Log config as a formatted text to tensorboard
+                config_text = "\n".join([f"{k}: {v}" for k, v in config_dict.items()])
+                self.tensorboard_writer.add_text(
+                    tag="config/training_config",
+                    text_string=config_text,
+                    global_step=self.state.global_step,
+                )
+            except Exception as e:
+                self.log(f"Failed to log config to TensorBoard: {e}")
 
     #
     # Data loading
