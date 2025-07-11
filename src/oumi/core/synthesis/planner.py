@@ -150,7 +150,7 @@ class DatasetPlanner:
         document_sources: Optional[list[DocumentSource]],
     ) -> list[list[dict]]:
         """Read documents from the document sources and segment them if necessary."""
-        if document_sources is None or len(document_sources) == 0:
+        if not document_sources:
             return []
 
         document_reader = DocumentReader()
