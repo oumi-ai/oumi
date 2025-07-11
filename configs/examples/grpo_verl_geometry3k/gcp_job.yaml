@@ -1,4 +1,4 @@
-# VERL GRPO VLM training config on Geometry3K dataset.
+# verl GRPO VLM training config on Geometry3K dataset.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup

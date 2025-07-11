@@ -1,4 +1,4 @@
-# VERL GRPO training config for Countdown.
+# verl GRPO training config for Countdown.
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
@@ -56,13 +56,13 @@ training:
         kl_loss_coef: 0.001
         kl_loss_type: "low_var_kl"
         ppo_mini_batch_size: 16
-        ppo_micro_batch_size: 4
+        ppo_micro_batch_size_per_gpu: 2
       rollout:
-        log_prob_micro_batch_size: 4
+        log_prob_micro_batch_size_per_gpu: 2
         tensor_model_parallel_size: 2
         n: 16
       ref:
-        log_prob_micro_batch_size: 2
+        log_prob_micro_batch_size_per_gpu: 1
         fsdp_config:
           param_offload: True
     algorithm:
