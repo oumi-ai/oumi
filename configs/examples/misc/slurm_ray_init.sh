@@ -40,6 +40,8 @@ srun --nodes=1 --ntasks=1 -w "$head_node" \
     --num-cpus "$SLURM_CPUS_PER_TASK" --num-gpus "$SLURM_GPUS_ON_NODE" \
     --block &
 
+sleep 10
+
 # number of nodes other than the head node
 worker_num=$((SLURM_JOB_NUM_NODES - 1))
 

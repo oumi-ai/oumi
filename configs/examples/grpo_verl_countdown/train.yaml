@@ -75,4 +75,5 @@ training:
       nnodes: 1
 
   output_dir: "output/grpo_verl_countdown"
+  run_name: "grpo_verl_countdown"
   enable_wandb: True
