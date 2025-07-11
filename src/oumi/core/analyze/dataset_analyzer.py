@@ -18,7 +18,6 @@ from typing import Any
 from oumi.core.analyze.text_analyzer import AnalyzerRegistry
 from oumi.core.configs import AnalyzerConfig
 from oumi.utils.analysis_utils import (
-    ConversationHelper,
     compute_sample_level_analysis,
     load_dataset_from_config,
     save_results,
@@ -39,7 +38,6 @@ class DatasetAnalyzer:
         self.dataset_name = config.input.name
         self.split = config.input.split
         self.dataset = load_dataset_from_config(config)
-        self.conv = ConversationHelper(self.dataset, self.dataset_name)
         self.text_analyzers = self._initialize_sample_analyzers()
 
     def _initialize_sample_analyzers(self):

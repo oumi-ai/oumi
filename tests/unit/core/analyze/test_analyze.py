@@ -30,11 +30,11 @@ def test_basic_functionality():
     analyzer = DatasetAnalyzer(config)
 
     # Test dataset access
-    print(f"Dataset size: {analyzer.conv.get_dataset_size()} conversations")
+    print(f"Dataset size: {len(analyzer.dataset)} conversations")
 
     # Test conversation access
-    analyzer.conv.get_conversation(0)
-    print(f"Conversation 0 length: {analyzer.conv.get_conversation_length(0)} messages")
+    conversation = analyzer.dataset.conversation(0)
+    print(f"Conversation 0 length: {len(conversation.messages)} messages")
 
     print("✅ Basic functionality test completed")
 
