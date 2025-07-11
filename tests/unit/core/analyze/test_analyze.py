@@ -11,10 +11,10 @@ from oumi.core.configs import (
 def test_basic_functionality():
     """Test basic analyzer functionality with simple configuration."""
     print("=" * 50)
-    print("Testing Basic Analyzer Functionality (Simple)")
+    print("Testing Basic Analyzer Functionality")
     print("=" * 50)
 
-    # Create basic configuration using simple fields
+    # Create basic configuration
     config = DatasetAnalyzeConfig(
         dataset_name="tatsu-lab/alpaca",
         split="train",
@@ -34,36 +34,10 @@ def test_basic_functionality():
     print("✅ Basic functionality test completed")
 
 
-def test_advanced_functionality():
-    """Test advanced analyzer functionality with direct fields."""
+def test_sample_analysis():
+    """Test sample-level analysis with length analyzer."""
     print("\n" + "=" * 50)
-    print("Testing Advanced Analyzer Functionality (Direct Fields)")
-    print("=" * 50)
-
-    # Create configuration using direct fields
-    config = DatasetAnalyzeConfig(
-        dataset_name="tatsu-lab/alpaca",
-        split="train",
-        sample_count=3,
-        output_path="./test_results",
-    )
-
-    analyzer = DatasetAnalyzer(config)
-
-    # Test dataset access
-    print(f"Dataset size: {len(analyzer.dataset)} conversations")
-
-    # Test conversation access
-    conversation = analyzer.dataset.conversation(0)
-    print(f"Conversation 0 length: {len(conversation.messages)} messages")
-
-    print("✅ Advanced functionality test completed")
-
-
-def test_plugin_analysis():
-    """Test plugin-style analysis with length analyzer."""
-    print("\n" + "=" * 50)
-    print("Testing Plugin Analysis")
+    print("Testing Sample Analysis")
     print("=" * 50)
 
     # Create length analyzer
@@ -118,8 +92,7 @@ def test_plugin_analysis():
 
 if __name__ == "__main__":
     test_basic_functionality()
-    test_advanced_functionality()
-    test_plugin_analysis()
+    test_sample_analysis()
 
     print("\n" + "=" * 50)
     print("All tests completed successfully!")
