@@ -1,9 +1,9 @@
-# VERL GRPO job config for GSM8K.
+# verl GRPO job config for GSM8K.
 #
 # Requirements:
-#   - Run step 1 of verl quickstart: https://verl.readthedocs.io/en/latest/start/quickstart.html
+#   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
 #
-# Usage (set OUMI_SLURM_CONNECTIONS to your Slurm user@host):
+# Usage:
 #   oumi launch up -c configs/examples/grpo_verl_gsm8k/slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
 #
 # See Also:
@@ -13,7 +13,7 @@
 #   - Other job configs: configs/**/*job.yaml
 
 name: grpo-verl-gsm8k
-num_nodes: 1
+num_nodes: 2
 
 resources:
   cloud: slurm

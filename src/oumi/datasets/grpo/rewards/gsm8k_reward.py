@@ -54,7 +54,7 @@ def gsm8k_reward(
     format_score=0.0,
     score=1.0,
 ):
-    """The scoring function for GSM8k.
+    """The scoring function for GSM8K.
 
     Reference: Trung, Luong, et al. "Reft: Reasoning with reinforced fine-tuning." Proceedings of the 62nd Annual
     Meeting of the Association for Computational Linguistics (Volume 1: Long Papers). 2024.
