@@ -70,6 +70,7 @@ from oumi.utils.git_utils import get_git_revision_hash, get_git_tag
 from oumi.utils.grpo_utils import try_prepare_trl_grpo_dataset
 from oumi.utils.io_utils import save_json
 from oumi.utils.logging import configure_logger, logger
+from oumi.utils.signal_handler import register_cleanup_function
 from oumi.utils.torch_utils import (
     coerce_model_to_dtype,
     device_cleanup,
@@ -386,6 +387,19 @@ def train(
 
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)
+
+    # Register cleanup function for graceful shutdown
+    def training_cleanup():
+        """Cleanup function for training resources."""
+        try:
+            logger.info("Cleaning up training resources...")
+            if is_distributed():
+                cleanup_distributed()
+            device_cleanup()
+        except Exception as e:
+            logger.error(f"Error during training cleanup: {e}")
+
+    register_cleanup_function(training_cleanup)
 
     # We support running FSDP Oumi training without being invoked from the Accelerate
     # launcher. We detect this with the following:

@@ -28,6 +28,7 @@ from oumi.cli.judge_v2 import judge_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.train import train
+from oumi.utils.signal_handler import install_global_signal_handlers
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -130,8 +131,15 @@ def get_app() -> typer.Typer:
 
 def run():
     """The entrypoint for the CLI."""
+    # Install global signal handlers for graceful shutdown
+    install_global_signal_handlers()
+
     app = get_app()
-    return app()
+    try:
+        return app()
+    except KeyboardInterrupt:
+        CONSOLE.print("\n[yellow]Operation cancelled by user.[/yellow]")
+        sys.exit(130)  # Standard exit code for SIGINT
 
 
 if "sphinx" in sys.modules:
