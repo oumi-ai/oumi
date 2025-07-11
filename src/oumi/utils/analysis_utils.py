@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from oumi.core.configs import AnalyzerConfig
+from oumi.core.configs import DatasetAnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
 
@@ -94,7 +94,7 @@ def generate_filename(prefix: str, save_format: str) -> str:
     return f"{prefix}.{save_format}"
 
 
-def load_dataset_from_config(config: AnalyzerConfig) -> BaseMapDataset:
+def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
     """Load dataset based on configuration.
 
     Currently only supports datasets registered in the REGISTRY.
@@ -153,7 +153,7 @@ def save_results(results: dict[str, Any], output_path: str, save_format: str):
 
 
 def compute_sample_level_analysis(
-    dataset: BaseMapDataset, config: AnalyzerConfig, analyzers: dict
+    dataset: BaseMapDataset, config: DatasetAnalyzeConfig, analyzers: dict
 ) -> dict[str, Any]:
     """Perform per-sample (message) level analysis using plugin analyzers."""
     total_conversations = len(dataset)

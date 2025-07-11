@@ -58,8 +58,8 @@ class OutputConfig:
 
 
 @dataclass
-class AnalyzerPluginConfig:
-    """Configuration for a single analyzer plugin."""
+class SampleAnalyzeConfig:
+    """Configuration for a single sample analyzer plugin."""
 
     id: str = MISSING
     """Unique identifier for the analyzer."""
@@ -72,7 +72,7 @@ class AnalyzerPluginConfig:
 
 
 @dataclass
-class AnalyzerConfig(BaseConfig):
+class DatasetAnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
 
     input: InputConfig = field(default_factory=InputConfig)
@@ -81,7 +81,7 @@ class AnalyzerConfig(BaseConfig):
     outputs: OutputConfig = field(default_factory=OutputConfig)
     """Output configuration for analysis results."""
 
-    analyzers: list[AnalyzerPluginConfig] = field(default_factory=list)
+    analyzers: list[SampleAnalyzeConfig] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
     def __post_init__(self):

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.analyze.sample_analyzer import AnalyzerRegistry
-from oumi.core.configs import AnalyzerConfig
+from oumi.core.configs import DatasetAnalyzeConfig
 from oumi.utils.analysis_utils import (
     compute_sample_level_analysis,
     load_dataset_from_config,
@@ -28,11 +28,11 @@ from oumi.utils.logging import logger
 class DatasetAnalyzer:
     """Orchestrates dataset analysis by creating and managing sample analyzers."""
 
-    def __init__(self, config: AnalyzerConfig):
+    def __init__(self, config: DatasetAnalyzeConfig):
         """Initialize the dataset analyzer with configuration.
 
         Args:
-            config: AnalyzerConfig object containing all analysis parameters
+            config: DatasetAnalyzeConfig object containing all analysis parameters
         """
         self.config = config
         self.dataset_name = config.input.name

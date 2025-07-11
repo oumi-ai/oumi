@@ -12,87 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Configuration module for the Oumi (Open Universal Machine Intelligence) library.
+"""Configuration classes for Oumi.
 
-This module provides various configuration classes and parameters used throughout
-the Oumi framework for tasks such as training, evaluation, inference,
-and job management.
+This module provides configuration classes for various Oumi components:
 
-The configurations are organized into different categories:
+Training Configuration
+- :class:`~oumi.core.configs.training_config.TrainingConfig`
 
-- Analysis:
-    - :class:`~oumi.core.configs.analyzer_config.AnalyzerConfig`
-    - :class:`~oumi.core.configs.analyzer_config.InputConfig`
-    - :class:`~oumi.core.configs.analyzer_config.OutputConfig`
-    - :class:`~oumi.core.configs.analyzer_config.SampleLevelMetrics`
-    - :class:`~oumi.core.configs.analyzer_config.AggregationMetrics`
-    - :class:`~oumi.core.configs.analyzer_config.LanguageDetectionConfig`
-    - :class:`~oumi.core.configs.analyzer_config.LengthMetricsConfig`
-    - :class:`~oumi.core.configs.analyzer_config.SafetyMetricsConfig`
-- Evaluation:
-    - :class:`~oumi.core.configs.async_evaluation_config.AsyncEvaluationConfig`
-    - :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
-    - :class:`~oumi.core.configs.evaluation_config.EvaluationFramework`
-- Generation and Inference:
-    - :class:`~oumi.core.configs.params.generation_params.GenerationParams`
-    - :class:`~oumi.core.configs.inference_config.InferenceConfig`
-    - :class:`~oumi.core.configs.inference_engine_type.InferenceEngineType`
-- Job Management:
-    - :class:`~oumi.core.configs.job_config.JobConfig`
-    - :class:`~oumi.core.configs.job_config.JobResources`
-    - :class:`~oumi.core.configs.job_config.StorageMount`
-- Data:
-    - :class:`~oumi.core.configs.params.data_params.DataParams`
-    - :class:`~oumi.core.configs.params.data_params.DatasetParams`
-    - :class:`~oumi.core.configs.params.data_params.DatasetSplit`
-    - :class:`~oumi.core.configs.params.data_params.DatasetSplitParams`
-    - :class:`~oumi.core.configs.params.data_params.MixtureStrategy`
-- Model:
-    - :class:`~oumi.core.configs.params.model_params.ModelParams`
-    - :class:`~oumi.core.configs.params.peft_params.PeftParams`
-    - :class:`~oumi.core.configs.params.fsdp_params.FSDPParams`
-- Training:
-    - :class:`~oumi.core.configs.training_config.TrainingConfig`
-    - :class:`~oumi.core.configs.params.training_params.TrainingParams`
-    - :class:`~oumi.core.configs.params.training_params.MixedPrecisionDtype`
-    - :class:`~oumi.core.configs.params.training_params.SchedulerType`
-    - :class:`~oumi.core.configs.params.training_params.TrainerType`
-    - :class:`~oumi.core.configs.params.peft_params.LoraWeightInitialization`
-    - :class:`~oumi.core.configs.params.peft_params.PeftSaveMode`
-    - :class:`~oumi.core.configs.params.grpo_params.GrpoParams`
-- Profiling:
-    - :class:`~oumi.core.configs.params.profiler_params.ProfilerParams`
-- Telemetry:
-    - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
-- Judge:
-    - :class:`~oumi.core.configs.judge_config.JudgeConfig`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttribute`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttributeValueType`
-    - :class:`~oumi.core.configs.judge_config_v2.JudgeConfig`
-    - :class:`~oumi.core.configs.params.judge_params.JudgeOutputType`
-    - :class:`~oumi.core.configs.params.judge_params.JudgeResponseFormat`
+Model Configuration
+- :class:`~oumi.core.configs.model_config.ModelConfig`
 
-Example:
-    >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
-    >>> model_params = ModelParams(model_name="gpt2")
-    >>> training_params = TrainingParams(num_train_epochs=3)
-    >>> training_config = TrainingConfig(
-    ...     model=model_params,
-    ...     training=training_params,
-    ... )
-    >>> # Use the training_config in your training pipeline
+Evaluation Configuration
+- :class:`~oumi.core.configs.evaluation_config.EvaluationConfig`
 
-Note:
-    All configuration classes inherit from
-        :class:`~oumi.core.configs.base_config.BaseConfig`,
-        which provides common functionality such as serialization and validation.
+Inference Configuration
+- :class:`~oumi.core.configs.inference_config.InferenceConfig`
+
+Analysis Configuration
+- :class:`~oumi.core.configs.analyze_config.DatasetAnalyzeConfig`
+- :class:`~oumi.core.configs.analyze_config.InputConfig`
+- :class:`~oumi.core.configs.analyze_config.OutputConfig`
+- :class:`~oumi.core.configs.analyze_config.SampleLevelMetrics`
+- :class:`~oumi.core.configs.analyze_config.AggregationMetrics`
+- :class:`~oumi.core.configs.analyze_config.LanguageDetectionConfig`
+- :class:`~oumi.core.configs.analyze_config.LengthMetricsConfig`
+- :class:`~oumi.core.configs.analyze_config.SafetyMetricsConfig`
+
+Job Configuration
+- :class:`~oumi.core.configs.job_config.JobConfig`
+
+Launcher Configuration
+- :class:`~oumi.core.configs.launcher_config.LauncherConfig`
 """
 
-from oumi.core.configs.analyzer_config import (
-    AnalyzerConfig,
-    AnalyzerPluginConfig,
+from oumi.core.configs.analyze_config import (
+    DatasetAnalyzeConfig,
     InputConfig,
     OutputConfig,
+    SampleAnalyzeConfig,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
@@ -154,8 +111,8 @@ from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
     "AlpacaEvalTaskParams",
-    "AnalyzerConfig",
-    "AnalyzerPluginConfig",
+    "DatasetAnalyzeConfig",
+    "SampleAnalyzeConfig",
     "AsyncEvaluationConfig",
     "AutoWrapPolicy",
     "BackwardPrefetch",

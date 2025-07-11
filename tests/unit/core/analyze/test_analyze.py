@@ -3,10 +3,10 @@
 
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import (
-    AnalyzerConfig,
-    AnalyzerPluginConfig,
+    DatasetAnalyzeConfig,
     InputConfig,
     OutputConfig,
+    SampleAnalyzeConfig,
 )
 
 
@@ -17,7 +17,7 @@ def test_basic_functionality():
     print("=" * 50)
 
     # Create basic configuration
-    config = AnalyzerConfig(
+    config = DatasetAnalyzeConfig(
         input=InputConfig(
             name="tatsu-lab/alpaca",
             split="train",
@@ -44,7 +44,7 @@ def test_plugin_analysis():
     print("=" * 50)
 
     # Create length analyzer
-    length_analyzer = AnalyzerPluginConfig(
+    length_analyzer = SampleAnalyzeConfig(
         id="length",
         enabled=True,
         config={
@@ -56,7 +56,7 @@ def test_plugin_analysis():
     )
 
     # Create configuration
-    config = AnalyzerConfig(
+    config = DatasetAnalyzeConfig(
         input=InputConfig(
             name="tatsu-lab/alpaca",
             split="train",

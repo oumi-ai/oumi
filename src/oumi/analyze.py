@@ -15,10 +15,10 @@
 from typing import Any
 
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import AnalyzerConfig
+from oumi.core.configs import DatasetAnalyzeConfig
 
 
-def analyze(config: AnalyzerConfig) -> dict[str, Any]:
+def analyze(config: DatasetAnalyzeConfig) -> dict[str, Any]:
     """Analyzes a dataset using the provided configuration.
 
     Args:
