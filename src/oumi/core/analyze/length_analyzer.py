@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from oumi.core.analyze.text_analyzer import SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 
 
 class LengthAnalyzer(SampleAnalyzer):

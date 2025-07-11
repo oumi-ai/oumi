@@ -15,7 +15,7 @@
 from pathlib import Path
 from typing import Any
 
-from oumi.core.analyze.text_analyzer import AnalyzerRegistry
+from oumi.core.analyze.sample_analyzer import AnalyzerRegistry
 from oumi.core.configs import AnalyzerConfig
 from oumi.utils.analysis_utils import (
     compute_sample_level_analysis,

@@ -5,7 +5,7 @@ with different types of sample analyzers (length, safety, etc.).
 """
 
 # Import base classes
-from oumi.core.analyze.text_analyzer import AnalyzerRegistry, SampleAnalyzer
+from oumi.core.analyze.sample_analyzer import AnalyzerRegistry, SampleAnalyzer
 
 # Import and register sample analyzer implementations
 try:
