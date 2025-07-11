@@ -95,22 +95,6 @@ class GrpoParams(BaseParams):
     during initialization.
     """
 
-    vllm_dtype: Optional[str] = None
-    """Data type to use for vLLM generation.
-
-    If set to `None`, the data type will be automatically determined based on
-    the model configuration. Find the supported values in the vLLM documentation.
-    """
-
-    vllm_max_model_len: Optional[int] = None
-    """The `max_model_len` to use for vLLM.
-
-    This could be useful when running with reduced
-    `vllm_gpu_memory_utilization`, leading to a reduced KV cache size. If not set, vLLM
-    will use the model context size, which might be much larger than the KV cache,
-    leading to inefficiencies.
-    """
-
     epsilon: float = 0.2
     """Epsilon value for clipping the relative probability in the loss.
 
@@ -178,8 +162,4 @@ class GrpoParams(BaseParams):
             if self.vllm_mode is not None:
                 result["vllm_mode"] = self.vllm_mode
             result["vllm_gpu_memory_utilization"] = self.vllm_gpu_memory_utilization
-            if self.vllm_dtype is not None:
-                result["vllm_dtype"] = self.vllm_dtype
-            if self.vllm_max_model_len is not None:
-                result["vllm_max_model_len"] = self.vllm_max_model_len
         return result
