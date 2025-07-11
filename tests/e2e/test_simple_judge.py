@@ -31,7 +31,9 @@ inference_config:
 
 YAML_JUDGE_CONFIG_JSON_BOOL = """
 judge_params:
-    prompt_template: Is the following statement correct? {statement}
+    prompt_template: "{prompt_question} {statement}"
+    template_variables:
+        prompt_question: "Is the following statement correct?"
     response_format: JSON
     judgment_type: BOOL
     include_explanation: False
