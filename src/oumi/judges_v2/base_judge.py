@@ -19,9 +19,13 @@ from typing import Optional, Union
 import pydantic
 from typing_extensions import Self
 
-from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
+from oumi.core.configs.params.judge_params import (
+    JudgeOutputType,
+    JudgeResponseFormat,
+)
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.utils.placeholders import resolve_placeholders
 
 
 class JudgeOutputField(pydantic.BaseModel):
@@ -403,20 +407,7 @@ class BaseJudge:
         Raises:
             ValueError: If required placeholders are missing from judge_input
         """
-        # Extract all placeholders from the template (e.g., {question}, {answer})
-        required_placeholders = set(re.findall(r"\{(\w+)\}", self.prompt_template))
-
-        # Validate that all required data is provided
-        provided_keys = set(judge_input.keys())
-        if missing_keys := required_placeholders - provided_keys:
-            raise ValueError(
-                f"Missing values for template placeholders: {sorted(missing_keys)}. "
-                f"Required: {sorted(required_placeholders)}, "
-                f"Provided: {sorted(provided_keys)}"
-            )
-
-        # Format the template with the provided data
-        return self.prompt_template.format(**judge_input)
+        return resolve_placeholders(self.prompt_template, judge_input)
 
     def _build_assistant_response(self, field_values: dict[str, str]) -> str:
         """Generate the expected assistant response for few-shot examples.

@@ -86,7 +86,9 @@ class SimpleJudge(BaseJudge):
         """
         if isinstance(judge_config, str):
             judge_config = JudgeConfig.from_path(judge_config)
+
         self._judge_params = judge_config.judge_params
+        self._judge_params.replace_template_variables()
         self._inference_config = judge_config.inference_config
 
         # Create output fields based on judge configuration
