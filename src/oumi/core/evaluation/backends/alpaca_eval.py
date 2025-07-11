@@ -19,7 +19,6 @@ from typing import Any
 
 try:
     import alpaca_eval  # pyright: ignore[reportMissingImports]
-    import alpaca_eval.evaluate  # pyright: ignore[reportMissingImports]
 except ImportError:
     alpaca_eval = None
 
@@ -117,7 +116,7 @@ def evaluate(
     # Run AlpacaEval evaluation, i.e. annotate the model's responses.
     logger.info("Running AlpacaEval annotation.")
     logger.info(f"\tAlpacaEval `task_params`:\n{pformat(task_params)}")
-    df_leaderboard, _ = alpaca_eval.evaluate(
+    result = alpaca_eval.evaluate(
         model_outputs=responses_df,
         annotators_config=annotators_config,
         fn_metric=fn_metric,
@@ -127,6 +126,10 @@ def evaluate(
         sort_by=sort_by_metric,
         **task_params.eval_kwargs,
     )
+    if isinstance(result, tuple):
+        df_leaderboard = result[0]
+    else:
+        df_leaderboard = result
 
     # Metrics are only available on the main process, and `None` on others.
     if not is_world_process_zero():

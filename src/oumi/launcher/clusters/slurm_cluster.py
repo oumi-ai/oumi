@@ -230,14 +230,12 @@ class SlurmCluster(BaseCluster):
     def run_job(self, job: JobConfig) -> JobStatus:
         """Runs the specified job on this cluster.
 
-        For Slurm this method consists of 5 parts:
+        For Slurm this method consists of 4 parts:
 
-        1. Copy the working directory to ~/oumi_launcher/$JOB_NAME.
-        2. Check if there is a conda installation at /home/$USER/miniconda3/envs/oumi.
-           If not, install it.
-        3. Copy all file mounts.
-        4. Create a job script with all env vars, setup, and run commands.
-        5. CD into the working directory and submit the job.
+        1. Copy the working directory to ~/oumi_launcher/<submission_time>.
+        2. Copy all file mounts.
+        3. Create a job script with all env vars, setup, and run commands.
+        4. CD into the working directory and submit the job.
 
         Args:
             job: The job to run.
