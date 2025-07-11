@@ -40,26 +40,18 @@ class DatasetAnalyzeConfig(BaseConfig):
 
     # Simple fields for common use cases
     dataset_name: Optional[str] = None
-    """Dataset name for simple single-dataset analysis.
-
-    If provided, will create a simple DataParams configuration automatically.
-    Ignored if 'data' is explicitly provided.
-    """
+    """Dataset name."""
 
     split: str = "train"
-    """Dataset split to use for analysis (e.g., 'train', 'test', 'validation').
+    """The split of the dataset to load.
 
-    Used when dataset_name is provided, or applied to datasets in 'data' if not
-    explicitly set in individual datasets.
+    This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
     sample_count: Optional[int] = None
-    """Maximum number of conversations to analyze.
+    """The number of examples to sample from the dataset.
 
-    If None, analyzes all conversations in the dataset.
-    If set to a positive integer, only analyzes the first N conversations.
-    Used when dataset_name is provided, or applied to datasets in 'data' if not
-    explicitly set in individual datasets.
+    Must be non-negative.
     """
 
     output_path: str = "."
