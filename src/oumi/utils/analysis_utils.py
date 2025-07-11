@@ -16,82 +16,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from oumi.core.configs import DatasetAnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
-
-
-class ConversationHelper:
-    """Helper class for conversation-related operations and data access."""
-
-    def __init__(self, dataset: BaseMapDataset, dataset_name: str):
-        """Initialize the conversation helper.
-
-        Args:
-            dataset: The dataset to work with
-            dataset_name: Name of the dataset for display purposes
-        """
-        self.dataset = dataset
-        self.dataset_name = dataset_name
-
-    def get_conversation(self, index: int = 0):
-        """Get a conversation from the dataset.
-
-        Args:
-            index: Index of the conversation to retrieve.
-
-        Returns:
-            The conversation at the specified index.
-        """
-        return self.dataset.conversation(index)
-
-    def get_conversation_length(self, index: int = 0) -> int:
-        """Get the length (number of messages) of a conversation.
-
-        Args:
-            index: Index of the conversation to check.
-
-        Returns:
-            int: Number of messages in the conversation.
-        """
-        conversation = self.get_conversation(index)
-        return len(conversation.messages)
-
-    def get_dataset_size(self) -> int:
-        """Get the total number of conversations in the dataset.
-
-        Returns:
-            int: Total number of conversations.
-        """
-        return len(self.dataset)
-
-    def print_conversation(self, index: int = 0):
-        """Print a conversation from the dataset.
-
-        Args:
-            index: Index of the conversation to print.
-        """
-        conversation = self.get_conversation(index)
-        print(f"Conversation {index} from {self.dataset_name} dataset:")
-        print("=" * 50)
-        print(repr(conversation))
-        print("=" * 50)
-        return conversation
-
-
-def generate_filename(prefix: str, save_format: str) -> str:
-    """Generate a filename with the specified format.
-
-    Args:
-        prefix: The filename prefix
-        save_format: The file format (json, yaml)
-
-    Returns:
-        Filename with extension
-    """
-    return f"{prefix}.{save_format}"
 
 
 def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
@@ -142,26 +69,19 @@ def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
         raise
 
 
-def save_results(results: dict[str, Any], output_path: str, save_format: str):
-    """Save analysis results to file based on the specified format.
+def save_results(results: dict[str, Any], output_path: str):
+    """Save analysis results to file as JSON only.
 
     Args:
         results: Analysis results dictionary to save
         output_path: Path where to save the results
-        save_format: Format to save the results (json, yaml)
     """
     # Create output directory if it doesn't exist
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    if save_format == "json":
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-    elif save_format == "yaml":
-        with open(output_file, "w", encoding="utf-8") as f:
-            yaml.dump(results, f, default_flow_style=False, allow_unicode=True)
-    else:
-        raise ValueError(f"Unsupported save format: {save_format}")
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
 
     logger.info(f"Results saved to: {output_file}")
 

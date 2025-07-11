@@ -102,7 +102,6 @@ class DatasetAnalyzer:
         save_results(
             sample_results,
             str(output_path),
-            "json",
         )
         logger.info(f"Sample-level results saved to: {output_filename}")
 
