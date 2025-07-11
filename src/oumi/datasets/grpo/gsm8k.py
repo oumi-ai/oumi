@@ -1,4 +1,4 @@
-# Copyright 2025 - Jiayi Pan
+# Copyright 2024 Bytedance Ltd. and/or its affiliates
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Derived from https://github.com/Jiayi-Pan/TinyZero/blob/main/examples/data_preprocess/countdown.py.
+"""Derived from https://github.com/volcengine/verl/blob/main/examples/data_preprocess/gsm8k.py.
 
 This file was slightly modified to inherit from the `BaseExperimentalGrpoDataset` class.
 """
+
+import re
 
 import pandas as pd
 from typing_extensions import override
@@ -24,35 +26,41 @@ from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation
 
-_PROMPT_TEMPLATE = """A conversation between User and Assistant. The user asks a question, and the Assistant solves it. The assistant first thinks about the reasoning process in the mind and then provides the user with the answer.
-User: Using the numbers {nums}, create an equation that equals {target}. You can use basic arithmetic operations (+, -, *, /) and each number can only be used once. Show your work in <think> </think> tags. And return the final answer in <answer> </answer> tags, for example <answer> (1 + 2) / 3 </answer>.
-Assistant: Let me solve this step by step.
-<think>"""  # noqa: E501
+
+def _extract_solution(solution_str):
+    """Extract the solution from the response."""
+    solution = re.search("#### (\\-?[0-9\\.\\,]+)", solution_str)
+    assert solution is not None
+    final_solution = solution.group(0)
+    final_solution = final_solution.split("#### ")[1].replace(",", "")
+    return final_solution
 
 
-@register_dataset("d1shs0ap/countdown")
-class CountdownGrpoDataset(BaseExperimentalGrpoDataset):
-    """Dataset class for the `d1shs0ap/countdown` dataset.
+@register_dataset("openai/gsm8k")
+class Gsm8kGrpoDataset(BaseExperimentalGrpoDataset):
+    """Dataset class for the `openai/gsm8k` dataset.
 
     A sample from the dataset:
-    {"target": 87, "nums": [79, 8]}
-    """
+    {
+        "question": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?",
+        "answer": "Natalia sold 48/2 = <<48/2=24>>24 clips in May.
+                   Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May.
+                   #### 72"
+    }
+    """  # noqa: E501
 
-    default_dataset = "d1shs0ap/countdown"
+    default_dataset = "openai/gsm8k"
 
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
-        target = int(sample["target"])
-        # Convert nums from np array to list
-        nums = [int(num) for num in sample["nums"]]
-        prompt = _PROMPT_TEMPLATE.format(nums=nums, target=target)
-        solution = {
-            "target": target,
-            "numbers": nums,
-        }
+        instruction = (
+            'Let\'s think step by step and output the final answer after "####".'
+        )
+        prompt = f"{sample['question']} {instruction}"
+        solution = _extract_solution(sample["answer"])
         return {
-            "data_source": "countdown",
+            "data_source": "gsm8k",
             "prompt": [
                 {
                     "role": "user",
@@ -63,6 +71,8 @@ class CountdownGrpoDataset(BaseExperimentalGrpoDataset):
             "reward_model": {"style": "rule", "ground_truth": solution},
             "extra_info": {
                 "split": self.split if self.split else "",
+                "answer": sample["answer"],
+                "question": sample["question"],
             },
         }
 
