@@ -66,7 +66,7 @@ class _AttributeInfo:
 
 
 class AttributeSynthesizer:
-    """Synthesizes attributes based on the given samples and GeneratedAttribute.
+    """Synthesizes values for a generated attribute based on the given samples.
 
     Args:
         params: The parameters for the attribute synthesizer.
@@ -204,7 +204,7 @@ class AttributeSynthesizer:
     def _get_permutable_attribute_value_info(
         self, attribute_id: str, attribute_value_id: str
     ) -> _AttributeInfo:
-        """Get the instruction for a permutable attribute."""
+        """Get the string representation information for a permutable attribute."""
         attribute = self._permutable_attribute_map[attribute_id]
         attribute_id = attribute.id
         attribute_name = attribute.attribute
