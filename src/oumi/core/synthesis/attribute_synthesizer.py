@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import string
 
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
 )
 from oumi.core.types.conversation import Conversation
+from oumi.utils.placeholders import resolve_placeholders
 
 
 class _AttributeValueInfo:
@@ -120,18 +120,11 @@ class AttributeSynthesizer:
                 new_messages.append(turn)
                 continue
 
-            formatted_content = turn.content.format(**attr_values)
-
-            field_names = [
-                v[1]
-                for v in string.Formatter().parse(formatted_content)
-                if v[1] is not None
-            ]
-            if len(field_names) > 0:
-                raise ValueError(
-                    f"Format string {formatted_content} contains "
-                    f"unresolved fields: {field_names}"
-                )
+            formatted_content = resolve_placeholders(
+                turn.content,
+                attr_values,
+                missing_values_allowed=False,
+            )
 
             # Create new Message with formatted content
             new_message = turn.model_copy(update={"content": formatted_content})
