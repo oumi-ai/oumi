@@ -295,7 +295,10 @@ def test_format_instructions_with_unresolved_fields(mock_general_synthesis_param
         ]
     )
 
-    with pytest.raises(KeyError, match="missing_field"):
+    with pytest.raises(
+        ValueError,
+        match="Missing value for placeholder: missing_field",
+    ):
         synthesizer._format_instructions(sample, instruction_messages)
 
 
