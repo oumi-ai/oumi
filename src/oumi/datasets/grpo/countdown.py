@@ -43,8 +43,8 @@ class CountdownGrpoDataset(BaseExperimentalGrpoDataset):
     @override
     def transform(self, sample: pd.Series) -> dict:
         """Validate and transform the sample into Python `dict`."""
-        # Convert nums from np array to list
         target = int(sample["target"])
+        # Convert nums from np array to list
         nums = [int(num) for num in sample["nums"]]
         prompt = _PROMPT_TEMPLATE.format(nums=nums, target=target)
         solution = {
