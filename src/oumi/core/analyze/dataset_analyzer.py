@@ -83,14 +83,8 @@ class DatasetAnalyzer:
         )
 
         total_conversations = len(self.dataset)
-
-        # Get max conversations from the config's sample_count
-        max_conversations = self.config.sample_count
-
-        conversations_to_analyze = (
-            min(total_conversations, max_conversations)
-            if max_conversations
-            else total_conversations
+        conversations_to_analyze = min(
+            total_conversations, self.config.sample_count or total_conversations
         )
 
         logger.info(f"Analyzing {conversations_to_analyze} conversations")
