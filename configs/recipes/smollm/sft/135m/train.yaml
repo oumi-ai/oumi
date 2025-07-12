@@ -47,6 +47,7 @@ training:
   logging_steps: 100
   log_model_summary: False
   empty_device_cache_steps: 50
+  run_name: "smollm135m.fft"
   output_dir: "output/smollm135m.fft"
   include_performance_metrics: True
   enable_wandb: True
