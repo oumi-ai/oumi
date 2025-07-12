@@ -17,7 +17,6 @@ from enum import Enum
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.utils.logging import logger
 
 
 class EvaluationBackend(Enum):
