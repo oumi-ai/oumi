@@ -6,7 +6,6 @@
 
 model:
   model_name: "uiuc-convai/CoALM-8B"
-  adapter_model: null  # Update for LoRA-tuned models.
   model_max_length: 2048  # Update based on your hardware constraints
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"

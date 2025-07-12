@@ -24,6 +24,5 @@ model:
 
 generation:
   max_new_tokens: 2048
-  batch_size: 4
 
 engine: VLLM
