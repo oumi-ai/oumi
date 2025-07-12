@@ -1,4 +1,5 @@
 #!/bin/bash
+# Derived from https://github.com/ray-project/ray/blob/master/doc/source/cluster/doc_code/slurm-basic.sh.
 # Env vars required by this script (should be set by SLURM):
 # SLURM_JOB_NODELIST: list of nodes in the job.
 # SLURM_CPUS_PER_TASK: number of CPUs per node.
@@ -7,9 +8,7 @@
 set -e
 
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-scontrol show hostnames "$SLURM_JOB_NODELIST" > nodes.txt
 nodes_array=($nodes)
-echo "nodes_array: $nodes_array" > nodesarray.txt
 head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 

@@ -1,4 +1,4 @@
-# Job config to tune smollm 135M on 1 GCP node.
+# Job config to tune SmolLM 135M on Slurm.
 #
 # Requirements:
 #   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
@@ -19,6 +19,10 @@ resources:
 
 working_dir: .
 
+envs:
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
 setup: |
   #SBATCH --ntasks-per-node=1
   #SBATCH --cpus-per-task=4
@@ -27,6 +31,7 @@ setup: |
   #SBATCH --time=00:30:00
 
   set -e  # Exit if any command failed.
+  source ./configs/examples/misc/slurm_init.sh
 
   source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
   conda activate oumi
@@ -39,6 +44,3 @@ run: |
       --training.enable_wandb=False
 
   echo "Training complete!"
-
-
-

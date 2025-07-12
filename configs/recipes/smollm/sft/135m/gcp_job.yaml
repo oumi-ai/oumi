@@ -21,6 +21,8 @@ working_dir: .
 
 envs:
   OUMI_RUN_NAME: smollm135m.train
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
