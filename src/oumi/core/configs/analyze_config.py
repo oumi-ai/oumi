@@ -27,9 +27,6 @@ class SampleAnalyzeConfig:
     id: str = MISSING
     """Unique identifier for the analyzer."""
 
-    enabled: bool = True
-    """Whether this analyzer is enabled."""
-
     config: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific configuration parameters."""
 
@@ -51,7 +48,7 @@ class DatasetAnalyzeConfig(BaseConfig):
     sample_count: Optional[int] = None
     """The number of examples to sample from the dataset.
 
-    Must be non-negative.
+    If None, uses the full dataset. If specified, must be non-negative.
     """
 
     output_path: str = "."
@@ -69,6 +66,10 @@ class DatasetAnalyzeConfig(BaseConfig):
             raise ValueError("'dataset_name' must be provided")
 
         # Validate analyzer configurations
+        analyzer_ids = set()
         for analyzer in self.analyzers:
             if not analyzer.id:
                 raise ValueError("Each analyzer must have a unique 'id'")
+            if analyzer.id in analyzer_ids:
+                raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
+            analyzer_ids.add(analyzer.id)
