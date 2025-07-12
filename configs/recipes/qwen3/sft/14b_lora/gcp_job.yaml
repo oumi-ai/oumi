@@ -1,4 +1,4 @@
-# Job config to LORA tune Qwen3 14B.
+# Job config to LoRA tune Qwen3 14B.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup

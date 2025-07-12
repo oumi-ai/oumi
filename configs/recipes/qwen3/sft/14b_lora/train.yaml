@@ -1,6 +1,6 @@
-# FFT config for Qwen3 14B.
+# LoRA config for Qwen3 14B.
 # Some param values are referenced from:
-# https://github.com/pytorch/torchtune/blob/main/recipes/configs/qwen3/14B_lora.yaml
+# https://github.com/pytorch/torchtune/blob/main/recipes/configs/qwen3/14B_lora_single_device.yaml
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
