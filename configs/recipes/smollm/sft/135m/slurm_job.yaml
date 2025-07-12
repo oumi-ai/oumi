@@ -30,7 +30,7 @@ setup: |
   #SBATCH --mem-per-gpu=32G
   #SBATCH --time=00:30:00
 
-  set -e  # Exit if any command failed.
+  set -e
   source ./configs/examples/misc/slurm_init.sh
 
   source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
@@ -38,7 +38,6 @@ setup: |
   pip install uv && uv pip install 'oumi[gpu]'
 
 run: |
-  set -x
   oumi train \
       -c configs/recipes/smollm/sft/135m/train.yaml \
       --training.enable_wandb=False

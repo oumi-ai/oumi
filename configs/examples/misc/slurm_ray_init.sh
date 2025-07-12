@@ -28,11 +28,6 @@ port=6379
 ip_head=$head_node_ip:$port
 export ip_head
 
-echo "SLURM_JOB_NODELIST: $SLURM_JOB_NODELIST"
-echo "CPUs per node: $SLURM_CPUS_PER_TASK"
-echo "GPUs per node: $SLURM_GPUS_ON_NODE"
-echo "IP Head: $ip_head"
-
 echo "Starting HEAD at $head_node"
 srun --nodes=1 --ntasks=1 -w "$head_node" \
     ray start --head --node-ip-address="$head_node_ip" --port=$port \
@@ -67,5 +62,5 @@ ray status
 echo "-----------------------------------------------------------------------------------------"
 echo "To view the Ray dashboard, run the following command (keep the connection alive)"
 echo "and open http://localhost:8265 on your local machine:"
-echo "ssh -L 8265:127.0.0.1:8265 -J $USER@\$OUMI_SLURM_CONNECTIONS $USER@$head_node_ip"
+echo "ssh -L 8265:127.0.0.1:8265 -J \$OUMI_SLURM_CONNECTIONS $USER@$head_node_ip"
 echo "-----------------------------------------------------------------------------------------"

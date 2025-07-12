@@ -32,6 +32,9 @@ setup: |
   #SBATCH --time=02:00:00
   # Num nodes is set by num_nodes field above.
 
+  set -e 
+  source ./configs/examples/misc/slurm_init.sh
+
   source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
   conda activate oumi
   pip install uv && uv pip install 'oumi[gpu]'
@@ -40,8 +43,6 @@ setup: |
   source ./configs/examples/misc/slurm_ray_init.sh
 
 run: |
-  set -e  # Exit if any command failed.
-
   ray job submit --address="http://127.0.0.1:8265" \
   -- \
   oumi train \
