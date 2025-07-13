@@ -2,6 +2,7 @@
 #
 # Requirements:
 #   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
 #
 # Usage:
 #   oumi launch up -c configs/examples/grpo_verl_gsm8k/slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
@@ -13,7 +14,7 @@
 #   - Other job configs: configs/**/*job.yaml
 
 name: grpo-verl-gsm8k
-num_nodes: 2
+num_nodes: 1
 
 resources:
   cloud: slurm
@@ -25,11 +26,12 @@ envs:
   RAY_BACKEND_LOG_LEVEL: debug
 
 setup: |
+  #SBATCH --exclude=oumi-compute002,oumi-compute001
   #SBATCH --ntasks-per-node=1
   #SBATCH --cpus-per-task=8
-  #SBATCH --gpus-per-task=4
+  #SBATCH --gpus-per-task=1
   #SBATCH --mem-per-gpu=32G
-  #SBATCH --time=02:00:00
+  #SBATCH --time=01:00:00
   # Num nodes is set by num_nodes field above.
 
   set -e
@@ -43,9 +45,58 @@ setup: |
   source ./configs/examples/misc/slurm_ray_init.sh
 
 run: |
+<<<<<<< Updated upstream
   ray job submit --address="http://127.0.0.1:8265" \
+=======
+  set -e  # Exit if any command failed.
+
+  set -x
+  RAY_JOB_OUTPUT=$(ray job submit --address="http://127.0.0.1:8265" \
+  --no-wait \
+>>>>>>> Stashed changes
   -- \
   oumi train \
   -c configs/examples/grpo_verl_gsm8k/train.yaml \
   --training.verl_config_overrides.trainer.n_gpus_per_node=$SLURM_GPUS_ON_NODE \
-  --training.verl_config_overrides.trainer.nnodes=$SLURM_JOB_NUM_NODES
+  --training.verl_config_overrides.trainer.nnodes=$SLURM_JOB_NUM_NODES)
+
+  echo "RAY_JOB_OUTPUT--------------------------------------------------------------------------"
+  echo $RAY_JOB_OUTPUT
+  RAY_JOB_ID=$(echo "$RAY_JOB_OUTPUT" | grep "Job.*submitted successfully" | sed "s/.*Job '\(.*\)' submitted successfully.*/\1/")
+  echo "RAY_JOB_ID---------------------------------------------------------------"
+  echo $RAY_JOB_ID
+
+  # Wait for job to start and then tail logs
+  sleep 5
+  echo "tailing ray logs---------------------------------------------------------------"
+  ray job logs -f $RAY_JOB_ID
+
+  # ray job submit --address="http://127.0.0.1:8265" \
+  # -- \
+  # python3 -m verl.trainer.main_ppo \
+  # data.train_files=$HOME/data/gsm8k/train.parquet \
+  # data.val_files=$HOME/data/gsm8k/test.parquet \
+  # data.train_batch_size=256 \
+  # data.max_prompt_length=512 \
+  # data.max_response_length=256 \
+  # actor_rollout_ref.model.path=Qwen/Qwen2.5-0.5B-Instruct \
+  # actor_rollout_ref.actor.optim.lr=1e-6 \
+  # actor_rollout_ref.actor.use_kl_loss=True \
+  # actor_rollout_ref.actor.kl_loss_coef=0.001 \
+  # actor_rollout_ref.actor.kl_loss_type=low_var_kl \
+  # actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+  # actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
+  # actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
+  # actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
+  # actor_rollout_ref.rollout.gpu_memory_utilization=0.4 \
+  # actor_rollout_ref.rollout.n=16 \
+  # actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=4 \
+  # algorithm.adv_estimator=grpo \
+  # algorithm.kl_ctrl.kl_coef=0.001 \
+  # trainer.logger=['console','wandb'] \
+  # trainer.val_before_train=False \
+  # trainer.save_freq=10 \
+  # trainer.test_freq=10 \
+  # trainer.total_epochs=15 \
+  # trainer.n_gpus_per_node=$SLURM_GPUS_ON_NODE \
+  # trainer.nnodes=$SLURM_JOB_NUM_NODES
