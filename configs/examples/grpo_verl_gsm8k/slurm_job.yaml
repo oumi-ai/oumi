@@ -45,7 +45,11 @@ setup: |
   source ./configs/examples/misc/slurm_ray_init.sh
 
 run: |
-  ray job submit --address="http://127.0.0.1:8265" \
+  set -e  # Exit if any command failed.
+
+  set -x
+  RAY_JOB_OUTPUT=$(ray job submit --address="http://127.0.0.1:8265" \
+  --no-wait \
   -- \
   oumi train \
   -c configs/examples/grpo_verl_gsm8k/train.yaml \
