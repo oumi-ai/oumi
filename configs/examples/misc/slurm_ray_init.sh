@@ -1,4 +1,5 @@
 #!/bin/bash
+# Derived from https://github.com/ray-project/ray/blob/master/doc/source/cluster/doc_code/slurm-basic.sh.
 # Env vars required by this script (should be set by SLURM):
 # SLURM_JOB_NODELIST: list of nodes in the job.
 # SLURM_CPUS_PER_TASK: number of CPUs per node.
@@ -7,9 +8,7 @@
 set -e
 
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
-scontrol show hostnames "$SLURM_JOB_NODELIST" > nodes.txt
 nodes_array=($nodes)
-echo "nodes_array: $nodes_array" > nodesarray.txt
 head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
@@ -28,11 +27,6 @@ fi
 port=6379
 ip_head=$head_node_ip:$port
 export ip_head
-
-echo "SLURM_JOB_NODELIST: $SLURM_JOB_NODELIST"
-echo "CPUs per node: $SLURM_CPUS_PER_TASK"
-echo "GPUs per node: $SLURM_GPUS_ON_NODE"
-echo "IP Head: $ip_head"
 
 echo "Starting HEAD at $head_node"
 srun --nodes=1 --ntasks=1 -w "$head_node" \
@@ -59,6 +53,7 @@ for ((i = 1; i <= worker_num; i++)); do
 done
 
 # Print cluster status to confirm setup.
+echo "Ray cluster status:"
 ray status
 
 # The Ray dashboard is run on the head node. To view it on our local machine, we need to
@@ -67,5 +62,5 @@ ray status
 echo "-----------------------------------------------------------------------------------------"
 echo "To view the Ray dashboard, run the following command (keep the connection alive)"
 echo "and open http://localhost:8265 on your local machine:"
-echo "ssh -L 8265:127.0.0.1:8265 -J $USER@<slurm_gateway_ip_address> $USER@$head_node_ip"
+echo "ssh -L 8265:127.0.0.1:8265 -J \$OUMI_SLURM_CONNECTIONS $USER@$head_node_ip"
 echo "-----------------------------------------------------------------------------------------"

@@ -84,8 +84,6 @@ def test_save_evaluation_output_happy_path():
         task_params_path = os.path.join(output_path, OUTPUT_FILENAME_TASK_PARAMS)
         with open(task_params_path, encoding="utf-8") as file_ptr:
             task_params_dict = json.load(file_ptr)
-        if "evaluation_platform" in task_params_dict:
-            task_params_dict.pop("evaluation_platform")  # deprecated field.
         assert task_params_dict == {
             "evaluation_backend": "lm_harness",
             "task_name": "mmlu",
