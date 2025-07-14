@@ -1,7 +1,10 @@
-# Job config to tune smollm 135M on 1 GCP node.
+# Job config to tune SmolLM 135M on Slurm.
+#
+# Requirements:
+#   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
 #
 # Usage:
-#   oumi launch up -c configs/recipes/smollm/sft/135m/gcp_job.yaml --cluster smollm-135m-fft
+#   oumi launch up -c configs/recipes/smollm/sft/135m/slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -12,30 +15,31 @@
 name: smollm-135m-sft
 
 resources:
-  cloud: gcp
-  accelerators: "A100:1"
-  use_spot: false
-  disk_size: 100 # Disk size in GBs
+  cloud: slurm
 
 working_dir: .
 
 envs:
-  OUMI_RUN_NAME: smollm135m.train
   # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
   TOKENIZERS_PARALLELISM: false
 
 setup: |
+  #SBATCH --ntasks-per-node=1
+  #SBATCH --cpus-per-task=4
+  #SBATCH --gpus-per-task=1
+  #SBATCH --mem-per-gpu=32G
+  #SBATCH --time=00:30:00
+
   set -e
-  pip install uv && uv pip install oumi[gpu]
+  source ./configs/examples/misc/slurm_init.sh
+
+  source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]'
 
 run: |
-  set -e  # Exit if any command failed.
-  source ./configs/examples/misc/sky_init.sh
-
-  set -x
   oumi train \
       -c configs/recipes/smollm/sft/135m/train.yaml \
-      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
       --training.enable_wandb=False
 
   echo "Training complete!"
