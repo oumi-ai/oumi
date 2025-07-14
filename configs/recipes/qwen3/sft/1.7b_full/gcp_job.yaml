@@ -17,7 +17,7 @@ name: qwen3-1.7b-full
 
 resources:
   cloud: gcp
-  accelerators: "A100:4"
+  accelerators: "A100:1"
   use_spot: false
   disk_size: 400 # Disk size in GBs
 
@@ -33,9 +33,6 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu] hf_transfer
-  # Install model from HF Hub. This tool increases download speed compared to
-  # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen3-1.7B
 
 run: |
   set -e  # Exit if any command failed.

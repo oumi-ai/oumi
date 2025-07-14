@@ -19,7 +19,7 @@ resources:
   cloud: gcp
   accelerators: "A100:4"
   use_spot: false
-  disk_size: 400 # Disk size in GBs
+  disk_size: 800 # Disk size in GBs
 
 working_dir: .
 
