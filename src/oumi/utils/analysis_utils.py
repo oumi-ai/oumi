@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-from pathlib import Path
-from typing import Any
-
 from oumi.core.configs import DatasetAnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
@@ -67,20 +63,3 @@ def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
     except Exception as e:
         logger.error(f"Failed to load dataset {dataset_name}: {e}")
         raise
-
-
-def save_results(results: dict[str, Any], output_path: str):
-    """Save analysis results to file as JSON only.
-
-    Args:
-        results: Analysis results dictionary to save
-        output_path: Path where to save the results
-    """
-    # Create output directory if it doesn't exist
-    output_file = Path(output_path)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
-
-    logger.info(f"Results saved to: {output_file}")
