@@ -17,47 +17,8 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
 )
+from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
-from oumi.utils.placeholders import resolve_placeholders
-
-
-class _AttributeValueInfo:
-    """Information about a value of a permutable attribute.
-
-    Used to format the instructions for a sample.
-    """
-
-    def __init__(self, value_name: str, value_description: str):
-        """Initialize the attribute value info."""
-        self._value_name = value_name
-        self.description = value_description
-
-    def __str__(self) -> str:
-        return self._value_name
-
-
-class _AttributeInfo:
-    """Information about a permutable attribute.
-
-    Used to format the instructions for a sample.
-    """
-
-    def __init__(
-        self,
-        attribute_id: str,
-        attribute_name: str,
-        attribute_description: str,
-        value_name: str,
-        value_description: str,
-    ):
-        """Initialize the attribute value info."""
-        self.attribute_id = attribute_id
-        self._attribute_name = attribute_name
-        self.description = attribute_description
-        self.value = _AttributeValueInfo(value_name, value_description)
-
-    def __str__(self) -> str:
-        return self._attribute_name
 
 
 class AttributeSynthesizer:
@@ -70,11 +31,7 @@ class AttributeSynthesizer:
     def __init__(self, params: GeneralSynthesisParams):
         """Initialize the synthesizer."""
         self._params = params
-        self._permutable_attribute_map = (
-            {perm_attr.id: perm_attr for perm_attr in params.permutable_attributes}
-            if params.permutable_attributes
-            else {}
-        )
+        self._formatter = AttributeFormatter(params)
 
     def synthesize(
         self,
@@ -104,25 +61,15 @@ class AttributeSynthesizer:
         instruction_messages: Conversation,
     ) -> Conversation:
         """Format the instructions for the sample."""
-        attr_values = {}
-        for attribute_id, attribute_value in sample.items():
-            if self._is_permutable_attribute(attribute_id):
-                value_id = attribute_value
-                attr_values[attribute_id] = self._get_permutable_attribute_value_info(
-                    attribute_id, value_id
-                )
-            else:
-                attr_values[attribute_id] = attribute_value
-
         new_messages = []
         for turn in instruction_messages.messages:
             if not isinstance(turn.content, str):
                 new_messages.append(turn)
                 continue
 
-            formatted_content = resolve_placeholders(
+            formatted_content = self._formatter.format(
+                sample,
                 turn.content,
-                attr_values,
                 missing_values_allowed=False,
             )
 
@@ -137,33 +84,3 @@ class AttributeSynthesizer:
             metadata=instruction_messages.metadata,
         )
         return new_conversation
-
-    def _is_permutable_attribute(self, attribute_id: str) -> bool:
-        """Check if the attribute is a permutable attribute."""
-        return attribute_id in self._permutable_attribute_map
-
-    def _get_permutable_attribute_value_info(
-        self, attribute_id: str, attribute_value_id: str
-    ) -> _AttributeInfo:
-        """Get the string representation information for a permutable attribute."""
-        attribute = self._permutable_attribute_map[attribute_id]
-        attribute_id = attribute.id
-        attribute_name = attribute.attribute
-        attribute_desc = attribute.description
-        values = attribute.possible_values
-        for value in values:
-            if value.id == attribute_value_id:
-                value_name = value.value
-                value_description = value.description
-                return _AttributeInfo(
-                    attribute_id=attribute_id,
-                    attribute_name=attribute_name,
-                    attribute_description=attribute_desc,
-                    value_name=value_name,
-                    value_description=value_description,
-                )
-
-        raise ValueError(
-            f"Attribute value {attribute_value_id} not found for "
-            f"attribute {attribute_id}"
-        )

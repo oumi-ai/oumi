@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import Mock, call, patch
+
 import pytest
 
 from oumi.core.configs.params.synthesis_params import (
@@ -20,11 +22,7 @@ from oumi.core.configs.params.synthesis_params import (
     PermutableAttribute,
     PermutableAttributeValue,
 )
-from oumi.core.synthesis.attribute_synthesizer import (
-    AttributeSynthesizer,
-    _AttributeInfo,
-    _AttributeValueInfo,
-)
+from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -111,55 +109,11 @@ def mock_samples():
     ]
 
 
-def test_attribute_value_info_init():
-    """Test initialization of _AttributeValueInfo."""
-    info = _AttributeValueInfo("test_value", "test description")
-    assert info._value_name == "test_value"
-    assert info.description == "test description"
-
-
-def test_attribute_value_info_str_representation():
-    """Test string representation of _AttributeValueInfo."""
-    info = _AttributeValueInfo("test_value", "test description")
-    assert str(info) == "test_value"
-
-
-def test_attribute_info_init():
-    """Test initialization of _AttributeInfo."""
-    info = _AttributeInfo(
-        attribute_id="test_id",
-        attribute_name="test_name",
-        attribute_description="test attribute description",
-        value_name="test_value",
-        value_description="test value description",
-    )
-    assert info.attribute_id == "test_id"
-    assert info._attribute_name == "test_name"
-    assert info.description == "test attribute description"
-    assert isinstance(info.value, _AttributeValueInfo)
-    assert str(info.value) == "test_value"
-    assert info.value.description == "test value description"
-
-
-def test_attribute_info_str_representation():
-    """Test string representation of _AttributeInfo."""
-    info = _AttributeInfo(
-        attribute_id="test_id",
-        attribute_name="test_name",
-        attribute_description="test attribute description",
-        value_name="test_value",
-        value_description="test value description",
-    )
-    assert str(info) == "test_name"
-
-
 def test_init_with_permutable_attributes(mock_general_synthesis_params):
     """Test initialization with permutable attributes."""
     synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
     assert synthesizer._params == mock_general_synthesis_params
-    assert len(synthesizer._permutable_attribute_map) == 2
-    assert "style" in synthesizer._permutable_attribute_map
-    assert "topic" in synthesizer._permutable_attribute_map
+    assert synthesizer._formatter is not None
 
 
 def test_init_without_permutable_attributes():
@@ -167,7 +121,7 @@ def test_init_without_permutable_attributes():
     params = GeneralSynthesisParams()
     synthesizer = AttributeSynthesizer(params)
     assert synthesizer._params == params
-    assert synthesizer._permutable_attribute_map == {}
+    assert synthesizer._formatter is not None
 
 
 def test_synthesize_returns_conversations(
@@ -188,21 +142,19 @@ def test_synthesize_returns_conversations(
         assert isinstance(conversation, Conversation)
 
 
-def test_get_permutable_attribute_value_info_invalid_value(
-    mock_general_synthesis_params,
-):
-    """Test error when getting info for invalid attribute value."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
-    with pytest.raises(
-        ValueError, match="Attribute value invalid_value not found for attribute style"
-    ):
-        synthesizer._get_permutable_attribute_value_info("style", "invalid_value")
-
-
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
 def test_format_instructions_with_permutable_attributes(
-    mock_general_synthesis_params, mock_generated_attribute
+    mock_formatter_class, mock_general_synthesis_params, mock_generated_attribute
 ):
     """Test formatting instructions with permutable attributes."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter.format.side_effect = [
+        "You are a helpful assistant.",
+        "Write a Formal paragraph about Technology.",
+    ]
+    mock_formatter_class.return_value = mock_formatter
+
     synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
     sample = {"style": "formal", "topic": "tech"}
 
@@ -217,14 +169,30 @@ def test_format_instructions_with_permutable_attributes(
     # Check that the formatting worked correctly
     user_message = result.messages[1]
     assert user_message.role == Role.USER
-    # The content should have the attribute objects substituted
-    assert "Write a Formal paragraph about Technology." in user_message.content
+    assert user_message.content == "Write a Formal paragraph about Technology."
+
+    # Verify formatter was called correctly for both messages
+    expected_calls = [
+        call(sample, "You are a helpful assistant.", missing_values_allowed=False),
+        call(
+            sample,
+            "Write a {style.value} paragraph about {topic.value}.",
+            missing_values_allowed=False,
+        ),
+    ]
+    mock_formatter.format.assert_has_calls(expected_calls)
 
 
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
 def test_format_instructions_with_non_permutable_attributes(
-    mock_general_synthesis_params,
+    mock_formatter_class, mock_general_synthesis_params
 ):
     """Test formatting instructions with non-permutable attributes."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter.format.return_value = "Use this value: some_value"
+    mock_formatter_class.return_value = mock_formatter
+
     synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
     sample = {"non_permutable": "some_value"}
 
@@ -247,63 +215,15 @@ def test_format_instructions_with_non_permutable_attributes(
     assert user_message.content == "Use this value: some_value"
 
 
-def test_format_instructions_with_mixed_attributes(mock_general_synthesis_params):
-    """Test formatting instructions with permutable and non-permutable attributes."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
-    sample = {"style": "casual", "non_permutable": "mixed_value"}
-
-    instruction_messages = Conversation(
-        messages=[
-            Message(
-                role=Role.USER,
-                content="{style} - ({style.description}) "
-                "{style.value} - ({style.value.description}) "
-                "style about {non_permutable}",
-            ),
-        ]
-    )
-
-    original_content = instruction_messages.messages[0].content
-
-    result = synthesizer._format_instructions(sample, instruction_messages)
-
-    # Original should be unchanged
-    assert instruction_messages.messages[0].content == original_content
-
-    assert isinstance(result, Conversation)
-    assert len(result.messages) == 1
-
-    user_message = result.messages[0]
-    assert user_message.role == Role.USER
-    assert (
-        "Writing Style - (The style of writing to use) Casual - (A casual"
-        " writing style) style about mixed_value" in user_message.content
-    )
-
-
-def test_format_instructions_with_unresolved_fields(mock_general_synthesis_params):
-    """Test error when format string contains unresolved fields."""
-    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
-    sample = {"style": "formal"}
-
-    instruction_messages = Conversation(
-        messages=[
-            Message(
-                role=Role.USER,
-                content="Write in {style} style about {missing_field}",
-            ),
-        ]
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="Missing value for placeholder: missing_field",
-    ):
-        synthesizer._format_instructions(sample, instruction_messages)
-
-
-def test_format_instructions_with_non_string_content(mock_general_synthesis_params):
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
+def test_format_instructions_with_non_string_content(
+    mock_formatter_class, mock_general_synthesis_params
+):
     """Test formatting instructions with non-string content (should be skipped)."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter_class.return_value = mock_formatter
+
     synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
     sample = {"style": "formal"}
 
@@ -331,26 +251,43 @@ def test_format_instructions_with_non_string_content(mock_general_synthesis_para
     # Content should remain unchanged since it's not a string
     assert result.messages[0].content == content_items
 
+    # Formatter should not have been called
+    mock_formatter.format.assert_not_called()
 
-def test_format_instructions_with_empty_sample(mock_general_synthesis_params):
-    """Test formatting instructions with empty sample."""
+
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
+def test_format_instructions_preserves_original_message(
+    mock_formatter_class, mock_general_synthesis_params
+):
+    """Test that formatting preserves the original message structure."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter.format.return_value = "Formatted content"
+    mock_formatter_class.return_value = mock_formatter
+
     synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
-    sample = {}
+    sample = {"style": "formal"}
 
-    instruction_messages = Conversation(
+    original_conversation = Conversation(
         messages=[
             Message(
                 role=Role.USER,
-                content="No formatting needed",
+                content="Original {style} content",
             ),
-        ]
+        ],
+        conversation_id="test_id",
+        metadata={"test": "metadata"},
     )
 
-    result = synthesizer._format_instructions(sample, instruction_messages)
+    result = synthesizer._format_instructions(sample, original_conversation)
 
-    assert isinstance(result, Conversation)
-    assert len(result.messages) == 1
-    assert result.messages[0].content == "No formatting needed"
+    # Original should be unchanged
+    assert original_conversation.messages[0].content == "Original {style} content"
+
+    # New conversation should have formatted content
+    assert result.messages[0].content == "Formatted content"
+    assert result.conversation_id == "test_id"
+    assert result.metadata == {"test": "metadata"}
 
 
 def test_synthesize_with_multiple_samples(
