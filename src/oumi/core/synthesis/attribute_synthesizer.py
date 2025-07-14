@@ -50,8 +50,19 @@ class AttributeSynthesizer:
         self,
         samples: list[dict],
         generated_attribute: GeneratedAttribute,
-    ) -> list[Conversation]:
-        """Synthesize values for the generated attribute."""
+    ) -> list[dict[str, str]]:
+        """Synthesize a value for the generated attribute.
+
+        Order will be identical to the order of the samples.
+
+        Args:
+            samples: The samples to synthesize values for.
+            generated_attribute: The generated attribute to synthesize a value for.
+
+        Returns:
+            A list of dictionaries, one for each sample, with the generated attribute
+            value added to the dictionary.
+        """
         inference_conversations: list[Conversation] = []
         for sample in samples:
             inference_conversations.append(
