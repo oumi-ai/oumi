@@ -449,6 +449,7 @@ class SlurmClient:
         """
         if Path(source).is_dir():
             self.run_commands([f"mkdir -p {destination}"])
+        docs_dir = Path(source) / "docs"
         tests_dir = Path(source) / "tests"
         git_ignore = Path(source) / ".gitignore"
         rsync_cmd_list = [f'rsync -e "ssh {_CTRL_PATH}" -avz --delete ']
@@ -456,6 +457,8 @@ class SlurmClient:
             rsync_cmd_list.append(f"--exclude-from {str(git_ignore)} ")
         if tests_dir.is_dir():
             rsync_cmd_list.append(f"--exclude {str(tests_dir)} ")
+        if docs_dir.is_dir():
+            rsync_cmd_list.append(f"--exclude {str(docs_dir)} ")
         rsync_cmd_list.append(f"{source} ")
         rsync_cmd_list.append(f"{self._user}@{self._slurm_host}:{destination}")
         rsync_cmd = "".join(rsync_cmd_list)
