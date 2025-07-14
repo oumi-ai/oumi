@@ -21,7 +21,6 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
 from oumi.infer import get_engine
 from oumi.utils.logging import logger
@@ -138,8 +137,6 @@ class AttributeSynthesizer:
                 new_messages.append(turn)
                 continue
 
-            formatted_content = self._formatter.format(
-                sample,
             formatted_content = self._formatter.format(
                 sample,
                 turn.content,
