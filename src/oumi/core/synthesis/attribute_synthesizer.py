@@ -21,7 +21,6 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
 from oumi.infer import get_engine
 from oumi.utils.logging import logger
@@ -50,7 +49,7 @@ class AttributeSynthesizer:
         self,
         samples: list[dict],
         generated_attribute: GeneratedAttribute,
-    ) -> list[Conversation]:
+    ) -> list[dict[str, str]]:
         """Synthesize values for the generated attribute."""
         inference_conversations: list[Conversation] = []
         for sample in samples:
@@ -127,8 +126,6 @@ class AttributeSynthesizer:
                 new_messages.append(turn)
                 continue
 
-            formatted_content = self._formatter.format(
-                sample,
             formatted_content = self._formatter.format(
                 sample,
                 turn.content,
