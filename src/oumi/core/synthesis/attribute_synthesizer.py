@@ -21,10 +21,10 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
+from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
 from oumi.infer import get_engine
 from oumi.utils.logging import logger
-from oumi.utils.placeholders import resolve_placeholders
 
 
 class AttributeSynthesizer:
@@ -43,6 +43,8 @@ class AttributeSynthesizer:
         """Initialize the synthesizer."""
         self._params = params
         self._formatter = AttributeFormatter(params)
+
+        self._inference_engine = get_engine(inference_config)
 
     def synthesize(
         self,
@@ -127,6 +129,8 @@ class AttributeSynthesizer:
 
             formatted_content = self._formatter.format(
                 sample,
+            formatted_content = self._formatter.format(
+                sample,
                 turn.content,
                 missing_values_allowed=False,
             )
@@ -142,3 +146,53 @@ class AttributeSynthesizer:
             metadata=instruction_messages.metadata,
         )
         return new_conversation
+
+    def _postprocess_sample(
+        self,
+        response: str,
+        postprocessing_params: GeneratedAttributePostprocessingParams,
+    ) -> str:
+        """Postprocess the response, removing extraneous text.
+
+        Order of operations:
+        1. If regex is provided, use the first match.
+        2. Cut off everything before the first occurrence of the prefix and after the
+        last occurrence of the suffix.
+        3. Strip whitespace.
+        4. Add prefix and suffix to what remains.
+
+        Args:
+            response: The response to postprocess.
+            postprocessing_params: The postprocessing parameters.
+
+        Returns:
+            The postprocessed response.
+        """
+        if postprocessing_params.regex:
+            match = re.search(postprocessing_params.regex, response)
+            if match:
+                response = match.group(0)
+
+        # Cut off prefix and suffix
+        if postprocessing_params.cut_prefix:
+            prefix_loc = response.find(postprocessing_params.cut_prefix)
+            if prefix_loc != -1:
+                response = response[
+                    prefix_loc + len(postprocessing_params.cut_prefix) :
+                ]
+        if postprocessing_params.cut_suffix:
+            suffix_loc = response.rfind(postprocessing_params.cut_suffix)
+            if suffix_loc != -1:
+                response = response[:suffix_loc]
+
+        # Strip whitespace
+        if postprocessing_params.strip_whitespace:
+            response = response.strip()
+
+        # Add prefix and suffix
+        if postprocessing_params.added_prefix:
+            response = postprocessing_params.added_prefix + response
+        if postprocessing_params.added_suffix:
+            response = response + postprocessing_params.added_suffix
+
+        return response

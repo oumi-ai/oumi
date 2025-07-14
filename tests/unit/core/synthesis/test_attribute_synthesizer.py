@@ -25,6 +25,7 @@ from oumi.core.configs.params.synthesis_params import (
     PermutableAttributeValue,
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
+from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
 
 
@@ -152,30 +153,12 @@ def mock_samples():
     ]
 
 
-def test_init_with_permutable_attributes(mock_general_synthesis_params):
-    """Test initialization with permutable attributes."""
-    mock_get_engine.return_value = Mock()
-
-    synthesizer = AttributeSynthesizer(
-        mock_general_synthesis_params, mock_inference_config
-    )
-    assert synthesizer._params == mock_general_synthesis_params
-    assert synthesizer._formatter is not None
-
-
 @patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
-def test_init_without_permutable_attributes(mock_get_engine, mock_inference_config):
-    """Test initialization without permutable attributes."""
-    mock_get_engine.return_value = Mock()
-
-    params = GeneralSynthesisParams()
-    synthesizer = AttributeSynthesizer(params, mock_inference_config)
-    assert synthesizer._params == params
-    assert synthesizer._formatter is not None
-
-
-def test_synthesize_returns_conversations(
-    mock_general_synthesis_params, mock_generated_attribute
+def test_synthesize_returns_dict_list(
+    mock_get_engine,
+    mock_general_synthesis_params,
+    mock_generated_attribute,
+    mock_inference_config,
 ):
     """Test that synthesize returns list of dictionaries."""
     mock_inference_engine = Mock()
@@ -214,7 +197,7 @@ def test_synthesize_returns_conversations(
         assert isinstance(conversation, Conversation)
 
 
-@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
+@patch("oumi.core.synthesis.attribute_synthesizer.get_engine")
 def test_format_instructions_with_permutable_attributes(
     mock_formatter_class, mock_general_synthesis_params, mock_generated_attribute
 ):
