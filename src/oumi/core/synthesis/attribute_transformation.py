@@ -19,11 +19,12 @@ from typing import Union
 from oumi.core.configs.params.synthesis_params import (
     ChatTransform,
     DictTransform,
+    GeneralSynthesisParams,
     ListTransform,
     TransformedAttribute,
 )
+from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
-from oumi.utils.placeholders import resolve_placeholders
 
 SampleValue = Union[str, list[str], dict[str, str], Conversation]
 
@@ -31,13 +32,17 @@ SampleValue = Union[str, list[str], dict[str, str], Conversation]
 class AttributeTransformer:
     """Transforms attributes of a dataset plan to a particular format."""
 
-    def __init__(self, transformed_attributes: list[TransformedAttribute]):
+    def __init__(self, params: GeneralSynthesisParams):
         """Initializes the attribute transformer.
 
         Args:
-            transformed_attributes: The attributes describing transformations to apply.
+            params: The general synthesis parameters containing the transformed
+            attributes.
         """
-        self._transformed_attributes = transformed_attributes
+        self._formatter = AttributeFormatter(params)
+        self._transformed_attributes = (
+            params.transformed_attributes if params.transformed_attributes else []
+        )
 
     def transform(
         self,
@@ -46,7 +51,8 @@ class AttributeTransformer:
         """Transforms attributes of a dataset plan to a particular format.
 
         Args:
-            samples: The samples to add transformed attributes to.
+            samples: The samples to add transformed attributes to, using the values in
+            each sample as the input to the transformation.
 
         Returns:
             The samples with the transformed attributes added.
@@ -100,7 +106,11 @@ class AttributeTransformer:
     ) -> str:
         """Transforms a string attribute of a sample to a particular format."""
         string_sample = {k: v for k, v in sample.items() if isinstance(v, str)}
-        formatted_string = resolve_placeholders(transform, string_sample)
+        formatted_string = self._formatter.format(
+            string_sample,
+            transform,
+            missing_values_allowed=False,
+        )
         return formatted_string
 
     def _transform_list(
@@ -143,6 +153,11 @@ class AttributeTransformer:
             formatted_content = self._transform_string(sample, content)
             messages.append(Message(role=message.role, content=formatted_content))
 
+        transformed_metadata = {}
+        if transform.transforms.metadata:
+            metadata_transform = DictTransform(transform.transforms.metadata)
+            transformed_metadata = self._transform_dict(sample, metadata_transform)
+
         new_conv_id = transform.transforms.conversation_id
         if not transform.transforms.conversation_id:
             new_conv_id = f"{attribute_id}-{uuid.uuid4()}"
@@ -150,5 +165,5 @@ class AttributeTransformer:
         return Conversation(
             messages=messages,
             conversation_id=new_conv_id,
-            metadata=transform.transforms.metadata,
+            metadata=transformed_metadata,
         )
