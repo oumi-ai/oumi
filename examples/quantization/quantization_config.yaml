@@ -1,0 +1,18 @@
+# Basic Model Quantization Configuration
+# 🚧 DEVELOPMENT: This configuration tests the quantization interface
+# Currently runs in simulation mode - validates inputs without performing actual quantization
+
+# Model configuration
+model:
+  model_name: "meta-llama/Llama-2-7b-hf"
+  tokenizer_name: "meta-llama/Llama-2-7b-hf"
+  trust_remote_code: false
+
+# Quantization settings
+method: "q4_0"                    # 4-bit quantization (good compression/quality balance)
+output_path: "llama2-7b-q4.gguf"  # Output file path
+output_format: "gguf"             # GGUF format for llama.cpp compatibility
+
+# Optional settings
+batch_size: null                  # Auto-determine batch size
+verbose: true                     # Enable detailed loggings
