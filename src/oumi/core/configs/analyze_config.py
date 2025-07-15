@@ -27,9 +27,6 @@ class SampleAnalyzeConfig:
     id: str = MISSING
     """Unique identifier for the analyzer."""
 
-    enabled: bool = True
-    """Whether this analyzer is enabled."""
-
     config: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific configuration parameters."""
 
@@ -40,26 +37,16 @@ class DatasetAnalyzeConfig(BaseConfig):
 
     # Simple fields for common use cases
     dataset_name: Optional[str] = None
-    """Dataset name for simple single-dataset analysis.
-
-    If provided, will create a simple DataParams configuration automatically.
-    Ignored if 'data' is explicitly provided.
-    """
+    """Dataset name."""
 
     split: str = "train"
-    """Dataset split to use for analysis (e.g., 'train', 'test', 'validation').
-
-    Used when dataset_name is provided, or applied to datasets in 'data' if not
-    explicitly set in individual datasets.
+    """The split of the dataset to load.
+    This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
     sample_count: Optional[int] = None
-    """Maximum number of conversations to analyze.
-
-    If None, analyzes all conversations in the dataset.
-    If set to a positive integer, only analyzes the first N conversations.
-    Used when dataset_name is provided, or applied to datasets in 'data' if not
-    explicitly set in individual datasets.
+    """The number of examples to sample from the dataset.
+    If None, uses the full dataset. If specified, must be non-negative.
     """
 
     output_path: str = "."
@@ -77,6 +64,10 @@ class DatasetAnalyzeConfig(BaseConfig):
             raise ValueError("'dataset_name' must be provided")
 
         # Validate analyzer configurations
+        analyzer_ids = set()
         for analyzer in self.analyzers:
             if not analyzer.id:
                 raise ValueError("Each analyzer must have a unique 'id'")
+            if analyzer.id in analyzer_ids:
+                raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
+            analyzer_ids.add(analyzer.id)

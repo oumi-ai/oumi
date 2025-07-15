@@ -45,24 +45,21 @@ class DatasetAnalyzer:
         """Initialize sample analyzer plugins from configuration."""
         sample_analyzers = {}
         for analyzer_config in self.config.analyzers:
-            if analyzer_config.enabled:
-                try:
-                    config_dict = {
-                        "id": analyzer_config.id,
-                        "enabled": analyzer_config.enabled,
-                        **analyzer_config.config,
-                    }
-                    sample_analyzer = AnalyzerRegistry.create_analyzer(
-                        analyzer_config.id, config_dict
-                    )
-                    sample_analyzers[analyzer_config.id] = sample_analyzer
-                    logger.info(f"Initialized sample analyzer: {analyzer_config.id}")
-                except Exception as e:
-                    logger.error(
-                        f"Failed to initialize sample analyzer "
-                        f"{analyzer_config.id}: {e}"
-                    )
-                    logger.error(f"Analyzer configuration: {analyzer_config}")
+            try:
+                config_dict = {
+                    "id": analyzer_config.id,
+                    **analyzer_config.config,
+                }
+                sample_analyzer = AnalyzerRegistry.create_analyzer(
+                    analyzer_config.id, config_dict
+                )
+                sample_analyzers[analyzer_config.id] = sample_analyzer
+                logger.info(f"Initialized sample analyzer: {analyzer_config.id}")
+            except Exception as e:
+                logger.error(
+                    f"Failed to initialize sample analyzer {analyzer_config.id}: {e}"
+                )
+                logger.error(f"Analyzer configuration: {analyzer_config}")
         return sample_analyzers
 
     def analyze_dataset(self) -> dict[str, Any]:

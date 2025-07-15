@@ -17,7 +17,6 @@ def test_sample_analysis():
     # Create length analyzer
     length_analyzer = SampleAnalyzeConfig(
         id="length",
-        enabled=True,
         config={
             "char_count": True,
             "word_count": True,
@@ -78,7 +77,6 @@ def test_yaml_config_loading():
     output_path: "./analysis_results"
     analyzers:
       - id: "length"
-        enabled: true
         config:
           char_count: true
           word_count: true
@@ -100,7 +98,6 @@ def test_yaml_config_loading():
     if config.analyzers:
         analyzer = config.analyzers[0]
         print(f"Analyzer ID: {analyzer.id}")
-        print(f"Analyzer enabled: {analyzer.enabled}")
         print(f"Analyzer config: {analyzer.config}")
 
     # Test that the configuration works with the analyzer
