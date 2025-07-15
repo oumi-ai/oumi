@@ -262,6 +262,10 @@ reportPrivateImportUsage = "none"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
+filterwarnings = [
+    "ignore:Support for class-based `config` is deprecated.*:DeprecationWarning",
+    "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+]
 markers = [
     "e2e: Slow e2e integration tests",
     "e2e_eternal: Extremely slow e2e integration tests (for manual/selective runs)",

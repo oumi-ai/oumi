@@ -14,7 +14,7 @@
 
 
 import uuid
-from typing import Union
+from typing import Any, Union
 
 from oumi.core.configs.params.synthesis_params import (
     ChatTransform,
@@ -46,8 +46,8 @@ class AttributeTransformer:
 
     def transform(
         self,
-        samples: list[dict[str, SampleValue]],
-    ) -> list[dict[str, SampleValue]]:
+        samples: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """Transforms attributes of a dataset plan to a particular format.
 
         Args:
@@ -67,7 +67,7 @@ class AttributeTransformer:
 
     def _apply_transform_to_samples(
         self,
-        samples: list[dict[str, SampleValue]],
+        samples: list[dict[str, Any]],
         attribute: TransformedAttribute,
     ) -> list[SampleValue]:
         """Applies a transform to a list of samples."""
@@ -79,7 +79,7 @@ class AttributeTransformer:
 
     def _transform_attribute(
         self,
-        sample: dict[str, SampleValue],
+        sample: dict[str, Any],
         attribute: TransformedAttribute,
     ) -> SampleValue:
         """Transforms an attribute of a sample to a particular format."""
