@@ -54,7 +54,7 @@ def quantize(
             "--model",
             help=(
                 "Path or identifier of the model to quantize. "
-                "Can be a HuggingFace model ID (e.g., 'meta-llama/Llama-2-7b-hf'), "
+                "Can be a HuggingFace model ID (e.g., 'oumi-ai/HallOumi-8B' this is the model from Oumi), "
                 "a local directory path, or an Oumi model registry identifier. "
                 "If not specified, uses the model defined in the config file."
             ),
@@ -76,62 +76,8 @@ def quantize(
 ):
     r"""🚧 DEVELOPMENT: Quantize a model to reduce its size and memory requirements.
 
-    ⚠️  This feature is currently in development and runs in simulation mode.
-        It validates inputs and configuration but does not perform actual quantization.
-
-    This command will quantize machine learning models to reduce their file size and
-    memory footprint while maintaining inference performance. Quantization converts
-    model weights from higher precision (e.g., float32) to lower precision
-    (e.g., 4-bit, 8-bit) representations.
-
-    **Current Status: AWQ Implementation**
-    - ✅ CLI argument validation
-    - ✅ Configuration file support
-    - ✅ Model identifier validation
-    - ✅ AWQ quantization implementation
-    - 🚧 GGUF conversion pipeline (using fallback method)
-
-    **AWQ Quantization Methods (Recommended):**
-    - awq_q4_0: AWQ 4-bit → GGUF (4x compression, best quality)
-    - awq_q8_0: AWQ 8-bit → GGUF (2x compression, minimal quality loss)
-    - awq_f16: AWQ → GGUF f16 (2x compression, format optimized)
-
-    **Direct GGUF Methods:**
-    - q4_0: Direct 4-bit quantization
-    - q8_0: Direct 8-bit quantization  
-    - f16: 16-bit float conversion
-
-    **Output Formats:**
-    - GGUF: Compatible with llama.cpp (best for CPU inference)
-    - Safetensors: Compatible with HuggingFace transformers
-    - PyTorch: Native PyTorch format
-
-    **Testing Examples:**
-
-    Test interface with config file:
-
-        $ oumi quantize --config quantize_config.yaml
-
-    Test with AWQ method:
-
-        $ oumi quantize --method awq_q4_0 --model meta-llama/Llama-2-7b-hf \\
-            --output test.gguf
-
-    Test with local model:
-
-        $ oumi quantize --method awq_q8_0 --model ./my_model --output ./test/model.gguf
-
-    Args:
-        ctx: The Typer context object containing extra CLI arguments.
-        config: Path to the configuration file for quantization. Can override
-            individual settings with additional CLI arguments.
-        method: Quantization method to use. Determines the precision and
-            compression level of the quantized model.
-        model: Path or identifier of the model to quantize. Overrides the
-            model specified in the config file if provided.
-        output: Output path for the quantized model. The file extension
-            should match the desired output format.
-        level: The logging level for the command execution.
+    Example:
+        oumi quantize --model "oumi-ai/HallOumi-8B" --method awq_q4_0 --output "halloumi-8b-q4.gguf"
 
     Note:
         The quantization process may require significant memory and time,
@@ -182,30 +128,38 @@ def quantize(
     with cli_utils.CONSOLE.status("Quantizing model...", spinner="dots"):
         result = oumi_quantize(parsed_config)
 
-    # Check if we're in simulation mode or fallback mode
-    if result and result.get("simulation_mode"):
-        cli_utils.CONSOLE.print("🔧 AWQ quantization completed (SIMULATION MODE)")
-        cli_utils.CONSOLE.print("⚠️  AWQ dependencies not installed - created mock output for testing")
-        cli_utils.CONSOLE.print("💡 Install autoawq for real quantization: pip install autoawq")
-    elif result and result.get("fallback_mode"):
-        cli_utils.CONSOLE.print("🔧 AWQ quantization completed (FALLBACK MODE)")
-        cli_utils.CONSOLE.print(f"🔄 Used {result.get('backend', 'alternative')} quantization instead of AutoAWQ")
-        cli_utils.CONSOLE.print("ℹ️  This provides real quantization using available libraries")
+    # Check for GGUF conversion failure
+    if result and result.get("fallback_mode"):
+        raise RuntimeError(
+            "AWQ quantization fallback mode is no longer supported.\n"
+            "Please try using a different quantization method (e.g., --method bnb_4bit or --method q4_0) "
+            "or ensure that the required dependencies for AWQ are installed."
+        )
     elif result and result.get("gguf_conversion_failed"):
         cli_utils.CONSOLE.print("✅ AWQ quantization completed successfully!")
-        cli_utils.CONSOLE.print("⚠️  GGUF conversion failed - saved as PyTorch format instead")
-        cli_utils.CONSOLE.print("💡 For GGUF output, install: pip install llama-cpp-python")
+        cli_utils.CONSOLE.print(
+            "⚠️  GGUF conversion failed - saved as PyTorch format instead"
+        )
+        cli_utils.CONSOLE.print(
+            "💡 For GGUF output, install: pip install llama-cpp-python"
+        )
     else:
         cli_utils.CONSOLE.print("✅ Model quantized successfully!")
-    
+
     # Display output path (might have changed due to fallback)
-    actual_output_path = result.get("output_path", parsed_config.output_path) if result else parsed_config.output_path
+    actual_output_path = (
+        result.get("output_path", parsed_config.output_path)
+        if result
+        else parsed_config.output_path
+    )
     cli_utils.CONSOLE.print(f"📁 Output saved to: {actual_output_path}")
-    
+
     if result:
         if result.get("simulation_mode"):
-            cli_utils.CONSOLE.print(f"🎭 Mode: Simulation")
-            cli_utils.CONSOLE.print(f"📦 Method: {result.get('quantization_method', 'Unknown')}")
+            cli_utils.CONSOLE.print("🎭 Mode: Simulation")
+            cli_utils.CONSOLE.print(
+                f"📦 Method: {result.get('quantization_method', 'Unknown')}"
+            )
         else:
             cli_utils.CONSOLE.print(
                 f"📊 Original size: {result.get('original_size', 'Unknown')}"

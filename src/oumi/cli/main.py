@@ -78,7 +78,7 @@ def get_app() -> typer.Typer:
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="🚧 [DEV] Quantize a model (simulation mode).",
+        help="🚧 [Experimental] Quantize a model.",
     )(quantize)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,

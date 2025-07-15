@@ -11,14 +11,14 @@ This directory contains example configurations for model quantization in Oumi.
 ## Quick Start
 
 ```bash
-# Basic quantization
+# Quantization (not calibrated). Note: this requires a machine with 1 GPU
 oumi quantize --config examples/quantization/basic_quantize_config.yaml
 
 # Production configuration
 oumi quantize --config examples/quantization/advanced_quantize_config.yaml
 ```
 
-## Available Methods
+## Available Methodss
 
 - **AWQ Methods**: `awq_q4_0`, `awq_q4_1`, `awq_q8_0`, `awq_f16`
 - **Direct Methods**: `q4_0`, `q4_1`, `q5_0`, `q5_1`, `q8_0`, `f16`, `f32`
