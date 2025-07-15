@@ -70,7 +70,11 @@ def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
 
 
 def save_results(results: dict[str, Any], output_path: str):
-    """Save analysis results to file as JSON only.
+    """Save analysis results to file as JSONL format.
+
+    The JSONL format consists of:
+    - Line 1: Metadata (dataset info, counts, etc.)
+    - Lines 2+: Individual message analysis results
 
     Args:
         results: Analysis results dictionary to save
@@ -81,7 +85,15 @@ def save_results(results: dict[str, Any], output_path: str):
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2, ensure_ascii=False)
+        # Extract metadata (everything except messages)
+        metadata = {k: v for k, v in results.items() if k != "messages"}
+
+        # Write metadata on first line
+        f.write(json.dumps(metadata, ensure_ascii=False) + "\n")
+
+        # Write each message on subsequent lines
+        for message in results.get("messages", []):
+            f.write(json.dumps(message, ensure_ascii=False) + "\n")
 
     logger.info(f"Results saved to: {output_file}")
 
