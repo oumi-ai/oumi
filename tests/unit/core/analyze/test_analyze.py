@@ -3,8 +3,8 @@
 
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import (
-    DatasetAnalyzeConfig,
-    SampleAnalyzeConfig,
+    AnalyzeConfig,
+    SampleAnalyzerParam,
 )
 
 
@@ -15,7 +15,7 @@ def test_sample_analysis():
     print("=" * 50)
 
     # Create length analyzer
-    length_analyzer = SampleAnalyzeConfig(
+    length_analyzer = SampleAnalyzerParam(
         id="length",
         config={
             "char_count": True,
@@ -26,7 +26,7 @@ def test_sample_analysis():
     )
 
     # Create configuration using simple fields
-    config = DatasetAnalyzeConfig(
+    config = AnalyzeConfig(
         dataset_name="tatsu-lab/alpaca",
         split="train",
         sample_count=3,  # Limit analysis to 3 conversations
@@ -85,7 +85,7 @@ def test_yaml_config_loading():
     """
 
     # Load configuration from YAML string
-    config = DatasetAnalyzeConfig.from_str(yaml_string)
+    config = AnalyzeConfig.from_str(yaml_string)
 
     # Verify configuration was loaded correctly
     print(f"Loaded dataset: {config.dataset_name}")

@@ -18,10 +18,11 @@ from typing import Any, Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.params.base_params import BaseParams
 
 
 @dataclass
-class SampleAnalyzeConfig:
+class SampleAnalyzerParam(BaseParams):
     """Configuration for a single sample analyzer plugin."""
 
     id: str = MISSING
@@ -30,9 +31,14 @@ class SampleAnalyzeConfig:
     config: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific configuration parameters."""
 
+    def __finalize_and_validate__(self) -> None:
+        """Validates the analyzer configuration."""
+        if not self.id:
+            raise ValueError("Analyzer 'id' must be provided")
+
 
 @dataclass
-class DatasetAnalyzeConfig(BaseConfig):
+class AnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
 
     # Simple fields for common use cases
@@ -55,7 +61,7 @@ class DatasetAnalyzeConfig(BaseConfig):
     Defaults to current directory ('.').
     """
 
-    analyzers: list[SampleAnalyzeConfig] = field(default_factory=list)
+    analyzers: list[SampleAnalyzerParam] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
     def __post_init__(self):
@@ -66,8 +72,8 @@ class DatasetAnalyzeConfig(BaseConfig):
         # Validate analyzer configurations
         analyzer_ids = set()
         for analyzer in self.analyzers:
-            if not analyzer.id:
-                raise ValueError("Each analyzer must have a unique 'id'")
+            # Validate each analyzer using BaseParams validation
+            analyzer.finalize_and_validate()
             if analyzer.id in analyzer_ids:
                 raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
             analyzer_ids.add(analyzer.id)

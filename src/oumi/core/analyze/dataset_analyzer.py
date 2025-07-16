@@ -19,7 +19,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from oumi.core.analyze.sample_analyzer import AnalyzerRegistry
-from oumi.core.configs import DatasetAnalyzeConfig
+from oumi.core.configs import AnalyzeConfig
 from oumi.utils.analysis_utils import (
     compute_sample_level_analysis,
     load_dataset_from_config,
@@ -34,11 +34,11 @@ class DatasetAnalyzer:
     # Default output filename for analysis results
     DEFAULT_OUTPUT_FILENAME = "sample_level_results.json"
 
-    def __init__(self, config: DatasetAnalyzeConfig):
+    def __init__(self, config: AnalyzeConfig):
         """Initialize the dataset analyzer with configuration.
 
         Args:
-            config: DatasetAnalyzeConfig object containing all analysis parameters
+            config: AnalyzeConfig object containing all analysis parameters
         """
         self.config = config
         self.dataset_name = config.dataset_name

@@ -18,22 +18,23 @@ import pandas as pd
 import pytest
 
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-from oumi.core.configs import DatasetAnalyzeConfig
+from oumi.core.configs import AnalyzeConfig
 
 
 @pytest.fixture
 def test_jsonl_content():
     """Test JSONL content for analysis results."""
-    return """
-    {"dataset_name": "test", "total_conversations": 2, "total_messages": 4}
-    {"conversation_id": "conv_0", "message_index": 0, "role": "user",
-    "text_content": "Hello", "length_word_count": 1}
-    {"conversation_id": "conv_0", "message_index": 1, "role": "assistant",
-    "text_content": "Hi there!", "length_word_count": 2}
-    {"conversation_id": "conv_1", "message_index": 0, "role": "user",
-    "text_content": "How are you?", "length_word_count": 3}
-    {"conversation_id": "conv_1", "message_index": 1, "role": "assistant",
-    "text_content": "I'm good, thanks!", "length_word_count": 4}"""
+    return (
+        '{"dataset_name": "test", "total_conversations": 2, "total_messages": 4}\n'
+        '{"conversation_id": "conv_0", "message_index": 0, "role": "user", '
+        '"text_content": "Hello", "length_word_count": 1}\n'
+        '{"conversation_id": "conv_0", "message_index": 1, "role": "assistant", '
+        '"text_content": "Hi there!", "length_word_count": 2}\n'
+        '{"conversation_id": "conv_1", "message_index": 0, "role": "user", '
+        '"text_content": "How are you?", "length_word_count": 3}\n'
+        '{"conversation_id": "conv_1", "message_index": 1, "role": "assistant", '
+        '"text_content": "I\'m good, thanks!", "length_word_count": 4}'
+    )
 
 
 @pytest.fixture
@@ -41,7 +42,7 @@ def analyzer_with_test_data(test_jsonl_content):
     """Create an analyzer with test data in a temporary directory."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create analyzer config with a real dataset name
-        config = DatasetAnalyzeConfig(
+        config = AnalyzeConfig(
             # will not actually load the dataset, just need the config
             dataset_name="tatsu-lab/alpaca",
             split="train",

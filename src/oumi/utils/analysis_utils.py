@@ -16,12 +16,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from oumi.core.configs import DatasetAnalyzeConfig
+from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
 
 
-def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
+def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes,
@@ -99,7 +99,7 @@ def save_results(results: dict[str, Any], output_path: str):
 
 
 def compute_sample_level_analysis(
-    dataset: BaseMapDataset, config: DatasetAnalyzeConfig, analyzers: dict
+    dataset: BaseMapDataset, config: AnalyzeConfig, analyzers: dict
 ) -> dict[str, Any]:
     """Perform per-sample (message) level analysis using plugin analyzers."""
     total_conversations = len(dataset)
