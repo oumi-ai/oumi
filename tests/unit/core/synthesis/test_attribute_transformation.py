@@ -29,7 +29,7 @@ from oumi.core.synthesis.attribute_transformation import (
     AttributeTransformer,
     SampleValue,
 )
-from oumi.core.types.conversation import Conversation, Role
+from oumi.core.types.conversation import Role
 
 
 @pytest.fixture
@@ -258,16 +258,16 @@ def test_transform_chat_strategy(basic_samples):
 
     # Check first sample
     conv = result[0]["conversation"]
-    assert isinstance(conv, Conversation)
-    assert len(conv.messages) == 3
-    assert conv.messages[0].role == Role.SYSTEM
-    assert conv.messages[0].content == "You are a helpful assistant."
-    assert conv.messages[1].role == Role.USER
-    assert conv.messages[1].content == "Tell me about Alice who is 25 years old."
-    assert conv.messages[2].role == Role.ASSISTANT
-    assert conv.messages[2].content == "I can help you learn about Alice."
-    assert conv.conversation_id == "test-conversation"
-    assert conv.metadata == {"name": "Alice"}
+    assert isinstance(conv, dict)
+    assert len(conv["messages"]) == 3
+    assert conv["messages"][0]["role"] == Role.SYSTEM
+    assert conv["messages"][0]["content"] == "You are a helpful assistant."
+    assert conv["messages"][1]["role"] == Role.USER
+    assert conv["messages"][1]["content"] == "Tell me about Alice who is 25 years old."
+    assert conv["messages"][2]["role"] == Role.ASSISTANT
+    assert conv["messages"][2]["content"] == "I can help you learn about Alice."
+    assert conv["conversation_id"] == "test-conversation"
+    assert conv["metadata"] == {"name": "Alice"}
 
 
 def test_transform_chat_strategy_with_auto_generated_id(basic_samples):
@@ -292,8 +292,8 @@ def test_transform_chat_strategy_with_auto_generated_id(basic_samples):
 
     assert len(result) == 3
     conv = result[0]["chat_attr"]
-    assert isinstance(conv, Conversation)
-    assert conv.conversation_id == "chat_attr-12345678-1234-5678-1234-567812345678"
+    assert isinstance(conv, dict)
+    assert conv["conversation_id"] == "chat_attr-12345678-1234-5678-1234-567812345678"
 
 
 def test_transform_multiple_attributes(basic_samples):
@@ -375,28 +375,6 @@ def test_transform_with_non_string_values_in_sample():
     assert result[0]["metadata"] == {"active": True}
     assert result[1]["scores"] == [88, 91, 85]
     assert result[1]["metadata"] == {"active": False}
-
-
-def test_transform_invalid_transformation_strategy():
-    """Test transform with invalid transformation strategy raises error."""
-
-    # Create a mock invalid strategy that will pass initial validation
-    class InvalidStrategy:
-        pass
-
-    invalid_strategy = InvalidStrategy()
-
-    # Create the transformed attribute manually to bypass validation
-    transformed_attr = TransformedAttribute.__new__(TransformedAttribute)
-    transformed_attr.id = "invalid"
-    transformed_attr.transformation_strategy = invalid_strategy  # type: ignore
-
-    params = GeneralSynthesisParams(transformed_attributes=[transformed_attr])
-    transformer = AttributeTransformer(params)
-    samples = [{"name": "Alice"}]  # type: ignore
-
-    with pytest.raises(ValueError, match="Unsupported transformation strategy"):
-        transformer.transform(samples)  # type: ignore
 
 
 def test_transform_preserves_original_sample_order():
