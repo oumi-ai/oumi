@@ -34,7 +34,6 @@ class TestLoadDatasetFromConfig:
         """
         Test successful dataset loading.
         """
-        # Arrange
         config = DatasetAnalyzeConfig(
             dataset_name="test_dataset",
             split="train",
@@ -47,16 +46,13 @@ class TestLoadDatasetFromConfig:
         with patch("oumi.core.registry.REGISTRY") as mock_registry:
             mock_registry.get_dataset.return_value = mock_dataset_class
 
-            # Act
             result = load_dataset_from_config(config)
 
-            # Assert
             assert result == mock_dataset_instance
             assert mock_registry.get_dataset.called
 
     def test_load_dataset_from_config_missing_dataset_name(self):
         """Test error handling when dataset_name is not provided."""
-        # Arrange - create config without dataset_name to trigger validation
         with pytest.raises(ValueError, match="'dataset_name' must be provided"):
             DatasetAnalyzeConfig(
                 dataset_name=None,
@@ -67,7 +63,6 @@ class TestLoadDatasetFromConfig:
         """
         Test error handling when dataset is not found in registry.
         """
-        # Arrange
         config = DatasetAnalyzeConfig(
             dataset_name="nonexistent_dataset",
             split="train",
@@ -76,7 +71,6 @@ class TestLoadDatasetFromConfig:
         with patch("oumi.core.registry.REGISTRY") as mock_registry:
             mock_registry.get_dataset.return_value = None
 
-            # Act & Assert
             with pytest.raises(
                 NotImplementedError,
                 match=(
@@ -91,7 +85,6 @@ class TestLoadDatasetFromConfig:
         Test error handling when dataset class doesn't inherit from
         BaseMapDataset.
         """
-        # Arrange
         config = DatasetAnalyzeConfig(
             dataset_name="test_dataset",
             split="train",
@@ -104,7 +97,6 @@ class TestLoadDatasetFromConfig:
         with patch("oumi.core.registry.REGISTRY") as mock_registry:
             mock_registry.get_dataset.return_value = mock_dataset_class
 
-            # Act & Assert
             with pytest.raises(
                 NotImplementedError,
                 match=(
@@ -116,7 +108,6 @@ class TestLoadDatasetFromConfig:
 
     def test_load_dataset_from_config_registry_exception(self):
         """Test error handling when registry.get_dataset raises an exception."""
-        # Arrange
         config = DatasetAnalyzeConfig(
             dataset_name="test_dataset",
             split="train",
@@ -125,6 +116,5 @@ class TestLoadDatasetFromConfig:
         with patch("oumi.core.registry.REGISTRY") as mock_registry:
             mock_registry.get_dataset.side_effect = Exception("Registry error")
 
-            # Act & Assert
             with pytest.raises(Exception, match="Registry error"):
                 load_dataset_from_config(config)
