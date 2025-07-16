@@ -22,6 +22,9 @@ from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
+    TextMessage,
+    TransformationStrategy,
+    TransformationType,
     TransformedAttribute,
 )
 from oumi.core.configs.synthesis_config import SynthesisConfig
@@ -30,7 +33,7 @@ from oumi.core.synthesis.attribute_transformation import AttributeTransformer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.core.synthesis.synthesis_pipeline import SynthesisPipeline
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Role
 
 
 @pytest.fixture
@@ -72,12 +75,10 @@ def synthesis_config_with_generated_attributes():
     """Create a synthesis config with generated attributes."""
     generated_attr = GeneratedAttribute(
         id="test_generated_attr",
-        instruction_messages=Conversation(
-            messages=[
-                Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-                Message(role=Role.USER, content="Generate some content."),
-            ]
-        ),
+        instruction_messages=[
+            TextMessage(role=Role.SYSTEM, content="You are a helpful assistant."),
+            TextMessage(role=Role.USER, content="Generate some content."),
+        ],
     )
     strategy_params = GeneralSynthesisParams(generated_attributes=[generated_attr])
     return SynthesisConfig(
@@ -92,7 +93,9 @@ def synthesis_config_with_transformed_attributes():
     """Create a synthesis config with transformed attributes."""
     transformed_attr = TransformedAttribute(
         id="test_transformed_attr",
-        transformation_strategy="some_transformation_string",
+        transformation_strategy=TransformationStrategy(
+            type=TransformationType.STRING, string_transform="some_transformation"
+        ),
     )
     strategy_params = GeneralSynthesisParams(transformed_attributes=[transformed_attr])
     return SynthesisConfig(
@@ -348,16 +351,16 @@ def test_synthesize_full_pipeline(
     # Create config with all features
     generated_attr = GeneratedAttribute(
         id="test_generated",
-        instruction_messages=Conversation(
-            messages=[
-                Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-                Message(role=Role.USER, content="Generate some content."),
-            ]
-        ),
+        instruction_messages=[
+            TextMessage(role=Role.SYSTEM, content="You are a helpful assistant."),
+            TextMessage(role=Role.USER, content="Generate some content."),
+        ],
     )
     transformed_attr = TransformedAttribute(
         id="test_transformed",
-        transformation_strategy="some_transformation",
+        transformation_strategy=TransformationStrategy(
+            type=TransformationType.STRING, string_transform="some_transformation"
+        ),
     )
 
     strategy_params = GeneralSynthesisParams(

@@ -23,9 +23,11 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
     PermutableAttribute,
     PermutableAttributeValue,
+    TextConversation,
+    TextMessage,
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Role
 
 
 @pytest.fixture
@@ -98,18 +100,16 @@ def mock_generated_attribute():
     """Create mock GeneratedAttribute for testing."""
     return GeneratedAttribute(
         id="generated_content",
-        instruction_messages=Conversation(
-            messages=[
-                Message(
-                    role=Role.SYSTEM,
-                    content="You are a helpful assistant.",
-                ),
-                Message(
-                    role=Role.USER,
-                    content="Write a {style.value} paragraph about {topic.value}.",
-                ),
-            ]
-        ),
+        instruction_messages=[
+            TextMessage(
+                role=Role.SYSTEM,
+                content="You are a helpful assistant.",
+            ),
+            TextMessage(
+                role=Role.USER,
+                content="Write a {style.value} paragraph about {topic.value}.",
+            ),
+        ],
     )
 
 
@@ -118,18 +118,16 @@ def mock_generated_attribute_with_postprocessing():
     """Create mock GeneratedAttribute with postprocessing for testing."""
     return GeneratedAttribute(
         id="generated_content",
-        instruction_messages=Conversation(
-            messages=[
-                Message(
-                    role=Role.SYSTEM,
-                    content="You are a helpful assistant.",
-                ),
-                Message(
-                    role=Role.USER,
-                    content="Write a {style.value} paragraph about {topic.value}.",
-                ),
-            ]
-        ),
+        instruction_messages=[
+            TextMessage(
+                role=Role.SYSTEM,
+                content="You are a helpful assistant.",
+            ),
+            TextMessage(
+                role=Role.USER,
+                content="Write a {style.value} paragraph about {topic.value}.",
+            ),
+        ],
         postprocessing_params=GeneratedAttributePostprocessingParams(
             id="processed_content",
             keep_original_text_attribute=True,
@@ -165,16 +163,16 @@ def test_synthesize_returns_dict_list(
 
     # Mock the inference engine's infer method to return conversations with responses
     mock_inference_engine.infer.return_value = [
-        Conversation(
+        TextConversation(
             messages=[
-                Message(role=Role.USER, content="Test query"),
-                Message(role=Role.ASSISTANT, content="Test response 1"),
+                TextMessage(role=Role.USER, content="Test query"),
+                TextMessage(role=Role.ASSISTANT, content="Test response 1"),
             ]
         ),
-        Conversation(
+        TextConversation(
             messages=[
-                Message(role=Role.USER, content="Test query"),
-                Message(role=Role.ASSISTANT, content="Test response 2"),
+                TextMessage(role=Role.USER, content="Test query"),
+                TextMessage(role=Role.ASSISTANT, content="Test response 2"),
             ]
         ),
     ]
@@ -247,16 +245,16 @@ def test_synthesize_with_multiple_samples(
 
     # Mock the inference engine's infer method to return conversations with responses
     mock_inference_engine.infer.return_value = [
-        Conversation(
+        TextConversation(
             messages=[
-                Message(role=Role.USER, content="Test query"),
-                Message(role=Role.ASSISTANT, content="Test response 1"),
+                TextMessage(role=Role.USER, content="Test query"),
+                TextMessage(role=Role.ASSISTANT, content="Test response 1"),
             ]
         ),
-        Conversation(
+        TextConversation(
             messages=[
-                Message(role=Role.USER, content="Test query"),
-                Message(role=Role.ASSISTANT, content="Test response 2"),
+                TextMessage(role=Role.USER, content="Test query"),
+                TextMessage(role=Role.ASSISTANT, content="Test response 2"),
             ]
         ),
     ]

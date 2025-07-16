@@ -13,15 +13,46 @@
 # limitations under the License.
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Message, Role
 
 _SUPPORTED_DATASET_FILE_TYPES = {".jsonl", ".json", ".csv", ".parquet", ".tsv"}
+
+
+@dataclass
+class TextMessage:
+    """Text-only message to make it usable in omegaconf."""
+
+    role: Role
+    content: str
+
+    def to_message(self) -> Message:
+        """Convert to a Message."""
+        return Message(role=self.role, content=self.content)
+
+
+@dataclass
+class TextConversation:
+    """Text-only conversation to make it usable in omegaconf."""
+
+    messages: list[TextMessage]
+
+    conversation_id: Optional[str] = None
+
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_conversation(self) -> Conversation:
+        """Convert to a Conversation."""
+        return Conversation(
+            messages=[message.to_message() for message in self.messages],
+            conversation_id=self.conversation_id,
+            metadata=self.metadata,
+        )
 
 
 @dataclass
@@ -341,7 +372,7 @@ class GeneratedAttribute:
     id: str
     """ID to be used when referencing the attribute during synthesis."""
 
-    instruction_messages: Conversation
+    instruction_messages: list[TextMessage]
     """List of messages providing instructions for generating this attribute."""
 
     postprocessing_params: Optional[GeneratedAttributePostprocessingParams] = None
@@ -362,59 +393,80 @@ class GeneratedAttribute:
                 )
 
 
-@dataclass
-class ListTransform:
-    """Create a new attribute which is a list of strings."""
+class TransformationType(str, Enum):
+    """Types of transformation strategies."""
 
-    element_transforms: list[str]
-    """List of transforms for each element of the list."""
-
-    def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.element_transforms:
-            raise ValueError("ListTransform.element_transforms cannot be empty.")
+    STRING = "string"
+    LIST = "list"
+    DICT = "dict"
+    CHAT = "chat"
 
 
 @dataclass
-class DictTransform:
-    """Create a new attribute which is a dictionary of strings."""
+class TransformationStrategy:
+    """Discriminated union for transformation strategies that works with OmegaConf."""
 
-    transforms: dict[str, str]
-    """Mapping of dictionary keys to their corresponding transforms."""
+    type: TransformationType
+    """The type of transformation strategy."""
+
+    # For string transformations
+    string_transform: Optional[str] = None
+    """String transformation template (used when type=STRING)."""
+
+    # For list transformations
+    list_transform: Optional[list[str]] = None
+    """List of transforms for each element (used when type=LIST)."""
+
+    # For dict transformations
+    dict_transform: Optional[dict[str, str]] = None
+    """Mapping of dictionary keys to their transforms (used when type=DICT)."""
+
+    # For chat transformations
+    chat_transform: Optional[TextConversation] = None
+    """Chat transform for chat messages (used when type=CHAT)."""
 
     def __post_init__(self):
-        """Verifies/populates params."""
-        if not self.transforms:
-            raise ValueError("DictTransform.transforms cannot be empty.")
+        """Verifies/populates params based on the type."""
+        if self.type == TransformationType.STRING:
+            if self.string_transform is None or self.string_transform == "":
+                raise ValueError("string_transform cannot be empty when type=STRING")
+            # Clear other fields
+            self.list_transform = None
+            self.dict_transform = None
+            self.chat_transform = None
 
+        elif self.type == TransformationType.LIST:
+            if not self.list_transform or len(self.list_transform) == 0:
+                raise ValueError("list_transform cannot be empty when type=LIST")
+            # Clear other fields
+            self.string_transform = None
+            self.dict_transform = None
+            self.chat_transform = None
 
-@dataclass
-class ChatTransform:
-    """Transform of an attribute using a chat."""
+        elif self.type == TransformationType.DICT:
+            if not self.dict_transform or len(self.dict_transform) == 0:
+                raise ValueError("dict_transform cannot be empty when type=DICT")
+            # Clear other fields
+            self.string_transform = None
+            self.list_transform = None
+            self.chat_transform = None
 
-    transforms: Conversation
-    """List of transforms for chat messages."""
+        elif self.type == TransformationType.CHAT:
+            if not self.chat_transform or len(self.chat_transform.messages) == 0:
+                raise ValueError("chat_transform cannot be empty when type=CHAT")
 
-    def __post_init__(self):
-        """Verifies/populates params."""
-        messages = self.transforms.messages
-        if not messages or len(messages) == 0:
-            raise ValueError("ChatTransform.transforms must have at least one message.")
+            messages = self.chat_transform.messages
+            for message in messages:
+                content = message.content
+                if not isinstance(content, str):
+                    raise ValueError("chat_transform message content must be a string")
+                if not content:
+                    raise ValueError("chat_transform message content cannot be empty")
 
-        for message in messages:
-            content = message.content
-            if not isinstance(content, str):
-                raise ValueError(
-                    "ChatTransform.transforms message content must be a string."
-                )
-
-            if not content:
-                raise ValueError(
-                    "ChatTransform.transforms message content cannot be empty."
-                )
-
-
-TransformationStrategy = Union[str, ListTransform, DictTransform, ChatTransform]
+            # Clear other fields
+            self.string_transform = None
+            self.list_transform = None
+            self.dict_transform = None
 
 
 @dataclass
@@ -431,6 +483,16 @@ class TransformedAttribute:
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("TransformedAttribute.id cannot be empty.")
+
+        if not isinstance(self.transformation_strategy, TransformationStrategy):
+            raise ValueError(
+                "TransformedAttribute.transformation_strategy must be a "
+                f"TransformationStrategy, got {type(self.transformation_strategy)}"
+            )
+
+    def get_strategy(self) -> TransformationStrategy:
+        """Get the strategy for the transformation."""
+        return self.transformation_strategy
 
 
 @dataclass

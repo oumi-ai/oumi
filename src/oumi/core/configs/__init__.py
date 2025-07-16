@@ -139,6 +139,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
@@ -183,6 +184,7 @@ __all__ = [
     "ShardingStrategy",
     "StateDictType",
     "StorageMount",
+    "SynthesisConfig",
     "TelemetryParams",
     "TrainerType",
     "TrainingConfig",
