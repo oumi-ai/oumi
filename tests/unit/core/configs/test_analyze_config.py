@@ -17,100 +17,99 @@ import pytest
 from oumi.core.configs.analyze_config import AnalyzeConfig, SampleAnalyzerParam
 
 
-class TestSampleAnalyzerParam:
-    """Test cases for SampleAnalyzerParam class - focusing on specific functionality."""
-
-    def test_sample_analyzer_param_validation_success(self):
-        """Test successful validation of SampleAnalyzerParam."""
-        analyzer = SampleAnalyzerParam(id="test_analyzer")
-        analyzer.finalize_and_validate()  # Should not raise any exception
-
-    def test_sample_analyzer_param_validation_missing_id(self):
-        """Test validation failure when id is missing."""
-        analyzer = SampleAnalyzerParam(id="")
-
-        with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
-            analyzer.finalize_and_validate()
-
-    def test_sample_analyzer_param_with_complex_config(self):
-        """Test SampleAnalyzerParam with complex configuration."""
-        complex_config = {
-            "nested": {"key": "value"},
-            "list": [1, 2, 3],
-            "boolean": True,
-            "number": 3.14,
-        }
-
-        analyzer = SampleAnalyzerParam(id="complex_analyzer", config=complex_config)
-
-        assert analyzer.id == "complex_analyzer"
-        assert analyzer.config == complex_config
+def test_sample_analyzer_param_validation_success():
+    """Test successful validation of SampleAnalyzerParam."""
+    analyzer = SampleAnalyzerParam(id="test_analyzer")
+    analyzer.finalize_and_validate()  # Should not raise any exception
 
 
-class TestAnalyzeConfig:
-    """Test cases for AnalyzeConfig class - focusing on specific functionality."""
+def test_sample_analyzer_param_validation_missing_id():
+    """Test validation failure when id is missing."""
+    analyzer = SampleAnalyzerParam(id="")
 
-    def test_analyze_config_validation_missing_dataset_name(self):
-        """Test validation failure when dataset_name is missing."""
-        with pytest.raises(ValueError, match="'dataset_name' must be provided"):
-            AnalyzeConfig(dataset_name=None)
+    with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
+        analyzer.finalize_and_validate()
 
-    def test_analyze_config_validation_empty_dataset_name(self):
-        """Test validation failure when dataset_name is empty."""
-        with pytest.raises(ValueError, match="'dataset_name' must be provided"):
-            AnalyzeConfig(dataset_name="")
 
-    def test_analyze_config_validation_with_valid_analyzers(self):
-        """Test validation with valid analyzer configurations."""
-        analyzers = [
-            SampleAnalyzerParam(id="analyzer1"),
-            SampleAnalyzerParam(id="analyzer2"),
-        ]
+def test_sample_analyzer_param_with_complex_config():
+    """Test SampleAnalyzerParam with complex configuration."""
+    complex_config = {
+        "nested": {"key": "value"},
+        "list": [1, 2, 3],
+        "boolean": True,
+        "number": 3.14,
+    }
 
-        # Should not raise any exception during __post_init__
+    analyzer = SampleAnalyzerParam(id="complex_analyzer", config=complex_config)
+
+    assert analyzer.id == "complex_analyzer"
+    assert analyzer.config == complex_config
+
+
+def test_analyze_config_validation_missing_dataset_name():
+    """Test validation failure when dataset_name is missing."""
+    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
+        AnalyzeConfig(dataset_name=None)
+
+
+def test_analyze_config_validation_empty_dataset_name():
+    """Test validation failure when dataset_name is empty."""
+    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
+        AnalyzeConfig(dataset_name="")
+
+
+def test_analyze_config_validation_with_valid_analyzers():
+    """Test validation with valid analyzer configurations."""
+    analyzers = [
+        SampleAnalyzerParam(id="analyzer1"),
+        SampleAnalyzerParam(id="analyzer2"),
+    ]
+
+    # Should not raise any exception during __post_init__
+    AnalyzeConfig(dataset_name="test_dataset", analyzers=analyzers)
+
+
+def test_analyze_config_validation_duplicate_analyzer_ids():
+    """Test validation failure with duplicate analyzer IDs."""
+    analyzers = [
+        SampleAnalyzerParam(id="duplicate_id"),
+        SampleAnalyzerParam(id="duplicate_id"),
+    ]
+
+    with pytest.raises(ValueError, match="Duplicate analyzer ID found: 'duplicate_id'"):
         AnalyzeConfig(dataset_name="test_dataset", analyzers=analyzers)
 
-    def test_analyze_config_validation_duplicate_analyzer_ids(self):
-        """Test validation failure with duplicate analyzer IDs."""
-        analyzers = [
-            SampleAnalyzerParam(id="duplicate_id"),
-            SampleAnalyzerParam(id="duplicate_id"),
-        ]
 
-        with pytest.raises(
-            ValueError, match="Duplicate analyzer ID found: 'duplicate_id'"
-        ):
-            AnalyzeConfig(dataset_name="test_dataset", analyzers=analyzers)
+def test_analyze_config_default_values():
+    """Test that AnalyzeConfig has correct default values."""
+    config = AnalyzeConfig(dataset_name="test_dataset")
 
-    def test_analyze_config_default_values(self):
-        """Test that AnalyzeConfig has correct default values."""
-        config = AnalyzeConfig(dataset_name="test_dataset")
+    assert config.dataset_name == "test_dataset"
+    assert config.split == "train"  # default value
+    assert config.sample_count is None  # default value
+    assert config.output_path == "."  # default value
+    assert config.analyzers == []  # default value
 
-        assert config.dataset_name == "test_dataset"
-        assert config.split == "train"  # default value
-        assert config.sample_count is None  # default value
-        assert config.output_path == "."  # default value
-        assert config.analyzers == []  # default value
 
-    def test_analyze_config_with_custom_values(self):
-        """Test AnalyzeConfig with custom parameter values."""
-        analyzers = [
-            SampleAnalyzerParam(id="analyzer1", config={"param1": "value1"}),
-            SampleAnalyzerParam(id="analyzer2", config={"param2": "value2"}),
-        ]
+def test_analyze_config_with_custom_values():
+    """Test AnalyzeConfig with custom parameter values."""
+    analyzers = [
+        SampleAnalyzerParam(id="analyzer1", config={"param1": "value1"}),
+        SampleAnalyzerParam(id="analyzer2", config={"param2": "value2"}),
+    ]
 
-        config = AnalyzeConfig(
-            dataset_name="test_dataset",
-            split="test",
-            sample_count=100,
-            output_path="/tmp/output",
-            analyzers=analyzers,
-        )
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        split="test",
+        sample_count=100,
+        output_path="/tmp/output",
+        analyzers=analyzers,
+    )
 
-        assert config.dataset_name == "test_dataset"
-        assert config.split == "test"
-        assert config.sample_count == 100
-        assert config.output_path == "/tmp/output"
-        assert len(config.analyzers) == 2
-        assert config.analyzers[0].id == "analyzer1"
-        assert config.analyzers[1].id == "analyzer2"
+    assert config.dataset_name == "test_dataset"
+    assert config.split == "test"
+    assert config.sample_count == 100
+    assert config.output_path == "/tmp/output"
+    assert len(config.analyzers) == 2
+    assert config.analyzers[0].id == "analyzer1"
+    assert config.analyzers[1].id == "analyzer2"
