@@ -18,17 +18,18 @@ from unittest.mock import patch
 import pytest
 
 from oumi.core.configs.params.synthesis_params import (
-    ChatTransform,
-    DictTransform,
     GeneralSynthesisParams,
-    ListTransform,
+    TextConversation,
+    TextMessage,
+    TransformationStrategy,
+    TransformationType,
     TransformedAttribute,
 )
 from oumi.core.synthesis.attribute_transformation import (
     AttributeTransformer,
     SampleValue,
 )
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Conversation, Role
 
 
 @pytest.fixture
@@ -89,7 +90,12 @@ def test_transform_with_empty_samples():
     """Test transform with empty samples list."""
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
@@ -102,7 +108,12 @@ def test_transform_string_strategy(basic_samples):
     """Test transform with string transformation strategy."""
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
@@ -125,7 +136,10 @@ def test_transform_string_strategy_multiple_placeholders(basic_samples):
         transformed_attributes=[
             TransformedAttribute(
                 id="bio",
-                transformation_strategy="My name is {name} and I am {age} years old.",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING,
+                    string_transform="My name is {name} and I am {age} years old.",
+                ),
             )
         ]
     )
@@ -140,12 +154,13 @@ def test_transform_string_strategy_multiple_placeholders(basic_samples):
 
 def test_transform_list_strategy(basic_samples):
     """Test transform with list transformation strategy."""
-    list_transform = ListTransform(
-        element_transforms=[
+    list_transform = TransformationStrategy(
+        type=TransformationType.LIST,
+        list_transform=[
             "Hello {name}!",
             "You are {age} years old.",
             "You live in {city}.",
-        ]
+        ],
     )
     params = GeneralSynthesisParams(
         transformed_attributes=[
@@ -175,12 +190,13 @@ def test_transform_list_strategy(basic_samples):
 
 def test_transform_dict_strategy(basic_samples):
     """Test transform with dict transformation strategy."""
-    dict_transform = DictTransform(
-        transforms={
+    dict_transform = TransformationStrategy(
+        type=TransformationType.DICT,
+        dict_transform={
             "greeting": "Hello {name}!",
             "age_info": "Age: {age}",
             "location": "Lives in {city}",
-        }
+        },
     )
     params = GeneralSynthesisParams(
         transformed_attributes=[
@@ -212,18 +228,22 @@ def test_transform_dict_strategy(basic_samples):
 
 def test_transform_chat_strategy(basic_samples):
     """Test transform with chat transformation strategy."""
-    chat_conversation = Conversation(
+    chat_conversation = TextConversation(
         messages=[
-            Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-            Message(
+            TextMessage(role=Role.SYSTEM, content="You are a helpful assistant."),
+            TextMessage(
                 role=Role.USER, content="Tell me about {name} who is {age} years old."
             ),
-            Message(role=Role.ASSISTANT, content="I can help you learn about {name}."),
+            TextMessage(
+                role=Role.ASSISTANT, content="I can help you learn about {name}."
+            ),
         ],
         metadata={"name": "{name}"},
         conversation_id="test-conversation",
     )
-    chat_transform = ChatTransform(transforms=chat_conversation)
+    chat_transform = TransformationStrategy(
+        type=TransformationType.CHAT, chat_transform=chat_conversation
+    )
     params = GeneralSynthesisParams(
         transformed_attributes=[
             TransformedAttribute(
@@ -252,11 +272,13 @@ def test_transform_chat_strategy(basic_samples):
 
 def test_transform_chat_strategy_with_auto_generated_id(basic_samples):
     """Test transform with chat strategy that auto-generates conversation ID."""
-    chat_conversation = Conversation(
-        messages=[Message(role=Role.USER, content="Hello {name}!")],
+    chat_conversation = TextConversation(
+        messages=[TextMessage(role=Role.USER, content="Hello {name}!")],
         conversation_id=None,  # No conversation ID provided
     )
-    chat_transform = ChatTransform(transforms=chat_conversation)
+    chat_transform = TransformationStrategy(
+        type=TransformationType.CHAT, chat_transform=chat_conversation
+    )
     params = GeneralSynthesisParams(
         transformed_attributes=[
             TransformedAttribute(id="chat_attr", transformation_strategy=chat_transform)
@@ -279,13 +301,22 @@ def test_transform_multiple_attributes(basic_samples):
     params = GeneralSynthesisParams(
         transformed_attributes=[
             TransformedAttribute(
-                id="greeting", transformation_strategy="Hello {name}!"
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
             ),
-            TransformedAttribute(id="age_info", transformation_strategy="Age: {age}"),
+            TransformedAttribute(
+                id="age_info",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Age: {age}"
+                ),
+            ),
             TransformedAttribute(
                 id="location_list",
-                transformation_strategy=ListTransform(
-                    element_transforms=["City: {city}", "Name: {name}"]
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.LIST,
+                    list_transform=["City: {city}", "Name: {name}"],
                 ),
             ),
         ]
@@ -324,7 +355,12 @@ def test_transform_with_non_string_values_in_sample():
     ]
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
@@ -370,7 +406,12 @@ def test_transform_preserves_original_sample_order():
     ]
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)

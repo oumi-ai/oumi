@@ -17,16 +17,15 @@ import uuid
 from typing import Any, Union
 
 from oumi.core.configs.params.synthesis_params import (
-    ChatTransform,
-    DictTransform,
     GeneralSynthesisParams,
-    ListTransform,
+    TransformationStrategy,
+    TransformationType,
     TransformedAttribute,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
 
-SampleValue = Union[str, list[str], dict[str, str], Conversation]
+SampleValue = Union[str, list[str], dict[str, str], list[dict[str, str]]]
 
 
 class AttributeTransformer:
@@ -83,21 +82,18 @@ class AttributeTransformer:
         attribute: TransformedAttribute,
     ) -> SampleValue:
         """Transforms an attribute of a sample to a particular format."""
-        if isinstance(attribute.transformation_strategy, str):
-            return self._transform_string(sample, attribute.transformation_strategy)
-        if isinstance(attribute.transformation_strategy, ListTransform):
-            return self._transform_list(sample, attribute.transformation_strategy)
-        elif isinstance(attribute.transformation_strategy, DictTransform):
-            return self._transform_dict(sample, attribute.transformation_strategy)
-        elif isinstance(attribute.transformation_strategy, ChatTransform):
-            return self._transform_chat(
-                sample, attribute.transformation_strategy, attribute.id
-            )
+        strategy = attribute.get_strategy()
+        if strategy.type == TransformationType.STRING:
+            assert strategy.string_transform is not None  # Validated in __post_init__
+            return self._transform_string(sample, strategy.string_transform)
+        elif strategy.type == TransformationType.LIST:
+            return self._transform_list(sample, strategy)
+        elif strategy.type == TransformationType.DICT:
+            return self._transform_dict(sample, strategy)
+        elif strategy.type == TransformationType.CHAT:
+            return self._transform_chat(sample, strategy, attribute.id)
         else:
-            raise ValueError(
-                "Unsupported transformation strategy: "
-                f"{attribute.transformation_strategy}"
-            )
+            raise ValueError(f"Unsupported transformation strategy: {strategy.type}")
 
     def _transform_string(
         self,
@@ -116,34 +112,37 @@ class AttributeTransformer:
     def _transform_list(
         self,
         sample: dict[str, SampleValue],
-        transform: ListTransform,
+        transform: TransformationStrategy,
     ) -> list[str]:
         """Transforms a list attribute of a sample to a particular format."""
+        assert transform.list_transform is not None  # Validated in __post_init__
         result = []
-        for element_transform in transform.element_transforms:
+        for element_transform in transform.list_transform:
             result.append(self._transform_string(sample, element_transform))
         return result
 
     def _transform_dict(
         self,
         sample: dict[str, SampleValue],
-        transform: DictTransform,
+        transform: TransformationStrategy,
     ) -> dict[str, str]:
         """Transforms a dict attribute of a sample to a particular format."""
+        assert transform.dict_transform is not None  # Validated in __post_init__
         result = {}
-        for key, value_transform in transform.transforms.items():
+        for key, value_transform in transform.dict_transform.items():
             result[key] = self._transform_string(sample, value_transform)
         return result
 
     def _transform_chat(
         self,
         sample: dict[str, SampleValue],
-        transform: ChatTransform,
+        transform: TransformationStrategy,
         attribute_id: str,
-    ) -> Conversation:
+    ) -> dict[str, Any]:
         """Transforms a chat attribute of a sample to a particular format."""
+        assert transform.chat_transform is not None  # Validated in __post_init__
         messages = []
-        for message in transform.transforms.messages:
+        for message in transform.chat_transform.messages:
             content = message.content
             if not isinstance(content, str):
                 raise ValueError(
@@ -154,16 +153,20 @@ class AttributeTransformer:
             messages.append(Message(role=message.role, content=formatted_content))
 
         transformed_metadata = {}
-        if transform.transforms.metadata:
-            metadata_transform = DictTransform(transform.transforms.metadata)
+        if transform.chat_transform.metadata:
+            # Create a TransformationStrategy for the metadata dict transformation
+            metadata_transform = TransformationStrategy(
+                type=TransformationType.DICT,
+                dict_transform=transform.chat_transform.metadata,
+            )
             transformed_metadata = self._transform_dict(sample, metadata_transform)
 
-        new_conv_id = transform.transforms.conversation_id
-        if not transform.transforms.conversation_id:
+        new_conv_id = transform.chat_transform.conversation_id
+        if not transform.chat_transform.conversation_id:
             new_conv_id = f"{attribute_id}-{uuid.uuid4()}"
 
         return Conversation(
             messages=messages,
             conversation_id=new_conv_id,
             metadata=transformed_metadata,
-        )
+        ).to_dict()

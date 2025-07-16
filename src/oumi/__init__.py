@@ -80,6 +80,7 @@ if TYPE_CHECKING:
         InferenceConfig,
         JudgeConfig,
         JudgeConfigV2,
+        SynthesisConfig,
         TrainingConfig,
     )
     from oumi.core.datasets import BaseSftDataset
@@ -296,6 +297,13 @@ def judge_v2_dataset(
     return oumi.judge_v2.judge_dataset(judge_config, dataset)
 
 
+def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
+    """Synthesize a dataset using the provided configuration."""
+    import oumi.synth
+
+    return oumi.synth.synthesize(config)
+
+
 def train(
     config: TrainingConfig,
     additional_model_kwargs: dict[str, Any] | None = None,
@@ -318,5 +326,6 @@ __all__ = [
     "infer",
     "judge_conversations",
     "judge_dataset",
+    "synthesize",
     "train",
 ]

@@ -16,6 +16,7 @@ from typing import Any
 
 from oumi.core.configs.params.synthesis_params import GeneratedAttribute
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
+from oumi.utils.logging import logger
 
 
 class DataSynthesizer:
@@ -43,6 +44,7 @@ class DataSynthesizer:
             return dataset_plan_samples
 
         for generated_attribute in self._generated_attributes:
+            logger.info(f"Synthesizing generated attribute: {generated_attribute.id}")
             synthesized_attribute_records = self._attribute_synthesizer.synthesize(
                 dataset_plan_samples,
                 generated_attribute,

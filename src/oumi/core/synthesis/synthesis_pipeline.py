@@ -21,6 +21,7 @@ from oumi.core.synthesis.attribute_transformation import AttributeTransformer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.utils.io_utils import save_jsonlines
+from oumi.utils.logging import logger
 
 
 class SynthesisPipeline:
@@ -46,27 +47,36 @@ class SynthesisPipeline:
     def synthesize(self) -> list[dict[str, Any]]:
         """Synthesize a dataset."""
         # Populate the dataset plan with column values for each non-generated attribute
+        logger.info(
+            f"Loading dependencies to synthesize dataset with "
+            f"{self._config.num_samples} samples"
+        )
         dataset = self._dataset_planner.plan(
             self._config.strategy_params,
             self._config.num_samples,
         )
 
         # Synthesize the generated attributes
+        logger.info("Synthesizing generated attributes")
         if self._data_synthesizer:
             dataset = self._data_synthesizer.synthesize(dataset)
 
         # Add the transformed attributes to the dataset
+        logger.info("Adding transformed attributes")
         if self._config.strategy_params.transformed_attributes:
             dataset = self._attribute_transformer.transform(dataset)
 
         # If passthrough attributes are specified, keep only those attributes
+        logger.info("Keeping passthrough attributes")
         if self._config.strategy_params.passthrough_attributes:
             dataset = self._passthrough_attributes(dataset)
 
         # Save the dataset to the output path
+        logger.info("Saving dataset")
         if self._config.output_path:
             self._save_dataset(dataset)
 
+        logger.info("Synthesis complete")
         return dataset
 
     def _passthrough_attributes(
