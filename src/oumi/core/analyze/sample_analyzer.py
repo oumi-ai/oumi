@@ -21,13 +21,9 @@ from typing import Any, Union
 class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
 
-    def __init__(self, config: dict[str, Any]):
-        """Initialize the sample analyzer with configuration.
-
-        Args:
-            config: Configuration dictionary for the analyzer
-        """
-        self.config = config
+    def __init__(self):
+        """Initialize the sample analyzer."""
+        pass
 
     @abstractmethod
     def analyze_message(
@@ -57,7 +53,12 @@ class AnalyzerRegistry:
         Args:
             analyzer_id: Unique identifier for the analyzer
             analyzer_class: The sample analyzer class to register
+
+        Raises:
+            ValueError: If the analyzer_id is already registered
         """
+        if analyzer_id in cls._analyzers:
+            raise ValueError(f"Analyzer ID '{analyzer_id}' is already registered")
         cls._analyzers[analyzer_id] = analyzer_class
 
     @classmethod
@@ -82,14 +83,11 @@ class AnalyzerRegistry:
         return list(cls._analyzers.keys())
 
     @classmethod
-    def create_analyzer(
-        cls, analyzer_id: str, config: dict[str, Any]
-    ) -> SampleAnalyzer:
+    def create_analyzer(cls, analyzer_id: str) -> SampleAnalyzer:
         """Create a sample analyzer instance.
 
         Args:
             analyzer_id: The analyzer ID to create
-            config: Configuration for the analyzer
 
         Returns:
             An instance of the sample analyzer
@@ -100,4 +98,4 @@ class AnalyzerRegistry:
         analyzer_class = cls.get_analyzer(analyzer_id)
         if analyzer_class is None:
             raise ValueError(f"Unknown analyzer ID: {analyzer_id}")
-        return analyzer_class(config)
+        return analyzer_class()
