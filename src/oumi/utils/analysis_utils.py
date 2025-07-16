@@ -23,17 +23,19 @@ def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
     This function loads datasets directly from the registry for analysis purposes,
     avoiding the need for tokenizers and other training infrastructure.
     """
+    # Delayed import to avoid circular dependency with registry and dataset modules
     from oumi.core.registry import REGISTRY
 
     dataset_name = config.dataset_name
     split = config.split
+    subset = config.subset
 
     if not dataset_name:
         raise ValueError("Dataset name is required")
 
     try:
         # Load dataset from the REGISTRY
-        dataset_class = REGISTRY.get_dataset(dataset_name, subset=None)
+        dataset_class = REGISTRY.get_dataset(dataset_name, subset=subset)
 
         if dataset_class is not None:
             # Load registered dataset with basic parameters
@@ -41,7 +43,7 @@ def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
                 dataset_name=dataset_name,
                 dataset_path=None,
                 split=split,
-                subset=None,
+                subset=subset,
                 trust_remote_code=False,
             )
 
