@@ -96,3 +96,8 @@ run: |
   # trainer.total_epochs=15 \
   # trainer.n_gpus_per_node=$SLURM_GPUS_ON_NODE \
   # trainer.nnodes=$SLURM_JOB_NUM_NODES
+
+  # echo "Tailing ray logs..."
+  # sleep 5
+  # tail -f /tmp/ray/session_latest/logs/job-driver-*.log
+  # # ssh $OUMI_MASTER_ADDR 'tail -f /tmp/ray/session_latest/logs/job-driver-*.log'
