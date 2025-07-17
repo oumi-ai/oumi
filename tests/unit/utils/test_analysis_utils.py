@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from oumi.core.configs import DatasetAnalyzeConfig
+from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.analysis_utils import load_dataset_from_config
 
@@ -41,7 +41,7 @@ def test_load_dataset_from_config_success(
     mock_dataset_class_and_instance, mock_registry
 ):
     """Test successful dataset loading."""
-    config = DatasetAnalyzeConfig(
+    config = AnalyzeConfig(
         dataset_name="test_dataset",
         split="train",
     )
@@ -58,7 +58,7 @@ def test_load_dataset_from_config_success(
 def test_load_dataset_from_config_missing_dataset_name():
     """Test error handling when dataset_name is not provided."""
     with pytest.raises(ValueError, match="'dataset_name' must be provided"):
-        DatasetAnalyzeConfig(
+        AnalyzeConfig(
             dataset_name=None,
             split="train",
         )
@@ -66,7 +66,7 @@ def test_load_dataset_from_config_missing_dataset_name():
 
 def test_load_dataset_from_config_dataset_not_registered(mock_registry):
     """Test error handling when dataset is not found in registry."""
-    config = DatasetAnalyzeConfig(
+    config = AnalyzeConfig(
         dataset_name="nonexistent_dataset",
         split="train",
     )
@@ -85,7 +85,7 @@ def test_load_dataset_from_config_dataset_not_registered(mock_registry):
 
 def test_load_dataset_from_config_for_non_basemapdataset(mock_registry):
     """Test error handling when dataset class doesn't inherit from BaseMapDataset."""
-    config = DatasetAnalyzeConfig(
+    config = AnalyzeConfig(
         dataset_name="test_dataset",
         split="train",
     )
@@ -108,7 +108,7 @@ def test_load_dataset_from_config_for_non_basemapdataset(mock_registry):
 
 def test_load_dataset_from_config_registry_exception(mock_registry):
     """Test error handling when registry.get_dataset raises an exception."""
-    config = DatasetAnalyzeConfig(
+    config = AnalyzeConfig(
         dataset_name="test_dataset",
         split="train",
     )

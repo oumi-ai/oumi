@@ -22,7 +22,7 @@ from oumi.core.configs.params.base_params import BaseParams
 
 
 @dataclass
-class SampleAnalyzerParam(BaseParams):
+class SampleAnalyzerParams(BaseParams):
     """Params for a single sample analyzer plugin."""
 
     id: str = MISSING
@@ -59,7 +59,7 @@ class AnalyzeConfig(BaseConfig):
     Defaults to current directory ('.').
     """
 
-    analyzers: list[SampleAnalyzerParam] = field(default_factory=list)
+    analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
     def __post_init__(self):

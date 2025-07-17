@@ -14,13 +14,13 @@
 
 import pytest
 
-from oumi.core.configs.analyze_config import AnalyzeConfig, SampleAnalyzerParam
+from oumi.core.configs.analyze_config import AnalyzeConfig, SampleAnalyzerParams
 
 
 def test_sample_analyzer_param_validation_success():
-    """Test successful validation of SampleAnalyzerParam."""
+    """Test successful validation of SampleAnalyzerParams."""
     # Should not raise any exception during __post_init__
-    analyzer = SampleAnalyzerParam(id="test_analyzer")
+    analyzer = SampleAnalyzerParams(id="test_analyzer")
     assert analyzer.id == "test_analyzer"
 
 
@@ -28,12 +28,12 @@ def test_sample_analyzer_param_validation_missing_id():
     """Test validation failure when id is missing."""
     with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
         AnalyzeConfig(
-            dataset_name="test_dataset", analyzers=[SampleAnalyzerParam(id="")]
+            dataset_name="test_dataset", analyzers=[SampleAnalyzerParams(id="")]
         )
 
 
 def test_sample_analyzer_param_with_complex_config():
-    """Test SampleAnalyzerParam with complex configuration."""
+    """Test SampleAnalyzerParams with complex configuration."""
     complex_config = {
         "nested": {"key": "value"},
         "list": [1, 2, 3],
@@ -41,7 +41,7 @@ def test_sample_analyzer_param_with_complex_config():
         "number": 3.14,
     }
 
-    analyzer = SampleAnalyzerParam(id="complex_analyzer", config=complex_config)
+    analyzer = SampleAnalyzerParams(id="complex_analyzer", config=complex_config)
 
     assert analyzer.id == "complex_analyzer"
     assert analyzer.config == complex_config
@@ -62,8 +62,8 @@ def test_analyze_config_validation_empty_dataset_name():
 def test_analyze_config_validation_with_valid_analyzers():
     """Test validation with valid analyzer configurations."""
     analyzers = [
-        SampleAnalyzerParam(id="analyzer1"),
-        SampleAnalyzerParam(id="analyzer2"),
+        SampleAnalyzerParams(id="analyzer1"),
+        SampleAnalyzerParams(id="analyzer2"),
     ]
 
     # Should not raise any exception during __post_init__
@@ -73,8 +73,8 @@ def test_analyze_config_validation_with_valid_analyzers():
 def test_analyze_config_validation_duplicate_analyzer_ids():
     """Test validation failure with duplicate analyzer IDs."""
     analyzers = [
-        SampleAnalyzerParam(id="duplicate_id"),
-        SampleAnalyzerParam(id="duplicate_id"),
+        SampleAnalyzerParams(id="duplicate_id"),
+        SampleAnalyzerParams(id="duplicate_id"),
     ]
 
     with pytest.raises(ValueError, match="Duplicate analyzer ID found: 'duplicate_id'"):
@@ -95,8 +95,8 @@ def test_analyze_config_default_values():
 def test_analyze_config_with_custom_values():
     """Test AnalyzeConfig with custom parameter values."""
     analyzers = [
-        SampleAnalyzerParam(id="analyzer1", config={"param1": "value1"}),
-        SampleAnalyzerParam(id="analyzer2", config={"param2": "value2"}),
+        SampleAnalyzerParams(id="analyzer1", config={"param1": "value1"}),
+        SampleAnalyzerParams(id="analyzer2", config={"param2": "value2"}),
     ]
 
     config = AnalyzeConfig(
