@@ -151,11 +151,12 @@ class PermutableAttributeValue:
     """ID to be used when referencing the attribute value during synthesis."""
 
     value: str
-    """Value to be used for the attribute."""
+    """Value to be used for the attribute.
+    Referenced as {attribute_id.value}"""
 
     description: str
     """Description of the attribute value.
-    Referenced as <<attribute_id.value.description>>"""
+    Referenced as {attribute_id.value.description}"""
 
     sample_rate: Optional[float] = None
     """Sample rate for the attribute value. If not specified, will assume uniform
@@ -185,10 +186,10 @@ class PermutableAttribute:
     """ID to be used when referencing the attribute during synthesis."""
 
     attribute: str
-    """Plaintext name of the attribute. Referenced as <<atribute_id>>"""
+    """Plaintext name of the attribute. Referenced as {attribute_id}"""
 
     description: str
-    """Description of the attribute. Referenced as <<attribute_id.description>>"""
+    """Description of the attribute. Referenced as {attribute_id.description}"""
 
     possible_values: list[PermutableAttributeValue]
     """Type of the attribute."""
@@ -456,7 +457,7 @@ class GeneralSynthesisParams(BaseParams):
     instruction messages:
     [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "How do you pronounce the name <<name>>?"}
+        {"role": "user", "content": "How do you pronounce the name {name}?"}
     ]
 
     Then assuming your data point has a value of "Oumi" for the "name" attribute, the
@@ -480,8 +481,8 @@ class GeneralSynthesisParams(BaseParams):
     chat message.
 
     [
-        {"role": "user", "content": "<<prompt>>"},
-        {"role": "assistant", "content": "<<response>>"}
+        {"role": "user", "content": "{prompt}"},
+        {"role": "assistant", "content": "{response}"}
     ]"""
 
     passthrough_attributes: Optional[list[str]] = None
