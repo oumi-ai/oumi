@@ -133,7 +133,10 @@ class AttributeSynthesizer:
             )
 
             # Create new Message with formatted content
-            new_message = turn.model_copy(update={"content": formatted_content})
+            new_message = turn.model_copy(
+                deep=True,
+                update={"content": formatted_content},
+            )
             new_messages.append(new_message)
 
         # Create new conversation with formatted messages

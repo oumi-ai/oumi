@@ -53,13 +53,11 @@ def mock_permutable_attributes():
                     id="formal",
                     value="Formal",
                     description="A formal writing style",
-                    sample_rate=0.6,
                 ),
                 PermutableAttributeValue(
                     id="casual",
                     value="Casual",
                     description="A casual writing style",
-                    sample_rate=0.4,
                 ),
             ],
         ),
@@ -72,13 +70,11 @@ def mock_permutable_attributes():
                     id="tech",
                     value="Technology",
                     description="Technology topics",
-                    sample_rate=0.5,
                 ),
                 PermutableAttributeValue(
                     id="science",
                     value="Science",
                     description="Science topics",
-                    sample_rate=0.5,
                 ),
             ],
         ),
@@ -377,3 +373,155 @@ def test_postprocess_sample_minimal(mock_get_engine):
     result = synthesizer._postprocess_sample(response, postprocessing_params)
 
     assert result == "Test response"
+
+    user_message = result.messages[1]
+    assert user_message.role == Role.USER
+    assert user_message.content == "Write a Formal paragraph about Technology."
+
+    # Verify formatter was called correctly for both messages
+    expected_calls = [
+        call(sample, "You are a helpful assistant.", missing_values_allowed=False),
+        call(
+            sample,
+            "Write a {style.value} paragraph about {topic.value}.",
+            missing_values_allowed=False,
+        ),
+    ]
+    mock_formatter.format.assert_has_calls(expected_calls)
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
+def test_format_instructions_with_non_permutable_attributes(
+    mock_formatter_class, mock_general_synthesis_params
+):
+    """Test formatting instructions with non-permutable attributes."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter.format.return_value = "Use this value: some_value"
+    mock_formatter_class.return_value = mock_formatter
+
+    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    sample = {"non_permutable": "some_value"}
+
+    instruction_messages = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content="Use this value: {non_permutable}",
+            ),
+        ]
+    )
+
+    result = synthesizer._format_instructions(sample, instruction_messages)
+
+    assert isinstance(result, Conversation)
+    assert len(result.messages) == 1
+
+    user_message = result.messages[0]
+    assert user_message.role == Role.USER
+    assert user_message.content == "Use this value: some_value"
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
+def test_format_instructions_with_non_string_content(
+    mock_formatter_class, mock_general_synthesis_params
+):
+    """Test formatting instructions with non-string content (should be skipped)."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter_class.return_value = mock_formatter
+
+    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    sample = {"style": "formal"}
+
+    # Create a message with non-string content (list of ContentItem)
+    from oumi.core.types.conversation import ContentItem, Type
+
+    content_items = [
+        ContentItem(type=Type.TEXT, content="Write in {style} style"),
+    ]
+
+    instruction_messages = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content=content_items,
+            ),
+        ]
+    )
+
+    result = synthesizer._format_instructions(sample, instruction_messages)
+
+    assert isinstance(result, Conversation)
+    assert len(result.messages) == 1
+
+    # Content should remain unchanged since it's not a string
+    assert result.messages[0].content == content_items
+
+    # Formatter should not have been called
+    mock_formatter.format.assert_not_called()
+
+
+@patch("oumi.core.synthesis.attribute_synthesizer.AttributeFormatter")
+def test_format_instructions_preserves_original_message(
+    mock_formatter_class, mock_general_synthesis_params
+):
+    """Test that formatting preserves the original message structure."""
+    # Mock the formatter instance
+    mock_formatter = Mock()
+    mock_formatter.format.return_value = "Formatted content"
+    mock_formatter_class.return_value = mock_formatter
+
+    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    sample = {"style": "formal"}
+
+    original_conversation = Conversation(
+        messages=[
+            Message(
+                role=Role.USER,
+                content="Original {style} content",
+            ),
+        ],
+        conversation_id="test_id",
+        metadata={"test": "metadata"},
+    )
+
+    result = synthesizer._format_instructions(sample, original_conversation)
+
+    # Original should be unchanged
+    assert original_conversation.messages[0].content == "Original {style} content"
+
+    # New conversation should have formatted content
+    assert result.messages[0].content == "Formatted content"
+    assert result.conversation_id == "test_id"
+    assert result.metadata == {"test": "metadata"}
+
+
+def test_synthesize_with_multiple_samples(
+    mock_general_synthesis_params, mock_generated_attribute
+):
+    """Test synthesize with multiple samples."""
+    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    samples = [
+        {"style": "formal", "topic": "tech"},
+        {"style": "casual", "topic": "science"},
+    ]
+
+    result = synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert len(result) == 2
+    for conversation in result:
+        assert isinstance(conversation, Conversation)
+        assert len(conversation.messages) == 2
+
+
+def test_synthesize_with_empty_samples(
+    mock_general_synthesis_params, mock_generated_attribute
+):
+    """Test synthesize with empty samples list."""
+    synthesizer = AttributeSynthesizer(mock_general_synthesis_params)
+    samples = []
+
+    result = synthesizer.synthesize(samples, mock_generated_attribute)
+
+    assert result == []
