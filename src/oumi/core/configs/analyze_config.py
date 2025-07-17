@@ -23,7 +23,7 @@ from oumi.core.configs.params.base_params import BaseParams
 
 @dataclass
 class SampleAnalyzerParam(BaseParams):
-    """Configuration for a single sample analyzer plugin."""
+    """Params for a single sample analyzer plugin."""
 
     id: str = MISSING
     """Unique identifier for the analyzer."""
