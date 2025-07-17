@@ -98,6 +98,26 @@ def create_fallback_gguf(output_path: str) -> None:
         f.write(b"\x00" * 1024 * 1024)  # 1MB padding
 
 
+def convert_awq_to_gguf(awq_model_path: str, config: QuantizationConfig) -> dict[str, Any]:
+    """Convert AWQ model to GGUF format.
+    
+    This function is called from the AWQ quantizer to convert AWQ models
+    to GGUF format using the GGUF quantizer.
+    
+    Args:
+        awq_model_path: Path to the AWQ quantized model
+        config: Quantization configuration
+        
+    Returns:
+        Dictionary containing conversion results
+    """
+    from oumi.quantize.gguf_quantizer import GgufQuantization
+    
+    # Create GGUF quantizer and use its AWQ conversion method
+    gguf_quantizer = GgufQuantization()
+    return gguf_quantizer.convert_awq_to_gguf(awq_model_path, config)
+
+
 def convert_with_llamacpp_python(
     model_path: str, output_path: str, gguf_method: str
 ) -> dict[str, Any]:

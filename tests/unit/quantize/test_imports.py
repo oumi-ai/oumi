@@ -47,7 +47,19 @@ class TestQuantizeImports:
         
         assert hasattr(oumi.quantize, "__all__")
         assert "quantize" in oumi.quantize.__all__
-        assert len(oumi.quantize.__all__) == 1
+        
+        # With new class-based architecture, we export more items
+        expected_items = [
+            "quantize",
+            "QuantizationFactory", 
+            "BaseQuantization",
+            "AwqQuantization",
+            "BitsAndBytesQuantization",
+            "GgufQuantization"
+        ]
+        
+        for item in expected_items:
+            assert item in oumi.quantize.__all__
 
     def test_submodule_imports(self):
         """Test that submodules can be imported."""

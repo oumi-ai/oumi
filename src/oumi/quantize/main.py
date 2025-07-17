@@ -17,18 +17,7 @@
 from typing import Any
 
 from oumi.core.configs import QuantizationConfig
-from oumi.quantize.awq import (
-    quantize_awq_to_pytorch,
-    simulate_awq_quantization,
-    validate_awq_requirements,
-)
-from oumi.quantize.bitsandbytes import (
-    quantize_awq_fallback_to_pytorch,
-    quantize_to_pytorch,
-    quantize_to_safetensors,
-    quantize_with_bitsandbytes,
-)
-from oumi.quantize.gguf import quantize_to_gguf
+from oumi.quantize.factory import QuantizationFactory
 from oumi.quantize.utils import (
     calculate_compression_ratio,
     get_model_size_info,
@@ -69,35 +58,22 @@ def quantize(config: QuantizationConfig) -> dict[str, Any]:
     size_info, original_size = get_model_size_info(config)
     result = size_info.copy()
 
-    # Validate AWQ requirements if using AWQ methods
-    awq_simulation_mode = False
-    awq_fallback_mode = False
-    if config.method.startswith("awq_"):
-        awq_available = validate_awq_requirements()
-        if awq_available == "bitsandbytes":
-            awq_fallback_mode = True
-            logger.info("Using BitsAndBytes fallback for AWQ quantization.")
-        elif not awq_available:
-            awq_simulation_mode = True
-            logger.info("AWQ dependencies not available. Running in simulation mode.")
-
     try:
-        # Route to appropriate quantization method
-        if config.method.startswith("awq_"):
-            if awq_simulation_mode:
-                result.update(simulate_awq_quantization(config))
-            elif awq_fallback_mode:
-                result.update(quantize_awq_fallback_to_pytorch(config))
+        # Get appropriate quantizer from factory
+        quantizer = QuantizationFactory.create_quantizer(config.method)
+        
+        # Check if quantizer requirements are met
+        requirements_met = quantizer.validate_requirements()
+        if not requirements_met:
+            if config.method.startswith("awq_"):
+                # AWQ quantizer handles its own fallback/simulation logic
+                pass
             else:
-                result.update(quantize_awq_to_pytorch(config))
-        elif config.method.startswith("bnb_"):
-            result.update(quantize_with_bitsandbytes(config))
-        elif config.output_format == "gguf":
-            result.update(quantize_to_gguf(config))
-        elif config.output_format == "safetensors":
-            result.update(quantize_to_safetensors(config))
-        elif config.output_format == "pytorch":
-            result.update(quantize_to_pytorch(config))
+                raise RuntimeError(f"Requirements not met for {config.method}")
+
+        # Perform quantization
+        quantization_result = quantizer.quantize(config)
+        result.update(quantization_result)
 
         # Calculate compression ratio if we have both sizes
         if "quantized_size_bytes" in result:

@@ -19,5 +19,17 @@ AWQ, BitsAndBytes, and GGUF quantization methods.
 """
 
 from oumi.quantize.main import quantize
+from oumi.quantize.factory import QuantizationFactory
+from oumi.quantize.base import BaseQuantization
+from oumi.quantize.awq_quantizer import AwqQuantization
+from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.gguf_quantizer import GgufQuantization
 
-__all__ = ["quantize"]
+__all__ = [
+    "quantize",
+    "QuantizationFactory",
+    "BaseQuantization",
+    "AwqQuantization",
+    "BitsAndBytesQuantization",
+    "GgufQuantization",
+]
