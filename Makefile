@@ -61,7 +61,6 @@ setup:
 				conda create -n $(CONDA_ENV) python=3.11 -y; \
 				$(CONDA_RUN) pip install uv; \
 				$(CONDA_RUN) uv pip install -e ".[dev]"; \
-				$(CONDA_RUN) uv pip install -e ".[synthesis]"; \
 				$(CONDA_RUN) pre-commit install; \
 				$(CONDA_RUN) python -m ipykernel install --user --name $(CONDA_ENV); \
 			fi; \
