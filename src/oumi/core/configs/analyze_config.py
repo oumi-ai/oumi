@@ -31,11 +31,6 @@ class SampleAnalyzerParam(BaseParams):
     config: dict[str, Any] = field(default_factory=dict)
     """Analyzer-specific configuration parameters."""
 
-    def __finalize_and_validate__(self) -> None:
-        """Validates the analyzer configuration."""
-        if not self.id:
-            raise ValueError("Analyzer 'id' must be provided")
-
 
 @dataclass
 class AnalyzeConfig(BaseConfig):
@@ -75,8 +70,9 @@ class AnalyzeConfig(BaseConfig):
         # Validate analyzer configurations
         analyzer_ids = set()
         for analyzer in self.analyzers:
-            # Validate each analyzer using BaseParams validation
-            analyzer.finalize_and_validate()
+            # Validate analyzer ID
+            if not analyzer.id:
+                raise ValueError("Analyzer 'id' must be provided")
             if analyzer.id in analyzer_ids:
                 raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
             analyzer_ids.add(analyzer.id)

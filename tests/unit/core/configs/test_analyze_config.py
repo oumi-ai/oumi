@@ -19,16 +19,17 @@ from oumi.core.configs.analyze_config import AnalyzeConfig, SampleAnalyzerParam
 
 def test_sample_analyzer_param_validation_success():
     """Test successful validation of SampleAnalyzerParam."""
+    # Should not raise any exception during __post_init__
     analyzer = SampleAnalyzerParam(id="test_analyzer")
-    analyzer.finalize_and_validate()  # Should not raise any exception
+    assert analyzer.id == "test_analyzer"
 
 
 def test_sample_analyzer_param_validation_missing_id():
     """Test validation failure when id is missing."""
-    analyzer = SampleAnalyzerParam(id="")
-
     with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
-        analyzer.finalize_and_validate()
+        AnalyzeConfig(
+            dataset_name="test_dataset", analyzers=[SampleAnalyzerParam(id="")]
+        )
 
 
 def test_sample_analyzer_param_with_complex_config():
