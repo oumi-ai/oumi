@@ -11,7 +11,7 @@ judge_params:
     - It is explicitly stated or reasonably inferred from the context. Reasonable inference means conclusions logically follow from facts in the context. It does not include assumptions or speculation beyond what is stated or implied.
     - It reflects common knowledge (e.g., general facts, well-known truths, or common sense).
     - It is padding or procedural language: content that is unimportant, redundant, or irrelevant to the core answer (e.g., formatting, transitions, acknowledgments like 'Based on the context...')
-    - It is ambiguous. If the claim is unclear or vague, do not penalize the answer for it; give it the benefit of the doubt and assume it is grounded. It is ok for it to acknowledge limitations, like stating the context is insufficient without adding unsupported information.
+    - It is ambiguous or vague in a way that doesn't introduce specific unsupported information. Vague claims that could reasonably align with the context should not be penalized, but specific ambiguous claims that might contradict the context should be evaluated carefully. It is ok for it to acknowledge limitations, like stating the context is insufficient without adding unsupported information.
 
     A claim is considered not grounded (unsupported) if:
     - It contains information not found in or reasonably inferred from the context.

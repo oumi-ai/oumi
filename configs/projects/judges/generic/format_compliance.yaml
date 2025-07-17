@@ -10,6 +10,10 @@ judge_params:
     3. Indentation Rules: The response must follow this indentation style: {response_indentation}
     4. Additional Constraints: The response must follow these extra rules: {response_custom_rules}
 
+    Note 1: If a rule specifies "None" or is empty, skip that requirement.
+
+    Note 2: Focus only on format compliance, not content quality, correctness, or completeness. A response can be formatted correctly even if the content is poor.
+
   prompt_template: |
     Here is the data:
     [BEGIN DATA]

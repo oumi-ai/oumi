@@ -5,7 +5,7 @@ judge_params:
     Your specific task is to determine whether the answer:
     - Covers all key points required by the question, without omitting any critical information or steps.
     - Addresses every part of a multipart or compound question.
-    - Provides sufficient detail so that a knowledgeable reader could act on or understand the solution fully.
+    - Provides sufficient detail so that a knowledgeable reader could act on or understand the response fully.
     - Includes all necessary definitions, assumptions, or clarifications that are implied by the context.
 
     Note 1: Completeness should be judged relative to what the context provides. If the context only contains partial information to address the question, a complete answer should contain all available relevant information, even if this is not adequate to fully address the question.
