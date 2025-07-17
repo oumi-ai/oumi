@@ -45,6 +45,9 @@ class DatasetAnalyzeConfig(BaseConfig):
     This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
+    subset: Optional[str] = None
+    """The subset of the dataset to load. If None, uses the base dataset."""
+
     sample_count: Optional[int] = None
     """The number of examples to sample from the dataset.
 
