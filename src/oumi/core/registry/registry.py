@@ -93,6 +93,7 @@ def _register_dependencies(cls_function):
             # Immediately set the initialized flag to avoid infinite recursion.
             self._initialized = True
             # Import all core dependencies.
+            import oumi.core.analyze  # noqa: F401
             import oumi.datasets  # noqa: F401
             import oumi.judges  # noqa: F401
             import oumi.launcher  # noqa: F401
