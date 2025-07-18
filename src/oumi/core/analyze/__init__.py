@@ -12,28 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A framework used for registering and accessing objects across Oumi."""
+"""Sample analyzer plugin system for OUMI.
 
-from oumi.core.registry.registry import (
-    REGISTRY,
-    Registry,
-    RegistryType,
-    register,
-    register_cloud_builder,
-    register_dataset,
-    register_evaluation_function,
-    register_judge,
-    register_sample_analyzer,
-)
+This package provides a plugin-based architecture for analyzing conversation data
+with different types of sample analyzers (length, safety, etc.).
+"""
 
-__all__ = [
-    "REGISTRY",
-    "Registry",
-    "RegistryType",
-    "register",
-    "register_cloud_builder",
-    "register_dataset",
-    "register_evaluation_function",
-    "register_judge",
-    "register_sample_analyzer",
-]
+# Import base classes
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+
+__all__ = ["SampleAnalyzer"]
