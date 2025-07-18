@@ -33,6 +33,7 @@ class RegistryType(Enum):
     MODEL = auto()
     JUDGE_CONFIG = auto()
     EVALUATION_FUNCTION = auto()
+    SAMPLE_ANALYZER = auto()
 
 
 class RegistryKey(namedtuple("RegistryKey", ["name", "registry_type"])):
@@ -190,6 +191,10 @@ class Registry:
     def get_evaluation_function(self, name: str) -> Optional[Callable]:
         """Gets a record that corresponds to a registered evaluation function."""
         return self.get(name, RegistryType.EVALUATION_FUNCTION)
+
+    def get_sample_analyzer(self, name: str) -> Optional[Callable]:
+        """Gets a record that corresponds to a registered sample analyzer."""
+        return self.get(name, RegistryType.SAMPLE_ANALYZER)
 
     def get_dataset(
         self, name: str, subset: Optional[str] = None
@@ -354,6 +359,26 @@ def register_evaluation_function(registry_name: str) -> Callable:
 
         REGISTRY.register(
             name=registry_name, type=RegistryType.EVALUATION_FUNCTION, value=obj
+        )
+        return obj
+
+    return decorator_register
+
+
+def register_sample_analyzer(registry_name: str) -> Callable:
+    """Returns function to register a sample analyzer in the Oumi global registry.
+
+    Args:
+        registry_name: The name that the sample analyzer should be registered with.
+
+    Returns:
+        Decorator function to register the target sample analyzer.
+    """
+
+    def decorator_register(obj):
+        """Decorator to register its target `obj`."""
+        REGISTRY.register(
+            name=registry_name, type=RegistryType.SAMPLE_ANALYZER, value=obj
         )
         return obj
 
