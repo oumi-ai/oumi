@@ -14,11 +14,13 @@
 
 """BitsAndBytes quantization implementation."""
 
+import importlib.util
 from pathlib import Path
 from typing import Any
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization
@@ -36,26 +38,27 @@ class BitsAndBytesQuantization(BaseQuantization):
     supported_methods = ["bnb_4bit", "bnb_8bit"]
     supported_formats = ["pytorch", "safetensors"]
 
+    @override
     def validate_requirements(self) -> bool:
         """Check if BitsAndBytes dependencies are available.
 
         Returns:
             True if all dependencies are available, False otherwise.
         """
-        try:
-            import bitsandbytes
-            from transformers import BitsAndBytesConfig
-
-            logger.info(f"BitsAndBytes library found: {bitsandbytes.__version__}")
-            return True
-
-        except ImportError:
+        if importlib.util.find_spec("bitsandbytes") is None:
             logger.error(
                 "BitsAndBytes quantization requires bitsandbytes library.\n"
                 "Install with: pip install bitsandbytes"
             )
             return False
 
+        # Import to get version info
+        import bitsandbytes
+
+        logger.info(f"BitsAndBytes library found: {bitsandbytes.__version__}")
+        return True
+
+    @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for BitsAndBytes.
 
@@ -219,4 +222,3 @@ class BitsAndBytesQuantization(BaseQuantization):
             "output_path": str(output_dir),
             "pytorch_format": True,
         }
-
