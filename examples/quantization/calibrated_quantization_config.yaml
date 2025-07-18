@@ -4,18 +4,18 @@
 
 # Model configuration for a local fine-tuned model
 model:
-  model_name: "meta-llama/Llama-2-7b-hf"        # Name from HuggingFace or Local model path
-  tokenizer_name: "meta-llama/Llama-2-7b-hf"   # Base tokenizer
+  model_name: "meta-llama/Llama-2-7b-hf" # Name from HuggingFace or Local model path
+  tokenizer_name: "meta-llama/Llama-2-7b-hf" # Base tokenizer
   model_kwargs:
-    torch_dtype: "float16"                      # Load in half precision
-    trust_remote_code: true                     # Trust custom model code
-  adapter_model: null                           # No LoRA adapter
+    torch_dtype: "float16" # Load in half precision
+    trust_remote_code: true # Trust custom model code
+  adapter_model: null # No LoRA adapter
 
 # High-quality quantization settings
-method: "q8_0"                                  # 8-bit for minimal quality loss
-output_path: "production/my_model_q8.gguf"     # Production output path
-output_format: "gguf"                          # GGUF for deployment
+method: "q8_0" # 8-bit for minimal quality loss
+output_path: "production/my_model_q8.gguf" # Production output path
+output_format: "gguf" # GGUF for deployment
 
 # Performance tuning
-batch_size: 8                                  # Smaller batch for memory efficiency
-verbose: true                                  # Detailed progress logging
+batch_size: 8 # Smaller batch for memory efficiency
+verbose: true # Detailed progress logging

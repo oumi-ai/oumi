@@ -113,24 +113,6 @@ def format_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f} PB"
 
 
-def validate_quantization_config(config) -> None:
-    """Validate quantization configuration."""
-    from oumi.quantize.constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
-
-    # Validate output format
-    if config.output_format not in SUPPORTED_OUTPUT_FORMATS:
-        raise ValueError(f"Unsupported output format: {config.output_format}")
-
-    # Validate quantization method
-    if config.method not in SUPPORTED_METHODS:
-        raise ValueError(f"Unsupported quantization method: {config.method}")
-
-    # Check if model path exists or is a valid model identifier
-    model_path = config.model.model_name
-    if not (Path(model_path).exists() or is_valid_hf_model_id(model_path)):
-        raise ValueError(f"Model not found: {model_path}")
-
-
 def calculate_compression_ratio(
     original_size: Optional[int], quantized_size: int
 ) -> str:

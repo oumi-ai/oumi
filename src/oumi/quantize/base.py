@@ -15,9 +15,21 @@
 """Base quantization class and common utilities."""
 
 from abc import ABC, abstractmethod
-from typing import Any, List
+from dataclasses import dataclass
 
 from oumi.core.configs import QuantizationConfig
+
+
+@dataclass
+class QuantizationResult:
+    """Result of quantization."""
+
+    quantized_size: str
+    quantized_size_bytes: int
+    output_path: str
+    method: str
+    pytorch_format: bool
+    awq_size: str
 
 
 class BaseQuantization(ABC):
@@ -32,7 +44,7 @@ class BaseQuantization(ABC):
     supported_formats: list[str] = []
 
     @abstractmethod
-    def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
+    def quantize(self, config: QuantizationConfig) -> QuantizationResult:
         """Main quantization method - must be implemented by subclasses.
 
         Args:
@@ -54,15 +66,10 @@ class BaseQuantization(ABC):
         raise NotImplementedError("Subclasses must implement quantize method")
 
     @abstractmethod
-    def validate_requirements(self) -> bool:
-        """Check if all required dependencies are available.
-
-        Returns:
-            True if all dependencies are available and quantization can proceed,
-            False otherwise.
-        """
+    def raise_if_requirements_not_met(self) -> None:
+        """Raise an error if the requirements are not met."""
         raise NotImplementedError(
-            "Subclasses must implement validate_requirements method"
+            "Subclasses must implement raise_if_requirements_not_met method"
         )
 
     def get_supported_methods(self) -> list[str]:
@@ -114,12 +121,26 @@ class BaseQuantization(ABC):
         """
         if not self.supports_method(config.method):
             raise ValueError(
-                f"Method '{config.method}' not supported by {self.__class__.__name__}. "
+                f"Method '{config.method}' not supported by {self.__class__.__name__}."
                 f"Supported methods: {self.supported_methods}"
             )
 
         if not self.supports_format(config.output_format):
             raise ValueError(
-                f"Format '{config.output_format}' not supported by {self.__class__.__name__}. "
+                f"Format '{config.output_format}' not supported by "
+                f"{self.__class__.__name__}. "
                 f"Supported formats: {self.supported_formats}"
             )
+
+    def validate_requirements(self) -> bool:
+        """Check if all required dependencies are available.
+
+        Returns:
+            True if all dependencies are available and quantization can proceed,
+            False otherwise.
+        """
+        try:
+            self.raise_if_requirements_not_met()
+            return True
+        except Exception:
+            return False

@@ -70,3 +70,21 @@ class QuantizationConfig(BaseConfig):
 
     calibration_samples: int = 512
     """AWQ calibration samples. 512 (balanced), 128 (faster), 1024 (more accurate)."""
+
+    def __post_init__(self):
+        """Post-initialization validation."""
+        from oumi.quantize.constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
+
+        # Validate output format
+        if self.output_format not in SUPPORTED_OUTPUT_FORMATS:
+            raise ValueError(
+                f"Unsupported output format: {self.output_format}. "
+                f"Must be one of: {SUPPORTED_OUTPUT_FORMATS}."
+            )
+
+        # Validate quantization method
+        if self.method not in SUPPORTED_METHODS:
+            raise ValueError(
+                f"Unsupported quantization method: {self.method}. "
+                f"Must be one of: {SUPPORTED_METHODS}."
+            )

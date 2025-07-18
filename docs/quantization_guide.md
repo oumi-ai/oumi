@@ -7,6 +7,7 @@ This guide covers the `oumi quantize` command for reducing model size while main
 ### AWQ Quantization (Recommended)
 
 ### AWQ Quantization
+
 ```bash
 oumi quantize --method awq_q4_0 --model "oumi-ai/HallOumi-8B" --output halloumi_awq4bit.pytorch
 ```
@@ -19,12 +20,14 @@ oumi quantize --method awq_q4_0 --model "oumi-ai/HallOumi-8B" --output halloumi_
 🗜️  Compression ratio: 2.80x
 
 **Other Example Commonds**
+
 ```bash
 oumi quantize --method awq_q4_0 --model "meta-llama/Llama-2-7b-hf" --output model.pytorch
 oumi quantize --method awq_q4_0 --model "Qwen/Qwen3-14B" --output Qwen3-14B_awq4bit.pytorch
 ```
 
 ### Configuration Files
+
 ```yaml
 model:
   model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
@@ -36,6 +39,7 @@ calibration_samples: 512
 ```
 
 ### PyTorch Format Output
+
 ```bash
 oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output model.pytorch
 ```
@@ -43,6 +47,7 @@ oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --o
 ## Implementation Details
 
 ### Core Quantization Methods
+
 - **AWQ Quantization**: `awq_q4_0`, `awq_q4_1`, `awq_q8_0`, `awq_f16`
 - **BitsAndBytes**: `bnb_4bit`, `bnb_8bit` with fallback support
 - **Direct GGUF**: `q4_0`, `q4_1`, `q5_0`, `q5_1`, `q8_0`, `f16`, `f32`
@@ -64,7 +69,6 @@ pip install llama-cpp-python
 
 ### AWQ (Activation-aware Weight Quantization) - Recommended
 
-
 **Supported Models:** Llama, Mistral, TinyLlama, CodeLlama, QWen
 
 ### BitsAndBytes Quantization
@@ -84,8 +88,6 @@ pip install llama-cpp-python
 | `q4_1` | 4-bit with bias terms | Better accuracy |
 | `q8_0` | 8-bit quantization | High quality |
 | `f16` | 16-bit float | Format conversion |
-
-
 
 ## Configuration Files
 
@@ -108,7 +110,6 @@ oumi quantize --config quantization_config.yaml
 See the [examples/quantization/](../examples/quantization/) directory for sample configurations:
 
 - `quantization_config.yaml` - Simple quantization setup
-
 
 ## CLI Reference
 

@@ -41,25 +41,25 @@ class GgufQuantization(BaseQuantization):
     supported_methods = ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0", "f16", "f32"]
     supported_formats = ["gguf"]
 
+    def __init__(self):
+        """Initialize GGUF quantizer."""
+        self._llama_cpp = importlib.util.find_spec("llama_cpp")
+
     @override
-    def validate_requirements(self) -> bool:
+    def raise_if_requirements_not_met(self) -> None:
         """Check if GGUF quantization dependencies are available.
 
         Returns:
             True if all dependencies are available, False otherwise.
         """
-        if importlib.util.find_spec("llama_cpp") is None:
-            logger.warning(
+        if self._llama_cpp is None:
+            raise RuntimeError(
                 "GGUF quantization requires llama-cpp-python.\n"
                 "Install with: pip install llama-cpp-python\n"
                 "Will use fallback mode for basic GGUF creation."
             )
-            return True  # We can still create basic GGUF files
 
-        # Import to get version info
-        import llama_cpp
-        logger.info(f"llama-cpp-python found: {llama_cpp.__version__}")
-        return True
+        logger.info(f"llama-cpp-python found: {self._llama_cpp.version}")  # type: ignore
 
     @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
@@ -89,8 +89,6 @@ class GgufQuantization(BaseQuantization):
     def _quantize_with_llamacpp(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize using llama-cpp-python."""
         try:
-            import llama_cpp
-
             model_path = config.model.model_name
 
             # If it's a local directory, use it directly
@@ -132,12 +130,11 @@ class GgufQuantization(BaseQuantization):
         """Convert model to GGUF using llama-cpp-python."""
         # Create temporary directory for conversion
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_model_path = Path(temp_dir) / "model.bin"
-
             # Load and convert model
             logger.info(f"Loading model for GGUF conversion: {model_path}")
 
-            # First, load the model with transformers and save in a format llama.cpp can use
+            # First, load the model with transformers and save in a format llama.cpp
+            # can use
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
                 torch_dtype=torch.float16,
@@ -181,14 +178,6 @@ class GgufQuantization(BaseQuantization):
         # This would call the actual llama.cpp quantization binary
         # For now, we'll create a placeholder implementation
         logger.info(f"Quantizing with llama.cpp: {quantization_type}")
-
-        # In a real implementation, you'd call something like:
-        # subprocess.run([
-        #     "llama-quantize",
-        #     f"{model_dir}/model.bin",
-        #     output_path,
-        #     quantization_type
-        # ], check=True)
 
         # For now, create a basic GGUF file
         self._create_basic_gguf_file(output_path, quantization_type)
@@ -253,96 +242,3 @@ class GgufQuantization(BaseQuantization):
             "fallback_mode": True,
             "gguf_format": True,
         }
-
-    def convert_awq_to_gguf(
-        self, awq_model_path: str, config: QuantizationConfig
-    ) -> dict[str, Any]:
-        """Convert AWQ model to GGUF format.
-
-        This method is called from the AWQ quantizer to convert AWQ models
-        to GGUF format.
-
-        Args:
-            awq_model_path: Path to the AWQ quantized model
-            config: Quantization configuration
-
-        Returns:
-            Dictionary containing conversion results
-        """
-        logger.info("Converting AWQ model to GGUF format")
-
-        try:
-            # Load the AWQ model
-            from awq import AutoAWQForCausalLM
-
-            model = AutoAWQForCausalLM.from_quantized(
-                awq_model_path,
-                fuse_layers=True,
-                trust_remote_code=True,
-                safetensors=True,
-            )
-
-            # Convert to GGUF
-            output_path = config.output_path
-            if not output_path.endswith(".gguf"):
-                output_path = f"{output_path}.gguf"
-
-            # For now, create a GGUF file based on the AWQ model
-            # In a real implementation, you'd use proper AWQ->GGUF conversion
-            self._create_gguf_from_awq(model, output_path, config.method)
-
-            quantized_size = Path(output_path).stat().st_size
-
-            logger.info("✅ AWQ to GGUF conversion successful!")
-            logger.info(f"📁 Output: {output_path}")
-            logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-
-            return {
-                "quantization_method": f"AWQ → GGUF ({config.method})",
-                "quantized_size": format_size(quantized_size),
-                "quantized_size_bytes": quantized_size,
-                "output_path": output_path,
-                "gguf_format": True,
-                "awq_to_gguf_conversion": True,
-            }
-
-        except Exception as e:
-            logger.error(f"AWQ to GGUF conversion failed: {e}")
-            raise RuntimeError(f"AWQ to GGUF conversion failed: {e}")
-
-    def _create_gguf_from_awq(self, awq_model, output_path: str, method: str) -> None:
-        """Create GGUF file from AWQ model."""
-        # This is a simplified implementation
-        # In practice, you'd properly convert the AWQ tensors to GGUF format
-
-        with open(output_path, "wb") as f:
-            import struct
-
-            # Write GGUF headers
-            f.write(GGUF_MAGIC)
-            f.write(struct.pack("<I", GGUF_VERSION))
-            f.write(struct.pack("<Q", 0))  # tensor count (simplified)
-            f.write(struct.pack("<Q", 2))  # metadata count
-
-            # Write method metadata
-            key = b"quantization_method"
-            f.write(struct.pack("<I", len(key)))
-            f.write(key)
-            f.write(struct.pack("<I", 8))  # string type
-            value = method.encode("utf-8")
-            f.write(struct.pack("<I", len(value)))
-            f.write(value)
-
-            # Write source metadata
-            key = b"source"
-            f.write(struct.pack("<I", len(key)))
-            f.write(key)
-            f.write(struct.pack("<I", 8))  # string type
-            value = b"AWQ"
-            f.write(struct.pack("<I", len(value)))
-            f.write(value)
-
-            # Add model data (simplified)
-            # In a real implementation, you'd convert the actual AWQ tensors
-            model_data_size = 50 * 1024 * 1024  # 50MB placeholder
-            f.write(b"\x00" * model_data_size)

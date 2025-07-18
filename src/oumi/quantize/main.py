@@ -14,6 +14,7 @@
 
 """Main quantization logic and orchestration."""
 
+from pathlib import Path
 from typing import Any
 
 from oumi.core.configs import QuantizationConfig
@@ -21,7 +22,7 @@ from oumi.quantize.factory import QuantizationFactory
 from oumi.quantize.utils import (
     calculate_compression_ratio,
     get_model_size_info,
-    validate_quantization_config,
+    is_valid_hf_model_id,
 )
 from oumi.utils.logging import logger
 
@@ -51,40 +52,31 @@ def quantize(config: QuantizationConfig) -> dict[str, Any]:
     logger.info(f"Quantization method: {config.method}")
     logger.info(f"Output path: {config.output_path}")
 
-    # Validate configuration
-    validate_quantization_config(config)
+    # Check if model path exists or is a valid model identifier
+    model_path = config.model.model_name
+    if not (Path(model_path).exists() or is_valid_hf_model_id(model_path)):
+        raise ValueError(f"Model not found: {model_path}")
 
     # Get original model size information
     size_info, original_size = get_model_size_info(config)
     result = size_info.copy()
 
-    try:
-        # Get appropriate quantizer from factory
-        quantizer = QuantizationFactory.create_quantizer(config.method)
+    # Get appropriate quantizer from factory
+    quantizer = QuantizationFactory.create_quantizer(config.method)
 
-        # Check if quantizer requirements are met
-        requirements_met = quantizer.validate_requirements()
-        if not requirements_met:
-            if config.method.startswith("awq_"):
-                # AWQ quantizer handles its own fallback/simulation logic
-                pass
-            else:
-                raise RuntimeError(f"Requirements not met for {config.method}")
+    # Check if quantizer requirements are met
+    quantizer.raise_if_requirements_not_met()
 
-        # Perform quantization
-        quantization_result = quantizer.quantize(config)
-        result.update(quantization_result)
+    # Perform quantization
+    quantization_result = quantizer.quantize(config)
+    result.update(quantization_result)
 
-        # Calculate compression ratio if we have both sizes
-        if "quantized_size_bytes" in result:
-            compression_ratio = calculate_compression_ratio(
-                original_size, result["quantized_size_bytes"]
-            )
-            result["compression_ratio"] = compression_ratio
+    # Calculate compression ratio if we have both sizes
+    if "quantized_size_bytes" in result:
+        compression_ratio = calculate_compression_ratio(
+            original_size, result["quantized_size_bytes"]
+        )
+        result["compression_ratio"] = compression_ratio
 
-        logger.info("Quantization completed successfully!")
-        return result
-
-    except Exception as e:
-        logger.error(f"Quantization failed: {e}")
-        raise RuntimeError(f"Quantization failed: {e}") from e
+    logger.info("Quantization completed successfully!")
+    return result

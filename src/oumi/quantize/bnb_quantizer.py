@@ -38,6 +38,10 @@ class BitsAndBytesQuantization(BaseQuantization):
     supported_methods = ["bnb_4bit", "bnb_8bit"]
     supported_formats = ["pytorch", "safetensors"]
 
+    def __init__(self):
+        """Initialize BitsAndBytes quantizer."""
+        self._bitsandbytes = importlib.util.find_spec("bitsandbytes")
+
     @override
     def validate_requirements(self) -> bool:
         """Check if BitsAndBytes dependencies are available.
@@ -53,9 +57,7 @@ class BitsAndBytesQuantization(BaseQuantization):
             return False
 
         # Import to get version info
-        import bitsandbytes
-
-        logger.info(f"BitsAndBytes library found: {bitsandbytes.__version__}")
+        logger.info(f"BitsAndBytes library found: {self._bitsandbytes.version}")  # type: ignore
         return True
 
     @override

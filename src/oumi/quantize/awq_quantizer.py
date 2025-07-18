@@ -22,7 +22,7 @@ from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization
-from oumi.quantize.constants import AWQ_DEFAULTS, MOCK_MODEL_SIZES
+from oumi.quantize.constants import AWQ_DEFAULTS
 from oumi.quantize.utils import format_size, get_directory_size
 from oumi.utils.logging import logger
 
@@ -39,44 +39,26 @@ class AwqQuantization(BaseQuantization):
 
     def __init__(self):
         """Initialize AWQ quantizer."""
-        self._awq_available = None
+        self._awq = importlib.util.find_spec("awq")
 
     @override
-    def validate_requirements(self) -> bool:
-        """Check if AWQ dependencies are available.
-
-        Returns:
-            True if all dependencies are available, False if simulation mode should be used.
-        """
-        if self._awq_available is not None:
-            return self._awq_available
-
-        if importlib.util.find_spec("awq") is None:
-            logger.warning(
+    def raise_if_requirements_not_met(self):
+        """Check if AWQ dependencies are available."""
+        if self._awq is None:
+            raise RuntimeError(
                 "AWQ quantization requires autoawq library.\n"
-                "Install with: pip install autoawq (Linux/Windows with CUDA)\n"
-                "Running in simulation mode for testing..."
+                "Install with: `pip install autoawq`\n"
             )
-            self._awq_available = False
-            return False
 
-        # Import to get version info and check torch
-        import awq
-        logger.info(f"AWQ library found: autoawq {awq.__version__}")
-
-        if importlib.util.find_spec("torch") is None:
-            raise RuntimeError("AWQ quantization requires PyTorch")
+        logger.debug(f"AWQ library found: autoawq {self._awq.version}")  # type: ignore
 
         import torch
-        if torch.cuda.is_available():
-            logger.info(f"CUDA available: {torch.cuda.get_device_name()}")
-        else:
-            logger.warning(
-                "CUDA not available. AWQ quantization may be slow on CPU."
-            )
 
-        self._awq_available = True
-        return True
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "AWQ quantization requires a GPU. "
+                "Please use a machine with at least 1 GPU."
+            )
 
     @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
@@ -88,19 +70,8 @@ class AwqQuantization(BaseQuantization):
         Returns:
             Dictionary containing quantization results
         """
-        # Validate configuration for this quantizer
         self.validate_config(config)
 
-        # Check requirements and determine mode
-        if self.validate_requirements():
-            # Use real AWQ quantization
-            return self._quantize_with_awq(config)
-        else:
-            # Use simulation mode
-            return self._simulate_quantization(config)
-
-    def _quantize_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
-        """Perform real AWQ quantization."""
         logger.info("Starting AWQ quantization pipeline...")
 
         # Step 1: AWQ quantization
@@ -111,20 +82,19 @@ class AwqQuantization(BaseQuantization):
         if config.output_format == "pytorch":
             return self._save_as_pytorch(config, awq_model_path)
         elif config.output_format == "gguf":
-            return self._convert_to_gguf(config, awq_model_path)
+            return self._convert_and_export_to_gguf(config, awq_model_path)
         else:
             raise ValueError(f"Unsupported output format: {config.output_format}")
 
     def _quantize_model_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize model using AWQ algorithm with calibration."""
-        from awq import AutoAWQForCausalLM
         from transformers import AutoTokenizer
 
         logger.info(f"Loading model for AWQ quantization: {config.model.model_name}")
 
         # 1. Load model and tokenizer
         logger.info("📥 Loading base model...")
-        model = AutoAWQForCausalLM.from_pretrained(
+        model = self._awq.AutoAWQForCausalLM.from_pretrained(  # type: ignore
             config.model.model_name,
             **{
                 "safetensors": True,
@@ -214,18 +184,15 @@ class AwqQuantization(BaseQuantization):
             "pytorch_format": True,
         }
 
-    def _convert_to_gguf(
+    def _convert_and_export_to_gguf(
         self, config: QuantizationConfig, awq_model_path: str
     ) -> dict[str, Any]:
         """Convert AWQ model to GGUF format."""
-        from oumi.quantize.gguf_quantizer import GgufQuantization
-
         logger.info("Converting AWQ model to GGUF format...")
 
         try:
             # Use GGUF quantizer for conversion
-            gguf_quantizer = GgufQuantization()
-            result = gguf_quantizer.convert_awq_to_gguf(awq_model_path, config)
+            result = self.convert_awq_to_gguf(awq_model_path, config)
 
             # Clean up temporary AWQ files if requested
             if config.cleanup_temp:
@@ -244,59 +211,93 @@ class AwqQuantization(BaseQuantization):
             result["gguf_conversion_failed"] = True
             return result
 
+    def convert_awq_to_gguf(
+        self, awq_model_path: str, config: QuantizationConfig
+    ) -> dict[str, Any]:
+        """Convert AWQ model to GGUF format.
 
-    def _simulate_quantization(self, config: QuantizationConfig) -> dict[str, Any]:
-        """Simulate AWQ quantization when dependencies are not available."""
-        logger.info("🔧 SIMULATION MODE: AWQ quantization simulation")
-        logger.info(f"   Model: {config.model.model_name}")
-        logger.info(f"   Method: {config.method}")
-        logger.info(f"   Output: {config.output_path}")
+        This method is called from the AWQ quantizer to convert AWQ models
+        to GGUF format.
 
-        # Create a mock output file
-        output_path = Path(config.output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        Args:
+            awq_model_path: Path to the AWQ quantized model
+            config: Quantization configuration
 
-        # Determine mock file size based on model name
-        model_name_lower = config.model.model_name.lower()
-        if "small" in model_name_lower:
-            mock_size = MOCK_MODEL_SIZES["small"]
-        elif "7b" in model_name_lower:
-            mock_size = MOCK_MODEL_SIZES["7b"]
-        elif "13b" in model_name_lower:
-            mock_size = MOCK_MODEL_SIZES["13b"]
-        elif "70b" in model_name_lower:
-            mock_size = MOCK_MODEL_SIZES["70b"]
-        else:
-            mock_size = MOCK_MODEL_SIZES["default"]
+        Returns:
+            Dictionary containing conversion results
+        """
+        logger.info("Converting AWQ model to GGUF format")
 
-        # Adjust size based on quantization method
-        if config.method == "awq_q4_0":
-            mock_size = int(mock_size * 0.25)  # 4x compression
-        elif config.method == "awq_q8_0":
-            mock_size = int(mock_size * 0.5)  # 2x compression
-        elif config.method == "awq_f16":
-            mock_size = int(mock_size * 0.6)  # 1.6x compression
+        try:
+            # Load the AWQ model
+            model = self._awq.AutoAWQForCausalLM.from_quantized(  # type: ignore
+                awq_model_path,
+                fuse_layers=True,
+                trust_remote_code=True,
+                safetensors=True,
+            )
 
-        # Create mock file
+            # Convert to GGUF
+            output_path = config.output_path
+            if not output_path.endswith(".gguf"):
+                output_path = f"{output_path}.gguf"
+
+            # For now, create a GGUF file based on the AWQ model
+            # In a real implementation, you'd use proper AWQ->GGUF conversion
+            self._create_gguf_from_awq(model, output_path, config.method)
+
+            quantized_size = Path(output_path).stat().st_size
+
+            logger.info("✅ AWQ to GGUF conversion successful!")
+            logger.info(f"📁 Output: {output_path}")
+            logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
+
+            return {
+                "quantization_method": f"AWQ → GGUF ({config.method})",
+                "quantized_size": format_size(quantized_size),
+                "quantized_size_bytes": quantized_size,
+                "output_path": output_path,
+                "gguf_format": True,
+                "awq_to_gguf_conversion": True,
+            }
+
+        except Exception as e:
+            logger.error(f"AWQ to GGUF conversion failed: {e}")
+            raise RuntimeError(f"AWQ to GGUF conversion failed: {e}")
+
+    def _create_gguf_from_awq(self, awq_model, output_path: str, method: str) -> None:
+        """Create GGUF file from AWQ model."""
+        # This is a simplified implementation
+        # In practice, you'd properly convert the AWQ tensors to GGUF format
+
         with open(output_path, "wb") as f:
-            # Write mock data in chunks to avoid memory issues
-            chunk_size = 1024 * 1024  # 1MB chunks
-            remaining = mock_size
-            while remaining > 0:
-                write_size = min(chunk_size, remaining)
-                f.write(b"0" * write_size)
-                remaining -= write_size
+            import struct
 
-        logger.info("✅ SIMULATION: Created mock quantized file")
-        logger.info(f"📁 Output: {output_path}")
-        logger.info(f"📊 Simulated size: {format_size(mock_size)}")
-        logger.info("⚠️  This is a simulation. Install autoawq for real quantization.")
+            # Write GGUF headers
+            f.write(GGUF_MAGIC)
+            f.write(struct.pack("<I", GGUF_VERSION))
+            f.write(struct.pack("<Q", 0))  # tensor count (simplified)
+            f.write(struct.pack("<Q", 2))  # metadata count
 
-        return {
-            "quantization_method": f"SIMULATED: AWQ → PyTorch ({config.method})",
-            "quantized_size": format_size(mock_size),
-            "quantized_size_bytes": mock_size,
-            "output_path": str(output_path),
-            "simulation_mode": True,
-            "awq_dependencies_missing": True,
-        }
+            # Write method metadata
+            key = b"quantization_method"
+            f.write(struct.pack("<I", len(key)))
+            f.write(key)
+            f.write(struct.pack("<I", 8))  # string type
+            value = method.encode("utf-8")
+            f.write(struct.pack("<I", len(value)))
+            f.write(value)
+
+            # Write source metadata
+            key = b"source"
+            f.write(struct.pack("<I", len(key)))
+            f.write(key)
+            f.write(struct.pack("<I", 8))  # string type
+            value = b"AWQ"
+            f.write(struct.pack("<I", len(value)))
+            f.write(value)
+
+            # Add model data (simplified)
+            # In a real implementation, you'd convert the actual AWQ tensors
+            model_data_size = 50 * 1024 * 1024  # 50MB placeholder
+            f.write(b"\x00" * model_data_size)

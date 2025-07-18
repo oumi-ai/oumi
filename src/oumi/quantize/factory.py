@@ -14,8 +14,6 @@
 
 """Factory for creating quantization instances."""
 
-from typing import Dict, List, Type
-
 from oumi.quantize.base import BaseQuantization
 
 

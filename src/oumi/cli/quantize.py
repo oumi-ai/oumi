@@ -42,7 +42,8 @@ def quantize(
             "--method",
             help=(
                 "Quantization method to use. "
-                "AWQ methods (recommended): awq_q4_0 (default), awq_q4_1, awq_q8_0, awq_f16. "
+                "AWQ methods (recommended): awq_q4_0 (default), awq_q4_1, "
+                "awq_q8_0, awq_f16. "
                 "Direct GGUF: q4_0, q4_1, q5_0, q5_1, q8_0, f16, f32. "
                 "AWQ provides better quality through activation-aware quantization."
             ),
@@ -54,7 +55,8 @@ def quantize(
             "--model",
             help=(
                 "Path or identifier of the model to quantize. "
-                "Can be a HuggingFace model ID (e.g., 'oumi-ai/HallOumi-8B' this is the model from Oumi), "
+                "Can be a HuggingFace model ID (e.g., 'oumi-ai/HallOumi-8B' this "
+                "is the model from Oumi), "
                 "a local directory path, or an Oumi model registry identifier. "
                 "If not specified, uses the model defined in the config file."
             ),
@@ -72,12 +74,12 @@ def quantize(
             ),
         ),
     ] = "quantized_model.gguf",
-    level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     r"""🚧 DEVELOPMENT: Quantize a model to reduce its size and memory requirements.
 
     Example:
-        oumi quantize --model "oumi-ai/HallOumi-8B" --method awq_q4_0 --output "halloumi-8b-q4.gguf"
+        oumi quantize --model "oumi-ai/HallOumi-8B" --method awq_q4_0 \
+            --output "halloumi-8b-q4.gguf"
 
     Note:
         The quantization process may require significant memory and time,
@@ -89,7 +91,6 @@ def quantize(
     # Delayed imports
     from oumi import quantize as oumi_quantize
     from oumi.core.configs import ModelParams, QuantizationConfig
-    # End imports
 
     if config is not None:
         # Use provided config file
@@ -120,7 +121,6 @@ def quantize(
             model=ModelParams(model_name=model),
             method=method,
             output_path=output,
-            output_format="gguf",  # Default format
         )
 
     parsed_config.finalize_and_validate()
@@ -128,33 +128,12 @@ def quantize(
     with cli_utils.CONSOLE.status("Quantizing model...", spinner="dots"):
         result = oumi_quantize(parsed_config)
 
-    # Check for GGUF conversion failure
-    if result and result.get("gguf_conversion_failed"):
-        cli_utils.CONSOLE.print("✅ AWQ quantization completed successfully!")
-        cli_utils.CONSOLE.print(
-            "⚠️  GGUF conversion failed - saved as PyTorch format instead"
-        )
-        cli_utils.CONSOLE.print(
-            "💡 For GGUF output, install: pip install llama-cpp-python"
-        )
-    else:
-        cli_utils.CONSOLE.print("✅ Model quantized successfully!")
+    if not result["success"]:
+        logger.error("❌ Model quantization failed!")
+        return
 
-    # Display output path (might have changed due to fallback)
-    actual_output_path = (
-        result.get("output_path", parsed_config.output_path)
-        if result
-        else parsed_config.output_path
-    )
-    cli_utils.CONSOLE.print(f"📁 Output saved to: {actual_output_path}")
-
-    if result:
-        cli_utils.CONSOLE.print(
-            f"📊 Original size: {result.get('original_size', 'Unknown')}"
-        )
-        cli_utils.CONSOLE.print(
-            f"📉 Output size: {result.get('quantized_size', 'Unknown')}"
-        )
-        cli_utils.CONSOLE.print(
-            f"🗜️  Compression ratio: {result.get('compression_ratio', 'Unknown')}"
-        )
+    logger.info("✅ Model quantized successfully!")
+    logger.info(f"📁 Output saved to: {result.get('output_path', 'Unknown')}")
+    logger.info(f"📊 Original size: {result.get('original_size', 'Unknown')}")
+    logger.info(f"📉 Output size: {result.get('quantized_size', 'Unknown')}")
+    logger.info(f"🗜️ Compression ratio: {result.get('compression_ratio', 'Unknown')}")

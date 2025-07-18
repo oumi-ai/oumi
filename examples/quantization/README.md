@@ -18,10 +18,4 @@ oumi quantize --config examples/quantization/quantization_config.yaml
 oumi quantize --config examples/quantization/calibrated_quantization_config.yaml
 ```
 
-## Available Methodss
-
-- **AWQ Methods**: `awq_q4_0`, `awq_q4_1`, `awq_q8_0`, `awq_f16`
-- **Direct Methods**: `q4_0`, `q4_1`, `q5_0`, `q5_1`, `q8_0`, `f16`, `f32`
-- **Output Formats**: GGUF, PyTorch, Safetensors
-
 For more details, see the [Quantization Guide](../../docs/quantization_guide.md).
