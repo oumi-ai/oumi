@@ -32,7 +32,7 @@ import pydantic
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
-from oumi.core.async_utils import safe_asyncio_run
+from oumi.core.async_utils import AsyncioPoliteSemaphore, safe_asyncio_run
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -625,7 +625,10 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Limit number of HTTP connections to the number of workers.
         connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         # Control the number of concurrent tasks via a semaphore.
-        semaphore = asyncio.BoundedSemaphore(self._remote_params.num_workers)
+        semaphore = AsyncioPoliteSemaphore(
+            capacity=self._remote_params.num_workers,
+            politeness_policy=self._remote_params.politeness_policy,
+        )
         async with aiohttp.ClientSession(connector=connector) as session:
             tasks = [
                 self._query_api(

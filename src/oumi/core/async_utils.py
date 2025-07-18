@@ -13,11 +13,66 @@
 # limitations under the License.
 
 import asyncio
+import collections
+import time
+from asyncio.locks import BoundedSemaphore
 from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypeVar
 
 T = TypeVar("T")
+
+
+class AsyncioPoliteSemaphore(BoundedSemaphore):
+    def __init__(self, capacity: int, politeness_policy: float):
+        """A semaphore that enforces a politeness policy.
+
+        Args:
+            capacity: The maximum number of concurrent tasks.
+            politeness_policy: The politeness policy in seconds.
+        """
+        super().__init__(capacity)
+        self._capacity = capacity
+        self._politeness_policy = politeness_policy
+        self._queue: collections.deque[float] = collections.deque(maxlen=capacity)
+        for _ in range(capacity):
+            self._queue.append(-1)
+
+    def _get_wait_time(self) -> float:
+        """Calculates the time to wait after acquiring the semaphore.
+
+        Returns a negative number if no wait is needed.
+
+        Returns:
+            The time to wait to acquire the semaphore.
+        """
+        next_start_time = self._queue.popleft()
+        return next_start_time - time.time()
+
+    async def acquire(self):
+        """Acquires the semaphore and waits for the politeness policy to be respected.
+
+        If the queue is empty, no wait is needed.
+        """
+        await super().acquire()
+        print(f"queue: {self._queue}")
+        wait_time = self._get_wait_time()
+        print(f"wait_time: {wait_time}")
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
+
+    async def release(self):
+        """Releases the semaphore.
+
+        Adds the current time to the queue. So the next task will wait for the
+        politeness policy to be respected.
+        """
+        if len(self._queue) == self._queue.maxlen:
+            raise ValueError(
+                f"Released too many times. Capacity {self._capacity} reached."
+            )
+        self._queue.append(time.time() + self._politeness_policy)
+        super().release()
 
 
 def safe_asyncio_run(main: Coroutine[Any, Any, T]) -> T:

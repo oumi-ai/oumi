@@ -53,6 +53,15 @@ def mock_aioresponse():
         yield m
 
 
+@pytest.fixture(autouse=True)
+def mock_asyncio_polite_semaphore():
+    with patch(
+        "oumi.inference.remote_inference_engine.AsyncioPoliteSemaphore",
+        return_value=AsyncMock(),
+    ) as mock_asyncio_polite_semaphore:
+        yield mock_asyncio_polite_semaphore
+
+
 @pytest.fixture
 def mock_asyncio_sleep():
     async def mock_sleep(delay):
