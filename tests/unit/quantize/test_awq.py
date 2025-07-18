@@ -21,22 +21,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
-from oumi.quantize.awq import (
-    simulate_awq_quantization,
-    validate_awq_requirements,
-)
+from oumi.quantize.awq_quantizer import AwqQuantization
 
 
 class TestValidateAwqRequirements:
     """Test AWQ dependency validation."""
 
     def test_validate_awq_requirements_function_exists(self):
-        """Test that validate_awq_requirements function exists and is callable."""
-        assert callable(validate_awq_requirements)
+        """Test that validate_awq_requirements method exists and is callable."""
+        quantizer = AwqQuantization()
+        assert callable(quantizer.validate_requirements)
         
     def test_validate_awq_requirements_returns_union_type(self):
-        """Test that function returns expected types."""
-        result = validate_awq_requirements()
+        """Test that method returns expected types."""
+        quantizer = AwqQuantization()
+        result = quantizer.validate_requirements()
         # Should return bool or str
         assert isinstance(result, (bool, str))
         
@@ -67,7 +66,8 @@ class TestSimulateAwqQuantization:
             output_format="gguf"
         )
         
-        result = simulate_awq_quantization(config)
+        quantizer = AwqQuantization()
+        result = quantizer._simulate_quantization(config)
         
         # Verify result structure
         assert "quantization_method" in result
@@ -90,7 +90,8 @@ class TestSimulateAwqQuantization:
             output_format="gguf"
         )
         
-        result = simulate_awq_quantization(config)
+        quantizer = AwqQuantization()
+        result = quantizer._simulate_quantization(config)
         
         # Verify larger mock size for 7B model
         output_file = Path(config.output_path)
@@ -107,7 +108,8 @@ class TestSimulateAwqQuantization:
             output_format="gguf"
         )
         
-        result = simulate_awq_quantization(config)
+        quantizer = AwqQuantization()
+        result = quantizer._simulate_quantization(config)
         
         # Verify Q8 is larger than Q4 for same model
         output_file = Path(config.output_path)
@@ -125,7 +127,8 @@ class TestSimulateAwqQuantization:
             output_format="gguf"
         )
         
-        result = simulate_awq_quantization(config)
+        quantizer = AwqQuantization()
+        result = quantizer._simulate_quantization(config)
         
         # Verify nested directories were created
         output_file = Path(nested_path)
@@ -134,7 +137,8 @@ class TestSimulateAwqQuantization:
 
     def test_simulate_result_format(self):
         """Test that simulation result has correct format."""
-        result = simulate_awq_quantization(self.test_config)
+        quantizer = AwqQuantization()
+        result = quantizer._simulate_quantization(self.test_config)
         
         # Verify all required keys are present
         required_keys = [

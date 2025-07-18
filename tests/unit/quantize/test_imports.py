@@ -66,17 +66,17 @@ class TestQuantizeImports:
         # Test that individual modules can be imported
         from oumi.quantize import constants
         from oumi.quantize import utils
-        from oumi.quantize import awq
-        from oumi.quantize import bitsandbytes
-        from oumi.quantize import gguf
+        from oumi.quantize import awq_quantizer
+        from oumi.quantize import bnb_quantizer
+        from oumi.quantize import gguf_quantizer
         from oumi.quantize import main
         
         # Verify modules have expected attributes
         assert hasattr(constants, "SUPPORTED_METHODS")
         assert hasattr(utils, "format_size")
-        assert hasattr(awq, "validate_awq_requirements")
-        assert hasattr(bitsandbytes, "quantize_with_bitsandbytes")
-        assert hasattr(gguf, "quantize_to_gguf")
+        assert hasattr(awq_quantizer, "AwqQuantization")
+        assert hasattr(bnb_quantizer, "BitsAndBytesQuantization")
+        assert hasattr(gguf_quantizer, "GgufQuantization")
         assert hasattr(main, "quantize")
 
     def test_no_relative_imports_in_public_api(self):
@@ -94,7 +94,7 @@ class TestQuantizeImports:
         assert "quantize" in actual_attrs
         
         # Should not expose internal modules
-        internal_modules = {"constants", "utils", "awq", "bitsandbytes", "gguf", "main"}
+        internal_modules = {"constants", "utils", "awq_quantizer", "bnb_quantizer", "gguf_quantizer", "main"}
         exposed_internals = actual_attrs.intersection(internal_modules)
         
         # It's okay if some internals are exposed, but the main API should work
@@ -153,10 +153,12 @@ class TestModuleStructure:
         # Import all submodules
         import oumi.quantize.constants
         import oumi.quantize.utils
-        import oumi.quantize.awq
-        import oumi.quantize.bitsandbytes
-        import oumi.quantize.gguf
+        import oumi.quantize.awq_quantizer
+        import oumi.quantize.bnb_quantizer
+        import oumi.quantize.gguf_quantizer
         import oumi.quantize.main
+        import oumi.quantize.factory
+        import oumi.quantize.base
         
         # If we get here, all imports succeeded
         assert True

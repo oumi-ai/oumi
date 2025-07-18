@@ -32,10 +32,10 @@ class BitsAndBytesQuantization(BaseQuantization):
     This class handles quantization using the BitsAndBytes library,
     supporting both 4-bit and 8-bit quantization methods.
     """
-    
+
     supported_methods = ["bnb_4bit", "bnb_8bit"]
     supported_formats = ["pytorch", "safetensors"]
-    
+
     def validate_requirements(self) -> bool:
         """Check if BitsAndBytes dependencies are available.
         
@@ -45,17 +45,17 @@ class BitsAndBytesQuantization(BaseQuantization):
         try:
             import bitsandbytes
             from transformers import BitsAndBytesConfig
-            
+
             logger.info(f"BitsAndBytes library found: {bitsandbytes.__version__}")
             return True
-            
+
         except ImportError:
             logger.error(
                 "BitsAndBytes quantization requires bitsandbytes library.\n"
                 "Install with: pip install bitsandbytes"
             )
             return False
-    
+
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for BitsAndBytes.
         
@@ -67,11 +67,11 @@ class BitsAndBytesQuantization(BaseQuantization):
         """
         # Validate configuration for this quantizer
         self.validate_config(config)
-        
+
         # Check requirements
         if not self.validate_requirements():
             raise RuntimeError("BitsAndBytes requirements not met")
-        
+
         # Route to appropriate method based on output format
         if config.output_format == "safetensors":
             return self._quantize_to_safetensors(config)
@@ -79,13 +79,13 @@ class BitsAndBytesQuantization(BaseQuantization):
             return self._quantize_to_pytorch(config)
         else:
             raise ValueError(f"Unsupported output format: {config.output_format}")
-    
+
     def _quantize_to_safetensors(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize model to safetensors format using BitsAndBytes."""
         logger.info("Quantizing to safetensors format with BitsAndBytes")
-        
+
         from transformers import BitsAndBytesConfig
-        
+
         # Configure quantization based on method
         if config.method == "bnb_4bit":
             quantization_config = BitsAndBytesConfig(
@@ -102,7 +102,7 @@ class BitsAndBytesQuantization(BaseQuantization):
             )
         else:
             raise ValueError(f"Method {config.method} not supported for safetensors format")
-        
+
         # Load and quantize model
         logger.info(f"Loading model: {config.model.model_name}")
         model = AutoModelForCausalLM.from_pretrained(
@@ -113,12 +113,12 @@ class BitsAndBytesQuantization(BaseQuantization):
             trust_remote_code=True,
             **(config.model.model_kwargs or {}),
         )
-        
+
         tokenizer = AutoTokenizer.from_pretrained(
             config.model.tokenizer_name or config.model.model_name,
             trust_remote_code=True,
         )
-        
+
         # Ensure output directory exists
         output_path = Path(config.output_path)
         if output_path.suffix:
@@ -127,20 +127,20 @@ class BitsAndBytesQuantization(BaseQuantization):
         else:
             # If no extension, treat as directory
             output_dir = output_path
-        
+
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Save quantized model
         logger.info(f"Saving quantized model to: {output_dir}")
         model.save_pretrained(str(output_dir), safe_serialization=True)
         tokenizer.save_pretrained(str(output_dir))
-        
+
         quantized_size = get_directory_size(str(output_dir))
-        
+
         logger.info("✅ BitsAndBytes quantization successful!")
         logger.info(f"📁 Output: {output_dir}")
         logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-        
+
         return {
             "quantization_method": f"BitsAndBytes {config.method}",
             "quantized_size": format_size(quantized_size),
@@ -148,13 +148,13 @@ class BitsAndBytesQuantization(BaseQuantization):
             "output_path": str(output_dir),
             "safetensors_format": True,
         }
-    
+
     def _quantize_to_pytorch(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize model to PyTorch format using BitsAndBytes."""
         logger.info("Quantizing to PyTorch format with BitsAndBytes")
-        
+
         from transformers import BitsAndBytesConfig
-        
+
         # Configure quantization based on method
         if config.method == "bnb_4bit":
             quantization_config = BitsAndBytesConfig(
@@ -171,7 +171,7 @@ class BitsAndBytesQuantization(BaseQuantization):
             )
         else:
             raise ValueError(f"Method {config.method} not supported for PyTorch format")
-        
+
         # Load and quantize model
         logger.info(f"Loading model: {config.model.model_name}")
         model = AutoModelForCausalLM.from_pretrained(
@@ -182,12 +182,12 @@ class BitsAndBytesQuantization(BaseQuantization):
             trust_remote_code=True,
             **(config.model.model_kwargs or {}),
         )
-        
+
         tokenizer = AutoTokenizer.from_pretrained(
             config.model.tokenizer_name or config.model.model_name,
             trust_remote_code=True,
         )
-        
+
         # Ensure output directory exists
         output_path = Path(config.output_path)
         if output_path.suffix:
@@ -196,20 +196,20 @@ class BitsAndBytesQuantization(BaseQuantization):
         else:
             # If no extension, treat as directory
             output_dir = output_path
-        
+
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Save quantized model
         logger.info(f"Saving quantized model to: {output_dir}")
         model.save_pretrained(str(output_dir), safe_serialization=False)
         tokenizer.save_pretrained(str(output_dir))
-        
+
         quantized_size = get_directory_size(str(output_dir))
-        
+
         logger.info("✅ BitsAndBytes quantization successful!")
         logger.info(f"📁 Output: {output_dir}")
         logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-        
+
         return {
             "quantization_method": f"BitsAndBytes {config.method}",
             "quantized_size": format_size(quantized_size),
@@ -217,7 +217,7 @@ class BitsAndBytesQuantization(BaseQuantization):
             "output_path": str(output_dir),
             "pytorch_format": True,
         }
-    
+
     def quantize_awq_fallback(self, config: QuantizationConfig) -> dict[str, Any]:
         """Use BitsAndBytes as fallback for AWQ quantization methods.
         
@@ -232,18 +232,18 @@ class BitsAndBytesQuantization(BaseQuantization):
             Dictionary containing quantization results
         """
         logger.info("Using BitsAndBytes as fallback for AWQ quantization")
-        
+
         # Map AWQ methods to BitsAndBytes equivalents
         awq_to_bnb_mapping = {
             "awq_q4_0": "bnb_4bit",
-            "awq_q4_1": "bnb_4bit", 
+            "awq_q4_1": "bnb_4bit",
             "awq_q8_0": "bnb_8bit",
             "awq_f16": "bnb_4bit",  # Use 4-bit as closest equivalent
         }
-        
+
         if config.method not in awq_to_bnb_mapping:
             raise ValueError(f"Cannot map AWQ method {config.method} to BitsAndBytes")
-        
+
         # Create new config with BitsAndBytes method
         bnb_config = QuantizationConfig(
             model=config.model,
@@ -253,13 +253,13 @@ class BitsAndBytesQuantization(BaseQuantization):
             batch_size=config.batch_size,
             verbose=config.verbose,
         )
-        
+
         # Perform BitsAndBytes quantization
         result = self.quantize(bnb_config)
-        
+
         # Update result to indicate fallback mode
         result["quantization_method"] = f"BitsAndBytes ({config.method})"
         result["fallback_mode"] = True
         result["original_method"] = config.method
-        
+
         return result

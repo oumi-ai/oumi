@@ -146,7 +146,7 @@ class TestMockModelSizes:
 
     def test_required_sizes_present(self):
         """Test that required model sizes are present."""
-        required_sizes = ["small", "7b_q4", "7b_q8", "default"]
+        required_sizes = ["small", "7b", "13b", "70b", "default"]
         for size_key in required_sizes:
             assert size_key in MOCK_MODEL_SIZES
 
@@ -158,9 +158,10 @@ class TestMockModelSizes:
 
     def test_size_relationships(self):
         """Test that model sizes have logical relationships."""
-        # 7B models should be larger than small models
-        assert MOCK_MODEL_SIZES["7b_q4"] > MOCK_MODEL_SIZES["small"]
-        assert MOCK_MODEL_SIZES["7b_q8"] > MOCK_MODEL_SIZES["small"]
+        # Larger models should be larger than smaller models
+        assert MOCK_MODEL_SIZES["7b"] > MOCK_MODEL_SIZES["small"]
+        assert MOCK_MODEL_SIZES["13b"] > MOCK_MODEL_SIZES["7b"]
+        assert MOCK_MODEL_SIZES["70b"] > MOCK_MODEL_SIZES["13b"]
         
-        # Q8 should be larger than Q4 for same model
-        assert MOCK_MODEL_SIZES["7b_q8"] > MOCK_MODEL_SIZES["7b_q4"]
+        # All models should be larger than default
+        assert MOCK_MODEL_SIZES["7b"] > MOCK_MODEL_SIZES["default"]

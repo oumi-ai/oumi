@@ -79,8 +79,9 @@ CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 # Mock model sizes for simulation mode
 MOCK_MODEL_SIZES = {
     "small": 30 * 1024 * 1024,  # 30MB for small models
-    "7b_q4": 4 * 1024 * 1024 * 1024,  # 4GB for 7B q4
-    "7b_q8": 7 * 1024 * 1024 * 1024,  # 7GB for 7B q8
+    "7b": 14 * 1024 * 1024 * 1024,  # 14GB for 7B models (fp16)
+    "13b": 26 * 1024 * 1024 * 1024,  # 26GB for 13B models
+    "70b": 140 * 1024 * 1024 * 1024,  # 140GB for 70B models
     "default": 100 * 1024 * 1024,  # 100MB default
 }
 

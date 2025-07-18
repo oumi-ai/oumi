@@ -30,15 +30,15 @@ class AwqQuantization(BaseQuantization):
     This class handles AWQ quantization with support for simulation mode
     and fallback to BitsAndBytes when AWQ is not available.
     """
-    
+
     supported_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
     supported_formats = ["gguf", "pytorch"]
-    
+
     def __init__(self):
         self._awq_available = None
         self._fallback_mode = None
         self._simulation_mode = None
-    
+
     def validate_requirements(self) -> Union[bool, str]:
         """Check if AWQ dependencies are available.
         
@@ -48,15 +48,15 @@ class AwqQuantization(BaseQuantization):
         """
         if self._awq_available is not None:
             return self._awq_available
-            
+
         try:
             import awq
-            
+
             logger.info(f"AWQ library found: autoawq {awq.__version__}")
-            
+
             try:
                 import torch
-                
+
                 if torch.cuda.is_available():
                     logger.info(f"CUDA available: {torch.cuda.get_device_name()}")
                 else:
@@ -65,16 +65,16 @@ class AwqQuantization(BaseQuantization):
                     )
             except ImportError:
                 raise RuntimeError("AWQ quantization requires PyTorch")
-            
+
             self._awq_available = True
             return True
-            
+
         except ImportError:
             # Check for BitsAndBytes fallback
             try:
                 import bitsandbytes
                 import torch
-                
+
                 logger.warning(
                     "AutoAWQ not available, but BitsAndBytes found.\n"
                     "Using BitsAndBytes quantization as fallback for AWQ methods.\n"
@@ -82,7 +82,7 @@ class AwqQuantization(BaseQuantization):
                 )
                 self._awq_available = "bitsandbytes"
                 return "bitsandbytes"
-                
+
             except ImportError:
                 logger.warning(
                     "AWQ quantization requires autoawq library or bitsandbytes fallback.\n"
@@ -92,7 +92,7 @@ class AwqQuantization(BaseQuantization):
                 )
                 self._awq_available = False
                 return False
-    
+
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for AWQ.
         
@@ -104,10 +104,10 @@ class AwqQuantization(BaseQuantization):
         """
         # Validate configuration for this quantizer
         self.validate_config(config)
-        
+
         # Check requirements and determine mode
         requirements = self.validate_requirements()
-        
+
         if requirements == "bitsandbytes":
             # Use BitsAndBytes fallback
             return self._quantize_with_fallback(config)
@@ -117,15 +117,15 @@ class AwqQuantization(BaseQuantization):
         else:
             # Use real AWQ quantization
             return self._quantize_with_awq(config)
-    
+
     def _quantize_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
         """Perform real AWQ quantization."""
         logger.info("Starting AWQ quantization pipeline...")
-        
+
         # Step 1: AWQ quantization
         awq_result = self._quantize_model_with_awq(config)
         awq_model_path = awq_result["awq_model_path"]
-        
+
         # Step 2: Handle output format
         if config.output_format == "pytorch":
             return self._save_as_pytorch(config, awq_model_path)
@@ -133,14 +133,14 @@ class AwqQuantization(BaseQuantization):
             return self._convert_to_gguf(config, awq_model_path)
         else:
             raise ValueError(f"Unsupported output format: {config.output_format}")
-    
+
     def _quantize_model_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize model using AWQ algorithm with calibration."""
         from awq import AutoAWQForCausalLM
         from transformers import AutoTokenizer
-        
+
         logger.info(f"Loading model for AWQ quantization: {config.model.model_name}")
-        
+
         # 1. Load model and tokenizer
         logger.info("📥 Loading base model...")
         model = AutoAWQForCausalLM.from_pretrained(
@@ -152,12 +152,12 @@ class AwqQuantization(BaseQuantization):
             },
         )
         tokenizer = AutoTokenizer.from_pretrained(
-            config.model.tokenizer_name or config.model.model_name, 
+            config.model.tokenizer_name or config.model.model_name,
             trust_remote_code=True
         )
-        
+
         logger.info("🔧 Configuring AWQ quantization parameters...")
-        
+
         # 2. Prepare quantization config
         quant_config = {
             "zero_point": config.awq_zero_point,
@@ -165,11 +165,11 @@ class AwqQuantization(BaseQuantization):
             "w_bit": 4,  # AWQ uses 4-bit quantization
             "version": config.awq_version,
         }
-        
+
         logger.info(f"⚙️  AWQ config: {quant_config}")
         logger.info(f"📊 Using {config.calibration_samples} calibration samples")
         logger.info("🧮 Starting AWQ calibration and quantization...")
-        
+
         # 3. Perform AWQ quantization with calibration
         model.quantize(
             tokenizer,
@@ -183,26 +183,26 @@ class AwqQuantization(BaseQuantization):
             apply_clip=AWQ_DEFAULTS["apply_clip"],
             n_parallel_calib_samples=AWQ_DEFAULTS["n_parallel_calib_samples"],
         )
-        
+
         # 4. Save AWQ quantized model
         temp_awq_path = f"{config.output_path}_awq_temp"
         logger.info(f"Saving AWQ model to: {temp_awq_path}")
-        
+
         model.save_quantized(temp_awq_path)
         tokenizer.save_pretrained(temp_awq_path)
-        
+
         awq_size = get_directory_size(temp_awq_path)
-        
+
         return {"awq_model_path": temp_awq_path, "awq_size": awq_size}
-    
+
     def _save_as_pytorch(self, config: QuantizationConfig, awq_model_path: str) -> dict[str, Any]:
         """Save AWQ model as PyTorch format."""
         logger.info("PyTorch format requested. Saving AWQ model...")
-        
+
         output_path = config.output_path
         if not output_path.endswith(".pytorch"):
             output_path = f"{output_path}.pytorch"
-        
+
         # Move AWQ model to final output path
         if awq_model_path != output_path:
             if Path(output_path).exists():
@@ -210,16 +210,16 @@ class AwqQuantization(BaseQuantization):
                 shutil.rmtree(output_path)
             import shutil
             shutil.move(awq_model_path, output_path)
-        
+
         awq_size = get_directory_size(output_path)
-        
+
         logger.info("✅ AWQ quantization successful! Saved as PyTorch format.")
         logger.info(f"📁 Output: {output_path}")
         logger.info(f"📊 Quantized size: {format_size(awq_size)}")
         logger.info(
             f"💡 Use this model with: AutoAWQForCausalLM.from_quantized('{output_path}')"
         )
-        
+
         return {
             "quantization_method": "AWQ → PyTorch",
             "awq_size": format_size(awq_size),
@@ -228,25 +228,26 @@ class AwqQuantization(BaseQuantization):
             "output_path": output_path,
             "pytorch_format": True,
         }
-    
+
     def _convert_to_gguf(self, config: QuantizationConfig, awq_model_path: str) -> dict[str, Any]:
         """Convert AWQ model to GGUF format."""
-        # Import the GGUF conversion functionality
-        from oumi.quantize.gguf import convert_awq_to_gguf
-        
+        from oumi.quantize.gguf_quantizer import GgufQuantization
+
         logger.info("Converting AWQ model to GGUF format...")
-        
+
         try:
-            result = convert_awq_to_gguf(awq_model_path, config)
-            
+            # Use GGUF quantizer for conversion
+            gguf_quantizer = GgufQuantization()
+            result = gguf_quantizer.convert_awq_to_gguf(awq_model_path, config)
+
             # Clean up temporary AWQ files if requested
             if config.cleanup_temp:
                 import shutil
                 shutil.rmtree(awq_model_path)
                 logger.info(f"Cleaned up temporary AWQ files: {awq_model_path}")
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"GGUF conversion failed: {e}")
             # Fall back to PyTorch format
@@ -254,25 +255,26 @@ class AwqQuantization(BaseQuantization):
             result = self._save_as_pytorch(config, awq_model_path)
             result["gguf_conversion_failed"] = True
             return result
-    
+
     def _quantize_with_fallback(self, config: QuantizationConfig) -> dict[str, Any]:
         """Use BitsAndBytes fallback for AWQ quantization."""
-        from oumi.quantize.bitsandbytes import quantize_awq_fallback_to_pytorch
-        
+        from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+
         logger.info("Using BitsAndBytes fallback for AWQ quantization...")
-        return quantize_awq_fallback_to_pytorch(config)
-    
+        bnb_quantizer = BitsAndBytesQuantization()
+        return bnb_quantizer.quantize_awq_fallback(config)
+
     def _simulate_quantization(self, config: QuantizationConfig) -> dict[str, Any]:
         """Simulate AWQ quantization when dependencies are not available."""
         logger.info("🔧 SIMULATION MODE: AWQ quantization simulation")
         logger.info(f"   Model: {config.model.model_name}")
         logger.info(f"   Method: {config.method}")
         logger.info(f"   Output: {config.output_path}")
-        
+
         # Create a mock output file
         output_path = Path(config.output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Determine mock file size based on model name
         model_name_lower = config.model.model_name.lower()
         if "small" in model_name_lower:
@@ -285,7 +287,7 @@ class AwqQuantization(BaseQuantization):
             mock_size = MOCK_MODEL_SIZES["70b"]
         else:
             mock_size = MOCK_MODEL_SIZES["default"]
-        
+
         # Adjust size based on quantization method
         if config.method == "awq_q4_0":
             mock_size = int(mock_size * 0.25)  # 4x compression
@@ -293,7 +295,7 @@ class AwqQuantization(BaseQuantization):
             mock_size = int(mock_size * 0.5)   # 2x compression
         elif config.method == "awq_f16":
             mock_size = int(mock_size * 0.6)   # 1.6x compression
-        
+
         # Create mock file
         with open(output_path, "wb") as f:
             # Write mock data in chunks to avoid memory issues
@@ -303,12 +305,12 @@ class AwqQuantization(BaseQuantization):
                 write_size = min(chunk_size, remaining)
                 f.write(b"0" * write_size)
                 remaining -= write_size
-        
-        logger.info(f"✅ SIMULATION: Created mock quantized file")
+
+        logger.info("✅ SIMULATION: Created mock quantized file")
         logger.info(f"📁 Output: {output_path}")
         logger.info(f"📊 Simulated size: {format_size(mock_size)}")
         logger.info("⚠️  This is a simulation. Install autoawq for real quantization.")
-        
+
         return {
             "quantization_method": f"SIMULATED: AWQ → PyTorch ({config.method})",
             "quantized_size": format_size(mock_size),

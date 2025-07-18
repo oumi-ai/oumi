@@ -25,10 +25,10 @@ class QuantizationFactory:
     This factory handles the creation of quantization instances and provides
     discovery of available quantization methods and formats.
     """
-    
+
     # Registry will be populated as quantizer classes are registered
     _quantizers: Dict[str, Type[BaseQuantization]] = {}
-    
+
     @classmethod
     def register_quantizer(cls, prefix: str, quantizer_class: Type[BaseQuantization]) -> None:
         """Register a quantizer class with a method prefix.
@@ -38,7 +38,7 @@ class QuantizationFactory:
             quantizer_class: Quantizer class to register
         """
         cls._quantizers[prefix] = quantizer_class
-    
+
     @classmethod
     def create_quantizer(cls, method: str) -> BaseQuantization:
         """Create appropriate quantization class based on method.
@@ -56,13 +56,13 @@ class QuantizationFactory:
         from oumi.quantize.awq_quantizer import AwqQuantization
         from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
         from oumi.quantize.gguf_quantizer import GgufQuantization
-        
+
         # Auto-register quantizers if not already registered
         if not cls._quantizers:
             cls.register_quantizer("awq", AwqQuantization)
             cls.register_quantizer("bnb", BitsAndBytesQuantization)
             cls.register_quantizer("gguf", GgufQuantization)
-        
+
         # Determine quantizer based on method
         if method.startswith("awq_"):
             return cls._quantizers["awq"]()
@@ -76,12 +76,12 @@ class QuantizationFactory:
                 instance = quantizer_class()
                 if instance.supports_method(method):
                     return instance
-            
+
             raise ValueError(
                 f"Unsupported quantization method: {method}. "
                 f"Available methods: {cls.get_available_methods()}"
             )
-    
+
     @classmethod
     def get_available_methods(cls) -> Dict[str, List[str]]:
         """Returns all available methods grouped by quantization type.
@@ -93,13 +93,13 @@ class QuantizationFactory:
         from oumi.quantize.awq_quantizer import AwqQuantization
         from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
         from oumi.quantize.gguf_quantizer import GgufQuantization
-        
+
         return {
             "AWQ": AwqQuantization.supported_methods,
             "BitsAndBytes": BitsAndBytesQuantization.supported_methods,
             "GGUF": GgufQuantization.supported_methods,
         }
-    
+
     @classmethod
     def get_supported_formats(cls) -> List[str]:
         """Returns all supported output formats.
@@ -108,18 +108,18 @@ class QuantizationFactory:
             List of all supported output formats
         """
         formats = set()
-        
+
         # Import here to avoid circular imports
         from oumi.quantize.awq_quantizer import AwqQuantization
         from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
         from oumi.quantize.gguf_quantizer import GgufQuantization
-        
+
         formats.update(AwqQuantization.supported_formats)
         formats.update(BitsAndBytesQuantization.supported_formats)
         formats.update(GgufQuantization.supported_formats)
-        
+
         return sorted(list(formats))
-    
+
     @classmethod
     def get_quantizer_for_method(cls, method: str) -> Type[BaseQuantization]:
         """Get the quantizer class that supports the given method.
@@ -135,7 +135,7 @@ class QuantizationFactory:
         """
         quantizer_instance = cls.create_quantizer(method)
         return quantizer_instance.__class__
-    
+
     @classmethod
     def list_all_methods(cls) -> List[str]:
         """List all available quantization methods.

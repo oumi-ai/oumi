@@ -14,7 +14,6 @@
 
 """GGUF quantization implementation."""
 
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -36,10 +35,10 @@ class GgufQuantization(BaseQuantization):
     for llama.cpp inference. It supports various quantization levels from
     4-bit to 16-bit precision.
     """
-    
+
     supported_methods = ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0", "f16", "f32"]
     supported_formats = ["gguf"]
-    
+
     def validate_requirements(self) -> bool:
         """Check if GGUF quantization dependencies are available.
         
@@ -48,10 +47,10 @@ class GgufQuantization(BaseQuantization):
         """
         try:
             import llama_cpp
-            
+
             logger.info(f"llama-cpp-python found: {llama_cpp.__version__}")
             return True
-            
+
         except ImportError:
             logger.warning(
                 "GGUF quantization requires llama-cpp-python.\n"
@@ -59,7 +58,7 @@ class GgufQuantization(BaseQuantization):
                 "Will use fallback mode for basic GGUF creation."
             )
             return True  # We can still create basic GGUF files
-    
+
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for GGUF.
         
@@ -71,26 +70,26 @@ class GgufQuantization(BaseQuantization):
         """
         # Validate configuration for this quantizer
         self.validate_config(config)
-        
+
         logger.info("Quantizing to GGUF format")
-        
+
         try:
             # Try to use llama-cpp-python for quantization
             return self._quantize_with_llamacpp(config)
-            
+
         except Exception as e:
             logger.error(f"GGUF quantization failed: {e}")
             # Fallback to creating a basic GGUF file
             logger.info("Creating fallback GGUF file")
             return self._create_fallback_gguf(config)
-    
+
     def _quantize_with_llamacpp(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize using llama-cpp-python."""
         try:
             import llama_cpp
-            
+
             model_path = config.model.model_name
-            
+
             # If it's a local directory, use it directly
             if Path(model_path).exists():
                 logger.info(f"Using local model: {model_path}")
@@ -98,19 +97,19 @@ class GgufQuantization(BaseQuantization):
                 # It's a HuggingFace model, download it first
                 logger.info(f"Downloading model from HuggingFace: {model_path}")
                 # For now, let the conversion handle the download
-            
+
             # Use the fixed llama-cpp-python conversion
             result = self._convert_with_llamacpp_python(
                 model_path, config.output_path, config.method
             )
-            
+
             if Path(config.output_path).exists():
                 quantized_size = Path(config.output_path).stat().st_size
-                
+
                 logger.info("✅ GGUF quantization successful!")
                 logger.info(f"📁 Output: {config.output_path}")
                 logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-                
+
                 return {
                     "quantization_method": f"GGUF {config.method}",
                     "quantized_size": format_size(quantized_size),
@@ -120,64 +119,60 @@ class GgufQuantization(BaseQuantization):
                 }
             else:
                 return result
-                
+
         except ImportError:
             raise RuntimeError("llama-cpp-python not available for GGUF quantization")
-    
+
     def _convert_with_llamacpp_python(self, model_path: str, output_path: str, method: str) -> dict[str, Any]:
         """Convert model to GGUF using llama-cpp-python."""
-        from llama_cpp import Llama
-        
         # Create temporary directory for conversion
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_model_path = Path(temp_dir) / "model.bin"
-            
+
             # Load and convert model
             logger.info(f"Loading model for GGUF conversion: {model_path}")
-            
+
             # First, load the model with transformers and save in a format llama.cpp can use
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
                 torch_dtype=torch.float16,
                 trust_remote_code=True,
             )
-            
+
             tokenizer = AutoTokenizer.from_pretrained(
                 model_path,
                 trust_remote_code=True,
             )
-            
+
             # Save model in compatible format
             model.save_pretrained(temp_dir)
             tokenizer.save_pretrained(temp_dir)
-            
+
             # Map quantization method to llama.cpp format
             if method in GGUF_QUANTIZATION_MAP:
                 quantization_type = GGUF_QUANTIZATION_MAP[method]
             else:
                 raise ValueError(f"Unsupported quantization method: {method}")
-            
+
             # Perform quantization using llama.cpp
             try:
                 # This is a simplified version - in practice, you'd use the actual
                 # llama.cpp quantization tools or python bindings
                 self._quantize_with_llamacpp_binary(temp_dir, output_path, quantization_type)
-                
+
             except Exception as e:
                 logger.warning(f"llama.cpp quantization failed: {e}")
                 # Fall back to basic GGUF creation
                 raise e
-        
+
         return {"status": "success"}
-    
+
     def _quantize_with_llamacpp_binary(self, model_dir: str, output_path: str, quantization_type: str) -> None:
         """Use llama.cpp binary tools for quantization."""
-        import subprocess
-        
         # This would call the actual llama.cpp quantization binary
         # For now, we'll create a placeholder implementation
         logger.info(f"Quantizing with llama.cpp: {quantization_type}")
-        
+
         # In a real implementation, you'd call something like:
         # subprocess.run([
         #     "llama-quantize",
@@ -185,60 +180,60 @@ class GgufQuantization(BaseQuantization):
         #     output_path,
         #     quantization_type
         # ], check=True)
-        
+
         # For now, create a basic GGUF file
         self._create_basic_gguf_file(output_path, quantization_type)
-    
+
     def _create_basic_gguf_file(self, output_path: str, quantization_type: str) -> None:
         """Create a basic GGUF file with proper headers."""
         with open(output_path, "wb") as f:
             import struct
-            
+
             # Write GGUF magic and version
             f.write(GGUF_MAGIC)
             f.write(struct.pack("<I", GGUF_VERSION))
             f.write(struct.pack("<Q", 0))  # tensor count
             f.write(struct.pack("<Q", 1))  # metadata count
-            
+
             # Write quantization type metadata
-            key = f"quantization_type".encode('utf-8')
+            key = b"quantization_type"
             f.write(struct.pack("<I", len(key)))
             f.write(key)
             f.write(struct.pack("<I", 8))  # string type
-            value = quantization_type.encode('utf-8')
+            value = quantization_type.encode("utf-8")
             f.write(struct.pack("<I", len(value)))
             f.write(value)
-            
+
             # Add some padding to make it look like a real quantized model
             padding_size = 10 * 1024 * 1024  # 10MB
             f.write(b"\x00" * padding_size)
-    
+
     def _create_fallback_gguf(self, config: QuantizationConfig) -> dict[str, Any]:
         """Create a basic GGUF file as fallback when conversion fails."""
         logger.info("Creating fallback GGUF file")
-        
+
         output_path = Path(config.output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(output_path, "wb") as f:
             import struct
-            
+
             f.write(GGUF_MAGIC)  # magic
             f.write(struct.pack("<I", GGUF_VERSION))  # version
             f.write(struct.pack("<Q", 0))  # tensor count
             f.write(struct.pack("<Q", 0))  # metadata count
-            
+
             # Add padding to simulate a quantized model
             padding_size = 5 * 1024 * 1024  # 5MB
             f.write(b"\x00" * padding_size)
-        
+
         fallback_size = output_path.stat().st_size
-        
+
         logger.info("✅ Fallback GGUF file created")
         logger.info(f"📁 Output: {config.output_path}")
         logger.info(f"📊 File size: {format_size(fallback_size)}")
         logger.warning("⚠️  This is a fallback file. Install llama-cpp-python for real quantization.")
-        
+
         return {
             "quantization_method": f"GGUF {config.method} (fallback)",
             "quantized_size": format_size(fallback_size),
@@ -247,7 +242,7 @@ class GgufQuantization(BaseQuantization):
             "fallback_mode": True,
             "gguf_format": True,
         }
-    
+
     def convert_awq_to_gguf(self, awq_model_path: str, config: QuantizationConfig) -> dict[str, Any]:
         """Convert AWQ model to GGUF format.
         
@@ -262,33 +257,33 @@ class GgufQuantization(BaseQuantization):
             Dictionary containing conversion results
         """
         logger.info("Converting AWQ model to GGUF format")
-        
+
         try:
             # Load the AWQ model
             from awq import AutoAWQForCausalLM
-            
+
             model = AutoAWQForCausalLM.from_quantized(
                 awq_model_path,
                 fuse_layers=True,
                 trust_remote_code=True,
                 safetensors=True,
             )
-            
+
             # Convert to GGUF
             output_path = config.output_path
             if not output_path.endswith(".gguf"):
                 output_path = f"{output_path}.gguf"
-            
+
             # For now, create a GGUF file based on the AWQ model
             # In a real implementation, you'd use proper AWQ->GGUF conversion
             self._create_gguf_from_awq(model, output_path, config.method)
-            
+
             quantized_size = Path(output_path).stat().st_size
-            
+
             logger.info("✅ AWQ to GGUF conversion successful!")
             logger.info(f"📁 Output: {output_path}")
             logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-            
+
             return {
                 "quantization_method": f"AWQ → GGUF ({config.method})",
                 "quantized_size": format_size(quantized_size),
@@ -297,43 +292,43 @@ class GgufQuantization(BaseQuantization):
                 "gguf_format": True,
                 "awq_to_gguf_conversion": True,
             }
-            
+
         except Exception as e:
             logger.error(f"AWQ to GGUF conversion failed: {e}")
             raise RuntimeError(f"AWQ to GGUF conversion failed: {e}")
-    
+
     def _create_gguf_from_awq(self, awq_model, output_path: str, method: str) -> None:
         """Create GGUF file from AWQ model."""
         # This is a simplified implementation
         # In practice, you'd properly convert the AWQ tensors to GGUF format
-        
+
         with open(output_path, "wb") as f:
             import struct
-            
+
             # Write GGUF headers
             f.write(GGUF_MAGIC)
             f.write(struct.pack("<I", GGUF_VERSION))
             f.write(struct.pack("<Q", 0))  # tensor count (simplified)
             f.write(struct.pack("<Q", 2))  # metadata count
-            
+
             # Write method metadata
-            key = "quantization_method".encode('utf-8')
+            key = b"quantization_method"
             f.write(struct.pack("<I", len(key)))
             f.write(key)
             f.write(struct.pack("<I", 8))  # string type
-            value = method.encode('utf-8')
+            value = method.encode("utf-8")
             f.write(struct.pack("<I", len(value)))
             f.write(value)
-            
+
             # Write source metadata
-            key = "source".encode('utf-8')
+            key = b"source"
             f.write(struct.pack("<I", len(key)))
             f.write(key)
             f.write(struct.pack("<I", 8))  # string type
-            value = "AWQ".encode('utf-8')
+            value = b"AWQ"
             f.write(struct.pack("<I", len(value)))
             f.write(value)
-            
+
             # Add model data (simplified)
             # In a real implementation, you'd convert the actual AWQ tensors
             model_data_size = 50 * 1024 * 1024  # 50MB placeholder

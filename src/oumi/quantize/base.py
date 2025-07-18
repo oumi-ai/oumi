@@ -26,11 +26,11 @@ class BaseQuantization(ABC):
     This class defines the common interface that all quantization implementations
     must follow, ensuring consistency across different quantization approaches.
     """
-    
+
     # Subclasses should define these class attributes
     supported_methods: List[str] = []
     supported_formats: List[str] = []
-    
+
     @abstractmethod
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method - must be implemented by subclasses.
@@ -52,7 +52,7 @@ class BaseQuantization(ABC):
             ValueError: If configuration is invalid for this quantizer
         """
         raise NotImplementedError("Subclasses must implement quantize method")
-    
+
     @abstractmethod
     def validate_requirements(self) -> bool:
         """Check if all required dependencies are available.
@@ -62,7 +62,7 @@ class BaseQuantization(ABC):
             False otherwise.
         """
         raise NotImplementedError("Subclasses must implement validate_requirements method")
-    
+
     def get_supported_methods(self) -> List[str]:
         """Return list of quantization methods supported by this quantizer.
         
@@ -70,7 +70,7 @@ class BaseQuantization(ABC):
             List of method names (e.g., ["awq_q4_0", "awq_q8_0"])
         """
         return self.supported_methods.copy()
-    
+
     def get_supported_formats(self) -> List[str]:
         """Return list of output formats supported by this quantizer.
         
@@ -78,7 +78,7 @@ class BaseQuantization(ABC):
             List of format names (e.g., ["gguf", "pytorch"])
         """
         return self.supported_formats.copy()
-    
+
     def supports_method(self, method: str) -> bool:
         """Check if this quantizer supports the given method.
         
@@ -89,7 +89,7 @@ class BaseQuantization(ABC):
             True if method is supported, False otherwise
         """
         return method in self.supported_methods
-    
+
     def supports_format(self, format_name: str) -> bool:
         """Check if this quantizer supports the given output format.
         
@@ -100,7 +100,7 @@ class BaseQuantization(ABC):
             True if format is supported, False otherwise
         """
         return format_name in self.supported_formats
-    
+
     def validate_config(self, config: QuantizationConfig) -> None:
         """Validate configuration for this quantizer.
         
@@ -115,7 +115,7 @@ class BaseQuantization(ABC):
                 f"Method '{config.method}' not supported by {self.__class__.__name__}. "
                 f"Supported methods: {self.supported_methods}"
             )
-        
+
         if not self.supports_format(config.output_format):
             raise ValueError(
                 f"Format '{config.output_format}' not supported by {self.__class__.__name__}. "

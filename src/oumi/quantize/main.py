@@ -61,7 +61,7 @@ def quantize(config: QuantizationConfig) -> dict[str, Any]:
     try:
         # Get appropriate quantizer from factory
         quantizer = QuantizationFactory.create_quantizer(config.method)
-        
+
         # Check if quantizer requirements are met
         requirements_met = quantizer.validate_requirements()
         if not requirements_met:
