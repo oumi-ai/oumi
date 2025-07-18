@@ -50,9 +50,6 @@ oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --o
 ## Installation
 
 ```bash
-# Core dependencies
-pip install torch transformers
-
 # AWQ quantization (recommended)
 pip install autoawq
 
