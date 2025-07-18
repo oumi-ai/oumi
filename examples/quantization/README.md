@@ -4,18 +4,18 @@ This directory contains example configurations for model quantization in Oumi.
 
 ## Configuration Files
 
-- **`basic_quantize_config.yaml`** - Basic quantization setup
-- **`advanced_quantize_config.yaml`** - Production quantization with custom model paths and optimized settings
+- **`quantization_config.yaml`** - Basic quantization setup
+- **`calibrated_quantization_config.yaml`** - Production quantization with calibration and optimized settings
 - **`safetensors_quantize_config.yaml`** - Safetensors format output
 
 ## Quick Start
 
 ```bash
-# Quantization (not calibrated). Note: this requires a machine with 1 GPU
-oumi quantize --config examples/quantization/basic_quantize_config.yaml
+# Basic quantization (not calibrated). Note: this requires a machine with 1 GPU
+oumi quantize --config examples/quantization/quantization_config.yaml
 
-# Production configuration
-oumi quantize --config examples/quantization/advanced_quantize_config.yaml
+# Production configuration with calibration
+oumi quantize --config examples/quantization/calibrated_quantization_config.yaml
 ```
 
 ## Available Methodss
