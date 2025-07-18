@@ -80,8 +80,8 @@ Note:
 """
 
 from oumi.core.configs.analyze_config import (
-    DatasetAnalyzeConfig,
-    SampleAnalyzeConfig,
+    AnalyzeConfig,
+    SampleAnalyzerParams,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
@@ -151,8 +151,8 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
-    "DatasetAnalyzeConfig",
-    "SampleAnalyzeConfig",
+    "AnalyzeConfig",
+    "SampleAnalyzerParams",
     "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationBackend",

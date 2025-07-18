@@ -18,11 +18,12 @@ from typing import Any, Optional
 from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
+from oumi.core.configs.params.base_params import BaseParams
 
 
 @dataclass
-class SampleAnalyzeConfig:
-    """Configuration for a single sample analyzer plugin."""
+class SampleAnalyzerParams(BaseParams):
+    """Params for a single sample analyzer plugin."""
 
     id: str = MISSING
     """Unique identifier for the analyzer."""
@@ -32,7 +33,7 @@ class SampleAnalyzeConfig:
 
 
 @dataclass
-class DatasetAnalyzeConfig(BaseConfig):
+class AnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
 
     # Simple fields for common use cases
@@ -41,7 +42,6 @@ class DatasetAnalyzeConfig(BaseConfig):
 
     split: str = "train"
     """The split of the dataset to load.
-
     This is typically one of "train", "test", or "validation". Defaults to "train".
     """
 
@@ -50,7 +50,6 @@ class DatasetAnalyzeConfig(BaseConfig):
 
     sample_count: Optional[int] = None
     """The number of examples to sample from the dataset.
-
     If None, uses the full dataset. If specified, must be non-negative.
     """
 
@@ -60,7 +59,7 @@ class DatasetAnalyzeConfig(BaseConfig):
     Defaults to current directory ('.').
     """
 
-    analyzers: list[SampleAnalyzeConfig] = field(default_factory=list)
+    analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
     def __post_init__(self):
@@ -71,8 +70,9 @@ class DatasetAnalyzeConfig(BaseConfig):
         # Validate analyzer configurations
         analyzer_ids = set()
         for analyzer in self.analyzers:
+            # Validate analyzer ID
             if not analyzer.id:
-                raise ValueError("Each analyzer must have a unique 'id'")
+                raise ValueError("Analyzer 'id' must be provided")
             if analyzer.id in analyzer_ids:
                 raise ValueError(f"Duplicate analyzer ID found: '{analyzer.id}'")
             analyzer_ids.add(analyzer.id)

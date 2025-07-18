@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from oumi.core.configs import DatasetAnalyzeConfig
+from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
 
 
-def load_dataset_from_config(config: DatasetAnalyzeConfig) -> BaseMapDataset:
+def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes,
