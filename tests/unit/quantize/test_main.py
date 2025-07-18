@@ -73,40 +73,6 @@ class TestQuantizeFunction:
         assert result["simulation_mode"] is True
         assert "compression_ratio" in result
 
-    @patch("oumi.quantize.main.validate_quantization_config")
-    @patch("oumi.quantize.main.get_model_size_info")
-    @patch("oumi.quantize.awq_quantizer.AwqQuantization.quantize")
-    @patch("oumi.quantize.awq_quantizer.AwqQuantization.validate_requirements")
-    def test_awq_fallback_mode(
-        self,
-        mock_validate_requirements,
-        mock_quantize,
-        mock_get_size_info,
-        mock_validate_config
-    ):
-        """Test AWQ quantization with BitsAndBytes fallback."""
-        # Setup mocks
-        mock_get_size_info.return_value = ({"original_size": "1.0 GB"}, 1000000000)
-        mock_validate_requirements.return_value = "bitsandbytes"  # Fallback mode
-        mock_quantize.return_value = {
-            "quantization_method": "BitsAndBytes (awq_q4_0)",
-            "quantized_size": "250.0 MB",
-            "quantized_size_bytes": 250000000,
-            "fallback_mode": True
-        }
-        
-        # Run quantization
-        result = quantize(self.test_config)
-        
-        # Verify calls
-        mock_validate_config.assert_called_once_with(self.test_config)
-        mock_validate_requirements.assert_called_once()
-        mock_quantize.assert_called_once_with(self.test_config)
-        
-        # Verify result
-        assert "quantization_method" in result
-        assert "fallback_mode" in result
-        assert result["fallback_mode"] is True
 
     @patch("oumi.quantize.main.validate_quantization_config")
     @patch("oumi.quantize.main.get_model_size_info")

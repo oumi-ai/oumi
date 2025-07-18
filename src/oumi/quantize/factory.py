@@ -21,18 +21,20 @@ from oumi.quantize.base import BaseQuantization
 
 class QuantizationFactory:
     """Factory to create appropriate quantization class based on method.
-    
+
     This factory handles the creation of quantization instances and provides
     discovery of available quantization methods and formats.
     """
 
     # Registry will be populated as quantizer classes are registered
-    _quantizers: Dict[str, Type[BaseQuantization]] = {}
+    _quantizers: dict[str, type[BaseQuantization]] = {}
 
     @classmethod
-    def register_quantizer(cls, prefix: str, quantizer_class: Type[BaseQuantization]) -> None:
+    def register_quantizer(
+        cls, prefix: str, quantizer_class: type[BaseQuantization]
+    ) -> None:
         """Register a quantizer class with a method prefix.
-        
+
         Args:
             prefix: Method prefix (e.g., "awq", "bnb", "gguf")
             quantizer_class: Quantizer class to register
@@ -42,13 +44,13 @@ class QuantizationFactory:
     @classmethod
     def create_quantizer(cls, method: str) -> BaseQuantization:
         """Create appropriate quantization class based on method.
-        
+
         Args:
             method: Quantization method name (e.g., "awq_q4_0", "bnb_4bit")
-            
+
         Returns:
             Instance of appropriate quantization class
-            
+
         Raises:
             ValueError: If method is not supported by any registered quantizer
         """
@@ -83,9 +85,9 @@ class QuantizationFactory:
             )
 
     @classmethod
-    def get_available_methods(cls) -> Dict[str, List[str]]:
+    def get_available_methods(cls) -> dict[str, list[str]]:
         """Returns all available methods grouped by quantization type.
-        
+
         Returns:
             Dictionary mapping quantizer names to their supported methods
         """
@@ -101,9 +103,9 @@ class QuantizationFactory:
         }
 
     @classmethod
-    def get_supported_formats(cls) -> List[str]:
+    def get_supported_formats(cls) -> list[str]:
         """Returns all supported output formats.
-        
+
         Returns:
             List of all supported output formats
         """
@@ -121,15 +123,15 @@ class QuantizationFactory:
         return sorted(list(formats))
 
     @classmethod
-    def get_quantizer_for_method(cls, method: str) -> Type[BaseQuantization]:
+    def get_quantizer_for_method(cls, method: str) -> type[BaseQuantization]:
         """Get the quantizer class that supports the given method.
-        
+
         Args:
             method: Quantization method name
-            
+
         Returns:
             Quantizer class that supports the method
-            
+
         Raises:
             ValueError: If method is not supported
         """
@@ -137,9 +139,9 @@ class QuantizationFactory:
         return quantizer_instance.__class__
 
     @classmethod
-    def list_all_methods(cls) -> List[str]:
+    def list_all_methods(cls) -> list[str]:
         """List all available quantization methods.
-        
+
         Returns:
             Sorted list of all available method names
         """

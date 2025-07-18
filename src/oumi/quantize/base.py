@@ -22,23 +22,23 @@ from oumi.core.configs import QuantizationConfig
 
 class BaseQuantization(ABC):
     """Abstract base class for all quantization methods.
-    
+
     This class defines the common interface that all quantization implementations
     must follow, ensuring consistency across different quantization approaches.
     """
 
     # Subclasses should define these class attributes
-    supported_methods: List[str] = []
-    supported_formats: List[str] = []
+    supported_methods: list[str] = []
+    supported_formats: list[str] = []
 
     @abstractmethod
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method - must be implemented by subclasses.
-        
+
         Args:
             config: Quantization configuration containing model parameters,
                 method, output path, and other settings.
-                
+
         Returns:
             Dictionary containing quantization results including:
             - quantized_size: Human-readable size string
@@ -46,7 +46,7 @@ class BaseQuantization(ABC):
             - output_path: Path to the quantized model
             - quantization_method: Method used for quantization
             - Additional method-specific results
-            
+
         Raises:
             RuntimeError: If quantization fails for any reason
             ValueError: If configuration is invalid for this quantizer
@@ -56,24 +56,26 @@ class BaseQuantization(ABC):
     @abstractmethod
     def validate_requirements(self) -> bool:
         """Check if all required dependencies are available.
-        
+
         Returns:
             True if all dependencies are available and quantization can proceed,
             False otherwise.
         """
-        raise NotImplementedError("Subclasses must implement validate_requirements method")
+        raise NotImplementedError(
+            "Subclasses must implement validate_requirements method"
+        )
 
-    def get_supported_methods(self) -> List[str]:
+    def get_supported_methods(self) -> list[str]:
         """Return list of quantization methods supported by this quantizer.
-        
+
         Returns:
             List of method names (e.g., ["awq_q4_0", "awq_q8_0"])
         """
         return self.supported_methods.copy()
 
-    def get_supported_formats(self) -> List[str]:
+    def get_supported_formats(self) -> list[str]:
         """Return list of output formats supported by this quantizer.
-        
+
         Returns:
             List of format names (e.g., ["gguf", "pytorch"])
         """
@@ -81,10 +83,10 @@ class BaseQuantization(ABC):
 
     def supports_method(self, method: str) -> bool:
         """Check if this quantizer supports the given method.
-        
+
         Args:
             method: Quantization method name to check
-            
+
         Returns:
             True if method is supported, False otherwise
         """
@@ -92,10 +94,10 @@ class BaseQuantization(ABC):
 
     def supports_format(self, format_name: str) -> bool:
         """Check if this quantizer supports the given output format.
-        
+
         Args:
             format_name: Output format name to check
-            
+
         Returns:
             True if format is supported, False otherwise
         """
@@ -103,10 +105,10 @@ class BaseQuantization(ABC):
 
     def validate_config(self, config: QuantizationConfig) -> None:
         """Validate configuration for this quantizer.
-        
+
         Args:
             config: Quantization configuration to validate
-            
+
         Raises:
             ValueError: If configuration is invalid for this quantizer
         """

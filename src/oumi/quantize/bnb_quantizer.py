@@ -28,7 +28,7 @@ from oumi.utils.logging import logger
 
 class BitsAndBytesQuantization(BaseQuantization):
     """BitsAndBytes quantization implementation.
-    
+
     This class handles quantization using the BitsAndBytes library,
     supporting both 4-bit and 8-bit quantization methods.
     """
@@ -38,7 +38,7 @@ class BitsAndBytesQuantization(BaseQuantization):
 
     def validate_requirements(self) -> bool:
         """Check if BitsAndBytes dependencies are available.
-        
+
         Returns:
             True if all dependencies are available, False otherwise.
         """
@@ -58,10 +58,10 @@ class BitsAndBytesQuantization(BaseQuantization):
 
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for BitsAndBytes.
-        
+
         Args:
             config: Quantization configuration
-            
+
         Returns:
             Dictionary containing quantization results
         """
@@ -101,7 +101,9 @@ class BitsAndBytesQuantization(BaseQuantization):
                 llm_int8_has_fp16_weight=False,
             )
         else:
-            raise ValueError(f"Method {config.method} not supported for safetensors format")
+            raise ValueError(
+                f"Method {config.method} not supported for safetensors format"
+            )
 
         # Load and quantize model
         logger.info(f"Loading model: {config.model.model_name}")
@@ -218,48 +220,3 @@ class BitsAndBytesQuantization(BaseQuantization):
             "pytorch_format": True,
         }
 
-    def quantize_awq_fallback(self, config: QuantizationConfig) -> dict[str, Any]:
-        """Use BitsAndBytes as fallback for AWQ quantization methods.
-        
-        This method provides a fallback when AWQ is not available but
-        BitsAndBytes is present. It maps AWQ methods to equivalent
-        BitsAndBytes methods.
-        
-        Args:
-            config: Quantization configuration with AWQ method
-            
-        Returns:
-            Dictionary containing quantization results
-        """
-        logger.info("Using BitsAndBytes as fallback for AWQ quantization")
-
-        # Map AWQ methods to BitsAndBytes equivalents
-        awq_to_bnb_mapping = {
-            "awq_q4_0": "bnb_4bit",
-            "awq_q4_1": "bnb_4bit",
-            "awq_q8_0": "bnb_8bit",
-            "awq_f16": "bnb_4bit",  # Use 4-bit as closest equivalent
-        }
-
-        if config.method not in awq_to_bnb_mapping:
-            raise ValueError(f"Cannot map AWQ method {config.method} to BitsAndBytes")
-
-        # Create new config with BitsAndBytes method
-        bnb_config = QuantizationConfig(
-            model=config.model,
-            method=awq_to_bnb_mapping[config.method],
-            output_path=config.output_path,
-            output_format=config.output_format,
-            batch_size=config.batch_size,
-            verbose=config.verbose,
-        )
-
-        # Perform BitsAndBytes quantization
-        result = self.quantize(bnb_config)
-
-        # Update result to indicate fallback mode
-        result["quantization_method"] = f"BitsAndBytes ({config.method})"
-        result["fallback_mode"] = True
-        result["original_method"] = config.method
-
-        return result

@@ -14,8 +14,6 @@
 
 """Unit tests for quantization constants."""
 
-import pytest
-
 from oumi.quantize.constants import (
     AWQ_DEFAULTS,
     AWQ_TO_GGUF_METHOD_MAP,
@@ -112,12 +110,12 @@ class TestAwqDefaults:
         """Test that required default values are present."""
         required_keys = [
             "calibration_dataset",
-            "calibration_split", 
+            "calibration_split",
             "calibration_text_column",
             "max_calibration_seq_len",
             "duo_scaling",
             "apply_clip",
-            "n_parallel_calib_samples"
+            "n_parallel_calib_samples",
         ]
         for key in required_keys:
             assert key in AWQ_DEFAULTS
@@ -131,7 +129,9 @@ class TestAwqDefaults:
         assert isinstance(AWQ_DEFAULTS["duo_scaling"], bool)
         assert isinstance(AWQ_DEFAULTS["apply_clip"], bool)
         # n_parallel_calib_samples can be None or int
-        assert AWQ_DEFAULTS["n_parallel_calib_samples"] is None or isinstance(AWQ_DEFAULTS["n_parallel_calib_samples"], int)
+        assert AWQ_DEFAULTS["n_parallel_calib_samples"] is None or isinstance(
+            AWQ_DEFAULTS["n_parallel_calib_samples"], int
+        )
 
     def test_defaults_values(self):
         """Test that default values are reasonable."""
@@ -162,6 +162,6 @@ class TestMockModelSizes:
         assert MOCK_MODEL_SIZES["7b"] > MOCK_MODEL_SIZES["small"]
         assert MOCK_MODEL_SIZES["13b"] > MOCK_MODEL_SIZES["7b"]
         assert MOCK_MODEL_SIZES["70b"] > MOCK_MODEL_SIZES["13b"]
-        
+
         # All models should be larger than default
         assert MOCK_MODEL_SIZES["7b"] > MOCK_MODEL_SIZES["default"]

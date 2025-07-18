@@ -30,7 +30,7 @@ from oumi.utils.logging import logger
 
 class GgufQuantization(BaseQuantization):
     """GGUF quantization implementation using llama.cpp tools.
-    
+
     This class handles direct quantization to GGUF format, which is optimized
     for llama.cpp inference. It supports various quantization levels from
     4-bit to 16-bit precision.
@@ -41,7 +41,7 @@ class GgufQuantization(BaseQuantization):
 
     def validate_requirements(self) -> bool:
         """Check if GGUF quantization dependencies are available.
-        
+
         Returns:
             True if all dependencies are available, False otherwise.
         """
@@ -61,10 +61,10 @@ class GgufQuantization(BaseQuantization):
 
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for GGUF.
-        
+
         Args:
             config: Quantization configuration
-            
+
         Returns:
             Dictionary containing quantization results
         """
@@ -123,7 +123,9 @@ class GgufQuantization(BaseQuantization):
         except ImportError:
             raise RuntimeError("llama-cpp-python not available for GGUF quantization")
 
-    def _convert_with_llamacpp_python(self, model_path: str, output_path: str, method: str) -> dict[str, Any]:
+    def _convert_with_llamacpp_python(
+        self, model_path: str, output_path: str, method: str
+    ) -> dict[str, Any]:
         """Convert model to GGUF using llama-cpp-python."""
         # Create temporary directory for conversion
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -158,7 +160,9 @@ class GgufQuantization(BaseQuantization):
             try:
                 # This is a simplified version - in practice, you'd use the actual
                 # llama.cpp quantization tools or python bindings
-                self._quantize_with_llamacpp_binary(temp_dir, output_path, quantization_type)
+                self._quantize_with_llamacpp_binary(
+                    temp_dir, output_path, quantization_type
+                )
 
             except Exception as e:
                 logger.warning(f"llama.cpp quantization failed: {e}")
@@ -167,7 +171,9 @@ class GgufQuantization(BaseQuantization):
 
         return {"status": "success"}
 
-    def _quantize_with_llamacpp_binary(self, model_dir: str, output_path: str, quantization_type: str) -> None:
+    def _quantize_with_llamacpp_binary(
+        self, model_dir: str, output_path: str, quantization_type: str
+    ) -> None:
         """Use llama.cpp binary tools for quantization."""
         # This would call the actual llama.cpp quantization binary
         # For now, we'll create a placeholder implementation
@@ -232,7 +238,9 @@ class GgufQuantization(BaseQuantization):
         logger.info("✅ Fallback GGUF file created")
         logger.info(f"📁 Output: {config.output_path}")
         logger.info(f"📊 File size: {format_size(fallback_size)}")
-        logger.warning("⚠️  This is a fallback file. Install llama-cpp-python for real quantization.")
+        logger.warning(
+            "⚠️  This is a fallback file. Install llama-cpp-python for real quantization."
+        )
 
         return {
             "quantization_method": f"GGUF {config.method} (fallback)",
@@ -243,16 +251,18 @@ class GgufQuantization(BaseQuantization):
             "gguf_format": True,
         }
 
-    def convert_awq_to_gguf(self, awq_model_path: str, config: QuantizationConfig) -> dict[str, Any]:
+    def convert_awq_to_gguf(
+        self, awq_model_path: str, config: QuantizationConfig
+    ) -> dict[str, Any]:
         """Convert AWQ model to GGUF format.
-        
+
         This method is called from the AWQ quantizer to convert AWQ models
         to GGUF format.
-        
+
         Args:
             awq_model_path: Path to the AWQ quantized model
             config: Quantization configuration
-            
+
         Returns:
             Dictionary containing conversion results
         """

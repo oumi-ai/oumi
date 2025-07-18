@@ -15,7 +15,7 @@
 """AWQ (Activation-aware Weight Quantization) quantizer implementation."""
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization
@@ -26,25 +26,23 @@ from oumi.utils.logging import logger
 
 class AwqQuantization(BaseQuantization):
     """AWQ (Activation-aware Weight Quantization) implementation.
-    
+
     This class handles AWQ quantization with support for simulation mode
-    and fallback to BitsAndBytes when AWQ is not available.
+    when AWQ libraries are not available.
     """
 
     supported_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
     supported_formats = ["gguf", "pytorch"]
 
     def __init__(self):
+        """Initialize AWQ quantizer."""
         self._awq_available = None
-        self._fallback_mode = None
-        self._simulation_mode = None
 
-    def validate_requirements(self) -> Union[bool, str]:
+    def validate_requirements(self) -> bool:
         """Check if AWQ dependencies are available.
-        
+
         Returns:
             True if all dependencies are available, False if simulation mode should be used.
-            "bitsandbytes" if BitsAndBytes fallback is available.
         """
         if self._awq_available is not None:
             return self._awq_available
@@ -70,35 +68,20 @@ class AwqQuantization(BaseQuantization):
             return True
 
         except ImportError:
-            # Check for BitsAndBytes fallback
-            try:
-                import bitsandbytes
-                import torch
-
-                logger.warning(
-                    "AutoAWQ not available, but BitsAndBytes found.\n"
-                    "Using BitsAndBytes quantization as fallback for AWQ methods.\n"
-                    f"BitsAndBytes version: {bitsandbytes.__version__}"
-                )
-                self._awq_available = "bitsandbytes"
-                return "bitsandbytes"
-
-            except ImportError:
-                logger.warning(
-                    "AWQ quantization requires autoawq library or bitsandbytes fallback.\n"
-                    "Install with: pip install autoawq (Linux/Windows with CUDA)\n"
-                    "Or: pip install bitsandbytes (macOS/CPU fallback)\n"
-                    "Running in simulation mode for testing..."
-                )
-                self._awq_available = False
-                return False
+            logger.warning(
+                "AWQ quantization requires autoawq library.\n"
+                "Install with: pip install autoawq (Linux/Windows with CUDA)\n"
+                "Running in simulation mode for testing..."
+            )
+            self._awq_available = False
+            return False
 
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for AWQ.
-        
+
         Args:
             config: Quantization configuration
-            
+
         Returns:
             Dictionary containing quantization results
         """
@@ -106,17 +89,12 @@ class AwqQuantization(BaseQuantization):
         self.validate_config(config)
 
         # Check requirements and determine mode
-        requirements = self.validate_requirements()
-
-        if requirements == "bitsandbytes":
-            # Use BitsAndBytes fallback
-            return self._quantize_with_fallback(config)
-        elif requirements is False:
-            # Use simulation mode
-            return self._simulate_quantization(config)
-        else:
+        if self.validate_requirements():
             # Use real AWQ quantization
             return self._quantize_with_awq(config)
+        else:
+            # Use simulation mode
+            return self._simulate_quantization(config)
 
     def _quantize_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
         """Perform real AWQ quantization."""
@@ -153,7 +131,7 @@ class AwqQuantization(BaseQuantization):
         )
         tokenizer = AutoTokenizer.from_pretrained(
             config.model.tokenizer_name or config.model.model_name,
-            trust_remote_code=True
+            trust_remote_code=True,
         )
 
         logger.info("🔧 Configuring AWQ quantization parameters...")
@@ -195,7 +173,9 @@ class AwqQuantization(BaseQuantization):
 
         return {"awq_model_path": temp_awq_path, "awq_size": awq_size}
 
-    def _save_as_pytorch(self, config: QuantizationConfig, awq_model_path: str) -> dict[str, Any]:
+    def _save_as_pytorch(
+        self, config: QuantizationConfig, awq_model_path: str
+    ) -> dict[str, Any]:
         """Save AWQ model as PyTorch format."""
         logger.info("PyTorch format requested. Saving AWQ model...")
 
@@ -207,8 +187,10 @@ class AwqQuantization(BaseQuantization):
         if awq_model_path != output_path:
             if Path(output_path).exists():
                 import shutil
+
                 shutil.rmtree(output_path)
             import shutil
+
             shutil.move(awq_model_path, output_path)
 
         awq_size = get_directory_size(output_path)
@@ -229,7 +211,9 @@ class AwqQuantization(BaseQuantization):
             "pytorch_format": True,
         }
 
-    def _convert_to_gguf(self, config: QuantizationConfig, awq_model_path: str) -> dict[str, Any]:
+    def _convert_to_gguf(
+        self, config: QuantizationConfig, awq_model_path: str
+    ) -> dict[str, Any]:
         """Convert AWQ model to GGUF format."""
         from oumi.quantize.gguf_quantizer import GgufQuantization
 
@@ -243,6 +227,7 @@ class AwqQuantization(BaseQuantization):
             # Clean up temporary AWQ files if requested
             if config.cleanup_temp:
                 import shutil
+
                 shutil.rmtree(awq_model_path)
                 logger.info(f"Cleaned up temporary AWQ files: {awq_model_path}")
 
@@ -256,13 +241,6 @@ class AwqQuantization(BaseQuantization):
             result["gguf_conversion_failed"] = True
             return result
 
-    def _quantize_with_fallback(self, config: QuantizationConfig) -> dict[str, Any]:
-        """Use BitsAndBytes fallback for AWQ quantization."""
-        from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-
-        logger.info("Using BitsAndBytes fallback for AWQ quantization...")
-        bnb_quantizer = BitsAndBytesQuantization()
-        return bnb_quantizer.quantize_awq_fallback(config)
 
     def _simulate_quantization(self, config: QuantizationConfig) -> dict[str, Any]:
         """Simulate AWQ quantization when dependencies are not available."""
@@ -292,9 +270,9 @@ class AwqQuantization(BaseQuantization):
         if config.method == "awq_q4_0":
             mock_size = int(mock_size * 0.25)  # 4x compression
         elif config.method == "awq_q8_0":
-            mock_size = int(mock_size * 0.5)   # 2x compression
+            mock_size = int(mock_size * 0.5)  # 2x compression
         elif config.method == "awq_f16":
-            mock_size = int(mock_size * 0.6)   # 1.6x compression
+            mock_size = int(mock_size * 0.6)  # 1.6x compression
 
         # Create mock file
         with open(output_path, "wb") as f:
