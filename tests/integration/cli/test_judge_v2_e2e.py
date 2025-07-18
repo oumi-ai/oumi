@@ -100,15 +100,17 @@ def test_builtin_judge(app):
 
     test_data = [
         {
+            "context": "France is a country in Europe",
             "question": "Which is the capital of France?",
             "answer": "The capital of France is Paris",  # Relevant answer
         },
         {
+            "context": "When you are asked to add numbers, you must return their sum.",
             "question": "What is the sum of 2+2?",
             "answer": "This is an addition of 2 numbers",  # Irrelevant answer
         },
     ]
-    judge_config = "qa/relevance"
+    judge_config = "doc_qa/relevance"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         input_file_path = str(Path(temp_dir) / "input.jsonl")
