@@ -129,13 +129,7 @@ def quantize(
         result = oumi_quantize(parsed_config)
 
     # Check for GGUF conversion failure
-    if result and result.get("fallback_mode"):
-        raise RuntimeError(
-            "AWQ quantization fallback mode is no longer supported.\n"
-            "Please try using a different quantization method (e.g., --method bnb_4bit or --method q4_0) "
-            "or ensure that the required dependencies for AWQ are installed."
-        )
-    elif result and result.get("gguf_conversion_failed"):
+    if result and result.get("gguf_conversion_failed"):
         cli_utils.CONSOLE.print("✅ AWQ quantization completed successfully!")
         cli_utils.CONSOLE.print(
             "⚠️  GGUF conversion failed - saved as PyTorch format instead"
@@ -155,19 +149,12 @@ def quantize(
     cli_utils.CONSOLE.print(f"📁 Output saved to: {actual_output_path}")
 
     if result:
-        if result.get("simulation_mode"):
-            cli_utils.CONSOLE.print("🎭 Mode: Simulation")
-            cli_utils.CONSOLE.print(
-                f"📦 Method: {result.get('quantization_method', 'Unknown')}"
-            )
-        else:
-            cli_utils.CONSOLE.print(
-                f"📊 Original size: {result.get('original_size', 'Unknown')}"
-            )
+        cli_utils.CONSOLE.print(
+            f"📊 Original size: {result.get('original_size', 'Unknown')}"
+        )
         cli_utils.CONSOLE.print(
             f"📉 Output size: {result.get('quantized_size', 'Unknown')}"
         )
-        if not result.get("simulation_mode"):
-            cli_utils.CONSOLE.print(
-                f"🗜️  Compression ratio: {result.get('compression_ratio', 'Unknown')}"
-            )
+        cli_utils.CONSOLE.print(
+            f"🗜️  Compression ratio: {result.get('compression_ratio', 'Unknown')}"
+        )
