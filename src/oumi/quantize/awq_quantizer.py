@@ -14,8 +14,11 @@
 
 """AWQ (Activation-aware Weight Quantization) quantizer implementation."""
 
+import importlib.util
 from pathlib import Path
 from typing import Any
+
+from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization
@@ -38,6 +41,7 @@ class AwqQuantization(BaseQuantization):
         """Initialize AWQ quantizer."""
         self._awq_available = None
 
+    @override
     def validate_requirements(self) -> bool:
         """Check if AWQ dependencies are available.
 
@@ -47,27 +51,7 @@ class AwqQuantization(BaseQuantization):
         if self._awq_available is not None:
             return self._awq_available
 
-        try:
-            import awq
-
-            logger.info(f"AWQ library found: autoawq {awq.__version__}")
-
-            try:
-                import torch
-
-                if torch.cuda.is_available():
-                    logger.info(f"CUDA available: {torch.cuda.get_device_name()}")
-                else:
-                    logger.warning(
-                        "CUDA not available. AWQ quantization may be slow on CPU."
-                    )
-            except ImportError:
-                raise RuntimeError("AWQ quantization requires PyTorch")
-
-            self._awq_available = True
-            return True
-
-        except ImportError:
+        if importlib.util.find_spec("awq") is None:
             logger.warning(
                 "AWQ quantization requires autoawq library.\n"
                 "Install with: pip install autoawq (Linux/Windows with CUDA)\n"
@@ -76,6 +60,25 @@ class AwqQuantization(BaseQuantization):
             self._awq_available = False
             return False
 
+        # Import to get version info and check torch
+        import awq
+        logger.info(f"AWQ library found: autoawq {awq.__version__}")
+
+        if importlib.util.find_spec("torch") is None:
+            raise RuntimeError("AWQ quantization requires PyTorch")
+
+        import torch
+        if torch.cuda.is_available():
+            logger.info(f"CUDA available: {torch.cuda.get_device_name()}")
+        else:
+            logger.warning(
+                "CUDA not available. AWQ quantization may be slow on CPU."
+            )
+
+        self._awq_available = True
+        return True
+
+    @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for AWQ.
 

@@ -14,12 +14,14 @@
 
 """GGUF quantization implementation."""
 
+import importlib.util
 import tempfile
 from pathlib import Path
 from typing import Any
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization
@@ -39,19 +41,14 @@ class GgufQuantization(BaseQuantization):
     supported_methods = ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0", "f16", "f32"]
     supported_formats = ["gguf"]
 
+    @override
     def validate_requirements(self) -> bool:
         """Check if GGUF quantization dependencies are available.
 
         Returns:
             True if all dependencies are available, False otherwise.
         """
-        try:
-            import llama_cpp
-
-            logger.info(f"llama-cpp-python found: {llama_cpp.__version__}")
-            return True
-
-        except ImportError:
+        if importlib.util.find_spec("llama_cpp") is None:
             logger.warning(
                 "GGUF quantization requires llama-cpp-python.\n"
                 "Install with: pip install llama-cpp-python\n"
@@ -59,6 +56,12 @@ class GgufQuantization(BaseQuantization):
             )
             return True  # We can still create basic GGUF files
 
+        # Import to get version info
+        import llama_cpp
+        logger.info(f"llama-cpp-python found: {llama_cpp.__version__}")
+        return True
+
+    @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
         """Main quantization method for GGUF.
 
