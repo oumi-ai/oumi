@@ -127,6 +127,7 @@ remote_params:
   num_workers: 1                          # Number of parallel workers
   politeness_policy: 0.0                  # Sleep time between requests
   batch_completion_window: "24h"          # Time window for batch completion
+  use_adaptive_concurrency: True          # Whether to change concurrency based on error rate
 ```
 
 ### Engine Selection
