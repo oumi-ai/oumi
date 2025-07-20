@@ -32,7 +32,8 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer
-  pip install -U flash-attn --no-build-isolation
+  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
+  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
 
 run: |
   set -xe  # Exit if any command failed.

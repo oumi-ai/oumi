@@ -26,11 +26,11 @@ When you submit a job to the launcher it will handle queueing your job in the pr
 The Oumi launcher integrates with SkyPilot to launch jobs on various cloud providers. To run on a cloud GPU cluster, first make sure to have all the dependencies installed for your desired cloud provider:
 
   ```shell
-  pip install oumi[aws]     # For Amazon Web Services
-  pip install oumi[azure]   # For Microsoft Azure
-  pip install oumi[gcp]     # For Google Cloud Platform
-  pip install oumi[lambda]  # For Lambda Cloud
-  pip install oumi[runpod]  # For RunPod
+  pip install "oumi[aws]"     # For Amazon Web Services
+  pip install "oumi[azure]"   # For Microsoft Azure
+  pip install "oumi[gcp]"     # For Google Cloud Platform
+  pip install "oumi[lambda]"  # For Lambda Cloud
+  pip install "oumi[runpod]"  # For RunPod
   ```
 
 Then, you need to enable your desired cloud provider in SkyPilot. Run `sky check` to check which providers you have enabled, along with instructions on how to enable the ones you don't. More detailed setup instructions can be found in [SkyPilot's documentation](https://skypilot.readthedocs.io/en/latest/getting-started/installation.html#cloud-account-setup).

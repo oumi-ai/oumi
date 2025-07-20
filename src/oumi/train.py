@@ -219,9 +219,7 @@ def _log_feedback_request():
     )
 
 
-def _verl_train(
-    partial_trainer: Callable[[], BaseTrainer], checkpoint_location: Optional[str]
-):
+def _verl_train(partial_trainer: Callable[[], BaseTrainer]):
     """Runs verl training.
 
     This function initializes Ray, and then initializes and kicks off the trainer in a
@@ -249,15 +247,13 @@ def _verl_train(
     # decorator is only run if this function is run. This function should only be run
     # if ray is installed, preventing errors when it isn't.
     @ray.remote
-    def _run_verl_train(
-        partial_trainer: Callable[[], BaseTrainer], checkpoint_location: Optional[str]
-    ):
+    def _run_verl_train(partial_trainer: Callable[[], BaseTrainer]):
         trainer = partial_trainer()
-        trainer.train(resume_from_checkpoint=checkpoint_location)
+        trainer.train()
 
         logger.info("Training is Complete.")
 
-    ray.get(_run_verl_train.remote(partial_trainer, checkpoint_location))
+    ray.get(_run_verl_train.remote(partial_trainer))
     _log_feedback_request()
 
 
@@ -362,12 +358,6 @@ def train(
         additional_trainer_kwargs=additional_trainer_kwargs,
     )
 
-    checkpoint_location = _find_checkpoint_to_resume_from(
-        config.training.resume_from_checkpoint,
-        config.training.try_resume_from_last_checkpoint,
-        config.training.output_dir,
-    )
-
     # verl training is handled separately because:
     # 1. It uses Ray
     # 2. Some of the setup below is not applicable.
@@ -385,8 +375,14 @@ def train(
             processor=processor,
             **training_kwargs,
         )
-        _verl_train(partial_trainer, checkpoint_location)
+        _verl_train(partial_trainer)
         return
+
+    checkpoint_location = _find_checkpoint_to_resume_from(
+        config.training.resume_from_checkpoint,
+        config.training.try_resume_from_last_checkpoint,
+        config.training.output_dir,
+    )
 
     if is_distributed():
         init_distributed(timeout_minutes=config.training.nccl_default_timeout_minutes)

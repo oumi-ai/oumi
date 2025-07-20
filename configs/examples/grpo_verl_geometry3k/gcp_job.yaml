@@ -1,4 +1,4 @@
-# VERL GRPO VLM training config on Geometry3K dataset.
+# verl GRPO VLM training config on Geometry3K dataset.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -36,7 +36,13 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu] huggingface_hub[hf_xet] mathruler
-  pip install -U flash-attn --no-build-isolation
+  # TODO: OPE-1331 - Fix bug that lets us upgrade to verl 0.4.0.
+  # Note that qwen_vl_utils needs to manually installed.
+  # In the meantime, we need to use this specific commit to support vLLM 0.8.3:
+  # https://github.com/volcengine/verl/pull/912
+  pip install git+https://github.com/volcengine/verl.git@1ee730163f6326e9679644db62eb32c8d1947c7f
+  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
+  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.

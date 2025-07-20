@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
 from pathlib import Path
 from typing import Optional, cast
 
@@ -223,10 +224,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
                 inference_config.output_path if inference_config else None,
             )
 
-        self._cleanup_scratch_file(
-            inference_config.output_path if inference_config else None
-        )
-
         return output_conversations
 
     @override
@@ -243,7 +240,6 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             "top_p",
         }
 
-    @override
     def infer_online(
         self,
         input: list[Conversation],
@@ -258,9 +254,16 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, inference_config)
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
 
-    @override
     def infer_from_file(
         self,
         input_filepath: str,
@@ -278,5 +281,30 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         input = self._read_conversations(input_filepath)
+        results = self._infer(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
+
+    @override
+    def _infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
         return self._infer(input, inference_config)

@@ -777,7 +777,6 @@ class TrainingParams(BaseParams):
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,
             torch_empty_cache_steps=self.empty_device_cache_steps,
-            resume_from_checkpoint=self.resume_from_checkpoint,
             eval_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
             dataloader_num_workers=dataloader_num_workers,

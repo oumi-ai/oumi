@@ -104,5 +104,3 @@ Send an email to <contact@oumi.ai> if you would like to become a code reviewer, 
 ## Recognition
 
 Join the Oumi community to be part of defining a better future for open frontier AI. We will recognize top contributors periodically and feature all of them in Oumi's wall of fame.
-
-Also, after you complete your first pull request (no matter how small), you can claim your holographic Oumi sticker! Send an email with title "Oumi Sticker" to <contact@oumi.ai> including your name and full mailing address and we will mail it to you anywhere in the world.

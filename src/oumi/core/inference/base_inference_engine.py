@@ -13,7 +13,11 @@
 # limitations under the License.
 
 import copy
+import dataclasses
+import hashlib
+import json
 import time
+import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional
@@ -62,6 +66,7 @@ class BaseInferenceEngine(ABC):
 
         self._latency_histogram_online = HdrHistogram(1, 60 * 1000, 1)
         self._latency_histogram_from_file = HdrHistogram(20, 180 * 1000, 1)
+        self._dataset_hash = None
 
     def infer(
         self,
@@ -100,22 +105,112 @@ class BaseInferenceEngine(ABC):
                     "the generation parameters that the engine was initialized with."
                 )
 
-        result: list[Conversation] = []
-        start_time = time.perf_counter()
-        histogram: Optional[HdrHistogram] = None
+        output_path = inference_config.output_path if inference_config else None
+
+        # Load input conversations either from file or use provided input
+        conversations_to_process: list[Conversation] = []
         if input is not None:
-            histogram = self._latency_histogram_online
-            result = self.infer_online(input, inference_config)
+            conversations_to_process = input
         elif inference_config and inference_config.input_path is not None:
-            histogram = self._latency_histogram_from_file
-            result = self.infer_from_file(inference_config.input_path, inference_config)
+            conversations_to_process = self._read_conversations(
+                inference_config.input_path,
+            )
         else:
             raise ValueError(
                 "One of input or inference_config.input_path must be provided."
             )
+
+        unique_conversation_ids = set()
+        for i, conversation in enumerate(conversations_to_process):
+            if conversation.conversation_id is not None:
+                if conversation.conversation_id in unique_conversation_ids:
+                    raise ValueError(
+                        f"Conversation ID {conversation.conversation_id} is not unique."
+                    )
+                unique_conversation_ids.add(conversation.conversation_id)
+                continue
+
+            # Generate a deterministic conversation ID based on index if none exists
+            messages = conversation.messages
+            all_str_message_content = ",".join(
+                [
+                    message.content
+                    for message in messages
+                    if isinstance(message.content, str)
+                ]
+            )
+            content_hash = hashlib.sha256(all_str_message_content.encode()).hexdigest()
+            id_name = str(i) + "_" + content_hash
+
+            conversation.conversation_id = str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_DNS,
+                    id_name,
+                )
+            )
+            unique_conversation_ids.add(conversation.conversation_id)
+
+        # Calculate the hash of the dataset to use for referencing the inference
+        # filename between runs, given the same model and generation parameters.
+        dataset_hash = ""
+        if len(conversations_to_process) > 0:
+            row_hashes = [
+                hashlib.sha256(c.to_json().encode()).hexdigest()
+                for c in conversations_to_process
+            ]
+            dataset_hash = hashlib.sha256(",".join(row_hashes).encode()).hexdigest()
+        self._dataset_hash = dataset_hash
+
+        completed_conversations = self._load_from_scratch(output_path)
+
+        # Filter out already completed conversations
+        remaining_conversations = self._filter_incomplete_conversations(
+            conversations_to_process, completed_conversations
+        )
+
+        if len(remaining_conversations) < len(conversations_to_process):
+            logger.info(
+                f"Found {len(completed_conversations)} completed conversations. "
+                f"Processing remaining {len(remaining_conversations)} conversations."
+            )
+
+        # Run inference only on remaining conversations
+        start_time = time.perf_counter()
+        histogram = self._latency_histogram_online
+        inference_results = self._infer_online(
+            remaining_conversations, inference_config
+        )
         histogram.record_value((time.perf_counter() - start_time) * 1e3)
         self._maybe_log_latency_histogram(histogram)
-        return result
+
+        if len(inference_results) == len(conversations_to_process):
+            final_results = inference_results
+        else:
+            # Incomplete inference results were saved to scratch file.
+            # Load all results from scratch to get all results.
+            final_results = self._load_from_scratch(output_path)
+            if len(final_results) != len(conversations_to_process):
+                raise ValueError(
+                    f"Number of final results ({len(final_results)}) does not match "
+                    f"number of conversations to process "
+                    f"({len(conversations_to_process)})."
+                )
+
+        self._cleanup_scratch_file(output_path)
+
+        sorted_conversations = {
+            conv.conversation_id: conv for conv in conversations_to_process
+        }
+
+        for conv in final_results:
+            sorted_conversations[conv.conversation_id] = conv
+
+        final_results = list(sorted_conversations.values())
+
+        if inference_config and inference_config.output_path:
+            self._save_conversations(final_results, inference_config.output_path)
+
+        return final_results
 
     def _maybe_log_latency_histogram(self, histogram: Optional[HdrHistogram]) -> None:
         """Logs the histogram if it is not None.
@@ -161,6 +256,52 @@ class BaseInferenceEngine(ABC):
                     conversations.append(conversation)
         return conversations
 
+    def _load_from_scratch(self, output_filepath: Optional[str]) -> list[Conversation]:
+        """Loads conversations from a scratch file.
+
+        Args:
+            output_filepath: The path to the output file. This is used to determine the
+                location of the scratch file.
+
+        Returns:
+            list[Conversation]: A list of conversations loaded from the scratch file,
+                or an empty list if the scratch file does not exist or is empty.
+        """
+        scratch_filepath = self._get_scratch_filepath(output_filepath)
+        if not Path(scratch_filepath).exists():
+            return []
+
+        conversations = []
+        with jsonlines.open(scratch_filepath, mode="r") as reader:
+            for line in reader:
+                conversations.append(Conversation.from_dict(line))
+        return conversations
+
+    def _filter_incomplete_conversations(
+        self,
+        input_conversations: list[Conversation],
+        completed_conversations: list[Conversation],
+    ) -> list[Conversation]:
+        """Filters out conversations that have already been completed.
+
+        Args:
+            input_conversations: List of conversations to run inference on
+            completed_conversations: List of conversations already completed
+
+        Returns:
+            list[Conversation]: List of conversations that still need inference results
+        """
+        completed_ids = {
+            conv.conversation_id
+            for conv in completed_conversations
+            if conv.conversation_id is not None
+        }
+        return [
+            conv
+            for conv in input_conversations
+            if conv.conversation_id not in completed_ids
+        ]
+
     def _get_scratch_filepath(self, output_filepath: Optional[str]) -> str:
         """Returns a scratch filepath for the given output filepath.
 
@@ -180,7 +321,16 @@ class BaseInferenceEngine(ABC):
             original_filepath = Path(output_filepath)
             return str(original_filepath.parent / "scratch" / original_filepath.name)
 
-        return str(Path.cwd() / "tmp" / "temp_inference_output.jsonl")
+        model_params = self._model_params
+        model_params_str = json.dumps(dataclasses.asdict(model_params))
+        generation_params = self._generation_params
+        generation_params_str = json.dumps(dataclasses.asdict(generation_params))
+        inference_hash = hashlib.sha256(
+            f"{model_params_str}_{generation_params_str}_{self._dataset_hash}".encode()
+        ).hexdigest()
+
+        path_prefix = Path.home() / ".cache" / "oumi" / "tmp"
+        return str(path_prefix / f"temp_inference_output_{inference_hash}.jsonl")
 
     def _save_conversation_to_scratch(
         self, conversation: Conversation, output_filepath: Optional[str]
@@ -262,7 +412,7 @@ class BaseInferenceEngine(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -271,26 +421,6 @@ class BaseInferenceEngine(ABC):
 
         Args:
             input: A list of conversations to run inference on.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def infer_from_file(
-        self,
-        input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the existence
-        of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for generation.
             inference_config: Parameters for inference.
 
         Returns:

@@ -20,7 +20,7 @@ from oumi.core.configs import TrainingConfig
 
 class BaseTrainer(ABC):
     @abstractmethod
-    def train(self, resume_from_checkpoint: Optional[str]) -> None:
+    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Trains a model."""
 
     @abstractmethod

@@ -10,7 +10,7 @@
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
 #   - Config class: oumi.core.configs.TrainingConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+#   - Other training configs: configs/**/*train.yaml
 
 model:
   model_name: "Qwen/Qwen2-0.5B-Instruct"
@@ -38,10 +38,11 @@ training:
   ddp_find_unused_parameters: False
   optimizer: "adamw_torch"
   empty_device_cache_steps: 1
-  compile: True # Set to False if `grpo.use_vllm` is enabled: https://github.com/vllm-project/vllm/issues/12783
+  compile: False # Enabling compilation makes training slower overall
 
   grpo:
-    use_vllm: False
+    use_vllm: True
+    vllm_gpu_memory_utilization: 0.4
 
   dataloader_num_workers: "auto"
   dataloader_prefetch_factor: 32
@@ -53,3 +54,6 @@ training:
   # Cannot enable due to trl bug. See https://github.com/huggingface/trl/issues/3081.
   include_performance_metrics: False
   enable_wandb: True
+
+  trainer_kwargs:
+    vllm_mode: "colocate"

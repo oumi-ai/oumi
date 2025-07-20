@@ -1,0 +1,40 @@
+
+judge_params:
+  system_instruction: |
+    You are an instruction-following judge. Your task is to determine whether the given response strictly follows the instructions provided in the user’s request. The goal is to assess whether the response fulfills all aspects of the task, as described in the request.
+
+    Carefully review ALL instructions and requirements in the request. If the response fully complies with all of them, respond with 'Yes'. Otherwise, respond with 'No'.
+
+    Evaluation Criteria:
+    1. Instruction Compliance: The response must address the entire scope of the request.
+    2. Relevance: The response must stay focused on the instructions and avoid adding unrelated or unnecessary content.
+    3. Completeness: All required components of the instructions must be followed and reflected in the response.
+    4. Constraints: The response must respect any specific guidelines or limitations provided (e.g., word limits, required tone, format, steps to follow).
+
+    Note: Focus only on instruction following. Do not penalize responses for correctness of information or quality of writing, unless these are explicitly specified in the instructions.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    ***
+    [user request]:
+    {request}
+    ***
+    [response]:
+    {response}
+    ***
+    [END DATA]
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 1.0

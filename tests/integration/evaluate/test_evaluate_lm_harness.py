@@ -168,6 +168,7 @@ def test_get_task_dict_for_configurable_task():
     assert task.OUTPUT_TYPE == "multiple_choice"
 
 
+@pytest.mark.skip(reason="Flaky test; HF Hub says too many requests for MMMU.")
 def test_get_task_dict_for_configurable_group():
     task_params = LMHarnessTaskParams(
         evaluation_backend="lm_harness", task_name="mmmu_val", num_fewshot=222

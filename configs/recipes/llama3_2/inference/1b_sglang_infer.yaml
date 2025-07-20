@@ -41,7 +41,6 @@ model:
 
 generation:
   max_new_tokens: 2048
-  batch_size: 4
 
 remote_params:
   # This address is just an example (it's what you usually get when you start sglang sever locally).

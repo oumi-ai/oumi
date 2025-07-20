@@ -8,7 +8,7 @@ Configs for Alibaba's Qwen3 model family. See the [blog post](https://qwenlm.git
   - [Qwen/Qwen3-235B-A22B](https://huggingface.co/Qwen/Qwen3-235B-A22B)
   - [Qwen/Qwen3-30B-A3B](https://huggingface.co/Qwen/Qwen3-30B-A3B)
 - Dense
-  - [Qwen/Qwen3-30b-a3b](https://huggingface.co/Qwen/Qwen3-30b-a3b)
+  - [Qwen/Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B)
   - [Qwen/Qwen3-14B](https://huggingface.co/Qwen/Qwen3-14B)
   - [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
   - [Qwen/Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B)

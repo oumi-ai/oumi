@@ -81,13 +81,6 @@ def test_torchrun_skypilot_single_gpu(
 
     mock_popen.assert_called_once_with(
         [
-            "torchrun",
-            "--nnodes=1",
-            "--node-rank=0",
-            "--nproc-per-node=1",
-            "--master-addr=mymachine",
-            "--master-port=8007",
-            "-m",
             "oumi",
             "train",
             "--training.max_steps",

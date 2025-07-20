@@ -178,18 +178,30 @@ def torchrun(
     torchrun_available = shutil.which("torchrun") is not None
 
     try:
-        cmds: list[str] = (
-            ["torchrun"]
-            if torchrun_available
-            else ["python", "-m", "torch.distributed.run"]
-        ) + [
-            f"--nnodes={run_info.num_nodes}",
-            f"--node-rank={run_info.node_rank}",
-            f"--nproc-per-node={run_info.gpus_per_node}",
-            f"--master-addr={run_info.master_address}",
-            f"--master-port={run_info.master_port}",
-        ]
-        cmds.extend(ctx.args)
+        cmds: list[str] = []
+        args = copy.deepcopy(ctx.args)
+        if (  # Fallback to `oumi train -c ...` for single-node with 1 GPU (OPE-1315).
+            (run_info.num_nodes == 1 and run_info.gpus_per_node == 1)
+            and len(args) >= 3
+            and args[0] == "-m"
+            and args[1] == "oumi"
+            and args[2] == "train"
+        ):
+            args.pop(0)  # Remove leading "-m".
+            cmds = []
+        else:
+            cmds = (
+                ["torchrun"]
+                if torchrun_available
+                else ["python", "-m", "torch.distributed.run"]
+            ) + [
+                f"--nnodes={run_info.num_nodes}",
+                f"--node-rank={run_info.node_rank}",
+                f"--nproc-per-node={run_info.gpus_per_node}",
+                f"--master-addr={run_info.master_address}",
+                f"--master-port={run_info.master_port}",
+            ]
+        cmds.extend(args)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:

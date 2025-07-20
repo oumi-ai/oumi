@@ -1,4 +1,4 @@
-# VERL GRPO job config for Countdown.
+# verl GRPO job config for Countdown.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -18,7 +18,7 @@ name: grpo-verl-countdown
 
 resources:
   cloud: gcp
-  accelerators: "H100:8"
+  accelerators: "A100-80GB:2"
   use_spot: false
 
 working_dir: .
@@ -34,7 +34,8 @@ envs:
 setup: |
   set -e
   pip install uv && uv pip install oumi[gpu]
-  pip install -U flash-attn --no-build-isolation
+  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
+  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.

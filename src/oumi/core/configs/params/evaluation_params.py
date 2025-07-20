@@ -17,7 +17,6 @@ from enum import Enum
 from typing import Any, Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.utils.logging import logger
 
 
 class EvaluationBackend(Enum):
@@ -117,9 +116,6 @@ class EvaluationTaskParams(BaseParams):
     covered by other fields in TaskParams classes.
     """
 
-    evaluation_platform: Optional[str] = ""
-    """DEPRECATED; Please use `evaluation_backend` instead."""
-
     def get_evaluation_backend(self) -> EvaluationBackend:
         """Returns the evaluation backend as an Enum."""
         if not self.evaluation_backend:
@@ -148,25 +144,6 @@ class EvaluationTaskParams(BaseParams):
         """Verifies params."""
         if self.num_samples is not None and self.num_samples <= 0:
             raise ValueError("`num_samples` must be None or a positive integer.")
-
-        # Handle deprecated evaluation_platform parameter.
-        if not self.evaluation_platform and not self.evaluation_backend:
-            raise ValueError("`evaluation_backend` must be set!")
-        if (
-            self.evaluation_platform
-            and self.evaluation_backend
-            and self.evaluation_platform != self.evaluation_backend
-        ):
-            raise ValueError(
-                "Conflicting values for `evaluation_platform` and `evaluation_backend`!"
-            )
-        if self.evaluation_platform:
-            logger.warning(
-                "The input parameter `evaluation_platform` is deprecated and will be "
-                "removed at v0.2.0. Please use `evaluation_backend` instead."
-            )
-            self.evaluation_backend = self.evaluation_platform
-            self.evaluation_platform = ""
 
 
 @dataclass
