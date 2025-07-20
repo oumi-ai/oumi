@@ -1,14 +1,10 @@
-import dataclasses
-import logging
 import os
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
-from io import StringIO
 from pathlib import Path
-from typing import Any, List, Dict
+from typing import Any
 
-import pytest
 from omegaconf import OmegaConf
 
 from oumi.core.configs.base_config import BaseConfig, _handle_non_primitives
@@ -29,8 +25,8 @@ class TestConfig(BaseConfig):
     bytes_value: bytes
     path_value: Path
     enum_value: TestEnum
-    list_value: List[Any]
-    dict_value: Dict[str, Any]
+    list_value: list[Any]
+    dict_value: dict[str, Any]
     func_value: Any
 
 
@@ -44,30 +40,23 @@ def test_primitive_types():
         "none": None,
         "bytes": b"test",
         "path": Path("test/path"),
-        "enum": TestEnum.VALUE1
+        "enum": TestEnum.VALUE1,
     }
-    
+
     removed_paths = set()
     result = _handle_non_primitives(config, removed_paths)
-    
+
     assert result == config
     assert not removed_paths
 
 
 def test_nested_lists():
     """Test handling of nested lists with primitive and non-primitive values."""
-    config = {
-        "list": [
-            "primitive",
-            {"nested": "value"},
-            [1, 2, 3],
-            lambda x: x * 2
-        ]
-    }
-    
+    config = {"list": ["primitive", {"nested": "value"}, [1, 2, 3], lambda x: x * 2]}
+
     removed_paths = set()
     result = _handle_non_primitives(config, removed_paths)
-    
+
     assert result["list"][0] == "primitive"
     assert result["list"][1] == {"nested": "value"}
     assert result["list"][2] == [1, 2, 3]
@@ -80,16 +69,13 @@ def test_nested_dicts():
     config = {
         "dict": {
             "primitive": "value",
-            "nested": {
-                "func": lambda x: x * 2,
-                "list": [1, 2, 3]
-            }
+            "nested": {"func": lambda x: x * 2, "list": [1, 2, 3]},
         }
     }
-    
+
     removed_paths = set()
     result = _handle_non_primitives(config, removed_paths)
-    
+
     assert result["dict"]["primitive"] == "value"
     assert result["dict"]["nested"]["list"] == [1, 2, 3]
     assert result["dict"]["nested"]["func"] is None
@@ -98,16 +84,15 @@ def test_nested_dicts():
 
 def test_function_conversion():
     """Test that functions are converted to their source code when possible."""
+
     def test_func(x):
         return x * 2
-    
-    config = {
-        "func": test_func
-    }
-    
+
+    config = {"func": test_func}
+
     removed_paths = set()
     result = _handle_non_primitives(config, removed_paths)
-    
+
     assert isinstance(result["func"], str)
     assert "def test_func" in result["func"]
     assert not removed_paths
@@ -115,30 +100,27 @@ def test_function_conversion():
 
 def test_builtin_function():
     """Test that built-in functions are removed."""
-    config = {
-        "func": len
-    }
-    
+    config = {"func": len}
+
     removed_paths = set()
     result = _handle_non_primitives(config, removed_paths)
-    
+
     assert result["func"] is None
     assert "func" in removed_paths
 
 
 def test_complex_object():
     """Test that complex objects are removed."""
+
     class ComplexObject:
         def __init__(self):
             self.value = 42
-    
-    config = {
-        "obj": ComplexObject()
-    }
-    
+
+    config = {"obj": ComplexObject()}
+
     removed_paths = set()
     result = _handle_non_primitives(config, removed_paths)
-    
+
     assert result["obj"] is None
     assert "obj" in removed_paths
 
@@ -157,14 +139,14 @@ def test_config_serialization():
             enum_value=TestEnum.VALUE1,
             list_value=["primitive", [1, 2, 3]],
             dict_value={"primitive": "value", "nested": {"list": [1, 2, 3]}},
-            func_value=lambda x: x * 2
+            func_value=lambda x: x * 2,
         )
-        
+
         filename = os.path.join(folder, "test_config.yaml")
         config.to_yaml(filename)
-        
+
         assert os.path.exists(filename)
-        
+
         loaded_config = TestConfig.from_yaml(filename)
         assert loaded_config.str_value == config.str_value
         assert loaded_config.int_value == config.int_value
@@ -198,7 +180,7 @@ def test_config_loading_from_str():
                 list: [1, 2, 3]
         func_value: "def test_func(x): return x * 2"
     """
-    
+
     config = TestConfig.from_str(yaml_str)
     assert config.str_value == "test"
     assert config.int_value == 42
@@ -225,9 +207,9 @@ def test_config_equality():
         enum_value=TestEnum.VALUE1,
         list_value=["primitive"],
         dict_value={"key": "value"},
-        func_value=lambda x: x * 2
+        func_value=lambda x: x * 2,
     )
-    
+
     config_b = TestConfig(
         str_value="test",
         int_value=42,
@@ -239,11 +221,11 @@ def test_config_equality():
         enum_value=TestEnum.VALUE1,
         list_value=["primitive"],
         dict_value={"key": "value"},
-        func_value=lambda x: x * 2
+        func_value=lambda x: x * 2,
     )
-    
+
     assert config_a == config_b
-    
+
     config_b.str_value = "different"
     assert config_a != config_b
 
@@ -261,9 +243,9 @@ def test_config_override():
         enum_value=TestEnum.VALUE1,
         list_value=["base"],
         dict_value={"key": "base"},
-        func_value=lambda x: x
+        func_value=lambda x: x,
     )
-    
+
     override_config = TestConfig(
         str_value="override",
         int_value=2,
@@ -275,9 +257,9 @@ def test_config_override():
         enum_value=TestEnum.VALUE2,
         list_value=["override"],
         dict_value={"key": "override"},
-        func_value=lambda x: x * 2
+        func_value=lambda x: x * 2,
     )
-    
+
     merged_config = OmegaConf.merge(base_config, override_config)
     assert merged_config.str_value == "override"
     assert merged_config.int_value == 2
@@ -306,12 +288,12 @@ def test_config_from_yaml_and_arg_list():
             enum_value=TestEnum.VALUE1,
             list_value=["base"],
             dict_value={"key": "base"},
-            func_value=lambda x: x
+            func_value=lambda x: x,
         )
-        
+
         filename = os.path.join(folder, "test_config.yaml")
         config.to_yaml(filename)
-        
+
         new_config = TestConfig.from_yaml_and_arg_list(
             filename,
             [
@@ -320,13 +302,13 @@ def test_config_from_yaml_and_arg_list():
                 "float_value=2.0",
                 "bool_value=false",
                 "list_value[0]=override",
-                "dict_value.key=override"
-            ]
+                "dict_value.key=override",
+            ],
         )
-        
+
         assert new_config.str_value == "override"
         assert new_config.int_value == 2
         assert new_config.float_value == 2.0
         assert new_config.bool_value is False
         assert new_config.list_value[0] == "override"
-        assert new_config.dict_value["key"] == "override" 
+        assert new_config.dict_value["key"] == "override"
