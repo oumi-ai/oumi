@@ -140,7 +140,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 synthesis = [
-    "pymupdf4llm",                  # Document ingestion for synthesis
+    "pdftext",                  # Document ingestion for synthesis
 ]
 
 evaluation = [
