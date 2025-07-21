@@ -35,7 +35,7 @@ class AwqQuantization(BaseQuantization):
     """
 
     supported_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
-    supported_formats = ["gguf", "pytorch"]
+    supported_formats = ["pytorch"]
 
     def __init__(self):
         """Initialize AWQ quantizer."""
@@ -83,13 +83,8 @@ class AwqQuantization(BaseQuantization):
         awq_result = self._quantize_model_with_awq(config)
         awq_model_path = awq_result["awq_model_path"]
 
-        # Step 2: Handle output format
-        if config.output_format == "pytorch":
-            return self._save_as_pytorch(config, awq_model_path)
-        elif config.output_format == "gguf":
-            return self._convert_and_export_to_gguf(config, awq_model_path)
-        else:
-            raise ValueError(f"Unsupported output format: {config.output_format}")
+        # Step 2: Save as PyTorch format
+        return self._save_as_pytorch(config, awq_model_path)
 
     def _quantize_model_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize model using AWQ algorithm with calibration."""
@@ -192,124 +187,3 @@ class AwqQuantization(BaseQuantization):
             "pytorch_format": True,
         }
 
-    def _convert_and_export_to_gguf(
-        self, config: QuantizationConfig, awq_model_path: str
-    ) -> dict[str, Any]:
-        """Convert AWQ model to GGUF format."""
-        logger.info("Converting AWQ model to GGUF format...")
-
-        try:
-            # Use GGUF quantizer for conversion
-            result = self.convert_awq_to_gguf(awq_model_path, config)
-
-            # Clean up temporary AWQ files if requested
-            if config.cleanup_temp:
-                import shutil
-
-                shutil.rmtree(awq_model_path)
-                logger.info(f"Cleaned up temporary AWQ files: {awq_model_path}")
-
-            return result
-
-        except Exception as e:
-            logger.error(f"GGUF conversion failed: {e}")
-            # Fall back to PyTorch format
-            logger.info("Falling back to PyTorch format...")
-            result = self._save_as_pytorch(config, awq_model_path)
-            result["gguf_conversion_failed"] = True
-            return result
-
-    def convert_awq_to_gguf(
-        self, awq_model_path: str, config: QuantizationConfig
-    ) -> dict[str, Any]:
-        """Convert AWQ model to GGUF format.
-
-        This method is called from the AWQ quantizer to convert AWQ models
-        to GGUF format.
-
-        Args:
-            awq_model_path: Path to the AWQ quantized model
-            config: Quantization configuration
-
-        Returns:
-            Dictionary containing conversion results
-        """
-        logger.info("Converting AWQ model to GGUF format")
-
-        try:
-            # Load the AWQ model
-            from awq import AutoAWQForCausalLM
-
-            model = AutoAWQForCausalLM.from_quantized(
-                awq_model_path,
-                fuse_layers=True,
-                trust_remote_code=True,
-                safetensors=True,
-            )
-
-            # Convert to GGUF
-            output_path = config.output_path
-            if not output_path.endswith(".gguf"):
-                output_path = f"{output_path}.gguf"
-
-            # For now, create a GGUF file based on the AWQ model
-            # In a real implementation, you'd use proper AWQ->GGUF conversion
-            self._create_gguf_from_awq(model, output_path, config.method)
-
-            quantized_size = Path(output_path).stat().st_size
-
-            logger.info("✅ AWQ to GGUF conversion successful!")
-            logger.info(f"📁 Output: {output_path}")
-            logger.info(f"📊 Quantized size: {format_size(quantized_size)}")
-
-            return {
-                "quantization_method": f"AWQ → GGUF ({config.method})",
-                "quantized_size": format_size(quantized_size),
-                "quantized_size_bytes": quantized_size,
-                "output_path": output_path,
-                "gguf_format": True,
-                "awq_to_gguf_conversion": True,
-            }
-
-        except Exception as e:
-            logger.error(f"AWQ to GGUF conversion failed: {e}")
-            raise RuntimeError(f"AWQ to GGUF conversion failed: {e}")
-
-    def _create_gguf_from_awq(self, awq_model, output_path: str, method: str) -> None:
-        """Create GGUF file from AWQ model."""
-        # This is a simplified implementation
-        # In practice, you'd properly convert the AWQ tensors to GGUF format
-
-        with open(output_path, "wb") as f:
-            import struct
-
-            # Write GGUF headers
-            from oumi.quantize.constants import GGUF_MAGIC, GGUF_VERSION
-            
-            f.write(GGUF_MAGIC)
-            f.write(struct.pack("<I", GGUF_VERSION))
-            f.write(struct.pack("<Q", 0))  # tensor count (simplified)
-            f.write(struct.pack("<Q", 2))  # metadata count
-
-            # Write method metadata
-            key = b"quantization_method"
-            f.write(struct.pack("<I", len(key)))
-            f.write(key)
-            f.write(struct.pack("<I", 8))  # string type
-            value = method.encode("utf-8")
-            f.write(struct.pack("<I", len(value)))
-            f.write(value)
-
-            # Write source metadata
-            key = b"source"
-            f.write(struct.pack("<I", len(key)))
-            f.write(key)
-            f.write(struct.pack("<I", 8))  # string type
-            value = b"AWQ"
-            f.write(struct.pack("<I", len(value)))
-            f.write(value)
-
-            # Add model data (simplified)
-            # In a real implementation, you'd convert the actual AWQ tensors
-            model_data_size = 50 * 1024 * 1024  # 50MB placeholder
-            f.write(b"\x00" * model_data_size)

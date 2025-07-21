@@ -97,7 +97,7 @@ Create reusable quantization configurations:
 # quantization_config.yaml
 method: awq_q4_0
 model: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-output_path: "quantized_model.gguf"
+output_path: "quantized_model.pytorch"
 overwrite: true
 ```
 
