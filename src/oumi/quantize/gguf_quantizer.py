@@ -25,7 +25,7 @@ from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
 from oumi.quantize.base import BaseQuantization
-from oumi.quantize.constants import GGUF_MAGIC, GGUF_QUANTIZATION_MAP, GGUF_VERSION
+from oumi.quantize.constants import GGUF_QUANTIZATION_MAP
 from oumi.quantize.utils import format_size
 from oumi.utils.logging import logger
 
@@ -49,14 +49,13 @@ class GgufQuantization(BaseQuantization):
     def raise_if_requirements_not_met(self) -> None:
         """Check if GGUF quantization dependencies are available.
 
-        Returns:
-            True if all dependencies are available, False otherwise.
+        Raises:
+            RuntimeError: If llama-cpp-python is not available.
         """
         if self._llama_cpp is None:
             raise RuntimeError(
                 "GGUF quantization requires llama-cpp-python.\n"
-                "Install with: pip install llama-cpp-python\n"
-                "Will use fallback mode for basic GGUF creation."
+                "Install with: pip install llama-cpp-python"
             )
 
         try:
@@ -81,15 +80,8 @@ class GgufQuantization(BaseQuantization):
 
         logger.info("Quantizing to GGUF format")
 
-        try:
-            # Try to use llama-cpp-python for quantization
-            return self._quantize_with_llamacpp(config)
-
-        except Exception as e:
-            logger.error(f"GGUF quantization failed: {e}")
-            # Fallback to creating a basic GGUF file
-            logger.info("Creating fallback GGUF file")
-            return self._create_fallback_gguf(config)
+        # Use llama-cpp-python for quantization
+        return self._quantize_with_llamacpp(config)
 
     def _quantize_with_llamacpp(self, config: QuantizationConfig) -> dict[str, Any]:
         """Quantize using llama-cpp-python."""
@@ -170,8 +162,7 @@ class GgufQuantization(BaseQuantization):
                 )
 
             except Exception as e:
-                logger.warning(f"llama.cpp quantization failed: {e}")
-                # Fall back to basic GGUF creation
+                logger.error(f"llama.cpp quantization failed: {e}")
                 raise e
 
         return {"status": "success"}
@@ -180,71 +171,11 @@ class GgufQuantization(BaseQuantization):
         self, model_dir: str, output_path: str, quantization_type: str
     ) -> None:
         """Use llama.cpp binary tools for quantization."""
-        # This would call the actual llama.cpp quantization binary
-        # For now, we'll create a placeholder implementation
         logger.info(f"Quantizing with llama.cpp: {quantization_type}")
 
-        # For now, create a basic GGUF file
-        self._create_basic_gguf_file(output_path, quantization_type)
-
-    def _create_basic_gguf_file(self, output_path: str, quantization_type: str) -> None:
-        """Create a basic GGUF file with proper headers."""
-        with open(output_path, "wb") as f:
-            import struct
-
-            # Write GGUF magic and version
-            f.write(GGUF_MAGIC)
-            f.write(struct.pack("<I", GGUF_VERSION))
-            f.write(struct.pack("<Q", 0))  # tensor count
-            f.write(struct.pack("<Q", 1))  # metadata count
-
-            # Write quantization type metadata
-            key = b"quantization_type"
-            f.write(struct.pack("<I", len(key)))
-            f.write(key)
-            f.write(struct.pack("<I", 8))  # string type
-            value = quantization_type.encode("utf-8")
-            f.write(struct.pack("<I", len(value)))
-            f.write(value)
-
-            # Add some padding to make it look like a real quantized model
-            padding_size = 10 * 1024 * 1024  # 10MB
-            f.write(b"\x00" * padding_size)
-
-    def _create_fallback_gguf(self, config: QuantizationConfig) -> dict[str, Any]:
-        """Create a basic GGUF file as fallback when conversion fails."""
-        logger.info("Creating fallback GGUF file")
-
-        output_path = Path(config.output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output_path, "wb") as f:
-            import struct
-
-            f.write(GGUF_MAGIC)  # magic
-            f.write(struct.pack("<I", GGUF_VERSION))  # version
-            f.write(struct.pack("<Q", 0))  # tensor count
-            f.write(struct.pack("<Q", 0))  # metadata count
-
-            # Add padding to simulate a quantized model
-            padding_size = 5 * 1024 * 1024  # 5MB
-            f.write(b"\x00" * padding_size)
-
-        fallback_size = output_path.stat().st_size
-
-        logger.info("✅ Fallback GGUF file created")
-        logger.info(f"📁 Output: {config.output_path}")
-        logger.info(f"📊 File size: {format_size(fallback_size)}")
-        logger.warning(
-            "⚠️  This is a fallback file. "
-            "Install llama-cpp-python for real quantization."
+        # This is where the actual llama.cpp quantization would happen
+        # For now, raise an error since we don't have a real implementation
+        raise NotImplementedError(
+            "GGUF quantization is not yet fully implemented. "
+            "This would require actual llama.cpp integration."
         )
-
-        return {
-            "quantization_method": f"GGUF {config.method} (fallback)",
-            "quantized_size": format_size(fallback_size),
-            "quantized_size_bytes": fallback_size,
-            "output_path": str(output_path),
-            "fallback_mode": True,
-            "gguf_format": True,
-        }
