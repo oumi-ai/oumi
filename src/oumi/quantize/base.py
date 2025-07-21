@@ -40,11 +40,6 @@ class QuantizationResult:
     additional_info: dict[str, Any] = field(default_factory=dict)
     """Additional information about the quantization process."""
 
-    def __post_init__(self):
-        """Initialize additional_info if None."""
-        if self.additional_info is None:
-            self.additional_info = {}
-
 
 class BaseQuantization(ABC):
     """Abstract base class for all quantization methods.
