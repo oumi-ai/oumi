@@ -66,12 +66,12 @@ class BaseQuantization(ABC):
                 method, output path, and other settings.
 
         Returns:
-            Dictionary containing quantization results including:
-            - quantized_size: Human-readable size string
-            - quantized_size_bytes: Size in bytes
+            QuantizationResult containing:
+            - quantized_size_bytes: Size of the quantized model in bytes
             - output_path: Path to the quantized model
-            - quantization_method: Method used for quantization
-            - Additional method-specific results
+            - quantization_method: Quantization method used
+            - format_type: Format type of the quantized model
+            - additional_info: Additional method-specific information
 
         Raises:
             RuntimeError: If quantization fails for any reason
