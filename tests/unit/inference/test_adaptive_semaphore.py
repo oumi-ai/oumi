@@ -44,6 +44,30 @@ async def test_polite_adaptive_semaphore(mock_time, mock_asyncio_sleep):
 
 
 @pytest.mark.asyncio
+async def test_polite_adaptive_semaphore_adjust_capacity(mock_time, mock_asyncio_sleep):
+    semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=10)
+    mock_time.time.return_value = 0.0
+    assert semaphore._queue == deque([-1])
+    await semaphore.adjust_capacity(2)
+    assert semaphore._queue == deque([-1, -1])
+    mock_time.time.return_value = 1.0
+    await semaphore.acquire()
+    semaphore.release()
+    mock_time.time.return_value = 2.0
+    assert semaphore._queue == deque([-1, 11])
+    await semaphore.acquire()
+    semaphore.release()
+    mock_time.time.return_value = 3.0
+    assert semaphore._queue == deque([11, 12])
+    await semaphore.adjust_capacity(1)
+    assert semaphore._queue == deque([12])
+    await semaphore.acquire()
+    assert semaphore._queue == deque([])
+    await semaphore.adjust_capacity(10)
+    assert semaphore._queue == deque([-1] * 10)
+
+
+@pytest.mark.asyncio
 async def test_polite_adaptive_semaphore_subsequent_acquires_use_queue(
     mock_time, mock_asyncio_sleep
 ):
