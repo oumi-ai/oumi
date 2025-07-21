@@ -15,10 +15,8 @@
 """Common utilities for quantization operations."""
 
 from pathlib import Path
-from typing import Optional
 
 from oumi.quantize.constants import SIZE_UNITS
-from oumi.utils.logging import logger
 
 
 def get_directory_size(path: str) -> int:
@@ -29,8 +27,6 @@ def get_directory_size(path: str) -> int:
         if file_path.is_file():
             total_size += file_path.stat().st_size
     return total_size
-
-
 
 
 def format_size(size_bytes: int) -> str:
