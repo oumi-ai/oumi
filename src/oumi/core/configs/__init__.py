@@ -135,6 +135,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
@@ -147,9 +148,9 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
-    "EvaluationTaskParams",
-    "EvaluationConfig",
     "EvaluationBackend",
+    "EvaluationConfig",
+    "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
     "GrpoParams",
@@ -172,6 +173,7 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",
     "ShardingStrategy",
