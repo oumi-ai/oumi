@@ -110,6 +110,12 @@ def quantize(
             parsed_config.method = method
         if output != "quantized_model.gguf":  # Only override if not default
             parsed_config.output_path = output
+            
+        # Auto-set appropriate output format based on method if not already set appropriately
+        if parsed_config.method.startswith("awq_") and parsed_config.output_format == "gguf":
+            parsed_config.output_format = "pytorch"
+        elif parsed_config.method.startswith("bnb_") and parsed_config.output_format == "gguf":
+            parsed_config.output_format = "pytorch"
     else:
         # Create config from CLI arguments
         if not model:
@@ -117,10 +123,19 @@ def quantize(
                 "Either --config must be provided or --model must be specified"
             )
 
+        # Determine appropriate output format based on method
+        if method.startswith("awq_"):
+            output_format = "pytorch"
+        elif method.startswith("bnb_"):
+            output_format = "pytorch"  # or "safetensors" depending on preference
+        else:
+            output_format = "gguf"  # For q4_0, q8_0, etc.
+
         parsed_config = QuantizationConfig(
             model=ModelParams(model_name=model),
             method=method,
             output_path=output,
+            output_format=output_format,
         )
 
     parsed_config.finalize_and_validate()
