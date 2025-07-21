@@ -143,7 +143,8 @@ def quantize(
     with cli_utils.CONSOLE.status("Quantizing model...", spinner="dots"):
         result = oumi_quantize(parsed_config)
 
-    if not result["success"]:
+    # Check if quantization was successful by looking for expected result keys
+    if not result or "output_path" not in result:
         logger.error("❌ Model quantization failed!")
         return
 
