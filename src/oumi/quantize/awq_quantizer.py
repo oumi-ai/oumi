@@ -129,10 +129,17 @@ class AwqQuantization(BaseQuantization):
         logger.info("🔧 Configuring AWQ quantization parameters...")
 
         # 2. Prepare quantization config
+        w_bit_dict = {
+            "awq_q4_0": 4,
+            "awq_q4_1": 4,
+            "awq_q8_0": 8,
+            "awq_f16": 16,
+        }
+        w_bit = w_bit_dict[config.method]
         quant_config = {
             "zero_point": config.awq_zero_point,
             "q_group_size": config.awq_group_size,
-            "w_bit": 4,  # AWQ uses 4-bit quantization
+            "w_bit": w_bit,
             "version": config.awq_version,
         }
 
