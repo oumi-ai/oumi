@@ -18,15 +18,11 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.quantize.utils import (
     calculate_compression_ratio,
     format_size,
     get_directory_size,
     is_valid_hf_model_id,
-    validate_quantization_config,
 )
 
 
@@ -99,10 +95,10 @@ class TestGetDirectorySize:
             # Create test files
             test_file1 = Path(temp_dir) / "test1.txt"
             test_file2 = Path(temp_dir) / "test2.txt"
-            
+
             test_file1.write_text("Hello" * 100)  # 500 bytes
             test_file2.write_text("World" * 200)  # 1000 bytes
-            
+
             size = get_directory_size(temp_dir)
             assert size == 1500
 
@@ -112,70 +108,15 @@ class TestGetDirectorySize:
             # Create nested structure
             subdir = Path(temp_dir) / "subdir"
             subdir.mkdir()
-            
+
             test_file1 = Path(temp_dir) / "test1.txt"
             test_file2 = subdir / "test2.txt"
-            
+
             test_file1.write_text("A" * 100)
             test_file2.write_text("B" * 200)
-            
+
             size = get_directory_size(temp_dir)
             assert size == 300
-
-
-class TestValidateQuantizationConfig:
-    """Test the validate_quantization_config utility function."""
-
-    def test_valid_config(self):
-        """Test validation passes for valid config."""
-        config = QuantizationConfig(
-            model=ModelParams(model_name="facebook/opt-125m"),
-            method="awq_q4_0",
-            output_path="/tmp/test.gguf",
-            output_format="gguf"
-        )
-        
-        with patch("oumi.quantize.utils.is_valid_hf_model_id", return_value=True):
-            # Should not raise any exception
-            validate_quantization_config(config)
-
-    def test_invalid_method(self):
-        """Test validation fails for invalid method."""
-        config = QuantizationConfig(
-            model=ModelParams(model_name="facebook/opt-125m"),
-            method="invalid_method",
-            output_path="/tmp/test.gguf",
-            output_format="gguf"
-        )
-        
-        with pytest.raises(ValueError, match="Unsupported quantization method"):
-            validate_quantization_config(config)
-
-    def test_invalid_output_format(self):
-        """Test validation fails for invalid output format."""
-        config = QuantizationConfig(
-            model=ModelParams(model_name="facebook/opt-125m"),
-            method="awq_q4_0",
-            output_path="/tmp/test.invalid",
-            output_format="invalid_format"
-        )
-        
-        with pytest.raises(ValueError, match="Unsupported output format"):
-            validate_quantization_config(config)
-
-    def test_invalid_model_path(self):
-        """Test validation fails for invalid model."""
-        config = QuantizationConfig(
-            model=ModelParams(model_name="nonexistent/model"),
-            method="awq_q4_0",
-            output_path="/tmp/test.gguf",
-            output_format="gguf"
-        )
-        
-        with patch("oumi.quantize.utils.is_valid_hf_model_id", return_value=False):
-            with patch("pathlib.Path.exists", return_value=False):
-                with pytest.raises(ValueError, match="Model not found"):
-                    validate_quantization_config(config)
 
 
 class TestIsValidHfModelId:
@@ -185,7 +126,7 @@ class TestIsValidHfModelId:
     def test_valid_model_id(self, mock_model_info):
         """Test valid HuggingFace model ID."""
         mock_model_info.return_value = MagicMock()
-        
+
         result = is_valid_hf_model_id("facebook/opt-125m")
         assert result is True
         mock_model_info.assert_called_once_with("facebook/opt-125m")
@@ -194,7 +135,7 @@ class TestIsValidHfModelId:
     def test_invalid_model_id(self, mock_model_info):
         """Test invalid HuggingFace model ID."""
         mock_model_info.side_effect = Exception("Model not found")
-        
+
         result = is_valid_hf_model_id("nonexistent/model")
         assert result is False
         mock_model_info.assert_called_once_with("nonexistent/model")

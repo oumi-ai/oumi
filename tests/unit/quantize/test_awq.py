@@ -20,14 +20,20 @@ from oumi.quantize.awq_quantizer import AwqQuantization
 class TestValidateAwqRequirements:
     """Test AWQ dependency validation."""
 
-    def test_validate_awq_requirements_function_exists(self):
-        """Test that validate_awq_requirements method exists and is callable."""
+    def test_raise_if_requirements_not_met_function_exists(self):
+        """Test that raise_if_requirements_not_met method exists and is callable."""
         quantizer = AwqQuantization()
-        assert callable(quantizer.validate_requirements)
+        assert callable(quantizer.raise_if_requirements_not_met)
 
-    def test_validate_awq_requirements_returns_bool(self):
-        """Test that method returns boolean."""
+    def test_raise_if_requirements_not_met_with_missing_deps(self):
+        """Test that method raises when dependencies are missing."""
         quantizer = AwqQuantization()
-        result = quantizer.validate_requirements()
-        # Should return bool
-        assert isinstance(result, bool)
+        # Force missing dependency
+        quantizer._awq = None
+        try:
+            quantizer.raise_if_requirements_not_met()
+            # Should not reach here if deps are missing
+            assert False, "Expected RuntimeError for missing dependencies"
+        except RuntimeError:
+            # Expected behavior
+            pass

@@ -20,8 +20,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
-from oumi.quantize.main import quantize
 from oumi.quantize.factory import QuantizationFactory
+from oumi.quantize.main import quantize
 
 
 class TestQuantizeFunction:
@@ -34,56 +34,46 @@ class TestQuantizeFunction:
             model=ModelParams(model_name="facebook/opt-125m"),
             method="awq_q4_0",
             output_path=f"{self.temp_dir}/test_output.gguf",
-            output_format="gguf"
+            output_format="gguf",
         )
 
-    @patch("oumi.quantize.main.validate_quantization_config")
     @patch("oumi.quantize.main.get_model_size_info")
     @patch("oumi.quantize.awq_quantizer.AwqQuantization.quantize")
-    @patch("oumi.quantize.awq_quantizer.AwqQuantization.validate_requirements")
+    @patch("oumi.quantize.awq_quantizer.AwqQuantization.raise_if_requirements_not_met")
     def test_awq_simulation_mode(
-        self, 
-        mock_validate_requirements,
-        mock_quantize,
-        mock_get_size_info,
-        mock_validate_config
+        self, mock_raise_if_requirements_not_met, mock_quantize, mock_get_size_info
     ):
         """Test AWQ quantization in simulation mode."""
         # Setup mocks
         mock_get_size_info.return_value = ({"original_size": "1.0 GB"}, 1000000000)
-        mock_validate_requirements.return_value = False  # Simulation mode
+        mock_raise_if_requirements_not_met.return_value = None  # No exception raised
         mock_quantize.return_value = {
             "quantization_method": "SIMULATED: AWQ → PyTorch (awq_q4_0)",
             "quantized_size": "250.0 MB",
             "quantized_size_bytes": 250000000,
-            "simulation_mode": True
+            "simulation_mode": True,
         }
-        
+
         # Run quantization
         result = quantize(self.test_config)
-        
+
         # Verify calls
-        mock_validate_config.assert_called_once_with(self.test_config)
-        mock_validate_requirements.assert_called_once()
+        mock_raise_if_requirements_not_met.assert_called_once()
         mock_quantize.assert_called_once_with(self.test_config)
-        
+
         # Verify result
         assert "quantization_method" in result
         assert "simulation_mode" in result
         assert result["simulation_mode"] is True
         assert "compression_ratio" in result
 
-
-    @patch("oumi.quantize.main.validate_quantization_config")
     @patch("oumi.quantize.main.get_model_size_info")
     @patch("oumi.quantize.bnb_quantizer.BitsAndBytesQuantization.quantize")
-    @patch("oumi.quantize.bnb_quantizer.BitsAndBytesQuantization.validate_requirements")
+    @patch(
+        "oumi.quantize.bnb_quantizer.BitsAndBytesQuantization.raise_if_requirements_not_met"
+    )
     def test_bitsandbytes_quantization(
-        self,
-        mock_validate_requirements,
-        mock_quantize,
-        mock_get_size_info,
-        mock_validate_config
+        self, mock_raise_if_requirements_not_met, mock_quantize, mock_get_size_info
     ):
         """Test BitsAndBytes quantization."""
         # Setup config and mocks
@@ -91,38 +81,34 @@ class TestQuantizeFunction:
             model=ModelParams(model_name="facebook/opt-125m"),
             method="bnb_4bit",
             output_path=f"{self.temp_dir}/test_output.pytorch",
-            output_format="pytorch"
+            output_format="pytorch",
         )
-        
+
         mock_get_size_info.return_value = ({"original_size": "1.0 GB"}, 1000000000)
-        mock_validate_requirements.return_value = True
+        mock_raise_if_requirements_not_met.return_value = None  # No exception raised
         mock_quantize.return_value = {
             "quantization_method": "BitsAndBytes 4-bit",
-            "quantized_size": "250.0 MB", 
-            "quantized_size_bytes": 250000000
+            "quantized_size": "250.0 MB",
+            "quantized_size_bytes": 250000000,
         }
-        
+
         # Run quantization
         result = quantize(config)
-        
+
         # Verify calls
-        mock_validate_config.assert_called_once_with(config)
-        mock_validate_requirements.assert_called_once()
+        mock_raise_if_requirements_not_met.assert_called_once()
         mock_quantize.assert_called_once_with(config)
-        
+
         # Verify result
         assert result["quantization_method"] == "BitsAndBytes 4-bit"
 
-    @patch("oumi.quantize.main.validate_quantization_config")
     @patch("oumi.quantize.main.get_model_size_info")
     @patch("oumi.quantize.gguf_quantizer.GgufQuantization.quantize")
-    @patch("oumi.quantize.gguf_quantizer.GgufQuantization.validate_requirements")
+    @patch(
+        "oumi.quantize.gguf_quantizer.GgufQuantization.raise_if_requirements_not_met"
+    )
     def test_gguf_quantization(
-        self,
-        mock_validate_requirements,
-        mock_quantize,
-        mock_get_size_info,
-        mock_validate_config
+        self, mock_raise_if_requirements_not_met, mock_quantize, mock_get_size_info
     ):
         """Test GGUF quantization."""
         # Setup config and mocks
@@ -130,75 +116,69 @@ class TestQuantizeFunction:
             model=ModelParams(model_name="facebook/opt-125m"),
             method="q4_0",
             output_path=f"{self.temp_dir}/test_output.gguf",
-            output_format="gguf"
+            output_format="gguf",
         )
-        
+
         mock_get_size_info.return_value = ({"original_size": "1.0 GB"}, 1000000000)
-        mock_validate_requirements.return_value = True
+        mock_raise_if_requirements_not_met.return_value = None  # No exception raised
         mock_quantize.return_value = {
             "quantized_size": "250.0 MB",
-            "quantized_size_bytes": 250000000
+            "quantized_size_bytes": 250000000,
         }
-        
+
         # Run quantization
         result = quantize(config)
-        
+
         # Verify calls
-        mock_validate_config.assert_called_once_with(config)
-        mock_validate_requirements.assert_called_once()
+        mock_raise_if_requirements_not_met.assert_called_once()
         mock_quantize.assert_called_once_with(config)
-        
+
         # Verify result has expected keys
         assert "quantized_size" in result
 
-    @patch("oumi.quantize.main.validate_quantization_config")
     @patch("oumi.quantize.main.get_model_size_info")
     @patch("oumi.quantize.factory.QuantizationFactory.create_quantizer")
     def test_quantization_error_handling(
-        self, 
-        mock_create_quantizer,
-        mock_get_size_info,
-        mock_validate_config
+        self, mock_create_quantizer, mock_get_size_info
     ):
         """Test error handling in quantization."""
         # Setup mocks - early calls pass but quantization fails
         mock_get_size_info.return_value = ({"original_size": "1.0 GB"}, 1000000000)
         mock_quantizer = MagicMock()
-        mock_quantizer.validate_requirements.return_value = True
+        mock_quantizer.raise_if_requirements_not_met.return_value = (
+            None  # No exception raised
+        )
         mock_quantizer.quantize.side_effect = Exception("Quantization failed")
         mock_create_quantizer.return_value = mock_quantizer
-        
-        # Verify exception is raised and wrapped in RuntimeError
-        with pytest.raises(RuntimeError, match="Quantization failed"):
+
+        # Verify exception is raised (no longer wrapped in RuntimeError)
+        with pytest.raises(Exception, match="Quantization failed"):
             quantize(self.test_config)
 
-    @patch("oumi.quantize.main.validate_quantization_config")
     @patch("oumi.quantize.main.get_model_size_info")
     @patch("oumi.quantize.main.calculate_compression_ratio")
     @patch("oumi.quantize.factory.QuantizationFactory.create_quantizer")
     def test_compression_ratio_calculation(
-        self,
-        mock_create_quantizer,
-        mock_calc_ratio,
-        mock_get_size_info,
-        mock_validate_config
+        self, mock_create_quantizer, mock_calc_ratio, mock_get_size_info
     ):
         """Test compression ratio calculation."""
         # Setup mocks
         mock_get_size_info.return_value = ({"original_size": "1.0 GB"}, 1000000000)
         mock_calc_ratio.return_value = "4.00x"
-        
+
         # Setup quantizer mock
         mock_quantizer = MagicMock()
-        mock_quantizer.validate_requirements.return_value = True
+        mock_quantizer.raise_if_requirements_not_met.return_value = (
+            None  # No exception raised
+        )
         mock_quantizer.quantize.return_value = {
             "quantized_size_bytes": 250000000,
-            "simulation_mode": True
+            "simulation_mode": True,
         }
         mock_create_quantizer.return_value = mock_quantizer
-        
+
         result = quantize(self.test_config)
-        
+
         # Verify compression ratio was calculated and added
         mock_calc_ratio.assert_called_once_with(1000000000, 250000000)
         assert result["compression_ratio"] == "4.00x"
@@ -211,18 +191,21 @@ class TestQuantizationFactory:
         """Test creating AWQ quantizer."""
         quantizer = QuantizationFactory.create_quantizer("awq_q4_0")
         from oumi.quantize.awq_quantizer import AwqQuantization
+
         assert isinstance(quantizer, AwqQuantization)
 
     def test_create_bnb_quantizer(self):
         """Test creating BitsAndBytes quantizer."""
         quantizer = QuantizationFactory.create_quantizer("bnb_4bit")
         from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+
         assert isinstance(quantizer, BitsAndBytesQuantization)
 
     def test_create_gguf_quantizer(self):
         """Test creating GGUF quantizer."""
         quantizer = QuantizationFactory.create_quantizer("q4_0")
         from oumi.quantize.gguf_quantizer import GgufQuantization
+
         assert isinstance(quantizer, GgufQuantization)
 
     def test_unsupported_method(self):

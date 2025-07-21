@@ -59,7 +59,12 @@ class GgufQuantization(BaseQuantization):
                 "Will use fallback mode for basic GGUF creation."
             )
 
-        logger.info(f"llama-cpp-python found: {self._llama_cpp.version}")  # type: ignore
+        try:
+            import llama_cpp
+
+            logger.info(f"llama-cpp-python found: {llama_cpp.__version__}")
+        except (ImportError, AttributeError):
+            logger.info("llama-cpp-python found (version unknown)")
 
     @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
@@ -231,7 +236,8 @@ class GgufQuantization(BaseQuantization):
         logger.info(f"📁 Output: {config.output_path}")
         logger.info(f"📊 File size: {format_size(fallback_size)}")
         logger.warning(
-            "⚠️  This is a fallback file. Install llama-cpp-python for real quantization."
+            "⚠️  This is a fallback file. "
+            "Install llama-cpp-python for real quantization."
         )
 
         return {

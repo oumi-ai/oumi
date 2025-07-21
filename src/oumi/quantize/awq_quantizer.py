@@ -50,7 +50,12 @@ class AwqQuantization(BaseQuantization):
                 "Install with: `pip install autoawq`\n"
             )
 
-        logger.debug(f"AWQ library found: autoawq {self._awq.version}")  # type: ignore
+        try:
+            import autoawq
+
+            logger.debug(f"AWQ library found: autoawq {autoawq.__version__}")
+        except (ImportError, AttributeError):
+            logger.debug("AWQ library found: autoawq (version unknown)")
 
         import torch
 
@@ -94,7 +99,9 @@ class AwqQuantization(BaseQuantization):
 
         # 1. Load model and tokenizer
         logger.info("📥 Loading base model...")
-        model = self._awq.AutoAWQForCausalLM.from_pretrained(  # type: ignore
+        from awq import AutoAWQForCausalLM
+
+        model = AutoAWQForCausalLM.from_pretrained(
             config.model.model_name,
             **{
                 "safetensors": True,
@@ -172,7 +179,8 @@ class AwqQuantization(BaseQuantization):
         logger.info(f"📁 Output: {output_path}")
         logger.info(f"📊 Quantized size: {format_size(awq_size)}")
         logger.info(
-            f"💡 Use this model with: AutoAWQForCausalLM.from_quantized('{output_path}')"
+            f"💡 Use this model with: "
+            f"AutoAWQForCausalLM.from_quantized('{output_path}')"
         )
 
         return {
@@ -230,7 +238,9 @@ class AwqQuantization(BaseQuantization):
 
         try:
             # Load the AWQ model
-            model = self._awq.AutoAWQForCausalLM.from_quantized(  # type: ignore
+            from awq import AutoAWQForCausalLM
+
+            model = AutoAWQForCausalLM.from_quantized(
                 awq_model_path,
                 fuse_layers=True,
                 trust_remote_code=True,
@@ -274,6 +284,8 @@ class AwqQuantization(BaseQuantization):
             import struct
 
             # Write GGUF headers
+            from oumi.quantize.constants import GGUF_MAGIC, GGUF_VERSION
+            
             f.write(GGUF_MAGIC)
             f.write(struct.pack("<I", GGUF_VERSION))
             f.write(struct.pack("<Q", 0))  # tensor count (simplified)

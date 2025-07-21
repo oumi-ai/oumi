@@ -43,22 +43,25 @@ class BitsAndBytesQuantization(BaseQuantization):
         self._bitsandbytes = importlib.util.find_spec("bitsandbytes")
 
     @override
-    def validate_requirements(self) -> bool:
+    def raise_if_requirements_not_met(self) -> None:
         """Check if BitsAndBytes dependencies are available.
 
-        Returns:
-            True if all dependencies are available, False otherwise.
+        Raises:
+            RuntimeError: If BitsAndBytes dependencies are not available.
         """
-        if importlib.util.find_spec("bitsandbytes") is None:
-            logger.error(
+        if self._bitsandbytes is None:
+            raise RuntimeError(
                 "BitsAndBytes quantization requires bitsandbytes library.\n"
                 "Install with: pip install bitsandbytes"
             )
-            return False
 
         # Import to get version info
-        logger.info(f"BitsAndBytes library found: {self._bitsandbytes.version}")  # type: ignore
-        return True
+        try:
+            import bitsandbytes
+
+            logger.info(f"BitsAndBytes library found: {bitsandbytes.__version__}")
+        except (ImportError, AttributeError):
+            logger.info("BitsAndBytes library found (version unknown)")
 
     @override
     def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
@@ -74,8 +77,7 @@ class BitsAndBytesQuantization(BaseQuantization):
         self.validate_config(config)
 
         # Check requirements
-        if not self.validate_requirements():
-            raise RuntimeError("BitsAndBytes requirements not met")
+        self.raise_if_requirements_not_met()
 
         # Route to appropriate method based on output format
         if config.output_format == "safetensors":
