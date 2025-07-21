@@ -60,6 +60,9 @@ def evaluate(
     )
     parsed_config.finalize_and_validate()
 
+    # Print configuration for verification
+    parsed_config.print_config(logger)
+
     # Run evaluation
     with cli_utils.CONSOLE.status(
         "[green]Running evaluation...[/green]", spinner="dots"
