@@ -79,6 +79,10 @@ Note:
         which provides common functionality such as serialization and validation.
 """
 
+from oumi.core.configs.analyze_config import (
+    AnalyzeConfig,
+    SampleAnalyzerParams,
+)
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
@@ -148,6 +152,10 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
+    "AnalyzeConfig",
+    "SampleAnalyzerParams",
+    "EvaluationTaskParams",
+    "EvaluationConfig",
     "EvaluationBackend",
     "EvaluationConfig",
     "EvaluationTaskParams",

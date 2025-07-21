@@ -335,3 +335,108 @@ def test_mps_initialization(model, mock_tokenizer, mock_params, mock_dataset):
     )
     assert next(model.parameters()).is_mps, "Model should be on MPS"
     assert trainer.device == "mps", "Device should be MPS"
+
+
+#
+# MLflow Tests
+#
+@pytest.fixture
+def mock_mlflow():
+    """Mock MLflow module for testing."""
+    with patch("oumi.core.trainers.oumi_trainer.mlflow") as mock_mlflow:
+        # Mock active_run to return None by default (no active run)
+        mock_mlflow.active_run.return_value = None
+        # Mock start_run to return a mock run
+        mock_run = MagicMock()
+        mock_run.info.run_id = "test-run-id"
+        mock_mlflow.start_run.return_value = mock_run
+        # Mock log_metrics
+        mock_mlflow.log_metrics = MagicMock()
+        # Mock end_run
+        mock_mlflow.end_run = MagicMock()
+        yield mock_mlflow
+
+
+@pytest.fixture
+def mlflow_params():
+    """Training params with MLflow enabled."""
+    args = MagicMock(spec=TrainingParams)
+    args.adam_beta1 = 0.9
+    args.adam_beta2 = 0.999
+    args.adam_epsilon = 1e-8
+    args.compile = False
+    args.dataloader_num_workers = 0
+    args.dataloader_prefetch_factor = 2
+    args.enable_gradient_checkpointing = False
+    args.enable_tensorboard = False
+    args.enable_wandb = False
+    args.enable_mlflow = True  # Enable MLflow
+    args.eval_steps = 50
+    args.eval_strategy = "steps"
+    args.gradient_accumulation_steps = 1
+    args.learning_rate = 0.001
+    args.logging_steps = 10
+    args.lr_scheduler_kwargs = {}
+    args.lr_scheduler_type = "linear"
+    args.max_steps = 100
+    args.num_train_epochs = 3
+    args.optimizer = "adamw"
+    args.output_dir = "/tmp/test_output"
+    args.per_device_eval_batch_size = 8
+    args.per_device_train_batch_size = 8
+    args.save_epoch = True
+    args.save_steps = 50
+    args.warmup_ratio = None
+    args.warmup_steps = 0
+    args.weight_decay = 0.01
+    args.run_name = "test-run"
+    return args
+
+
+def test_mlflow_initialization_with_no_active_run(
+    model, mock_tokenizer, mlflow_params, mock_dataset, mock_mlflow
+):
+    with patch("oumi.core.distributed.is_world_process_zero", return_value=True):
+        trainer = Trainer(
+            model=model,
+            processing_class=mock_tokenizer,
+            processor=None,
+            args=mlflow_params,
+            train_dataset=mock_dataset,
+            eval_dataset=mock_dataset,
+        )
+
+        mock_mlflow.start_run.assert_called_once_with(run_name="test-run")
+        assert trainer._mlflow_oumi_managed_run is True
+
+
+def test_mlflow_initialization_with_active_run(
+    model, mock_tokenizer, mlflow_params, mock_dataset, mock_mlflow
+):
+    mock_mlflow.active_run.return_value = MagicMock()
+
+    with patch("oumi.core.distributed.is_world_process_zero", return_value=True):
+        trainer = Trainer(
+            model=model,
+            processing_class=mock_tokenizer,
+            processor=None,
+            args=mlflow_params,
+            train_dataset=mock_dataset,
+            eval_dataset=mock_dataset,
+        )
+
+        # Check that MLflow run was NOT started (user manages it)
+        mock_mlflow.start_run.assert_not_called()
+        assert trainer._mlflow_oumi_managed_run is False
+
+
+def test_mlflow_log_metrics(trainer, mock_mlflow):
+    trainer.params.enable_mlflow = True
+    trainer.state.global_step = 10
+
+    metrics = {"loss": 0.5, "accuracy": 0.8}
+
+    with patch("oumi.core.distributed.is_world_process_zero", return_value=True):
+        trainer.log_metrics(metrics, step=10)
+
+        mock_mlflow.log_metrics.assert_called_once_with(metrics, step=10)

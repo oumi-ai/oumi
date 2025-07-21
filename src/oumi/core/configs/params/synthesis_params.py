@@ -30,6 +30,12 @@ class DatasetSource:
     path: str
     """Path to the dataset source."""
 
+    hf_split: Optional[str] = None
+    """Split of the huggingface dataset to be used in synthesis."""
+
+    hf_revision: Optional[str] = None
+    """Revision of the huggingface dataset to be used in synthesis."""
+
     attribute_map: Optional[dict[str, str]] = None
     """Map of attributes to be used in synthesis.
     Will use the existing keys in the dataset if not specified."""
@@ -40,6 +46,9 @@ class DatasetSource:
             raise ValueError("DatasetSource.path cannot be empty.")
 
         file_path = Path(self.path)
+        prefix = self.path.split(":")[0]
+        if prefix == "hf":
+            return
         if file_path.suffix.lower() not in _SUPPORTED_DATASET_FILE_TYPES:
             raise ValueError(
                 f"Unsupported dataset file type: {self.path}\n"
@@ -64,6 +73,12 @@ class DocumentSegmentationParams:
     segmentation_strategy: SegmentationStrategy = SegmentationStrategy.TOKENS
     """Type of segmentation to be used."""
 
+    tokenizer: str = "openai-community/gpt2"
+    """Tokenizer to be used for segmentation.
+
+    Tokenizers can be specified by their HuggingFace Hub ID or by direct file path.
+    If not specified, will use the GPT-2 tokenizer from the HuggingFace Hub."""
+
     segment_length: int = 2048
     """Length of each segment, dependent on the segmentation strategy."""
 
@@ -81,6 +96,12 @@ class DocumentSegmentationParams:
             raise ValueError("Segment overlap must be non-negative.")
         if self.segment_overlap >= self.segment_length:
             raise ValueError("Segment overlap must be less than segment length.")
+        if self.segmentation_strategy == SegmentationStrategy.TOKENS:
+            if not self.tokenizer:
+                raise ValueError(
+                    "DocumentSegmentationParams.tokenizer cannot be empty when "
+                    "segmentation_strategy is TOKENS."
+                )
 
 
 @dataclass
@@ -130,11 +151,12 @@ class PermutableAttributeValue:
     """ID to be used when referencing the attribute value during synthesis."""
 
     value: str
-    """Value to be used for the attribute."""
+    """Value to be used for the attribute.
+    Referenced as {attribute_id.value}"""
 
     description: str
     """Description of the attribute value.
-    Referenced as <<attribute_id.value.description>>"""
+    Referenced as {attribute_id.value.description}"""
 
     sample_rate: Optional[float] = None
     """Sample rate for the attribute value. If not specified, will assume uniform
@@ -164,10 +186,10 @@ class PermutableAttribute:
     """ID to be used when referencing the attribute during synthesis."""
 
     attribute: str
-    """Plaintext name of the attribute. Referenced as <<atribute_id>>"""
+    """Plaintext name of the attribute. Referenced as {attribute_id}"""
 
     description: str
-    """Description of the attribute. Referenced as <<attribute_id.description>>"""
+    """Description of the attribute. Referenced as {attribute_id.description}"""
 
     possible_values: list[PermutableAttributeValue]
     """Type of the attribute."""
@@ -435,7 +457,7 @@ class GeneralSynthesisParams(BaseParams):
     instruction messages:
     [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "How do you pronounce the name <<name>>?"}
+        {"role": "user", "content": "How do you pronounce the name {name}?"}
     ]
 
     Then assuming your data point has a value of "Oumi" for the "name" attribute, the
@@ -459,8 +481,8 @@ class GeneralSynthesisParams(BaseParams):
     chat message.
 
     [
-        {"role": "user", "content": "<<prompt>>"},
-        {"role": "assistant", "content": "<<response>>"}
+        {"role": "user", "content": "{prompt}"},
+        {"role": "assistant", "content": "{response}"}
     ]"""
 
     passthrough_attributes: Optional[list[str]] = None
