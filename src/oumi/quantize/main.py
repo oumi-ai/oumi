@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from oumi.core.configs import QuantizationConfig
+from oumi.quantize.base import QuantizationResult
 from oumi.quantize.factory import QuantizationFactory
 from oumi.quantize.utils import (
     calculate_compression_ratio,
@@ -69,12 +70,29 @@ def quantize(config: QuantizationConfig) -> dict[str, Any]:
 
     # Perform quantization
     quantization_result = quantizer.quantize(config)
-    result.update(quantization_result)
+    
+    # Handle both dict (legacy) and QuantizationResult (new) return types
+    if isinstance(quantization_result, dict):
+        # Legacy dict format
+        result.update(quantization_result)
+        quantized_size_bytes = result.get("quantized_size_bytes")
+    else:
+        # New QuantizationResult format
+        result.update({
+            "quantized_size": quantization_result.quantized_size,
+            "quantized_size_bytes": quantization_result.quantized_size_bytes,
+            "output_path": quantization_result.output_path,
+            "quantization_method": quantization_result.quantization_method,
+            "format_type": quantization_result.format_type,
+        })
+        # Add additional info to result
+        result.update(quantization_result.additional_info)
+        quantized_size_bytes = quantization_result.quantized_size_bytes
 
     # Calculate compression ratio if we have both sizes
-    if "quantized_size_bytes" in result:
+    if quantized_size_bytes:
         compression_ratio = calculate_compression_ratio(
-            original_size, result["quantized_size_bytes"]
+            original_size, quantized_size_bytes
         )
         result["compression_ratio"] = compression_ratio
 

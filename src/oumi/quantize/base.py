@@ -16,6 +16,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 from oumi.core.configs import QuantizationConfig
 
@@ -27,9 +28,14 @@ class QuantizationResult:
     quantized_size: str
     quantized_size_bytes: int
     output_path: str
-    method: str
-    pytorch_format: bool
-    awq_size: str
+    quantization_method: str
+    format_type: str  # "pytorch", "gguf", "safetensors"
+    additional_info: dict[str, Any] = None  # For quantizer-specific data
+    
+    def __post_init__(self):
+        """Initialize additional_info if None."""
+        if self.additional_info is None:
+            self.additional_info = {}
 
 
 class BaseQuantization(ABC):
