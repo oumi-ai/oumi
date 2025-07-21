@@ -15,14 +15,12 @@
 """AWQ (Activation-aware Weight Quantization) quantizer implementation."""
 
 import importlib.util
-from pathlib import Path
-from typing import Any
 
 import torch
 from typing_extensions import override
 
 from oumi.core.configs import QuantizationConfig
-from oumi.quantize.base import BaseQuantization
+from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.utils import format_size, get_directory_size
 from oumi.utils.logging import logger
 
@@ -68,7 +66,7 @@ class AwqQuantization(BaseQuantization):
             )
 
     @override
-    def quantize(self, config: QuantizationConfig) -> dict[str, Any]:
+    def quantize(self, config: QuantizationConfig) -> QuantizationResult:
         """Main quantization method for AWQ.
 
         Args:
@@ -78,17 +76,38 @@ class AwqQuantization(BaseQuantization):
             Dictionary containing quantization results
         """
         self.validate_config(config)
+        if config.output_format != "pytorch":
+            raise ValueError("AWQ quantization only supports PyTorch format.")
 
         logger.info("Starting AWQ quantization pipeline...")
 
         # Step 1: AWQ quantization
-        awq_result = self._quantize_model_with_awq(config)
-        awq_model_path = awq_result["awq_model_path"]
+        model, tokenizer = self._quantize(config)
 
         # Step 2: Save as PyTorch format
-        return self._save_as_pytorch(config, awq_model_path)
+        logger.info("PyTorch format requested. Saving AWQ model...")
 
-    def _quantize_model_with_awq(self, config: QuantizationConfig) -> dict[str, Any]:
+        model.save_quantized(config.output_path)
+        tokenizer.save_pretrained(config.output_path)
+
+        awq_size = get_directory_size(config.output_path)
+
+        logger.info("✅ AWQ quantization successful! Saved as PyTorch format.")
+        logger.info(f"📊 Quantized size: {format_size(awq_size)}")
+        logger.info(
+            f"💡 Use this model with: "
+            f"AutoAWQForCausalLM.from_quantized('{config.output_path}')"
+        )
+        quantization_result = QuantizationResult(
+            quantization_method=config.method,
+            quantized_size_bytes=awq_size,
+            output_path=config.output_path,
+            format_type=config.output_format,
+        )
+
+        return quantization_result
+
+    def _quantize(self, config: QuantizationConfig):
         """Quantize model using AWQ algorithm with calibration."""
         from transformers import AutoTokenizer
 
@@ -138,52 +157,4 @@ class AwqQuantization(BaseQuantization):
             n_parallel_calib_samples=AWQ_DEFAULTS["n_parallel_calib_samples"],
         )
 
-        # 4. Save AWQ quantized model
-        temp_awq_path = f"{config.output_path}_awq_temp"
-        logger.info(f"Saving AWQ model to: {temp_awq_path}")
-
-        model.save_quantized(temp_awq_path)
-        tokenizer.save_pretrained(temp_awq_path)
-
-        awq_size = get_directory_size(temp_awq_path)
-
-        return {"awq_model_path": temp_awq_path, "awq_size": awq_size}
-
-    def _save_as_pytorch(
-        self, config: QuantizationConfig, awq_model_path: str
-    ) -> dict[str, Any]:
-        """Save AWQ model as PyTorch format."""
-        logger.info("PyTorch format requested. Saving AWQ model...")
-
-        output_path = config.output_path
-        if not output_path.endswith(".pytorch"):
-            output_path = f"{output_path}.pytorch"
-
-        # Move AWQ model to final output path
-        if awq_model_path != output_path:
-            if Path(output_path).exists():
-                import shutil
-
-                shutil.rmtree(output_path)
-            import shutil
-
-            shutil.move(awq_model_path, output_path)
-
-        awq_size = get_directory_size(output_path)
-
-        logger.info("✅ AWQ quantization successful! Saved as PyTorch format.")
-        logger.info(f"📁 Output: {output_path}")
-        logger.info(f"📊 Quantized size: {format_size(awq_size)}")
-        logger.info(
-            f"💡 Use this model with: "
-            f"AutoAWQForCausalLM.from_quantized('{output_path}')"
-        )
-
-        return {
-            "quantization_method": "AWQ → PyTorch",
-            "awq_size": format_size(awq_size),
-            "quantized_size": format_size(awq_size),
-            "quantized_size_bytes": awq_size,
-            "output_path": output_path,
-            "pytorch_format": True,
-        }
+        return model, tokenizer
