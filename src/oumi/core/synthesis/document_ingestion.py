@@ -22,9 +22,9 @@ from oumi.core.configs.params.synthesis_params import (
 )
 
 try:
-    import pymupdf4llm  # pyright: ignore[reportMissingImports]
+    from pdftext.extraction import plain_text_output
 except ImportError:
-    pymupdf4llm = None
+    plain_text_output = None
 
 
 class DocumentSegmenter:
@@ -72,12 +72,12 @@ class DocumentReader:
 
     def __init__(self):
         """Initialize the document reader."""
-        if pymupdf4llm is None:
+        if plain_text_output is None:
             raise ImportError(
-                "pymupdf4llm is not installed. Please install it with "
+                "pdftext is not installed. Please install it with "
                 "`pip install oumi[synthesis]`."
             )
-        self._pymupdf4llm = pymupdf4llm
+        self._extractor_method = plain_text_output
 
     def read(self, document_path: str) -> list[str]:
         """Read the document."""
@@ -138,8 +138,8 @@ class DocumentReader:
 
     def _read_from_pdf(self, document_path: str) -> str:
         """Read the document from the PDF format."""
-        markdown_text = self._pymupdf4llm.to_markdown(document_path)
-        return markdown_text
+        plain_text = self._extractor_method(document_path, sort=True, hyphens=True)
+        return plain_text
 
     def _read_from_text_file(self, document_path: str) -> str:
         """Read the document from the file."""
