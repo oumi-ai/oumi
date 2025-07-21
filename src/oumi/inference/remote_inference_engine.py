@@ -503,7 +503,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
             for attempt in range(remote_params.max_retries + 1):
                 try:
                     # Calculate exponential backoff delay
-                    print(f"attempt: {attempt}")
                     if attempt > 0:
                         delay = min(
                             remote_params.retry_backoff_base * (2 ** (attempt - 1)),
