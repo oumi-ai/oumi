@@ -40,6 +40,7 @@ async def test_polite_adaptive_semaphore(mock_time, mock_asyncio_sleep):
     await semaphore.acquire()
     assert len(semaphore._queue) == 0
     semaphore.release()
+    # 11 = 1.0 + politeness_policy  (10.0)
     assert semaphore._queue == deque([11])
 
 
@@ -101,7 +102,7 @@ async def test_polite_adaptive_semaphore_multiple_releases_before_acquire(
         10.0,
         11.0,
         12.0,
-        36.0,
+        36.0,  # release time for Task 3
         37.0,
         38.0,
     ]
@@ -112,14 +113,20 @@ async def test_polite_adaptive_semaphore_multiple_releases_before_acquire(
 
     tasks = [acquire_and_release(semaphore) for _ in range(4)]
 
-    # Tasks 1 finishes at 10.0.
-    # Task 2 finishes at 11.0.
-    # Task 3 starts at time 12.0 and then sleeps for 18 seconds.
-    # Task 4 starts at time 37.0 and does not sleep.
+    # Task 1: Acquires at first available slot and finishes at 10.0. Sets slot to next
+    # allowed start at 10.0 + 20 = 30.0.
+    # Task 2: Acquires the other slot, finishes at 11.0. Sets slot to next allowed start
+    # at 11.0 + 20 = 31.0
+    # Task 3: Starts at 12.0. Both queue slots are now [30.0, 31.0]. Needs to wait for
+    # queue.pop() - current time = 30.0 - 12.0 = 18.0 seconds.
+    # Task 4: Starts at 37.0. The queue slots are now [31.0, 56.0]
+    # (after Task 3’s release). 37.0 is after 31.0, so no sleep needed. Task 4 releases
+    # at 38.0, setting queue to [56.0, 58.0].
 
     await asyncio.gather(*tasks)
     mock_time.time.assert_has_calls([call(), call(), call(), call(), call(), call()])
     mock_asyncio_sleep.assert_has_calls([call(18.0)])
+    assert semaphore._queue == deque([56.0, 58.0])
 
 
 @pytest.mark.asyncio
