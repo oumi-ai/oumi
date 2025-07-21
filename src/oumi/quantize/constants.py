@@ -12,28 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A framework used for registering and accessing objects across Oumi."""
+"""Constants and mappings for quantization methods."""
 
-from oumi.core.registry.registry import (
-    REGISTRY,
-    Registry,
-    RegistryType,
-    register,
-    register_cloud_builder,
-    register_dataset,
-    register_evaluation_function,
-    register_judge,
-    register_sample_analyzer,
-)
-
-__all__ = [
-    "REGISTRY",
-    "Registry",
-    "RegistryType",
-    "register",
-    "register_cloud_builder",
-    "register_dataset",
-    "register_evaluation_function",
-    "register_judge",
-    "register_sample_analyzer",
+# Supported quantization methods
+SUPPORTED_METHODS = [
+    # AWQ methods
+    "awq_q4_0",
+    "awq_q4_1",
+    "awq_q8_0",
+    "awq_f16",
+    # BitsAndBytes methods
+    "bnb_4bit",
+    "bnb_8bit",
+    # Direct GGUF methods
+    "q4_0",
+    "q4_1",
+    "q5_0",
+    "q5_1",
+    "q8_0",
+    "f16",
+    "f32",
 ]
+
+# Supported output formats
+SUPPORTED_OUTPUT_FORMATS = ["gguf", "safetensors", "pytorch"]
