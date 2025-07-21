@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
-
-import pandas as pd
+from typing import Any
 
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.registry.registry import REGISTRY
@@ -28,9 +26,6 @@ from oumi.utils.logging import logger
 class DatasetAnalyzer:
     """Orchestrates dataset analysis by creating and managing sample analyzers."""
 
-    # TODO: Add DEFAULT_OUTPUT_FILENAME constant when save functionality is implemented
-    # DEFAULT_OUTPUT_FILENAME = "sample_level_results.json"
-
     def __init__(self, config: AnalyzeConfig):
         """Initialize the dataset analyzer with configuration.
 
@@ -43,11 +38,6 @@ class DatasetAnalyzer:
 
         self.dataset = load_dataset_from_config(config)
         self.sample_analyzers = self._initialize_sample_analyzers()
-        # TODO: Add _output_path attribute when save functionality is implemented
-        # self._output_path = str(
-        #     Path(self.config.output_path) / "sample_level_results.json"
-        # )
-        self._cached_results_df: Optional[pd.DataFrame] = None
 
     def _initialize_sample_analyzers(self):
         """Initialize sample analyzer plugins from configuration."""
@@ -108,13 +98,6 @@ class DatasetAnalyzer:
             self.dataset, self.config, self.sample_analyzers
         )
 
-        # Cache the results for immediate querying
-        from pandas import DataFrame
-
-        messages = sample_results.get("messages", [])
-        messages_df = DataFrame(messages)
-        self._cached_results_df = messages_df
-
         final_results = {
             "dataset_name": self.dataset_name,
             "sample_level_results": sample_results,
@@ -127,16 +110,11 @@ class DatasetAnalyzer:
     #     pass
 
     # TODO: Add load_jsonl_results method to load analysis results from JSONL file
-    # def load_jsonl_results(self) -> pd.DataFrame:
-    #     """Load analysis results from JSONL file into DataFrame."""
+    # def load_jsonl_results(self) -> dict[str, Any]:
+    #     """Load analysis results from JSONL file into dict format."""
     #     pass
 
     # TODO: Add query_results method to query analysis results using pandas
     # def query_results(self, query_expression: str) -> pd.DataFrame:
     #     """Query analysis results using pandas query expression."""
-    #     pass
-
-    # TODO: Add clear_cache method when save/load functionality is implemented
-    # def clear_cache(self) -> None:
-    #     """Clear the cached results DataFrame."""
     #     pass
