@@ -32,7 +32,7 @@ import pydantic
 from tqdm.asyncio import tqdm
 from typing_extensions import override
 
-from oumi.core.async_utils import AsyncioPoliteSemaphore, safe_asyncio_run
+from oumi.core.async_utils import safe_asyncio_run
 from oumi.core.configs import (
     GenerationParams,
     InferenceConfig,
@@ -47,6 +47,7 @@ from oumi.core.types.conversation import (
     Role,
 )
 from oumi.inference.adaptive_concurrency_controller import AdaptiveConcurrencyController
+from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.utils.conversation_utils import (
     convert_message_to_json_content_list,
     create_list_of_message_json_dicts,
@@ -256,7 +257,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     initial_concurrency_factor=initial_concurrency_factor,
                     concurrency_step=concurrency_step,
                     min_update_time=min_update_time,
-                )
+                ),
+                politeness_policy=self._remote_params.politeness_policy,
             )
 
     def _default_remote_params(self) -> RemoteParams:
@@ -447,7 +449,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
     async def _query_api(
         self,
         conversation: Conversation,
-        semaphore: asyncio.Semaphore,
+        semaphore: PoliteAdaptiveSemaphore,
         session: aiohttp.ClientSession,
         inference_config: Optional[InferenceConfig] = None,
     ) -> Conversation:
@@ -592,15 +594,6 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                             f"unexpected error: {str(e)}"
                         ) from e
                     continue
-                finally:
-                    # If the request was successful or non-retriable, and we haven't
-                    # reached the max number of retries, sleep for politeness policy.
-                    if (
-                        not failure_reason
-                        or not failure_reason.startswith("Non-retriable error:")
-                    ) and attempt < remote_params.max_retries:
-                        await asyncio.sleep(remote_params.politeness_policy)
-
             # This should only be reached if all retries failed
             raise RuntimeError(
                 f"Failed to query API after {attempt + 1} attempts. "
@@ -625,7 +618,7 @@ class RemoteInferenceEngine(BaseInferenceEngine):
         # Limit number of HTTP connections to the number of workers.
         connector = aiohttp.TCPConnector(limit=self._remote_params.num_workers)
         # Control the number of concurrent tasks via a semaphore.
-        semaphore = AsyncioPoliteSemaphore(
+        semaphore = PoliteAdaptiveSemaphore(
             capacity=self._remote_params.num_workers,
             politeness_policy=self._remote_params.politeness_policy,
         )

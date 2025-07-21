@@ -53,13 +53,13 @@ def mock_aioresponse():
         yield m
 
 
-@pytest.fixture(autouse=True)
-def mock_asyncio_polite_semaphore():
+@pytest.fixture(autouse=False)
+def mock_polite_adaptive_semaphore():
     with patch(
-        "oumi.inference.remote_inference_engine.AsyncioPoliteSemaphore",
+        "oumi.inference.remote_inference_engine.PoliteAdaptiveSemaphore",
         return_value=AsyncMock(),
-    ) as mock_asyncio_polite_semaphore:
-        yield mock_asyncio_polite_semaphore
+    ) as mock_polite_adaptive_semaphore:
+        yield mock_polite_adaptive_semaphore
 
 
 @pytest.fixture
@@ -755,8 +755,8 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
                 [conversation],
                 config,
             )
-        # 3 retries + 3 backoffs
-        assert mock_asyncio_sleep.call_count == 6
+        # 3 retries
+        assert mock_asyncio_sleep.call_count == 3
 
 
 def test_infer_online_recovers_from_retries():

@@ -18,7 +18,7 @@ import time
 from collections import deque
 
 from oumi.core.configs.params.remote_params import AdaptiveConcurrencyParams
-from oumi.inference.adaptive_semaphore import AdaptiveSemaphore
+from oumi.inference.adaptive_semaphore import PoliteAdaptiveSemaphore
 from oumi.utils.logging import logger
 
 _MAX_OUTCOMES_WINDOW_SIZE = 1000
@@ -54,15 +54,18 @@ class AdaptiveConcurrencyController:
     ```
     """
 
-    def __init__(self, config: AdaptiveConcurrencyParams):
+    def __init__(self, config: AdaptiveConcurrencyParams, politeness_policy: float):
         """Initialize the adaptive concurrency controller.
 
         Args:
             config: Configuration for adaptive concurrency control.
+            politeness_policy: The politeness policy to use for the semaphore.
         """
         self._config = config
         self._current_concurrency = self._get_initial_concurrency()
-        self._semaphore = AdaptiveSemaphore(self._current_concurrency)
+        self._semaphore = PoliteAdaptiveSemaphore(
+            self._current_concurrency, politeness_policy
+        )
 
         # Track request outcomes in a sliding window
         self._outcomes: deque[bool] = deque(maxlen=_MAX_OUTCOMES_WINDOW_SIZE)
