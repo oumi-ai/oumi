@@ -22,7 +22,9 @@ from oumi.core.configs.params.synthesis_params import (
 )
 
 try:
-    from pdftext.extraction import plain_text_output
+    from pdftext.extraction import (  # pyright: ignore[reportMissingImports]
+        plain_text_output,
+    )
 except ImportError:
     plain_text_output = None
 
