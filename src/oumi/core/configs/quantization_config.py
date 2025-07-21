@@ -23,204 +23,68 @@ from oumi.core.configs.params.model_params import ModelParams
 class QuantizationConfig(BaseConfig):
     """Configuration for model quantization.
 
-    This configuration class defines parameters for quantizing models to reduce their
-    size and memory requirements while maintaining inference performance. Quantization
-    converts model weights from higher precision (e.g., float32) to lower precision
-    (e.g., int4, int8) formats.
+    Reduces model size by converting weights from higher precision (float32) to
+    lower precision (int4, int8) formats while maintaining performance.
 
-    The quantization process supports multiple methods and output formats, allowing
-    flexibility for different deployment scenarios and inference engines.
+    Tested on NVIDIA H100 GPU with models up to 14B parameters.
 
     Example:
-        Basic quantization to GGUF format:
-
         >>> config = QuantizationConfig(
         ...     model=ModelParams(model_name="meta-llama/Llama-2-7b-hf"),
-        ...     method="q4_0",
-        ...     output_path="llama2-7b-q4.gguf",
-        ...     output_format="gguf"
+        ...     method="awq_q4_0",
+        ...     output_path="llama2-7b-q4.gguf"
         ... )
-
-        Quantization with custom settings:
-
-        >>> config = QuantizationConfig(
-        ...     model=ModelParams(model_name="./my_local_model"),
-        ...     method="q8_0",
-        ...     output_path="./quantized/model.safetensors",
-        ...     output_format="safetensors",
-        ...     verbose=True
-        ... )
-
-    Attributes:
-        model: Parameters for the model to be quantized.
-        method: Quantization method to use.
-        output_path: Path where the quantized model will be saved.
-        output_format: Output format for the quantized model.
-        batch_size: Batch size for quantization process.
-        verbose: Enable verbose logging during quantization.
     """
 
     model: ModelParams = field(default_factory=ModelParams)
-    """Parameters for the model to be quantized.
-
-    This should specify the model name or path, along with any additional
-    parameters needed to load the model (e.g., tokenizer_name, model_kwargs).
-
-    The model can be:
-    - A HuggingFace model identifier (e.g., "meta-llama/Llama-2-7b-hf")
-    - A local path to a model directory
-    - An Oumi model registry identifier
-    """
+    """Model to quantize. Supports HuggingFace IDs, local paths, or Oumi models."""
 
     method: str = "awq_q4_0"
-    """Quantization method to use.
-
-    The quantization method determines the precision and algorithm used to
-    compress the model weights. Different methods offer trade-offs between
-    model size, inference speed, and accuracy.
-
-    Supported methods:
-
-    **AWQ methods (recommended - best quality):**
-    - ``awq_q4_0``: AWQ 4-bit → GGUF q4_0 (default, best balance)
-    - ``awq_q4_1``: AWQ 4-bit → GGUF q4_1 (improved accuracy)
-    - ``awq_q8_0``: AWQ 8-bit → GGUF q8_0 (minimal quality loss)
-    - ``awq_f16``: AWQ → GGUF f16 (format conversion with AWQ optimization)
-
-    **Direct GGUF methods (for llama.cpp):**
-    - ``q4_0``: Direct 4-bit quantization with block-wise scaling
-    - ``q4_1``: Direct 4-bit quantization with improved accuracy via bias terms
-    - ``q5_0``: Direct 5-bit quantization for better quality than 4-bit
-    - ``q5_1``: Direct 5-bit quantization with bias terms for highest 5-bit quality
-    - ``q8_0``: Direct 8-bit quantization for minimal quality loss
-
-    **Precision methods:**
-    - ``f16``: 16-bit floating point (half precision)
-    - ``f32``: 32-bit floating point (no quantization, format conversion only)
-
-    **Recommendations:**
-    - Use ``awq_q4_0`` for best quality 4-bit quantization (recommended)
-    - Use ``awq_q8_0`` for minimal quality loss with good compression
-    - Use ``q4_0`` for direct GGUF conversion without AWQ preprocessing
-    - Use ``f16`` for GPU inference with moderate compression
-    """
+    """Quantization method. AWQ methods (awq_q4_0, awq_q8_0) provide best quality.
+    Direct GGUF methods (q4_0, q8_0) for llama.cpp. Precision methods (f16, f32)."""
 
     output_path: str = "quantized_model.gguf"
-    """Path where the quantized model will be saved.
-
-    The output path determines both the location and filename of the quantized model.
-    The file extension should match the output_format:
-    - For GGUF format: use .gguf extension
-    - For safetensors format: use .safetensors extension or directory path
-    - For PyTorch format: use .pt/.pth extension or directory path
-
-    Examples:
-    - "models/llama2-7b-q4.gguf"
-    - "./quantized/model/"
-    - "/tmp/quantized_model.safetensors"
-    """
+    """Output file path. Extension should match format (.gguf, .safetensors, .pt)."""
 
     output_format: str = "gguf"
-    """Output format for the quantized model.
-
-    The output format determines the serialization format and compatibility
-    with different inference engines.
-
-    Supported formats:
-
-    - ``gguf``: GGUF format (default)
-        - Compatible with llama.cpp and derivatives
-        - Single-file format with metadata
-        - Best for CPU inference and edge deployment
-        - Supports all quantization methods
-
-    - ``safetensors``: Safetensors format
-        - Compatible with HuggingFace transformers
-        - Safe tensor serialization format
-        - Good for GPU inference
-        - Supports BitsAndBytes quantization methods
-
-    - ``pytorch``: PyTorch format
-        - Native PyTorch serialization
-        - Compatible with PyTorch inference
-        - Supports torch quantization methods
-        - Good for research and development
-    """
+    """Output format: 'gguf' (llama.cpp), 'safetensors' (HF), 'pytorch'."""
 
     batch_size: Optional[int] = None
-    """Batch size for quantization process.
-
-    The batch size controls how many samples are processed simultaneously
-    during quantization calibration (if applicable). A larger batch size
-    can improve quantization quality but requires more memory.
-
-    If not specified (None), the quantization process will use automatic
-    batch sizing based on available memory and model size.
-
-    Typical values:
-    - Small models (< 1B params): 32-128
-    - Medium models (1B-7B params): 8-32
-    - Large models (> 7B params): 1-8
-    """
+    """Batch size for calibration. Auto-sized if None. Typical: 32, 8-32, 1-8."""
 
     verbose: bool = False
-    """Enable verbose logging during quantization.
-
-    When enabled, provides detailed progress information including:
-    - Model loading progress
-    - Quantization method details
-    - Layer-by-layer processing status
-    - Memory usage information
-    - Final compression statistics
-
-    Useful for debugging and monitoring long-running quantization jobs.
-    """
+    """Enable detailed progress logging."""
 
     # AWQ-specific configuration
     awq_group_size: int = 128
-    """Group size for AWQ quantization.
-
-    Controls the granularity of weight grouping during AWQ quantization.
-    Smaller values can improve accuracy but increase computation time.
-
-    Typical values:
-    - 128 (default): Good balance of accuracy and speed
-    - 64: Higher accuracy, slower quantization
-    - 256: Faster quantization, potentially lower accuracy
-    """
+    """AWQ weight grouping size. 128 (balanced), 64 (higher accuracy), 256 (faster)."""
 
     awq_zero_point: bool = True
-    """Enable zero point quantization for AWQ.
-
-    When enabled, uses zero-point quantization which can improve
-    accuracy for certain model architectures. Generally recommended
-    to keep enabled unless experiencing specific issues.
-    """
+    """Enable zero-point quantization for AWQ. Generally recommended."""
 
     awq_version: str = "GEMM"
-    """AWQ kernel version to use.
-
-    Available versions:
-    - "GEMM": General matrix multiplication kernels (default)
-    - "GEMV": General matrix-vector multiplication kernels
-
-    GEMM is generally faster for most use cases.
-    """
+    """AWQ kernel version. 'GEMM' (faster, default) or 'GEMV'."""
 
     cleanup_temp: bool = True
-    """Remove temporary AWQ files after GGUF conversion.
-
-    When enabled, cleans up intermediate AWQ model files after
-    successful conversion to GGUF. Disable if you want to keep
-    the AWQ intermediate files for debugging or separate use.
-    """
+    """Remove temporary AWQ files after conversion."""
 
     calibration_samples: int = 512
-    """Number of calibration samples for AWQ quantization.
+    """AWQ calibration samples. 512 (balanced), 128 (faster), 1024 (more accurate)."""
 
-    More samples can improve quantization accuracy but increase
-    processing time. Typical values:
-    - 512 (default): Good balance for most models
-    - 128: Faster quantization, may reduce accuracy
-    - 1024: Higher accuracy, slower quantization
-    """
+    def __post_init__(self):
+        """Post-initialization validation."""
+        from oumi.quantize.constants import SUPPORTED_METHODS, SUPPORTED_OUTPUT_FORMATS
+
+        # Validate output format
+        if self.output_format not in SUPPORTED_OUTPUT_FORMATS:
+            raise ValueError(
+                f"Unsupported output format: {self.output_format}. "
+                f"Must be one of: {SUPPORTED_OUTPUT_FORMATS}."
+            )
+
+        # Validate quantization method
+        if self.method not in SUPPORTED_METHODS:
+            raise ValueError(
+                f"Unsupported quantization method: {self.method}. "
+                f"Must be one of: {SUPPORTED_METHODS}."
+            )
