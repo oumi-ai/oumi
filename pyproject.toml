@@ -140,7 +140,7 @@ lambda = ["skypilot[lambda]"]
 runpod = ["skypilot[runpod]"]
 
 synthesis = [
-    "pdftext",                  # Document ingestion for synthesis
+    "pdftext>=0.6.3",                  # Document ingestion for synthesis
 ]
 
 evaluation = [
