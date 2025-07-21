@@ -19,6 +19,7 @@ with different types of sample analyzers (length, safety, etc.).
 """
 
 # Import base classes
+from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 
-__all__ = ["SampleAnalyzer"]
+__all__ = ["SampleAnalyzer", "DatasetAnalyzer"]
