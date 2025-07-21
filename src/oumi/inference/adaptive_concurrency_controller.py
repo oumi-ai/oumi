@@ -54,7 +54,7 @@ class AdaptiveConcurrencyController:
     ```
     """
 
-    def __init__(self, config: AdaptiveConcurrencyParams, politeness_policy: float):
+    def __init__(self, config: AdaptiveConcurrencyParams):
         """Initialize the adaptive concurrency controller.
 
         Args:
@@ -64,7 +64,7 @@ class AdaptiveConcurrencyController:
         self._config = config
         self._current_concurrency = self._get_initial_concurrency()
         self._semaphore = PoliteAdaptiveSemaphore(
-            self._current_concurrency, politeness_policy
+            self._current_concurrency, config.politeness_policy
         )
 
         # Track request outcomes in a sliding window
