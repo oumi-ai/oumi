@@ -45,7 +45,7 @@ from oumi.datasets.evaluation import AlpacaEvalDataset
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
-from oumi.datasets.preference_tuning.vision_dpo_jsonlines import (
+from oumi.datasets.vision_language.vision_dpo_jsonlines import (
     VisionDpoJsonlinesDataset,
 )
 from oumi.datasets.pretraining.c4 import C4Dataset
