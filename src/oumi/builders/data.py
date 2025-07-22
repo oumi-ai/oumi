@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import importlib.util
 from collections.abc import Sequence
 from typing import Callable, Optional, TypeVar, Union, cast
 
@@ -32,7 +33,6 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.utils.hf_utils import is_cached_to_disk_hf_dataset
-from oumi.utils.logging import logger
 
 DatasetType = TypeVar("DatasetType", datasets.Dataset, datasets.IterableDataset)
 
@@ -63,10 +63,11 @@ def build_dataset_mixture(
     if dataset_split_params.use_torchdata:
         from oumi.builders.oumi_data import build_dataset_mixture as build_oumi_dataset
 
-        logger.warning(
-            "Using torchdata preprocessing pipeline. "
-            "This is currently in beta and may not be stable."
-        )
+        if not importlib.util.find_spec("torchdata"):
+            raise ImportError(
+                "use_torchdata is set to True, but torchdata is not installed. "
+                "Please install it with `pip install torchdata`."
+            )
         # TODO: OPE-271. Some type hackery going on here.
         # We return a torchdata.IterDataPipe instead of a HuggingFace Dataset or
         # IterableDataset. This is a temporary workaround until torchdata is stable
