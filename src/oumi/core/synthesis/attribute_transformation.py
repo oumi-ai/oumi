@@ -59,23 +59,13 @@ class AttributeTransformer:
         """
         for attribute in self._transformed_attributes:
             transformed_attribute_id = attribute.id
-            sample_transforms = self._apply_transform_to_samples(samples, attribute)
-            for sample, transformed_attribute_value in zip(samples, sample_transforms):
-                sample[transformed_attribute_id] = transformed_attribute_value
+            for sample in samples:
+                sample[transformed_attribute_id] = self._transform_attribute(
+                    sample,
+                    attribute,
+                )
 
         return samples
-
-    def _apply_transform_to_samples(
-        self,
-        samples: list[dict[str, SampleValue]],
-        attribute: TransformedAttribute,
-    ) -> list[SampleValue]:
-        """Applies a transform to a list of samples."""
-        transformed_samples = []
-        for sample in samples:
-            transformed_sample = self._transform_attribute(sample, attribute)
-            transformed_samples.append(transformed_sample)
-        return transformed_samples
 
     def _transform_attribute(
         self,
@@ -119,10 +109,7 @@ class AttributeTransformer:
         transform: ListTransform,
     ) -> list[str]:
         """Transforms a list attribute of a sample to a particular format."""
-        result = []
-        for element_transform in transform.element_transforms:
-            result.append(self._transform_string(sample, element_transform))
-        return result
+        return [self._transform_string(sample, e) for e in transform.element_transforms]
 
     def _transform_dict(
         self,
@@ -130,10 +117,10 @@ class AttributeTransformer:
         transform: DictTransform,
     ) -> dict[str, str]:
         """Transforms a dict attribute of a sample to a particular format."""
-        result = {}
-        for key, value_transform in transform.transforms.items():
-            result[key] = self._transform_string(sample, value_transform)
-        return result
+        return {
+            k: self._transform_string(sample, v)
+            for k, v in transform.transforms.items()
+        }
 
     def _transform_chat(
         self,
