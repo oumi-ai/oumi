@@ -112,7 +112,8 @@ def quantize(
         if output != "quantized_model.gguf":  # Only override if not default
             parsed_config.output_path = output
 
-        # Auto-set appropriate output format based on method if not already set appropriately
+        # Auto-set appropriate output format based on method
+        #  if not already set appropriately
         if (
             parsed_config.method.startswith("awq_")
             and parsed_config.output_format == "gguf"
