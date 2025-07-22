@@ -12,16 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
 from typing import Optional, cast
 
 import torch.utils.data.datapipes as dp
 from torch.utils.data import IterDataPipe, MapDataPipe
-from torchdata.datapipes.iter import (
-    HuggingFaceHubReader,
-    MultiplexerLongest,
-    SampleMultiplexer,
-)
-from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
 
 from oumi.core.configs import (
     DatasetParams,
@@ -32,6 +27,8 @@ from oumi.core.configs import (
 from oumi.core.configs.params.data_params import DataParams
 from oumi.core.registry import REGISTRY
 from oumi.core.tokenizers import BaseTokenizer
+
+is_torchdata_installed = importlib.util.find_spec("torchdata") is not None
 
 
 def build_dataset_mixture(
@@ -51,6 +48,17 @@ def build_dataset_mixture(
     Returns:
         dataset: The built dataset for `dataset_split`.
     """
+    if not is_torchdata_installed:
+        raise ImportError(
+            "`build_dataset_mixture` requires torchdata to be installed. "
+            "Please install it with `pip install torchdata==0.9.0`."
+        )
+
+    from torchdata.datapipes.iter import (
+        MultiplexerLongest,
+        SampleMultiplexer,
+    )
+
     dataset_split_params: DatasetSplitParams = data_params.get_split(dataset_split)
 
     if len(dataset_split_params.datasets) == 0:
@@ -140,6 +148,16 @@ def _load_dataset(
 ) -> IterDataPipe:
     """Loads a dataset and wraps it in a DataPipe if necessary."""
     # First, try to load a custom dataset from the REGISTRY
+
+    if not is_torchdata_installed:
+        raise ImportError(
+            "`_load_dataset` requires torchdata to be installed. "
+            "Please install it with `pip install torchdata==0.9.0`."
+        )
+
+    from torchdata.datapipes.iter import HuggingFaceHubReader
+    from torchdata.datapipes.map.util.converter import MapToIterConverterIterDataPipe
+
     dataset_class = REGISTRY.get_dataset(
         dataset_params.dataset_name, subset=dataset_params.subset
     )
