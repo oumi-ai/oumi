@@ -1,4 +1,5 @@
 {
+    "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
     "editor.formatOnSaveMode": "file",
     "editor.rulers": [
@@ -12,9 +13,6 @@
     "python.testing.unittestEnabled": false,
     "[markdown]": {
         "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
-    },
-    "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff"
     },
     "[toml]": {
         "editor.defaultFormatter": "tamasfe.even-better-toml"
