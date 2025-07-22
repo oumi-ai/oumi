@@ -314,7 +314,6 @@ def test_postprocess_sample_with_regex(mock_build_inference_engine):
 def test_postprocess_sample_with_no_regex_match(mock_build_inference_engine):
     """Test postprocessing a sample when regex doesn't match."""
     mock_build_inference_engine.return_value = Mock()
-
     synthesizer = AttributeSynthesizer(GeneralSynthesisParams(), Mock())
 
     response = "No numbers here!"
