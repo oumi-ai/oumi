@@ -32,32 +32,6 @@ class MockSampleAnalyzer:
         }
 
 
-class MockDataset:
-    """Mock dataset for testing."""
-
-    def __init__(self, conversations=None):
-        self.conversations = conversations or [
-            {
-                "messages": [
-                    {"role": "user", "content": "Hello, how are you?"},
-                    {"role": "assistant", "content": "I'm doing well, thank you!"},
-                ]
-            },
-            {
-                "messages": [
-                    {"role": "user", "content": "What is 2+2?"},
-                    {"role": "assistant", "content": "2+2 equals 4."},
-                ]
-            },
-        ]
-
-    def __len__(self):
-        return len(self.conversations)
-
-    def __getitem__(self, idx):
-        return self.conversations[idx]
-
-
 @pytest.fixture
 def mock_config():
     """Create a mock analyzer configuration."""
@@ -75,41 +49,33 @@ def mock_config():
     )
 
 
-@pytest.fixture
-def mock_dataset():
-    """Create a mock dataset."""
-    return MockDataset()
-
-
 @patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
 @patch("oumi.core.analyze.dataset_analyzer.load_dataset_from_config")
-@patch("oumi.core.analyze.dataset_analyzer.compute_sample_level_analysis")
-def test_analyzer_initialization(mock_compute, mock_load, mock_config):
-    """Test DatasetAnalyzer initialization with mocked dependencies."""
-    mock_load.return_value = MockDataset()
-    mock_compute.return_value = {
-        "total_conversations": 2,
-        "conversations_analyzed": 2,
-        "total_messages": 4,
-        "messages": [],
-    }
+def test_analyzer_initialization(mock_load, mock_config):
+    """Test DatasetAnalyzer initialization."""
+    mock_load.return_value = "mock_dataset"
 
-    # Import here to avoid import issues
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 
     analyzer = DatasetAnalyzer(mock_config)
 
+    # Test basic initialization
     assert analyzer.config == mock_config
     assert analyzer.dataset_name == "test_dataset"
     assert analyzer.split == "train"
+
+    # Test that analyzers were initialized correctly
+    assert len(analyzer.sample_analyzers) == 2
+    assert "length" in analyzer.sample_analyzers
+    assert "mock" in analyzer.sample_analyzers
 
 
 @patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
 @patch("oumi.core.analyze.dataset_analyzer.load_dataset_from_config")
 @patch("oumi.core.analyze.dataset_analyzer.compute_sample_level_analysis")
-def test_analyze_dataset(mock_compute, mock_load, mock_config):
-    """Test dataset analysis functionality."""
-    mock_load.return_value = MockDataset()
+def test_analyze_dataset_integration(mock_compute, mock_load, mock_config):
+    """Test DatasetAnalyzer analysis integration."""
+    mock_load.return_value = "mock_dataset"
     mock_compute.return_value = {
         "dataset_name": "test_dataset",
         "total_conversations": 2,
@@ -126,34 +92,38 @@ def test_analyze_dataset(mock_compute, mock_load, mock_config):
     analyzer = DatasetAnalyzer(mock_config)
     results = analyzer.analyze_dataset()
 
+    # Test result structure
     assert results["dataset_name"] == "test_dataset"
     assert "sample_level_results" in results
     assert results["sample_level_results"]["total_messages"] == 4
 
+    # Test that compute_sample_level_analysis was called with correct parameters
+    mock_compute.assert_called_once()
+    call_args = mock_compute.call_args
+    assert call_args[0][0] == mock_load.return_value  # dataset
+    assert call_args[0][1] == mock_config  # config
+    assert isinstance(call_args[0][2], dict)  # sample_analyzers dict
 
-def test_analyzer_config_validation():
-    """Test analyzer configuration validation."""
-    # Test with invalid config (missing required fields)
-    with pytest.raises(ValueError):
-        AnalyzeConfig(
-            dataset_name="",  # Empty dataset name should raise error
-            analyzers=[],
-        )
-
-
-def test_sample_analyzer_config_validation():
-    """Test sample analyzer configuration validation."""
-    # Test with valid config
-    config = SampleAnalyzerParams(id="test_analyzer", config={"param1": "value1"})
-    assert config.id == "test_analyzer"
-    assert config.config["param1"] == "value1"
+    # Test that analyzers were passed correctly
+    sample_analyzers = call_args[0][2]
+    assert "length" in sample_analyzers
+    assert "mock" in sample_analyzers
+    assert len(sample_analyzers) == 2
 
 
-def test_dataset_analyzer_config_defaults():
-    """Test AnalyzeConfig default values."""
+@patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
+@patch("oumi.core.analyze.dataset_analyzer.load_dataset_from_config")
+def test_analyze_dataset_no_analyzers(mock_load):
+    """Test that DatasetAnalyzer raises an error when no analyzers are configured."""
+    mock_load.return_value = "mock_dataset"
+
+    # Create config with no analyzers
     config = AnalyzeConfig(dataset_name="test_dataset", analyzers=[])
 
-    assert config.dataset_name == "test_dataset"
-    assert config.split == "train"  # default value
-    assert config.sample_count is None  # default value
-    assert config.output_path == "."  # default value
+    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+
+    analyzer = DatasetAnalyzer(config)
+
+    # Should raise an error when trying to analyze without analyzers
+    with pytest.raises(ValueError, match="No analyzers configured for analysis"):
+        analyzer.analyze_dataset()

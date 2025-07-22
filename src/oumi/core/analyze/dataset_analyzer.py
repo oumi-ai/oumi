@@ -77,7 +77,16 @@ class DatasetAnalyzer:
         Returns:
             Dict[str, Any]: Analysis results containing sample-level metrics and
             insights.
+
+        Raises:
+            ValueError: If no analyzers are configured for analysis.
         """
+        if not self.sample_analyzers:
+            raise ValueError(
+                "No analyzers configured for analysis. Please add at least one "
+                "analyzer to the configuration before calling analyze_dataset()."
+            )
+
         logger.info(f"Starting analysis of dataset: {self.dataset_name}")
         logger.info(
             f"Using {len(self.sample_analyzers)} sample analyzers: "

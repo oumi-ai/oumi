@@ -84,6 +84,9 @@ def compute_sample_level_analysis(
             f"Limiting analysis to first {max_conversations} "
             f"conversations (dataset has {total_conversations} total)"
         )
+    elif max_conversations == 0:
+        conversations_to_analyze = 0
+        logger.info("sample_count=0 specified, analyzing no conversations")
     else:
         conversations_to_analyze = total_conversations
 
