@@ -27,7 +27,7 @@ from oumi.core.synthesis.document_ingestion import (
     DocumentSegmenter,
 )
 
-pymupdf4llm_import_failed = find_spec("pymupdf4llm") is None
+pdftext_import_failed = find_spec("pdftext") is None
 
 
 @pytest.fixture
@@ -48,19 +48,23 @@ def sample_pdf_content():
     return "# Sample PDF Content\n\nThis is a sample PDF converted to markdown."
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_pdf_document(reader, sample_pdf_content):
     """Test reading a single PDF document."""
     document_path = "path/to/document.pdf"
 
-    with patch("pymupdf4llm.to_markdown", return_value=sample_pdf_content) as mock_pdf:
+    with patch.object(
+        reader, "_extractor_method", return_value=sample_pdf_content
+    ) as mock_pdf:
         result = reader.read(document_path)
 
-        mock_pdf.assert_called_once_with("path/to/document.pdf")
+        mock_pdf.assert_called_once_with(
+            "path/to/document.pdf", sort=True, hyphens=True
+        )
         assert result == [sample_pdf_content]
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_txt_document(reader, sample_text_content):
     """Test reading a single TXT document."""
     document_path = "path/to/document.txt"
@@ -71,7 +75,7 @@ def test_read_single_txt_document(reader, sample_text_content):
         assert result == [sample_text_content]
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_html_document(reader, sample_text_content):
     """Test reading a single HTML document."""
     document_path = "path/to/document.html"
@@ -82,7 +86,7 @@ def test_read_single_html_document(reader, sample_text_content):
         assert result == [sample_text_content]
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_single_md_document(reader, sample_text_content):
     """Test reading a single Markdown document."""
     document_path = "path/to/document.md"
@@ -93,7 +97,7 @@ def test_read_single_md_document(reader, sample_text_content):
         assert result == [sample_text_content]
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_documents_glob_pattern(reader, sample_text_content):
     """Test reading multiple documents using glob pattern."""
     document_path = "path/to/*.txt"
@@ -115,7 +119,7 @@ def test_read_multiple_documents_glob_pattern(reader, sample_text_content):
             assert all(content == sample_text_content for content in result)
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_directories_files_glob_pattern(reader, sample_text_content):
     """Test reading multiple documents using glob pattern."""
     document_path = "path/*/to/*.txt"
@@ -141,7 +145,7 @@ def test_read_multiple_directories_files_glob_pattern(reader, sample_text_conten
             assert all(content == sample_text_content for content in result)
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
     """Test reading multiple PDF documents using glob pattern."""
     document_path = "path/to/*.pdf"
@@ -156,8 +160,8 @@ def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
         mock_files.append(mock_file)
 
     with patch("pathlib.Path.glob", return_value=mock_files):
-        with patch(
-            "pymupdf4llm.to_markdown", return_value=sample_pdf_content
+        with patch.object(
+            reader, "_extractor_method", return_value=sample_pdf_content
         ) as mock_pdf:
             result = reader.read(document_path)
 
@@ -166,7 +170,7 @@ def test_read_multiple_pdf_documents_glob_pattern(reader, sample_pdf_content):
             assert mock_pdf.call_count == 2
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_empty_glob_pattern(reader):
     """Test reading with glob pattern that matches no files."""
     document_path = "path/to/*.txt"
@@ -177,7 +181,7 @@ def test_read_empty_glob_pattern(reader):
         assert result == []
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_document_format_unsupported(reader):
     """Test reading document with unsupported format."""
 
@@ -185,17 +189,21 @@ def test_read_from_document_format_unsupported(reader):
         reader._read_from_document_format(Path("path/to/document.unsupported"))
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
-def test_read_from_pdf_calls_pymupdf4llm(reader, sample_pdf_content):
-    """Test that reading PDF calls pymupdf4llm correctly."""
-    with patch("pymupdf4llm.to_markdown", return_value=sample_pdf_content) as mock_pdf:
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
+def test_read_from_pdf_calls_pdftext(reader, sample_pdf_content):
+    """Test that reading PDF calls pdftext correctly."""
+    with patch.object(
+        reader, "_extractor_method", return_value=sample_pdf_content
+    ) as mock_pdf:
         result = reader._read_from_pdf("path/to/document.pdf")
 
-        mock_pdf.assert_called_once_with("path/to/document.pdf")
+        mock_pdf.assert_called_once_with(
+            "path/to/document.pdf", sort=True, hyphens=True
+        )
         assert result == sample_pdf_content
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_text_file_opens_file_correctly(reader, sample_text_content):
     """Test that reading text file opens file correctly."""
     with patch("builtins.open", mock_open(read_data=sample_text_content)) as mock_file:
@@ -205,7 +213,7 @@ def test_read_from_text_file_opens_file_correctly(reader, sample_text_content):
         assert result == sample_text_content
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_from_glob_with_different_formats(reader, sample_text_content):
     """Test reading from glob with mixed document formats."""
     # Create mock Path objects with is_file() returning True
@@ -226,7 +234,7 @@ def test_read_from_glob_with_different_formats(reader, sample_text_content):
             assert all(content == sample_text_content for content in result)
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_handles_file_read_error(reader):
     """Test that reading handles file read errors gracefully."""
     document_path = "path/to/nonexistent.txt"
@@ -236,17 +244,19 @@ def test_read_handles_file_read_error(reader):
             reader.read(document_path)
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_handles_pdf_read_error(reader):
     """Test that reading handles PDF read errors gracefully."""
     document_path = "path/to/corrupted.pdf"
 
-    with patch("pymupdf4llm.to_markdown", side_effect=Exception("PDF read error")):
+    with patch.object(
+        reader, "_extractor_method", side_effect=Exception("PDF read error")
+    ):
         with pytest.raises(Exception, match="PDF read error"):
             reader.read(document_path)
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_real_pdf_document(reader, root_testdata_dir):
     """Test reading a real PDF document."""
     document_path = f"{root_testdata_dir}/pdfs/mock.pdf"
@@ -257,10 +267,10 @@ def test_read_real_pdf_document(reader, root_testdata_dir):
     assert isinstance(result[0], str)
     assert len(result[0]) > 0
 
-    assert "**Dummy PDF file**" in result[0]
+    assert "Dummy PDF file" in result[0]
 
 
-@pytest.mark.skipif(pymupdf4llm_import_failed, reason="pymupdf4llm not available")
+@pytest.mark.skipif(pdftext_import_failed, reason="pdftext not available")
 def test_read_mixed_documents(
     reader,
     sample_text_content,
@@ -276,7 +286,7 @@ def test_read_mixed_documents(
         txt_result = reader.read(txt_path)
         md_result = reader.read(md_path)
 
-    with patch("pymupdf4llm.to_markdown", return_value=sample_pdf_content):
+    with patch.object(reader, "_extractor_method", return_value=sample_pdf_content):
         pdf_result = reader.read(pdf_path)
 
     assert txt_result == [sample_text_content]
