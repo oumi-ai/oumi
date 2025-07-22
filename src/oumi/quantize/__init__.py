@@ -61,9 +61,9 @@ def quantize(config: "QuantizationConfig") -> QuantizationResult:
     
     return quantizer.quantize(config)
 
+from oumi.quantize.base import BaseQuantization
 
 __all__ = [
     "BaseQuantization",
     "AwqQuantization",
-    "quantize",
 ]
