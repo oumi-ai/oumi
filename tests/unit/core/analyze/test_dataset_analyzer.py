@@ -42,9 +42,10 @@ def mock_config():
         output_path="./test_output",
         analyzers=[
             SampleAnalyzerParams(
-                id="length", config={"char_count": True, "word_count": True}
+                id="text_length_analyzer",
+                config={"char_count": True, "word_count": True},
             ),
-            SampleAnalyzerParams(id="mock", config={"analyzer_id": "mock"}),
+            SampleAnalyzerParams(id="analyzer_2", config={"analyzer_id": "analyzer_2"}),
         ],
     )
 
@@ -66,8 +67,8 @@ def test_analyzer_initialization(mock_load, mock_config):
 
     # Test that analyzers were initialized correctly
     assert len(analyzer.sample_analyzers) == 2
-    assert "length" in analyzer.sample_analyzers
-    assert "mock" in analyzer.sample_analyzers
+    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "analyzer_2" in analyzer.sample_analyzers
 
 
 @patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
@@ -106,8 +107,8 @@ def test_analyze_dataset_integration(mock_compute, mock_load, mock_config):
 
     # Test that analyzers were passed correctly
     sample_analyzers = call_args[0][2]
-    assert "length" in sample_analyzers
-    assert "mock" in sample_analyzers
+    assert "text_length_analyzer" in sample_analyzers
+    assert "analyzer_2" in sample_analyzers
     assert len(sample_analyzers) == 2
 
 
