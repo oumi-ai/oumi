@@ -104,17 +104,17 @@ class DatasetAnalyzer:
         }
         return final_results
 
-    # TODO: Add save_results method to save analysis results to JSONL file
-    # def save_results(self, output_path: str) -> None:
+    # TODO: Add save_to_file method to save analysis results to JSONL file
+    # def save_to_file(self, output_path: str) -> None:
     #     """Save analysis results to JSONL file."""
     #     pass
 
-    # TODO: Add load_jsonl_results method to load analysis results from JSONL file
-    # def load_jsonl_results(self) -> dict[str, Any]:
+    # TODO: Add load_from_file method to load analysis results from JSONL file
+    # def load_from_file(self) -> dict[str, Any]:
     #     """Load analysis results from JSONL file into dict format."""
     #     pass
 
-    # TODO: Add query_results method to query analysis results using pandas
-    # def query_results(self, query_expression: str) -> pd.DataFrame:
+    # TODO: Add query method to query analysis results using pandas
+    # def query(self, query_expression: str) -> pd.DataFrame:
     #     """Query analysis results using pandas query expression."""
     #     pass

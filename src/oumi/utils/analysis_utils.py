@@ -69,12 +69,6 @@ def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
         raise
 
 
-# TODO: Add save_results function when save functionality is implemented
-# def save_results(results: dict[str, Any], output_path: str):
-#     """Save analysis results to file as JSONL format."""
-#     pass
-
-
 def compute_sample_level_analysis(
     dataset: BaseMapDataset, config: AnalyzeConfig, analyzers: dict
 ) -> dict[str, Any]:
