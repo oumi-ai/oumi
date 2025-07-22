@@ -33,6 +33,7 @@ Functions:
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
+    - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
 
 Examples:
     Training a model::
@@ -63,6 +64,13 @@ Examples:
         >>> config = JudgeConfig(...)
         >>> judge_dataset(config, dataset)
 
+    Quantizing a model::
+
+        >>> from oumi import quantize
+        >>> from oumi.core.configs import QuantizationConfig
+        >>> config = QuantizationConfig(...)
+        >>> result = quantize(config)
+
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
@@ -80,12 +88,14 @@ if TYPE_CHECKING:
         InferenceConfig,
         JudgeConfig,
         JudgeConfigV2,
+        QuantizationConfig,
         TrainingConfig,
     )
     from oumi.core.datasets import BaseSftDataset
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
     from oumi.judges_v2.base_judge import JudgeOutput
+    from oumi.quantize.base import QuantizationResult
 
 logging.configure_dependency_warnings()
 
@@ -311,6 +321,30 @@ def train(
     )
 
 
+def quantize(config: QuantizationConfig) -> QuantizationResult:
+    """Quantizes a model using the provided configuration.
+
+    Args:
+        config: Quantization configuration containing model parameters,
+            method, output path, and other settings.
+
+    Returns:
+        QuantizationResult containing:
+        - quantized_size_bytes: Size of the quantized model in bytes
+        - output_path: Path to the quantized model
+        - quantization_method: Quantization method used
+        - format_type: Format type of the quantized model
+        - additional_info: Additional method-specific information
+
+    Raises:
+        RuntimeError: If quantization fails for any reason
+        ValueError: If configuration is invalid for this quantizer
+    """
+    import oumi.quantize
+
+    return oumi.quantize.quantize(config)
+
+
 __all__ = [
     "evaluate_async",
     "evaluate",
@@ -318,5 +352,6 @@ __all__ = [
     "infer",
     "judge_conversations",
     "judge_dataset",
+    "quantize",
     "train",
 ]
