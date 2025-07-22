@@ -157,7 +157,7 @@ class VisionLanguageDpoDataset(BaseExperimentalDpoDataset):
         else:
             image = image_path
 
-        image = load_pil_image_from_content_item(image)
+        return load_pil_image_from_content_item(image)
 
     def _resize_image(self, image: Image.Image) -> Image.Image:
         if self._processor is None:
