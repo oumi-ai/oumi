@@ -17,3 +17,11 @@
 This module provides comprehensive model quantization capabilities including
 AWQ, BitsAndBytes, and GGUF quantization methods.
 """
+
+from oumi.quantize.awq_quantizer import AwqQuantization
+from oumi.quantize.base import BaseQuantization
+
+__all__ = [
+    "BaseQuantization",
+    "AwqQuantization",
+]
