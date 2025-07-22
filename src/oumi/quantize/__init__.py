@@ -51,12 +51,7 @@ def quantize(config) -> QuantizationResult:
     }
     
     # Find the appropriate quantizer for the method
-    quantizer_class = None
-    for method, cls in quantizer_map.items():
-        if method == config.method:
-            quantizer_class = cls
-            break
-    
+    quantizer_class = quantizer_map.get(config.method)
     if quantizer_class is None:
         available_methods = list(quantizer_map.keys())
         raise ValueError(
