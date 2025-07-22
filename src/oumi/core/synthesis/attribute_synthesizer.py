@@ -14,7 +14,9 @@
 
 import re
 
+from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
@@ -22,7 +24,6 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation
-from oumi.infer import get_engine
 from oumi.utils.logging import logger
 
 
@@ -43,7 +44,11 @@ class AttributeSynthesizer:
         self._params = params
         self._formatter = AttributeFormatter(params)
 
-        self._inference_engine = get_engine(inference_config)
+        self._inference_engine = build_inference_engine(
+            engine_type=inference_config.engine or InferenceEngineType.NATIVE,
+            model_params=inference_config.model,
+            remote_params=inference_config.remote_params,
+        )
 
     def synthesize(
         self,
@@ -144,7 +149,10 @@ class AttributeSynthesizer:
             )
 
             # Create new Message with formatted content
-            new_message = turn.model_copy(update={"content": formatted_content})
+            new_message = turn.model_copy(
+                deep=True,
+                update={"content": formatted_content},
+            )
             new_messages.append(new_message)
 
         # Create new conversation with formatted messages
