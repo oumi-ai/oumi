@@ -46,6 +46,12 @@ def experimental_judge_v2_enabled():
     return is_enabled.lower() in ("1", "true", "yes", "on")
 
 
+def experimental_features_enabled():
+    """Check if experimental features are enabled."""
+    is_enabled = os.environ.get("OUMI_ENABLE_EXPERIMENTAL_FEATURES", "False")
+    return is_enabled.lower() in ("1", "true", "yes", "on")
+
+
 def _oumi_welcome(ctx: typer.Context):
     if ctx.invoked_subcommand == "distributed":
         return
@@ -78,12 +84,14 @@ def get_app() -> typer.Typer:
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="🚧 [Experimental] Quantize a model.",
-    )(quantize)
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
+
+    if experimental_features_enabled():
+        app.command(
+            context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+            help="🚧 [Experimental] Quantize a model.",
+        )(quantize)
 
     if experimental_judge_v2_enabled():
         app.command(
