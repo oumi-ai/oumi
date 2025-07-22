@@ -20,9 +20,10 @@ AWQ, BitsAndBytes, and GGUF quantization methods.
 
 from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
+from oumi.core.configs import QuantizationConfig
 
 
-def quantize(config) -> QuantizationResult:
+def quantize(config: "QuantizationConfig") -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
     
     Args:
@@ -37,11 +38,6 @@ def quantize(config) -> QuantizationResult:
         ValueError: If quantization method is not supported
         RuntimeError: If quantization fails
     """
-    from oumi.core.configs import QuantizationConfig
-    
-    if not isinstance(config, QuantizationConfig):
-        raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
-    
     # Map quantization methods to their respective quantizers
     quantizer_map = {
         "awq_q4_0": AwqQuantization,
@@ -51,12 +47,7 @@ def quantize(config) -> QuantizationResult:
     }
     
     # Find the appropriate quantizer for the method
-    quantizer_class = None
-    for method, cls in quantizer_map.items():
-        if method == config.method:
-            quantizer_class = cls
-            break
-    
+    quantizer_class = quantizer_map.get(config.method)
     if quantizer_class is None:
         available_methods = list(quantizer_map.keys())
         raise ValueError(

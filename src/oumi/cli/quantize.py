@@ -86,58 +86,44 @@ def quantize(
         especially for large models. Ensure sufficient disk space for both
         the original and quantized models during processing.
     """
-    extra_args = cli_utils.parse_extra_cli_args(ctx)
-
     # Delayed imports
     from oumi import quantize as oumi_quantize
     from oumi.core.configs import ModelParams, QuantizationConfig
     from oumi.utils.torch_utils import device_cleanup
 
+    def _infer_output_format(method: str) -> str:
+        """Infer the best output format for a given quantization method."""
+        if method.startswith(("awq_", "bnb_")):
+            return "pytorch"
+        return "gguf"
+
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
+
+    # Load or create base configuration
     if config is not None:
-        # Use provided config file
         config_path = str(
             cli_utils.resolve_and_fetch_config(
                 try_get_config_name_for_alias(config, AliasType.QUANTIZE),
             )
         )
-        parsed_config: QuantizationConfig = QuantizationConfig.from_yaml_and_arg_list(
+        parsed_config = QuantizationConfig.from_yaml_and_arg_list(
             config_path, extra_args, logger=logger
         )
-
-        # Override config with CLI arguments if provided
-        if model:  # Non-empty string
-            parsed_config.model.model_name = model
-        if method != "awq_q4_0":  # Only override if not default
-            parsed_config.method = method
-        if output != "quantized_model.gguf":  # Only override if not default
-            parsed_config.output_path = output
-            
-        # Auto-set appropriate output format based on method if not already set appropriately
-        if parsed_config.method.startswith("awq_") and parsed_config.output_format == "gguf":
-            parsed_config.output_format = "pytorch"
-        elif parsed_config.method.startswith("bnb_") and parsed_config.output_format == "gguf":
-            parsed_config.output_format = "pytorch"
     else:
-        # Create config from CLI arguments
-        if not model:  # Empty string or None
+        if not model:
             raise typer.BadParameter(
                 "Either --config must be provided or --model must be specified"
             )
-
-        # Determine appropriate output format based on method
-        if method.startswith("awq_"):
-            output_format = "pytorch"
-        elif method.startswith("bnb_"):
-            output_format = "pytorch"  # or "safetensors" depending on preference
-        else:
-            output_format = "gguf"  # For q4_0, q8_0, etc.
-
         parsed_config = QuantizationConfig(
             model=ModelParams(model_name=model),
             method=method,
             output_path=output,
-            output_format=output_format,
+            output_format=_infer_output_format(method),
         )
+
+    # Apply CLI overrides
+    if model:
+        parsed_config.model.model_name = model
 
     parsed_config.finalize_and_validate()
     
