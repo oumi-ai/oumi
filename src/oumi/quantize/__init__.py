@@ -24,24 +24,24 @@ from oumi.quantize.base import BaseQuantization, QuantizationResult
 
 def quantize(config) -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
-    
+
     Args:
         config: Quantization configuration containing method, model parameters,
             and other settings.
-            
+
     Returns:
         QuantizationResult containing quantization results including file sizes
         and compression ratios.
-        
+
     Raises:
         ValueError: If quantization method is not supported
         RuntimeError: If quantization fails
     """
     from oumi.core.configs import QuantizationConfig
-    
+
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
-    
+
     # Map quantization methods to their respective quantizers
     quantizer_map = {
         "awq_q4_0": AwqQuantization,
@@ -49,7 +49,7 @@ def quantize(config) -> QuantizationResult:
         "awq_q8_0": AwqQuantization,
         "awq_f16": AwqQuantization,
     }
-    
+
     # Find the appropriate quantizer for the method
     quantizer_class = quantizer_map.get(config.method)
     if quantizer_class is None:
@@ -58,11 +58,11 @@ def quantize(config) -> QuantizationResult:
             f"Unsupported quantization method '{config.method}'. "
             f"Available methods: {available_methods}"
         )
-    
+
     # Initialize and run quantization
     quantizer = quantizer_class()
     quantizer.raise_if_requirements_not_met()
-    
+
     return quantizer.quantize(config)
 
 

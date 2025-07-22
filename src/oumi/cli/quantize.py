@@ -111,15 +111,21 @@ def quantize(
             parsed_config.method = method
         if output != "quantized_model.gguf":  # Only override if not default
             parsed_config.output_path = output
-            
+
         # Auto-set appropriate output format based on method if not already set appropriately
-        if parsed_config.method.startswith("awq_") and parsed_config.output_format == "gguf":
+        if (
+            parsed_config.method.startswith("awq_")
+            and parsed_config.output_format == "gguf"
+        ):
             parsed_config.output_format = "pytorch"
-        elif parsed_config.method.startswith("bnb_") and parsed_config.output_format == "gguf":
+        elif (
+            parsed_config.method.startswith("bnb_")
+            and parsed_config.output_format == "gguf"
+        ):
             parsed_config.output_format = "pytorch"
     else:
         # Create config from CLI arguments
-        if not model:  # Empty string or None
+        if not model:  # Empty string or Nones
             raise typer.BadParameter(
                 "Either --config must be provided or --model must be specified"
             )
@@ -140,7 +146,7 @@ def quantize(
         )
 
     parsed_config.finalize_and_validate()
-    
+
     # Configure environment and cleanup
     cli_utils.configure_common_env_vars()
     device_cleanup()
@@ -164,11 +170,13 @@ def quantize(
     cli_utils.CONSOLE.print(f"📁 Output saved to: {result.output_path}")
     cli_utils.CONSOLE.print(f"🔧 Method: {result.quantization_method}")
     cli_utils.CONSOLE.print(f"📋 Format: {result.format_type}")
-    cli_utils.CONSOLE.print(f"📊 Quantized size: {result.quantized_size_bytes / (1024**3):.2f} GB")
-    
+    cli_utils.CONSOLE.print(
+        f"📊 Quantized size: {result.quantized_size_bytes / (1024**3):.2f} GB"
+    )
+
     # Display additional info if available
     if result.additional_info:
         for key, value in result.additional_info.items():
             cli_utils.CONSOLE.print(f"ℹ️  {key}: {value}")
-    
+
     device_cleanup()
