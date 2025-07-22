@@ -45,6 +45,9 @@ from oumi.datasets.evaluation import AlpacaEvalDataset
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
+from oumi.datasets.preference_tuning.vision_dpo_jsonlines import (
+    VisionDpoJsonlinesDataset,
+)
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
 from oumi.datasets.pretraining.falcon_refinedweb import FalconRefinedWebDataset
@@ -143,6 +146,7 @@ __all__ = [
     "TldrGrpoDataset",
     "Tulu3MixtureDataset",
     "UltrachatH4Dataset",
+    "VisionDpoJsonlinesDataset",
     "VLJsonlinesDataset",
     "Vqav2SmallDataset",
     "WikipediaDataset",
