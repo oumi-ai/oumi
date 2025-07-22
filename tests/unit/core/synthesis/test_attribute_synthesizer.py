@@ -120,7 +120,6 @@ def mock_samples():
     ]
 
 
-
 @patch("oumi.core.synthesis.attribute_synthesizer.build_inference_engine")
 def test_synthesize_returns_dict_list(
     mock_build_inference_engine,
