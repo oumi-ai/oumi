@@ -1,0 +1,9 @@
+from _typeshed import Incomplete
+from torch.utils.data import IterDataPipe, MapDataPipe
+
+class MapToIterConverterIterDataPipe(IterDataPipe):
+    datapipe: MapDataPipe
+    indices: Incomplete
+    def __init__(self, datapipe: MapDataPipe, indices: list | None = None) -> None: ...
+    def __iter__(self): ...
+    def __len__(self) -> int: ...
