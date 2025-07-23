@@ -95,7 +95,6 @@ def _register_dependencies(cls_function):
             # Import all core dependencies.
             import oumi.core.analyze  # noqa: F401
             import oumi.datasets  # noqa: F401
-            import oumi.judges  # noqa: F401
             import oumi.launcher  # noqa: F401
             import oumi.models  # noqa: F401
 
@@ -301,36 +300,6 @@ def register_cloud_builder(registry_name: str) -> Callable:
     def decorator_register(obj):
         """Decorator to register its target builder."""
         REGISTRY.register(name=registry_name, type=RegistryType.CLOUD, value=obj)
-        return obj
-
-    return decorator_register
-
-
-def register_judge(registry_name: str) -> Callable:
-    """Returns a function to register a judge configuration in the Oumi global registry.
-
-    This decorator is used to register judge configuration in the global registry.
-    A judge configuration function typically returns a JudgeConfig object that defines
-    the parameters and attributes for a specific judge.
-
-    Args:
-        registry_name: The name under which the judge configuration should be
-            registered.
-
-    Returns:
-        Callable: A decorator function that registers the target judge configuration.
-
-    Example:
-         .. code-block:: python
-
-            @register_judge("my_custom_judge")
-            def my_judge_config() -> JudgeConfig:
-                return JudgeConfig(...)
-    """
-
-    def decorator_register(obj):
-        """Decorator to register its target builder."""
-        REGISTRY.register(name=registry_name, type=RegistryType.JUDGE_CONFIG, value=obj)
         return obj
 
     return decorator_register
