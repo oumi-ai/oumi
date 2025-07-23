@@ -46,6 +46,6 @@ jobs:
 
     - name: Verify installation
       run: |
-        python -c "import oumi; print(f'Oumi version: {oumi.__version__}')"
         python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
-        oumi --version
+        oumi --help
+        oumi env
