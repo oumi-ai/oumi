@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from typing import Any
+
 from oumi.core.configs.params.synthesis_params import GeneratedAttribute
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 
@@ -30,8 +33,8 @@ class DataSynthesizer:
 
     def synthesize(
         self,
-        dataset_plan_samples: list[dict[str, str]],
-    ) -> list[dict[str, str]]:
+        dataset_plan_samples: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """Synthesize data using attributes from the dataset plan.
 
         If there are multiple generated attributes, each will be synthesized
