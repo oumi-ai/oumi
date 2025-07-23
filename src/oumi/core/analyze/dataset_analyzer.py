@@ -16,10 +16,7 @@ from typing import Any
 
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.registry.registry import REGISTRY
-from oumi.utils.analysis_utils import (
-    compute_sample_level_analysis,
-    load_dataset_from_config,
-)
+from oumi.utils.analysis_utils import load_dataset_from_config
 from oumi.utils.logging import logger
 
 
@@ -103,15 +100,96 @@ class DatasetAnalyzer:
         # Step 1: Per-sample (message) level analysis
         logger.info("Step 1: Computing per-sample (message) level analysis...")
 
-        sample_results = compute_sample_level_analysis(
-            self.dataset, self.config, self.sample_analyzers
-        )
+        sample_results = self._compute_sample_level_analysis()
 
         final_results = {
             "dataset_name": self.dataset_name,
             "sample_level_results": sample_results,
         }
         return final_results
+
+    def _compute_sample_level_analysis(self) -> dict[str, Any]:
+        """Perform per-sample (message) level analysis using configured analyzers."""
+        total_conversations = len(self.dataset)
+
+        # Apply conversation limit if specified
+        max_conversations = self.config.sample_count
+
+        if max_conversations is not None and max_conversations > 0:
+            conversations_to_analyze = min(total_conversations, max_conversations)
+            logger.info(
+                f"Limiting analysis to first {max_conversations} "
+                f"conversations (dataset has {total_conversations} total)"
+            )
+        elif max_conversations == 0:
+            conversations_to_analyze = 0
+            logger.info("sample_count=0 specified, analyzing no conversations")
+        else:
+            conversations_to_analyze = total_conversations
+
+        logger.info(
+            "Analyzing %d conversations for sample-level metrics",
+            conversations_to_analyze,
+        )
+
+        # Collect all messages with their metadata
+        messages_data = []
+
+        for conv_idx in range(conversations_to_analyze):
+            conversation = self.dataset.conversation(conv_idx)
+
+            for msg_idx, message in enumerate(conversation.messages):
+                # Get text content
+                if isinstance(message.content, str):
+                    text_content = message.content
+                else:
+                    # For multimodal content, extract text only
+                    text_content = message.compute_flattened_text_content()
+
+                # Basic message information
+                message_data = {
+                    "conversation_id": conversation.conversation_id
+                    or f"conv_{conv_idx}",
+                    "conversation_index": conv_idx,
+                    "message_index": msg_idx,
+                    "message_id": message.id or f"msg_{conv_idx}_{msg_idx}",
+                    "role": message.role.value,
+                    "text_content": text_content,
+                }
+
+                # Compute metrics using all configured analyzers
+                message_metadata = {
+                    "conversation_id": message_data["conversation_id"],
+                    "conversation_index": conv_idx,
+                    "message_index": msg_idx,
+                    "role": message.role.value,
+                }
+
+                for analyzer_id, analyzer in self.sample_analyzers.items():
+                    try:
+                        analyzer_metrics = analyzer.analyze_message(
+                            text_content, message_metadata
+                        )
+                        # Prefix metrics with analyzer ID to avoid conflicts
+                        for key, value in analyzer_metrics.items():
+                            message_data[f"{analyzer_id}_{key}"] = value
+                    except Exception as e:
+                        logger.warning(
+                            f"Analyzer {analyzer_id} failed for message "
+                            f"{conv_idx}_{msg_idx}: {e}"
+                        )
+
+                messages_data.append(message_data)
+
+        sample_results = {
+            "dataset_name": self.dataset_name,
+            "total_conversations": total_conversations,
+            "conversations_analyzed": conversations_to_analyze,
+            "total_messages": len(messages_data),
+            "messages": messages_data,
+        }
+
+        return sample_results
 
     # TODO: Add save_to_file method to save analysis results to JSONL file
     # def save_to_file(self, output_path: str) -> None:
