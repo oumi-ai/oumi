@@ -14,13 +14,14 @@
 
 import contextlib
 import copy
+import importlib.util
 import math
 import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 import pydantic
 import safetensors.torch
@@ -37,7 +38,6 @@ from torch.distributed.checkpoint.state_dict import (
     get_state_dict,
 )
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
-from torchdata.stateful_dataloader import StatefulDataLoader
 from tqdm.auto import tqdm
 from transformers import TrainerCallback
 
@@ -65,6 +65,9 @@ from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
 from oumi.utils.serialization_utils import flatten_config
 
+if TYPE_CHECKING:
+    from torchdata.stateful_dataloader import StatefulDataLoader
+
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
 
@@ -90,6 +93,12 @@ class Trainer(BaseTrainer):
         **kwargs,
     ):
         """Initializes the Oumi trainer."""
+        if importlib.util.find_spec("torchdata") is None:
+            raise ImportError(
+                "torchdata is not installed. "
+                "Please install it with `pip install torchdata==0.9.0`."
+            )
+
         # Importing these here to avoid circular dependencies
         from oumi.builders.lr_schedules import build_lr_scheduler
         from oumi.builders.optimizers import build_optimizer
@@ -723,9 +732,17 @@ class Trainer(BaseTrainer):
     #
     # Data loading
     #
-    def _get_train_dataloader(self) -> StatefulDataLoader:
+    def _get_train_dataloader(self) -> "StatefulDataLoader":
         """Returns the training dataloader."""
         # At this point, "auto" must be pre-resolved to `int`.
+        if importlib.util.find_spec("torchdata") is not None:
+            from torchdata.stateful_dataloader import StatefulDataLoader
+        else:
+            raise ImportError(
+                "torchdata is not installed. "
+                "Please install it with `pip install torchdata==0.9.0`."
+            )
+
         assert isinstance(self.params.dataloader_num_workers, int)
         prefetch_factor = (
             self.params.dataloader_prefetch_factor

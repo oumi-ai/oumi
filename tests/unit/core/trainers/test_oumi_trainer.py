@@ -1,15 +1,26 @@
+import importlib.util
 from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from torchdata.stateful_dataloader import StatefulDataLoader
 
 from oumi.core.configs import TelemetryParams, TrainingParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.models import MLPEncoder
 from tests.markers import requires_gpus
+
+if importlib.util.find_spec("torchdata") is not None:
+    from torchdata.stateful_dataloader import StatefulDataLoader
+else:
+    StatefulDataLoader = None
+
+
+skip_if_torchdata_not_installed = pytest.mark.skipif(
+    importlib.util.find_spec("torchdata") is None,
+    reason="torchdata is not installed",
+)
 
 
 #
@@ -127,7 +138,8 @@ def test_trainer_initialization(
     assert trainer.train_dataset == mock_dataset
     assert trainer.eval_dataset == mock_dataset
     assert isinstance(trainer.optimizer, torch.optim.AdamW)
-    assert isinstance(trainer.train_dataloader, StatefulDataLoader)
+    if StatefulDataLoader is not None:
+        assert isinstance(trainer.train_dataloader, StatefulDataLoader)
     assert isinstance(trainer.eval_dataloader, DataLoader)
     assert trainer.state.epoch == 0
     assert trainer.state.global_step == 0
@@ -285,6 +297,9 @@ def test_save_and_load_model(
 
 
 def test_get_train_dataloader(trainer):
+    if StatefulDataLoader is None:
+        pytest.skip("torchdata is not installed")
+
     dataloader = trainer._get_train_dataloader()
     assert isinstance(dataloader, StatefulDataLoader)
     assert dataloader.batch_size == trainer.params.per_device_train_batch_size
