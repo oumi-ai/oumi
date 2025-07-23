@@ -64,9 +64,9 @@ class MockSampleAnalyzer:
         self.config = config
         self.analyze_calls = []
 
-    def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
+    def analyze_message(self, text_content: str) -> dict:
         """Mock analysis that returns basic metrics."""
-        self.analyze_calls.append((text_content, message_metadata))
+        self.analyze_calls.append(text_content)
         return {
             "char_count": len(text_content),
             "word_count": len(text_content.split()),
@@ -87,7 +87,7 @@ class MockFailingAnalyzer:
     def __init__(self, config: dict):
         self.config = config
 
-    def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
+    def analyze_message(self, text_content: str) -> dict:
         raise ValueError("Analyzer failed")
 
 
@@ -174,24 +174,21 @@ def test_analyze_dataset_integration(conversations, mock_config):
     results = analyzer.analyze_dataset()
 
     # Test result structure
-    assert results["dataset_name"] == "test_dataset"
-    assert "sample_level_results" in results
-
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_conversations"] == 2
-    assert sample_results["conversations_analyzed"] == 2
-    assert sample_results["total_messages"] == 4
+    assert results.dataset_name == "test_dataset"
+    assert results.total_conversations == 2
+    assert results.conversations_analyzed == 2
+    assert results.total_messages == 4
 
     # Test that analyzers were used correctly
-    messages = sample_results["messages"]
+    messages = results.messages
     assert len(messages) == 4
 
     # Check first message has analyzer metrics
     first_message = messages[0]
-    assert "text_length_analyzer_char_count" in first_message
-    assert "text_length_analyzer_word_count" in first_message
-    assert "analyzer_2_char_count" in first_message
-    assert "analyzer_2_word_count" in first_message
+    assert "text_length_analyzer_char_count" in first_message.analyzer_metrics
+    assert "text_length_analyzer_word_count" in first_message.analyzer_metrics
+    assert "analyzer_2_char_count" in first_message.analyzer_metrics
+    assert "analyzer_2_word_count" in first_message.analyzer_metrics
 
 
 def test_analyze_dataset_with_sample_limit(conversations, mock_config):
@@ -207,16 +204,13 @@ def test_analyze_dataset_with_sample_limit(conversations, mock_config):
     analyzer, _ = create_analyzer_with_dataset(conversations, config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_conversations"] == 2
-    assert sample_results["conversations_analyzed"] == 1
-    assert (
-        sample_results["total_messages"] == 2
-    )  # Only 2 messages from first conversation
+    assert results.total_conversations == 2
+    assert results.conversations_analyzed == 1
+    assert results.total_messages == 2  # Only 2 messages from first conversation
 
-    messages = sample_results["messages"]
+    messages = results.messages
     assert len(messages) == 2
-    assert all(msg["conversation_index"] == 0 for msg in messages)
+    assert all(msg.conversation_index == 0 for msg in messages)
 
 
 def test_analyze_dataset_analyzer_failure(conversations):
@@ -236,13 +230,12 @@ def test_analyze_dataset_analyzer_failure(conversations):
     results = analyzer.analyze_dataset()
 
     # Should still complete analysis even with failing analyzer
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_messages"] == 4
-    assert len(sample_results["messages"]) == 4
+    assert results.total_messages == 4
+    assert len(results.messages) == 4
 
     # Should not have analyzer metrics due to failure
-    first_message = sample_results["messages"][0]
-    assert "failing_analyzer_char_count" not in first_message
+    first_message = results.messages[0]
+    assert "failing_analyzer_char_count" not in first_message.analyzer_metrics
 
 
 def test_analyze_dataset_no_analyzers():
@@ -270,10 +263,9 @@ def test_analyze_dataset_sample_count_none(conversations, mock_config):
     analyzer, _ = create_analyzer_with_dataset(conversations, config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_conversations"] == 2
-    assert sample_results["conversations_analyzed"] == 2
-    assert sample_results["total_messages"] == 4
+    assert results.total_conversations == 2
+    assert results.conversations_analyzed == 2
+    assert results.total_messages == 4
 
 
 def test_analyze_dataset_sample_count_zero(conversations, mock_config):
@@ -319,10 +311,9 @@ def test_analyze_dataset_sample_count_exceeds_total(conversations, mock_config):
     analyzer, _ = create_analyzer_with_dataset(conversations, config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_conversations"] == 2
-    assert sample_results["conversations_analyzed"] == 2  # Should not exceed total
-    assert sample_results["total_messages"] == 4
+    assert results.total_conversations == 2
+    assert results.conversations_analyzed == 2  # Should not exceed total
+    assert results.total_messages == 4
 
 
 def test_analyze_dataset_multimodal_content(mock_config):
@@ -336,11 +327,10 @@ def test_analyze_dataset_multimodal_content(mock_config):
     analyzer, _ = create_analyzer_with_dataset([conversation], mock_config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert len(sample_results["messages"]) == 1
-    message = sample_results["messages"][0]
+    assert len(results.messages) == 1
+    message = results.messages[0]
     assert (
-        message["text_content"]
+        message.text_content
         == "flattened_{'text': 'Hello world', 'image': 'image_data'}"
     )  # Uses compute_flattened_text_content
 
@@ -351,10 +341,9 @@ def test_analyze_dataset_missing_conversation_id(mock_config):
     analyzer, _ = create_analyzer_with_dataset([conversation], mock_config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert len(sample_results["messages"]) == 1
-    message = sample_results["messages"][0]
-    assert message["conversation_id"] == "conv_0"  # Should use fallback
+    assert len(results.messages) == 1
+    message = results.messages[0]
+    assert message.conversation_id == "conv_0"  # Should use fallback
 
 
 def test_analyze_dataset_missing_message_id(mock_config):
@@ -365,10 +354,9 @@ def test_analyze_dataset_missing_message_id(mock_config):
     analyzer, _ = create_analyzer_with_dataset([conversation], mock_config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert len(sample_results["messages"]) == 1
-    message_data = sample_results["messages"][0]
-    assert message_data["message_id"] == "msg_0_0"  # Should use fallback
+    assert len(results.messages) == 1
+    message_data = results.messages[0]
+    assert message_data.message_id == "msg_0_0"  # Should use fallback
 
 
 def test_analyze_dataset_empty_dataset(mock_config):
@@ -376,12 +364,11 @@ def test_analyze_dataset_empty_dataset(mock_config):
     analyzer, _ = create_analyzer_with_dataset([], mock_config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert sample_results["dataset_name"] == "test_dataset"
-    assert sample_results["total_conversations"] == 0
-    assert sample_results["conversations_analyzed"] == 0
-    assert sample_results["total_messages"] == 0
-    assert sample_results["messages"] == []
+    assert results.dataset_name == "test_dataset"
+    assert results.total_conversations == 0
+    assert results.conversations_analyzed == 0
+    assert results.total_messages == 0
+    assert results.messages == []
 
 
 def test_analyze_dataset_empty_conversation(mock_config):
@@ -390,11 +377,10 @@ def test_analyze_dataset_empty_conversation(mock_config):
     analyzer, _ = create_analyzer_with_dataset([conversation], mock_config)
     results = analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_conversations"] == 1
-    assert sample_results["conversations_analyzed"] == 1
-    assert sample_results["total_messages"] == 0
-    assert sample_results["messages"] == []
+    assert results.total_conversations == 1
+    assert results.conversations_analyzed == 1
+    assert results.total_messages == 0
+    assert results.messages == []
 
 
 def test_analyze_dataset_analyzer_calls(conversations, mock_config):
@@ -423,16 +409,19 @@ def test_analyze_dataset_metric_prefixing(conversations, mock_config):
     analyzer, _ = create_analyzer_with_dataset(conversations, mock_config)
     results = analyzer.analyze_dataset()
 
-    first_message = results["sample_level_results"]["messages"][0]
+    first_message = results.messages[0]
 
     # Check that metrics are prefixed with analyzer ID
-    assert "text_length_analyzer_char_count" in first_message
-    assert "text_length_analyzer_word_count" in first_message
-    assert "text_length_analyzer_analyzer_id" in first_message
-    assert "analyzer_2_char_count" in first_message
-    assert "analyzer_2_word_count" in first_message
-    assert "analyzer_2_analyzer_id" in first_message
+    assert "text_length_analyzer_char_count" in first_message.analyzer_metrics
+    assert "text_length_analyzer_word_count" in first_message.analyzer_metrics
+    assert "text_length_analyzer_analyzer_id" in first_message.analyzer_metrics
+    assert "analyzer_2_char_count" in first_message.analyzer_metrics
+    assert "analyzer_2_word_count" in first_message.analyzer_metrics
+    assert "analyzer_2_analyzer_id" in first_message.analyzer_metrics
 
     # Check that values are different (different analyzer IDs)
-    assert first_message["text_length_analyzer_analyzer_id"] == "text_length_analyzer"
-    assert first_message["analyzer_2_analyzer_id"] == "analyzer_2"
+    assert (
+        first_message.analyzer_metrics["text_length_analyzer_analyzer_id"]
+        == "text_length_analyzer"
+    )
+    assert first_message.analyzer_metrics["analyzer_2_analyzer_id"] == "analyzer_2"

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import pandas as pd
@@ -20,6 +21,65 @@ from oumi.core.configs import AnalyzeConfig
 from oumi.core.registry.registry import REGISTRY
 from oumi.utils.analysis_utils import load_dataset_from_config
 from oumi.utils.logging import logger
+
+
+@dataclass
+class MessageAnalysisResult:
+    """Result of analyzing a single message in a conversation.
+
+    Attributes:
+        conversation_id: Unique identifier for the conversation
+        conversation_index: Index of the conversation in the dataset
+        message_index: Index of the message within the conversation
+        role: Role of the message sender (e.g., 'user', 'assistant')
+        message_id: Unique identifier for the message
+        text_content: The text content of the message
+        analyzer_metrics: Dictionary of metrics computed by sample analyzers,
+            with keys prefixed by analyzer ID to avoid conflicts
+    """
+
+    conversation_id: str
+    conversation_index: int
+    message_index: int
+    role: str
+    message_id: str
+    text_content: str
+    analyzer_metrics: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the analysis result to a dictionary.
+
+        Returns:
+            Dictionary representation of the analysis result
+        """
+        return asdict(self)
+
+
+@dataclass
+class DatasetAnalysisResult:
+    """Complete result of dataset analysis.
+
+    Attributes:
+        dataset_name: Name of the analyzed dataset
+        total_conversations: Total number of conversations in the dataset
+        conversations_analyzed: Number of conversations actually analyzed
+        total_messages: Total number of messages analyzed
+        messages: List of analysis results for each individual message
+    """
+
+    dataset_name: str
+    total_conversations: int
+    conversations_analyzed: int
+    total_messages: int
+    messages: list[MessageAnalysisResult]
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the analysis result to a dictionary.
+
+        Returns:
+            Dictionary representation of the analysis result
+        """
+        return asdict(self)
 
 
 class DatasetAnalyzer:
@@ -65,7 +125,7 @@ class DatasetAnalyzer:
                 logger.error(f"Analyzer configuration: {analyzer_params}")
         return sample_analyzers
 
-    def analyze_dataset(self) -> dict[str, Any]:
+    def analyze_dataset(self) -> DatasetAnalysisResult:
         """Analyze the dataset and return analysis results.
 
         This method performs sample-level analysis using the configured sample
@@ -73,8 +133,9 @@ class DatasetAnalyzer:
         metrics for each message.
 
         Returns:
-            Dict[str, Any]: Analysis results containing sample-level metrics and
-            insights.
+            DatasetAnalysisResult: Analysis results containing sample-level metrics and
+            insights, with strongly typed structure for better documentation and IDE
+            support.
 
         Raises:
             ValueError: If no analyzers are configured for analysis.
@@ -101,16 +162,17 @@ class DatasetAnalyzer:
         # Step 1: Per-message level analysis
         logger.info("Step 1: Computing message metrics...")
 
-        sample_results = self._compute_message_metrics()
+        dataset_analysis_result = self._compute_message_metrics()
 
-        final_results = {
-            "dataset_name": self.dataset_name,
-            "sample_level_results": sample_results,
-        }
-        return final_results
+        return dataset_analysis_result
 
-    def _compute_message_metrics(self) -> dict[str, Any]:
-        """Compute metrics for all messages in the dataset."""
+    def _compute_message_metrics(self) -> DatasetAnalysisResult:
+        """Compute metrics for all messages in the dataset.
+
+        Returns:
+            DatasetAnalysisResult: Structured results containing message-level analysis
+            with metadata about the analysis scope and individual message results.
+        """
         total_conversations = len(self.dataset)
 
         # Apply conversation limit if specified
@@ -135,32 +197,44 @@ class DatasetAnalyzer:
             conversations_to_analyze,
         )
 
-        # Collect all messages with their metadata
-        messages_data = []
+        # Collect all message analysis results
+        message_results = []
 
         for conv_idx in range(conversations_to_analyze):
             conversation = self.dataset.conversation(conv_idx)
 
             for msg_idx, message in enumerate(conversation.messages):
-                message_data = self._compute_per_message_metrics(
+                message_result = self._compute_per_message_metrics(
                     message, conv_idx, msg_idx, conversation
                 )
-                messages_data.append(message_data)
+                message_results.append(message_result)
 
-        sample_results = {
-            "dataset_name": self.dataset_name,
-            "total_conversations": total_conversations,
-            "conversations_analyzed": conversations_to_analyze,
-            "total_messages": len(messages_data),
-            "messages": messages_data,
-        }
+        dataset_analysis_result = DatasetAnalysisResult(
+            dataset_name=self.dataset_name
+            or "",  # Config validation ensures this is not None
+            total_conversations=total_conversations,
+            conversations_analyzed=conversations_to_analyze,
+            total_messages=len(message_results),
+            messages=message_results,
+        )
 
-        return sample_results
+        return dataset_analysis_result
 
     def _compute_per_message_metrics(
         self, message, conv_idx: int, msg_idx: int, conversation
-    ) -> dict[str, Any]:
-        """Compute metrics for a single message."""
+    ) -> MessageAnalysisResult:
+        """Compute metrics for a single message.
+
+        Args:
+            message: The message object to analyze
+            conv_idx: Index of the conversation in the dataset
+            msg_idx: Index of the message within the conversation
+            conversation: The conversation object containing the message
+
+        Returns:
+            MessageAnalysisResult: Structured result containing message metadata
+            and analyzer metrics for the individual message.
+        """
         # Get text content
         if isinstance(message.content, str):
             text_content = message.content
@@ -168,39 +242,34 @@ class DatasetAnalyzer:
             # For multimodal content, extract text only
             text_content = message.compute_flattened_text_content()
 
-        # Basic message information
-        message_data = {
-            "conversation_id": conversation.conversation_id or f"conv_{conv_idx}",
-            "conversation_index": conv_idx,
-            "message_index": msg_idx,
-            "message_id": message.id or f"msg_{conv_idx}_{msg_idx}",
-            "role": message.role.value,
-            "text_content": text_content,
-        }
+        # Extract basic message information
+        conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
+        message_id = message.id or f"msg_{conv_idx}_{msg_idx}"
+        role = message.role.value
 
         # Compute metrics using all configured analyzers
-        message_metadata = {
-            "conversation_id": message_data["conversation_id"],
-            "conversation_index": conv_idx,
-            "message_index": msg_idx,
-            "role": message.role.value,
-        }
-
+        analyzer_metrics: dict[str, Any] = {}
         for analyzer_id, analyzer in self.sample_analyzers.items():
             try:
-                analyzer_metrics = analyzer.analyze_message(
-                    text_content, message_metadata
-                )
+                analyzer_metrics_raw = analyzer.analyze_message(text_content)
                 # Prefix metrics with analyzer ID to avoid conflicts
-                for key, value in analyzer_metrics.items():
-                    message_data[f"{analyzer_id}_{key}"] = value
+                for key, value in analyzer_metrics_raw.items():
+                    analyzer_metrics[f"{analyzer_id}_{key}"] = value
             except Exception as e:
                 logger.warning(
                     f"Analyzer {analyzer_id} failed for message "
                     f"{conv_idx}_{msg_idx}: {e}"
                 )
 
-        return message_data
+        return MessageAnalysisResult(
+            conversation_id=conversation_id,
+            conversation_index=conv_idx,
+            message_index=msg_idx,
+            role=role,
+            message_id=message_id,
+            text_content=text_content,
+            analyzer_metrics=analyzer_metrics,
+        )
 
     def save_to_file(self) -> None:
         """Save analysis results to JSONL file using output_path from config."""
