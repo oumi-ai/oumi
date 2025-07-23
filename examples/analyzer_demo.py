@@ -32,7 +32,7 @@ def main():
     config = AnalyzeConfig(
         dataset_name="tatsu-lab/alpaca",
         split="train",
-        sample_count=50,  # Limit analysis to 3 conversations
+        sample_count=50,
         output_path="./demo_results",
         analyzers=[length_analyzer],
     )
@@ -52,7 +52,7 @@ def main():
     print(f"Total messages: {results.total_messages}")
 
     print("\n📝 Sample Message Analysis:")
-    for i, message in enumerate(results.messages):  # Show first 3 messages
+    for i, message in enumerate(results.messages):
         print(f"\nMessage {i + 1} ({message.role}):")
         print(f"  Content: '{message.text_content}'")
         print(f"  Metrics: {message.analyzer_metrics}")
