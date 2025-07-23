@@ -1,4 +1,3 @@
-import os
 from inspect import signature
 from typing import Callable, get_type_hints
 from unittest.mock import Mock, patch
@@ -247,7 +246,6 @@ def test_main_env_registered(mock_env):
 
 
 def test_main_judge_v2_registered(mock_judge_v2):
-    os.environ["OUMI_EXPERIMENTAL_JUDGE_V2"] = "True"
     _ = runner.invoke(
         get_app(),
         [
