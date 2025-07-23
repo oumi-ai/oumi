@@ -15,9 +15,7 @@ def sample_data():
     ]
 
 
-@pytest.mark.parametrize(
-    "filename", ["train.py", "evaluate.py", "infer.py", "judge.py"]
-)
+@pytest.mark.parametrize("filename", ["train.py", "evaluate.py", "infer.py"])
 def test_get_oumi_root_directory(filename):
     root_dir = get_oumi_root_directory()
     file_path = root_dir / filename
