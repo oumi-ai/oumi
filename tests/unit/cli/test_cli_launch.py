@@ -205,7 +205,7 @@ def test_launch_up_job(
             metadata="",
             done=True,
         )
-        res = runner.invoke(
+        _ = runner.invoke(
             app,
             [
                 "up",
@@ -215,7 +215,6 @@ def test_launch_up_job(
                 "DEBUG",
             ],
         )
-        print(f"Result: {res}")
         mock_fetch.assert_called_once_with(job_yaml_path)
         mock_cluster.get_job.assert_has_calls([call("job_id")])
         assert logger.level == logging.DEBUG
