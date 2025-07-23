@@ -36,7 +36,6 @@ jobs:
       with:
         enable-cache: true
 
-
     - name: Install oumi
       run: |
         uv pip install --system -e .
@@ -52,7 +51,7 @@ jobs:
 
     - name: Install pytest
       run: |
-        uv pip install pytest-asyncio pytest-cov pytest-timeout pytest
+        uv pip install --system pytest-asyncio pytest-cov pytest-timeout pytest
 
     - name: Run tests
       run: |
