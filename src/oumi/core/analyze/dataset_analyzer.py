@@ -14,6 +14,8 @@
 
 from typing import Any
 
+import pandas as pd
+
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.registry.registry import REGISTRY
 from oumi.utils.analysis_utils import load_dataset_from_config
@@ -199,17 +201,14 @@ class DatasetAnalyzer:
 
         return message_data
 
-    # TODO: Add save_to_file method to save analysis results to JSONL file
-    # def save_to_file(self, output_path: str) -> None:
-    #     """Save analysis results to JSONL file."""
-    #     pass
+    def save_to_file(self, output_path: str) -> None:
+        """Save analysis results to JSONL file."""
+        raise NotImplementedError("save_to_file method not yet implemented")
 
-    # TODO: Add load_from_file method to load analysis results from JSONL file
-    # def load_from_file(self) -> dict[str, Any]:
-    #     """Load analysis results from JSONL file into dict format."""
-    #     pass
+    def load_from_file(self) -> dict[str, Any]:
+        """Load analysis results from JSONL file into dict format."""
+        raise NotImplementedError("load_from_file method not yet implemented")
 
-    # TODO: Add query method to query analysis results using pandas
-    # def query(self, query_expression: str) -> pd.DataFrame:
-    #     """Query analysis results using pandas query expression."""
-    #     pass
+    def query(self, query_expression: str) -> pd.DataFrame:
+        """Query analysis results using pandas query expression."""
+        raise NotImplementedError("query method not yet implemented")
