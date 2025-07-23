@@ -40,12 +40,6 @@ _ASCII_LOGO = r"""
 """
 
 
-def experimental_judge_v2_enabled():
-    """Check if the experimental judge v2 feature is enabled."""
-    is_enabled = os.environ.get("OUMI_EXPERIMENTAL_JUDGE_V2", "False")
-    return is_enabled.lower() in ("1", "true", "yes", "on")
-
-
 def experimental_features_enabled():
     """Check if experimental features are enabled."""
     is_enabled = os.environ.get("OUMI_ENABLE_EXPERIMENTAL_FEATURES", "False")
@@ -86,19 +80,16 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
-
+    app.command(
+        name="judge-v2",
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Judge a dataset.",
+    )(judge_file)
     if experimental_features_enabled():
         app.command(
             context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
             help="🚧 [Experimental] Quantize a model.",
         )(quantize)
-
-    if experimental_judge_v2_enabled():
-        app.command(
-            name="judge-v2",
-            context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-            help="Judge a dataset.",
-        )(judge_file)
 
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
