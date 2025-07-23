@@ -24,7 +24,6 @@ Modules:
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
     - :mod:`~oumi.utils`: Utility functions, including logging configuration.
-    - :mod:`~oumi.judges`: Functions for judging datasets and model responses.
 
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
@@ -32,7 +31,6 @@ Functions:
     - :func:`~oumi.evaluate.evaluate`: Evaluate a model using LM Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
-    - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
     - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
 
 Examples:
@@ -57,13 +55,6 @@ Examples:
         >>> config = InferenceConfig(...)
         >>> outputs = infer(config)
 
-    Judging a dataset::
-
-        >>> from oumi import judge_dataset
-        >>> from oumi.core.configs import JudgeConfig
-        >>> config = JudgeConfig(...)
-        >>> judge_dataset(config, dataset)
-
     Quantizing a model::
 
         >>> from oumi import quantize
@@ -86,12 +77,10 @@ if TYPE_CHECKING:
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,
-        JudgeConfig,
         JudgeConfigV2,
         QuantizationConfig,
         TrainingConfig,
     )
-    from oumi.core.datasets import BaseSftDataset
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
     from oumi.judges_v2.base_judge import JudgeOutput
@@ -174,82 +163,6 @@ def infer(
     return oumi.infer.infer(
         config, inputs, inference_engine, input_image_bytes=input_image_bytes
     )
-
-
-def judge_conversations(
-    config: JudgeConfig, judge_inputs: list[Conversation]
-) -> list[dict[str, Any]]:
-    """Judge a list of conversations.
-
-    This function evaluates a list of conversations using the specified Judge.
-
-    The function performs the following steps:
-
-        1. Initializes the Judge with the provided configuration.
-        2. Uses the Judge to evaluate each conversation input.
-        3. Collects and returns the judged outputs.
-
-    Args:
-        config: The configuration for the judge.
-        judge_inputs: A list of Conversation objects to be judged.
-
-    Returns:
-        List[Dict[str, Any]]: A list of judgement results for each conversation.
-
-        >>> # Example output:
-        [
-            {'helpful': True, 'safe': False},
-            {'helpful': True, 'safe': True},
-        ]
-
-    Example:
-        >>> config = JudgeConfig(...) # doctest: +SKIP
-        >>> judge_inputs = [Conversation(...), Conversation(...)] # doctest: +SKIP
-        >>> judged_outputs = judge_conversations(config, judge_inputs) # doctest: +SKIP
-        >>> for output in judged_outputs: # doctest: +SKIP
-        ...     print(output)
-    """
-    import oumi.judge
-
-    return oumi.judge.judge_conversations(config, judge_inputs)
-
-
-def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str, Any]]:
-    """Judge a dataset.
-
-    This function evaluates a given dataset using a specified Judge configuration.
-
-    The function performs the following steps:
-
-        1. Initializes the Judge with the provided configuration.
-        2. Iterates through the dataset to extract conversation inputs.
-        3. Uses the Judge to evaluate each conversation input.
-        4. Collects and returns the judged outputs.
-
-    Args:
-        config: The configuration for the judge.
-        dataset: The dataset to be judged. This dataset
-            should be compatible with the Supervised Finetuning Dataset class.
-
-    Returns:
-        List[Dict[str, Any]]: A list of judgement results for each conversation.
-
-        >>> # Example output:
-        [
-            {'helpful': True, 'safe': False},
-            {'helpful': True, 'safe': True},
-        ]
-
-    Example:
-        >>> config = JudgeConfig(...) # doctest: +SKIP
-        >>> dataset = SomeDataset(...) # doctest: +SKIP
-        >>> judged_outputs = judge_dataset(config, dataset) # doctest: +SKIP
-        >>> for output in judged_outputs: # doctest: +SKIP
-        ...     print(output)
-    """
-    import oumi.judge
-
-    return oumi.judge.judge_dataset(config, dataset)
 
 
 def judge_v2_dataset(
@@ -350,8 +263,6 @@ __all__ = [
     "evaluate",
     "infer_interactive",
     "infer",
-    "judge_conversations",
-    "judge_dataset",
     "quantize",
     "train",
 ]
