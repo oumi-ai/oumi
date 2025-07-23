@@ -42,6 +42,11 @@ jobs:
         ref: ${{ github.sha }}
         fetch-depth: 0
 
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
