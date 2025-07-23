@@ -120,6 +120,10 @@ def _mock_engine(engine_class):
 @pytest.mark.parametrize("engine_class", LOCAL_ENGINES)
 def test_local_engine_init_with_model_params(engine_class):
     """Test that local engines can be initialized with just model params."""
+    if _should_skip_engine(engine_class):
+        pytest.skip(
+            f"Skipping {engine_class} because it is not supported on this platform"
+        )
     model_params = ModelParams(model_name="test-model")
     mock_engine_class = _mock_engine(engine_class)
     with mock_engine_class:
@@ -167,6 +171,10 @@ def test_engine_init_with_invalid_params_fails(engine_class):
 @pytest.mark.parametrize("engine_class", LOCAL_ENGINES)
 def test_local_engine_config_overrides_constructor_params(engine_class):
     """Test that InferenceConfig params override constructor params."""
+    if _should_skip_engine(engine_class):
+        pytest.skip(
+            f"Skipping {engine_class} because it is not supported on this platform"
+        )
     # Initialize with one set of params
     init_model_params = ModelParams(
         model_name="init-model",
@@ -263,6 +271,10 @@ def test_remote_engine_config_overrides_constructor_params(engine_class):
 )
 def test_engine_config_partial_override(engine_class):
     """Test that InferenceConfig partially overrides constructor params."""
+    if _should_skip_engine(engine_class):
+        pytest.skip(
+            f"Skipping {engine_class} because it is not supported on this platform"
+        )
     # Initialize with full params
     init_model_params = ModelParams(
         model_name="init-model",
@@ -345,6 +357,10 @@ def test_build_all_inference_engines():
 
     for engine_type in InferenceEngineType:
         engine_class = ENGINE_MAP[engine_type]
+        if _should_skip_engine(engine_class):
+            pytest.skip(
+                f"Skipping {engine_class} because it is not supported on this platform"
+            )
         mock_ctx = _mock_engine(engine_class)
 
         with mock_ctx:
