@@ -4,10 +4,6 @@ permissions:
     contents: 'read'
 
 on:
-  push:
-    paths:
-      - 'pyproject.toml'
-      - '.github/workflows/**'
   pull_request:
     paths:
       - 'pyproject.toml'
@@ -40,16 +36,25 @@ jobs:
       with:
         enable-cache: true
 
-    - name: Install PyTorch ${{ matrix.torch-version }}
-      run: |
-        uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
 
     - name: Install oumi
       run: |
         uv pip install --system -e .
 
+    - name: Override PyTorch ${{ matrix.torch-version }}
+      run: |
+        uv pip install --system torch==${{ matrix.torch-version }} torchvision torchaudio
+
     - name: Verify installation
       run: |
         python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
-        oumi --help
         oumi env
+
+    - name: Install pytest
+      run: |
+        uv pip install pytest-asyncio pytest-cov pytest-timeout pytest
+
+    - name: Run tests
+      run: |
+        cd ./tests/unit/
+        pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300
