@@ -241,21 +241,6 @@ def test_main_which_registered(mock_which):
     mock_which.assert_called_once()
 
 
-def test_main_judge_dataset_registered(mock_judge_dataset):
-    _ = runner.invoke(
-        get_app(),
-        [
-            "judge",
-            "dataset",
-            "--config",
-            "some_config",
-            "--dataset-name",
-            "some_dataset",
-        ],
-    )
-    mock_judge_dataset.assert_called_once()
-
-
 def test_main_env_registered(mock_env):
     _ = runner.invoke(get_app(), ["env"])
     mock_env.assert_called_once()
