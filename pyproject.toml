@@ -263,6 +263,7 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = ["--import-mode=prepend"]
 filterwarnings = [
+    # Warnings from mlflow dependency that we can't fix
     "ignore:Support for class-based `config` is deprecated.*:DeprecationWarning",
     "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
 ]
