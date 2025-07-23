@@ -10,6 +10,9 @@ on:
       - '.github/workflows/**'
   workflow_dispatch:
 
+env:
+  SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
+
 jobs:
   gpu-install-test:
     permissions:
@@ -55,7 +58,7 @@ jobs:
 
     - name: Install oumi with GPU dependencies
       run: |
-        uv pip install --system '.[gpu]'
+        uv pip install --system -e '.[gpu]'
 
     - name: Verify GPU installation
       run: |
