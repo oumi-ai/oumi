@@ -34,12 +34,12 @@ repos:
     rev: v0.11.6
     hooks:
       - id: ruff
-        types_or: [python, pyi, jupyter]
+        types_or: [python, jupyter]
         args: [--fix, --exit-non-zero-on-fix]
-        exclude: src/oumi/core/types/proto
+        exclude: (src/oumi/core/types/proto|stubs)
       - id: ruff-format
-        types_or: [python, pyi, jupyter]
-        exclude: src/oumi/(models/experimental/cambrian|core/types/proto)"
+        types_or: [python, jupyter]
+        exclude: (src/oumi/(models/experimental/cambrian|core/types/proto)|stubs)
   - repo: local
     hooks:
       - id: pyright
@@ -54,7 +54,7 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py39-plus]
-        exclude: src/oumi/models/experimental/cambrian
+        exclude: (src/oumi/models/experimental/cambrian|stubs)
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.3
     hooks:

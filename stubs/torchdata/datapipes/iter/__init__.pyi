@@ -184,9 +184,8 @@ from torchdata.datapipes.iter.util.zip_longest import (
 from torchdata.datapipes.iter.util.ziparchiveloader import (
     ZipArchiveLoaderIterDataPipe as ZipArchiveLoader,
 )
-from torchdata.datapipes.map.util.converter import (
-    MapToIterConverterIterDataPipe as MapToIterConverter,
-)
+
+# Circular import removed - MapToIterConverter available from torchdata.datapipes.map.util.converter
 
 __all__ = [
     "AISFileLister",
@@ -237,7 +236,6 @@ __all__ = [
     "LengthSetter",
     "LineReader",
     "MapKeyZipper",
-    "MapToIterConverter",
     "Mapper",
     "MaxTokenBucketizer",
     "Multiplexer",
