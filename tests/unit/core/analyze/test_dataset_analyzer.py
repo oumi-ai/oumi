@@ -356,9 +356,9 @@ def test_analyze_dataset_empty_conversation(mock_config):
     assert sample_results["messages"] == []
 
 
-def test_analyze_dataset_analyzer_calls(multi_message_conversations, mock_config):
+def test_analyze_dataset_analyzer_calls(conversations, mock_config):
     """Test that analyzers are called with correct parameters."""
-    analyzer, _ = create_analyzer_with_dataset(multi_message_conversations, mock_config)
+    analyzer, _ = create_analyzer_with_dataset(conversations, mock_config)
     analyzer.analyze_dataset()
 
     # Check that analyzers were called for each message
@@ -377,9 +377,9 @@ def test_analyze_dataset_analyzer_calls(multi_message_conversations, mock_config
     assert metadata["role"] == "user"
 
 
-def test_analyze_dataset_metric_prefixing(multi_message_conversations, mock_config):
+def test_analyze_dataset_metric_prefixing(conversations, mock_config):
     """Test that analyzer metrics are properly prefixed to avoid conflicts."""
-    analyzer, _ = create_analyzer_with_dataset(multi_message_conversations, mock_config)
+    analyzer, _ = create_analyzer_with_dataset(conversations, mock_config)
     results = analyzer.analyze_dataset()
 
     first_message = results["sample_level_results"]["messages"][0]

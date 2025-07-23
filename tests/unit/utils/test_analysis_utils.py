@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Optional
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -154,36 +154,3 @@ class MockDataset(BaseMapDataset):
 
     def transform(self, sample: pd.Series) -> dict:
         return sample.to_dict()
-
-
-class MockAnalyzer:
-    """Mock analyzer for testing."""
-
-    def __init__(
-        self,
-        analyzer_id: str,
-        should_fail: bool = False,
-        custom_metrics: Optional[dict[str, Any]] = None,
-    ):
-        self.analyzer_id = analyzer_id
-        self.should_fail = should_fail
-        self.custom_metrics = custom_metrics
-        self.analyze_calls = []
-
-    def analyze_message(
-        self, text_content: str, message_metadata: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Mock analysis that returns basic metrics."""
-        self.analyze_calls.append((text_content, message_metadata))
-
-        if self.should_fail:
-            raise ValueError(f"Analyzer {self.analyzer_id} failed")
-
-        if self.custom_metrics:
-            return self.custom_metrics
-
-        return {
-            "char_count": len(text_content),
-            "word_count": len(text_content.split()),
-            "analyzer_id": self.analyzer_id,
-        }
