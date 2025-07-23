@@ -48,23 +48,33 @@ async def test_polite_adaptive_semaphore(mock_time, mock_asyncio_sleep):
 async def test_polite_adaptive_semaphore_adjust_capacity(mock_time, mock_asyncio_sleep):
     semaphore = PoliteAdaptiveSemaphore(capacity=1, politeness_policy=10)
     mock_time.time.return_value = 0.0
+    # Initially the semaphore has capacity of 1 and is unused, so the queue is [-1].
     assert semaphore._queue == deque([-1])
     await semaphore.adjust_capacity(2)
+    # We expanded the capacity to 2, so the queue is padded with -1s.
     assert semaphore._queue == deque([-1, -1])
     mock_time.time.return_value = 1.0
     await semaphore.acquire()
     semaphore.release()
     mock_time.time.return_value = 2.0
+    # We acquired the first permit (consumed -1) then released (appended the time +
+    # politeness policy=10.0). The queue is now [-1, 11].
     assert semaphore._queue == deque([-1, 11])
     await semaphore.acquire()
     semaphore.release()
     mock_time.time.return_value = 3.0
+    # We acquired the second permit (consumed -1) then released (appended the time +
+    # politeness policy=10.0). The queue is now [11, 12].
     assert semaphore._queue == deque([11, 12])
     await semaphore.adjust_capacity(1)
+    # We reduced the capacity to 1, so the queue is now [12].
+    # 11 was removed from the queue because it was the oldest entry.
     assert semaphore._queue == deque([12])
     await semaphore.acquire()
+    # We acquired the third permit (consumed 12). The queue is now empty.
     assert semaphore._queue == deque([])
     await semaphore.adjust_capacity(10)
+    # We expanded the capacity to 10, so the queue is padded with -1s.
     assert semaphore._queue == deque([-1] * 10)
 
 
