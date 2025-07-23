@@ -44,25 +44,25 @@ class DatasetAnalyzer:
         for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
-                analyzer_class = REGISTRY.get_sample_analyzer(analyzer_config.id)
+                analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
                 if analyzer_class is None:
                     raise ValueError(
-                        f"Sample analyzer '{analyzer_config.id}' not found in registry"
+                        f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
                 # Create analyzer instance with configuration
                 config_dict = {
-                    "id": analyzer_config.id,
-                    **analyzer_config.config,
+                    "id": analyzer_params.id,
+                    **analyzer_params.config,
                 }
                 sample_analyzer = analyzer_class(config_dict)
-                sample_analyzers[analyzer_config.id] = sample_analyzer
-                logger.info(f"Initialized sample analyzer: {analyzer_config.id}")
+                sample_analyzers[analyzer_params.id] = sample_analyzer
+                logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
                 logger.error(
-                    f"Failed to initialize sample analyzer {analyzer_config.id}: {e}"
+                    f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
                 )
-                logger.error(f"Analyzer configuration: {analyzer_config}")
+                logger.error(f"Analyzer configuration: {analyzer_params}")
         return sample_analyzers
 
     def analyze_dataset(self) -> dict[str, Any]:
