@@ -26,7 +26,7 @@ def create_quantizer(method: str) -> BaseQuantization:
     """Create appropriate quantization instance based on method.
 
     Args:
-        method: Quantization method name (e.g., "awq_q4_0", "bnb_4bit", "q4_0")
+        method: Quantization method name (e.g., "awq_q4_0", "bnb_4bit")
 
     Returns:
         Instance of appropriate quantization class
@@ -37,22 +37,15 @@ def create_quantizer(method: str) -> BaseQuantization:
     # Import here to avoid circular imports
     from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-    from oumi.quantize.gguf_quantizer import GgufQuantization
 
-    # Determine quantizer based on method prefix or name
+    # Determine quantizer based on method prefix
     if method.startswith("awq_"):
         return AwqQuantization()
     elif method.startswith("bnb_"):
         return BitsAndBytesQuantization()
-    elif method in ["q4_0", "q4_1", "q5_0", "q5_1", "q8_0", "f16", "f32"]:
-        return GgufQuantization()
     else:
         # Try all quantizers to find one that supports this method
-        for quantizer_class in [
-            AwqQuantization,
-            BitsAndBytesQuantization,
-            GgufQuantization,
-        ]:
+        for quantizer_class in [AwqQuantization, BitsAndBytesQuantization]:
             instance = quantizer_class()
             if instance.supports_method(method):
                 return instance
@@ -60,7 +53,7 @@ def create_quantizer(method: str) -> BaseQuantization:
         available_methods = get_available_methods()
         raise ValueError(
             f"Unsupported quantization method: {method}. "
-            f"Available methods: {list(available_methods.keys())}"
+            f"Available methods: {available_methods}"
         )
 
 
@@ -73,12 +66,10 @@ def get_available_methods() -> dict[str, list[str]]:
     # Import here to avoid circular imports
     from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-    from oumi.quantize.gguf_quantizer import GgufQuantization
 
     return {
         "AWQ": AwqQuantization.supported_methods,
         "BitsAndBytes": BitsAndBytesQuantization.supported_methods,
-        "GGUF": GgufQuantization.supported_methods,
     }
 
 
@@ -91,12 +82,10 @@ def get_supported_formats() -> list[str]:
     # Import here to avoid circular imports
     from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-    from oumi.quantize.gguf_quantizer import GgufQuantization
 
     formats = set()
     formats.update(AwqQuantization.supported_formats)
     formats.update(BitsAndBytesQuantization.supported_formats)
-    formats.update(GgufQuantization.supported_formats)
 
     return sorted(list(formats))
 

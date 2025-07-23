@@ -22,7 +22,6 @@ from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
 from oumi.quantize.factory import create_quantizer
-from oumi.quantize.gguf_quantizer import GgufQuantization
 
 
 def quantize(config) -> QuantizationResult:
@@ -57,7 +56,6 @@ __all__ = [
     "QuantizationResult",
     "AwqQuantization",
     "BitsAndBytesQuantization",
-    "GgufQuantization",
     "create_quantizer",
     "quantize",
 ]
