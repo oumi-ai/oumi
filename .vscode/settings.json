@@ -1,20 +1,23 @@
 {
     "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.rulers": [88],
+    "editor.formatOnSave": true,
+    "editor.formatOnSaveMode": "file",
+    "editor.rulers": [
+        88
+    ],
+    "notebook.formatOnSave.enabled": true,
     "python.testing.pytestArgs": [
         "tests"
     ],
-    "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.languageServer": "Pylance",
+    "python.testing.unittestEnabled": false,
+    "[markdown]": {
+        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+    },
     "[toml]": {
         "editor.defaultFormatter": "tamasfe.even-better-toml"
     },
     "[yaml]": {
         "editor.defaultFormatter": "redhat.vscode-yaml"
-    },
-    "[markdown]": {
-        "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
-    },
-    "notebook.formatOnSave.enabled": true
+    }
 }

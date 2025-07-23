@@ -36,3 +36,11 @@ SUPPORTED_METHODS = [
 
 # Supported output formats
 SUPPORTED_OUTPUT_FORMATS = ["gguf", "safetensors", "pytorch"]
+
+
+# Size units for formatting
+SIZE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
+
+
+# Common file extensions for model files
+MODEL_FILE_EXTENSIONS = [".safetensors", ".bin", ".pth"]

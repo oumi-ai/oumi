@@ -27,6 +27,7 @@ from oumi.cli.judge import conversations, dataset, model
 from oumi.cli.judge_v2 import judge_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.quantize import quantize
 from oumi.cli.train import train
 
 _ASCII_LOGO = r"""
@@ -37,6 +38,12 @@ _ASCII_LOGO = r"""
  | |__| | |__| | |  | |_| |_
   \____/ \____/|_|  |_|_____|
 """
+
+
+def experimental_features_enabled():
+    """Check if experimental features are enabled."""
+    is_enabled = os.environ.get("OUMI_ENABLE_EXPERIMENTAL_FEATURES", "False")
+    return is_enabled.lower() in ("1", "true", "yes", "on")
 
 
 def _oumi_welcome(ctx: typer.Context):
@@ -78,6 +85,11 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Judge a dataset.",
     )(judge_file)
+    if experimental_features_enabled():
+        app.command(
+            context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+            help="🚧 [Experimental] Quantize a model.",
+        )(quantize)
 
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
