@@ -25,6 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - cuda-version: "12.2.2"
+            cuda-image: "nvidia/cuda:12.2.2-cudnn-devel-ubuntu22.04"
+            python-version: "3.11"
           - cuda-version: "12.4.1"
             cuda-image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
