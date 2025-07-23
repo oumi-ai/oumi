@@ -54,7 +54,7 @@ jobs:
 
     - name: Install oumi with GPU dependencies
       run: |
-        uv pip install --system -e '.[gpu]'
+        uv pip install --system -e '.[gpu,dev]'
 
     - name: Verify GPU installation
       run: |
@@ -64,3 +64,8 @@ jobs:
 
         # Test GPU tensor operations
         oumi env
+
+    - name: Run tests
+      run: |
+        cd ./tests/unit/
+        pytest -s -m "not e2e and not e2e_eternal and not single_gpu and not multi_gpu" --durations=50 --timeout=300

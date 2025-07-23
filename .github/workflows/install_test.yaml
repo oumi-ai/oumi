@@ -38,7 +38,7 @@ jobs:
 
     - name: Install oumi
       run: |
-        uv pip install --system -e ".[ci_cpu]"
+        uv pip install --system -e .
 
     - name: Override PyTorch ${{ matrix.torch-version }}
       run: |
@@ -49,9 +49,9 @@ jobs:
         python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
         oumi env
 
-    # - name: Install pytest
-    #   run: |
-    #     uv pip install --system pytest-asyncio pytest-cov pytest-timeout pytest responses
+    - name: Install pytest
+      run: |
+        uv pip install --system pytest-asyncio pytest-cov pytest-timeout pytest responses
 
     - name: Run tests
       run: |
