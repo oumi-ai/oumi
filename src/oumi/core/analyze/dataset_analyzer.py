@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 import pandas as pd
+from tqdm import tqdm
 
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.registry.registry import REGISTRY
@@ -200,14 +201,22 @@ class DatasetAnalyzer:
         # Collect all message analysis results
         message_results = []
 
-        for conv_idx in range(conversations_to_analyze):
-            conversation = self.dataset.conversation(conv_idx)
+        # Use tqdm for progress monitoring
+        with tqdm(
+            total=conversations_to_analyze,
+            desc=f"Analyzing {self.dataset_name}",
+            unit="conv",
+        ) as pbar:
+            for conv_idx in range(conversations_to_analyze):
+                conversation = self.dataset.conversation(conv_idx)
 
-            for msg_idx, message in enumerate(conversation.messages):
-                message_result = self._compute_per_message_metrics(
-                    message, conv_idx, msg_idx, conversation
-                )
-                message_results.append(message_result)
+                for msg_idx, message in enumerate(conversation.messages):
+                    message_result = self._compute_per_message_metrics(
+                        message, conv_idx, msg_idx, conversation
+                    )
+                    message_results.append(message_result)
+
+                pbar.update(1)
 
         dataset_analysis_result = DatasetAnalysisResult(
             dataset_name=self.dataset_name

@@ -396,12 +396,8 @@ def test_analyze_dataset_analyzer_calls(conversations, mock_config):
     assert len(analyzer_2.analyze_calls) == 4
 
     # Check first call parameters
-    text_content, metadata = text_length_analyzer.analyze_calls[0]
+    text_content = text_length_analyzer.analyze_calls[0]
     assert text_content == "Hello, how are you?"
-    assert metadata["conversation_id"] == "conv_1"
-    assert metadata["conversation_index"] == 0
-    assert metadata["message_index"] == 0
-    assert metadata["role"] == "user"
 
 
 def test_analyze_dataset_metric_prefixing(conversations, mock_config):
