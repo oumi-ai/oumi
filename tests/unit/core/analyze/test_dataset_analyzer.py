@@ -1,10 +1,52 @@
 """Unit tests for DatasetAnalyzer."""
 
-from unittest.mock import patch
+from typing import Optional
+from unittest.mock import Mock, patch
 
+import pandas as pd
 import pytest
 
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
+from oumi.core.datasets import BaseMapDataset
+
+
+# Mock classes for testing
+class MockMessage:
+    """Mock message for testing."""
+
+    def __init__(self, content: str, role: str, message_id: Optional[str] = None):
+        self.content = content
+        self.role = Mock()
+        self.role.value = role
+        self.id = message_id
+
+    def compute_flattened_text_content(self) -> str:
+        """Mock flattened text content for multimodal messages."""
+        return f"flattened_{self.content}"
+
+
+class MockConversation:
+    """Mock conversation for testing."""
+
+    def __init__(self, conversation_id: Optional[str], messages: list[MockMessage]):
+        self.conversation_id = conversation_id
+        self.messages = messages
+
+
+class MockDataset(BaseMapDataset):
+    """Mock dataset for testing."""
+
+    def __init__(self, conversations: list[MockConversation]):
+        self.conversations = conversations
+
+    def __len__(self) -> int:
+        return len(self.conversations)
+
+    def conversation(self, idx: int) -> MockConversation:
+        return self.conversations[idx]
+
+    def transform(self, sample: pd.Series) -> dict:
+        return sample.to_dict()
 
 
 class MockRegistry:
@@ -70,8 +112,6 @@ def mock_config():
 @pytest.fixture
 def conversations():
     """Create conversations with multiple messages for testing."""
-    from tests.unit.utils.test_analysis_utils import MockConversation, MockMessage
-
     return [
         MockConversation(
             "conv_1",
@@ -95,7 +135,6 @@ def create_analyzer_with_dataset(
 ):
     """Helper function to create analyzer with mock dataset."""
     from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-    from tests.unit.utils.test_analysis_utils import MockDataset
 
     mock_dataset = MockDataset(conversations)
 
@@ -278,8 +317,6 @@ def test_analyze_dataset_sample_count_exceeds_total(conversations, mock_config):
 
 def test_analyze_dataset_multimodal_content(mock_config):
     """Test analysis with multimodal content (non-string content)."""
-    from tests.unit.utils.test_analysis_utils import MockConversation, MockMessage
-
     # Create message with non-string content
     mock_message = MockMessage("test content", "user")
     # Override content to be a dict for multimodal testing
@@ -300,8 +337,6 @@ def test_analyze_dataset_multimodal_content(mock_config):
 
 def test_analyze_dataset_missing_conversation_id(mock_config):
     """Test analysis when conversation_id is None."""
-    from tests.unit.utils.test_analysis_utils import MockConversation, MockMessage
-
     conversation = MockConversation(None, [MockMessage("Hello", "user")])
     analyzer, _ = create_analyzer_with_dataset([conversation], mock_config)
     results = analyzer.analyze_dataset()
@@ -314,8 +349,6 @@ def test_analyze_dataset_missing_conversation_id(mock_config):
 
 def test_analyze_dataset_missing_message_id(mock_config):
     """Test analysis when message_id is None."""
-    from tests.unit.utils.test_analysis_utils import MockConversation, MockMessage
-
     message = MockMessage("Hello", "user")
     message.id = None
     conversation = MockConversation("conv_1", [message])
@@ -343,8 +376,6 @@ def test_analyze_dataset_empty_dataset(mock_config):
 
 def test_analyze_dataset_empty_conversation(mock_config):
     """Test analysis with conversation containing no messages."""
-    from tests.unit.utils.test_analysis_utils import MockConversation
-
     conversation = MockConversation("conv_1", [])
     analyzer, _ = create_analyzer_with_dataset([conversation], mock_config)
     results = analyzer.analyze_dataset()

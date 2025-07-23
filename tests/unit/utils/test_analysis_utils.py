@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
 from unittest.mock import Mock, patch
 
-import pandas as pd
 import pytest
 
 from oumi.core.configs import AnalyzeConfig
@@ -115,42 +113,3 @@ def test_load_dataset_from_config_registry_exception(mock_registry):
 
     with pytest.raises(Exception, match="Registry error"):
         load_dataset_from_config(config)
-
-
-# Mock classes for testing (used by other test files)
-class MockMessage:
-    """Mock message for testing."""
-
-    def __init__(self, content: str, role: str, message_id: Optional[str] = None):
-        self.content = content
-        self.role = Mock()
-        self.role.value = role
-        self.id = message_id
-
-    def compute_flattened_text_content(self) -> str:
-        """Mock flattened text content for multimodal messages."""
-        return f"flattened_{self.content}"
-
-
-class MockConversation:
-    """Mock conversation for testing."""
-
-    def __init__(self, conversation_id: Optional[str], messages: list[MockMessage]):
-        self.conversation_id = conversation_id
-        self.messages = messages
-
-
-class MockDataset(BaseMapDataset):
-    """Mock dataset for testing."""
-
-    def __init__(self, conversations: list[MockConversation]):
-        self.conversations = conversations
-
-    def __len__(self) -> int:
-        return len(self.conversations)
-
-    def conversation(self, idx: int) -> MockConversation:
-        return self.conversations[idx]
-
-    def transform(self, sample: pd.Series) -> dict:
-        return sample.to_dict()
