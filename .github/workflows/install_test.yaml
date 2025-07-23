@@ -1,5 +1,8 @@
 name: "Installation Test"
 
+permissions:
+    contents: 'read'
+
 on:
   push:
     paths:
@@ -13,9 +16,8 @@ on:
 
 jobs:
   install-test:
-    permissions:
-      contents: 'read'
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
