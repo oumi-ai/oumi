@@ -93,17 +93,21 @@ def test_load_dataset_from_config_for_non_basemapdataset(mock_registry):
     mock_dataset_class = Mock()
     mock_dataset_instance = Mock()  # Not a BaseMapDataset
     mock_dataset_class.return_value = mock_dataset_instance
+
     mock_registry.get_dataset.return_value = mock_dataset_class
 
     with pytest.raises(
         NotImplementedError,
-        match="Dataset type .* is not supported for analysis",
+        match=(
+            "Dataset type .* is not supported for analysis. "
+            "Please use a dataset that inherits from BaseMapDataset."
+        ),
     ):
         load_dataset_from_config(config)
 
 
 def test_load_dataset_from_config_registry_exception(mock_registry):
-    """Test error handling when registry raises an exception."""
+    """Test error handling when registry.get_dataset raises an exception."""
     config = AnalyzeConfig(
         dataset_name="test_dataset",
         split="train",
