@@ -41,7 +41,7 @@ class DatasetAnalyzer:
     def _initialize_sample_analyzers(self):
         """Initialize sample analyzer plugins from configuration."""
         sample_analyzers = {}
-        for analyzer_config in self.config.analyzers:
+        for analyzer_params in self.config.analyzers:
             try:
                 # Get the analyzer class from the registry
                 analyzer_class = REGISTRY.get_sample_analyzer(analyzer_config.id)
