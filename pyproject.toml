@@ -68,6 +68,8 @@ dependencies = [
     "torch>=2.6.0,<2.7.0",
     "torchao>=0.11.0,<0.12",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
+    # also, torchdata does not provide a py13 wheel for version 0.9.0.
+    # if python > 3.13, install from source for now.
     "torchdata>=0.9.0,<0.10.0; python_version < '3.13'",                                     # Used by data pipes loader
     "torchdata @ git+https://github.com/pytorch/data.git@v0.9.0 ; python_version >= '3.13'",
     "torchvision>=0.21.0,<0.22",                                                             # Used by some VLM-s (multimodal)
