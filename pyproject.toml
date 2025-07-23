@@ -90,19 +90,19 @@ Issues = "https://github.com/oumi-ai/oumi/issues"
 [project.optional-dependencies]
 dev = [
     "ipykernel",
-    "ipywidgets",     # Interactive widgets for Jupyter notebooks
+    "ipywidgets",            # Interactive widgets for Jupyter notebooks
     "jupyterlab",
-    "nbconvert",      # For notebook execution in tests
-    "nbformat",       # For notebook execution in tests
+    "nbconvert",             # For notebook execution in tests
+    "nbformat",              # For notebook execution in tests
     "pre-commit",
     "pyright",
-    "pytest-asyncio", # Asyncio plugin for pytest
-    "pytest-cov",     # Test coverage plugin for pytest
-    "pytest-timeout", # Timeout plugin for pytest
+    "pytest-asyncio>=1.1.0", # Asyncio plugin for pytest
+    "pytest-cov",            # Test coverage plugin for pytest
+    "pytest-timeout",        # Timeout plugin for pytest
     "pytest",
     "responses",
     "ruff",
-    "torchfix",       # Tool for automatically fixing common PyTorch issues
+    "torchfix",              # Tool for automatically fixing common PyTorch issues
 ]
 docs = [
     "myst_parser",             # Allows us to write docs in markdown
