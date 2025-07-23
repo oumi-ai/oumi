@@ -58,7 +58,9 @@ def create_config(**kwargs):
 def test_initialization():
     """Test controller initialization with default configuration."""
     config = AdaptiveConcurrencyParams()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     assert controller._config == config
     assert controller._current_concurrency == 52
@@ -79,7 +81,9 @@ def test_initialization_with_custom_config():
         concurrency_step=5,
         error_threshold=0.05,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     assert controller._current_concurrency == 30
     assert controller._config.max_concurrency == 50
@@ -91,7 +95,9 @@ def test_initialization_with_custom_config():
 async def test_record_success():
     """Test recording successful requests."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Record multiple successes
     for _ in range(5):
@@ -105,7 +111,9 @@ async def test_record_success():
 async def test_record_error():
     """Test recording failed requests."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Record multiple errors
     for _ in range(5):
@@ -119,7 +127,9 @@ async def test_record_error():
 async def test_record_mixed_outcomes():
     """Test recording mixed success and error outcomes."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Record pattern: success, error, success, error, success
     await controller.record_success()
@@ -137,7 +147,9 @@ async def test_record_mixed_outcomes():
 async def test_get_error_rate_empty():
     """Test error rate calculation with no data."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     error_rate = await controller._get_error_rate()
     assert error_rate == 0.0
@@ -147,7 +159,9 @@ async def test_get_error_rate_empty():
 async def test_get_error_rate_all_success():
     """Test error rate calculation with all successful requests."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     for _ in range(10):
         await controller.record_success()
@@ -160,7 +174,9 @@ async def test_get_error_rate_all_success():
 async def test_get_error_rate_all_errors():
     """Test error rate calculation with all failed requests."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     for _ in range(10):
         await controller.record_error()
@@ -173,7 +189,9 @@ async def test_get_error_rate_all_errors():
 async def test_get_error_rate_mixed():
     """Test error rate calculation with mixed outcomes."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # 7 successes, 3 errors = 30% error rate
     for _ in range(7):
@@ -189,7 +207,9 @@ async def test_get_error_rate_mixed():
 async def test_acquire_and_release_basic():
     """Test basic acquire and release functionality."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Test acquire and release with real semaphore
     await controller.acquire()
@@ -204,7 +224,9 @@ async def test_acquire_and_release_basic():
 async def test_acquire_calls_try_adjust_concurrency():
     """Test that acquire calls concurrency adjustment logic."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Mock only the adjustment method to verify it's called
     with patch.object(
@@ -221,7 +243,9 @@ async def test_acquire_calls_try_adjust_concurrency():
 async def test_try_adjust_concurrency_no_data():
     """Test that adjustment doesn't happen with insufficient data."""
     config = create_config(min_window_size=10)
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     # Add some data but less than min_window_size
@@ -238,7 +262,9 @@ async def test_try_adjust_concurrency_no_data():
 async def test_try_adjust_concurrency_too_soon(mock_time):
     """Test that adjustment doesn't happen too frequently."""
     config = create_config(min_update_time=60.0)  # 1 minute
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     # Add sufficient data
@@ -264,7 +290,9 @@ async def test_backoff_on_high_error_rate(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     await controller._update_concurrency(100)
 
@@ -294,7 +322,9 @@ async def test_backoff_minimum_concurrency(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Start with higher concurrency than initial
     await controller._update_concurrency(20)
@@ -324,7 +354,9 @@ async def test_warmup_on_low_error_rate(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     # Create low error rate (all successes)
@@ -353,7 +385,9 @@ async def test_warmup_max_concurrency_limit(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Set current concurrency close to max
     await controller._update_concurrency(18)
@@ -380,7 +414,9 @@ async def test_recovery_from_backoff(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Start with higher concurrency then trigger backoff
     initial_concurrency = 10
@@ -426,7 +462,9 @@ async def test_additional_backoff_in_backoff_state(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     controller._semaphore = AsyncMock()
 
     # Start in backoff state
@@ -464,7 +502,9 @@ async def test_additional_backoff_in_backoff_state(mock_time):
 async def test_update_concurrency_resets_outcomes():
     """Test that updating concurrency resets outcome tracking."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     controller._semaphore = AsyncMock()
 
     # Add some outcomes
@@ -486,7 +526,9 @@ async def test_update_concurrency_resets_outcomes():
 async def test_end_backoff_resets_counters():
     """Test that ending backoff resets window counters."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Set up backoff state
     controller._in_backoff = True
@@ -504,7 +546,9 @@ async def test_end_backoff_resets_counters():
 async def test_concurrent_access_to_outcomes():
     """Test thread-safe access to outcomes tracking."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     async def record_outcomes():
         for i in range(100):
@@ -530,7 +574,9 @@ async def test_concurrent_access_to_outcomes():
 async def test_edge_case_zero_outcomes():
     """Test behavior with zero recorded outcomes."""
     config = create_config(min_window_size=0)
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     error_rate = await controller._get_error_rate()
@@ -550,7 +596,9 @@ async def test_backoff_state_persistence(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     controller._semaphore = AsyncMock()
 
     # Trigger backoff
@@ -590,7 +638,9 @@ async def test_configuration_edge_cases(mock_time):
         min_window_size=1,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     controller._semaphore = AsyncMock()
 
     # Should handle this configuration gracefully
@@ -607,7 +657,9 @@ async def test_configuration_edge_cases(mock_time):
 async def test_large_scale_outcomes():
     """Test with large number of outcomes."""
     config = create_config(min_window_size=1000)
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Add 1000 outcomes with 10% error rate
     for i in range(1000):
@@ -624,7 +676,9 @@ async def test_large_scale_outcomes():
 async def test_outcome_deque_behavior():
     """Test that outcomes are stored in a deque properly."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Verify it's a deque
     from collections import deque
@@ -644,7 +698,9 @@ async def test_outcome_deque_behavior():
 async def test_semaphore_error_handling():
     """Test error handling when semaphore operations fail."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Mock semaphore to raise exception
     controller._semaphore = AsyncMock()
@@ -668,7 +724,9 @@ async def test_multiple_adjustments_sequence(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     # Phase 1: Low error rate, should warm up
@@ -732,7 +790,9 @@ async def test_multiple_adjustments_sequence(mock_time):
 async def test_reset_outcomes_functionality():
     """Test the _reset_outcomes method functionality."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Add some outcomes and state
     for _ in range(5):
@@ -754,7 +814,9 @@ async def test_reset_outcomes_functionality():
 async def test_clear_adjustment_state_functionality():
     """Test the _clear_adjustment_state method functionality."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Add some outcomes and state
     for _ in range(5):
@@ -776,7 +838,9 @@ async def test_clear_adjustment_state_functionality():
 async def test_thread_safety_of_outcome_tracking():
     """Test thread safety of outcome recording operations."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     import threading
 
@@ -808,7 +872,9 @@ async def test_thread_safety_of_outcome_tracking():
 async def test_context_manager_basic():
     """Test basic context manager functionality."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     # Check initial semaphore state
@@ -827,7 +893,9 @@ async def test_context_manager_basic():
 async def test_context_manager_with_exception():
     """Test context manager properly releases on exception."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     initial_concurrency = controller._current_concurrency
 
     # Check initial semaphore state
@@ -848,7 +916,9 @@ async def test_context_manager_with_exception():
 async def test_outcomes_deque_max_size():
     """Test that outcomes deque respects maximum size limit."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     # Add more than max size
     for i in range(1200):
@@ -870,8 +940,7 @@ async def test_realistic_request_pattern():
         min_window_size=10,
         min_update_time=0.1,
     )
-    config.politeness_policy = 0.0
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(config, politeness_policy=0.0)
 
     # Simulate realistic usage pattern
     async def simulate_request(success_rate: float):
@@ -911,7 +980,9 @@ async def test_backoff_warning_at_minimum_concurrency(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     await controller._update_concurrency(config.min_concurrency + 1)
 
@@ -967,7 +1038,9 @@ async def test_warmup_warning_at_maximum_concurrency(mock_time):
         min_window_size=5,
         min_update_time=0.1,
     )
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
     controller._semaphore = AsyncMock()
 
     # Create low error rate to trigger warmup
@@ -989,7 +1062,9 @@ async def test_warmup_warning_at_maximum_concurrency(mock_time):
 def test_consecutive_windows_constants():
     """Test that consecutive window requirements are as expected."""
     config = create_config()
-    controller = AdaptiveConcurrencyController(config)
+    controller = AdaptiveConcurrencyController(
+        config, politeness_policy=_DEFAULT_POLITENESS_POLICY
+    )
 
     assert controller._consecutive_good_windows_required_for_recovery == 2
     assert controller._consecutive_error_windows_for_additional_backoff == 2

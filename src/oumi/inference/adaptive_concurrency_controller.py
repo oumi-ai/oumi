@@ -54,17 +54,18 @@ class AdaptiveConcurrencyController:
     ```
     """
 
-    def __init__(self, config: AdaptiveConcurrencyParams):
+    def __init__(self, config: AdaptiveConcurrencyParams, politeness_policy: float):
         """Initialize the adaptive concurrency controller.
 
         Args:
             config: Configuration for adaptive concurrency control.
-            politeness_policy: The politeness policy to use for the semaphore.
+            politeness_policy: The amount of time workers will wait until sending their
+                next request, in seconds.
         """
         self._config = config
         self._current_concurrency = self._get_initial_concurrency()
         self._semaphore = PoliteAdaptiveSemaphore(
-            self._current_concurrency, config.politeness_policy
+            self._current_concurrency, politeness_policy
         )
 
         # Track request outcomes in a sliding window

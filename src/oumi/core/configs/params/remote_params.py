@@ -108,9 +108,6 @@ class RemoteParams(BaseParams):
 class AdaptiveConcurrencyParams(BaseParams):
     """Configuration for adaptive concurrency control."""
 
-    politeness_policy: float = 60.0
-    """Politeness policy to use when calling an API."""
-
     min_concurrency: int = 5
     """Minimum number of concurrent requests to allow.
 

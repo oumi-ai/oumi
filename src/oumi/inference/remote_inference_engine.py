@@ -257,8 +257,8 @@ class RemoteInferenceEngine(BaseInferenceEngine):
                     initial_concurrency_factor=initial_concurrency_factor,
                     concurrency_step=concurrency_step,
                     min_update_time=min_update_time,
-                    politeness_policy=self._remote_params.politeness_policy,
                 ),
+                politeness_policy=self._remote_params.politeness_policy,
             )
 
     def _default_remote_params(self) -> RemoteParams:
