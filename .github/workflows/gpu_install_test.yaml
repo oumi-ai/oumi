@@ -39,6 +39,10 @@ jobs:
         ref: ${{ github.sha }}
         fetch-depth: 0
 
+    - name: Install git and configure
+      run: |
+        apt-get update && apt-get install -y git
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
