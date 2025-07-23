@@ -44,3 +44,14 @@ SIZE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
 
 # Common file extensions for model files
 MODEL_FILE_EXTENSIONS = [".safetensors", ".bin", ".pth"]
+
+# GGUF quantization method mapping
+GGUF_QUANTIZATION_MAP = {
+    "q4_0": "Q4_0",
+    "q4_1": "Q4_1",
+    "q5_0": "Q5_0",
+    "q5_1": "Q5_1",
+    "q8_0": "Q8_0",
+    "f16": "F16",
+    "f32": "F32",
+}

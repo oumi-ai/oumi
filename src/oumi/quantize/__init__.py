@@ -20,6 +20,9 @@ AWQ, BitsAndBytes, and GGUF quantization methods.
 
 from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
+from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.factory import create_quantizer
+from oumi.quantize.gguf_quantizer import GgufQuantization
 
 
 def quantize(config) -> QuantizationResult:
@@ -42,25 +45,8 @@ def quantize(config) -> QuantizationResult:
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
 
-    # Map quantization methods to their respective quantizers
-    quantizer_map = {
-        "awq_q4_0": AwqQuantization,
-        "awq_q4_1": AwqQuantization,
-        "awq_q8_0": AwqQuantization,
-        "awq_f16": AwqQuantization,
-    }
-
-    # Find the appropriate quantizer for the method
-    quantizer_class = quantizer_map.get(config.method)
-    if quantizer_class is None:
-        available_methods = list(quantizer_map.keys())
-        raise ValueError(
-            f"Unsupported quantization method '{config.method}'. "
-            f"Available methods: {available_methods}"
-        )
-
-    # Initialize and run quantization
-    quantizer = quantizer_class()
+    # Use factory to create appropriate quantizer
+    quantizer = create_quantizer(config.method)
     quantizer.raise_if_requirements_not_met()
 
     return quantizer.quantize(config)
@@ -68,6 +54,10 @@ def quantize(config) -> QuantizationResult:
 
 __all__ = [
     "BaseQuantization",
+    "QuantizationResult",
     "AwqQuantization",
+    "BitsAndBytesQuantization",
+    "GgufQuantization",
+    "create_quantizer",
     "quantize",
 ]
