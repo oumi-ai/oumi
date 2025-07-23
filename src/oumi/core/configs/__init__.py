@@ -80,8 +80,8 @@ Note:
 """
 
 from oumi.core.configs.analyze_config import (
-    DatasetAnalyzeConfig,
-    SampleAnalyzeConfig,
+    AnalyzeConfig,
+    SampleAnalyzerParams,
 )
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
@@ -139,6 +139,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
@@ -151,11 +152,13 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
-    "DatasetAnalyzeConfig",
-    "SampleAnalyzeConfig",
+    "AnalyzeConfig",
+    "SampleAnalyzerParams",
     "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationBackend",
+    "EvaluationConfig",
+    "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
     "GrpoParams",
@@ -178,6 +181,7 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",
     "ShardingStrategy",

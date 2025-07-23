@@ -41,48 +41,14 @@ def basic_samples() -> list[dict[str, SampleValue]]:
     ]
 
 
-@pytest.fixture
-def empty_params():
-    """Empty synthesis parameters for testing."""
-    return GeneralSynthesisParams()
-
-
-@pytest.fixture
-def params_with_no_transformed_attributes():
-    """Parameters with no transformed attributes."""
-    return GeneralSynthesisParams(transformed_attributes=None)
-
-
-@pytest.fixture
-def params_with_empty_transformed_attributes():
-    """Parameters with empty transformed attributes list."""
-    # Note: GeneralSynthesisParams validates that transformed_attributes cannot be empty
-    # so we use None instead
-    return GeneralSynthesisParams(transformed_attributes=None)
-
-
-def test_transform_with_no_transformed_attributes(
-    basic_samples, params_with_no_transformed_attributes
-):
+def test_transform_with_no_transformed_attributes(basic_samples):
     """Test transform with no transformed attributes returns original samples."""
+    params_with_no_transformed_attributes = GeneralSynthesisParams()
     transformer = AttributeTransformer(params_with_no_transformed_attributes)
     result = transformer.transform(basic_samples)
 
     # Should return the same samples unchanged
     assert result == basic_samples
-    assert len(result) == len(basic_samples)
-
-
-def test_transform_with_empty_transformed_attributes(
-    basic_samples, params_with_empty_transformed_attributes
-):
-    """Test transform with None transformed attributes returns original samples."""
-    transformer = AttributeTransformer(params_with_empty_transformed_attributes)
-    result = transformer.transform(basic_samples)
-
-    # Should return the same samples unchanged
-    assert result == basic_samples
-    assert len(result) == len(basic_samples)
 
 
 def test_transform_with_empty_samples():
@@ -106,17 +72,20 @@ def test_transform_string_strategy(basic_samples):
         ]
     )
     transformer = AttributeTransformer(params)
-    result = transformer.transform(basic_samples)
+    results = transformer.transform(basic_samples)
 
-    assert len(result) == 3
-    assert result[0]["greeting"] == "Hello Alice!"
-    assert result[1]["greeting"] == "Hello Bob!"
-    assert result[2]["greeting"] == "Hello Charlie!"
+    expected_results = [
+        {"greeting": "Hello Alice!", "name": "Alice", "age": "25", "city": "New York"},
+        {"greeting": "Hello Bob!", "name": "Bob", "age": "30", "city": "San Francisco"},
+        {
+            "greeting": "Hello Charlie!",
+            "name": "Charlie",
+            "age": "35",
+            "city": "Chicago",
+        },
+    ]
 
-    # Original attributes should still be present
-    assert result[0]["name"] == "Alice"
-    assert result[1]["name"] == "Bob"
-    assert result[2]["name"] == "Charlie"
+    assert results == expected_results
 
 
 def test_transform_string_strategy_multiple_placeholders(basic_samples):

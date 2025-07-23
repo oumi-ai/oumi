@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
 
 from oumi.core.configs.params.synthesis_params import GeneratedAttribute
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
