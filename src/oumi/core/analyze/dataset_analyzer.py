@@ -46,10 +46,9 @@ class DatasetAnalyzer:
                 # Get the analyzer class from the registry
                 analyzer_class = REGISTRY.get_sample_analyzer(analyzer_config.id)
                 if analyzer_class is None:
-                    logger.error(
+                    raise ValueError(
                         f"Sample analyzer '{analyzer_config.id}' not found in registry"
                     )
-                    continue
 
                 # Create analyzer instance with configuration
                 config_dict = {
@@ -117,15 +116,17 @@ class DatasetAnalyzer:
         # Apply conversation limit if specified
         max_conversations = self.config.sample_count
 
-        if max_conversations is not None and max_conversations > 0:
+        if max_conversations is not None:
+            if max_conversations <= 0:
+                raise ValueError(
+                    f"sample_count must be positive, got {max_conversations}. "
+                    "Use None to analyze all conversations."
+                )
             conversations_to_analyze = min(total_conversations, max_conversations)
             logger.info(
                 f"Limiting analysis to first {max_conversations} "
                 f"conversations (dataset has {total_conversations} total)"
             )
-        elif max_conversations == 0:
-            conversations_to_analyze = 0
-            logger.info("sample_count=0 specified, analyzing no conversations")
         else:
             conversations_to_analyze = total_conversations
 

@@ -277,7 +277,7 @@ def test_analyze_dataset_sample_count_none(conversations, mock_config):
 
 
 def test_analyze_dataset_sample_count_zero(conversations, mock_config):
-    """Test analysis with sample_count=0 (analyze no conversations)."""
+    """Test analysis with sample_count=0 raises ValueError."""
     # Create config with sample_count=0
     config = AnalyzeConfig(
         dataset_name="test_dataset",
@@ -287,13 +287,23 @@ def test_analyze_dataset_sample_count_zero(conversations, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_dataset(conversations, config)
-    results = analyzer.analyze_dataset()
+    with pytest.raises(ValueError, match="sample_count must be positive"):
+        analyzer.analyze_dataset()
 
-    sample_results = results["sample_level_results"]
-    assert sample_results["total_conversations"] == 2
-    assert sample_results["conversations_analyzed"] == 0
-    assert sample_results["total_messages"] == 0
-    assert sample_results["messages"] == []
+
+def test_analyze_dataset_sample_count_negative(conversations, mock_config):
+    """Test analysis with negative sample_count raises ValueError."""
+    # Create config with negative sample_count
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        split="train",
+        sample_count=-5,
+        analyzers=mock_config.analyzers,
+    )
+
+    analyzer, _ = create_analyzer_with_dataset(conversations, config)
+    with pytest.raises(ValueError, match="sample_count must be positive"):
+        analyzer.analyze_dataset()
 
 
 def test_analyze_dataset_sample_count_exceeds_total(conversations, mock_config):
