@@ -1,0 +1,63 @@
+name: "GPU Installation Test"
+
+permissions:
+    contents: 'read'
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  gpu-install-test:
+    permissions:
+      contents: 'read'
+    runs-on: linux-gpu-runner
+    container:
+      image: ${{ matrix.cuda-image }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda-version: "12.4"
+            cuda-image: "nvidia/cuda:12.4-devel-ubuntu22.04"
+            python-version: "3.11"
+          - cuda-version: "12.6.3"
+            cuda-image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu20.04"
+            python-version: "3.11"
+          - cuda-version: "12.8.1"
+            cuda-image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu20.04"
+            python-version: "3.11"
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.sha }}
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+
+    - name: Install oumi with GPU dependencies
+      run: |
+        uv pip install --system -e '.[gpu]'
+
+    - name: Verify GPU installation
+      run: |
+        nvidia-smi
+        python -c "import torch; print(f'PyTorch version: {torch.__version__}')"
+        python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+        python -c "import torch; print(f'CUDA version: {torch.version.cuda}')"
+
+        # Test GPU tensor operations
+        oumi env
