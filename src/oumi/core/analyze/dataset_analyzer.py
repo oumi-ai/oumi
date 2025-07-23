@@ -201,12 +201,12 @@ class DatasetAnalyzer:
 
         return message_data
 
-    def save_to_file(self, output_path: str) -> None:
-        """Save analysis results to JSONL file."""
+    def save_to_file(self) -> None:
+        """Save analysis results to JSONL file using output_path from config."""
         raise NotImplementedError("save_to_file method not yet implemented")
 
-    def load_from_file(self) -> dict[str, Any]:
-        """Load analysis results from JSONL file into dict format."""
+    def load_from_file(self) -> None:
+        """Load analysis results from JSONL file."""
         raise NotImplementedError("load_from_file method not yet implemented")
 
     def query(self, query_expression: str) -> pd.DataFrame:
