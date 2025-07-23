@@ -51,7 +51,7 @@ jobs:
 
     - name: Install pytest
       run: |
-        uv pip install --system pytest-asyncio pytest-cov pytest-timeout pytest responsess
+        uv pip install --system pytest-asyncio pytest-cov pytest-timeout pytest responses
 
     - name: Run tests
       run: |
