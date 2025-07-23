@@ -97,10 +97,10 @@ class DatasetAnalyzer:
 
         logger.info(f"Analyzing {conversations_to_analyze} conversations")
 
-        # Step 1: Per-sample (message) level analysis
-        logger.info("Step 1: Computing per-sample (message) level analysis...")
+        # Step 1: Per-message level analysis
+        logger.info("Step 1: Computing message metrics...")
 
-        sample_results = self._compute_sample_level_analysis()
+        sample_results = self._compute_message_metrics()
 
         final_results = {
             "dataset_name": self.dataset_name,
@@ -108,8 +108,8 @@ class DatasetAnalyzer:
         }
         return final_results
 
-    def _compute_sample_level_analysis(self) -> dict[str, Any]:
-        """Perform per-sample (message) level analysis using configured analyzers."""
+    def _compute_message_metrics(self) -> dict[str, Any]:
+        """Compute metrics for all messages in the dataset."""
         total_conversations = len(self.dataset)
 
         # Apply conversation limit if specified
@@ -128,7 +128,7 @@ class DatasetAnalyzer:
             conversations_to_analyze = total_conversations
 
         logger.info(
-            "Analyzing %d conversations for sample-level metrics",
+            "Analyzing %d conversations for message-level metrics",
             conversations_to_analyze,
         )
 
@@ -139,46 +139,9 @@ class DatasetAnalyzer:
             conversation = self.dataset.conversation(conv_idx)
 
             for msg_idx, message in enumerate(conversation.messages):
-                # Get text content
-                if isinstance(message.content, str):
-                    text_content = message.content
-                else:
-                    # For multimodal content, extract text only
-                    text_content = message.compute_flattened_text_content()
-
-                # Basic message information
-                message_data = {
-                    "conversation_id": conversation.conversation_id
-                    or f"conv_{conv_idx}",
-                    "conversation_index": conv_idx,
-                    "message_index": msg_idx,
-                    "message_id": message.id or f"msg_{conv_idx}_{msg_idx}",
-                    "role": message.role.value,
-                    "text_content": text_content,
-                }
-
-                # Compute metrics using all configured analyzers
-                message_metadata = {
-                    "conversation_id": message_data["conversation_id"],
-                    "conversation_index": conv_idx,
-                    "message_index": msg_idx,
-                    "role": message.role.value,
-                }
-
-                for analyzer_id, analyzer in self.sample_analyzers.items():
-                    try:
-                        analyzer_metrics = analyzer.analyze_message(
-                            text_content, message_metadata
-                        )
-                        # Prefix metrics with analyzer ID to avoid conflicts
-                        for key, value in analyzer_metrics.items():
-                            message_data[f"{analyzer_id}_{key}"] = value
-                    except Exception as e:
-                        logger.warning(
-                            f"Analyzer {analyzer_id} failed for message "
-                            f"{conv_idx}_{msg_idx}: {e}"
-                        )
-
+                message_data = self._compute_per_message_metrics(
+                    message, conv_idx, msg_idx, conversation
+                )
                 messages_data.append(message_data)
 
         sample_results = {
@@ -190,6 +153,51 @@ class DatasetAnalyzer:
         }
 
         return sample_results
+
+    def _compute_per_message_metrics(
+        self, message, conv_idx: int, msg_idx: int, conversation
+    ) -> dict[str, Any]:
+        """Compute metrics for a single message."""
+        # Get text content
+        if isinstance(message.content, str):
+            text_content = message.content
+        else:
+            # For multimodal content, extract text only
+            text_content = message.compute_flattened_text_content()
+
+        # Basic message information
+        message_data = {
+            "conversation_id": conversation.conversation_id or f"conv_{conv_idx}",
+            "conversation_index": conv_idx,
+            "message_index": msg_idx,
+            "message_id": message.id or f"msg_{conv_idx}_{msg_idx}",
+            "role": message.role.value,
+            "text_content": text_content,
+        }
+
+        # Compute metrics using all configured analyzers
+        message_metadata = {
+            "conversation_id": message_data["conversation_id"],
+            "conversation_index": conv_idx,
+            "message_index": msg_idx,
+            "role": message.role.value,
+        }
+
+        for analyzer_id, analyzer in self.sample_analyzers.items():
+            try:
+                analyzer_metrics = analyzer.analyze_message(
+                    text_content, message_metadata
+                )
+                # Prefix metrics with analyzer ID to avoid conflicts
+                for key, value in analyzer_metrics.items():
+                    message_data[f"{analyzer_id}_{key}"] = value
+            except Exception as e:
+                logger.warning(
+                    f"Analyzer {analyzer_id} failed for message "
+                    f"{conv_idx}_{msg_idx}: {e}"
+                )
+
+        return message_data
 
     # TODO: Add save_to_file method to save analysis results to JSONL file
     # def save_to_file(self, output_path: str) -> None:
