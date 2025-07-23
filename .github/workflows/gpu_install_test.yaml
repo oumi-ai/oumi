@@ -22,14 +22,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - cuda-version: "12.4"
-            cuda-image: "nvidia/cuda:12.4-devel-ubuntu22.04"
+          - cuda-version: "12.4.1"
+            cuda-image: "nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
           - cuda-version: "12.6.3"
-            cuda-image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu20.04"
+            cuda-image: "nvidia/cuda:12.6.3-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
           - cuda-version: "12.8.1"
-            cuda-image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu20.04"
+            cuda-image: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04"
             python-version: "3.11"
 
     steps:
@@ -37,6 +37,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ github.sha }}
+        fetch-depth: 0
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
