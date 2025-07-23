@@ -18,7 +18,6 @@ import tempfile
 from unittest.mock import Mock, patch
 
 import pytest
-import torch
 
 from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.quantize.awq_quantizer import AWQ_DEFAULTS, AwqQuantization
