@@ -55,7 +55,7 @@ jobs:
 
     - name: Install oumi with GPU dependencies
       run: |
-        uv pip install --system -e '.[gpu]'
+        uv pip install --system '.[gpu]'
 
     - name: Verify GPU installation
       run: |
