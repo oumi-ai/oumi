@@ -56,9 +56,6 @@ The configurations are organized into different categories:
 - Telemetry:
     - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
 - Judge:
-    - :class:`~oumi.core.configs.judge_config.JudgeConfig`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttribute`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttributeValueType`
     - :class:`~oumi.core.configs.judge_config_v2.JudgeConfig`
     - :class:`~oumi.core.configs.params.judge_params.JudgeOutputType`
     - :class:`~oumi.core.configs.params.judge_params.JudgeResponseFormat`
@@ -89,11 +86,6 @@ from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
-from oumi.core.configs.judge_config import (
-    JudgeAttribute,
-    JudgeAttributeValueType,
-    JudgeConfig,
-)
 from oumi.core.configs.judge_config_v2 import (
     JudgeConfig as JudgeConfigV2,
 )
@@ -139,6 +131,7 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.quantization_config import QuantizationConfig
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
@@ -156,6 +149,8 @@ __all__ = [
     "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationBackend",
+    "EvaluationConfig",
+    "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
     "GrpoParams",
@@ -164,9 +159,6 @@ __all__ = [
     "InferenceEngineType",
     "JobConfig",
     "JobResources",
-    "JudgeAttribute",
-    "JudgeAttributeValueType",
-    "JudgeConfig",
     "JudgeConfigV2",
     "JudgeOutputType",
     "JudgeResponseFormat",
@@ -178,6 +170,7 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",
     "ShardingStrategy",

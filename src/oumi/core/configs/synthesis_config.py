@@ -14,6 +14,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
@@ -29,6 +30,14 @@ class SynthesisStrategy(str, Enum):
 
 @dataclass
 class SynthesisConfig(BaseConfig):
+    """The configuration for the synthesis pipeline."""
+
+    output_path: Optional[str] = None
+    """The path to the output file where the generated data will be saved.
+
+    If not specified, the data will be returned as a list of dictionaries.
+    """
+
     strategy: SynthesisStrategy = SynthesisStrategy.GENERAL
     """The synthesis strategy to use."""
 
@@ -59,3 +68,10 @@ class SynthesisConfig(BaseConfig):
             raise ValueError(
                 "Output path is not supported for general synthesis strategy."
             )
+
+        if self.output_path is not None:
+            if self.output_path == "":
+                raise ValueError("Output path cannot be empty.")
+
+            if not self.output_path.endswith(".jsonl"):
+                raise ValueError("Output path must end with .jsonl.")
