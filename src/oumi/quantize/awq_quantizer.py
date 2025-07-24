@@ -116,14 +116,19 @@ class AwqQuantization(BaseQuantization):
         # 1. Load model and tokenizer
         logger.info("📥 Loading base model...")
 
-        model_kwargs = {"safetensors": True, "trust_remote_code": True}
+        model_kwargs = {
+            "safetensors": True,
+            "trust_remote_code": config.model.trust_remote_code,
+            **(config.model.model_kwargs or {}),
+        }
 
         model = self._awq.AutoAWQForCausalLM.from_pretrained(  # type: ignore
             config.model.model_name, **model_kwargs
         )
         tokenizer = AutoTokenizer.from_pretrained(
             config.model.tokenizer_name or config.model.model_name,
-            trust_remote_code=True,
+            trust_remote_code=config.model.trust_remote_code,
+            **(config.model.tokenizer_kwargs or {}),
         )
 
         logger.info("🔧 Configuring AWQ quantization parameters...")

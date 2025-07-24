@@ -24,18 +24,10 @@ SUPPORTED_METHODS = [
     # BitsAndBytes methods
     "bnb_4bit",
     "bnb_8bit",
-    # Direct GGUF methods
-    "q4_0",
-    "q4_1",
-    "q5_0",
-    "q5_1",
-    "q8_0",
-    "f16",
-    "f32",
 ]
 
 # Supported output formats
-SUPPORTED_OUTPUT_FORMATS = ["gguf", "safetensors", "pytorch"]
+SUPPORTED_OUTPUT_FORMATS = ["safetensors", "pytorch"]
 
 
 # Size units for formatting
