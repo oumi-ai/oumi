@@ -13,13 +13,12 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Annotated, Callable, Optional
+from typing import Annotated, Any, Callable, Optional
 
 import typer
 from rich.table import Table
 
 from oumi.cli import cli_utils
-from oumi.judges.base_judge import JudgeOutput
 
 
 def judge_dataset_file(
@@ -103,7 +102,7 @@ def judge_file(
         typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
     display_raw_output: bool = False,
-    judgment_fn: Callable[..., list[JudgeOutput]] = ...,
+    judgment_fn: Callable[..., list[Any]] = ...,
 ):
     """Judge a dataset or list of conversations."""
     # Delayed import
