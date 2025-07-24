@@ -39,6 +39,9 @@ class MessageAnalysisResult:
             with keys prefixed by analyzer ID to avoid conflicts
     """
 
+    # Field name constant to avoid hardcoding
+    ANALYZER_METRICS_FIELD = "analyzer_metrics"
+
     conversation_id: str
     conversation_index: int
     message_index: int
@@ -48,12 +51,17 @@ class MessageAnalysisResult:
     analyzer_metrics: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
+        """Convert the analysis result to a dictionary with flattened analyzer metrics.
 
         Returns:
-            Dictionary representation of the analysis result
+            Dictionary representation of the analysis result with analyzer metrics
+            flattened into the main dictionary (prefixed by analyzer ID)
         """
-        return asdict(self)
+        base_dict = asdict(self)
+        # Flatten analyzer_metrics into the main dict
+        analyzer_metrics = base_dict.pop(self.ANALYZER_METRICS_FIELD, {})
+        base_dict.update(analyzer_metrics)
+        return base_dict
 
 
 @dataclass
@@ -81,6 +89,17 @@ class DatasetAnalysisResult:
             Dictionary representation of the analysis result
         """
         return asdict(self)
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert the analysis results to a pandas DataFrame.
+
+        Returns:
+            DataFrame with flattened analyzer metrics for easy querying.
+            Each row represents one message with all its analysis metrics.
+        """
+        # Convert each message to dict with flattened metrics
+        message_dicts = [msg.to_dict() for msg in self.messages]
+        return pd.DataFrame(message_dicts)
 
 
 class DatasetAnalyzer:
@@ -277,7 +296,7 @@ class DatasetAnalyzer:
             role=role,
             message_id=message_id,
             text_content=text_content,
-            analyzer_metrics=analyzer_metrics,
+            **{MessageAnalysisResult.ANALYZER_METRICS_FIELD: analyzer_metrics},
         )
 
     def save_to_file(self) -> None:
