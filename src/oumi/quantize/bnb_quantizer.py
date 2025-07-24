@@ -101,7 +101,6 @@ class BitsAndBytesQuantization(BaseQuantization):
 
     def _quantize_model(self, config: QuantizationConfig):
         """Quantize model using BitsAndBytes."""
-
         logger.info(
             f"Loading model for BitsAndBytes quantization: {config.model.model_name}"
         )
