@@ -7,8 +7,8 @@ runs as a standalone script.
 """
 
 # Import the length analyzer to register it
-
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+from oumi.core.analyze.length_analyzer import LengthAnalyzer  # noqa: F401
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 
 
