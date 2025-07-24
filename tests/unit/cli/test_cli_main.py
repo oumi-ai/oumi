@@ -108,9 +108,9 @@ def mock_which():
 
 @pytest.fixture
 def mock_judge():
-    with patch("oumi.cli.main.judge_file") as m_judge_file:
-        _copy_command(m_judge_file, judge_dataset_file)
-        yield m_judge_file
+    with patch("oumi.cli.main.judge_dataset_file") as m_judge_dataset_file:
+        _copy_command(m_judge_dataset_file, judge_dataset_file)
+        yield m_judge_dataset_file
 
 
 @pytest.fixture

@@ -30,7 +30,7 @@ def app():
 
 @pytest.fixture
 def mock_judge_file():
-    with patch("oumi.judge.judge_file") as m_jf:
+    with patch("oumi.judge.judge_dataset_file") as m_jf:
         yield m_jf
 
 
@@ -68,6 +68,7 @@ def test_judge_file(
         result = runner.invoke(
             app,
             [
+                "dataset",
                 "--judge-config",
                 judge_config,
                 "--input-file",
@@ -108,6 +109,7 @@ def test_judge_file_with_output_file(
             result = runner.invoke(
                 app,
                 [
+                    "dataset",
                     "--judge-config",
                     judge_config,
                     "--input-file",
