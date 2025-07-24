@@ -77,6 +77,13 @@ def synth(
     ):
         results = oumi_synthesize(parsed_config)
 
+    if not results:
+        cli_utils.CONSOLE.print(
+            "No results found, please check your configuration and try again."
+            "Report this issue at https://github.com/oumi-ai/oumi/issues"
+        )
+        return
+
     # Display results table
     table = Table(
         title="Synthesis Results",
