@@ -4,30 +4,20 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import typer
 from typer.testing import CliRunner
 
-from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.cli.judge import judge_dataset_file
+from oumi.cli.main import get_app
 from oumi.utils.io_utils import save_jsonlines
 
 skip_if_no_openai_key = pytest.mark.skipif(
     os.getenv("OPENAI_API_KEY") is None, reason="OPENAI_API_KEY not set"
 )
 
-
-@pytest.fixture
-def app():
-    judge_app = typer.Typer()
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(judge_dataset_file)
-    yield judge_app
-
-
 runner = CliRunner()
 
 
 @skip_if_no_openai_key
-def test_custom_judge(app):
+def test_custom_judge():
     """Test that judge saves the correct results into the output file."""
 
     test_data = [
@@ -66,8 +56,10 @@ inference_config:
         save_jsonlines(input_file_path, test_data)
 
         result = runner.invoke(
-            app,
+            get_app(),
             [
+                "judge",
+                "dataset",
                 "--config",
                 judge_config_path,
                 "--input",
@@ -95,7 +87,7 @@ inference_config:
 
 
 @skip_if_no_openai_key
-def test_builtin_judge(app):
+def test_builtin_judge():
     """Test that judge saves the correct results into the output file."""
 
     test_data = [
@@ -119,8 +111,10 @@ def test_builtin_judge(app):
         save_jsonlines(input_file_path, test_data)
 
         result = runner.invoke(
-            app,
+            get_app(),
             [
+                "judge",
+                "dataset",
                 "--config",
                 judge_config,
                 "--input",
