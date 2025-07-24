@@ -202,21 +202,16 @@ class DatasetAnalyzer:
         message_results = []
 
         # Use tqdm for progress monitoring
-        with tqdm(
-            total=conversations_to_analyze,
+        for conv_idx in tqdm(range(conversations_to_analyze)
             desc=f"Analyzing {self.dataset_name}",
             unit="conv",
-        ) as pbar:
-            for conv_idx in range(conversations_to_analyze):
-                conversation = self.dataset.conversation(conv_idx)
-
-                for msg_idx, message in enumerate(conversation.messages):
-                    message_result = self._compute_per_message_metrics(
-                        message, conv_idx, msg_idx, conversation
-                    )
-                    message_results.append(message_result)
-
-                pbar.update(1)
+        ):
+            conversation = self.dataset.conversation(conv_idx)
+            for msg_idx, message in enumerate(conversation.messages):
+                message_result = self._compute_per_message_metrics(
+                    message, conv_idx, msg_idx, conversation
+                )
+                message_results.append(message_result)
 
         dataset_analysis_result = DatasetAnalysisResult(
             dataset_name=self.dataset_name
