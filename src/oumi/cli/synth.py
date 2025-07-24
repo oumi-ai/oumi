@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -57,31 +59,57 @@ def synth(
     )
     parsed_config.finalize_and_validate()
 
+    output_path = parsed_config.output_path
+    if not output_path:
+        cwd = Path.cwd()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = cwd / f"oumi_synth_results_{timestamp}.jsonl"
+        if output_path.exists():
+            i = 1
+            while output_path.exists():
+                output_path = cwd / f"oumi_synth_results_{timestamp}_{i}.jsonl"
+                i += 1
+        parsed_config.output_path = output_path.as_posix()
+
     # Run synthesis
     with cli_utils.CONSOLE.status(
         "[green]Synthesizing dataset...[/green]", spinner="dots"
     ):
         results = oumi_synthesize(parsed_config)
 
-    # Display results if no output path is specified
-    if not parsed_config.output_path:
-        table = Table(
-            title="Synthesis Results",
-            title_style="bold magenta",
-            show_edge=False,
-            show_lines=True,
-        )
-        table.add_column("Sample", style="green")
-        for i, result in enumerate(results[:5]):  # Show first 5 samples
-            table.add_row(f"Sample {i + 1}: {repr(result)}")
-        if len(results) > 5:
-            table.add_row(f"... and {len(results) - 5} more samples")
-        cli_utils.CONSOLE.print(table)
-        cli_utils.CONSOLE.print(
-            f"\n[green]Successfully synthesized {len(results)} samples[/green]"
-        )
-    else:
-        cli_utils.CONSOLE.print(
-            f"[green]Successfully synthesized {len(results)} samples and saved to "
-            f"{parsed_config.output_path}[/green]"
-        )
+    # Display results table
+    table = Table(
+        title="Synthesis Results",
+        title_style="bold magenta",
+        show_edge=False,
+        show_lines=True,
+    )
+    columns = results[0].keys()
+    for column in columns:
+        table.add_column(column, style="green")
+    for i, result in enumerate(results[:5]):  # Show first 5 samples
+        representations = []
+        for column in columns:
+            representation = repr(result[column])
+            if len(representation) > 20:
+                representation = representation[:20] + "..."
+            representations.append(representation)
+        table.add_row(*representations)
+    cli_utils.CONSOLE.print(table)
+    if len(results) > 5:
+        cli_utils.CONSOLE.print(f"... and {len(results) - 5} more samples")
+    cli_utils.CONSOLE.print(
+        f"\n[green]Successfully synthesized {len(results)} samples and saved to "
+        f"{parsed_config.output_path}[/green]"
+    )
+    cli_utils.CONSOLE.print(
+        f"\n\n[green]To train a model, run: oumi train -c "
+        f"path/to/your/train/config.yaml\n\n"
+        f"Update the config to use your new dataset:\n"
+        f"data:\n"
+        f"  train:\n"
+        f"    datasets:\n"
+        f'      - dataset_name: "text_sft_jsonl"\n'
+        f'        dataset_path: "{parsed_config.output_path}"\n'
+        f"[/green]"
+    )
