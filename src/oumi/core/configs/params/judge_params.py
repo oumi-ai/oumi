@@ -17,7 +17,7 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
-from oumi.utils.placeholders import resolve_placeholders
+from oumi.utils.placeholders import get_placeholders, resolve_placeholders
 
 
 class JudgeResponseFormat(str, Enum):
@@ -175,3 +175,10 @@ class JudgeParams(BaseParams):
                 self.template_variables,
                 missing_values_allowed=True,
             )
+
+    def get_placeholders(self) -> set[str]:
+        """Get the prompt template placeholders, after template variable replacement."""
+        prompt_template = resolve_placeholders(
+            self.prompt_template, self.template_variables, missing_values_allowed=True
+        )
+        return get_placeholders(prompt_template)
