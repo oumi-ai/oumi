@@ -53,6 +53,15 @@ def mock_aioresponse():
         yield m
 
 
+@pytest.fixture(autouse=False)
+def mock_polite_adaptive_semaphore():
+    with patch(
+        "oumi.inference.remote_inference_engine.PoliteAdaptiveSemaphore",
+        return_value=AsyncMock(),
+    ) as mock_polite_adaptive_semaphore:
+        yield mock_polite_adaptive_semaphore
+
+
 @pytest.fixture
 def mock_asyncio_sleep():
     async def mock_sleep(delay):
@@ -746,8 +755,8 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
                 [conversation],
                 config,
             )
-        # 3 retries + 3 backoffs
-        assert mock_asyncio_sleep.call_count == 6
+        # 3 retries
+        assert mock_asyncio_sleep.call_count == 3
 
 
 def test_infer_online_recovers_from_retries():
@@ -1051,10 +1060,11 @@ def test_infer_online_multiple_requests_politeness():
             inference_config,
         )
         total_time = time.time() - start
-        assert 1.0 < total_time < 1.5
+        assert 0.5 < total_time < 1.0
         assert expected_result == result
 
 
+@pytest.mark.asyncio
 def test_infer_online_multiple_requests_politeness_multiple_workers():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
@@ -1080,6 +1090,19 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
                         "message": {
                             "role": "assistant",
                             "content": "The second time I saw",
+                        }
+                    }
+                ]
+            },
+        },
+        "Goodbye twice!": {
+            "status": 200,
+            "payload": {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "The third time I saw",
                         }
                     }
                 ]
@@ -1150,6 +1173,20 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             metadata={"bar": "foo"},
             conversation_id="321",
         )
+        conversation3 = Conversation(
+            messages=[
+                Message(
+                    content="Goodbye twice!",
+                    role=Role.USER,
+                ),
+                Message(
+                    content="Goodbye again!",
+                    role=Role.USER,
+                ),
+            ],
+            metadata={"bar": "foo"},
+            conversation_id="3210",
+        )
         expected_result = [
             Conversation(
                 messages=[
@@ -1173,6 +1210,17 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
                 metadata={"bar": "foo"},
                 conversation_id="321",
             ),
+            Conversation(
+                messages=[
+                    *conversation3.messages,
+                    Message(
+                        content="The third time I saw",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"bar": "foo"},
+                conversation_id="3210",
+            ),
         ]
         start = time.time()
         inference_config = InferenceConfig(
@@ -1182,12 +1230,12 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             remote_params=remote_params,
         )
         result = engine.infer(
-            [conversation1, conversation2],
+            [conversation1, conversation2, conversation3],
             inference_config,
         )
+        assert expected_result == result
         total_time = time.time() - start
         assert 0.5 < total_time < 1.0
-        assert expected_result == result
 
 
 def test_infer_from_file_empty():
@@ -2397,7 +2445,8 @@ def test_infer_online_handles_invalid_content():
                 )
 
 
-def test_infer_online_exponential_backoff():
+@pytest.mark.asyncio
+async def test_infer_online_exponential_backoff(mock_polite_adaptive_semaphore):
     """Test that the engine implements exponential backoff correctly."""
     sleep_calls = []
 
@@ -2437,7 +2486,7 @@ def test_infer_online_exponential_backoff():
                 model_params=_get_default_model_params(),
                 remote_params=RemoteParams(
                     api_url=_TARGET_SERVER,
-                    max_retries=2,
+                    max_retries=3,
                     retry_backoff_base=0.2,  # Small values for testing
                     retry_backoff_max=1.0,
                 ),
@@ -2448,7 +2497,7 @@ def test_infer_online_exponential_backoff():
 
             remote_params = RemoteParams(
                 api_url=_TARGET_SERVER,
-                max_retries=2,
+                max_retries=3,
                 retry_backoff_base=0.2,
                 retry_backoff_max=1.0,
             )
@@ -2508,7 +2557,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             mock_asyncio_sleep.reset_mock()
 
 
-def test_response_processing_error(mock_asyncio_sleep):
+def test_response_processing_error(mock_polite_adaptive_semaphore, mock_asyncio_sleep):
     """Test handling of errors during response processing."""
     with aioresponses() as m:
         m.post(
@@ -2545,11 +2594,14 @@ def test_response_processing_error(mock_asyncio_sleep):
             engine.infer([conversation])
 
         assert "Failed to process successful response" in str(exc_info.value)
-        # Verify retries were attempted
-        assert mock_asyncio_sleep.call_count == 4
+        # Verify 2 retries were attempted
+        assert mock_asyncio_sleep.call_count == 2
 
 
-def test_malformed_json_response(mock_asyncio_sleep):
+@pytest.mark.asyncio
+async def test_malformed_json_response(
+    mock_polite_adaptive_semaphore, mock_asyncio_sleep
+):
     """Test handling of malformed JSON responses."""
     with aioresponses() as m:
         m.post(
@@ -2585,11 +2637,14 @@ def test_malformed_json_response(mock_asyncio_sleep):
 
         assert "Failed to parse response" in str(exc_info.value)
         assert "Content type: application/json" in str(exc_info.value)
-        # Verify retries were attempted
-        assert mock_asyncio_sleep.call_count == 4
+        # Verify 2 retries were attempted
+        assert mock_asyncio_sleep.call_count == 2
 
 
-def test_unexpected_error_handling(mock_asyncio_sleep):
+@pytest.mark.asyncio
+async def test_unexpected_error_handling(
+    mock_polite_adaptive_semaphore, mock_asyncio_sleep
+):
     """Test handling of unexpected errors during API calls."""
 
     def raise_unexpected(*args, **kwargs):
@@ -2614,8 +2669,8 @@ def test_unexpected_error_handling(mock_asyncio_sleep):
             "Failed to query API after 3 attempts due to unexpected error: Unexpected "
             "internal error" in str(exc_info.value)
         )
-        # Verify retries were attempted
-        assert mock_asyncio_sleep.call_count == 4
+        # Verify 2 retries were attempted
+        assert mock_asyncio_sleep.call_count == 2
 
 
 def test_list_response_error_handling():

@@ -33,7 +33,7 @@ from oumi.core.synthesis.attribute_transformation import AttributeTransformer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
 from oumi.core.synthesis.synthesis_pipeline import SynthesisPipeline
-from oumi.core.types.conversation import Role
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @pytest.fixture

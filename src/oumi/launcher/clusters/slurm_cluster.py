@@ -106,8 +106,6 @@ def _validate_job_config(job: JobConfig) -> None:
     """
     if not job.user:
         raise ValueError("User must be provided for Slurm jobs.")
-    if not job.working_dir:
-        raise ValueError("Working directory must be provided for Slurm jobs.")
     if not job.run:
         raise ValueError("Run script must be provided for Slurm jobs.")
     if job.num_nodes < 1:
@@ -118,6 +116,8 @@ def _validate_job_config(job: JobConfig) -> None:
             f"Unsupported cloud: {job.resources.cloud}"
         )
     # Warn that other resource parameters are unused for Slurm.
+    if not job.working_dir:
+        logger.warning("Working directory is not set. This is not recommended.")
     if job.resources.region:
         logger.warning("Region is unused for Slurm jobs.")
     if job.resources.zone:
@@ -248,7 +248,10 @@ class SlurmCluster(BaseCluster):
         submission_time = _format_date(datetime.now())
         remote_working_dir = Path(f"~/oumi_launcher/{submission_time}")
         # Copy the working directory to ~/oumi_launcher/...
-        self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        if job.working_dir:
+            self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        else:
+            self._client.run_commands([f"mkdir -p {remote_working_dir}"])
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
             self._client.put_recursive(local_path, remote_path)

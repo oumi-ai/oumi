@@ -25,7 +25,7 @@ from oumi.core.configs.params.synthesis_params import (
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 from oumi.core.types.conversation import Conversation, Message
 
-SampleValue = Union[str, list[str], dict[str, str], list[dict[str, str]]]
+SampleValue = Union[str, list[str], dict[str, str], Conversation]
 
 
 class AttributeTransformer:
@@ -58,23 +58,13 @@ class AttributeTransformer:
         """
         for attribute in self._transformed_attributes:
             transformed_attribute_id = attribute.id
-            sample_transforms = self._apply_transform_to_samples(samples, attribute)
-            for sample, transformed_attribute_value in zip(samples, sample_transforms):
-                sample[transformed_attribute_id] = transformed_attribute_value
+            for sample in samples:
+                sample[transformed_attribute_id] = self._transform_attribute(
+                    sample,
+                    attribute,
+                )
 
         return samples
-
-    def _apply_transform_to_samples(
-        self,
-        samples: list[dict[str, Any]],
-        attribute: TransformedAttribute,
-    ) -> list[SampleValue]:
-        """Applies a transform to a list of samples."""
-        transformed_samples = []
-        for sample in samples:
-            transformed_sample = self._transform_attribute(sample, attribute)
-            transformed_samples.append(transformed_sample)
-        return transformed_samples
 
     def _transform_attribute(
         self,
@@ -115,11 +105,8 @@ class AttributeTransformer:
         transform: TransformationStrategy,
     ) -> list[str]:
         """Transforms a list attribute of a sample to a particular format."""
-        assert transform.list_transform is not None  # Validated in __post_init__
-        result = []
-        for element_transform in transform.list_transform:
-            result.append(self._transform_string(sample, element_transform))
-        return result
+        assert transform.list_transform is not None
+        return [self._transform_string(sample, e) for e in transform.element_transforms]
 
     def _transform_dict(
         self,
@@ -128,10 +115,10 @@ class AttributeTransformer:
     ) -> dict[str, str]:
         """Transforms a dict attribute of a sample to a particular format."""
         assert transform.dict_transform is not None  # Validated in __post_init__
-        result = {}
-        for key, value_transform in transform.dict_transform.items():
-            result[key] = self._transform_string(sample, value_transform)
-        return result
+        return {
+            k: self._transform_string(sample, v)
+            for k, v in transform.transforms.items()
+        }
 
     def _transform_chat(
         self,

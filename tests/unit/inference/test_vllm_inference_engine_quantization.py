@@ -1,3 +1,4 @@
+import importlib.util
 from unittest.mock import ANY, patch
 
 import pytest
@@ -10,6 +11,10 @@ def _mock_gguf(repo_id: str, filename: str) -> str:
     return "MOCK[{repo_id}|{filename}]"
 
 
+is_vllm_installed = importlib.util.find_spec("vllm") is not None
+
+
+@pytest.mark.skipif(not is_vllm_installed, reason="vllm is not installed")
 def test_gguf():
     model_name = "my_model_name"
     model_kwargs = {"filename": "my_model_filename.gguf"}
@@ -49,6 +54,7 @@ def test_gguf():
         )
 
 
+@pytest.mark.skipif(not is_vllm_installed, reason="vllm is not installed")
 def test_gguf_no_tokenizer():
     model_name = "my_model_name"
     model_kwargs = {"filename": "my_model_filename.gguf"}
@@ -71,6 +77,7 @@ def test_gguf_no_tokenizer():
             )
 
 
+@pytest.mark.skipif(not is_vllm_installed, reason="vllm is not installed")
 def test_bnb():
     model_name = "my_model_name"
     model_kwargs = {"load_in_8bit": True}

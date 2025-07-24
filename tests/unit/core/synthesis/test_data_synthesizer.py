@@ -24,7 +24,7 @@ from oumi.core.configs.params.synthesis_params import (
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
-from oumi.core.types.conversation import Role
+from oumi.core.types.conversation import Conversation, Message, Role
 
 
 @pytest.fixture
