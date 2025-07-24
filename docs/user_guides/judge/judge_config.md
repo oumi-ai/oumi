@@ -4,7 +4,7 @@ Oumi allows users to define their judge configurations through a `YAML` file, pr
 
 ## Configuration Options
 
-The configuration `YAML` file is loaded into the {py:class}`~oumi.core.configs.judge_config_v2.JudgeConfig` class, and consists of `judge_params` ({py:class}`~oumi.core.configs.params.judge_params.JudgeParams`) and `inference_config` ({py:class}`~oumi.core.configs.inference_config.InferenceConfig`). The judge parameters define the evaluation criteria, prompts, and output format, while the inference configuration specifies the underlying judge model and generation parameters used for the judge's reasoning.
+The configuration `YAML` file is loaded into the {py:class}`~oumi.core.configs.judge_config.JudgeConfig` class, and consists of `judge_params` ({py:class}`~oumi.core.configs.params.judge_params.JudgeParams`) and `inference_config` ({py:class}`~oumi.core.configs.inference_config.InferenceConfig`). The judge parameters define the evaluation criteria, prompts, and output format, while the inference configuration specifies the underlying judge model and generation parameters used for the judge's reasoning.
 
 ### Judge Parameters
 
@@ -142,14 +142,14 @@ The Judge framework supports multiple ways to load configurations:
 
 ### Local File Path
 ```python
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.judges.simple_judge import SimpleJudge
 
 judge = SimpleJudge("./my_judge_config.yaml")
 ```
 
 ### Repository Path
 ```python
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.judges.simple_judge import SimpleJudge
 
 # Load from GitHub repository using oumi:// prefix
 judge = SimpleJudge("oumi://configs/projects/judges/generic/truthfulness.yaml")
@@ -162,8 +162,8 @@ judge = SimpleJudge("generic/truthfulness")
 
 ### Programmatic Configuration
 ```python
-from oumi.judges_v2.simple_judge import SimpleJudge
-from oumi.core.configs.judge_config_v2 import JudgeConfig
+from oumi.judges.simple_judge import SimpleJudge
+from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.judge_params import JudgeParams
 from oumi.core.configs.inference_config import InferenceConfig
 
@@ -181,7 +181,7 @@ You can override configuration parameters at runtime using the CLI or programmat
 
 ### CLI Override
 ```bash
-oumi judge-v2 \
+oumi judge dataset \
     --judge-config generic/truthfulness \
     --input-file dataset.jsonl \
     --judge_params.response_format XML
@@ -189,8 +189,8 @@ oumi judge-v2 \
 
 ### Programmatic Override
 ```python
-from oumi.core.configs.judge_config_v2 import JudgeConfig
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.core.configs.judge_config import JudgeConfig
+from oumi.judges.simple_judge import SimpleJudge
 
 judge_config = JudgeConfig.from_path("generic/truthfulness")
 judge_config.judge_params.response_format = "XML"

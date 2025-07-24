@@ -3,10 +3,10 @@
 The Judge framework provides a command-line interface for evaluating datasets without writing Python code.
 This is particularly useful for batch evaluation, pipeline integration, and quick testing.
 
-The Judge CLI is accessed through the `oumi judge-v2` command:
+The Judge CLI is accessed through the `oumi judge` command:
 
 ```bash
-oumi judge-v2 \
+oumi judge dataset \
     --judge-config CONFIG_FILE \
     --input-file INPUT_FILE \
     [--output-file OUTPUT_FILE \]

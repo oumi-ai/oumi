@@ -8,7 +8,7 @@ import typer
 from typer.testing import CliRunner
 
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.cli.judge_v2 import judge_file
+from oumi.cli.judge import judge_dataset_file
 from oumi.utils.io_utils import save_jsonlines
 
 skip_if_no_openai_key = pytest.mark.skipif(
@@ -19,7 +19,7 @@ skip_if_no_openai_key = pytest.mark.skipif(
 @pytest.fixture
 def app():
     judge_app = typer.Typer()
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(judge_file)
+    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(judge_dataset_file)
     yield judge_app
 
 

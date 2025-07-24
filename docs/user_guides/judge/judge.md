@@ -40,13 +40,13 @@ Our LLM Judge API is fully customizable and can be applied across a wide range o
 
 ## Quick Start
 
-To leverage an LLM judge, we instantiate a {py:class}`~oumi.judges_v2.simple_judge.SimpleJudge` class using a judge configuration ({py:class}`~oumi.core.configs.judge_config_v2.JudgeConfig`). Oumi offers several {doc}`built-in judges </user_guides/judge/built_in_judges>` that you can use out-of-the-box for common evaluation tasks (see our {gh}`GitHub page <configs/projects/judges/>` for the complete list). Alternatively, you can create completely custom judges by defining your own prompts, output formats, and evaluation criteria in a {doc}`custom config </user_guides/judge/judge_config>`.
+To leverage an LLM judge, we instantiate a {py:class}`~oumi.judges.simple_judge.SimpleJudge` class using a judge configuration ({py:class}`~oumi.core.configs.judge_config.JudgeConfig`). Oumi offers several {doc}`built-in judges </user_guides/judge/built_in_judges>` that you can use out-of-the-box for common evaluation tasks (see our {gh}`GitHub page <configs/projects/judges/>` for the complete list). Alternatively, you can create completely custom judges by defining your own prompts, output formats, and evaluation criteria in a {doc}`custom config </user_guides/judge/judge_config>`.
 
 ### Built-In Judges (predefined configuration)
 
 Select a judge from our {gh}`GitHub page <configs/projects/judges/>` and use it, as shown below. The following example is for the {gh}`Truthfulness judge <configs/projects/judges/generic/truthfulness.yaml>` (judges/generic/truthfulness).
 ```python
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.judges.simple_judge import SimpleJudge
 
 # Instantiate a simple judge using a predefined configuration: Truthfulness
 simple_judge = SimpleJudge(judge_config="oumi://configs/projects/judges/generic/truthfulness.yaml")
@@ -101,7 +101,7 @@ inference_config:
 
 Step 2: Load your custom configuration file and evaluate a dataset.
 ```python
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.judges.simple_judge import SimpleJudge
 
 # Instantiate a simple judge using a local configuration
 simple_judge = SimpleJudge(judge_config="./my_judge_config.yaml")

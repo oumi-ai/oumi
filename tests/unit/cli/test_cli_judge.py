@@ -6,8 +6,8 @@ import pytest
 from typer.testing import CliRunner
 
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
-from oumi.cli.judge_v2 import judge_file
-from oumi.judges_v2.base_judge import JudgeOutput
+from oumi.cli.judge import judge_dataset_file
+from oumi.judges.base_judge import JudgeOutput
 
 runner = CliRunner()
 
@@ -24,19 +24,19 @@ def app():
     import typer
 
     judge_app = typer.Typer()
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(judge_file)
+    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(judge_dataset_file)
     yield judge_app
 
 
 @pytest.fixture
 def mock_judge_file():
-    with patch("oumi.judge_v2.judge_file") as m_jf:
+    with patch("oumi.judge.judge_file") as m_jf:
         yield m_jf
 
 
 @pytest.fixture
 def mock_judge_config_from_path():
-    with patch("oumi.core.configs.judge_config_v2.JudgeConfig.from_path") as m_rjc:
+    with patch("oumi.core.configs.judge_config.JudgeConfig.from_path") as m_rjc:
         yield m_rjc
 
 
@@ -63,7 +63,7 @@ def test_judge_file(
 
     mock_judge_file.return_value = [sample_judge_output]
 
-    with patch("oumi.cli.judge_v2.Path") as mock_path:
+    with patch("oumi.cli.judge.Path") as mock_path:
         mock_path.return_value.exists.return_value = True
         result = runner.invoke(
             app,
@@ -103,7 +103,7 @@ def test_judge_file_with_output_file(
 
         mock_judge_file.return_value = [sample_judge_output]
 
-        with patch("oumi.cli.judge_v2.Path") as mock_path:
+        with patch("oumi.cli.judge.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             result = runner.invoke(
                 app,

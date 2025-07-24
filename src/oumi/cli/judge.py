@@ -21,7 +21,7 @@ from rich.table import Table
 from oumi.cli import cli_utils
 
 
-def judge_file(
+def judge_dataset_file(
     ctx: typer.Context,
     judge_config: Annotated[
         str,
@@ -41,8 +41,8 @@ def judge_file(
 ):
     """Judge a dataset."""
     # Delayed imports
-    from oumi import judge_v2
-    from oumi.core.configs.judge_config_v2 import JudgeConfig
+    from oumi import judge
+    from oumi.core.configs.judge_config import JudgeConfig
     # End imports
 
     # Load configs
@@ -57,7 +57,7 @@ def judge_file(
         raise typer.Exit(code=1)
 
     # Judge the dataset
-    judge_outputs = judge_v2.judge_file(
+    judge_outputs = judge.judge_dataset_file(
         judge_config=judge_config_obj,
         input_file=input_file,
         output_file=output_file,

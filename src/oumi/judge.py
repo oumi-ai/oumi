@@ -16,9 +16,9 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from oumi.core.configs.judge_config_v2 import JudgeConfig
-from oumi.judges_v2.base_judge import JudgeOutput
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.core.configs.judge_config import JudgeConfig
+from oumi.judges.base_judge import JudgeOutput
+from oumi.judges.simple_judge import SimpleJudge
 from oumi.utils.io_utils import load_jsonlines
 
 
@@ -86,7 +86,7 @@ def judge_dataset(
     return judge_outputs
 
 
-def judge_file(
+def judge_dataset_file(
     judge_config: Union[JudgeConfig, str],
     input_file: Union[str, Path],
     output_file: Optional[Union[str, Path]] = None,
