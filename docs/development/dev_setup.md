@@ -48,6 +48,21 @@ This command creates a new Conda env, installs relevant packages, and installs p
 make setup
 ```
 
+> **Note:**
+> If you see an error like
+> `CondaToSNonInteractiveError: Terms of Service have not been accepted for the following channels...`
+>
+> This means you must manually accept the Terms of Service for the Anaconda package channels.
+> To resolve, run the following commands in your terminal for each required channel:
+>
+> ```shell
+> conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+> conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+> ```
+>
+> After accepting, re-run the `make setup` command.
+>
+
 If you'd like to only run the pre-commits before a push, instead of every commit, you can run:
 
 ```shell
