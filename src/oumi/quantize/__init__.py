@@ -17,3 +17,50 @@
 This module provides comprehensive model quantization capabilities including
 AWQ, BitsAndBytes, and GGUF quantization methods.
 """
+
+from typing import TYPE_CHECKING
+
+from oumi.quantize.awq_quantizer import AwqQuantization
+from oumi.quantize.base import BaseQuantization, QuantizationResult
+from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+
+if TYPE_CHECKING:
+    from oumi.core.configs import QuantizationConfig
+
+
+def quantize(config: "QuantizationConfig") -> QuantizationResult:
+    """Main quantization function that routes to appropriate quantizer.
+
+    Args:
+        config: Quantization configuration containing method, model parameters,
+            and other settings.
+
+    Returns:
+        QuantizationResult containing quantization results including file sizes
+        and compression ratios.
+
+    Raises:
+        ValueError: If quantization method is not supported
+        RuntimeError: If quantization fails
+    """
+    from oumi.core.configs import QuantizationConfig
+
+    if not isinstance(config, QuantizationConfig):
+        raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
+
+    # Use builder to create appropriate quantizer
+    from oumi.builders.quantizers import build_quantizer
+
+    quantizer = build_quantizer(config.method)
+    quantizer.raise_if_requirements_not_met()
+
+    return quantizer.quantize(config)
+
+
+__all__ = [
+    "BaseQuantization",
+    "QuantizationResult",
+    "AwqQuantization",
+    "BitsAndBytesQuantization",
+    "quantize",
+]

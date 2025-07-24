@@ -23,10 +23,10 @@ from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
-from oumi.cli.judge import conversations, dataset, model
-from oumi.cli.judge_v2 import judge_file
+from oumi.cli.judge import judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.quantize import quantize
 from oumi.cli.train import train
 
 _ASCII_LOGO = r"""
@@ -39,9 +39,9 @@ _ASCII_LOGO = r"""
 """
 
 
-def experimental_judge_v2_enabled():
-    """Check if the experimental judge v2 feature is enabled."""
-    is_enabled = os.environ.get("OUMI_EXPERIMENTAL_JUDGE_V2", "False")
+def experimental_features_enabled():
+    """Check if experimental features are enabled."""
+    is_enabled = os.environ.get("OUMI_ENABLE_EXPERIMENTAL_FEATURES", "False")
     return is_enabled.lower() in ("1", "true", "yes", "on")
 
 
@@ -79,21 +79,17 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
-
-    if experimental_judge_v2_enabled():
+    if experimental_features_enabled():
         app.command(
-            name="judge-v2",
             context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-            help="Judge a dataset.",
-        )(judge_file)
+            help="🚧 [Experimental] Quantize a model.",
+        )(quantize)
 
     judge_app = typer.Typer(pretty_exceptions_enable=False)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(conversations)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(dataset)
-    judge_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(model)
-    app.add_typer(
-        judge_app, name="judge", help="Judge datasets, models or conversations."
+    judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
+        judge_dataset_file
     )
+    app.add_typer(judge_app, name="judge", help="Judge datasets or conversations.")
 
     launch_app = typer.Typer(pretty_exceptions_enable=False)
     launch_app.command(help="Cancels a job.")(cancel)

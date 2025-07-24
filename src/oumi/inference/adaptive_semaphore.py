@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import time
 from collections import deque
 
 from oumi.core.async_utils import safe_asyncio_run
@@ -42,7 +43,7 @@ class AdaptiveSemaphore:
 
     async def __aexit__(self, exc_type, exc, tb):
         """Exit the context manager."""
-        self.release()
+        await self._release_async()
 
     def __repr__(self):
         """Return a string representation of the semaphore."""
@@ -64,7 +65,6 @@ class AdaptiveSemaphore:
                 self._waiters.append(waiter_future)
             else:
                 self._current_capacity -= 1
-
         if waiter_future is None:
             return True
 
@@ -131,3 +131,64 @@ class AdaptiveSemaphore:
 
             # If we decreased capacity below current usage, we don't forcibly
             # revoke permits, but future acquires will be limited by the new capacity
+
+
+class PoliteAdaptiveSemaphore(AdaptiveSemaphore):
+    """A semaphore that enforces a politeness policy."""
+
+    def __init__(self, capacity: int, politeness_policy: float):
+        """A semaphore that enforces a politeness policy.
+
+        Args:
+            capacity: The maximum number of concurrent tasks.
+            politeness_policy: The politeness policy in seconds.
+        """
+        self._politeness_policy = politeness_policy
+        super().__init__(initial_capacity=capacity)
+        self._queue: deque[float] = deque([-1] * capacity)
+
+    def _get_wait_time(self) -> float:
+        """Calculates the time to wait after acquiring the semaphore.
+
+        Returns a negative number if no wait is needed.
+
+        Returns:
+            The time to wait to acquire the semaphore.
+        """
+        if len(self._queue) == 0:
+            return -1
+        next_start_time = self._queue.popleft()
+        if next_start_time == -1:
+            return next_start_time
+        return next_start_time - time.time()
+
+    async def adjust_capacity(self, new_capacity: int):
+        """Adjust the semaphore capacity."""
+        await super().adjust_capacity(new_capacity)
+        # If we decrease capacity, we should remove the oldest values from the queue.
+        if len(self._queue) > new_capacity:
+            for _ in range(len(self._queue) - new_capacity):
+                self._queue.popleft()
+        # If we increase capacity, we should pad the queue with -1.
+        elif len(self._queue) < new_capacity:
+            for _ in range(new_capacity - len(self._queue)):
+                self._queue.append(-1)
+
+    async def acquire(self):
+        """Acquires the semaphore and waits for the politeness policy to be respected.
+
+        If the queue is empty, no wait is needed.
+        """
+        await super().acquire()
+        wait_time = self._get_wait_time()
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
+
+    async def _release_async(self):
+        """Releases the semaphore.
+
+        Adds the current time to the queue. So the next task will wait for the
+        politeness policy to be respected.
+        """
+        self._queue.append(time.time() + self._politeness_policy)
+        await super()._release_async()

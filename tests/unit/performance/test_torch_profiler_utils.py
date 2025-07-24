@@ -1,8 +1,10 @@
+import sys
 import tempfile
 
 import numpy as np
 import pytest
 import torch
+from packaging import version
 from torch import nn
 
 from oumi.core.configs.params.profiler_params import ProfilerParams
@@ -56,6 +58,12 @@ class SimpleMLP(nn.Module):
             row_limit=3,
         ),
     ],
+)
+@pytest.mark.skipif(
+    version.parse(torch.__version__) < version.parse("2.7.1")
+    and sys.version_info >= (3, 13),
+    reason="Known issue with torch < 2.7.1 and python >= 3.13 combination. "
+    "This was fixed in torch 2.7.1",
 )
 def test_torch_profile(params: ProfilerParams):
     BATCH_SIZE = 256
