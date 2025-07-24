@@ -10,9 +10,9 @@ They provide a boolean judgment (Yes/No), together with an explanation.
 They can be invoked in the CLI, as follows:
 ```bash
 oumi judge dataset \
-  --judge-config generic/<judge name> \
-  --input-file dataset.jsonl \
-  --output-file output.jsonl
+  --config generic/<judge name> \
+  --input dataset.jsonl \
+  --output output.jsonl
 ```
 
 | Judge Name | Description |
@@ -31,9 +31,9 @@ These judges provide a boolean judgment (Yes/No), together with an explanation.
 They can be invoked as follows
 ```bash
 oumi judge dataset \
-  --judge-config doc_qa/<judge name> \
-  --input-file dataset.jsonl \
-  --output-file output.jsonl
+  --config doc_qa/<judge name> \
+  --input dataset.jsonl \
+  --output output.jsonl
 ```
 
 | Judge Name | Description |

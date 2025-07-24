@@ -26,16 +26,16 @@ def judge_dataset_file(
     judge_config: Annotated[
         str,
         typer.Option(
-            "--judge-config",
+            "--config",
             help="Path to the judge config file",
         ),
     ],
     input_file: Annotated[
-        str, typer.Option("--input-file", help="Path to the dataset input file (jsonl)")
+        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
     ],
     output_file: Annotated[
         Optional[str],
-        typer.Option("--output-file", help="Path to the output file (jsonl)"),
+        typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
     display_raw_output: bool = False,
 ):

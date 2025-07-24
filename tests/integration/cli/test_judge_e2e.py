@@ -68,11 +68,11 @@ inference_config:
         result = runner.invoke(
             app,
             [
-                "--judge-config",
+                "--config",
                 judge_config_path,
-                "--input-file",
+                "--input",
                 input_file_path,
-                "--output-file",
+                "--output",
                 output_file_path,
             ],
         )
@@ -107,7 +107,7 @@ def test_builtin_judge(app):
         {
             "context": "When you are asked to add numbers, you must return their sum.",
             "question": "What is the sum of 2+2?",
-            "answer": "This is an addition of 2 numbers",  # Irrelevant answer
+            "answer": "Summer in Greece is hot",  # Irrelevant answer
         },
     ]
     judge_config = "doc_qa/relevance"
@@ -121,11 +121,11 @@ def test_builtin_judge(app):
         result = runner.invoke(
             app,
             [
-                "--judge-config",
+                "--config",
                 judge_config,
-                "--input-file",
+                "--input",
                 input_file_path,
-                "--output-file",
+                "--output",
                 output_file_path,
             ],
         )

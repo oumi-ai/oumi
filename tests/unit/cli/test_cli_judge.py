@@ -69,9 +69,9 @@ def test_judge_file(
             app,
             [
                 "dataset",
-                "--judge-config",
+                "--config",
                 judge_config,
-                "--input-file",
+                "--input",
                 input_file,
             ],
         )
@@ -110,11 +110,11 @@ def test_judge_file_with_output_file(
                 app,
                 [
                     "dataset",
-                    "--judge-config",
+                    "--config",
                     judge_config,
-                    "--input-file",
+                    "--input",
                     input_file,
-                    "--output-file",
+                    "--output",
                     output_file,
                 ],
             )

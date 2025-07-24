@@ -182,8 +182,8 @@ You can override configuration parameters at runtime using the CLI or programmat
 ### CLI Override
 ```bash
 oumi judge dataset \
-    --judge-config generic/truthfulness \
-    --input-file dataset.jsonl \
+    --config generic/truthfulness \
+    --input dataset.jsonl \
     --judge_params.response_format XML
 ```
 

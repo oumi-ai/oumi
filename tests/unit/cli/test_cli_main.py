@@ -251,11 +251,11 @@ def test_main_judge_registered(mock_judge):
         [
             "judge",
             "dataset",
-            "--judge-config",
+            "--config",
             "./my_judge_config",
-            "--input-file",
+            "--input",
             "./my_input_file.jsonl",
-            "--output-file",
+            "--output",
             "./my_output_file.jsonl",
         ],
     )

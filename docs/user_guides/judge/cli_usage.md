@@ -7,17 +7,17 @@ The Judge CLI is accessed through the `oumi judge` command:
 
 ```bash
 oumi judge dataset \
-    --judge-config CONFIG_FILE \
-    --input-file INPUT_FILE \
-    [--output-file OUTPUT_FILE \]
+    --config CONFIG_FILE \
+    --input INPUT_FILE \
+    [--output OUTPUT_FILE \]
     [--display-raw-output]
 ```
 
 Arguments
-- `--judge-config`: Path to the judge configuration YAML file. This can either be a local file or a file retrieved from Oumi's GitHub repository using `oumi:// prefix`
+- `--config`: Path to the judge configuration YAML file. This can either be a local file or a file retrieved from Oumi's GitHub repository using `oumi:// prefix`
 (e.g. `oumi://configs/projects/judges/generic/truthfulness.yaml`)
-- `--input-file`: Path to the input dataset (JSONL format)
-- `--output-file`: Path to save results (JSONL format). If not specified, results are displayed in a formatted table
+- `--input`: Path to the input dataset (JSONL format)
+- `--output`: Path to save results (JSONL format). If not specified, results are displayed in a formatted table
 - `--display-raw-output`: Include raw model output in the displayed table (when no output file is specified)
 
 ## Input Format
