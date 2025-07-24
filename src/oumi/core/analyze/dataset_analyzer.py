@@ -15,7 +15,6 @@
 from dataclasses import asdict, dataclass
 from typing import Any
 
-import pandas as pd
 from tqdm import tqdm
 
 from oumi.core.configs import AnalyzeConfig
@@ -202,7 +201,8 @@ class DatasetAnalyzer:
         message_results = []
 
         # Use tqdm for progress monitoring
-        for conv_idx in tqdm(range(conversations_to_analyze)
+        for conv_idx in tqdm(
+            range(conversations_to_analyze),
             desc=f"Analyzing {self.dataset_name}",
             unit="conv",
         ):
@@ -274,15 +274,3 @@ class DatasetAnalyzer:
             text_content=text_content,
             analyzer_metrics=analyzer_metrics,
         )
-
-    def save_to_file(self) -> None:
-        """Save analysis results to JSONL file using output_path from config."""
-        raise NotImplementedError("save_to_file method not yet implemented")
-
-    def load_from_file(self) -> None:
-        """Load analysis results from JSONL file."""
-        raise NotImplementedError("load_from_file method not yet implemented")
-
-    def query(self, query_expression: str) -> pd.DataFrame:
-        """Query analysis results using pandas query expression."""
-        raise NotImplementedError("query method not yet implemented")
