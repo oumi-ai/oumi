@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Factory for creating quantization instances.
+"""Builder for creating quantization instances.
 
-This module provides a factory pattern for creating appropriate quantization
+This module provides a builder pattern for creating appropriate quantization
 instances based on the quantization method. It serves as a simplified alternative
 to the main quantize() function for when you need direct access to quantizer instances.
 """
@@ -22,7 +22,7 @@ to the main quantize() function for when you need direct access to quantizer ins
 from oumi.quantize.base import BaseQuantization
 
 
-def create_quantizer(method: str) -> BaseQuantization:
+def build_quantizer(method: str) -> BaseQuantization:
     """Create appropriate quantization instance based on method.
 
     Args:

@@ -101,7 +101,6 @@ class BitsAndBytesQuantization(BaseQuantization):
 
     def _quantize_model(self, config: QuantizationConfig):
         """Quantize model using BitsAndBytes."""
-        from transformers import BitsAndBytesConfig  # type: ignore
 
         logger.info(
             f"Loading model for BitsAndBytes quantization: {config.model.model_name}"
@@ -114,18 +113,23 @@ class BitsAndBytesQuantization(BaseQuantization):
         logger.info(f"🔧 Using {config.method} quantization")
 
         # Load and quantize model
+        torch_dtype = config.model.torch_dtype
+        if torch_dtype == torch.float32:
+            torch_dtype = torch.float16
+
         model = AutoModelForCausalLM.from_pretrained(
             config.model.model_name,
             quantization_config=quantization_config,
-            device_map="auto",
-            torch_dtype=torch.float16,
-            trust_remote_code=True,
+            device_map=config.model.device_map,
+            torch_dtype=torch_dtype,
+            trust_remote_code=config.model.trust_remote_code,
             **(config.model.model_kwargs or {}),
         )
 
         tokenizer = AutoTokenizer.from_pretrained(
             config.model.tokenizer_name or config.model.model_name,
-            trust_remote_code=True,
+            trust_remote_code=config.model.trust_remote_code,
+            **(config.model.tokenizer_kwargs or {}),
         )
 
         return model, tokenizer

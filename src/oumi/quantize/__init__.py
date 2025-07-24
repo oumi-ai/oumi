@@ -21,10 +21,14 @@ AWQ, BitsAndBytes, and GGUF quantization methods.
 from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-from oumi.quantize.factory import create_quantizer
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from oumi.core.configs import QuantizationConfig
 
 
-def quantize(config) -> QuantizationResult:
+def quantize(config: "QuantizationConfig") -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
 
     Args:
@@ -44,8 +48,10 @@ def quantize(config) -> QuantizationResult:
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
 
-    # Use factory to create appropriate quantizer
-    quantizer = create_quantizer(config.method)
+    # Use builder to create appropriate quantizer
+    from oumi.builders.quantizers import build_quantizer
+
+    quantizer = build_quantizer(config.method)
     quantizer.raise_if_requirements_not_met()
 
     return quantizer.quantize(config)
@@ -56,6 +62,5 @@ __all__ = [
     "QuantizationResult",
     "AwqQuantization",
     "BitsAndBytesQuantization",
-    "create_quantizer",
     "quantize",
 ]
