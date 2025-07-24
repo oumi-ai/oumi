@@ -17,10 +17,12 @@ class SafeDict(dict):
     def __init__(self, missing_values_allowed: bool, *args, **kwargs):
         """Initialize the SafeDict with the missing_values_allowed flag."""
         self.missing_values_allowed = missing_values_allowed
+        self.placeholder_names = set()
         super().__init__(*args, **kwargs)
 
     def __missing__(self, key: str) -> str:
         """Handle missing keys in the dictionary."""
+        self.placeholder_names.add(key)
         if self.missing_values_allowed:
             return "{" + key + "}"
         else:
@@ -34,3 +36,10 @@ def resolve_placeholders(
 ) -> str:
     """Resolve placeholder {variables} in the provided text from the values_dict."""
     return text.format_map(SafeDict(missing_values_allowed, values_dict))
+
+
+def get_placeholders(text: str) -> set[str]:
+    """Extract placeholder variable names from text with {variable} syntax."""
+    safe_dict = SafeDict(missing_values_allowed=True)
+    text.format_map(safe_dict)
+    return safe_dict.placeholder_names

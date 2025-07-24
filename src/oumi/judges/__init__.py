@@ -18,12 +18,12 @@ The judges are used to evaluate the quality of AI-generated responses based on
 different criteria such as helpfulness, honesty, and safety.
 """
 
-from oumi.judges_v2.base_judge import (
+from oumi.judges.base_judge import (
     BaseJudge,
     JudgeOutput,
     JudgeOutputField,
 )
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.judges.simple_judge import SimpleJudge
 
 __all__ = [
     "BaseJudge",

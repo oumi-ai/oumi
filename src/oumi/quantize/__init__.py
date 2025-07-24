@@ -18,11 +18,17 @@ This module provides comprehensive model quantization capabilities including
 AWQ, BitsAndBytes, and GGUF quantization methods.
 """
 
+from typing import TYPE_CHECKING
+
 from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
+from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+
+if TYPE_CHECKING:
+    from oumi.core.configs import QuantizationConfig
 
 
-def quantize(config) -> QuantizationResult:
+def quantize(config: "QuantizationConfig") -> QuantizationResult:
     """Main quantization function that routes to appropriate quantizer.
 
     Args:
@@ -42,25 +48,10 @@ def quantize(config) -> QuantizationResult:
     if not isinstance(config, QuantizationConfig):
         raise ValueError(f"Expected QuantizationConfig, got {type(config)}")
 
-    # Map quantization methods to their respective quantizers
-    quantizer_map = {
-        "awq_q4_0": AwqQuantization,
-        "awq_q4_1": AwqQuantization,
-        "awq_q8_0": AwqQuantization,
-        "awq_f16": AwqQuantization,
-    }
+    # Use builder to create appropriate quantizer
+    from oumi.builders.quantizers import build_quantizer
 
-    # Find the appropriate quantizer for the method
-    quantizer_class = quantizer_map.get(config.method)
-    if quantizer_class is None:
-        available_methods = list(quantizer_map.keys())
-        raise ValueError(
-            f"Unsupported quantization method '{config.method}'. "
-            f"Available methods: {available_methods}"
-        )
-
-    # Initialize and run quantization
-    quantizer = quantizer_class()
+    quantizer = build_quantizer(config.method)
     quantizer.raise_if_requirements_not_met()
 
     return quantizer.quantize(config)
@@ -68,6 +59,8 @@ def quantize(config) -> QuantizationResult:
 
 __all__ = [
     "BaseQuantization",
+    "QuantizationResult",
     "AwqQuantization",
+    "BitsAndBytesQuantization",
     "quantize",
 ]

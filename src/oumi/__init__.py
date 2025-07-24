@@ -24,6 +24,7 @@ Modules:
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
     - :mod:`~oumi.utils`: Utility functions, including logging configuration.
+    - :mod:`~oumi.judges`: Functions for judging datasets and conversations.
 
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
@@ -32,6 +33,7 @@ Functions:
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
     - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
+    - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
     Training a model::
@@ -62,6 +64,12 @@ Examples:
         >>> config = QuantizationConfig(...)
         >>> result = quantize(config)
 
+    Judging a dataset::
+        >>> from oumi import judge_dataset
+        >>> from oumi.core.configs import JudgeConfig
+        >>> config = JudgeConfig(...)
+        >>> judge_dataset(config, dataset)
+
 See Also:
     - :mod:`oumi.core.configs`: For configuration classes used in Oumi
 """
@@ -77,14 +85,14 @@ if TYPE_CHECKING:
         AsyncEvaluationConfig,
         EvaluationConfig,
         InferenceConfig,
-        JudgeConfigV2,
+        JudgeConfig,
         QuantizationConfig,
         SynthesisConfig,
         TrainingConfig,
     )
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
-    from oumi.judges_v2.base_judge import JudgeOutput
+    from oumi.judges.base_judge import JudgeOutput
     from oumi.quantize.base import QuantizationResult
 
 logging.configure_dependency_warnings()
@@ -166,8 +174,8 @@ def infer(
     )
 
 
-def judge_v2_dataset(
-    judge_config: JudgeConfigV2 | str,
+def judge_dataset(
+    judge_config: JudgeConfig | str,
     dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
@@ -215,9 +223,9 @@ def judge_v2_dataset(
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
-    import oumi.judge_v2
+    import oumi.judge
 
-    return oumi.judge_v2.judge_dataset(judge_config, dataset)
+    return oumi.judge.judge_dataset(judge_config, dataset)
 
 
 def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
