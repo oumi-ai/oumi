@@ -168,29 +168,34 @@ def _convert_conversations_to_dataset(
     """Convert a list of conversations to a judge-compatible dataset."""
     dataset = []
 
-    for conversation in conversations:
+    for index, conversation in enumerate(conversations):
         messages = conversation.messages
 
         # Ensure the conversation's messages are compatible with the judge.
         if len(messages) != 2:
             raise ValueError(
-                f"Conversation must have exactly 2 messages, got {len(messages)}"
+                f"Conversation must have exactly 2 messages, got {len(messages)} "
+                f"at index {index}."
             )
         if messages[0].role != Role.USER:
             raise ValueError(
-                f"First message must be a user message, got {messages[0].role}"
+                f"First message must be a user message, got {messages[0].role} "
+                f"at index {index}."
             )
         if messages[1].role != Role.ASSISTANT:
             raise ValueError(
-                f"Second message must be an assistant message, got {messages[1].role}"
+                f"Second message must be an assistant message, got {messages[1].role} "
+                f"at index {index}."
             )
         if not isinstance(messages[0].content, str):
             raise ValueError(
-                f"First message must be a text message, got {messages[0].content}"
+                f"First message must be a text message, got {messages[0].content} "
+                f"at index {index}."
             )
         if not isinstance(messages[1].content, str):
             raise ValueError(
-                f"Second message must be a text message, got {messages[1].content}"
+                f"Second message must be a text message, got {messages[1].content} "
+                f"at index {index}."
             )
 
         # Convert the conversation's messages to a judge-compatible example.
