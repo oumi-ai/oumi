@@ -25,6 +25,7 @@ class AliasType(str, Enum):
     INFER = "infer"
     JOB = "job"
     QUANTIZE = "quantize"
+    JUDGE = "judge"
 
 
 _ALIASES: dict[str, dict[AliasType, str]] = {
@@ -154,6 +155,19 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     },
     "molmo-7b-o-grpo": {
         AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/grpo/train.yaml",
+    },
+    # Judge aliases (for generic judges only): <model_name>-<judge_name>
+    "gpt-4o-format-compliance": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/generic/format_compliance.yaml",
+    },
+    "gpt-4o-instruction-following": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/generic/instruction_following.yaml",
+    },
+    "gpt-4o-topic-adherence": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/generic/topic_adherence.yaml",
+    },
+    "gpt-4o-truthfulness": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/generic/truthfulness.yaml",
     },
 }
 

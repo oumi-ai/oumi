@@ -139,3 +139,56 @@ def test_builtin_judge():
         assert judge_outputs[1]["field_values"]["judgment"] is False
         assert judge_outputs[1]["field_scores"]["judgment"] == 0.0
         assert judge_outputs[1]["parsed_output"]["judgment"] == "No"
+
+
+@skip_if_no_openai_key
+def test_judge_alias():
+    """Test that judge saves the correct results into the output file."""
+
+    test_data = [
+        {
+            "request": "Which is the capital of France?",
+            "response": "Paris",  # Correct answer
+        },
+        {
+            "request": "What is 2+2?",
+            "response": "The answer is 5",  # Incorrect answer
+        },
+    ]
+    judge_config = "gpt-4o-truthfulness"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        input_file_path = str(Path(temp_dir) / "input.jsonl")
+        output_file_path = str(Path(temp_dir) / "output.jsonl")
+
+        save_jsonlines(input_file_path, test_data)
+
+        result = runner.invoke(
+            get_app(),
+            [
+                "judge",
+                "dataset",
+                "--config",
+                judge_config,
+                "--input",
+                input_file_path,
+                "--output",
+                output_file_path,
+            ],
+        )
+
+        assert result.exit_code == 0, f"CLI command failed with: {result.exception}"
+        assert Path(output_file_path).exists()
+
+        # Verify output file content
+        output_file_content = Path(output_file_path).read_text()
+        output_file_rows = output_file_content.strip().split("\n")
+        judge_outputs = [json.loads(row) for row in output_file_rows]
+
+        assert judge_outputs[0]["field_values"]["judgment"] is True
+        assert judge_outputs[0]["field_scores"]["judgment"] == 1.0
+        assert judge_outputs[0]["parsed_output"]["judgment"] == "Yes"
+
+        assert judge_outputs[1]["field_values"]["judgment"] is False
+        assert judge_outputs[1]["field_scores"]["judgment"] == 0.0
+        assert judge_outputs[1]["parsed_output"]["judgment"] == "No"

@@ -21,6 +21,7 @@ import yaml
 from typing_extensions import Self
 
 from oumi.cli import cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.core.configs import BaseConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.params.judge_params import JudgeParams
@@ -83,6 +84,9 @@ class JudgeConfig(BaseConfig):
 
         if extra_args is None:
             extra_args = []
+
+        # If `path` is an alias, resolve it to the corresponding oumi:// path.
+        path = try_get_config_name_for_alias(path, AliasType.JUDGE)
 
         # If `path` is a local or repo path, load JudgeConfig obj from that path.
         # Repo example: path = "oumi://configs/projects/judges/doc_qa/relevance.yaml"
