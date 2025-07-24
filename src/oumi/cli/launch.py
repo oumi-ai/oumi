@@ -34,12 +34,12 @@ if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
 
 
-def _get_working_dir(current: str) -> str:
+def _get_working_dir(current: Optional[str]) -> Optional[str]:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
         return current
     oumi_root = get_git_root_dir()
-    if not oumi_root or oumi_root == Path(current).resolve():
+    if current and (not oumi_root or oumi_root == Path(current).resolve()):
         return current
     use_root = typer.confirm(
         "You are using a dev build of oumi. "
