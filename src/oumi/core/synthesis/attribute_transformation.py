@@ -106,7 +106,7 @@ class AttributeTransformer:
     ) -> list[str]:
         """Transforms a list attribute of a sample to a particular format."""
         assert transform.list_transform is not None
-        return [self._transform_string(sample, e) for e in transform.element_transforms]
+        return [self._transform_string(sample, e) for e in transform.list_transform]
 
     def _transform_dict(
         self,
@@ -117,7 +117,7 @@ class AttributeTransformer:
         assert transform.dict_transform is not None  # Validated in __post_init__
         return {
             k: self._transform_string(sample, v)
-            for k, v in transform.transforms.items()
+            for k, v in transform.dict_transform.items()
         }
 
     def _transform_chat(

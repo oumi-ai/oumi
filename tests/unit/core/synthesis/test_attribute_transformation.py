@@ -29,7 +29,7 @@ from oumi.core.synthesis.attribute_transformation import (
     AttributeTransformer,
     SampleValue,
 )
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Role
 
 
 @pytest.fixture

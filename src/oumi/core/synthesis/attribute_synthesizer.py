@@ -50,6 +50,7 @@ class AttributeSynthesizer:
             model_params=inference_config.model,
             remote_params=inference_config.remote_params,
         )
+        self._inference_config = inference_config
 
     def synthesize(
         self,
@@ -151,21 +152,13 @@ class AttributeSynthesizer:
                 turn.content,
                 missing_values_allowed=False,
             )
-
-            # Create new Message with formatted content
-            new_message = turn.model_copy(
-                deep=True,
-                update={"content": formatted_content},
+            new_message = Message(
+                role=turn.role,
+                content=formatted_content,
             )
             new_messages.append(new_message)
 
-        # Create new conversation with formatted messages
-        new_conversation = Conversation(
-            messages=new_messages,
-            conversation_id=instruction_messages.conversation_id,
-            metadata=instruction_messages.metadata,
-        )
-        return new_conversation
+        return Conversation(messages=new_messages)
 
     def _postprocess_sample(
         self,

@@ -271,8 +271,6 @@ __all__ = [
     "evaluate",
     "infer_interactive",
     "infer",
-    "judge_conversations",
-    "judge_dataset",
     "quantize",
     "synthesize",
     "train",
