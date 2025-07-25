@@ -13,8 +13,9 @@
 # limitations under the License.
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Any, Optional
 
+import pandas as pd
 from tqdm import tqdm
 
 from oumi.core.configs import AnalyzeConfig
@@ -38,6 +39,9 @@ class MessageAnalysisResult:
             with keys prefixed by analyzer ID to avoid conflicts
     """
 
+    # Field name constant to avoid hardcoding
+    ANALYZER_METRICS_FIELD = "analyzer_metrics"
+
     conversation_id: str
     conversation_index: int
     message_index: int
@@ -47,12 +51,17 @@ class MessageAnalysisResult:
     analyzer_metrics: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
+        """Convert the analysis result to a dictionary with flattened analyzer metrics.
 
         Returns:
-            Dictionary representation of the analysis result
+            Dictionary representation of the analysis result with analyzer metrics
+            flattened into the main dictionary (prefixed by analyzer ID)
         """
-        return asdict(self)
+        base_dict = asdict(self)
+        # Flatten analyzer_metrics into the main dict
+        analyzer_metrics = base_dict.pop(self.ANALYZER_METRICS_FIELD, {})
+        base_dict.update(analyzer_metrics)
+        return base_dict
 
 
 @dataclass
@@ -81,6 +90,17 @@ class DatasetAnalysisResult:
         """
         return asdict(self)
 
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert the analysis results to a pandas DataFrame.
+
+        Returns:
+            DataFrame with flattened analyzer metrics for easy querying.
+            Each row represents one message with all its analysis metrics.
+        """
+        # Convert each message to dict with flattened metrics
+        message_dicts = [msg.to_dict() for msg in self.messages]
+        return pd.DataFrame(message_dicts)
+
 
 class DatasetAnalyzer:
     """Orchestrates dataset analysis by creating and managing sample analyzers."""
@@ -97,6 +117,13 @@ class DatasetAnalyzer:
 
         self.dataset = load_dataset_from_config(config)
         self.sample_analyzers = self._initialize_sample_analyzers()
+
+        # Initialize analysis results as None
+        self._analysis_results: Optional[DatasetAnalysisResult] = None
+        self._analysis_df: Optional[pd.DataFrame] = None
+
+        # Automatically run analysis when class is created
+        self.analyze_dataset()
 
     def _initialize_sample_analyzers(self):
         """Initialize sample analyzer plugins from configuration."""
@@ -125,17 +152,13 @@ class DatasetAnalyzer:
                 logger.error(f"Analyzer configuration: {analyzer_params}")
         return sample_analyzers
 
-    def analyze_dataset(self) -> DatasetAnalysisResult:
-        """Analyze the dataset and return analysis results.
+    def analyze_dataset(self) -> None:
+        """Analyze the dataset and store results internally.
 
         This method performs sample-level analysis using the configured sample
         analyzers. Each sample analyzer processes individual messages and returns
-        metrics for each message.
-
-        Returns:
-            DatasetAnalysisResult: Analysis results containing sample-level metrics and
-            insights, with strongly typed structure for better documentation and IDE
-            support.
+        metrics for each message. Results are stored internally and can be accessed
+        via the query() method.
 
         Raises:
             ValueError: If no analyzers are configured for analysis.
@@ -162,16 +185,12 @@ class DatasetAnalyzer:
         # Step 1: Per-message level analysis
         logger.info("Step 1: Computing message metrics...")
 
-        dataset_analysis_result = self._compute_message_metrics()
+        self._compute_message_metrics()
 
-        return dataset_analysis_result
-
-    def _compute_message_metrics(self) -> DatasetAnalysisResult:
+    def _compute_message_metrics(self) -> None:
         """Compute metrics for all messages in the dataset.
 
-        Returns:
-            DatasetAnalysisResult: Structured results containing message-level analysis
-            with metadata about the analysis scope and individual message results.
+        Results are stored in self._analysis_results.
         """
         total_conversations = len(self.dataset)
 
@@ -213,7 +232,7 @@ class DatasetAnalyzer:
                 )
                 message_results.append(message_result)
 
-        dataset_analysis_result = DatasetAnalysisResult(
+        self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name
             or "",  # Config validation ensures this is not None
             total_conversations=total_conversations,
@@ -222,7 +241,8 @@ class DatasetAnalyzer:
             messages=message_results,
         )
 
-        return dataset_analysis_result
+        # Convert to DataFrame and save as member variable
+        self._analysis_df = self._analysis_results.to_dataframe()
 
     def _compute_per_message_metrics(
         self, message, conv_idx: int, msg_idx: int, conversation
@@ -272,5 +292,144 @@ class DatasetAnalyzer:
             role=role,
             message_id=message_id,
             text_content=text_content,
-            analyzer_metrics=analyzer_metrics,
+            **{MessageAnalysisResult.ANALYZER_METRICS_FIELD: analyzer_metrics},
         )
+
+    def save_to_file(self) -> None:
+        """Save analysis results to JSONL file using output_path from config."""
+        raise NotImplementedError("save_to_file method not yet implemented")
+
+    def load_from_file(self) -> None:
+        """Load analysis results from JSONL file."""
+        raise NotImplementedError("load_from_file method not yet implemented")
+
+    def query(
+        self,
+        query_expression: str,
+        include_original_data: bool = False,
+    ) -> pd.DataFrame:
+        """Query analysis results and optionally join with original dataset data.
+
+        Args:
+            query_expression: Pandas query expression to filter analysis results
+            include_original_data: Whether to include original dataset fields in results
+
+        Returns:
+            DataFrame with filtered analysis results and optionally original dataset
+            data
+
+        Examples:
+            # Filter for short messages
+            short_messages = analyzer.query("length_word_count < 10")
+
+            # Filter for long assistant messages with original data
+            long_assistant = analyzer.query(
+                "role == 'assistant' and length_word_count > 100",
+                include_original_data=True
+            )
+        """
+        # Analysis should already be done since it runs automatically in __init__
+        if self._analysis_df is None:
+            raise RuntimeError(
+                "Analysis results not available. This should not happen since "
+                "analysis runs automatically during initialization."
+            )
+
+        # Apply the query filter
+        try:
+            filtered_df = self._analysis_df.query(query_expression)
+            logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
+        except Exception as e:
+            logger.error(f"Query failed: {e}")
+            raise ValueError(f"Invalid query expression '{query_expression}': {e}")
+
+        # If original data is not requested, return filtered results
+        if not include_original_data:
+            return filtered_df
+
+        # Join with original dataset data
+        try:
+            joined_df = self._join_with_original_data(filtered_df)
+            return joined_df
+        except Exception as e:
+            logger.warning(f"Could not join with original data: {e}")
+            logger.info("Returning filtered results without original data")
+            return filtered_df
+
+    def _join_with_original_data(self, filtered_df: pd.DataFrame) -> pd.DataFrame:
+        """Join filtered analysis results with original dataset data.
+
+        Args:
+            filtered_df: DataFrame with filtered analysis results
+
+        Returns:
+            DataFrame with analysis results joined with original dataset data
+        """
+        # Get unique conversation indices from filtered results
+        conversation_indices = filtered_df.conversation_index.unique()
+
+        # Try to get original dataset as DataFrame
+        original_data = []
+
+        try:
+            # Method 1: Try to access underlying DataFrame
+            if hasattr(self.dataset, "_df"):
+                dataset_df = self.dataset._df
+                # Get matching rows from original dataset
+                matching_rows = dataset_df.loc[conversation_indices].copy()
+                matching_rows["conversation_index"] = matching_rows.index
+
+                # Create a mapping for each conversation
+                for conv_idx in conversation_indices:
+                    if conv_idx in matching_rows.index:
+                        conv_data = matching_rows.loc[conv_idx]
+                        original_data.append(
+                            {
+                                "conversation_index": conv_idx,
+                                "instruction": conv_data.get("instruction", None),
+                                "input": conv_data.get("input", None),
+                                "output": conv_data.get("output", None),
+                                "text": conv_data.get("text", None),
+                            }
+                        )
+            else:
+                # Method 2: Access through conversation objects
+                for conv_idx in conversation_indices:
+                    conversation = self.dataset.conversation(conv_idx)
+                    original_data.append(
+                        {
+                            "conversation_index": conv_idx,
+                            "instruction": getattr(conversation, "instruction", None),
+                            "input": getattr(conversation, "input", None),
+                            "output": getattr(conversation, "output", None),
+                            "text": getattr(conversation, "text", None),
+                        }
+                    )
+        except Exception as e:
+            logger.warning(f"Error accessing original dataset: {e}")
+            return filtered_df
+
+        # Create DataFrame from original data
+        original_df = pd.DataFrame(original_data)
+
+        # Perform the join using default merge behavior (inner join)
+        joined_df = filtered_df.merge(original_df, on="conversation_index")
+
+        logger.info(f"Joined DataFrame shape: {joined_df.shape}")
+        return joined_df
+
+    def has_analysis_results(self) -> bool:
+        """Check if analysis has been run and results are available.
+
+        Returns:
+            True if analysis results are available, False otherwise
+        """
+        return self._analysis_results is not None
+
+    def clear_analysis_results(self) -> None:
+        """Clear cached analysis results.
+
+        This forces the next query to re-run the analysis.
+        """
+        self._analysis_results = None
+        logger.info("Analysis results cleared")
