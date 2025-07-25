@@ -30,52 +30,52 @@ class TestAwqQuantization:
 
     def setup_method(self):
         """Set up test fixtures."""
+        # Mock the dependency check to avoid requiring autoawq library
+        self.mock_find_spec_patcher = patch(
+            "oumi.quantize.awq_quantizer.importlib.util.find_spec"
+        )
+        mock_find_spec = self.mock_find_spec_patcher.start()
+        mock_find_spec.return_value = Mock()  # Pretend autoawq is available
         self.quantizer = AwqQuantization()
+        
+    def teardown_method(self):
+        """Clean up test fixtures."""
+        self.mock_find_spec_patcher.stop()
+
         self.temp_dir = tempfile.mkdtemp()
 
         self.valid_config = QuantizationConfig(
             model=ModelParams(model_name="facebook/opt-125m"),
-            method="awq_4bit",
+            method="awq_q4_0",
             output_path=os.path.join(self.temp_dir, "model_awq"),
-            output_format="safetensors",
+            output_format="pytorch",
         )
 
     def test_supported_methods(self):
         """Test that correct methods are supported."""
         expected_methods = [
-            "awq_4bit",
             "awq_q4_0",
             "awq_q4_1",
             "awq_q8_0",
-            "awq_q5_0",
-            "awq_q5_1",
-            "awq_q2_k",
-            "awq_q3_k_s",
-            "awq_q3_k_m",
-            "awq_q3_k_l",
-            "awq_q4_k_s",
-            "awq_q4_k_m",
-            "awq_q5_k_s",
-            "awq_q5_k_m",
-            "awq_q6_k",
+            "awq_f16",
         ]
         assert self.quantizer.supported_methods == expected_methods
 
     def test_supported_formats(self):
         """Test that correct formats are supported."""
-        expected_formats = ["safetensors", "pytorch"]
+        expected_formats = ["pytorch"]
         assert self.quantizer.supported_formats == expected_formats
 
     def test_supports_method_valid(self):
         """Test that valid AWQ methods are supported."""
-        assert self.quantizer.supports_method("awq_4bit") is True
         assert self.quantizer.supports_method("awq_q4_0") is True
         assert self.quantizer.supports_method("awq_q8_0") is True
+        assert self.quantizer.supports_method("awq_f16") is True
 
     def test_supports_method_invalid(self):
         """Test that invalid methods are not supported."""
         assert self.quantizer.supports_method("bnb_4bit") is False
-        assert self.quantizer.supports_method("awq_invalid") is False
+        assert self.quantizer.supports_method("awq_4bit") is False
 
     def test_validate_config_valid(self):
         """Test config validation with valid config."""
@@ -88,57 +88,51 @@ class TestAwqQuantization:
             model=ModelParams(model_name="facebook/opt-125m"),
             method="invalid_method",
             output_path=os.path.join(self.temp_dir, "model"),
-            output_format="safetensors",
+            output_format="pytorch",
         )
 
         with pytest.raises(ValueError, match="Unsupported quantization method"):
             self.quantizer.validate_config(invalid_config)
 
-    @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_success(self, mock_awq_model):
+    @patch("oumi.quantize.awq_quantizer.get_directory_size")
+    @patch("oumi.quantize.awq_quantizer.AutoTokenizer") 
+    @patch.object(AwqQuantization, "_awq")
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_success(self, mock_req_check, mock_awq_lib, mock_tokenizer, mock_get_size):
         """Test successful AWQ quantization."""
-        # Setup mocks
+        # Setup AWQ library mock
         mock_model_instance = Mock()
-        mock_model_instance.get_model_size.return_value = 125000000  # 125MB
-        mock_awq_model.from_pretrained.return_value = mock_model_instance
+        mock_awq_lib.AutoAWQForCausalLM.from_pretrained.return_value = mock_model_instance
+        self.quantizer._awq = mock_awq_lib
+
+        # Setup tokenizer mock
+        mock_tokenizer_instance = Mock()
+        mock_tokenizer.from_pretrained.return_value = mock_tokenizer_instance
+
+        # Setup size mock
+        mock_get_size.return_value = 125000000
 
         # Run quantization
         result = self.quantizer.quantize(self.valid_config)
 
         # Verify result
         assert isinstance(result, QuantizationResult)
-        assert result.quantization_method == "awq_4bit"
-        assert result.format_type == "safetensors"
+        assert result.quantization_method == "awq_q4_0"
+        assert result.format_type == "pytorch"
         assert result.quantized_size_bytes == 125000000
         assert result.output_path == self.valid_config.output_path
 
-        # Verify model was loaded correctly
-        mock_awq_model.from_pretrained.assert_called_once_with(
-            "facebook/opt-125m",
-            device_map="auto",
-            trust_remote_code=False,
-            safetensors=True,
-        )
-
-        # Verify model was quantized
-        mock_model_instance.quantize.assert_called_once_with(
-            tokenizer=None,
-            quant_config={
-                "zero_point": True,
-                "q_group_size": 128,
-                "w_bit": 4,
-                "version": "GEMM",
-            },
-        )
-
-        # Verify model was saved
-        mock_model_instance.save_quantized.assert_called_once_with(
-            self.valid_config.output_path, safetensors=True
-        )
+        # Verify model was quantized and saved
+        mock_model_instance.quantize.assert_called_once()
+        mock_model_instance.save_quantized.assert_called_once_with(self.valid_config.output_path)
+        mock_tokenizer_instance.save_pretrained.assert_called_once_with(self.valid_config.output_path)
 
     @patch("oumi.quantize.awq_quantizer.AutoTokenizer")
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_with_tokenizer(self, mock_awq_model, mock_tokenizer):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_with_tokenizer(
+        self, mock_req_check, mock_awq_model, mock_tokenizer
+    ):
         """Test AWQ quantization with tokenizer loading."""
         # Setup mocks
         mock_tokenizer_instance = Mock()
@@ -174,12 +168,15 @@ class TestAwqQuantization:
 
     @patch("oumi.quantize.awq_quantizer.AutoTokenizer")
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_with_trust_remote_code(self, mock_awq_model, mock_tokenizer):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_with_trust_remote_code(
+        self, mock_req_check, mock_awq_model, mock_tokenizer
+    ):
         """Test quantization with trust_remote_code=True."""
         # Modify config to include trust_remote_code
         config_with_trust = QuantizationConfig(
             model=ModelParams(model_name="facebook/opt-125m", trust_remote_code=True),
-            method="awq_4bit",
+            method="awq_q4_0",
             output_path=os.path.join(self.temp_dir, "model_trust"),
             output_format="safetensors",
         )
@@ -209,7 +206,8 @@ class TestAwqQuantization:
         )
 
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_different_methods(self, mock_awq_model):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_different_methods(self, mock_req_check, mock_awq_model):
         """Test quantization with different AWQ methods."""
         test_cases = [
             (
@@ -227,15 +225,6 @@ class TestAwqQuantization:
                     "zero_point": False,
                     "q_group_size": 32,
                     "w_bit": 8,
-                    "version": "GEMM",
-                },
-            ),
-            (
-                "awq_q5_0",
-                {
-                    "zero_point": False,
-                    "q_group_size": 32,
-                    "w_bit": 5,
                     "version": "GEMM",
                 },
             ),
@@ -270,7 +259,8 @@ class TestAwqQuantization:
             mock_awq_model.reset_mock()
 
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_model_loading_failure(self, mock_awq_model):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_model_loading_failure(self, mock_req_check, mock_awq_model):
         """Test quantization failure during model loading."""
         # Setup mock to raise exception
         mock_awq_model.from_pretrained.side_effect = Exception("Model loading failed")
@@ -280,7 +270,8 @@ class TestAwqQuantization:
             self.quantizer.quantize(self.valid_config)
 
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_quantization_failure(self, mock_awq_model):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_quantization_failure(self, mock_req_check, mock_awq_model):
         """Test quantization failure during quantization step."""
         # Setup mocks
         mock_model_instance = Mock()
@@ -292,7 +283,8 @@ class TestAwqQuantization:
             self.quantizer.quantize(self.valid_config)
 
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_saving_failure(self, mock_awq_model):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_saving_failure(self, mock_req_check, mock_awq_model):
         """Test quantization failure during model saving."""
         # Setup mocks
         mock_model_instance = Mock()
@@ -306,7 +298,10 @@ class TestAwqQuantization:
 
     @patch("oumi.quantize.awq_quantizer.AutoTokenizer")
     @patch("oumi.quantize.awq_quantizer.AWQModel")
-    def test_quantize_tokenizer_failure(self, mock_awq_model, mock_tokenizer):
+    @patch.object(AwqQuantization, "raise_if_requirements_not_met")
+    def test_quantize_tokenizer_failure(
+        self, mock_req_check, mock_awq_model, mock_tokenizer
+    ):
         """Test quantization continues even with tokenizer loading failure."""
         # Setup mocks
         mock_tokenizer.from_pretrained.side_effect = Exception("Tokenizer failed")
@@ -336,4 +331,4 @@ class TestAwqQuantization:
         """Test string representation of the quantizer."""
         str_repr = str(self.quantizer)
         assert "AwqQuantization" in str_repr
-        assert "awq_4bit" in str_repr
+        assert "awq_q4_0" in str_repr

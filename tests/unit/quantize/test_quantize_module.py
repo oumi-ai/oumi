@@ -34,7 +34,7 @@ class TestQuantizeModule:
 
         self.valid_awq_config = QuantizationConfig(
             model=ModelParams(model_name="facebook/opt-125m"),
-            method="awq_4bit",
+            method="awq_q4_0",
             output_path=os.path.join(self.temp_dir, "model_awq"),
             output_format="safetensors",
         )
@@ -54,7 +54,7 @@ class TestQuantizeModule:
         mock_result = QuantizationResult(
             quantized_size_bytes=125000000,
             output_path=self.valid_awq_config.output_path,
-            quantization_method="awq_4bit",
+            quantization_method="awq_q4_0",
             format_type="safetensors",
             additional_info={},
         )
@@ -65,14 +65,14 @@ class TestQuantizeModule:
         result = quantize(self.valid_awq_config)
 
         # Verify build_quantizer was called with correct method
-        mock_build_quantizer.assert_called_once_with("awq_4bit")
+        mock_build_quantizer.assert_called_once_with("awq_q4_0")
 
         # Verify quantizer.quantize was called with config
         mock_quantizer.quantize.assert_called_once_with(self.valid_awq_config)
 
         # Verify result is returned correctly
         assert result == mock_result
-        assert result.quantization_method == "awq_4bit"
+        assert result.quantization_method == "awq_q4_0"
         assert result.quantized_size_bytes == 125000000
 
     @patch("oumi.builders.quantizers.build_quantizer")
@@ -140,7 +140,7 @@ class TestQuantizeModule:
             quantize(self.valid_awq_config)
 
         # Verify build_quantizer was called
-        mock_build_quantizer.assert_called_once_with("awq_4bit")
+        mock_build_quantizer.assert_called_once_with("awq_q4_0")
 
         # Verify quantizer.quantize was called
         mock_quantizer.quantize.assert_called_once_with(self.valid_awq_config)
@@ -156,7 +156,7 @@ class TestQuantizeModule:
             quantize(self.valid_awq_config)
 
         # Verify build_quantizer was called
-        mock_build_quantizer.assert_called_once_with("awq_4bit")
+        mock_build_quantizer.assert_called_once_with("awq_q4_0")
 
     def test_quantize_invalid_config_type(self):
         """Test quantization with invalid config type."""
@@ -221,7 +221,7 @@ class TestQuantizeModule:
         mock_result = QuantizationResult(
             quantized_size_bytes=125000000,
             output_path=self.valid_awq_config.output_path,
-            quantization_method="awq_4bit",
+            quantization_method="awq_q4_0",
             format_type="safetensors",
             additional_info={"compression_ratio": 0.25},
         )
