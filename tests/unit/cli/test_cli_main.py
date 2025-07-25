@@ -10,7 +10,7 @@ from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
-from oumi.cli.judge_v2 import judge_file
+from oumi.cli.judge import judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.main import get_app
@@ -107,10 +107,10 @@ def mock_which():
 
 
 @pytest.fixture
-def mock_judge_v2():
-    with patch("oumi.cli.main.judge_file") as m_judge_file:
-        _copy_command(m_judge_file, judge_file)
-        yield m_judge_file
+def mock_judge():
+    with patch("oumi.cli.main.judge_dataset_file") as m_judge_dataset_file:
+        _copy_command(m_judge_dataset_file, judge_dataset_file)
+        yield m_judge_dataset_file
 
 
 @pytest.fixture
@@ -245,20 +245,21 @@ def test_main_env_registered(mock_env):
     mock_env.assert_called_once()
 
 
-def test_main_judge_v2_registered(mock_judge_v2):
+def test_main_judge_registered(mock_judge):
     _ = runner.invoke(
         get_app(),
         [
-            "judge-v2",
-            "--judge-config",
+            "judge",
+            "dataset",
+            "--config",
             "./my_judge_config",
-            "--input-file",
+            "--input",
             "./my_input_file.jsonl",
-            "--output-file",
+            "--output",
             "./my_output_file.jsonl",
         ],
     )
-    mock_judge_v2.assert_called_once()
+    mock_judge.assert_called_once()
 
 
 def test_main_distributed_registered():
