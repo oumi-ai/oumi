@@ -200,7 +200,7 @@ class TestBitsAndBytesQuantization:
         mock_bnb_config.return_value = mock_bnb_config_instance
 
         # Run quantization
-        result = self.quantizer.quantize(config_with_trust)
+        self.quantizer.quantize(config_with_trust)
 
         # Verify model was loaded with trust_remote_code=True
         mock_model.from_pretrained.assert_called_once_with(
