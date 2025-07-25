@@ -87,7 +87,7 @@ class TestQuantizerBuilders:
     @patch("oumi.builders.quantizers.AwqQuantization")
     @patch("oumi.builders.quantizers.BitsAndBytesQuantization")
     def test_build_quantizer_fallback_search_success(self, mock_bnb, mock_awq):
-        """Test building quantizer using fallback search when method doesn't match prefix."""
+        """Test building quantizer using fallback search."""
         # Setup mocks
         mock_awq_instance = Mock()
         mock_awq_instance.supports_method.return_value = False
@@ -251,4 +251,5 @@ class TestQuantizerBuilders:
     def test_none_method(self):
         """Test build_quantizer with None method."""
         with pytest.raises(AttributeError):
-            build_quantizer(None)
+            build_quantizer(None)  # type: ignore
+

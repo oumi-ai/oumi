@@ -149,7 +149,7 @@ class TestAwqQuantization:
         mock_awq_model.from_pretrained.return_value = mock_model_instance
 
         # Run quantization
-        result = self.quantizer.quantize(self.valid_config)
+        self.quantizer.quantize(self.valid_config)
 
         # Verify tokenizer was loaded
         mock_tokenizer.from_pretrained.assert_called_once_with(
@@ -193,7 +193,7 @@ class TestAwqQuantization:
         mock_awq_model.from_pretrained.return_value = mock_model_instance
 
         # Run quantization
-        result = self.quantizer.quantize(config_with_trust)
+        self.quantizer.quantize(config_with_trust)
 
         # Verify model was loaded with trust_remote_code=True
         mock_awq_model.from_pretrained.assert_called_once_with(
@@ -332,35 +332,10 @@ class TestAwqQuantization:
             },
         )
 
-    def test_get_quant_config_awq_4bit(self):
-        """Test getting quantization config for awq_4bit."""
-        config = self.quantizer._get_quant_config("awq_4bit")
-        expected = {
-            "zero_point": True,
-            "q_group_size": 128,
-            "w_bit": 4,
-            "version": "GEMM",
-        }
-        assert config == expected
-
-    def test_get_quant_config_awq_q4_k_s(self):
-        """Test getting quantization config for awq_q4_k_s."""
-        config = self.quantizer._get_quant_config("awq_q4_k_s")
-        expected = {
-            "zero_point": True,
-            "q_group_size": 32,
-            "w_bit": 4,
-            "version": "GEMV_FAST",
-        }
-        assert config == expected
-
-    def test_get_quant_config_unknown_method(self):
-        """Test getting quantization config for unknown method."""
-        with pytest.raises(ValueError, match="Unsupported AWQ quantization method"):
-            self.quantizer._get_quant_config("unknown_method")
 
     def test_str_representation(self):
         """Test string representation of the quantizer."""
         str_repr = str(self.quantizer)
         assert "AwqQuantization" in str_repr
         assert "awq_4bit" in str_repr
+

@@ -272,3 +272,4 @@ class TestBitsAndBytesQuantization:
         assert "BitsAndBytesQuantization" in str_repr
         assert "bnb_4bit" in str_repr
         assert "bnb_8bit" in str_repr
+

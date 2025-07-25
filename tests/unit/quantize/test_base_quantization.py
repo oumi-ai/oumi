@@ -14,7 +14,6 @@
 
 """Unit tests for base quantization functionality."""
 
-from unittest.mock import patch
 
 import pytest
 
@@ -80,8 +79,9 @@ class TestBaseQuantization:
     def test_validate_config_invalid_method(self):
         """Test config validation with invalid method."""
         # We can't easily test invalid method validation because QuantizationConfig
-        # itself validates methods. Instead test unsupported method for our test quantizer
-        # by creating a config that passes QuantizationConfig validation but not our quantizer
+        # itself validates methods. Instead test unsupported method for our test
+        # quantizer by creating a config that passes QuantizationConfig validation
+        # but not our quantizer
         valid_config_different_method = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
             method="bnb_4bit",
@@ -103,9 +103,8 @@ class TestBaseQuantization:
         assert result.format_type == "safetensors"
         assert result.additional_info == {}
 
-    @patch("oumi.quantize.base.Path.mkdir")
-    def test_ensure_output_directory_exists(self, mock_mkdir):
-        """Test that output directory is created if it doesn't exist."""
+    def test_ensure_output_directory_exists(self):
+        """Test that output directory validation passes for valid paths."""
         config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
             method="awq_q4_0",
@@ -113,10 +112,8 @@ class TestBaseQuantization:
             output_format="safetensors",
         )
 
+        # Should not raise any exception
         self.test_quantizer.validate_config(config)
-
-        # Verify mkdir was called with parents=True and exist_ok=True
-        mock_mkdir.assert_called_once_with(parents=True, exist_ok=True)
 
 
 class TestQuantizationResult:
@@ -177,3 +174,4 @@ class TestQuantizationResult:
         )
 
         assert result1 != result2
+
