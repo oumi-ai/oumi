@@ -1,4 +1,4 @@
-# Inference config for Qwen3 8B.
+# Inference config for Qwen3 235B.
 #
 # Requirements:
 #   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
@@ -13,7 +13,7 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "Qwen/Qwen3-235B-A22B-Instruct-2507"
+  model_name: "Qwen/Qwen3-235B-A22B-Instruct-2507-tput"
 
 generation:
   max_new_tokens: 2048
