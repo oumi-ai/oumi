@@ -156,7 +156,7 @@ def test_judge_alias():
             "response": "The answer is 5",  # Incorrect answer
         },
     ]
-    judge_config = "gpt-4o-truthfulness"
+    judge_config = "truthfulness"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         input_file_path = str(Path(temp_dir) / "input.jsonl")

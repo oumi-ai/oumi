@@ -156,17 +156,17 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "molmo-7b-o-grpo": {
         AliasType.TRAIN: "oumi://configs/recipes/vision/molmo/grpo/train.yaml",
     },
-    # Judge aliases (for generic judges only): <model_name>-<judge_name>
-    "gpt-4o-format-compliance": {
+    # Judge aliases (for generic judges only)
+    "format-compliance": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/format_compliance.yaml",
     },
-    "gpt-4o-instruction-following": {
+    "instruction-following": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/instruction_following.yaml",
     },
-    "gpt-4o-topic-adherence": {
+    "topic-adherence": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/topic_adherence.yaml",
     },
-    "gpt-4o-truthfulness": {
+    "truthfulness": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/truthfulness.yaml",
     },
 }
