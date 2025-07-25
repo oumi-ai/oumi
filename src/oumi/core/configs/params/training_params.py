@@ -370,6 +370,15 @@ class TrainingParams(BaseParams):
     the run to.
     """
 
+    use_active_mlflow_run: bool = False
+    """Whether to use an existing active MLflow run instead of creating a new one.
+
+    If True and there is an active MLflow run, the trainer will log to the existing
+    run instead of creating a new one. This is useful when you want to manage the
+    MLflow run lifecycle externally. If False (default), the trainer will always
+    create a new run when MLflow is enabled.
+    """
+
     enable_tensorboard: bool = True
     """Whether to enable TensorBoard logging.
 

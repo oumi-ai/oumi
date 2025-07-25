@@ -119,7 +119,7 @@ class Trainer(BaseTrainer):
             # If the user has manually started an mlflow run, we don't need to start
             # a new one and can let the user manage it themselves.
             # Otherwise, we start a new run and end it when training is done.
-            self.params.enable_mlflow and not mlflow.active_run()
+            self.params.enable_mlflow and not self.params.use_active_mlflow_run
         )
 
         self.params.finalize_and_validate()
