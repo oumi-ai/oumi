@@ -26,7 +26,7 @@ oumi quantize --config examples/quantization/calibrated_quantization_config.yaml
 
 ### AWQ (Activation-aware Weight Quantization)
 - `awq_q4_0` - 4-bit quantization (default)
-- `awq_q4_1` - 4-bit with asymmetric quantization  
+- `awq_q4_1` - 4-bit with asymmetric quantization
 - `awq_q8_0` - 8-bit quantization
 - `awq_f16` - 16-bit float conversion
 
@@ -45,7 +45,7 @@ oumi quantize --config examples/quantization/calibrated_quantization_config.yaml
 # For AWQ quantization
 pip install autoawq
 
-# For BitsAndBytes quantization  
+# For BitsAndBytes quantization
 pip install bitsandbytes
 ```
 
