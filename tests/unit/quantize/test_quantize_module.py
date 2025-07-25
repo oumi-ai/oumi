@@ -162,7 +162,7 @@ class TestQuantizeModule:
         """Test quantization with invalid config type."""
         # Pass invalid config (not QuantizationConfig)
         with pytest.raises(AttributeError):
-            quantize("invalid_config")
+            quantize("invalid_config")  # type: ignore
 
     @patch("oumi.builders.quantizers.build_quantizer")
     def test_quantize_with_different_configs(self, mock_build_quantizer):
