@@ -51,13 +51,14 @@ def build_trainer(
     ) -> Callable[..., BaseTrainer]:
         def _init_hf_trainer(*args, **kwargs) -> BaseTrainer:
             training_args = kwargs.pop("args", None)
+            training_config = kwargs.pop("training_config", None)
             callbacks = kwargs.pop("callbacks", [])
             if training_args is not None:
                 # if set, convert to HuggingFace Trainer args format
                 training_args = cast(TrainingParams, training_args)
                 training_args.finalize_and_validate()
 
-            hf_args = training_args.to_hf()
+            hf_args = training_args.to_hf(training_config)
             if is_world_process_zero():
                 logger.info(pformat(hf_args))
             trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args), processor)
