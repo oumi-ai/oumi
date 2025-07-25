@@ -18,17 +18,18 @@ from unittest.mock import patch
 import pytest
 
 from oumi.core.configs.params.synthesis_params import (
-    ChatTransform,
-    DictTransform,
     GeneralSynthesisParams,
-    ListTransform,
+    TextConversation,
+    TextMessage,
+    TransformationStrategy,
+    TransformationType,
     TransformedAttribute,
 )
 from oumi.core.synthesis.attribute_transformation import (
     AttributeTransformer,
     SampleValue,
 )
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Role
 
 
 @pytest.fixture
@@ -55,7 +56,12 @@ def test_transform_with_empty_samples():
     """Test transform with empty samples list."""
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
@@ -68,7 +74,12 @@ def test_transform_string_strategy(basic_samples):
     """Test transform with string transformation strategy."""
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
@@ -94,7 +105,10 @@ def test_transform_string_strategy_multiple_placeholders(basic_samples):
         transformed_attributes=[
             TransformedAttribute(
                 id="bio",
-                transformation_strategy="My name is {name} and I am {age} years old.",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING,
+                    string_transform="My name is {name} and I am {age} years old.",
+                ),
             )
         ]
     )
@@ -109,12 +123,13 @@ def test_transform_string_strategy_multiple_placeholders(basic_samples):
 
 def test_transform_list_strategy(basic_samples):
     """Test transform with list transformation strategy."""
-    list_transform = ListTransform(
-        element_transforms=[
+    list_transform = TransformationStrategy(
+        type=TransformationType.LIST,
+        list_transform=[
             "Hello {name}!",
             "You are {age} years old.",
             "You live in {city}.",
-        ]
+        ],
     )
     params = GeneralSynthesisParams(
         transformed_attributes=[
@@ -144,12 +159,13 @@ def test_transform_list_strategy(basic_samples):
 
 def test_transform_dict_strategy(basic_samples):
     """Test transform with dict transformation strategy."""
-    dict_transform = DictTransform(
-        transforms={
+    dict_transform = TransformationStrategy(
+        type=TransformationType.DICT,
+        dict_transform={
             "greeting": "Hello {name}!",
             "age_info": "Age: {age}",
             "location": "Lives in {city}",
-        }
+        },
     )
     params = GeneralSynthesisParams(
         transformed_attributes=[
@@ -181,18 +197,22 @@ def test_transform_dict_strategy(basic_samples):
 
 def test_transform_chat_strategy(basic_samples):
     """Test transform with chat transformation strategy."""
-    chat_conversation = Conversation(
+    chat_conversation = TextConversation(
         messages=[
-            Message(role=Role.SYSTEM, content="You are a helpful assistant."),
-            Message(
+            TextMessage(role=Role.SYSTEM, content="You are a helpful assistant."),
+            TextMessage(
                 role=Role.USER, content="Tell me about {name} who is {age} years old."
             ),
-            Message(role=Role.ASSISTANT, content="I can help you learn about {name}."),
+            TextMessage(
+                role=Role.ASSISTANT, content="I can help you learn about {name}."
+            ),
         ],
         metadata={"name": "{name}"},
         conversation_id="test-conversation",
     )
-    chat_transform = ChatTransform(transforms=chat_conversation)
+    chat_transform = TransformationStrategy(
+        type=TransformationType.CHAT, chat_transform=chat_conversation
+    )
     params = GeneralSynthesisParams(
         transformed_attributes=[
             TransformedAttribute(
@@ -207,25 +227,27 @@ def test_transform_chat_strategy(basic_samples):
 
     # Check first sample
     conv = result[0]["conversation"]
-    assert isinstance(conv, Conversation)
-    assert len(conv.messages) == 3
-    assert conv.messages[0].role == Role.SYSTEM
-    assert conv.messages[0].content == "You are a helpful assistant."
-    assert conv.messages[1].role == Role.USER
-    assert conv.messages[1].content == "Tell me about Alice who is 25 years old."
-    assert conv.messages[2].role == Role.ASSISTANT
-    assert conv.messages[2].content == "I can help you learn about Alice."
-    assert conv.conversation_id == "test-conversation"
-    assert conv.metadata == {"name": "Alice"}
+    assert isinstance(conv, dict)
+    assert len(conv["messages"]) == 3
+    assert conv["messages"][0]["role"] == Role.SYSTEM
+    assert conv["messages"][0]["content"] == "You are a helpful assistant."
+    assert conv["messages"][1]["role"] == Role.USER
+    assert conv["messages"][1]["content"] == "Tell me about Alice who is 25 years old."
+    assert conv["messages"][2]["role"] == Role.ASSISTANT
+    assert conv["messages"][2]["content"] == "I can help you learn about Alice."
+    assert conv["conversation_id"] == "test-conversation"
+    assert conv["metadata"] == {"name": "Alice"}
 
 
 def test_transform_chat_strategy_with_auto_generated_id(basic_samples):
     """Test transform with chat strategy that auto-generates conversation ID."""
-    chat_conversation = Conversation(
-        messages=[Message(role=Role.USER, content="Hello {name}!")],
+    chat_conversation = TextConversation(
+        messages=[TextMessage(role=Role.USER, content="Hello {name}!")],
         conversation_id=None,  # No conversation ID provided
     )
-    chat_transform = ChatTransform(transforms=chat_conversation)
+    chat_transform = TransformationStrategy(
+        type=TransformationType.CHAT, chat_transform=chat_conversation
+    )
     params = GeneralSynthesisParams(
         transformed_attributes=[
             TransformedAttribute(id="chat_attr", transformation_strategy=chat_transform)
@@ -239,8 +261,8 @@ def test_transform_chat_strategy_with_auto_generated_id(basic_samples):
 
     assert len(result) == 3
     conv = result[0]["chat_attr"]
-    assert isinstance(conv, Conversation)
-    assert conv.conversation_id == "chat_attr-12345678-1234-5678-1234-567812345678"
+    assert isinstance(conv, dict)
+    assert conv["conversation_id"] == "chat_attr-12345678-1234-5678-1234-567812345678"
 
 
 def test_transform_multiple_attributes(basic_samples):
@@ -248,13 +270,22 @@ def test_transform_multiple_attributes(basic_samples):
     params = GeneralSynthesisParams(
         transformed_attributes=[
             TransformedAttribute(
-                id="greeting", transformation_strategy="Hello {name}!"
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
             ),
-            TransformedAttribute(id="age_info", transformation_strategy="Age: {age}"),
+            TransformedAttribute(
+                id="age_info",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Age: {age}"
+                ),
+            ),
             TransformedAttribute(
                 id="location_list",
-                transformation_strategy=ListTransform(
-                    element_transforms=["City: {city}", "Name: {name}"]
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.LIST,
+                    list_transform=["City: {city}", "Name: {name}"],
                 ),
             ),
         ]
@@ -293,7 +324,12 @@ def test_transform_with_non_string_values_in_sample():
     ]
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
@@ -310,28 +346,6 @@ def test_transform_with_non_string_values_in_sample():
     assert result[1]["metadata"] == {"active": False}
 
 
-def test_transform_invalid_transformation_strategy():
-    """Test transform with invalid transformation strategy raises error."""
-
-    # Create a mock invalid strategy that will pass initial validation
-    class InvalidStrategy:
-        pass
-
-    invalid_strategy = InvalidStrategy()
-
-    # Create the transformed attribute manually to bypass validation
-    transformed_attr = TransformedAttribute.__new__(TransformedAttribute)
-    transformed_attr.id = "invalid"
-    transformed_attr.transformation_strategy = invalid_strategy  # type: ignore
-
-    params = GeneralSynthesisParams(transformed_attributes=[transformed_attr])
-    transformer = AttributeTransformer(params)
-    samples = [{"name": "Alice"}]  # type: ignore
-
-    with pytest.raises(ValueError, match="Unsupported transformation strategy"):
-        transformer.transform(samples)  # type: ignore
-
-
 def test_transform_preserves_original_sample_order():
     """Test that transform preserves the order of samples."""
     samples: list[dict[str, SampleValue]] = [
@@ -339,7 +353,12 @@ def test_transform_preserves_original_sample_order():
     ]
     params = GeneralSynthesisParams(
         transformed_attributes=[
-            TransformedAttribute(id="greeting", transformation_strategy="Hello {name}!")
+            TransformedAttribute(
+                id="greeting",
+                transformation_strategy=TransformationStrategy(
+                    type=TransformationType.STRING, string_transform="Hello {name}!"
+                ),
+            )
         ]
     )
     transformer = AttributeTransformer(params)
