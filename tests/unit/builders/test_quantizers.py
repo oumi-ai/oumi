@@ -74,7 +74,9 @@ class TestQuantizerBuilders:
         bnb_methods = ["bnb_4bit", "bnb_8bit"]
 
         for method in bnb_methods:
-            with patch("oumi.quantize.bnb_quantizer.BitsAndBytesQuantization") as mock_bnb:
+            with patch(
+                "oumi.quantize.bnb_quantizer.BitsAndBytesQuantization"
+            ) as mock_bnb:
                 mock_instance = Mock()
                 mock_bnb.return_value = mock_instance
 
