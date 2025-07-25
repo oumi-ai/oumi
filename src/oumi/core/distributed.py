@@ -316,7 +316,7 @@ def prepare_model_for_distributed(
     config: TrainingConfig,
     ddp_find_unused_parameters: Optional[bool] = None,
 ) -> torch.nn.Module:
-    """Wrap the model for distributed training (DDP or FSDP).
+    """Wrap the model for distributed training (DDP, FSDP, or DeepSpeed).
 
     Args:
         model: The model to be wrapped.
@@ -336,6 +336,14 @@ def prepare_model_for_distributed(
 
     device_rank_info = get_device_rank_info()
     fsdp_params = config.fsdp
+    deepspeed_params = config.deepspeed
+
+    # Check for DeepSpeed first since it takes precedence
+    if deepspeed_params.enable_deepspeed:
+        logger.info("Using DeepSpeed for distributed training.")
+        # DeepSpeed model wrapping is handled by the DeepSpeed engine during training
+        # We return the model as-is here since DeepSpeed wrapping happens in the trainer
+        return model
 
     if fsdp_params is None or not fsdp_params.enable_fsdp:
         logger.info("Using DistributedDataParallel (DDP) for distributed training.")
@@ -435,6 +443,61 @@ def prepare_model_for_distributed(
     )
 
     return model
+
+
+#
+# DeepSpeed utilities
+#
+def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
+    """Check if DeepSpeed ZeRO-3 is enabled in the configuration.
+    
+    Args:
+        config: The training configuration.
+        
+    Returns:
+        bool: True if DeepSpeed ZeRO-3 is enabled, False otherwise.
+    """
+    return config.deepspeed.is_zero3_enabled()
+
+
+def create_deepspeed_config_file(config: TrainingConfig, output_path: str) -> str:
+    """Create a DeepSpeed configuration file from training config.
+    
+    Args:
+        config: The training configuration containing DeepSpeed parameters.
+        output_path: Path where to save the generated DeepSpeed config file.
+        
+    Returns:
+        str: Path to the created configuration file.
+    """
+    import json
+    from pathlib import Path
+    
+    deepspeed_config = config.deepspeed.to_deepspeed_config()
+    
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, 'w') as f:
+        json.dump(deepspeed_config, f, indent=2, sort_keys=True)
+    
+    logger.info(f"Created DeepSpeed configuration file: {output_path}")
+    return str(output_path)
+
+
+def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> str | dict:
+    """Get DeepSpeed configuration as file path or dictionary.
+    
+    Args:
+        config: The training configuration.
+        
+    Returns:
+        Union[str, dict]: Path to config file if specified, otherwise config dict.
+    """
+    if config.deepspeed.deepspeed_config_path is not None:
+        return str(config.deepspeed.deepspeed_config_path)
+    else:
+        return config.deepspeed.to_deepspeed_config()
 
 
 def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:

@@ -20,6 +20,7 @@ import torch
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.data_params import DataParams
+from oumi.core.configs.params.ds_params import DSParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
@@ -75,6 +76,15 @@ class TrainingConfig(BaseConfig):
     fsdp: FSDPParams = field(default_factory=FSDPParams)
     """Parameters for FSDP."""
 
+    deepspeed: DSParams = field(default_factory=DSParams)
+    """Parameters for DeepSpeed distributed training.
+    
+    This field contains configuration options for DeepSpeed ZeRO optimization
+    stages, memory offloading, and other DeepSpeed-specific settings.
+    
+    For more details, see :class:`oumi.core.configs.params.ds_params.DSParams`.
+    """
+
     def __post_init__(self):
         """Verifies/populates params."""
         if self.model.compile:
@@ -87,6 +97,13 @@ class TrainingConfig(BaseConfig):
         ):
             raise ValueError(
                 "`fsdp.use_orig_params` must be True for model compilation."
+            )
+        
+        # Validate distributed training configurations
+        if self.fsdp.enable_fsdp and self.deepspeed.enable_deepspeed:
+            raise ValueError(
+                "Cannot enable both FSDP and DeepSpeed simultaneously. "
+                "Please enable only one distributed training method."
             )
 
         # Verify values for model dtype and mixed precision training.

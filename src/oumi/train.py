@@ -197,6 +197,9 @@ def _create_optional_training_kwargs(
     kwargs: dict[str, Any] = {}
     if trainer_type == TrainerType.OUMI:
         kwargs["config"] = config
+    
+    # Pass config to all trainer types so DeepSpeed can be configured in HF trainers
+    kwargs["training_config"] = config
 
     if trainer_type in (TrainerType.TRL_GRPO, TrainerType.VERL_GRPO):
         if metrics_function:
