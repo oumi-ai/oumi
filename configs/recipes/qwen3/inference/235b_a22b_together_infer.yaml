@@ -1,8 +1,5 @@
 # Inference config for Qwen3 235B.
 #
-# Requirements:
-#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
-#
 # Usage:
 #   oumi infer -i -c oumi://configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml
 #
