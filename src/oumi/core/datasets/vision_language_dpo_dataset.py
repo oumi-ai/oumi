@@ -14,6 +14,7 @@
 
 from typing import Any, Optional, Union
 
+import datasets
 from PIL import Image
 from typing_extensions import override
 
@@ -171,3 +172,18 @@ class VisionLanguageDpoDataset(BaseExperimentalDpoDataset):
 
         image.thumbnail((max_size, max_size))
         return image
+
+    @override
+    def to_hf(
+        self, return_iterable: bool = False
+    ) -> Union[datasets.Dataset, datasets.IterableDataset]:
+        dataset = super().to_hf(return_iterable)
+
+        if dataset.features is None:
+            return dataset
+        else:
+            new_features = dataset.features
+            new_features[_IMAGES_KEY] = datasets.Sequence(datasets.Image(decode=True))
+            dataset = dataset.cast(new_features)
+
+        return dataset
