@@ -332,10 +332,8 @@ class TestAwqQuantization:
             },
         )
 
-
     def test_str_representation(self):
         """Test string representation of the quantizer."""
         str_repr = str(self.quantizer)
         assert "AwqQuantization" in str_repr
         assert "awq_4bit" in str_repr
-

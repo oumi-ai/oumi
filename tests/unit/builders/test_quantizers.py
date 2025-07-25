@@ -252,4 +252,3 @@ class TestQuantizerBuilders:
         """Test build_quantizer with None method."""
         with pytest.raises(AttributeError):
             build_quantizer(None)  # type: ignore
-

@@ -14,7 +14,6 @@
 
 """Unit tests for base quantization functionality."""
 
-
 import pytest
 
 from oumi.core.configs import ModelParams, QuantizationConfig
@@ -174,4 +173,3 @@ class TestQuantizationResult:
         )
 
         assert result1 != result2
-

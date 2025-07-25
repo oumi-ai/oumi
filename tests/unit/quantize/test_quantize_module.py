@@ -241,4 +241,3 @@ class TestQuantizeModule:
 
         # Verify values
         assert result.additional_info["compression_ratio"] == 0.25
-
