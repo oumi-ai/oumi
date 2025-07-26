@@ -34,6 +34,16 @@ _CLI_IGNORED_PREFIXES = ["--local-rank"]
 _PRIMITIVE_TYPES = {str, int, float, bool, type(None), bytes, Path, Enum}
 
 
+def _is_primitive_type(value: Any) -> bool:
+    """Check if a value is of a primitive type that OmegaConf can handle."""
+    return (
+        isinstance(value, (str, int, float, bool, bytes))
+        or value is None
+        or isinstance(value, Path)
+        or isinstance(value, Enum)
+    )
+
+
 def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
     """Recursively process config object to handle non-primitive values.
 
@@ -55,7 +65,7 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
         result = {}
         for key, value in config.items():
             current_path = f"{path}.{key}" if path else key
-            if type(value) in _PRIMITIVE_TYPES:
+            if _is_primitive_type(value):
                 result[key] = value
             else:
                 # Recursively process nested dictionaries and other non-primitive values
@@ -69,7 +79,7 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
                     result[key] = None
         return result
 
-    if type(config) in _PRIMITIVE_TYPES:
+    if _is_primitive_type(config):
         return config
 
     # Try to convert functions to their source code
@@ -119,7 +129,9 @@ class BaseConfig:
         Args:
             config_path: Path to save the config to
         """
-        config_dict = OmegaConf.to_container(self, resolve=True)
+        # Convert the dataclass to an OmegaConf structure first
+        omega_config = OmegaConf.structured(self)
+        config_dict = OmegaConf.to_container(omega_config, resolve=True)
         removed_paths = set()
         processed_config = _handle_non_primitives(
             config_dict, removed_paths=removed_paths
@@ -258,7 +270,9 @@ class BaseConfig:
         if logger is None:
             logger = logging.getLogger(__name__)
 
-        config_yaml = OmegaConf.to_yaml(self, resolve=True)
+        # Convert the dataclass to an OmegaConf structure first
+        omega_config = OmegaConf.structured(self)
+        config_yaml = OmegaConf.to_yaml(omega_config, resolve=True)
         logger.info(f"Configuration:\n{config_yaml}")
 
     def finalize_and_validate(self) -> None:
