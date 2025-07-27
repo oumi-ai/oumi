@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Callable, Optional
 
 import typer
 from rich.table import Table
@@ -40,10 +40,73 @@ def judge_dataset_file(
     display_raw_output: bool = False,
 ):
     """Judge a dataset."""
-    # Delayed imports
+    # Delayed import
     from oumi import judge
+
+    judge_file(
+        ctx=ctx,
+        judge_config=judge_config,
+        input_file=input_file,
+        output_file=output_file,
+        display_raw_output=display_raw_output,
+        judgment_fn=judge.judge_dataset_file,
+    )
+
+
+def judge_conversations_file(
+    ctx: typer.Context,
+    judge_config: Annotated[
+        str,
+        typer.Option(
+            "--config",
+            help="Path to the judge config file",
+        ),
+    ],
+    input_file: Annotated[
+        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
+    ],
+    output_file: Annotated[
+        Optional[str],
+        typer.Option("--output", help="Path to the output file (jsonl)"),
+    ] = None,
+    display_raw_output: bool = False,
+):
+    """Judge a list of conversations."""
+    # Delayed import
+    from oumi import judge
+
+    judge_file(
+        ctx=ctx,
+        judge_config=judge_config,
+        input_file=input_file,
+        output_file=output_file,
+        display_raw_output=display_raw_output,
+        judgment_fn=judge.judge_conversations_file,
+    )
+
+
+def judge_file(
+    ctx: typer.Context,
+    judge_config: Annotated[
+        str,
+        typer.Option(
+            "--config",
+            help="Path to the judge config file",
+        ),
+    ],
+    input_file: Annotated[
+        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
+    ],
+    output_file: Annotated[
+        Optional[str],
+        typer.Option("--output", help="Path to the output file (jsonl)"),
+    ] = None,
+    display_raw_output: bool = False,
+    judgment_fn: Callable[..., list[Any]] = ...,
+):
+    """Judge a dataset or list of conversations."""
+    # Delayed import
     from oumi.core.configs.judge_config import JudgeConfig
-    # End imports
 
     # Load configs
     extra_args = cli_utils.parse_extra_cli_args(ctx)
@@ -57,7 +120,7 @@ def judge_dataset_file(
         raise typer.Exit(code=1)
 
     # Judge the dataset
-    judge_outputs = judge.judge_dataset_file(
+    judge_outputs = judgment_fn(
         judge_config=judge_config_obj,
         input_file=input_file,
         output_file=output_file,

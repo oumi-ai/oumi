@@ -22,14 +22,11 @@ class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
 
     @abstractmethod
-    def analyze_message(
-        self, text_content: str, message_metadata: dict[str, Any]
-    ) -> dict[str, Any]:
+    def analyze_message(self, text_content: str) -> dict[str, Any]:
         """Analyze a single message and return metrics.
 
         Args:
             text_content: The text content to analyze
-            message_metadata: Metadata about the message
 
         Returns:
             Dictionary containing analysis metrics

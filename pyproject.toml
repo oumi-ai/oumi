@@ -48,7 +48,7 @@ dependencies = [
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",
-    "mlflow>=2.21.2,<2.22.0",       # Logging to MLflow
+    "mlflow>=3.1.4",                # Logging to MLflow
     "numpy>=1.26.4,<2.0",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.

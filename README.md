@@ -1,6 +1,3 @@
-> [!NOTE]
-> Sign up for our July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://lu.ma/6e2b5tcp?utm_source=github-readme-notice).
-
 ![Oumi Logo](https://github.com/oumi-ai/oumi/raw/main/docs/_static/logo/header_logo.png)
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
@@ -25,7 +22,8 @@
 </p>
 
 ## 🔥 News
-- [2025/07] July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://lu.ma/6e2b5tcp?utm_source=github-readme-news)
+- [2025/07] Recipe for [Qwen3 235B](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml)
+- [2025/07] July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://youtu.be/f3SU_heBP54)
 - [2025/06] [Oumi v0.2.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.2.0) with support for GRPO fine-tuning, a plethora of new model support, and much more
 - [2025/06] Announcement of [Data Curation for Vision Language Models (DCVLR) competition](https://oumi.ai/blog/posts/announcing-dcvlr) at NeurIPS2025
 - [2025/06] Recipes for training, inference, and eval with the newly released [Falcon-H1](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/falcon_h1) and [Falcon-E](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/falcon_e) models
