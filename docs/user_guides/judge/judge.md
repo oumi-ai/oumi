@@ -5,14 +5,14 @@
 :caption: Judge
 :hidden:
 
-built_in_judge
-custom_prompt
-custom_infer
+judge_config
+built_in_judges
+cli_usage
 ```
 
 As Large Language Models (LLMs) continue to evolve, traditional evaluation benchmarks, which focus primarily on task-specific metrics, are increasingly inadequate for capturing the full scope of a model's generative potential. In real-world applications, LLM capabilities such as creativity, coherence, and the ability to effectively handle nuanced and open-ended queries are critical and cannot be fully assessed through standardized metrics alone. While human raters are often employed to evaluate these aspects, the process is costly and time-consuming. As a result, the use of LLM-based evaluation systems, or "LLM judges", has gained traction as a more scalable and efficient alternative.
 
-Oumi provides a versatile LLM Judge framework that enables the automation of pointwise and pairwise **model evaluations**, **dataset curation**, and **quality assurance** for model deployment. You can easily customize the {doc}`evaluation prompts and criteria </user_guides/judge/custom_prompt>`, select {doc}`any underlying judge LLM </user_guides/judge/custom_infer>` (open-source or proprietary), and locally host or access it remotely via an API.
+Oumi provides a versatile LLM Judge framework that enables the automation of pointwise and pairwise **model evaluations**, **dataset curation**, and **quality assurance** for model deployment. You can easily customize the evaluation prompts and criteria, select any underlying judge LLM (open-source or proprietary), and locally host or access it remotely via an API.
 
 ## Overview
 
@@ -38,68 +38,92 @@ Our LLM Judge API is fully customizable and can be applied across a wide range o
 - **Quality Assurance**: Automating quality checks in your AI deployment pipeline, ensuring that deployed models meet predefined performance and safety standards.
 - **Compare Models**: Comparing different model versions or configurations (e.g., prompts, hyperparameters) across various attributes, enabling more informed decision-making and optimization.
 
+## Quick Start
 
-## Oumi Offerrings
+To leverage an LLM judge, we instantiate a {py:class}`~oumi.judges.simple_judge.SimpleJudge` class using a judge configuration ({py:class}`~oumi.core.configs.judge_config.JudgeConfig`). Oumi offers several {doc}`built-in judges </user_guides/judge/built_in_judges>` that you can use out-of-the-box for common evaluation tasks (see our {gh}`GitHub page <configs/projects/judges/>` for the complete list). Alternatively, you can create completely custom judges by defining your own prompts, output formats, and evaluation criteria in a {doc}`custom config </user_guides/judge/judge_config>`.
 
-Oumi offers a {doc}`Built-In Judge </user_guides/judge/built_in_judge>` that you can use out-of-the-box. Alternatively, you can tailor the judge to your specific needs by customizing the {doc}`judgment prompts </user_guides/judge/custom_prompt>` or the {doc}`underlying judge model </user_guides/judge/custom_infer>` and its parameters.
+### Built-In Judges (predefined configuration)
 
-### Built-In Judge
-
-Our {doc}`Built-In Judge </user_guides/judge/built_in_judge>` evaluates model outputs across multiple key attributes. By default, it assesses outputs based on three essential dimensions: helpfulness, honesty, and safety. These attributes have been rigorously tested and validated to ensure strong alignment with human judgment and consistent performance in the evaluation of AI-generated content. The selection of these attributes has been carefully considered for their pivotal role in assessing the quality, trustworthiness, and ethical integrity of model outputs, ensuring they meet the highest standards for responsible real-world applications. However, the system is fully customizable, allowing you to {doc}`customize </user_guides/judge/custom_prompt>` attributes to better suit your specific project requirements.
-
-A built-in judge is instantiated using a configuration class, {py:class}`~oumi.core.configs.JudgeConfig`. A selection of standard configurations is available on our {gh}`judge court <src/oumi/judges/judge_court.py>`. Depending on the desired capabilities for the underlying judge model, you can choose between local configurations ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_local_judge>`) or access more powerful models via a remote API, such as GPT-4 ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_gpt4o_judge>`) or Sonnet ({py:func}`oumi_v1_xml_local_judge <oumi.judges.oumi_v1_xml_claude_sonnet_judge>`).
-
-
-(judge_quickstart_link)=
-##### Quick Start
-
+Select a judge from our {gh}`GitHub page <configs/projects/judges/>` and use it, as shown below. The following example is for the {gh}`Truthfulness judge <configs/projects/judges/generic/truthfulness.yaml>` (judges/generic/truthfulness).
 ```python
-from oumi.core.types import Conversation, Message, Role
-from oumi.judges import OumiXmlJudge
-from oumi.judges import oumi_v1_xml_local_judge as judge_local
-from oumi.judges import oumi_v1_xml_gpt4o_judge as judge_gpt4o
-from oumi.judges import oumi_v1_xml_claude_sonnet_judge as judge_sonnet
-from oumi.judges import oumi_v1_xml_deepseek_r1_judge as judge_deepseek_r1
+from oumi.judges.simple_judge import SimpleJudge
 
-# Instantiate the judge.
-judge = OumiXmlJudge(judge_local()) # alternatives: judge_gpt4o(), judge_sonnet(), judge_deepseek_r1()
+# Instantiate a simple judge using a predefined configuration: Truthfulness
+simple_judge = SimpleJudge(judge_config="oumi://configs/projects/judges/generic/truthfulness.yaml")
 
-# Define the `conversations` to be judged.
-conversations = [
-    Conversation(messages=[
-      Message(role=Role.USER, content="What is Python?"),
-      Message(role=Role.ASSISTANT, content="Python is a high-level programming language.")
-   ])
+# Define a dataset
+dataset = [
+    {
+        "request": "What is the capital of France?",
+        "response": "Rome",
+    }
 ]
 
-results = judge.judge(conversations)
-```
+# Evaluate the dataset
+outputs = simple_judge.judge(dataset)
 
-The `results` variable is a dictionary, where each key corresponds to an attribute name (`helpful`, `honest`, `safe`). The associated values include a `judgement` ("Yes" if the response meets the criteria, "No" otherwise) and an `explanation` provided by the judge model. For example, the result for `helpful` is represented as follows:
-
-```
-"helpful": {
-   "fields": {
-      "judgement": "Yes",
-      "explanation": "The response is helpful because it provides a brief explanation of what Python is."
-   },
-   "label": True
-}
+# Retrieve the judgement(s) and explanation(s) from the structured output(s)
+for output in outputs:
+    judgment = output.field_values["judgment"]  # False
+    explanation = output.field_values["explanation"]  # The correct answer is Paris.
 ```
 
 ### Custom Judge
 
-Custom judges offer significant value in a variety of specialized scenarios, such as:
+Step 1: Define your custom configuration, such as `./my_judge_config.yaml`.
+```yaml
+judge_params:
+  prompt_template: |
+    You are a truthfulness judge. Determine whether the response below is factually accurate.
+    If the response is truthful, respond with 'Yes'. Otherwise, respond with 'No'.
+    ***
+    [request]:
+    {request}
+    ***
+    [response]:
+    {response}
+    ***
 
-1. **Code Quality Assessment**: Evaluate generated code for adherence to best practices, security standards, and proper documentation.
-2. **Content Moderation**: Assess responses for safety, appropriateness, and compliance with established guidelines.
-3. **Domain Expertise**:  Ensure technical accuracy and precision in specialized fields such as medicine, law, or engineering.
-4. **Multi-Criteria Evaluation**: Conduct comprehensive assessments of responses across multiple dimensions simultaneously.
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
 
-This section provides an overview of the available customization options.
+inference_config:
+  model:
+    model_name: "gpt-4o"
 
-#### Customization Options
+  engine: OPENAI
 
-The LLM Judge framework offers a range of customization options to tailor the evaluation process to your specific needs. You can modify the judgment prompts and their corresponding few-shot examples, as well as choose the type of judgment the underlying model will provide (`bool`, `categorical`, or `likert-5`). For a comprehensive guide on these options, refer to the {doc}`Custom Prompts </user_guides/judge/custom_prompt>` page.
+  generation:
+    max_new_tokens: 8192
+    temperature: 1.0
+```
 
-Additionally, you have the flexibility to select and configure the underlying judge model, allowing you to optimize for speed, accuracy, and resource efficiency. Models can be loaded from a local path (or downloaded from HuggingFace) and hosted locally, or you can choose from a variety of popular remote models (from providers such as OpenAI, Anthropic, and Google) by specifying the appropriate {py:obj}`~oumi.core.configs.inference_engine_type.InferenceEngineType`. Furthermore, all model ({py:class}`~oumi.core.configs.params.model_params.ModelParams`) and generation ({py:class}`~oumi.core.configs.params.generation_params.GenerationParams`) parameters are fully adjustable to suit your requirements. Detailed information on these configuration options can be found on the {doc}`Custom Model </user_guides/judge/custom_infer>` page.
+Step 2: Load your custom configuration file and evaluate a dataset.
+```python
+from oumi.judges.simple_judge import SimpleJudge
+
+# Instantiate a simple judge using a local configuration
+simple_judge = SimpleJudge(judge_config="./my_judge_config.yaml")
+
+# Define a dataset
+dataset = [
+    {
+        "request": "What is the capital of France?",
+        "response": "Rome",
+    }
+]
+
+# Evaluate the dataset
+outputs = simple_judge.judge(dataset)
+
+# Retrieve the judgement(s) and explanation(s) from the structured output(s)
+for output in outputs:
+    judgment = output.field_values["judgment"]  # False
+    explanation = output.field_values["explanation"]  # The correct answer is Paris.
+```
+
+## Next Steps
+- Explore our {doc}`Built-In Judges </user_guides/judge/built_in_judges>` for out-of-the-box evaluation criteria
+- Understand the {doc}`Judge Configuration </user_guides/judge/judge_config>` options
+- Explore {doc}`CLI usage </user_guides/judge/cli_usage>` for command-line evaluation

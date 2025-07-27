@@ -3,8 +3,8 @@ import unittest
 
 import pytest
 
-from oumi.core.configs.judge_config_v2 import JudgeConfig
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.core.configs.judge_config import JudgeConfig
+from oumi.judges.simple_judge import SimpleJudge
 
 skip_if_no_openai_key = pytest.mark.skipif(
     os.getenv("OPENAI_API_KEY") is None, reason="OPENAI_API_KEY not set"

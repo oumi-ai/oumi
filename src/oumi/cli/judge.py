@@ -12,259 +12,149 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import Annotated, Any, Callable, Optional
 
-import jsonlines
 import typer
 from rich.table import Table
 
 from oumi.cli import cli_utils
-from oumi.utils.io_utils import load_jsonlines
-
-if TYPE_CHECKING:
-    from oumi.core.configs import InferenceConfig, JudgeConfig
 
 
-def _load_judge_config(config: str, extra_args: list[str]) -> "JudgeConfig":
-    from oumi.core.registry import REGISTRY
-
-    judge_config_builder = REGISTRY.get_judge_config(config)
-
-    if judge_config_builder:
-        if extra_args:
-            typer.echo(
-                "For consistent judge results, a named judge config cannot be "
-                f"overridden with extra arguments. Got: {extra_args}. "
-                "Please register a new named judge config, or provide a path to a "
-                "judge config file."
-            )
-            raise typer.Exit(code=1)
-        return judge_config_builder()
-
-    if not Path(config).exists():
-        typer.echo(f"Config file not found: '{config}'")
-        raise typer.Exit(code=1)
-
-    return JudgeConfig.from_yaml_and_arg_list(config, extra_args)
-
-
-def dataset(
+def judge_dataset_file(
     ctx: typer.Context,
-    config: Annotated[
-        str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
+    judge_config: Annotated[
+        str,
+        typer.Option(
+            "--config",
+            help="Path to the judge config file",
+        ),
     ],
-    dataset_name: Annotated[
-        Optional[str], typer.Option(help="Name of the dataset from the registry")
-    ] = None,
-    dataset_subset: Annotated[
-        Optional[str], typer.Option(help="Subset of the dataset to use, if applicable")
-    ] = None,
-    dataset_split: Annotated[
-        Optional[str], typer.Option(help="Split of the dataset to use.")
-    ] = "train",
+    input_file: Annotated[
+        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
+    ],
     output_file: Annotated[
-        Optional[str], typer.Option(help="Path to the output file (jsonl)")
+        Optional[str],
+        typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
-    level: cli_utils.LOG_LEVEL_TYPE = None,
+    display_raw_output: bool = False,
 ):
     """Judge a dataset."""
-    # Delayed imports
-    from oumi import judge_dataset
-    from oumi.core.registry import REGISTRY
+    # Delayed import
+    from oumi import judge
 
-    # End imports
-    if not dataset_name:
-        typer.echo("Dataset name is required.")
-        raise typer.Exit(code=1)
-
-    # Load the judge config
-    extra_args = cli_utils.parse_extra_cli_args(ctx)
-
-    config = str(
-        cli_utils.resolve_and_fetch_config(
-            config,
-        )
+    judge_file(
+        ctx=ctx,
+        judge_config=judge_config,
+        input_file=input_file,
+        output_file=output_file,
+        display_raw_output=display_raw_output,
+        judgment_fn=judge.judge_dataset_file,
     )
 
-    judge_config = _load_judge_config(config, extra_args)
 
-    # Load the dataset class from the registry
-    dataset_class = REGISTRY.get_dataset(dataset_name, subset=dataset_subset)
-
-    if dataset_class is None:
-        typer.echo(f"Dataset '{dataset_name}' not found in registry.")
-        raise typer.Exit(code=1)
-
-    dataset = dataset_class(
-        split=dataset_split,
-        subset=dataset_subset,
-    )
-
-    # Judge the dataset
-    results = judge_dataset(judge_config, dataset=dataset)
-
-    # Save the results
-    if output_file:
-        typer.echo(f"Saving results to {output_file}")
-        with jsonlines.open(output_file, mode="w") as writer:
-            writer.write_all(results)
-    else:
-        table = Table(
-            title="Judge Results",
-            title_style="bold magenta",
-            show_edge=False,
-            show_lines=True,
-        )
-        table.add_column("Judgements", style="green")
-        for result in results:
-            table.add_row(json.dumps(result))
-        cli_utils.CONSOLE.print(table)
-
-
-def conversations(
+def judge_conversations_file(
     ctx: typer.Context,
-    config: Annotated[
-        str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
+    judge_config: Annotated[
+        str,
+        typer.Option(
+            "--config",
+            help="Path to the judge config file",
+        ),
     ],
     input_file: Annotated[
-        Optional[str], typer.Option(help="Path to the input file (jsonl)")
-    ] = None,
+        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
+    ],
     output_file: Annotated[
-        Optional[str], typer.Option(help="Path to the output file (jsonl)")
+        Optional[str],
+        typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
-    level: cli_utils.LOG_LEVEL_TYPE = None,
+    display_raw_output: bool = False,
 ):
     """Judge a list of conversations."""
-    extra_args = cli_utils.parse_extra_cli_args(ctx)
+    # Delayed import
+    from oumi import judge
 
-    config = str(
-        cli_utils.resolve_and_fetch_config(
-            config,
-        )
+    judge_file(
+        ctx=ctx,
+        judge_config=judge_config,
+        input_file=input_file,
+        output_file=output_file,
+        display_raw_output=display_raw_output,
+        judgment_fn=judge.judge_conversations_file,
     )
 
-    # Delayed imports
-    from oumi import judge_conversations
-    from oumi.core.types.conversation import Conversation
-    # End imports
 
-    # Load the judge config
-    judge_config = _load_judge_config(config, extra_args)
-
-    # Load the conversations from the input file
-    if not input_file:
-        typer.echo("Input file is required.")
-        raise typer.Exit(code=1)
-
-    input_data = load_jsonlines(input_file)
-    conversations = [Conversation.from_dict(conv) for conv in input_data]
-
-    # Judge the conversations
-    results = judge_conversations(judge_config, judge_inputs=conversations)
-
-    # Save the results
-    if output_file:
-        typer.echo(f"Saving results to {output_file}")
-        with jsonlines.open(output_file, mode="w") as writer:
-            writer.write_all(results)
-    else:
-        table = Table(
-            title="Judge Results",
-            title_style="bold magenta",
-            show_edge=False,
-            show_lines=True,
-        )
-        table.add_column("Judgements", style="green")
-        for result in results:
-            table.add_row(json.dumps(result))
-        cli_utils.CONSOLE.print(table)
-
-
-def model(
+def judge_file(
     ctx: typer.Context,
-    config: Annotated[
-        str, typer.Option(*cli_utils.CONFIG_FLAGS, help="Path to the judge config file")
-    ],
-    inference_config: Annotated[
+    judge_config: Annotated[
         str,
-        typer.Option(help="Path to the inference config file"),
+        typer.Option(
+            "--config",
+            help="Path to the judge config file",
+        ),
     ],
     input_file: Annotated[
-        Optional[str], typer.Option(help="Path to the input file (jsonl)")
-    ] = None,
+        str, typer.Option("--input", help="Path to the dataset input file (jsonl)")
+    ],
     output_file: Annotated[
-        Optional[str], typer.Option(help="Path to the output file (jsonl)")
+        Optional[str],
+        typer.Option("--output", help="Path to the output file (jsonl)"),
     ] = None,
-    level: cli_utils.LOG_LEVEL_TYPE = None,
+    display_raw_output: bool = False,
+    judgment_fn: Callable[..., list[Any]] = ...,
 ):
-    """Judge the outputs of a model on a dataset."""
-    # Delayed imports
-    from oumi import judge_conversations
-    from oumi.builders.inference_engines import build_inference_engine
-    from oumi.core.types.conversation import Conversation
-    # End imports
+    """Judge a dataset or list of conversations."""
+    # Delayed import
+    from oumi.core.configs.judge_config import JudgeConfig
 
-    judge_extra_args = cli_utils.parse_extra_cli_args(ctx)
+    # Load configs
+    extra_args = cli_utils.parse_extra_cli_args(ctx)
 
-    config = str(
-        cli_utils.resolve_and_fetch_config(
-            config,
-        )
-    )
-    # Load the judge config
-    judge_config = _load_judge_config(config, judge_extra_args)
+    # Resolve judge config
+    judge_config_obj = JudgeConfig.from_path(path=judge_config, extra_args=extra_args)
 
-    # Load the inference config
-    inference_config = str(
-        cli_utils.resolve_and_fetch_config(
-            inference_config,
-        )
-    )
-    inference_extra_args = cli_utils.parse_extra_cli_args(ctx)
-    model_inference_config: InferenceConfig = InferenceConfig.from_yaml_and_arg_list(
-        inference_config, inference_extra_args
-    )
-
-    if not model_inference_config.engine:
-        typer.echo("Inference engine is required.")
+    # Ensure the dataset input file exists
+    if not Path(input_file).exists():
+        typer.echo(f"Input file not found: '{input_file}'")
         raise typer.Exit(code=1)
 
-    # Load the dataset
-    if not input_file:
-        typer.echo("Input file is required.")
-        raise typer.Exit(code=1)
-
-    input_data = load_jsonlines(input_file)
-    input_conversations = [Conversation.from_dict(output) for output in input_data]
-
-    # Run inference
-    inference_engine = build_inference_engine(
-        model_inference_config.engine,
-        model_params=model_inference_config.model,
-        remote_params=model_inference_config.remote_params,
-        generation_params=model_inference_config.generation,
+    # Judge the dataset
+    judge_outputs = judgment_fn(
+        judge_config=judge_config_obj,
+        input_file=input_file,
+        output_file=output_file,
     )
 
-    model_outputs = inference_engine.infer(
-        input=input_conversations, inference_config=model_inference_config
-    )
-
-    results = judge_conversations(judge_config, judge_inputs=model_outputs)
-
-    if output_file:
-        typer.echo(f"Saving results to {output_file}")
-        with jsonlines.open(output_file, mode="w") as writer:
-            writer.write_all(results)
-    else:
+    # Display the judge outputs if no output file was specified
+    if not output_file:
         table = Table(
             title="Judge Results",
             title_style="bold magenta",
             show_edge=False,
             show_lines=True,
         )
-        table.add_column("Judgements", style="green")
-        for result in results:
-            table.add_row(json.dumps(result))
+        table.add_column("Judgment", style="cyan")
+        table.add_column("Judgment Score", style="green")
+        table.add_column("Explanation", style="yellow")
+        if display_raw_output:
+            table.add_column("Raw Output", style="white")
+
+        for judge_output in judge_outputs:
+            judgment_value = str(judge_output.field_values.get("judgment", "N/A"))
+            judgment_score = str(judge_output.field_scores.get("judgment", "N/A"))
+            explanation_value = str(judge_output.field_values.get("explanation", "N/A"))
+
+            if display_raw_output:
+                table.add_row(
+                    judgment_value,
+                    judgment_score,
+                    explanation_value,
+                    judge_output.raw_output,
+                )
+            else:
+                table.add_row(judgment_value, judgment_score, explanation_value)
+
         cli_utils.CONSOLE.print(table)
+    else:
+        typer.echo(f"Results saved to {output_file}")

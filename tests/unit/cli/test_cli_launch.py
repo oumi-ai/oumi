@@ -1,13 +1,13 @@
 import logging
 import pathlib
 import tempfile
+from enum import Enum
 from unittest.mock import Mock, call, patch
 
 import pytest
 import typer
 from typer.testing import CliRunner
 
-import oumi
 from oumi.cli.alias import AliasType
 from oumi.cli.cli_utils import CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.launch import cancel, down, status, stop, up, which
@@ -77,8 +77,19 @@ def app():
 
 @pytest.fixture
 def mock_launcher():
-    with patch.object(oumi, "launcher", autospec=True) as launcher_mock:
+    with patch("oumi.launcher", autospec=True) as launcher_mock:
         yield launcher_mock
+
+
+@pytest.fixture(autouse=True)
+def mock_sky_client(mock_launcher):
+    mock_launcher.clients.sky_client.SkyClient.SupportedClouds = []
+
+
+@pytest.fixture()
+def mock_sky_tail():
+    with patch("sky.tail_logs") as sky_mock:
+        yield sky_mock
 
 
 @pytest.fixture
@@ -386,6 +397,48 @@ def test_launch_up_job_dev_no_confirm_same_path(
         mock_launcher.up.assert_called_once_with(job_config, None)
 
 
+def test_launch_up_job_no_working_dir(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
+):
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.working_dir = None
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="cluster_id",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        _ = runner.invoke(
+            app,
+            [
+                "up",
+                "--config",
+                job_yaml_path,
+            ],
+        )
+        mock_cluster.get_job.assert_has_calls([call("job_id")])
+        mock_launcher.up.assert_called_once_with(job_config, None)
+
+
 def test_launch_up_job_existing_cluster(
     app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch
 ):
@@ -514,6 +567,53 @@ def test_launch_up_job_detached_local(
             ],
         )
         mock_cluster.get_job.assert_has_calls([call("job_id")])
+
+
+def test_launch_up_job_sky_logs(
+    app, mock_launcher, mock_pool, mock_version, mock_confirm, mock_fetch, mock_sky_tail
+):
+    class SupportedClouds(Enum):
+        """Enum representing the supported clouds."""
+
+        LOCAL = "local"
+
+    mock_launcher.clients.sky_client.SkyClient.SupportedClouds = [SupportedClouds.LOCAL]
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(pathlib.Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+        job_yaml_path = str(pathlib.Path(output_temp_dir) / "job.yaml")
+        job_config = _create_job_config(train_yaml_path)
+        job_config.resources.cloud = "local"
+        job_config.to_yaml(job_yaml_path)
+        mock_launcher.JobConfig = JobConfig
+        mock_cluster = Mock()
+        job_status = JobStatus(
+            id="job_id",
+            cluster="local",
+            name="job_name",
+            status="running",
+            metadata="",
+            done=False,
+        )
+        mock_launcher.up.return_value = (mock_cluster, job_status)
+        mock_cluster.get_job.return_value = job_status = JobStatus(
+            id="job_id",
+            cluster="local",
+            name="job_name",
+            status="done",
+            metadata="",
+            done=True,
+        )
+        _ = runner.invoke(
+            app,
+            [
+                "up",
+                "--config",
+                job_yaml_path,
+            ],
+        )
+        mock_sky_tail.assert_called_once_with(cluster_name="local", job_id="job_id")
 
 
 def test_launch_up_job_not_found(

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -291,6 +292,14 @@ class AttributeCombination:
 class GeneratedAttributePostprocessingParams:
     """Postprocessing parameters for generated attributes."""
 
+    id: str
+    """ID to be used when referencing the postprocessing parameters during synthesis."""
+
+    keep_original_text_attribute: bool = True
+    """Whether to keep the original text of the generated attribute.
+    If True, the original text will be returned as an attribute.
+    If False, the original text will be discarded."""
+
     cut_prefix: Optional[str] = None
     """Cut off value before and including prefix."""
 
@@ -308,6 +317,21 @@ class GeneratedAttributePostprocessingParams:
 
     added_suffix: Optional[str] = None
     """Suffix to be added to the value."""
+
+    def __post_init__(self):
+        """Verifies/populates params."""
+        if not self.id:
+            raise ValueError(
+                "GeneratedAttributePostprocessingParams.id cannot be empty."
+            )
+
+        if self.regex:
+            try:
+                re.compile(self.regex)
+            except Exception as e:
+                raise ValueError(
+                    f"Error compiling GeneratedAttributePostprocessingParams.regex: {e}"
+                )
 
 
 @dataclass
@@ -329,6 +353,13 @@ class GeneratedAttribute:
             raise ValueError("GeneratedAttribute.id cannot be empty.")
         if not self.instruction_messages:
             raise ValueError("GeneratedAttribute.instruction_messages cannot be empty.")
+        if self.postprocessing_params:
+            if self.id == self.postprocessing_params.id:
+                raise ValueError(
+                    "GeneratedAttribute.id and "
+                    "GeneratedAttributePostprocessingParams.id "
+                    "cannot be the same."
+                )
 
 
 @dataclass
@@ -566,6 +597,9 @@ class GeneralSynthesisParams(BaseParams):
         for generated_attribute in self.generated_attributes:
             attribute_id = generated_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
+            if generated_attribute.postprocessing_params:
+                postprocessing_id = generated_attribute.postprocessing_params.id
+                self._check_attribute_ids(all_attribute_ids, postprocessing_id)
 
     def _check_transformed_attribute_ids(self, all_attribute_ids: set[str]) -> None:
         """Check attribute IDs from transformed attributes for uniqueness."""

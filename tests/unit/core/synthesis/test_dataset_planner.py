@@ -28,7 +28,7 @@ from oumi.core.configs.params.synthesis_params import (
     PermutableAttributeValue,
     SegmentationStrategy,
 )
-from oumi.core.synthesis.planner import DatasetPlanner
+from oumi.core.synthesis.dataset_planner import DatasetPlanner
 
 
 @pytest.fixture(autouse=True)
@@ -425,7 +425,7 @@ def test_plan_with_example_sources(
         assert len(sample) == 4
 
 
-@patch("oumi.core.synthesis.planner.DatasetReader")
+@patch("oumi.core.synthesis.dataset_planner.DatasetReader")
 def test_plan_with_single_dataset_source(
     mock_reader_class,
     planner,
@@ -469,7 +469,7 @@ def test_plan_with_single_dataset_source(
         assert len(sample) == 4
 
 
-@patch("oumi.core.synthesis.planner.DatasetReader")
+@patch("oumi.core.synthesis.dataset_planner.DatasetReader")
 def test_plan_with_multiple_dataset_sources(
     mock_reader_class,
     planner,
@@ -517,7 +517,7 @@ def test_plan_with_multiple_dataset_sources(
         assert len(sample) == 6
 
 
-@patch("oumi.core.synthesis.planner.DatasetReader")
+@patch("oumi.core.synthesis.dataset_planner.DatasetReader")
 def test_plan_with_dataset_sources_only(
     mock_reader_class, planner, mock_dataset_sources
 ):
@@ -585,7 +585,7 @@ def test_plan_with_empty_document_sources(planner, mock_permutable_attributes):
         assert len(sample) == 2
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
 def test_plan_with_single_document_source_no_segmentation(
     mock_reader_class,
     planner,
@@ -623,7 +623,7 @@ def test_plan_with_single_document_source_no_segmentation(
         assert len(sample) == 3
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
 def test_plan_with_multiple_document_sources_no_segmentation(
     mock_reader_class,
     planner,
@@ -668,8 +668,8 @@ def test_plan_with_multiple_document_sources_no_segmentation(
         assert len(sample) == 4
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
-@patch("oumi.core.synthesis.planner.DocumentSegmenter")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
 def test_plan_with_document_source_with_segmentation(
     mock_segmenter_class,
     mock_reader_class,
@@ -722,8 +722,8 @@ def test_plan_with_document_source_with_segmentation(
         assert len(sample) == 3
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
-@patch("oumi.core.synthesis.planner.DocumentSegmenter")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
 def test_plan_with_document_source_with_segmentation_keep_original(
     mock_segmenter_class,
     mock_reader_class,
@@ -782,8 +782,8 @@ def test_plan_with_document_source_with_segmentation_keep_original(
         assert len(sample) == 4
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
-@patch("oumi.core.synthesis.planner.DocumentSegmenter")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentSegmenter")
 def test_plan_with_mixed_document_sources(
     mock_segmenter_class,
     mock_reader_class,
@@ -852,7 +852,7 @@ def test_plan_with_mixed_document_sources(
         assert len(sample) == 4
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
 def test_plan_with_document_sources_only(
     mock_reader_class, planner, mock_document_sources, mock_document_data
 ):
@@ -885,7 +885,7 @@ def test_plan_with_document_sources_only(
         assert len(sample) == 2
 
 
-@patch("oumi.core.synthesis.planner.DocumentReader")
+@patch("oumi.core.synthesis.dataset_planner.DocumentReader")
 def test_plan_with_combined_sources_including_documents(
     mock_reader_class,
     planner,

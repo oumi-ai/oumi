@@ -48,7 +48,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -455,7 +455,7 @@ class MegatronModelMerger(BaseModelMerger):
         config: PretrainedConfig,
         tp_size: int,
         is_value_model: bool = False,
-    ) -> torch.Tensor | list[torch.Tensor]:
+    ) -> Union[torch.Tensor, list[torch.Tensor]]:
         if "linear_fc1.weight" in key:
             # if the tensor is gate and proj
             gate_lst = []

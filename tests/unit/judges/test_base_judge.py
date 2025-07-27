@@ -18,7 +18,7 @@ import pytest
 
 from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.judges_v2.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
+from oumi.judges.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
 
 
 class TestJudgeOutputField:

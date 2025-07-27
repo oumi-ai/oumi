@@ -12,22 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""This module provides access to various judge configurations for the Oumi project.
+"""Sample analyzer plugin system for OUMI.
 
-The judges are used to evaluate the quality of AI-generated responses based on
-different criteria such as helpfulness, honesty, and safety.
+This package provides a plugin-based architecture for analyzing conversation data
+with different types of sample analyzers (length, safety, etc.).
 """
 
-from oumi.judges_v2.base_judge import (
-    BaseJudge,
-    JudgeOutput,
-    JudgeOutputField,
+# Import base classes
+from oumi.core.analyze.dataset_analyzer import (
+    DatasetAnalysisResult,
+    DatasetAnalyzer,
+    MessageAnalysisResult,
 )
-from oumi.judges_v2.simple_judge import SimpleJudge
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 
 __all__ = [
-    "BaseJudge",
-    "SimpleJudge",
-    "JudgeOutputField",
-    "JudgeOutput",
+    "SampleAnalyzer",
+    "DatasetAnalyzer",
+    "DatasetAnalysisResult",
+    "MessageAnalysisResult",
 ]

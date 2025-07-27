@@ -1,0 +1,27 @@
+# Production Model Quantization Configuration
+# This configuration demonstrates production-ready AWQ quantization with calibration
+
+# Model configuration
+model:
+  model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # HuggingFace model ID or local path
+  tokenizer_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"  # Tokenizer to use
+  model_kwargs:
+    torch_dtype: "float16"  # Load model in half precision for efficiency
+    trust_remote_code: true  # Allow custom model code
+  adapter_model: null  # No LoRA adapter
+
+# High-quality quantization settings
+method: "awq_q4_0"  # 4-bit AWQ with enhanced calibration for quality
+output_path: "production/tinyllama-awq4.pytorch"  # Production output path
+output_format: "pytorch"  # PyTorch format for flexibility
+
+# AWQ calibration settings
+awq_group_size: 128  # Standard grouping size
+awq_zero_point: true  # Enable zero-point for better accuracy
+awq_version: "GEMM"  # Use GEMM kernel for speed
+calibration_samples: 1024  # More samples for production quality
+cleanup_temp: true  # Clean up temporary files
+
+# Performance tuning
+batch_size: 8  # Smaller batch for memory efficiency
+verbose: true  # Detailed progress logging

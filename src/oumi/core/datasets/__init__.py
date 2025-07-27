@@ -36,6 +36,7 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
+from oumi.core.datasets.vision_language_dpo_dataset import VisionLanguageDpoDataset
 
 __all__ = [
     "BaseExperimentalDpoDataset",
@@ -47,4 +48,5 @@ __all__ = [
     "PackedSftDataset",
     "PretrainingAsyncTextDataset",
     "VisionLanguageSftDataset",
+    "VisionLanguageDpoDataset",
 ]

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -83,7 +83,7 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         """Transform the samples to the Oumi format."""
         return self.transform_preference(sample)
 
-    def _extract_from_chat_format(self, sample: dict) -> str:
+    def _extract_from_chat_format(self, sample: list[dict[str, Any]]) -> str:
         """Extract the last 'assistant' turn in the chat."""
         for turn in sample[::-1]:
             if turn[_ROLE] == _ASSISTANT:

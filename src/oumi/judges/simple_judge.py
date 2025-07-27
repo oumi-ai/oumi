@@ -17,14 +17,14 @@ from typing import Union
 from typing_extensions import override
 
 from oumi.core.configs.inference_config import InferenceConfig
-from oumi.core.configs.judge_config_v2 import JudgeConfig
+from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.judge_params import (
     JudgeOutputType,
     JudgeParams,
     JudgeResponseFormat,
 )
 from oumi.core.inference import BaseInferenceEngine
-from oumi.judges_v2.base_judge import (
+from oumi.judges.base_judge import (
     BaseJudge,
     JudgeOutputField,
 )

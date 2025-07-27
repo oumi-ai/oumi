@@ -133,7 +133,7 @@ class JobConfig(BaseConfig):
     user: Optional[str] = None
     """The user that the job will run as (optional). Required only for Polaris."""
 
-    working_dir: str = MISSING
+    working_dir: Optional[str] = None
     """The local directory containing the scripts required to execute this job.
 
     This directory will be copied to the remote node before the job is executed.
