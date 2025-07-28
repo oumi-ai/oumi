@@ -24,21 +24,21 @@ training:
   num_train_epochs: 3
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 4
-  
+
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  
+
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
   warmup_ratio: 0.03
   weight_decay: 0.01
   max_grad_norm: 1.0
   lr_scheduler_type: "cosine"
-  
+
   dataloader_num_workers: 8
   dataloader_prefetch_factor: 2
-  
+
   logging_steps: 10
   output_dir: "output/llama3_1_8b_deepspeed_z2"
   enable_wandb: False
@@ -49,22 +49,22 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "2"
   precision: "bf16"
-  
+
   # Communication optimization
   overlap_comm: True
   contiguous_gradients: True
   allgather_bucket_size: 500000000  # 5e8
   reduce_bucket_size: 500000000     # 5e8
-  
+
   # Memory optimization
   zero_allow_untested_optimizer: True
   zero_force_ds_cpu_optimizer: False
-  
+
   # Optional: Enable CPU offloading for optimizer states
   # offload_optimizer:
   #   device: "cpu"
   #   pin_memory: True
-  
+
   # Logging
   steps_per_print: 10
   wall_clock_breakdown: False

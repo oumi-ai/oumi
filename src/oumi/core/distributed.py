@@ -450,10 +450,10 @@ def prepare_model_for_distributed(
 #
 def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
     """Check if DeepSpeed ZeRO-3 is enabled in the configuration.
-    
+
     Args:
         config: The training configuration.
-        
+
     Returns:
         bool: True if DeepSpeed ZeRO-3 is enabled, False otherwise.
     """
@@ -462,35 +462,35 @@ def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
 
 def create_deepspeed_config_file(config: TrainingConfig, output_path: str) -> str:
     """Create a DeepSpeed configuration file from training config.
-    
+
     Args:
         config: The training configuration containing DeepSpeed parameters.
         output_path: Path where to save the generated DeepSpeed config file.
-        
+
     Returns:
         str: Path to the created configuration file.
     """
     import json
     from pathlib import Path
-    
+
     deepspeed_config = config.deepspeed.to_deepspeed_config()
-    
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, 'w') as f:
+
+    with open(output_path, "w") as f:
         json.dump(deepspeed_config, f, indent=2, sort_keys=True)
-    
+
     logger.info(f"Created DeepSpeed configuration file: {output_path}")
     return str(output_path)
 
 
 def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> str | dict:
     """Get DeepSpeed configuration as file path or dictionary.
-    
+
     Args:
         config: The training configuration.
-        
+
     Returns:
         Union[str, dict]: Path to config file if specified, otherwise config dict.
     """

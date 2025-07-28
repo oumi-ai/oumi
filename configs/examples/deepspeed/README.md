@@ -48,7 +48,7 @@ deepspeed:
   # Communication optimization
   overlap_comm: True
   contiguous_gradients: True
-  
+
   # ZeRO-3 specific parameters
   stage3_max_live_parameters: 1000000000
   stage3_gather_16bit_weights_on_model_save: True
@@ -63,7 +63,7 @@ deepspeed:
     device: "cpu"
     pin_memory: True
     buffer_count: 4
-  
+
   # Offload parameters to CPU (ZeRO-3 only)
   offload_param:
     device: "cpu"

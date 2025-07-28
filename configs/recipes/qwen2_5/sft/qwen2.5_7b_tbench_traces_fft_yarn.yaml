@@ -38,10 +38,10 @@ data:
 training:
   trainer_type: "TRL_SFT"
   # Full fine-tuning (no PEFT)
-  save_steps: 0 
-  num_train_epochs: 5 
-  per_device_train_batch_size: 1 
-  gradient_accumulation_steps: 2 
+  save_steps: 0
+  num_train_epochs: 5
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:

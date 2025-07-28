@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Copyright 2025 - Oumi
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,39 +26,30 @@ from oumi.core.configs.params.ds_params import DSParams, OffloadConfig
 def test_dsparams_instantiation():
     """Test that DSParams can be instantiated without errors."""
     print("Testing DSParams instantiation...")
-    
+
     try:
         # Test basic instantiation
         params1 = DSParams()
         print("✓ Basic DSParams instantiation successful")
-        
+
         # Test instantiation with parameters
-        params2 = DSParams(
-            enable_deepspeed=True,
-            zero_stage="3"
-        )
+        params2 = DSParams(enable_deepspeed=True, zero_stage="3")
         print("✓ DSParams with parameters instantiation successful")
-        
+
         # Test instantiation with nested dataclass
-        params3 = DSParams(
-            enable_deepspeed=True,
-            offload_optimizer=OffloadConfig()
-        )
+        params3 = DSParams(enable_deepspeed=True, offload_optimizer=OffloadConfig())
         print("✓ DSParams with nested OffloadConfig instantiation successful")
-        
+
         # Test that validation works
         try:
             # This should raise ValueError
-            params4 = DSParams(
-                zero_stage="2",
-                offload_param=OffloadConfig()
-            )
+            params4 = DSParams(zero_stage="2", offload_param=OffloadConfig())
         except ValueError as e:
             print(f"✓ Validation error caught as expected: {e}")
-        
+
         print("\nAll tests passed! No AttributeError with super().__post_init__()")
         return True
-        
+
     except AttributeError as e:
         if "'super' object has no attribute '__post_init__'" in str(e):
             print(f"✗ FAILED: {e}")
