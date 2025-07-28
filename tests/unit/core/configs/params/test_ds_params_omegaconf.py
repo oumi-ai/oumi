@@ -20,8 +20,8 @@ from pathlib import Path
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add root directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent))
 
 from oumi.core.configs.params.ds_params import (
     DeepSpeedOffloadDevice,
