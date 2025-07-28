@@ -144,6 +144,13 @@ synthesis = [
     "pymupdf4llm",                  # Document ingestion for synthesis
 ]
 
+# Flash Attention - separate group due to special installation requirements
+flash_attn = [
+    # Note: May require manual installation with: pip install flash-attn --no-build-isolation
+    # This is kept separate to avoid breaking existing environments
+    "flash-attn>=2.0.0",
+]
+
 evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
     "langdetect",                   # leaderboard_ifeval
