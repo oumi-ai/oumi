@@ -220,7 +220,6 @@ class DSParams(BaseParams):
     
     def __post_init__(self) -> None:
         """Validate DeepSpeed configuration parameters."""
-        super().__post_init__()
         
         # Validate offloading configurations
         if self.offload_param is not None and self.zero_stage != ZeRORuntimeStage.ZERO_3:
