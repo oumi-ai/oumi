@@ -22,6 +22,10 @@ from rich.table import Table
 import oumi.cli.cli_utils as cli_utils
 from oumi.utils.logging import logger
 
+_MAX_TABLE_ROWS = 1
+_MAX_REPRESENTATION_LENGTH = 200
+_TABLE_COLUMNS_TO_DISPLAY = 6
+
 
 def synth(
     ctx: typer.Context,
@@ -91,20 +95,33 @@ def synth(
         show_edge=False,
         show_lines=True,
     )
-    columns = results[0].keys()
+    columns = list(results[0].keys())
+    column_count = len(columns)
+    additional_column = (
+        f"... and {column_count - _TABLE_COLUMNS_TO_DISPLAY + 1} more columns..."
+    )
+    if column_count > _TABLE_COLUMNS_TO_DISPLAY:
+        # Keep first N-1 columns and add the additional column
+        columns = columns[: _TABLE_COLUMNS_TO_DISPLAY - 1]
+        columns.append(additional_column)
     for column in columns:
         table.add_column(column, style="green")
-    for i, result in enumerate(results[:5]):  # Show first 5 samples
+    for i, result in enumerate(results[:_MAX_TABLE_ROWS]):  # Show first 5 samples
         representations = []
         for column in columns:
-            representation = repr(result[column])
-            if len(representation) > 20:
-                representation = representation[:20] + "..."
+            if column == additional_column:
+                representation = "..."
+            else:
+                representation = repr(result[column])
+                if len(representation) > _MAX_REPRESENTATION_LENGTH:
+                    representation = representation[:_MAX_REPRESENTATION_LENGTH] + "..."
             representations.append(representation)
         table.add_row(*representations)
     cli_utils.CONSOLE.print(table)
-    if len(results) > 5:
-        cli_utils.CONSOLE.print(f"... and {len(results) - 5} more samples")
+    if len(results) > _MAX_TABLE_ROWS:
+        cli_utils.CONSOLE.print(
+            f"... and {len(results) - _MAX_TABLE_ROWS} more samples"
+        )
     cli_utils.CONSOLE.print(
         f"\n[green]Successfully synthesized {len(results)} samples and saved to "
         f"{parsed_config.output_path}[/green]"
@@ -112,7 +129,8 @@ def synth(
     cli_utils.CONSOLE.print(
         f"\n\n[green]To train a model, run: oumi train -c "
         f"path/to/your/train/config.yaml\n\n"
-        f"Update the config to use your new dataset:\n"
+        f"If you included a 'conversation' chat attribute in your config, update the "
+        f"config to use your new dataset:\n"
         f"data:\n"
         f"  train:\n"
         f"    datasets:\n"

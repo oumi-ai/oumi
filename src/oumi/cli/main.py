@@ -80,6 +80,12 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Synthesize a dataset.",
     )(synth)
+    app.command(  # Alias for synth
+        name="synthesize",
+        hidden=True,
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Synthesize a dataset.",
+    )(synth)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
