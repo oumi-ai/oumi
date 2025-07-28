@@ -734,6 +734,10 @@ class TrainingParams(BaseParams):
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
 
         # Add DeepSpeed configuration if enabled
+        # NOTE: DeepSpeed config is passed directly to trainer_kwargs instead of through
+        # TrainingArguments because (1) DeepSpeed expects either a file path or complete
+        # dictionary structure, and (2) the deeply nested DeepSpeed parameters don't map
+        # well to TrainingArguments' flat parameter model.
         if training_config is not None and training_config.deepspeed.enable_deepspeed:
             from oumi.core.distributed import get_deepspeed_config_path_or_dict
 
