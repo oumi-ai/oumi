@@ -26,6 +26,7 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttributePostprocessingParams,
     PermutableAttribute,
     PermutableAttributeValue,
+    TextMessage,
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -95,18 +96,16 @@ def mock_generated_attribute():
     """Create mock GeneratedAttribute for testing."""
     return GeneratedAttribute(
         id="generated_content",
-        instruction_messages=Conversation(
-            messages=[
-                Message(
-                    role=Role.SYSTEM,
-                    content="You are a helpful assistant.",
-                ),
-                Message(
-                    role=Role.USER,
-                    content="Write a {style.value} paragraph about {topic.value}.",
-                ),
-            ]
-        ),
+        instruction_messages=[
+            TextMessage(
+                role=Role.SYSTEM,
+                content="You are a helpful assistant.",
+            ),
+            TextMessage(
+                role=Role.USER,
+                content="Write a {style.value} paragraph about {topic.value}.",
+            ),
+        ],
     )
 
 

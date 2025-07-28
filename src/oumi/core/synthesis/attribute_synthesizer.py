@@ -21,9 +21,10 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
     GeneratedAttributePostprocessingParams,
+    TextMessage,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
-from oumi.core.types.conversation import Conversation
+from oumi.core.types.conversation import Conversation, Message
 from oumi.utils.logging import logger
 
 
@@ -49,6 +50,7 @@ class AttributeSynthesizer:
             model_params=inference_config.model,
             remote_params=inference_config.remote_params,
         )
+        self._inference_config = inference_config
 
     def synthesize(
         self,
@@ -76,7 +78,10 @@ class AttributeSynthesizer:
                 )
             )
 
-        inference_results = self._inference_engine.infer(inference_conversations)
+        inference_results = self._inference_engine.infer(
+            inference_conversations,
+            inference_config=self._inference_config,
+        )
 
         original_responses = self._extract_response(inference_results)
         if not generated_attribute.postprocessing_params:
@@ -133,11 +138,11 @@ class AttributeSynthesizer:
     def _format_instructions(
         self,
         sample: dict,
-        instruction_messages: Conversation,
+        instruction_messages: list[TextMessage],
     ) -> Conversation:
         """Format the instructions for the sample."""
         new_messages = []
-        for turn in instruction_messages.messages:
+        for turn in instruction_messages:
             if not isinstance(turn.content, str):
                 new_messages.append(turn)
                 continue
@@ -147,21 +152,13 @@ class AttributeSynthesizer:
                 turn.content,
                 missing_values_allowed=False,
             )
-
-            # Create new Message with formatted content
-            new_message = turn.model_copy(
-                deep=True,
-                update={"content": formatted_content},
+            new_message = Message(
+                role=turn.role,
+                content=formatted_content,
             )
             new_messages.append(new_message)
 
-        # Create new conversation with formatted messages
-        new_conversation = Conversation(
-            messages=new_messages,
-            conversation_id=instruction_messages.conversation_id,
-            metadata=instruction_messages.metadata,
-        )
-        return new_conversation
+        return Conversation(messages=new_messages)
 
     def _postprocess_sample(
         self,
