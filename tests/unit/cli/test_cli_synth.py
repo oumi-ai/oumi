@@ -292,7 +292,7 @@ def test_synth_with_large_results(
 
         assert result.exit_code == 0
         mock_synthesize.assert_called_once_with(config)
-        assert "and 4 more samples" in result.stdout
+        assert "and 6 more samples" in result.stdout
 
 
 def test_synth_config_validation_error(
