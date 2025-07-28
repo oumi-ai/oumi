@@ -52,7 +52,9 @@ class TestQuantizerBuilders:
 
     def test_build_quantizer_unsupported_method(self):
         """Test building quantizer with unsupported method."""
-        with pytest.raises(ValueError, match="Unsupported method: invalid_method"):
+        with pytest.raises(
+            ValueError, match="Unsupported quantization method: invalid_method"
+        ):
             build_quantizer("invalid_method")
 
     @patch("oumi.quantize.awq_quantizer.AwqQuantization")
