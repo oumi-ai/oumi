@@ -262,7 +262,7 @@ def test_real_world_scenario():
     call_count = 0
 
     @dict_cache
-    def find_config(model_name, trust_remote_code=True, revision=None, **kwargs):
+    def find_config(model_name, *, trust_remote_code=True, revision=None, **kwargs):
         nonlocal call_count
         call_count += 1
         # Simulate processing kwargs
@@ -279,17 +279,17 @@ def test_real_world_scenario():
     }
 
     # First call
-    result1 = find_config("qwen", **kwargs1)
+    result1 = find_config("qwen", trust_remote_code=True, **kwargs1)
     expected = "config_for_qwen_with_3_rope_params"
     assert result1 == expected
     assert call_count == 1
 
     # Same call should use cache
-    result2 = find_config("qwen", **kwargs1)
+    result2 = find_config("qwen", trust_remote_code=True, **kwargs1)
     assert result2 == expected
     assert call_count == 1  # Should not increment
 
     # Different model should call function
-    result3 = find_config("llama", **kwargs1)
+    result3 = find_config("llama", trust_remote_code=True, **kwargs1)
     assert result3 == "config_for_llama_with_3_rope_params"
     assert call_count == 2

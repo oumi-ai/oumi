@@ -20,7 +20,7 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from oumi.core.configs.params.ds_params import DSParams, OffloadConfig
+from oumi.core.configs.params.ds_params import DSParams, OffloadConfig, ZeRORuntimeStage
 
 
 def test_dsparams_instantiation():
@@ -29,21 +29,21 @@ def test_dsparams_instantiation():
 
     try:
         # Test basic instantiation
-        params1 = DSParams()
+        DSParams()
         print("✓ Basic DSParams instantiation successful")
 
         # Test instantiation with parameters
-        params2 = DSParams(enable_deepspeed=True, zero_stage="3")
+        DSParams(enable_deepspeed=True, zero_stage=ZeRORuntimeStage.ZERO_3)
         print("✓ DSParams with parameters instantiation successful")
 
         # Test instantiation with nested dataclass
-        params3 = DSParams(enable_deepspeed=True, offload_optimizer=OffloadConfig())
+        DSParams(enable_deepspeed=True, offload_optimizer=OffloadConfig())
         print("✓ DSParams with nested OffloadConfig instantiation successful")
 
         # Test that validation works
         try:
             # This should raise ValueError
-            params4 = DSParams(zero_stage="2", offload_param=OffloadConfig())
+            DSParams(zero_stage=ZeRORuntimeStage.ZERO_2, offload_param=OffloadConfig())
         except ValueError as e:
             print(f"✓ Validation error caught as expected: {e}")
 
