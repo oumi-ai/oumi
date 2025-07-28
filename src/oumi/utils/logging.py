@@ -116,16 +116,16 @@ def _should_use_rich_logging() -> bool:
         Currently it is disabled by default.
     """
     # Check if explicitly disabled
-    if os.environ.get("OUMI_ENABLE_RICH_LOGGING", "").lower() in (
+    if os.environ.get("OUMI_DISABLE_RICH_LOGGING", "").lower() in (
         "1",
         "yes",
         "on",
         "true",
         "y",
     ):
-        return sys.stdout.isatty()  # is in a terminal
+        return False
 
-    return False
+    return sys.stdout.isatty()  # is in a terminal
 
 
 def _configure_rich_handler(
