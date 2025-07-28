@@ -169,6 +169,9 @@ _ALIASES: dict[str, dict[AliasType, str]] = {
     "truthfulness": {
         AliasType.JUDGE: "oumi://configs/projects/judges/generic/truthfulness.yaml",
     },
+    "safety": {
+        AliasType.JUDGE: "oumi://configs/projects/judges/generic/safety.yaml",
+    },
 }
 
 
