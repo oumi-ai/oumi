@@ -77,10 +77,11 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalVisualModelConfig,
 )
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
 
 
-@functools.cache
+@dict_cache
 def find_model_hf_config(
     model_name: str,
     *,
