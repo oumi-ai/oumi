@@ -110,11 +110,7 @@ def configure_logger(
 
 
 def _should_use_rich_logging() -> bool:
-    """Determines if rich logging should be used based on environment variables.
-
-    Note: Rich logging is experimental, and may be removed in the future.
-        Currently it is disabled by default.
-    """
+    """Determines if rich logging should be used based on environment variables."""
     # Check if explicitly disabled
     if os.environ.get("OUMI_DISABLE_RICH_LOGGING", "").lower() in (
         "1",
