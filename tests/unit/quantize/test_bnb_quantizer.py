@@ -99,7 +99,7 @@ class TestBitsAndBytesQuantization:
         self.bnb_quantizer._bitsandbytes = None
             
         with pytest.raises(
-            RuntimeError, match="BitsAndBytes quant requires bitsandbytes library"
+            RuntimeError, match="BitsAndBytes quantization requires bitsandbytes library"
         ):
             self.bnb_quantizer.raise_if_requirements_not_met()
 

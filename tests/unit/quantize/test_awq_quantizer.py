@@ -98,7 +98,7 @@ class TestAwqQuantization:
         # Set _awq to None to simulate missing AWQ
         self.awq_quantizer._awq = None
             
-        with pytest.raises(RuntimeError, match="AWQ requires autoawq library"):
+        with pytest.raises(RuntimeError, match="AWQ quantization requires autoawq library"):
             self.awq_quantizer.raise_if_requirements_not_met()
     
     def test_raise_if_requirements_not_met_no_gpu(self):
