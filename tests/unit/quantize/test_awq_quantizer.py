@@ -14,20 +14,17 @@
 
 """Unit tests for AWQ quantization."""
 
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest # type: ignore
+import pytest  # type: ignore
 
 from oumi.core.configs import ModelParams, QuantizationConfig
 from oumi.quantize.awq_quantizer import AwqQuantization
-from oumi.quantize.base import QuantizationResult
 
 
 class TestAwqQuantization:
     """Test cases for AWQ quantization functionality."""
-    
+
     def setup_method(self):
         """Set up test fixtures."""
         self.awq_quantizer = AwqQuantization()
@@ -37,35 +34,35 @@ class TestAwqQuantization:
             output_path="test_model.pytorch",
             output_format="pytorch",
         )
-    
+
     def test_supported_methods(self):
         """Test AWQ supported methods."""
         expected_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
         assert self.awq_quantizer.supported_methods == expected_methods
-    
+
     def test_supported_formats(self):
         """Test AWQ supported output formats."""
         expected_formats = ["pytorch"]
         assert self.awq_quantizer.supported_formats == expected_formats
-    
+
     def test_supports_method_valid(self):
         """Test supports_method for valid AWQ methods."""
         assert self.awq_quantizer.supports_method("awq_q4_0") is True
         assert self.awq_quantizer.supports_method("awq_q4_1") is True
         assert self.awq_quantizer.supports_method("awq_q8_0") is True
         assert self.awq_quantizer.supports_method("awq_f16") is True
-    
+
     def test_supports_method_invalid(self):
         """Test supports_method for invalid methods."""
         assert self.awq_quantizer.supports_method("bnb_4bit") is False
         assert self.awq_quantizer.supports_method("q4_0") is False
         assert self.awq_quantizer.supports_method("invalid") is False
-    
+
     def test_validate_config_valid(self):
         """Test validate_config with valid AWQ configuration."""
         # Should not raise any exception
         self.awq_quantizer.validate_config(self.valid_config)
-    
+
     def test_validate_config_invalid_method(self):
         """Test validate_config with non-AWQ method."""
         invalid_config = QuantizationConfig(
@@ -74,10 +71,10 @@ class TestAwqQuantization:
             output_path="test.pytorch",
             output_format="pytorch",
         )
-        
+
         with pytest.raises(ValueError, match="not supported by"):
             self.awq_quantizer.validate_config(invalid_config)
-    
+
     def test_validate_config_invalid_format(self):
         """Test validate_config with invalid format."""
         config = QuantizationConfig(
@@ -88,44 +85,46 @@ class TestAwqQuantization:
         )
         with pytest.raises(ValueError, match="not supported by"):
             self.awq_quantizer.validate_config(config)
-    
+
     def test_str_representation(self):
         """Test string representation of AWQ quantizer."""
         assert self.awq_quantizer.__class__.__name__ == "AwqQuantization"
-    
+
     def test_raise_if_requirements_not_met_missing_awq(self):
         """Test requirements check when AWQ is not installed."""
         # Set _awq to None to simulate missing AWQ
         self.awq_quantizer._awq = None
-            
-        with pytest.raises(RuntimeError, match="AWQ quantization requires autoawq library"):
+
+        with pytest.raises(
+            RuntimeError, match="AWQ quantization requires autoawq library"
+        ):
             self.awq_quantizer.raise_if_requirements_not_met()
-    
+
     def test_raise_if_requirements_not_met_no_gpu(self):
         """Test requirements check when no GPU is available."""
         # Set _awq to a mock to simulate AWQ is installed
         self.awq_quantizer._awq = MagicMock()
-            
+
         with patch("torch.cuda.is_available") as mock_cuda:
             mock_cuda.return_value = False
-                
+
             with pytest.raises(RuntimeError, match="AWQ quantization requires a GPU"):
                 self.awq_quantizer.raise_if_requirements_not_met()
 
 
 class TestAwqQuantizationSimple:
     """Additional simplified test cases for AWQ quantization."""
-    
+
     def setup_method(self):
         """Set up test fixtures."""
         self.awq_quantizer = AwqQuantization()
-    
+
     def test_supports_method(self):
         """Test supports_method for AWQ methods."""
         assert self.awq_quantizer.supports_method("awq_q4_0") is True
         assert self.awq_quantizer.supports_method("awq_q8_0") is True
         assert self.awq_quantizer.supports_method("bnb_4bit") is False
-    
+
     def test_validate_config_valid_simple(self):
         """Test validate_config with valid configuration."""
         config = QuantizationConfig(
@@ -136,13 +135,13 @@ class TestAwqQuantizationSimple:
         )
         # Should not raise
         self.awq_quantizer.validate_config(config)
-    
+
     def test_raise_if_requirements_not_met_no_awq_simple(self):
         """Test requirements check when AWQ is not available."""
         self.awq_quantizer._awq = None
         with pytest.raises(RuntimeError, match="requires autoawq library"):
             self.awq_quantizer.raise_if_requirements_not_met()
-    
+
     @patch("torch.cuda.is_available")
     def test_raise_if_requirements_not_met_no_gpu_simple(self, mock_cuda):
         """Test requirements check when no GPU is available."""
