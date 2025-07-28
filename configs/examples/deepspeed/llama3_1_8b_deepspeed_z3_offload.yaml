@@ -47,14 +47,20 @@ training:
 # DeepSpeed configuration for ZeRO-3 with CPU offloading
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "3"
-  precision: "bf16"
+  zero_stage: "ZERO_3"
+  precision: "BF16"
 
   # ZeRO-3 specific parameters
+  allgather_partitions: True
+  allgather_bucket_size: 200000000  # 2e8
   overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 200000000     # 2e8
   contiguous_gradients: True
+  round_robin_gradients: False
+
+  # ZeRO-3 specific stage3 parameters
   sub_group_size: 1000000000        # 1e9
-  reduce_bucket_size: "auto"
   stage3_prefetch_bucket_size: "auto"
   stage3_param_persistence_threshold: "auto"
   stage3_max_live_parameters: 1000000000     # 1e9
@@ -63,12 +69,12 @@ deepspeed:
 
   # CPU offloading for maximum memory efficiency
   offload_optimizer:
-    device: "cpu"
+    device: "CPU"
     pin_memory: True
     buffer_count: 4
 
   offload_param:
-    device: "cpu"
+    device: "CPU"
     pin_memory: True
     buffer_count: 4
 

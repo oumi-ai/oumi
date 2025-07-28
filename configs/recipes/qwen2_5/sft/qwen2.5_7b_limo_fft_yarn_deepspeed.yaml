@@ -28,10 +28,12 @@ model:
 data:
     train:
       datasets:
-        - dataset_name: "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"  # Uses MagpieProDataset class
+        - dataset_name: "PromptResponseDataset"
           split: "train"
           dataset_kwargs:
-            dataset_name_override: "mlfoundations-dev/tbench_traces_sharegptv1"  # Override the default dataset
+            hf_dataset_path: "GAIR/LIMO"
+            prompt_column: "question"
+            response_column: "solution"
           shuffle: True
           seed: 42
 
@@ -61,7 +63,7 @@ training:
   logging_steps: 50
   log_model_summary: False
   empty_device_cache_steps: 50
-  output_dir: "output/qwen2.5_7b_tbench_traces_sharegptv1_yarn_ds"
+  output_dir: "output/qwen2.5_7b_limo_fft_yarn"
   include_performance_metrics: True
   enable_wandb: True
   save_final_model: True
