@@ -16,6 +16,7 @@
 
 import sys
 from pathlib import Path
+from typing import Any, Dict
 
 import pytest
 from omegaconf import DictConfig, OmegaConf
@@ -71,15 +72,13 @@ class TestDSParamsOmegaConf:
         with pytest.raises(
             ValueError, match="Parameter offloading is only supported with ZeRO stage 3"
         ):
-            params = DSParams(
-                zero_stage=ZeRORuntimeStage.ZERO_2, offload_param=OffloadConfig()
-            )
+            DSParams(zero_stage=ZeRORuntimeStage.ZERO_2, offload_param=OffloadConfig())
 
         # Test invalid optimizer offloading configuration
         with pytest.raises(
             ValueError, match="Optimizer offloading requires ZeRO stage 2 or 3"
         ):
-            params = DSParams(
+            DSParams(
                 zero_stage=ZeRORuntimeStage.ZERO_1, offload_optimizer=OffloadConfig()
             )
 
@@ -139,6 +138,8 @@ class TestDSParamsOmegaConf:
         config_dict = OmegaConf.to_container(config)
 
         # Verify enum values are strings
+        assert config_dict is not None
+        assert isinstance(config_dict, dict)
         assert config_dict["zero_stage"] == "3"
         assert config_dict["precision"] == "bf16"
 
