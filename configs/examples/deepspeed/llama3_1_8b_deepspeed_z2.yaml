@@ -47,14 +47,17 @@ training:
 # DeepSpeed configuration for ZeRO-2
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "2"
-  precision: "bf16"
+  zero_stage: "ZERO_2"
+  precision: "BF16"
 
   # Communication optimization
-  overlap_comm: True
-  contiguous_gradients: True
+  allgather_partitions: True
   allgather_bucket_size: 500000000  # 5e8
+  overlap_comm: True
+  reduce_scatter: True
   reduce_bucket_size: 500000000     # 5e8
+  contiguous_gradients: True
+  round_robin_gradients: False
 
   # Memory optimization
   zero_allow_untested_optimizer: True
@@ -62,8 +65,9 @@ deepspeed:
 
   # Optional: Enable CPU offloading for optimizer states
   # offload_optimizer:
-  #   device: "cpu"
+  #   device: "CPU"
   #   pin_memory: True
+  #   buffer_count: 4
 
   # Logging
   steps_per_print: 10
