@@ -1,0 +1,65 @@
+#!/bin/bash
+set -e
+
+# Launch E2E tests with Allure reporting
+# This script launches tests using the Allure-enhanced configuration
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+E2E_TEST_CONFIG="${SCRIPT_DIR}/e2e_tests_job_allure.yaml"
+echo "Using Allure test config: ${E2E_TEST_CONFIG}"
+
+export E2E_CLUSTER_PREFIX="oumi-${USER}-e2e-tests-allure"
+export E2E_USE_SPOT_VM=0 # Whether to use Spot VMs.
+export E2E_CLUSTER="" # Cloud provider to use (e.g., "lambda", "aws", etc.)
+
+# An alternative to H100 is A100-80GB, if they are available.
+# However, A100-80GB:4 isn't available in Lambda.
+# declare -a accelerators_arr=("A100:1" "A100:4" "A100-80GB:4")
+declare -a accelerators_arr=("A100-80GB:4")
+
+# Reset the variable to make sure that CLI `--resources.use_spot` arg is not ignored.
+OUMI_USE_SPOT_VM=""
+
+for CURR_GPU_NAME in "${accelerators_arr[@]}"
+do
+   echo "Testing with accelerator: ${CURR_GPU_NAME} ..."
+   CLUSTER_SUFFIX=$(echo "print('${CURR_GPU_NAME}'.lower().replace(':','-').strip())" | python)
+   if (( $E2E_USE_SPOT_VM == 0 )); then
+      USE_SPOT_ARG="--resources.use_spot=false"
+      CLUSTER_SUFFIX="${CLUSTER_SUFFIX}-nonspot"
+   else
+      USE_SPOT_ARG="--resources.use_spot=true"
+      CLUSTER_SUFFIX="${CLUSTER_SUFFIX}-spot"
+   fi
+   CLUSTER_NAME="${E2E_CLUSTER_PREFIX}-${CLUSTER_SUFFIX}"
+
+   CLOUD_ARG=""
+   if [ -n "$E2E_CLUSTER" ]; then
+      CLOUD_ARG="--resources.cloud=${E2E_CLUSTER}"
+   else
+      CLOUD_ARG="--resources.cloud=gcp"
+   fi
+
+   set -x
+   oumi launch up \
+      --config "${E2E_TEST_CONFIG}" \
+      --resources.accelerators="${CURR_GPU_NAME}" \
+      "${USE_SPOT_ARG}" \
+      "${CLOUD_ARG}" \
+      --cluster "${CLUSTER_NAME}" \
+      --detach
+
+   echo "✅ Launched Allure tests on cluster: ${CLUSTER_NAME}"
+   echo "📊 To view results after completion:"
+   echo "   ./tests/scripts/allure_manager.sh download ${CLUSTER_NAME}"
+   echo "   ./tests/scripts/allure_manager.sh serve ${CLUSTER_NAME}"
+   echo ""
+done
+
+echo "🎉 All Allure test clusters launched!"
+echo ""
+echo "📋 Next steps:"
+echo "1. Wait for tests to complete (check with: sky status)"
+echo "2. Download results: ./tests/scripts/allure_manager.sh download <cluster-name>"
+echo "3. View report: ./tests/scripts/allure_manager.sh serve <cluster-name>"
+echo "4. List clusters: ./tests/scripts/allure_manager.sh list"

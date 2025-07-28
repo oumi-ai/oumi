@@ -1,0 +1,73 @@
+# Class: oumi.core.configs.JobConfig
+# Allure-enhanced E2E test configuration
+# https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+
+# Sample command:
+# oumi launch up --config tests/scripts/e2e_tests_job_allure.yaml --cluster oumi-e2e-tests-allure-cluster
+name: oumi-e2e-tests-allure
+
+resources:
+  cloud: gcp
+  accelerators: "A100:4" # "A100:1", "A100-80GB:1", "A100-80GB:4"
+  use_spot: false
+  disk_size: 1000 # Disk size in GBs
+
+num_nodes: 1 # Set it to N for multi-node training.
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
+
+envs:
+  WANDB_PROJECT: oumi-e2e-tests
+  ACCELERATE_LOG_LEVEL: info
+  TOKENIZERS_PARALLELISM: false
+  # https://pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf
+  PYTORCH_CUDA_ALLOC_CONF: "garbage_collection_threshold:0.8,max_split_size_mb:128"
+  ENABLE_OUMI_UNIT_TESTS: "false"
+  ENABLE_OUMI_INTEGRATION_TESTS: "false"
+  ENABLE_OUMI_E2E_TESTS: "true"
+  # Allure configuration
+  ALLURE_RESULTS_DIR: "./allure-results"
+  ALLURE_REPORT_DIR: "./allure-report"
+
+setup: |
+  set -e
+  pip install uv && uv pip install -U ".[ci_gpu]" hf_transfer
+  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
+  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
+
+  # Install Allure
+  pip install allure-pytest
+
+run: |
+  # Remove any stale dashboard test files from previous runs
+  rm -f tests/scripts/test_dashboard.py
+  # Run the E2E tests with Allure
+  pytest -s -vv -m 'e2e and multi_gpu' --durations=50 --timeout=1200 --alluredir=./allure-results/e2e-tests \
+    --allure-link-pattern=issue:https://github.com/oumi-ai/oumi/issues/{} \
+    --allure-link-pattern=tms:https://github.com/oumi-ai/oumi/issues/{}
+
+  # Generate Allure report
+  echo "Generating Allure report..."
+  allure generate "${ALLURE_RESULTS_DIR}" --clean -o "${ALLURE_REPORT_DIR}"
+
+  # Create a simple HTML index to view the report
+  cat > "${ALLURE_REPORT_DIR}/index.html" << 'EOF'
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <title>Oumi Test Results</title>
+      <meta http-equiv="refresh" content="0; url=allure-report/index.html">
+  </head>
+  <body>
+      <p>Redirecting to Allure report...</p>
+      <p><a href="allure-report/index.html">Click here if not redirected</a></p>
+  </body>
+  </html>
+  EOF
+
+  echo "Allure report generated at: ${ALLURE_REPORT_DIR}"
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
