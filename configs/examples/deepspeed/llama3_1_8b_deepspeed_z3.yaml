@@ -24,21 +24,21 @@ training:
   num_train_epochs: 3
   per_device_train_batch_size: 4  # Can use larger batch size with ZeRO-3
   gradient_accumulation_steps: 2
-  
+
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  
+
   optimizer: "adamw_torch_fused"
   learning_rate: 2e-5
   warmup_ratio: 0.03
   weight_decay: 0.01
   max_grad_norm: 1.0
   lr_scheduler_type: "cosine"
-  
+
   dataloader_num_workers: 8
   dataloader_prefetch_factor: 2
-  
+
   logging_steps: 10
   output_dir: "output/llama3_1_8b_deepspeed_z3"
   enable_wandb: False
@@ -49,7 +49,7 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "3"
   precision: "bf16"
-  
+
   # ZeRO-3 specific parameters for memory optimization
   overlap_comm: True
   contiguous_gradients: True
@@ -60,23 +60,23 @@ deepspeed:
   stage3_max_live_parameters: 1000000000     # 1e9
   stage3_max_reuse_distance: 1000000000      # 1e9
   stage3_gather_16bit_weights_on_model_save: True
-  
+
   # Memory optimization
   zero_allow_untested_optimizer: True
   zero_force_ds_cpu_optimizer: False
-  
+
   # Optional: Enable CPU offloading for even more memory savings
   # Uncomment these lines if you need maximum memory efficiency
   # offload_optimizer:
   #   device: "cpu"
   #   pin_memory: True
   #   buffer_count: 4
-  # 
+  #
   # offload_param:
   #   device: "cpu"
   #   pin_memory: True
   #   buffer_count: 4
-  
+
   # Logging
   steps_per_print: 10
   wall_clock_breakdown: False

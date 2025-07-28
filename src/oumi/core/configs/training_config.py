@@ -78,10 +78,10 @@ class TrainingConfig(BaseConfig):
 
     deepspeed: DSParams = field(default_factory=DSParams)
     """Parameters for DeepSpeed distributed training.
-    
+
     This field contains configuration options for DeepSpeed ZeRO optimization
     stages, memory offloading, and other DeepSpeed-specific settings.
-    
+
     For more details, see :class:`oumi.core.configs.params.ds_params.DSParams`.
     """
 
@@ -98,7 +98,7 @@ class TrainingConfig(BaseConfig):
             raise ValueError(
                 "`fsdp.use_orig_params` must be True for model compilation."
             )
-        
+
         # Validate distributed training configurations
         if self.fsdp.enable_fsdp and self.deepspeed.enable_deepspeed:
             raise ValueError(
