@@ -308,14 +308,6 @@ class DatasetAnalyzer:
             **{MessageAnalysisResult.ANALYZER_METRICS_FIELD: analyzer_metrics},
         )
 
-    def save_to_file(self) -> None:
-        """Save analysis results to JSONL file using output_path from config."""
-        raise NotImplementedError("save_to_file method not yet implemented")
-
-    def load_from_file(self) -> None:
-        """Load analysis results from JSONL file."""
-        raise NotImplementedError("load_from_file method not yet implemented")
-
     def query(
         self,
         query_expression: str,
@@ -397,15 +389,6 @@ class DatasetAnalyzer:
         )
 
         return filtered_dataset
-
-    def _is_huggingface_dataset(self) -> bool:
-        """Check if the underlying dataset is from HuggingFace Hub.
-
-        Returns:
-            True if the dataset is loaded from HuggingFace Hub, False otherwise
-        """
-        # If dataset_path is None and dataset_name looks like a HF path (contains "/")
-        return self.dataset.dataset_path is None and "/" in self.dataset.dataset_name
 
     def _create_filtered_dataset(
         self, conversation_indices: list[int]
@@ -493,19 +476,3 @@ class DatasetAnalyzer:
                 return self._original_dataset.split
 
         return FilteredDataset(self.dataset, conversation_indices)
-
-    def has_analysis_results(self) -> bool:
-        """Check if analysis has been run and results are available.
-
-        Returns:
-            True if analysis results are available, False otherwise
-        """
-        return self._analysis_results is not None
-
-    def clear_analysis_results(self) -> None:
-        """Clear cached analysis results.
-
-        This forces the next query to re-run the analysis.
-        """
-        self._analysis_results = None
-        logger.info("Analysis results cleared")

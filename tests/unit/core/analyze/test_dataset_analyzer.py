@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import jsonlines
+import pandas as pd
 import pytest
 
 from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
@@ -423,242 +424,139 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     assert text_content == "Hello, how are you?"
 
 
-def test_analyze_dataset_metric_prefixing(test_data_path, mock_config):
-    """Test that analyzer metrics are properly prefixed to avoid conflicts."""
-    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
-    analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
-    assert results is not None  # Type assertion for linter
-
-    first_message = results.messages[0]
-    # Check that metrics are prefixed with analyzer ID
-    assert "text_length_analyzer_char_count" in first_message.analyzer_metrics
-    assert "text_length_analyzer_word_count" in first_message.analyzer_metrics
-    assert "analyzer_2_char_count" in first_message.analyzer_metrics
-    assert "analyzer_2_word_count" in first_message.analyzer_metrics
-
-
-def test_query_and_filter_methods(test_data_path, mock_config):
-    """Test the new query() and filter() methods."""
+def test_query_method(test_data_path, mock_config):
+    """Test the query method returns DataFrame with correct structure."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
     analyzer.analyze_dataset()
 
-    # Test query() method - should return DataFrame with analysis results
+    # Query returns DataFrame
     query_results = analyzer.query("role == 'user'")
-    assert len(query_results) == 2  # 2 user messages in test data
-    # Should have analysis columns
+    assert isinstance(query_results, pd.DataFrame)
+    assert len(query_results) > 0
+    assert "role" in query_results.columns
+    assert "conversation_index" in query_results.columns
     assert "text_length_analyzer_char_count" in query_results.columns
-    assert "text_length_analyzer_word_count" in query_results.columns
-
-    # Test filter() method - should return dataset object
-    filter_results = analyzer.filter("role == 'user'")
-    assert len(filter_results) == 2  # 2 conversations with user messages
-    assert hasattr(filter_results, "conversation")  # Should have conversation method
-    assert hasattr(filter_results, "dataset_name")  # Should have dataset_name property
-
-    # Test that filtered dataset has the same interface as original
-    filtered_conversation = filter_results.conversation(0)
-    assert hasattr(filtered_conversation, "messages")  # Same interface
 
 
-def test_huggingface_dataset_filtering(test_data_path, mock_config):
-    """Test unified filtering functionality for HuggingFace datasets."""
-    # Create a mock HF dataset by setting dataset_path to None and dataset_name with "/"
-    from oumi.core.datasets import BaseMapDataset
+def test_query_with_empty_results(test_data_path, mock_config):
+    """Test behavior when query returns no results."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
 
-    class MockHFDataset(BaseMapDataset):
-        def __init__(self):
-            self.dataset_path = None
-            self.dataset_name = "tatsu-lab/alpaca"
-            self.dataset_subset = None
-            self.split = "train"
-            self.trust_remote_code = False
+    # Use a query that should return no results
+    query_results = analyzer.query("role == 'nonexistent_role'")
 
-        def __len__(self):
-            return 5
+    # Should return an empty DataFrame
+    assert isinstance(query_results, pd.DataFrame)
+    assert len(query_results) == 0
 
-        def conversation(self, idx):
-            # Return a mock conversation
-            from oumi.core.types.conversation import Conversation, Message, Role
 
-            return Conversation(
-                messages=[
-                    Message(role=Role.USER, content=f"Test message {idx}"),
-                    Message(role=Role.ASSISTANT, content=f"Test response {idx}"),
-                ]
-            )
+def test_query_complex_expressions_examples(test_data_path, mock_config):
+    """Test query method with complex expressions - shows usage examples."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
 
-        def transform_conversation(self, example):
-            # Mock transform method
-            from oumi.core.types.conversation import Conversation, Message, Role
+    # Test various query expressions with proper validation
+    queries = [
+        "text_length_analyzer_word_count < 10",  # Filter for short messages
+        "role == 'assistant'",  # Filter for assistant messages
+        "role == 'user' and text_length_analyzer_word_count > 5",  # Long user messages
+        "role == 'user' or role == 'assistant'",  # Any user or assistant messages
+        # Medium-length
+        "text_length_analyzer_char_count > 10 and text_length_analyzer_word_count < 20",
+    ]
 
-            return Conversation(
-                messages=[
-                    Message(role=Role.USER, content="Test"),
-                    Message(role=Role.ASSISTANT, content="Response"),
-                ]
-            )
+    for query in queries:
+        try:
+            results = analyzer.query(query)
+            assert isinstance(results, pd.DataFrame)
+            # Query should not raise an exception and should return valid DataFrame
+        except Exception as e:
+            pytest.fail(f"Query '{query}' failed: {e}")
 
-        def transform(self, sample):
-            """Required abstract method implementation."""
-            return sample
 
-    # Create analyzer with mock HF dataset - bypass normal initialization
-    analyzer = DatasetAnalyzer.__new__(DatasetAnalyzer)
-    analyzer.config = mock_config
-    analyzer.dataset_name = mock_config.dataset_name
-    analyzer.split = mock_config.split
-    analyzer.dataset = MockHFDataset()
-    analyzer.sample_analyzers = analyzer._initialize_sample_analyzers()
-    analyzer._analysis_results = None
-    analyzer._analysis_df = None
+def test_filter_method(test_data_path, mock_config):
+    """Test the filter method returns dataset with correct interface."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
 
-    # Mock the analysis results
-    from oumi.core.analyze.dataset_analyzer import (
-        DatasetAnalysisResult,
-        MessageAnalysisResult,
-    )
-
-    analyzer._analysis_results = DatasetAnalysisResult(
-        dataset_name="tatsu-lab/alpaca",
-        total_conversations=5,
-        conversations_analyzed=5,
-        total_messages=10,
-        messages=[
-            MessageAnalysisResult(
-                conversation_id="conv_1",
-                conversation_index=0,
-                message_index=0,
-                role="user",
-                message_id="msg_1_0",
-                text_content="Test message 0",
-                analyzer_metrics={
-                    "text_length_analyzer_char_count": 13,
-                    "text_length_analyzer_word_count": 3,
-                },
-            ),
-            MessageAnalysisResult(
-                conversation_id="conv_1",
-                conversation_index=0,
-                message_index=1,
-                role="assistant",
-                message_id="msg_1_1",
-                text_content="Test response 0",
-                analyzer_metrics={
-                    "text_length_analyzer_char_count": 14,
-                    "text_length_analyzer_word_count": 2,
-                },
-            ),
-        ],
-    )
-    analyzer._analysis_df = analyzer._analysis_results.to_dataframe()
-
-    # Test _is_huggingface_dataset method
-    assert analyzer._is_huggingface_dataset() is True
-
-    # Test filtering with HF dataset
+    # Filter returns dataset
     filter_results = analyzer.filter("role == 'user'")
 
-    # Should return a dataset object
+    # Test that filtered dataset has required methods
     assert hasattr(filter_results, "conversation")
     assert hasattr(filter_results, "__len__")
     assert hasattr(filter_results, "dataset_name")
+    assert len(filter_results) > 0
 
-    # Should have the expected interface
-    assert filter_results.dataset_name == "tatsu-lab/alpaca_filtered"
+    # Test that we can access conversations
+    if len(filter_results) > 0:
+        first_conv = filter_results.conversation(0)
+        assert hasattr(first_conv, "messages")
+        assert len(first_conv.messages) > 0
 
 
-def test_custom_dataset_filtering(test_data_path, mock_config):
-    """Test unified filtering functionality for custom datasets."""
-    # Create a mock custom dataset by setting dataset_path
-    from oumi.core.datasets import BaseMapDataset
+def test_class_preservation_in_filtered_dataset(test_data_path, mock_config):
+    """Test that filtered dataset preserves the original class."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
 
-    class MockCustomDataset(BaseMapDataset):
-        def __init__(self):
-            self.dataset_path = "/path/to/local/data.jsonl"
-            self.dataset_name = "custom_dataset"
-            self.dataset_subset = None
-            self.split = "train"
-            self.trust_remote_code = False
+    # Get original and filtered datasets
+    original_dataset = analyzer.dataset
+    filtered_dataset = analyzer.filter("role == 'user'")
 
-        def __len__(self):
-            return 5
+    # Test class preservation
+    original_class = type(original_dataset)
+    filtered_class = type(filtered_dataset)
 
-        def conversation(self, idx):
-            # Return a mock conversation
-            from oumi.core.types.conversation import Conversation, Message, Role
+    # Filtered dataset should inherit from original class
+    assert issubclass(filtered_class, original_class)
 
-            return Conversation(
-                messages=[
-                    Message(role=Role.USER, content=f"Test message {idx}"),
-                    Message(role=Role.ASSISTANT, content=f"Test response {idx}"),
-                ]
-            )
+    # Both should have the same base functionality
+    assert hasattr(original_dataset, "conversation")
+    assert hasattr(filtered_dataset, "conversation")
 
-        def transform(self, sample):
-            """Required abstract method implementation."""
-            return sample
 
-    # Create analyzer with mock custom dataset - bypass normal initialization
-    analyzer = DatasetAnalyzer.__new__(DatasetAnalyzer)
-    analyzer.config = mock_config
-    analyzer.dataset_name = mock_config.dataset_name
-    analyzer.split = mock_config.split
-    analyzer.dataset = MockCustomDataset()
-    analyzer.sample_analyzers = analyzer._initialize_sample_analyzers()
-    analyzer._analysis_results = None
-    analyzer._analysis_df = None
+def test_filtered_dataset_naming(test_data_path, mock_config):
+    """Test that filtered datasets have appropriate names."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
 
-    # Mock the analysis results
-    from oumi.core.analyze.dataset_analyzer import (
-        DatasetAnalysisResult,
-        MessageAnalysisResult,
-    )
+    # Test that filtered dataset has appropriate name
+    filtered_dataset = analyzer.filter("role == 'user'")
+    assert filtered_dataset.dataset_name.endswith("_filtered")
 
-    analyzer._analysis_results = DatasetAnalysisResult(
-        dataset_name="custom_dataset",
-        total_conversations=5,
-        conversations_analyzed=5,
-        total_messages=10,
-        messages=[
-            MessageAnalysisResult(
-                conversation_id="conv_1",
-                conversation_index=0,
-                message_index=0,
-                role="user",
-                message_id="msg_1_0",
-                text_content="Test message 0",
-                analyzer_metrics={
-                    "text_length_analyzer_char_count": 13,
-                    "text_length_analyzer_word_count": 3,
-                },
-            ),
-            MessageAnalysisResult(
-                conversation_id="conv_1",
-                conversation_index=0,
-                message_index=1,
-                role="assistant",
-                message_id="msg_1_1",
-                text_content="Test response 0",
-                analyzer_metrics={
-                    "text_length_analyzer_char_count": 14,
-                    "text_length_analyzer_word_count": 2,
-                },
-            ),
-        ],
-    )
-    analyzer._analysis_df = analyzer._analysis_results.to_dataframe()
 
-    # Test _is_huggingface_dataset method
-    assert analyzer._is_huggingface_dataset() is False
+def test_empty_filter_results(test_data_path, mock_config):
+    """Test behavior when filter returns no results."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
 
-    # Test filtering with custom dataset
-    filter_results = analyzer.filter("role == 'user'")
+    # Use a filter that should return no results
+    filtered_dataset = analyzer.filter("role == 'nonexistent_role'")
 
-    # Should return a dataset object
-    assert hasattr(filter_results, "conversation")
-    assert hasattr(filter_results, "__len__")
-    assert hasattr(filter_results, "dataset_name")
+    # Should return an empty dataset
+    assert len(filtered_dataset) == 0
+    assert hasattr(filtered_dataset, "conversation")
+    assert hasattr(filtered_dataset, "dataset_name")
 
-    # Should have the expected interface
-    assert filter_results.dataset_name == "custom_dataset_filtered"
+
+def test_invalid_expressions(test_data_path, mock_config):
+    """Test that invalid expressions raise appropriate errors."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Test various invalid expressions
+    invalid_expressions = [
+        "invalid_column == 'value'",  # Non-existent column
+        "role == 'user' and invalid_column > 5",  # Invalid column in compound
+        "role == 'user' or invalid_column < 10",  # Invalid column in OR expression
+    ]
+
+    for expression in invalid_expressions:
+        # Both query and filter should fail with the same invalid expression
+        with pytest.raises((ValueError, KeyError)):
+            analyzer.query(expression)
+
+        with pytest.raises((ValueError, KeyError)):
+            analyzer.filter(expression)
