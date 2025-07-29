@@ -74,6 +74,6 @@ def test_analyze_message_whitespace_only():
     )
     result = analyzer.analyze_message("   \n\t   ")
 
-    assert result["char_count"] == 7
+    assert result["char_count"] == 8
     assert result["word_count"] == 0
     assert result["sentence_count"] == 0
