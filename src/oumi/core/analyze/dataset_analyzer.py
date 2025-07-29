@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -394,78 +395,14 @@ class DatasetAnalyzer:
         Returns:
             A new dataset object with the same format as the original
         """
-        # Get the original dataset class
-        original_class = type(self.dataset)
+        # Deep copy the original dataset to preserve all attributes and methods
+        filtered_dataset = copy.deepcopy(self.dataset)
 
-        # Create a filtered dataset class that inherits from the original class
-        class FilteredDataset(original_class):
-            def __init__(self, original_dataset, filtered_indices):
-                # Copy all attributes from the original dataset, excluding dataset_name
-                # and split
-                for attr_name, attr_value in original_dataset.__dict__.items():
-                    if attr_name not in ("dataset_name", "split"):
-                        setattr(self, attr_name, attr_value)
+        # Filter the DataFrame to only include the specified conversations
+        original_df = self.dataset.data
+        filtered_dataset._data = original_df.iloc[conversation_indices].copy()
 
-                # Store the original dataset and filtered indices
-                self._original_dataset = original_dataset
-                self._filtered_indices = filtered_indices
+        # Update the dataset name to indicate it's filtered
+        filtered_dataset.dataset_name = f"{self.dataset.dataset_name}_filtered"
 
-                # Filter the DataFrame to only include the specified conversations
-                # This follows the same pattern as the original dataset
-                original_df = original_dataset.data
-                self._data = original_df.iloc[filtered_indices].copy()
-
-                # Store the original dataset name for the property
-                self._original_dataset_name = original_dataset.dataset_name
-
-            def __len__(self):
-                return len(self._filtered_indices)
-
-            def conversation(self, idx: int):
-                """Returns the conversation at the specified index.
-
-                This follows the same pattern as the original dataset:
-                1. Get raw data from DataFrame
-                2. Convert to Conversation on-demand
-                """
-                if idx >= len(self._filtered_indices):
-                    raise IndexError(f"Index {idx} out of range")
-
-                # Get the raw data from the filtered DataFrame
-                raw_sample = self.raw(idx)
-
-                # Convert to Conversation using the original dataset's method
-                return self._original_dataset.transform_conversation(raw_sample)
-
-            def raw(self, idx: int) -> pd.Series:
-                """Return raw data at the specified index from filtered DataFrame."""
-                if idx >= len(self._filtered_indices):
-                    raise IndexError(f"Index {idx} out of range")
-                return self._data.iloc[idx]
-
-            def transform(self, sample):
-                """Required abstract method implementation."""
-                return self._original_dataset.transform(sample)
-
-            def transform_conversation(self, example):
-                """Use the original dataset's transform_conversation method."""
-                return self._original_dataset.transform_conversation(example)
-
-            def prompt(self, idx: int):
-                """Returns the prompt at the specified index."""
-                return self._original_dataset.prompt(idx)
-
-            def conversations(self):
-                """Returns a list of all conversations."""
-                indexes = range(len(self))
-                return [self.conversation(index) for index in indexes]
-
-            @property
-            def dataset_name(self):
-                return f"{self._original_dataset_name}_filtered"
-
-            @property
-            def split(self):
-                return self._original_dataset.split
-
-        return FilteredDataset(self.dataset, conversation_indices)
+        return filtered_dataset
