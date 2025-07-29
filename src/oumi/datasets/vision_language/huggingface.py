@@ -96,6 +96,7 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
         if Path(hf_dataset_path).exists():
             # If the path exists, it's a local dataset
             kwargs["dataset_path"] = hf_dataset_path
+            kwargs["dataset_name"] = "hf_vision"
         else:
             # Otherwise, assume it's a remote dataset
             kwargs["dataset_name"] = hf_dataset_path
