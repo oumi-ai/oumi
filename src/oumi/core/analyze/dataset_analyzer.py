@@ -184,21 +184,14 @@ class DatasetAnalyzer:
 
         self._compute_message_metrics()
 
-    def get_analysis_results(self) -> Optional[DatasetAnalysisResult]:
+    @property
+    def analysis_results(self) -> Optional[DatasetAnalysisResult]:
         """Get the analysis results if available.
 
         Returns:
             DatasetAnalysisResult if analysis has been run, None otherwise
         """
         return self._analysis_results
-
-    def get_analysis_dataframe(self) -> Optional[pd.DataFrame]:
-        """Get the analysis results as a DataFrame if available.
-
-        Returns:
-            DataFrame with analysis results if analysis has been run, None otherwise
-        """
-        return self._analysis_df
 
     def _compute_message_metrics(self) -> None:
         """Compute metrics for all messages in the dataset.

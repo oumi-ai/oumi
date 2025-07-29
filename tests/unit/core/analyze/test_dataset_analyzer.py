@@ -185,7 +185,7 @@ def test_analyze_dataset_integration(test_data_path, mock_config):
     """Test DatasetAnalyzer analysis integration."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     # Test result structure
@@ -218,7 +218,7 @@ def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
@@ -244,7 +244,7 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     # Should still complete analysis even with failing analyzer
@@ -280,7 +280,7 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
@@ -330,7 +330,7 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
@@ -349,7 +349,7 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     # Find the message with missing conversation ID
@@ -374,7 +374,7 @@ def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     # Find the message with missing message ID
@@ -399,7 +399,7 @@ def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
     analyzer.analyze_dataset()
-    results = analyzer.get_analysis_results()
+    results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
