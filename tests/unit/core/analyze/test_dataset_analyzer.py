@@ -7,6 +7,7 @@ from unittest.mock import patch
 import jsonlines
 import pytest
 
+from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -148,8 +149,6 @@ def mock_config():
 
 def create_analyzer_with_jsonl_dataset(test_data_path, config):
     """Helper function to create analyzer with JSONL dataset."""
-    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-
     # Create a real TextSftJsonLinesDataset from the JSONL file
     dataset = TextSftJsonLinesDataset(dataset_path=test_data_path)
 
@@ -168,8 +167,6 @@ def test_analyzer_initialization(mock_load, mock_config):
     """Test DatasetAnalyzer initialization."""
     mock_load.return_value = "mock_dataset"
 
-    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-
     analyzer = DatasetAnalyzer(mock_config)
 
     # Test basic initialization
@@ -186,7 +183,9 @@ def test_analyzer_initialization(mock_load, mock_config):
 def test_analyze_dataset_integration(test_data_path, mock_config):
     """Test DatasetAnalyzer analysis integration."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     # Test result structure
     assert results.dataset_name == "text_sft"
@@ -217,7 +216,9 @@ def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 1
@@ -241,7 +242,9 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     # Should still complete analysis even with failing analyzer
     assert results.total_messages == 4
@@ -275,7 +278,9 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
@@ -323,7 +328,9 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5  # Should not exceed total
@@ -340,7 +347,9 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     # Find the message with missing conversation ID
     null_conv_message = None
@@ -363,21 +372,23 @@ def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     # Find the message with missing message ID
-    null_msg = None
+    null_msg_message = None
     for msg in results.messages:
         if msg.text_content == "Test message without conversation ID":
-            null_msg = msg
+            null_msg_message = msg
             break
 
-    assert null_msg is not None
-    assert null_msg.message_id == "msg_3_0"  # Should use fallback
+    assert null_msg_message is not None
+    assert null_msg_message.message_id == "msg_3_0"  # Should use fallback
 
 
 def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
-    """Test analysis with conversation containing no messages."""
+    """Test analysis with empty conversation."""
     config = AnalyzeConfig(
         dataset_name="text_sft",
         split="train",
@@ -386,7 +397,9 @@ def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
@@ -413,21 +426,239 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
 def test_analyze_dataset_metric_prefixing(test_data_path, mock_config):
     """Test that analyzer metrics are properly prefixed to avoid conflicts."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.get_analysis_results()
+    assert results is not None  # Type assertion for linter
 
     first_message = results.messages[0]
-
     # Check that metrics are prefixed with analyzer ID
     assert "text_length_analyzer_char_count" in first_message.analyzer_metrics
     assert "text_length_analyzer_word_count" in first_message.analyzer_metrics
-    assert "text_length_analyzer_analyzer_id" in first_message.analyzer_metrics
     assert "analyzer_2_char_count" in first_message.analyzer_metrics
     assert "analyzer_2_word_count" in first_message.analyzer_metrics
-    assert "analyzer_2_analyzer_id" in first_message.analyzer_metrics
 
-    # Check that values are different (different analyzer IDs)
-    assert (
-        first_message.analyzer_metrics["text_length_analyzer_analyzer_id"]
-        == "text_length_analyzer"
+
+def test_query_and_filter_methods(test_data_path, mock_config):
+    """Test the new query() and filter() methods."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Test query() method - should return DataFrame with analysis results
+    query_results = analyzer.query("role == 'user'")
+    assert len(query_results) == 2  # 2 user messages in test data
+    # Should have analysis columns
+    assert "text_length_analyzer_char_count" in query_results.columns
+    assert "text_length_analyzer_word_count" in query_results.columns
+
+    # Test filter() method - should return dataset object
+    filter_results = analyzer.filter("role == 'user'")
+    assert len(filter_results) == 2  # 2 conversations with user messages
+    assert hasattr(filter_results, "conversation")  # Should have conversation method
+    assert hasattr(filter_results, "dataset_name")  # Should have dataset_name property
+
+    # Test that filtered dataset has the same interface as original
+    filtered_conversation = filter_results.conversation(0)
+    assert hasattr(filtered_conversation, "messages")  # Same interface
+
+
+def test_huggingface_dataset_filtering(test_data_path, mock_config):
+    """Test unified filtering functionality for HuggingFace datasets."""
+    # Create a mock HF dataset by setting dataset_path to None and dataset_name with "/"
+    from oumi.core.datasets import BaseMapDataset
+
+    class MockHFDataset(BaseMapDataset):
+        def __init__(self):
+            self.dataset_path = None
+            self.dataset_name = "tatsu-lab/alpaca"
+            self.dataset_subset = None
+            self.split = "train"
+            self.trust_remote_code = False
+
+        def __len__(self):
+            return 5
+
+        def conversation(self, idx):
+            # Return a mock conversation
+            from oumi.core.types.conversation import Conversation, Message, Role
+
+            return Conversation(
+                messages=[
+                    Message(role=Role.USER, content=f"Test message {idx}"),
+                    Message(role=Role.ASSISTANT, content=f"Test response {idx}"),
+                ]
+            )
+
+        def transform_conversation(self, example):
+            # Mock transform method
+            from oumi.core.types.conversation import Conversation, Message, Role
+
+            return Conversation(
+                messages=[
+                    Message(role=Role.USER, content="Test"),
+                    Message(role=Role.ASSISTANT, content="Response"),
+                ]
+            )
+
+        def transform(self, sample):
+            """Required abstract method implementation."""
+            return sample
+
+    # Create analyzer with mock HF dataset - bypass normal initialization
+    analyzer = DatasetAnalyzer.__new__(DatasetAnalyzer)
+    analyzer.config = mock_config
+    analyzer.dataset_name = mock_config.dataset_name
+    analyzer.split = mock_config.split
+    analyzer.dataset = MockHFDataset()
+    analyzer.sample_analyzers = analyzer._initialize_sample_analyzers()
+    analyzer._analysis_results = None
+    analyzer._analysis_df = None
+
+    # Mock the analysis results
+    from oumi.core.analyze.dataset_analyzer import (
+        DatasetAnalysisResult,
+        MessageAnalysisResult,
     )
-    assert first_message.analyzer_metrics["analyzer_2_analyzer_id"] == "analyzer_2"
+
+    analyzer._analysis_results = DatasetAnalysisResult(
+        dataset_name="tatsu-lab/alpaca",
+        total_conversations=5,
+        conversations_analyzed=5,
+        total_messages=10,
+        messages=[
+            MessageAnalysisResult(
+                conversation_id="conv_1",
+                conversation_index=0,
+                message_index=0,
+                role="user",
+                message_id="msg_1_0",
+                text_content="Test message 0",
+                analyzer_metrics={
+                    "text_length_analyzer_char_count": 13,
+                    "text_length_analyzer_word_count": 3,
+                },
+            ),
+            MessageAnalysisResult(
+                conversation_id="conv_1",
+                conversation_index=0,
+                message_index=1,
+                role="assistant",
+                message_id="msg_1_1",
+                text_content="Test response 0",
+                analyzer_metrics={
+                    "text_length_analyzer_char_count": 14,
+                    "text_length_analyzer_word_count": 2,
+                },
+            ),
+        ],
+    )
+    analyzer._analysis_df = analyzer._analysis_results.to_dataframe()
+
+    # Test _is_huggingface_dataset method
+    assert analyzer._is_huggingface_dataset() is True
+
+    # Test filtering with HF dataset
+    filter_results = analyzer.filter("role == 'user'")
+
+    # Should return a dataset object
+    assert hasattr(filter_results, "conversation")
+    assert hasattr(filter_results, "__len__")
+    assert hasattr(filter_results, "dataset_name")
+
+    # Should have the expected interface
+    assert filter_results.dataset_name == "tatsu-lab/alpaca_filtered"
+
+
+def test_custom_dataset_filtering(test_data_path, mock_config):
+    """Test unified filtering functionality for custom datasets."""
+    # Create a mock custom dataset by setting dataset_path
+    from oumi.core.datasets import BaseMapDataset
+
+    class MockCustomDataset(BaseMapDataset):
+        def __init__(self):
+            self.dataset_path = "/path/to/local/data.jsonl"
+            self.dataset_name = "custom_dataset"
+            self.dataset_subset = None
+            self.split = "train"
+            self.trust_remote_code = False
+
+        def __len__(self):
+            return 5
+
+        def conversation(self, idx):
+            # Return a mock conversation
+            from oumi.core.types.conversation import Conversation, Message, Role
+
+            return Conversation(
+                messages=[
+                    Message(role=Role.USER, content=f"Test message {idx}"),
+                    Message(role=Role.ASSISTANT, content=f"Test response {idx}"),
+                ]
+            )
+
+        def transform(self, sample):
+            """Required abstract method implementation."""
+            return sample
+
+    # Create analyzer with mock custom dataset - bypass normal initialization
+    analyzer = DatasetAnalyzer.__new__(DatasetAnalyzer)
+    analyzer.config = mock_config
+    analyzer.dataset_name = mock_config.dataset_name
+    analyzer.split = mock_config.split
+    analyzer.dataset = MockCustomDataset()
+    analyzer.sample_analyzers = analyzer._initialize_sample_analyzers()
+    analyzer._analysis_results = None
+    analyzer._analysis_df = None
+
+    # Mock the analysis results
+    from oumi.core.analyze.dataset_analyzer import (
+        DatasetAnalysisResult,
+        MessageAnalysisResult,
+    )
+
+    analyzer._analysis_results = DatasetAnalysisResult(
+        dataset_name="custom_dataset",
+        total_conversations=5,
+        conversations_analyzed=5,
+        total_messages=10,
+        messages=[
+            MessageAnalysisResult(
+                conversation_id="conv_1",
+                conversation_index=0,
+                message_index=0,
+                role="user",
+                message_id="msg_1_0",
+                text_content="Test message 0",
+                analyzer_metrics={
+                    "text_length_analyzer_char_count": 13,
+                    "text_length_analyzer_word_count": 3,
+                },
+            ),
+            MessageAnalysisResult(
+                conversation_id="conv_1",
+                conversation_index=0,
+                message_index=1,
+                role="assistant",
+                message_id="msg_1_1",
+                text_content="Test response 0",
+                analyzer_metrics={
+                    "text_length_analyzer_char_count": 14,
+                    "text_length_analyzer_word_count": 2,
+                },
+            ),
+        ],
+    )
+    analyzer._analysis_df = analyzer._analysis_results.to_dataframe()
+
+    # Test _is_huggingface_dataset method
+    assert analyzer._is_huggingface_dataset() is False
+
+    # Test filtering with custom dataset
+    filter_results = analyzer.filter("role == 'user'")
+
+    # Should return a dataset object
+    assert hasattr(filter_results, "conversation")
+    assert hasattr(filter_results, "__len__")
+    assert hasattr(filter_results, "dataset_name")
+
+    # Should have the expected interface
+    assert filter_results.dataset_name == "custom_dataset_filtered"

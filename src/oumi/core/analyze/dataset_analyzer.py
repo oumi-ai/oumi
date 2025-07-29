@@ -19,6 +19,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from oumi.core.configs import AnalyzeConfig
+from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry.registry import REGISTRY
 from oumi.utils.analysis_utils import load_dataset_from_config
 from oumi.utils.logging import logger
@@ -39,7 +40,6 @@ class MessageAnalysisResult:
             with keys prefixed by analyzer ID to avoid conflicts
     """
 
-    # Field name constant to avoid hardcoding
     ANALYZER_METRICS_FIELD = "analyzer_metrics"
 
     conversation_id: str
@@ -122,9 +122,6 @@ class DatasetAnalyzer:
         self._analysis_results: Optional[DatasetAnalysisResult] = None
         self._analysis_df: Optional[pd.DataFrame] = None
 
-        # Automatically run analysis when class is created
-        self.analyze_dataset()
-
     def _initialize_sample_analyzers(self):
         """Initialize sample analyzer plugins from configuration."""
         sample_analyzers = {}
@@ -186,6 +183,22 @@ class DatasetAnalyzer:
         logger.info("Step 1: Computing message metrics...")
 
         self._compute_message_metrics()
+
+    def get_analysis_results(self) -> Optional[DatasetAnalysisResult]:
+        """Get the analysis results if available.
+
+        Returns:
+            DatasetAnalysisResult if analysis has been run, None otherwise
+        """
+        return self._analysis_results
+
+    def get_analysis_dataframe(self) -> Optional[pd.DataFrame]:
+        """Get the analysis results as a DataFrame if available.
+
+        Returns:
+            DataFrame with analysis results if analysis has been run, None otherwise
+        """
+        return self._analysis_df
 
     def _compute_message_metrics(self) -> None:
         """Compute metrics for all messages in the dataset.
@@ -306,34 +319,31 @@ class DatasetAnalyzer:
     def query(
         self,
         query_expression: str,
-        include_original_data: bool = False,
     ) -> pd.DataFrame:
-        """Query analysis results and optionally join with original dataset data.
+        """Query analysis results using pandas query expression.
 
         Args:
             query_expression: Pandas query expression to filter analysis results
-            include_original_data: Whether to include original dataset fields in results
 
         Returns:
-            DataFrame with filtered analysis results and optionally original dataset
-            data
+            DataFrame with filtered analysis results
 
         Examples:
             # Filter for short messages
             short_messages = analyzer.query("length_word_count < 10")
 
-            # Filter for long assistant messages with original data
-            long_assistant = analyzer.query(
-                "role == 'assistant' and length_word_count > 100",
-                include_original_data=True
-            )
+            # Filter for assistant messages
+            assistant_messages = analyzer.query("role == 'assistant'")
+
+            # Filter for long user messages
+            long_user = analyzer.query("role == 'user' and length_word_count > 100")
         """
-        # Analysis should already be done since it runs automatically in __init__
+        # Run analysis if not already done
         if self._analysis_df is None:
-            raise RuntimeError(
-                "Analysis results not available. This should not happen since "
-                "analysis runs automatically during initialization."
-            )
+            logger.info("Analysis not yet run, starting analysis...")
+            self.analyze_dataset()
+            # After analysis, _analysis_df should be populated
+            assert self._analysis_df is not None
 
         # Apply the query filter
         try:
@@ -343,80 +353,146 @@ class DatasetAnalyzer:
             logger.error(f"Query failed: {e}")
             raise ValueError(f"Invalid query expression '{query_expression}': {e}")
 
-        # If original data is not requested, return filtered results
-        if not include_original_data:
-            return filtered_df
+        return filtered_df
 
-        # Join with original dataset data
-        try:
-            joined_df = self._join_with_original_data(filtered_df)
-            return joined_df
-        except Exception as e:
-            logger.warning(f"Could not join with original data: {e}")
-            logger.info("Returning filtered results without original data")
-            return filtered_df
+    def filter(
+        self,
+        query_expression: str,
+    ) -> BaseMapDataset:
+        """Filter the original dataset based on analysis results.
 
-    def _join_with_original_data(self, filtered_df: pd.DataFrame) -> pd.DataFrame:
-        """Join filtered analysis results with original dataset data.
+        This method uses analysis results to filter the original dataset, returning
+        a new dataset object containing only the conversations that match the query.
 
         Args:
-            filtered_df: DataFrame with filtered analysis results
+            query_expression: Pandas query expression to filter analysis results
 
         Returns:
-            DataFrame with analysis results joined with original dataset data
+            A new dataset object containing only the filtered conversations
+
+        Examples:
+            # Filter for conversations with short messages
+            short_dataset = analyzer.filter("length_word_count < 10")
+
+            # Filter for conversations with assistant messages
+            assistant_dataset = analyzer.filter("role == 'assistant'")
+
+            # Filter for conversations with long user messages
+            long_user_dataset = analyzer.filter(
+                "role == 'user' and length_word_count > 100"
+            )
         """
+        # Get filtered analysis results
+        filtered_df = self.query(query_expression)
+
         # Get unique conversation indices from filtered results
-        conversation_indices = filtered_df.conversation_index.unique()
+        conversation_indices = filtered_df.conversation_index.unique().tolist()
 
-        # Try to get original dataset as DataFrame
-        original_data = []
+        # Create a new dataset with only the filtered conversations
+        filtered_dataset = self._create_filtered_dataset(conversation_indices)
 
-        try:
-            # Method 1: Try to access underlying DataFrame
-            if hasattr(self.dataset, "_df"):
-                dataset_df = self.dataset._df
-                # Get matching rows from original dataset
-                matching_rows = dataset_df.loc[conversation_indices].copy()
-                matching_rows["conversation_index"] = matching_rows.index
+        logger.info(
+            f"Filtered dataset: {len(conversation_indices)} conversations "
+            f"out of {len(self.dataset)} total"
+        )
 
-                # Create a mapping for each conversation
-                for conv_idx in conversation_indices:
-                    if conv_idx in matching_rows.index:
-                        conv_data = matching_rows.loc[conv_idx]
-                        original_data.append(
-                            {
-                                "conversation_index": conv_idx,
-                                "instruction": conv_data.get("instruction", None),
-                                "input": conv_data.get("input", None),
-                                "output": conv_data.get("output", None),
-                                "text": conv_data.get("text", None),
-                            }
-                        )
-            else:
-                # Method 2: Access through conversation objects
-                for conv_idx in conversation_indices:
-                    conversation = self.dataset.conversation(conv_idx)
-                    original_data.append(
-                        {
-                            "conversation_index": conv_idx,
-                            "instruction": getattr(conversation, "instruction", None),
-                            "input": getattr(conversation, "input", None),
-                            "output": getattr(conversation, "output", None),
-                            "text": getattr(conversation, "text", None),
-                        }
-                    )
-        except Exception as e:
-            logger.warning(f"Error accessing original dataset: {e}")
-            return filtered_df
+        return filtered_dataset
 
-        # Create DataFrame from original data
-        original_df = pd.DataFrame(original_data)
+    def _is_huggingface_dataset(self) -> bool:
+        """Check if the underlying dataset is from HuggingFace Hub.
 
-        # Perform the join using default merge behavior (inner join)
-        joined_df = filtered_df.merge(original_df, on="conversation_index")
+        Returns:
+            True if the dataset is loaded from HuggingFace Hub, False otherwise
+        """
+        # If dataset_path is None and dataset_name looks like a HF path (contains "/")
+        return self.dataset.dataset_path is None and "/" in self.dataset.dataset_name
 
-        logger.info(f"Joined DataFrame shape: {joined_df.shape}")
-        return joined_df
+    def _create_filtered_dataset(
+        self, conversation_indices: list[int]
+    ) -> BaseMapDataset:
+        """Create a new dataset containing only the specified conversations.
+
+        Args:
+            conversation_indices: List of conversation indices to include
+
+        Returns:
+            A new dataset object with the same format as the original
+        """
+        # Get the original dataset class
+        original_class = type(self.dataset)
+
+        # Create a filtered dataset class that inherits from the original class
+        class FilteredDataset(original_class):
+            def __init__(self, original_dataset, filtered_indices):
+                # Copy all attributes from the original dataset, excluding dataset_name
+                # and split
+                for attr_name, attr_value in original_dataset.__dict__.items():
+                    if attr_name not in ("dataset_name", "split"):
+                        setattr(self, attr_name, attr_value)
+
+                # Store the original dataset and filtered indices
+                self._original_dataset = original_dataset
+                self._filtered_indices = filtered_indices
+
+                # Filter the DataFrame to only include the specified conversations
+                # This follows the same pattern as the original dataset
+                original_df = original_dataset.data
+                self._data = original_df.iloc[filtered_indices].copy()
+
+                # Store the original dataset name for the property
+                self._original_dataset_name = original_dataset.dataset_name
+
+            def __len__(self):
+                return len(self._filtered_indices)
+
+            def conversation(self, idx: int):
+                """Returns the conversation at the specified index.
+
+                This follows the same pattern as the original dataset:
+                1. Get raw data from DataFrame
+                2. Convert to Conversation on-demand
+                """
+                if idx >= len(self._filtered_indices):
+                    raise IndexError(f"Index {idx} out of range")
+
+                # Get the raw data from the filtered DataFrame
+                raw_sample = self.raw(idx)
+
+                # Convert to Conversation using the original dataset's method
+                return self._original_dataset.transform_conversation(raw_sample)
+
+            def raw(self, idx: int) -> pd.Series:
+                """Return raw data at the specified index from filtered DataFrame."""
+                if idx >= len(self._filtered_indices):
+                    raise IndexError(f"Index {idx} out of range")
+                return self._data.iloc[idx]
+
+            def transform(self, sample):
+                """Required abstract method implementation."""
+                return self._original_dataset.transform(sample)
+
+            def transform_conversation(self, example):
+                """Use the original dataset's transform_conversation method."""
+                return self._original_dataset.transform_conversation(example)
+
+            def prompt(self, idx: int):
+                """Returns the prompt at the specified index."""
+                return self._original_dataset.prompt(idx)
+
+            def conversations(self):
+                """Returns a list of all conversations."""
+                indexes = range(len(self))
+                return [self.conversation(index) for index in indexes]
+
+            @property
+            def dataset_name(self):
+                return f"{self._original_dataset_name}_filtered"
+
+            @property
+            def split(self):
+                return self._original_dataset.split
+
+        return FilteredDataset(self.dataset, conversation_indices)
 
     def has_analysis_results(self) -> bool:
         """Check if analysis has been run and results are available.
