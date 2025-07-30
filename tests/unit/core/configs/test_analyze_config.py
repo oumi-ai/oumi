@@ -32,19 +32,23 @@ def test_sample_analyzer_param_validation_missing_id():
         )
 
 
-def test_sample_analyzer_param_with_complex_params():
-    """Test SampleAnalyzerParams with complex parameters."""
-    complex_params = {
-        "nested": {"key": "value"},
-        "list": [1, 2, 3],
-        "boolean": True,
-        "number": 3.14,
+def test_sample_analyzer_param_with_language_detection_params():
+    """Test SampleAnalyzerParams with language detection analyzer configuration."""
+    language_detection_params = {
+        "confidence_threshold": 0.2,
+        "top_k": 3,
+        "multilingual_flag": {
+            "enabled": True,
+            "min_num_languages": 2,
+        },
     }
 
-    analyzer = SampleAnalyzerParams(id="complex_analyzer", params=complex_params)
+    analyzer = SampleAnalyzerParams(
+        id="language_detection", params=language_detection_params
+    )
 
-    assert analyzer.id == "complex_analyzer"
-    assert analyzer.params == complex_params
+    assert analyzer.id == "language_detection"
+    assert analyzer.params == language_detection_params
 
 
 def test_analyze_config_validation_missing_dataset_name():

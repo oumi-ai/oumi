@@ -306,6 +306,8 @@ class DatasetAnalyzer:
 
         Args:
             query_expression: Pandas query expression to filter analysis results
+            Please see pandas DataFrame query documentation for more information:
+            https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html
 
         Returns:
             DataFrame with filtered analysis results
@@ -319,6 +321,7 @@ class DatasetAnalyzer:
 
             # Filter for long user messages
             long_user = analyzer.query("role == 'user' and length_word_count > 100")
+
         """
         # Run analysis if not already done
         if self._analysis_df is None:
