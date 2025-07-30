@@ -15,7 +15,7 @@
 """Length analyzer for text content."""
 
 import re
-from typing import Any
+from typing import Any, Optional
 
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry.registry import register_sample_analyzer
@@ -32,6 +32,7 @@ class LengthAnalyzer(SampleAnalyzer):
         word_count: bool = True,
         sentence_count: bool = True,
         token_count: bool = False,
+        tokenizer: Optional[Any] = None,
     ):
         """Initialize the length analyzer.
 
@@ -39,12 +40,22 @@ class LengthAnalyzer(SampleAnalyzer):
             char_count: Whether to compute character count
             word_count: Whether to compute word count
             sentence_count: Whether to compute sentence count
-            token_count: Whether to compute token count (placeholder)
+            token_count: Whether to compute token count
+            tokenizer: Tokenizer to use for token counting
+                (required if token_count=True)
         """
+        super().__init__(tokenizer=tokenizer)
         self.char_count = char_count
         self.word_count = word_count
         self.sentence_count = sentence_count
         self.token_count = token_count
+
+        # Validate tokenizer is provided if token_count is enabled
+        if self.token_count and self.tokenizer is None:
+            raise ValueError(
+                "tokenizer must be provided when token_count=True. "
+                "Set token_count=False or provide a tokenizer."
+            )
 
     def analyze_message(self, text_content: str) -> dict[str, Any]:
         """Analyze text content and return length metrics.
@@ -72,7 +83,12 @@ class LengthAnalyzer(SampleAnalyzer):
             metrics["sentence_count"] = len(sentences)
 
         if self.token_count:
-            # Placeholder for token count - would need a tokenizer
-            metrics["token_count"] = len(text_content.split())  # Fallback to word count
+            if self.tokenizer is not None:
+                # Use tokenizer for accurate token count
+                tokens = self.tokenizer.encode(text_content, add_special_tokens=False)
+                metrics["token_count"] = len(tokens)
+            else:
+                # Fallback to word count if no tokenizer available
+                metrics["token_count"] = len(text_content.split())
 
         return metrics

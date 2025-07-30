@@ -115,6 +115,7 @@ class DatasetAnalyzer:
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
+        self.tokenizer = config.tokenizer
 
         self.dataset = load_dataset_from_config(config)
         self.sample_analyzers = self._initialize_sample_analyzers()
@@ -135,8 +136,15 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
+                # Prepare analyzer parameters
+                analyzer_kwargs = analyzer_params.params.copy()
+
+                # Add tokenizer if available and not already provided
+                if self.tokenizer is not None and "tokenizer" not in analyzer_kwargs:
+                    analyzer_kwargs["tokenizer"] = self.tokenizer
+
                 # Create analyzer instance with keyword arguments from params
-                sample_analyzer = analyzer_class(**analyzer_params.params)
+                sample_analyzer = analyzer_class(**analyzer_kwargs)
                 sample_analyzers[analyzer_params.id] = sample_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
