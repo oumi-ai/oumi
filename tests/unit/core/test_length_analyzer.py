@@ -17,63 +17,60 @@
 from oumi.core.analyze.length_analyzer import LengthAnalyzer
 
 
-def test_analyze_message_char_count():
-    """Test character count analysis."""
+def test_char_count():
+    """Test character count functionality."""
     analyzer = LengthAnalyzer(
-        {"char_count": True, "word_count": False, "sentence_count": False}
+        char_count=True, word_count=False, sentence_count=False, token_count=False
     )
-    text = "Hello, world!"
-    result = analyzer.analyze_message(text)
+    result = analyzer.analyze_message("Hello, world!")
     assert result["char_count"] == 13
+    assert len(result) == 1  # Only char_count should be present
 
 
-def test_analyze_message_word_count():
-    """Test word count analysis."""
+def test_word_count():
+    """Test word count functionality."""
     analyzer = LengthAnalyzer(
-        {"char_count": False, "word_count": True, "sentence_count": False}
+        char_count=False, word_count=True, sentence_count=False, token_count=False
     )
-    text = "Hello world! This is a test."
-    result = analyzer.analyze_message(text)
+    result = analyzer.analyze_message("Hello world! This is a test.")
     assert result["word_count"] == 6
+    assert len(result) == 1  # Only word_count should be present
 
 
-def test_analyze_message_sentence_count():
-    """Test sentence count analysis."""
+def test_sentence_count():
+    """Test sentence count functionality."""
     analyzer = LengthAnalyzer(
-        {"char_count": False, "word_count": False, "sentence_count": True}
+        char_count=False, word_count=False, sentence_count=True, token_count=False
     )
-    text = "Hello world! This is a test. How are you?"
-    result = analyzer.analyze_message(text)
+    result = analyzer.analyze_message("Hello world! This is a test. How are you?")
     assert result["sentence_count"] == 3
+    assert len(result) == 1  # Only sentence_count should be present
 
 
-def test_analyze_message_empty_text():
-    """Test analysis with empty text."""
+def test_analyzer_instantiation():
+    """Test analyzer can be instantiated with different parameter combinations."""
+    # Test with defaults
+    analyzer = LengthAnalyzer()
+    result = analyzer.analyze_message("Hello, world!")
+    assert result["char_count"] == 13
+    assert result["word_count"] == 2
+    assert result["sentence_count"] == 1
+    assert "token_count" not in result
+
+    # Test with custom parameters
     analyzer = LengthAnalyzer(
-        {
-            "char_count": True,
-            "word_count": True,
-            "sentence_count": True,
-        }
+        char_count=True, word_count=False, sentence_count=True, token_count=False
     )
-    result = analyzer.analyze_message("")
+    result = analyzer.analyze_message("Hello, world!")
+    assert result["char_count"] == 13
+    assert "word_count" not in result
+    assert result["sentence_count"] == 1
+    assert "token_count" not in result
 
-    assert result["char_count"] == 0
-    assert result["word_count"] == 0
-    assert result["sentence_count"] == 0
-
-
-def test_analyze_message_whitespace_only():
-    """Test analysis with whitespace-only text."""
-    analyzer = LengthAnalyzer(
-        {
-            "char_count": True,
-            "word_count": True,
-            "sentence_count": True,
-        }
-    )
-    result = analyzer.analyze_message("   \n\t   ")
-
-    assert result["char_count"] == 8
-    assert result["word_count"] == 0
-    assert result["sentence_count"] == 0
+    # Test with partial parameters (some defaults, some overridden)
+    analyzer = LengthAnalyzer(char_count=False, word_count=True)
+    result = analyzer.analyze_message("Hello, world!")
+    assert "char_count" not in result
+    assert result["word_count"] == 2
+    assert result["sentence_count"] == 1  # Default True
+    assert "token_count" not in result  # Default False

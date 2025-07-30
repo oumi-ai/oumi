@@ -28,8 +28,8 @@ class SampleAnalyzerParams(BaseParams):
     id: str = MISSING
     """Unique identifier for the analyzer."""
 
-    config: dict[str, Any] = field(default_factory=dict)
-    """Analyzer-specific configuration parameters."""
+    params: dict[str, Any] = field(default_factory=dict)
+    """Analyzer-specific parameters passed to the analyzer constructor."""
 
 
 @dataclass

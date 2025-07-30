@@ -32,19 +32,19 @@ def test_sample_analyzer_param_validation_missing_id():
         )
 
 
-def test_sample_analyzer_param_with_complex_config():
-    """Test SampleAnalyzerParams with complex configuration."""
-    complex_config = {
+def test_sample_analyzer_param_with_complex_params():
+    """Test SampleAnalyzerParams with complex parameters."""
+    complex_params = {
         "nested": {"key": "value"},
         "list": [1, 2, 3],
         "boolean": True,
         "number": 3.14,
     }
 
-    analyzer = SampleAnalyzerParams(id="complex_analyzer", config=complex_config)
+    analyzer = SampleAnalyzerParams(id="complex_analyzer", params=complex_params)
 
     assert analyzer.id == "complex_analyzer"
-    assert analyzer.config == complex_config
+    assert analyzer.params == complex_params
 
 
 def test_analyze_config_validation_missing_dataset_name():
@@ -95,8 +95,8 @@ def test_analyze_config_default_values():
 def test_analyze_config_with_custom_values():
     """Test AnalyzeConfig with custom parameter values."""
     analyzers = [
-        SampleAnalyzerParams(id="analyzer1", config={"param1": "value1"}),
-        SampleAnalyzerParams(id="analyzer2", config={"param2": "value2"}),
+        SampleAnalyzerParams(id="analyzer1", params={"param1": "value1"}),
+        SampleAnalyzerParams(id="analyzer2", params={"param2": "value2"}),
     ]
 
     config = AnalyzeConfig(

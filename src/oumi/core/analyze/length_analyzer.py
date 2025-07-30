@@ -25,21 +25,26 @@ from oumi.core.registry.registry import register_sample_analyzer
 class LengthAnalyzer(SampleAnalyzer):
     """Analyzer that computes various length metrics for text content."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(
+        self,
+        *,
+        char_count: bool = True,
+        word_count: bool = True,
+        sentence_count: bool = True,
+        token_count: bool = False,
+    ):
         """Initialize the length analyzer.
 
         Args:
-            config: Configuration dictionary with boolean flags for each metric:
-                - char_count: Whether to compute character count
-                - word_count: Whether to compute word count
-                - sentence_count: Whether to compute sentence count
-                - token_count: Whether to compute token count (placeholder)
+            char_count: Whether to compute character count
+            word_count: Whether to compute word count
+            sentence_count: Whether to compute sentence count
+            token_count: Whether to compute token count (placeholder)
         """
-        self.config = config
-        self.char_count = config.get("char_count", True)
-        self.word_count = config.get("word_count", True)
-        self.sentence_count = config.get("sentence_count", True)
-        self.token_count = config.get("token_count", False)
+        self.char_count = char_count
+        self.word_count = word_count
+        self.sentence_count = sentence_count
+        self.token_count = token_count
 
     def analyze_message(self, text_content: str) -> dict[str, Any]:
         """Analyze text content and return length metrics.

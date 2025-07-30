@@ -16,8 +16,8 @@ from oumi.datasets import TextSftJsonLinesDataset
 class MockSampleAnalyzer:
     """Mock sample analyzer for testing."""
 
-    def __init__(self, config: dict):
-        self.config = config
+    def __init__(self, **kwargs):
+        self.config = kwargs
         self.analyze_calls = []
 
     def analyze_message(self, text_content: str) -> dict:
@@ -33,8 +33,8 @@ class MockSampleAnalyzer:
 class MockFailingAnalyzer:
     """Mock analyzer that always fails."""
 
-    def __init__(self, config: dict):
-        self.config = config
+    def __init__(self, **kwargs):
+        self.config = kwargs
 
     def analyze_message(self, text_content: str) -> dict:
         raise ValueError("Analyzer failed")
@@ -141,9 +141,9 @@ def mock_config():
         analyzers=[
             SampleAnalyzerParams(
                 id="text_length_analyzer",
-                config={"char_count": True, "word_count": True},
+                params={"char_count": True, "word_count": True},
             ),
-            SampleAnalyzerParams(id="analyzer_2", config={"analyzer_id": "analyzer_2"}),
+            SampleAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
         ],
     )
 
@@ -238,7 +238,7 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
         split="train",
         sample_count=2,  # Limit to first 2 conversations
         analyzers=[
-            SampleAnalyzerParams(id="failing_analyzer", config={}),
+            SampleAnalyzerParams(id="failing_analyzer", params={}),
         ],
     )
 

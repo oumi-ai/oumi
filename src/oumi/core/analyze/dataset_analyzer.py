@@ -135,12 +135,8 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
-                # Create analyzer instance with configuration
-                config_dict = {
-                    "id": analyzer_params.id,
-                    **analyzer_params.config,
-                }
-                sample_analyzer = analyzer_class(config_dict)
+                # Create analyzer instance with keyword arguments from params
+                sample_analyzer = analyzer_class(**analyzer_params.params)
                 sample_analyzers[analyzer_params.id] = sample_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
