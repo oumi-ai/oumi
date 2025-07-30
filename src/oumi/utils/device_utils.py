@@ -219,6 +219,11 @@ def _get_nvidia_gpu_runtime_info_impl(
             result = pynvml.nvmlDeviceGetUtilizationRates(gpu_handle)
             gpu_utilization_value = int(result.gpu)
             memory_utilization_value = int(result.memory)
+        except pynvml.NVMLError_NotSupported:
+            # This error is expected on some systems.
+            # Only do DEBUG-level logging to reduce noise.
+            logger.debug(f"GPU utilization not supported for device: {device_index}")
+            return None
         except Exception:
             logger.exception(
                 f"Failed to get GPU utilization for device: {device_index}"
