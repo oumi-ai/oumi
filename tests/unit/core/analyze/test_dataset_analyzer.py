@@ -5,8 +5,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import jsonlines
+import pandas as pd
 import pytest
 
+from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -14,8 +16,8 @@ from oumi.datasets import TextSftJsonLinesDataset
 class MockSampleAnalyzer:
     """Mock sample analyzer for testing."""
 
-    def __init__(self, config: dict):
-        self.config = config
+    def __init__(self, **kwargs):
+        self.config = kwargs
         self.analyze_calls = []
 
     def analyze_message(self, text_content: str) -> dict:
@@ -31,8 +33,8 @@ class MockSampleAnalyzer:
 class MockFailingAnalyzer:
     """Mock analyzer that always fails."""
 
-    def __init__(self, config: dict):
-        self.config = config
+    def __init__(self, **kwargs):
+        self.config = kwargs
 
     def analyze_message(self, text_content: str) -> dict:
         raise ValueError("Analyzer failed")
@@ -139,17 +141,15 @@ def mock_config():
         analyzers=[
             SampleAnalyzerParams(
                 id="text_length_analyzer",
-                config={"char_count": True, "word_count": True},
+                params={"char_count": True, "word_count": True},
             ),
-            SampleAnalyzerParams(id="analyzer_2", config={"analyzer_id": "analyzer_2"}),
+            SampleAnalyzerParams(id="analyzer_2", params={"analyzer_id": "analyzer_2"}),
         ],
     )
 
 
 def create_analyzer_with_jsonl_dataset(test_data_path, config):
     """Helper function to create analyzer with JSONL dataset."""
-    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-
     # Create a real TextSftJsonLinesDataset from the JSONL file
     dataset = TextSftJsonLinesDataset(dataset_path=test_data_path)
 
@@ -168,8 +168,6 @@ def test_analyzer_initialization(mock_load, mock_config):
     """Test DatasetAnalyzer initialization."""
     mock_load.return_value = "mock_dataset"
 
-    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
-
     analyzer = DatasetAnalyzer(mock_config)
 
     # Test basic initialization
@@ -186,7 +184,9 @@ def test_analyzer_initialization(mock_load, mock_config):
 def test_analyze_dataset_integration(test_data_path, mock_config):
     """Test DatasetAnalyzer analysis integration."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     # Test result structure
     assert results.dataset_name == "text_sft"
@@ -217,7 +217,9 @@ def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 1
@@ -236,12 +238,14 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
         split="train",
         sample_count=2,  # Limit to first 2 conversations
         analyzers=[
-            SampleAnalyzerParams(id="failing_analyzer", config={}),
+            SampleAnalyzerParams(id="failing_analyzer", params={}),
         ],
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     # Should still complete analysis even with failing analyzer
     assert results.total_messages == 4
@@ -275,7 +279,9 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
@@ -323,7 +329,9 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5  # Should not exceed total
@@ -340,7 +348,9 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     # Find the message with missing conversation ID
     null_conv_message = None
@@ -363,21 +373,23 @@ def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     # Find the message with missing message ID
-    null_msg = None
+    null_msg_message = None
     for msg in results.messages:
         if msg.text_content == "Test message without conversation ID":
-            null_msg = msg
+            null_msg_message = msg
             break
 
-    assert null_msg is not None
-    assert null_msg.message_id == "msg_3_0"  # Should use fallback
+    assert null_msg_message is not None
+    assert null_msg_message.message_id == "msg_3_0"  # Should use fallback
 
 
 def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
-    """Test analysis with conversation containing no messages."""
+    """Test analysis with empty conversation."""
     config = AnalyzeConfig(
         dataset_name="text_sft",
         split="train",
@@ -386,7 +398,9 @@ def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
+    results = analyzer.analysis_results
+    assert results is not None  # Type assertion for linter
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
@@ -410,24 +424,139 @@ def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
     assert text_content == "Hello, how are you?"
 
 
-def test_analyze_dataset_metric_prefixing(test_data_path, mock_config):
-    """Test that analyzer metrics are properly prefixed to avoid conflicts."""
+def test_query_method(test_data_path, mock_config):
+    """Test the query method returns DataFrame with correct structure."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
-    results = analyzer.analyze_dataset()
+    analyzer.analyze_dataset()
 
-    first_message = results.messages[0]
+    # Query returns DataFrame
+    query_results = analyzer.query("role == 'user'")
+    assert isinstance(query_results, pd.DataFrame)
+    assert len(query_results) > 0
+    assert "role" in query_results.columns
+    assert "conversation_index" in query_results.columns
+    assert "text_length_analyzer_char_count" in query_results.columns
 
-    # Check that metrics are prefixed with analyzer ID
-    assert "text_length_analyzer_char_count" in first_message.analyzer_metrics
-    assert "text_length_analyzer_word_count" in first_message.analyzer_metrics
-    assert "text_length_analyzer_analyzer_id" in first_message.analyzer_metrics
-    assert "analyzer_2_char_count" in first_message.analyzer_metrics
-    assert "analyzer_2_word_count" in first_message.analyzer_metrics
-    assert "analyzer_2_analyzer_id" in first_message.analyzer_metrics
 
-    # Check that values are different (different analyzer IDs)
-    assert (
-        first_message.analyzer_metrics["text_length_analyzer_analyzer_id"]
-        == "text_length_analyzer"
-    )
-    assert first_message.analyzer_metrics["analyzer_2_analyzer_id"] == "analyzer_2"
+def test_query_with_empty_results(test_data_path, mock_config):
+    """Test behavior when query returns no results."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Use a query that should return no results
+    query_results = analyzer.query("role == 'nonexistent_role'")
+
+    # Should return an empty DataFrame
+    assert isinstance(query_results, pd.DataFrame)
+    assert len(query_results) == 0
+
+
+def test_query_complex_expressions_examples(test_data_path, mock_config):
+    """Test query method with complex expressions - shows usage examples."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Test various query expressions with proper validation
+    queries = [
+        "text_length_analyzer_word_count < 10",  # Filter for short messages
+        "role == 'assistant'",  # Filter for assistant messages
+        "role == 'user' and text_length_analyzer_word_count > 5",  # Long user messages
+        "role == 'user' or role == 'assistant'",  # Any user or assistant messages
+        # Medium-length
+        "text_length_analyzer_char_count > 10 and text_length_analyzer_word_count < 20",
+    ]
+
+    for query in queries:
+        try:
+            results = analyzer.query(query)
+            assert isinstance(results, pd.DataFrame)
+            # Query should not raise an exception and should return valid DataFrame
+        except Exception as e:
+            pytest.fail(f"Query '{query}' failed: {e}")
+
+
+def test_filter_method(test_data_path, mock_config):
+    """Test the filter method returns dataset with correct interface."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Filter returns dataset
+    filter_results = analyzer.filter("role == 'user'")
+
+    # Test that filtered dataset has required methods
+    assert hasattr(filter_results, "conversation")
+    assert hasattr(filter_results, "__len__")
+    assert hasattr(filter_results, "dataset_name")
+    assert len(filter_results) > 0
+
+    # Test that we can access conversations
+    if len(filter_results) > 0:
+        first_conv = filter_results.conversation(0)
+        assert hasattr(first_conv, "messages")
+        assert len(first_conv.messages) > 0
+
+
+def test_class_preservation_in_filtered_dataset(test_data_path, mock_config):
+    """Test that filtered dataset preserves the original class."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Get original and filtered datasets
+    original_dataset = analyzer.dataset
+    filtered_dataset = analyzer.filter("role == 'user'")
+
+    # Test class preservation
+    original_class = type(original_dataset)
+    filtered_class = type(filtered_dataset)
+
+    # Filtered dataset should inherit from original class
+    assert issubclass(filtered_class, original_class)
+
+    # Both should have the same base functionality
+    assert hasattr(original_dataset, "conversation")
+    assert hasattr(filtered_dataset, "conversation")
+
+
+def test_filtered_dataset_naming(test_data_path, mock_config):
+    """Test that filtered datasets have appropriate names."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Test that filtered dataset has appropriate name
+    filtered_dataset = analyzer.filter("role == 'user'")
+    assert filtered_dataset.dataset_name.endswith("_filtered")
+
+
+def test_empty_filter_results(test_data_path, mock_config):
+    """Test behavior when filter returns no results."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Use a filter that should return no results
+    filtered_dataset = analyzer.filter("role == 'nonexistent_role'")
+
+    # Should return an empty dataset
+    assert len(filtered_dataset) == 0
+    assert hasattr(filtered_dataset, "conversation")
+    assert hasattr(filtered_dataset, "dataset_name")
+
+
+def test_invalid_expressions(test_data_path, mock_config):
+    """Test that invalid expressions raise appropriate errors."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+    analyzer.analyze_dataset()
+
+    # Test various invalid expressions
+    invalid_expressions = [
+        "invalid_column == 'value'",  # Non-existent column
+        "role == 'user' and invalid_column > 5",  # Invalid column in compound
+        "role == 'user' or invalid_column < 10",  # Invalid column in OR expression
+    ]
+
+    for expression in invalid_expressions:
+        # Both query and filter should fail with the same invalid expression
+        with pytest.raises((ValueError, KeyError)):
+            analyzer.query(expression)
+
+        with pytest.raises((ValueError, KeyError)):
+            analyzer.filter(expression)
