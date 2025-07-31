@@ -44,24 +44,26 @@ class LengthAnalyzer(SampleAnalyzer):
             tokenizer: Tokenizer to use for token counting
                 (required if token_count=True)
         """
-        super().__init__(tokenizer=tokenizer)
         self.char_count = char_count
         self.word_count = word_count
         self.sentence_count = sentence_count
         self.token_count = token_count
-
-        # Validate tokenizer is provided if token_count is enabled
-        if self.token_count and self.tokenizer is None:
+        self.tokenizer = tokenizer
+        # Validate tokenizer requirements
+        if self.token_count and tokenizer is None:
             raise ValueError(
                 "tokenizer must be provided when token_count=True. "
                 "Set token_count=False or provide a tokenizer."
             )
 
-    def analyze_message(self, text_content: str) -> dict[str, Any]:
+    def analyze_message(
+        self, text_content: str, tokenizer: Optional[Any] = None
+    ) -> dict[str, Any]:
         """Analyze text content and return length metrics.
 
         Args:
             text_content: The text content to analyze
+            tokenizer: Optional tokenizer to use for token counting
 
         Returns:
             Dictionary containing requested length metrics
@@ -83,12 +85,17 @@ class LengthAnalyzer(SampleAnalyzer):
             metrics["sentence_count"] = len(sentences)
 
         if self.token_count:
-            if self.tokenizer is not None:
+            # Use provided tokenizer or fall back to instance tokenizer
+            tokenizer_to_use = tokenizer or self.tokenizer
+            if tokenizer_to_use is not None:
                 # Use tokenizer for accurate token count
-                tokens = self.tokenizer.encode(text_content, add_special_tokens=False)
+                tokens = tokenizer_to_use.encode(text_content, add_special_tokens=False)
                 metrics["token_count"] = len(tokens)
-            else:
-                # Fallback to word count if no tokenizer available
-                metrics["token_count"] = len(text_content.split())
+            elif tokenizer_to_use is None:
+                # Require tokenizer when token_count is enabled
+                raise ValueError(
+                    "tokenizer must be provided when token_count=True. "
+                    "Set token_count=False or provide a tokenizer."
+                )
 
         return metrics

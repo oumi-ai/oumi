@@ -136,15 +136,8 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
-                # Prepare analyzer parameters
-                analyzer_kwargs = analyzer_params.params.copy()
-
-                # Add tokenizer if available and not already provided
-                if self.tokenizer is not None and "tokenizer" not in analyzer_kwargs:
-                    analyzer_kwargs["tokenizer"] = self.tokenizer
-
                 # Create analyzer instance with keyword arguments from params
-                sample_analyzer = analyzer_class(**analyzer_kwargs)
+                sample_analyzer = analyzer_class(**analyzer_params.params)
                 sample_analyzers[analyzer_params.id] = sample_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
@@ -286,7 +279,9 @@ class DatasetAnalyzer:
         analyzer_metrics: dict[str, Any] = {}
         for analyzer_id, analyzer in self.sample_analyzers.items():
             try:
-                analyzer_metrics_raw = analyzer.analyze_message(text_content)
+                analyzer_metrics_raw = analyzer.analyze_message(
+                    text_content, self.tokenizer
+                )
                 # Prefix metrics with analyzer ID to avoid conflicts
                 for key, value in analyzer_metrics_raw.items():
                     analyzer_metrics[f"{analyzer_id}_{key}"] = value

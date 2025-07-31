@@ -21,20 +21,15 @@ from typing import Any, Optional
 class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
 
-    def __init__(self, tokenizer: Optional[Any] = None):
-        """Initialize the sample analyzer.
-
-        Args:
-            tokenizer: Optional tokenizer to use for tokenization-based analysis
-        """
-        self.tokenizer = tokenizer
-
     @abstractmethod
-    def analyze_message(self, text_content: str) -> dict[str, Any]:
+    def analyze_message(
+        self, text_content: str, tokenizer: Optional[Any] = None
+    ) -> dict[str, Any]:
         """Analyze a single message and return metrics.
 
         Args:
             text_content: The text content to analyze
+            tokenizer: Optional tokenizer to use for tokenization-based analysis
 
         Returns:
             Dictionary containing analysis metrics
