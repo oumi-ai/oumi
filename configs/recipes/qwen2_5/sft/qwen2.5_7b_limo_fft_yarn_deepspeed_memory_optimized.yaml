@@ -78,13 +78,13 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "ZERO_3"
   precision: "BF16"
-  
+
   # ZeRO-3 communication optimization with reduced bucket sizes
   allgather_bucket_size: 50000000          # Reduced from auto/200M to 50M for memory efficiency
   overlap_comm: True
   reduce_bucket_size: 50000000             # Reduced from auto/200M to 50M
   contiguous_gradients: True
-  
+
   # Aggressive ZeRO-3 memory management settings
   sub_group_size: 100000000                # Reduced from 1e9 to 1e8 for tighter memory control
   stage3_prefetch_bucket_size: 50000000    # Changed from "auto" to 50M for predictable memory usage
