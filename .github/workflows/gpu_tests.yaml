@@ -52,3 +52,5 @@ jobs:
 
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
+      env:
+        CUDA_HOME: /usr/local/cuda
