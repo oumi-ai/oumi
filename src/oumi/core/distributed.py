@@ -18,7 +18,7 @@ import os
 import random
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import NamedTuple, Optional, TypeVar, cast
+from typing import NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
 import torch
@@ -475,17 +475,17 @@ def create_deepspeed_config_file(config: TrainingConfig, output_path: str) -> st
 
     deepspeed_config = config.deepspeed.to_deepspeed_config()
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path_obj = Path(output_path)
+    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_path, "w") as f:
+    with open(output_path_obj, "w") as f:
         json.dump(deepspeed_config, f, indent=2, sort_keys=True)
 
-    logger.info(f"Created DeepSpeed configuration file: {output_path}")
-    return str(output_path)
+    logger.info(f"Created DeepSpeed configuration file: {output_path_obj}")
+    return str(output_path_obj)
 
 
-def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> str | dict:
+def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict]:
     """Get DeepSpeed configuration as file path or dictionary.
 
     Args:

@@ -15,7 +15,7 @@
 """Cache utilities for handling functions with unhashable arguments."""
 
 import functools
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -105,10 +105,10 @@ def dict_cache(func: F) -> F:
         return cache[cache_key]
 
     # Add cache control methods similar to functools.lru_cache
-    wrapper.cache_clear = lambda: cache.clear()
-    wrapper.cache_info = lambda: f"CacheInfo(hits={len(cache)}, size={len(cache)})"
+    wrapper.cache_clear = lambda: cache.clear()  # type: ignore
+    wrapper.cache_info = lambda: f"CacheInfo(hits={len(cache)}, size={len(cache)})"  # type: ignore
 
-    return wrapper
+    return cast(F, wrapper)
 
 
 def dict_lru_cache(maxsize: int = 128) -> Callable[[F], F]:
@@ -142,8 +142,8 @@ def dict_lru_cache(maxsize: int = 128) -> Callable[[F], F]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Store original args/kwargs for the cached function to use
-            cached_wrapper._original_args = args
-            cached_wrapper._original_kwargs = kwargs
+            cached_wrapper._original_args = args  # type: ignore
+            cached_wrapper._original_kwargs = kwargs  # type: ignore
 
             # Convert to hashable form
             hashable_args = tuple(make_hashable(arg) for arg in args)
@@ -154,9 +154,9 @@ def dict_lru_cache(maxsize: int = 128) -> Callable[[F], F]:
             return cached_wrapper(hashable_args, hashable_kwargs)
 
         # Expose cache control methods
-        wrapper.cache_clear = cached_wrapper.cache_clear
-        wrapper.cache_info = cached_wrapper.cache_info
+        wrapper.cache_clear = cached_wrapper.cache_clear  # type: ignore
+        wrapper.cache_info = cached_wrapper.cache_info  # type: ignore
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator

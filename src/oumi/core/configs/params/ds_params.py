@@ -273,7 +273,7 @@ class DSParams(BaseParams):
             config["bf16"] = {"enabled": "auto"}
 
         # Add ZeRO optimization configuration
-        zero_config = {
+        zero_config: dict[str, Any] = {
             "stage": int(self.zero_stage.value),
         }
 
@@ -316,7 +316,7 @@ class DSParams(BaseParams):
 
         # Add offloading configurations
         if self.offload_optimizer is not None:
-            offload_config = {
+            offload_config: dict[str, Any] = {
                 "device": self.offload_optimizer.device.value,
                 "pin_memory": self.offload_optimizer.pin_memory,
             }
@@ -337,7 +337,7 @@ class DSParams(BaseParams):
             zero_config["offload_optimizer"] = offload_config
 
         if self.offload_param is not None:
-            offload_config = {
+            offload_config: dict[str, Any] = {
                 "device": self.offload_param.device.value,
                 "pin_memory": self.offload_param.pin_memory,
             }
