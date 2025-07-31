@@ -17,6 +17,8 @@ jobs:
     permissions:
       contents: 'read'
     runs-on: linux-gpu-runner
+    container:
+      image: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
     steps:
     - name: Checkout
@@ -25,38 +27,41 @@ jobs:
         # Checkout using commit hash to make "no-commit-to-branch" test pass.
         ref: ${{ github.sha }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v2
-      with:
-        enable-cache: true
-        cache-dependency-glob: "pyproject.toml"
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y libcurl4
 
     - name: "Set up Python"
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "pyproject.toml"
+
     - name: Install Dependencies
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        # Set DS_BUILD_OPS=0 during installation to prevent DeepSpeed from trying to build CUDA ops
-        DS_BUILD_OPS=0 uv pip install -e '.[ci_gpu]' hf_transfer --system
+        uv pip install -e '.[ci_gpu]' hf_transfer --system
 
     - name: Download Test Data
       run: |
         ./tests/scripts/predownload_for_github_gpu_tests.sh
 
-    - name: Set CUDA Environment
+    - name: Verify CUDA environment
       run: |
-        # Set CUDA_HOME to default location
-        echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
-        # Disable DeepSpeed CUDA ops building since nvcc is not available on the runner
-        echo "DS_BUILD_OPS=0" >> $GITHUB_ENV
+        echo "=== CUDA Environment Check ==="
+        nvidia-smi
+        nvcc --version
+        echo "CUDA_HOME: ${CUDA_HOME}"
+        which nvcc
 
     - name: Run GPU tests
       run: |
-        nvidia-smi
-
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
