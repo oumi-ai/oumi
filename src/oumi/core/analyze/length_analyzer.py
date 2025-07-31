@@ -91,11 +91,5 @@ class LengthAnalyzer(SampleAnalyzer):
                 # Use tokenizer for accurate token count
                 tokens = tokenizer_to_use.encode(text_content, add_special_tokens=False)
                 metrics["token_count"] = len(tokens)
-            elif tokenizer_to_use is None:
-                # Require tokenizer when token_count is enabled
-                raise ValueError(
-                    "tokenizer must be provided when token_count=True. "
-                    "Set token_count=False or provide a tokenizer."
-                )
 
         return metrics
