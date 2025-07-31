@@ -14,6 +14,10 @@
 
 """Tests for the LengthAnalyzer."""
 
+from unittest.mock import Mock
+
+import pytest
+
 from oumi.core.analyze.length_analyzer import LengthAnalyzer
 
 
@@ -74,3 +78,37 @@ def test_analyzer_instantiation():
     assert result["word_count"] == 2
     assert result["sentence_count"] == 1  # Default True
     assert "token_count" not in result  # Default False
+
+
+def test_token_count():
+    """Test token count functionality."""
+
+    # Test token count with tokenizer
+    mock_tokenizer = Mock()
+    mock_tokenizer.encode.return_value = [1, 2, 3, 4, 5]  # 5 tokens
+
+    analyzer = LengthAnalyzer(
+        char_count=False,
+        word_count=False,
+        sentence_count=False,
+        token_count=True,
+        tokenizer=mock_tokenizer,
+    )
+    result = analyzer.analyze_message("Hello, world!")
+
+    assert result["token_count"] == 5
+    mock_tokenizer.encode.assert_called_once_with(
+        "Hello, world!", add_special_tokens=False
+    )
+
+    # Test validation (requires tokenizer)
+    with pytest.raises(
+        ValueError, match="tokenizer must be provided when token_count=True"
+    ):
+        LengthAnalyzer(
+            char_count=False,
+            word_count=False,
+            sentence_count=False,
+            token_count=True,
+            tokenizer=None,
+        )

@@ -19,15 +19,24 @@ class MockSampleAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
         self.analyze_calls = []
+        self.tokenizer = kwargs.get("tokenizer")
 
     def analyze_message(self, text_content: str) -> dict:
         """Mock analysis that returns basic metrics."""
         self.analyze_calls.append(text_content)
-        return {
+        result = {
             "char_count": len(text_content),
             "word_count": len(text_content.split()),
             "analyzer_id": self.config.get("id", "mock"),
         }
+
+        # Add token count if tokenizer is available
+        if self.tokenizer:
+            result["token_count"] = len(
+                self.tokenizer.encode(text_content, add_special_tokens=False)
+            )
+
+        return result
 
 
 class MockFailingAnalyzer:
@@ -35,6 +44,7 @@ class MockFailingAnalyzer:
 
     def __init__(self, **kwargs):
         self.config = kwargs
+        self.tokenizer = kwargs.get("tokenizer")
 
     def analyze_message(self, text_content: str) -> dict:
         raise ValueError("Analyzer failed")
@@ -560,3 +570,32 @@ def test_invalid_expressions(test_data_path, mock_config):
 
         with pytest.raises((ValueError, KeyError)):
             analyzer.filter(expression)
+
+
+def test_analyzer_with_tokenizer(test_data_path):
+    """Test that tokenizer is properly passed to analyzers."""
+    from unittest.mock import Mock
+
+    # Create a mock tokenizer
+    mock_tokenizer = Mock()
+    mock_tokenizer.encode.return_value = [1, 2, 3]  # 3 tokens
+
+    # Create config with tokenizer
+    config = AnalyzeConfig(
+        dataset_name="text_sft",
+        split="train",
+        sample_count=2,
+        tokenizer=mock_tokenizer,
+        analyzers=[
+            SampleAnalyzerParams(
+                id="text_length_analyzer",
+                params={"char_count": True, "word_count": True, "token_count": True},
+            ),
+        ],
+    )
+
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
+
+    # Test that tokenizer was passed to analyzers
+    text_length_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
+    assert text_length_analyzer.tokenizer == mock_tokenizer
