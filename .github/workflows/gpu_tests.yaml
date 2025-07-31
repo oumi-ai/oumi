@@ -22,6 +22,7 @@ jobs:
     runs-on: linux-gpu-runner
     container:
       image: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+      options: --gpus all
 
     steps:
     - name: Checkout
@@ -61,10 +62,23 @@ jobs:
     - name: Verify CUDA environment
       run: |
         echo "=== CUDA Environment Check ==="
-        nvidia-smi
+        # Check if nvidia-smi is available
+        if command -v nvidia-smi &> /dev/null; then
+          nvidia-smi
+        else
+          echo "nvidia-smi not found, but that's OK in container"
+        fi
+
+        # Check NVCC
         nvcc --version
-        echo "CUDA_HOME: ${CUDA_HOME}"
+        echo "CUDA_HOME: ${CUDA_HOME:-/usr/local/cuda}"
         which nvcc
+
+        # Set CUDA_HOME if not set
+        if [ -z "$CUDA_HOME" ]; then
+          export CUDA_HOME=/usr/local/cuda
+          echo "Set CUDA_HOME=$CUDA_HOME"
+        fi
 
     - name: Run GPU tests
       run: |
