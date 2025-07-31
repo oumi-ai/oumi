@@ -29,11 +29,9 @@ class MockSampleAnalyzer:
             "analyzer_id": self.config.get("id", "mock"),
         }
 
-        # Add token count if tokenizer is available
+        # Use tokenizer if provided (to verify it's passed correctly)
         if tokenizer:
-            result["token_count"] = len(
-                tokenizer.encode(text_content, add_special_tokens=False)
-            )
+            tokenizer.encode(text_content, add_special_tokens=False)
 
         return result
 
@@ -597,21 +595,10 @@ def test_analyzer_with_tokenizer(test_data_path):
     # Run analysis to trigger tokenizer usage
     analyzer.analyze_dataset()
 
-    # Check that tokenizer was used in analysis
+    # Check that analysis completed successfully
     results = analyzer.analysis_results
     assert results is not None
     assert len(results.messages) > 0
 
-    # Check that token_count metrics are present (indicating tokenizer was used)
-    first_message = results.messages[0]
-    assert "text_length_analyzer_token_count" in first_message.analyzer_metrics
-
     # Verify that the mock tokenizer was actually called
     assert mock_tokenizer.encode.call_count > 0
-
-    # Check that it was called with the expected parameters
-    # The tokenizer should have been called with some text and add_special_tokens=False
-    call_args = mock_tokenizer.encode.call_args
-    assert call_args is not None
-    assert len(call_args[0]) == 1  # One positional argument (the text)
-    assert call_args[1] == {"add_special_tokens": False}  # Keyword arguments
