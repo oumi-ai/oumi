@@ -136,7 +136,8 @@ def dict_lru_cache(maxsize: int = 128) -> Callable[[F], F]:
             # Reconstruct the original args and kwargs
             # (In practice, we just pass through to the original function)
             return func(
-                *cached_wrapper._original_args, **cached_wrapper._original_kwargs
+                *cached_wrapper._original_args,
+                **cached_wrapper._original_kwargs,  # type: ignore
             )
 
         @functools.wraps(func)
