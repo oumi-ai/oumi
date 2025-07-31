@@ -1,4 +1,4 @@
-# Model Quantization Guide
+# Quantization
 
 > 🚧 **DEVELOPMENT STATUS**: The quantization feature is currently under active development. Some features may be experimental or subject to change.
 
@@ -7,11 +7,12 @@ This guide covers the `oumi quantize` command for reducing model size while main
 ## Quick Start
 
 ```bash
-# Simplest example - quantize TinyLlama to 4-bit
+# Quantize TinyLlama to 4-bit
 oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output model.pytorch
 ```
 
 **Expected Output:**
+
 ```
 ✅ Model quantized successfully!
 📁 Output saved to: model.pytorch
@@ -36,6 +37,7 @@ oumi quantize --method awq_q8_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --o
 ```
 
 **Supported AWQ Methods:**
+
 - `awq_q4_0`: 4-bit quantization (default, ~4x compression)
 - `awq_q4_1`: 4-bit with asymmetric quantization
 - `awq_q8_0`: 8-bit quantization (~2x compression, higher quality)
@@ -54,6 +56,7 @@ oumi quantize --method bnb_8bit --model "microsoft/DialoGPT-medium" --output dia
 ```
 
 **Supported BitsAndBytes Methods:**
+
 - `bnb_4bit`: 4-bit quantization with NF4 (~4x compression)
 - `bnb_8bit`: 8-bit linear quantization (~2x compression)
 
@@ -74,6 +77,7 @@ calibration_samples: 512     # AWQ-specific: calibration dataset size
 ```
 
 Run with configuration:
+
 ```bash
 oumi quantize --config quantization_config.yaml
 ```
@@ -81,6 +85,7 @@ oumi quantize --config quantization_config.yaml
 ## Output Formats
 
 Currently supported output formats:
+
 - **pytorch**: PyTorch state dict format (`.pytorch` extension)
 - **safetensors**: HuggingFace safetensors format (`.safetensors` extension)
 
@@ -119,6 +124,7 @@ verbose: true               # Enable detailed logging
 ## Examples Directory
 
 See [examples/quantization/](../examples/quantization/) for ready-to-use configurations:
+
 - `quantization_config.yaml` - Basic quantization setup
 - `calibrated_quantization_config.yaml` - Production setup with enhanced calibration
 
