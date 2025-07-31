@@ -203,6 +203,16 @@ class DSParams(BaseParams):
     zero_force_ds_cpu_optimizer: bool = True
     """Force DeepSpeed CPU optimizer when CPU offloading is enabled."""
 
+    # ZeRO-2 specific communication parameters
+    allgather_partitions: bool = True
+    """Enable allgather partitions for ZeRO-2."""
+
+    reduce_scatter: bool = True
+    """Enable reduce scatter for ZeRO-2."""
+
+    round_robin_gradients: bool = False
+    """Enable round robin gradients for ZeRO-2."""
+
     # Activation checkpointing
     activation_checkpointing: dict[str, Any] = field(default_factory=dict)
     """Configuration for activation checkpointing to save memory."""
@@ -285,13 +295,13 @@ class DSParams(BaseParams):
         ]:
             zero_config.update(
                 {
-                    "allgather_partitions": True,
+                    "allgather_partitions": self.allgather_partitions,
                     "allgather_bucket_size": self.allgather_bucket_size,
                     "overlap_comm": self.overlap_comm,
-                    "reduce_scatter": True,
+                    "reduce_scatter": self.reduce_scatter,
                     "reduce_bucket_size": self.reduce_bucket_size,
                     "contiguous_gradients": self.contiguous_gradients,
-                    "round_robin_gradients": True,
+                    "round_robin_gradients": self.round_robin_gradients,
                 }
             )
 

@@ -48,37 +48,67 @@ jobs:
 
     - name: Set CUDA_HOME
       run: |
-        # Find CUDA installation
-        if [ -d "/usr/local/cuda" ] && [ -f "/usr/local/cuda/bin/nvcc" ]; then
-          echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
-        elif [ -d "/opt/cuda" ] && [ -f "/opt/cuda/bin/nvcc" ]; then
-          echo "CUDA_HOME=/opt/cuda" >> $GITHUB_ENV
-        elif command -v nvcc &> /dev/null; then
+        echo "=== Searching for CUDA installation ==="
+
+        # First, check if nvcc is available anywhere
+        echo "Checking for nvcc in PATH..."
+        if command -v nvcc &> /dev/null; then
           NVCC_PATH=$(which nvcc)
+          echo "Found nvcc at: $NVCC_PATH"
           CUDA_PATH=$(dirname $(dirname $NVCC_PATH))
           echo "CUDA_HOME=$CUDA_PATH" >> $GITHUB_ENV
         else
-          # Try to find CUDA in common locations
-          for cuda_dir in /usr/local/cuda-* /opt/cuda-*; do
-            if [ -d "$cuda_dir" ] && [ -f "$cuda_dir/bin/nvcc" ]; then
-              echo "CUDA_HOME=$cuda_dir" >> $GITHUB_ENV
-              break
+          echo "nvcc not found in PATH"
+
+          # Search for CUDA installations
+          echo "Searching for CUDA installations..."
+          CUDA_FOUND=false
+
+          # Check common CUDA locations
+          for cuda_dir in /usr/local/cuda /usr/local/cuda-* /opt/cuda /opt/cuda-* /usr/cuda; do
+            if [ -d "$cuda_dir" ]; then
+              echo "Found CUDA directory: $cuda_dir"
+              if [ -f "$cuda_dir/bin/nvcc" ]; then
+                echo "  ✓ nvcc found at $cuda_dir/bin/nvcc"
+                echo "CUDA_HOME=$cuda_dir" >> $GITHUB_ENV
+                CUDA_FOUND=true
+                break
+              else
+                echo "  ✗ nvcc not found in $cuda_dir/bin/"
+              fi
             fi
           done
+
+          # If still not found, search more broadly
+          if [ "$CUDA_FOUND" = false ]; then
+            echo "Searching system-wide for nvcc..."
+            NVCC_LOCATIONS=$(find /usr -name "nvcc" 2>/dev/null | head -5 || true)
+            if [ ! -z "$NVCC_LOCATIONS" ]; then
+              echo "Found nvcc at:"
+              echo "$NVCC_LOCATIONS"
+              FIRST_NVCC=$(echo "$NVCC_LOCATIONS" | head -1)
+              CUDA_PATH=$(dirname $(dirname $FIRST_NVCC))
+              echo "Setting CUDA_HOME to: $CUDA_PATH"
+              echo "CUDA_HOME=$CUDA_PATH" >> $GITHUB_ENV
+            else
+              echo "No nvcc found on system"
+              # Set a fallback but also set flag to skip DeepSpeed build
+              echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
+              echo "DS_BUILD_OPS=0" >> $GITHUB_ENV
+              echo "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True" >> $GITHUB_ENV
+            fi
+          fi
         fi
 
-        # Verify CUDA_HOME is set
-        if [ -z "$CUDA_HOME" ]; then
-          echo "Warning: CUDA_HOME not found, setting to /usr/local/cuda as fallback"
-          echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
-        fi
-
-        echo "CUDA_HOME set to: $CUDA_HOME"
+        echo "=== Final environment variables ==="
+        echo "CUDA_HOME: ${CUDA_HOME:-/usr/local/cuda}"
+        echo "DS_BUILD_OPS: ${DS_BUILD_OPS:-1}"
 
     - name: Run GPU tests
       run: |
         nvidia-smi
         echo "CUDA_HOME: $CUDA_HOME"
+        echo "DS_BUILD_OPS: $DS_BUILD_OPS"
 
         # Verify nvcc is available
         if [ -f "$CUDA_HOME/bin/nvcc" ]; then
@@ -86,7 +116,12 @@ jobs:
           $CUDA_HOME/bin/nvcc --version
         else
           echo "nvcc not found at $CUDA_HOME/bin/nvcc"
-          find /usr -name "nvcc" 2>/dev/null | head -5 || true
+          if [ "$DS_BUILD_OPS" = "0" ]; then
+            echo "DS_BUILD_OPS=0 is set, DeepSpeed will skip building CUDA ops"
+          else
+            echo "Searching for nvcc on system..."
+            find /usr -name "nvcc" 2>/dev/null | head -5 || true
+          fi
         fi
 
         cd ./tests/integration/
