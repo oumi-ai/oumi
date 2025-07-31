@@ -52,7 +52,7 @@ Structured decoding helps ensure the model outputs data in a consistent, parseab
 Here's an example of how to use guided decoding to generate data in a structured format:
 
 ```{code-block} python
-:emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 27, 28, 52
+:emphasize-lines: 1, 7, 11, 12, 13, 14, 15, 16, 27, 28, 49
 
 from pydantic import BaseModel
 from oumi.inference import OpenAIInferenceEngine
@@ -151,7 +151,7 @@ Batch processing offers several key advantages over real-time inference with mul
 Here's an OpenAI example of how to use Oumi's async batch inference:
 
 ```{code-block} python
-:emphasize-lines: 10,26
+:emphasize-lines: 10,24
 
 from oumi.inference import OpenAIInferenceEngine
 from oumi.core.configs import InferenceConfig, RemoteParams, ModelParams
