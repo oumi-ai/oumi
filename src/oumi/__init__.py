@@ -24,7 +24,7 @@ Modules:
     - :mod:`~oumi.infer`: Functions for model inference, including interactive mode.
     - :mod:`~oumi.train`: Training utilities for machine learning models.
     - :mod:`~oumi.utils`: Utility functions, including logging configuration.
-    - :mod:`~oumi.judges`: Functions for judging datasets and model responses.
+    - :mod:`~oumi.judges`: Functions for judging datasets and conversations.
 
 Functions:
     - :func:`~oumi.train.train`: Train a machine learning model.
@@ -32,6 +32,7 @@ Functions:
     - :func:`~oumi.evaluate.evaluate`: Evaluate a model using LM Harness.
     - :func:`~oumi.infer.infer`: Perform inference with a trained model.
     - :func:`~oumi.infer.infer_interactive`: Run interactive inference with a model.
+    - :func:`~oumi.quantize.quantize`: Quantize a model to reduce size and memory usage.
     - :func:`~oumi.judge.judge_dataset`: Judge a dataset using a model.
 
 Examples:
@@ -56,8 +57,14 @@ Examples:
         >>> config = InferenceConfig(...)
         >>> outputs = infer(config)
 
-    Judging a dataset::
+    Quantizing a model::
 
+        >>> from oumi import quantize
+        >>> from oumi.core.configs import QuantizationConfig
+        >>> config = QuantizationConfig(...)
+        >>> result = quantize(config)
+
+    Judging a dataset::
         >>> from oumi import judge_dataset
         >>> from oumi.core.configs import JudgeConfig
         >>> config = JudgeConfig(...)
@@ -79,13 +86,14 @@ if TYPE_CHECKING:
         EvaluationConfig,
         InferenceConfig,
         JudgeConfig,
-        JudgeConfigV2,
+        QuantizationConfig,
+        SynthesisConfig,
         TrainingConfig,
     )
-    from oumi.core.datasets import BaseSftDataset
     from oumi.core.inference import BaseInferenceEngine
     from oumi.core.types.conversation import Conversation
-    from oumi.judges_v2.base_judge import JudgeOutput
+    from oumi.judges.base_judge import JudgeOutput
+    from oumi.quantize.base import QuantizationResult
 
 logging.configure_dependency_warnings()
 
@@ -166,84 +174,8 @@ def infer(
     )
 
 
-def judge_conversations(
-    config: JudgeConfig, judge_inputs: list[Conversation]
-) -> list[dict[str, Any]]:
-    """Judge a list of conversations.
-
-    This function evaluates a list of conversations using the specified Judge.
-
-    The function performs the following steps:
-
-        1. Initializes the Judge with the provided configuration.
-        2. Uses the Judge to evaluate each conversation input.
-        3. Collects and returns the judged outputs.
-
-    Args:
-        config: The configuration for the judge.
-        judge_inputs: A list of Conversation objects to be judged.
-
-    Returns:
-        List[Dict[str, Any]]: A list of judgement results for each conversation.
-
-        >>> # Example output:
-        [
-            {'helpful': True, 'safe': False},
-            {'helpful': True, 'safe': True},
-        ]
-
-    Example:
-        >>> config = JudgeConfig(...) # doctest: +SKIP
-        >>> judge_inputs = [Conversation(...), Conversation(...)] # doctest: +SKIP
-        >>> judged_outputs = judge_conversations(config, judge_inputs) # doctest: +SKIP
-        >>> for output in judged_outputs: # doctest: +SKIP
-        ...     print(output)
-    """
-    import oumi.judge
-
-    return oumi.judge.judge_conversations(config, judge_inputs)
-
-
-def judge_dataset(config: JudgeConfig, dataset: BaseSftDataset) -> list[dict[str, Any]]:
-    """Judge a dataset.
-
-    This function evaluates a given dataset using a specified Judge configuration.
-
-    The function performs the following steps:
-
-        1. Initializes the Judge with the provided configuration.
-        2. Iterates through the dataset to extract conversation inputs.
-        3. Uses the Judge to evaluate each conversation input.
-        4. Collects and returns the judged outputs.
-
-    Args:
-        config: The configuration for the judge.
-        dataset: The dataset to be judged. This dataset
-            should be compatible with the Supervised Finetuning Dataset class.
-
-    Returns:
-        List[Dict[str, Any]]: A list of judgement results for each conversation.
-
-        >>> # Example output:
-        [
-            {'helpful': True, 'safe': False},
-            {'helpful': True, 'safe': True},
-        ]
-
-    Example:
-        >>> config = JudgeConfig(...) # doctest: +SKIP
-        >>> dataset = SomeDataset(...) # doctest: +SKIP
-        >>> judged_outputs = judge_dataset(config, dataset) # doctest: +SKIP
-        >>> for output in judged_outputs: # doctest: +SKIP
-        ...     print(output)
-    """
-    import oumi.judge
-
-    return oumi.judge.judge_dataset(config, dataset)
-
-
-def judge_v2_dataset(
-    judge_config: JudgeConfigV2 | str,
+def judge_dataset(
+    judge_config: JudgeConfig | str,
     dataset: list[dict[str, str]],
 ) -> list[JudgeOutput]:
     """Judge a dataset using Oumi's Judge framework.
@@ -291,9 +223,16 @@ def judge_v2_dataset(
         >>> for output in judged_outputs:
         ...     print(output.field_values)  # e.g., {'judgment': True}
     """
-    import oumi.judge_v2
+    import oumi.judge
 
-    return oumi.judge_v2.judge_dataset(judge_config, dataset)
+    return oumi.judge.judge_dataset(judge_config, dataset)
+
+
+def synthesize(config: SynthesisConfig) -> list[dict[str, Any]]:
+    """Synthesize a dataset using the provided configuration."""
+    import oumi.synth
+
+    return oumi.synth.synthesize(config)
 
 
 def train(
@@ -311,12 +250,36 @@ def train(
     )
 
 
+def quantize(config: QuantizationConfig) -> QuantizationResult:
+    """Quantizes a model using the provided configuration.
+
+    Args:
+        config: Quantization configuration containing model parameters,
+            method, output path, and other settings.
+
+    Returns:
+        QuantizationResult containing:
+        - quantized_size_bytes: Size of the quantized model in bytes
+        - output_path: Path to the quantized model
+        - quantization_method: Quantization method used
+        - format_type: Format type of the quantized model
+        - additional_info: Additional method-specific information
+
+    Raises:
+        RuntimeError: If quantization fails for any reason
+        ValueError: If configuration is invalid for this quantizer
+    """
+    import oumi.quantize
+
+    return oumi.quantize.quantize(config)
+
+
 __all__ = [
     "evaluate_async",
     "evaluate",
     "infer_interactive",
     "infer",
-    "judge_conversations",
-    "judge_dataset",
+    "quantize",
+    "synthesize",
     "train",
 ]

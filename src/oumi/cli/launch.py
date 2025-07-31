@@ -34,12 +34,12 @@ if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
 
 
-def _get_working_dir(current: str) -> str:
+def _get_working_dir(current: Optional[str]) -> Optional[str]:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
         return current
     oumi_root = get_git_root_dir()
-    if not oumi_root or oumi_root == Path(current).resolve():
+    if current and (not oumi_root or oumi_root == Path(current).resolve()):
         return current
     use_root = typer.confirm(
         "You are using a dev build of oumi. "
@@ -238,9 +238,8 @@ def _poll_job(
             f"Job [yellow]{final_status.id}[/yellow] finished with "
             f"status [yellow]{final_status.status}[/yellow]"
         )
-        cli_utils.CONSOLE.print(
-            f"Job metadata: [yellow]{final_status.metadata}[/yellow]"
-        )
+        cli_utils.CONSOLE.print("Job metadata:")
+        cli_utils.CONSOLE.print(f"[yellow]{final_status.metadata}[/yellow]")
 
 
 # ----------------------------

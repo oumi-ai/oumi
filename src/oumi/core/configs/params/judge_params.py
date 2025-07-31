@@ -17,6 +17,7 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
+from oumi.utils.placeholders import get_placeholders, resolve_placeholders
 
 
 class JudgeResponseFormat(str, Enum):
@@ -85,6 +86,14 @@ class JudgeParams(BaseParams):
     system_instruction: Optional[str] = field(default=None)
     """Optional system message to guide judge behavior."""
 
+    template_variables: dict[str, str] = field(default_factory=dict)
+    """Variables to be replaced in `prompt_template` and `system_instruction`.
+
+    This dictionary contains variable names and their corresponding values that should
+    be replaced in the `prompt_template` and `system_instruction` fields, before the
+    dataset-based placeholders are processed. These variables have the following format:
+    {variable_name}."""
+
     response_format: JudgeResponseFormat = field(default=JudgeResponseFormat.XML)
     """The format in which the judge should respond."""
 
@@ -151,3 +160,25 @@ class JudgeParams(BaseParams):
                 raise ValueError("All judgment_scores values must be numeric")
             if not self.judgment_scores:
                 raise ValueError("judgment_scores cannot be empty when provided")
+
+    def replace_template_variables(self):
+        """Apply template variables to prompt_template and system_instruction."""
+        if not self.template_variables:
+            return
+
+        self.prompt_template = resolve_placeholders(
+            self.prompt_template, self.template_variables, missing_values_allowed=True
+        )
+        if self.system_instruction:
+            self.system_instruction = resolve_placeholders(
+                self.system_instruction,
+                self.template_variables,
+                missing_values_allowed=True,
+            )
+
+    def get_placeholders(self) -> set[str]:
+        """Get the prompt template placeholders, after template variable replacement."""
+        prompt_template = resolve_placeholders(
+            self.prompt_template, self.template_variables, missing_values_allowed=True
+        )
+        return get_placeholders(prompt_template)
