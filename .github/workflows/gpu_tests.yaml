@@ -12,6 +12,9 @@ on:
       - 'scripts/**'
       - 'README.md'
 
+env:
+  SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
+
 jobs:
   gpu-tests:
     permissions:
@@ -26,6 +29,8 @@ jobs:
       with:
         # Checkout using commit hash to make "no-commit-to-branch" test pass.
         ref: ${{ github.sha }}
+        # Need full history for setuptools-scm to detect version
+        fetch-depth: 0
 
     - name: Install system dependencies
       run: |
