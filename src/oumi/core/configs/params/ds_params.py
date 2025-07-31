@@ -228,6 +228,15 @@ class DSParams(BaseParams):
     wall_clock_breakdown: bool = False
     """Enable detailed wall clock time breakdown logging."""
 
+    # Ulysses Sequence Parallelism
+    ulysses_sequence_parallel_size: int = 1
+    """Number of GPUs to distribute sequences across using Ulysses sequence parallelism.
+
+    When set to > 1, enables sequence parallelism where sequences are sharded across
+    multiple GPUs. This allows training on extremely long sequences (500K+ tokens).
+    Must be <= world_size and work_size must be divisible by this value.
+    """
+
     def __post_init__(self) -> None:
         """Validate DeepSpeed configuration parameters."""
         # Validate offloading configurations
@@ -372,6 +381,13 @@ class DSParams(BaseParams):
         # Add activation checkpointing if configured
         if self.activation_checkpointing:
             config["activation_checkpointing"] = self.activation_checkpointing
+
+        # Add Ulysses sequence parallelism if configured
+        if self.ulysses_sequence_parallel_size > 1:
+            config["ulysses_sequence_parallel"] = {
+                "parallel_size": self.ulysses_sequence_parallel_size,
+                "enabled": True,
+            }
 
         return config
 

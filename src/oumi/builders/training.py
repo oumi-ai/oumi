@@ -22,7 +22,12 @@ import trl
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.trainers import BaseTrainer, HuggingFaceTrainer, VerlGrpoTrainer
+from oumi.core.trainers import (
+    BaseTrainer,
+    HuggingFaceTrainer,
+    UlyssesSFTTrainer,
+    VerlGrpoTrainer,
+)
 from oumi.core.trainers import Trainer as OumiTrainer
 from oumi.utils.logging import logger
 
@@ -101,8 +106,60 @@ def build_trainer(
 
         return _init_verl_grpo_trainer
 
+    def _create_ulysses_sft_builder_fn() -> Callable[..., BaseTrainer]:
+        def _init_ulysses_sft_trainer(*args, **kwargs) -> BaseTrainer:
+            training_args = kwargs.pop("args", None)
+            training_config = kwargs.pop("training_config", None)
+            callbacks = kwargs.pop("callbacks", [])
+
+            if training_args is not None:
+                training_args = cast(TrainingParams, training_args)
+                training_args.finalize_and_validate()
+
+            hf_args = training_args.to_hf(training_config)
+            if is_world_process_zero():
+                logger.info(pformat(hf_args))
+
+            # Extract Ulysses SP configuration
+            sequence_parallel_size = 1
+            if training_args is not None:
+                if training_args.enable_ulysses_sequence_parallel:
+                    sequence_parallel_size = (
+                        training_args.ulysses_sequence_parallel_size
+                    )
+                    logger.info(
+                        f"Enabling Ulysses SP with sequence_parallel_size={sequence_parallel_size}"
+                    )
+
+            # Create Ulysses SFT trainer
+            ulysses_trainer = UlyssesSFTTrainer(
+                *args,
+                **kwargs,
+                args=hf_args,
+                sequence_parallel_size=sequence_parallel_size,
+            )
+
+            trainer = HuggingFaceTrainer(ulysses_trainer, processor)
+
+            if callbacks:
+                # Handle callbacks similar to HF trainer
+                training_callbacks = (
+                    [transformers.trainer_callback.DefaultFlowCallback]
+                    + callbacks
+                    + trainer._hf_trainer.callback_handler.callbacks[1:]
+                )
+                trainer._hf_trainer.callback_handler.callbacks = []
+                for c in training_callbacks:
+                    trainer._hf_trainer.add_callback(c)
+
+            return trainer
+
+        return _init_ulysses_sft_trainer
+
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
+    elif trainer_type == TrainerType.TRL_SFT_ULYSSES:
+        return _create_ulysses_sft_builder_fn()
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(trl.DPOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:

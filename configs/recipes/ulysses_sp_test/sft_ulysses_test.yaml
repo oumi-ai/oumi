@@ -1,0 +1,62 @@
+# Ulysses Sequence Parallelism SFT Test Configuration
+#
+# This configuration demonstrates how to use the new TRL_SFT_ULYSSES trainer type
+# to enable sequence parallelism for training on long sequences.
+#
+# Usage:
+#   oumi train -c configs/recipes/ulysses_sp_test/sft_ulysses_test.yaml
+#
+# Note: This requires distributed training setup with multiple GPUs
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 8192  # Extended sequence length for testing Ulysses SP
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
+  trust_remote_code: True
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+    target_col: "prompt"
+
+training:
+  # Use the new Ulysses-enabled SFT trainer
+  trainer_type: TRL_SFT_ULYSSES
+  
+  # Enable Ulysses Sequence Parallelism
+  enable_ulysses_sequence_parallel: True
+  ulysses_sequence_parallel_size: 2  # Shard sequences across 2 GPUs
+  
+  save_final_model: True
+  save_steps: 100
+  max_steps: 10
+  per_device_train_batch_size: 2  # Smaller batch size due to longer sequences
+  gradient_accumulation_steps: 4
+
+  ddp_find_unused_parameters: False
+  optimizer: "adamw_torch"
+  learning_rate: 2.0e-05
+  compile: False
+
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+
+  seed: 192847
+  use_deterministic: True
+
+  logging_steps: 5
+  log_model_summary: False
+  empty_device_cache_steps: 50
+  run_name: "smollm135m.ulysses_sp.test"
+  output_dir: "output/smollm135m.ulysses_sp"
+  include_performance_metrics: True
+
+# DeepSpeed configuration with Ulysses SP support
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: ZERO_2
+  precision: BF16
+  ulysses_sequence_parallel_size: 2  # Must match training.ulysses_sequence_parallel_size

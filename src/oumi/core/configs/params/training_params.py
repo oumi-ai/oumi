@@ -38,6 +38,14 @@ class TrainerType(Enum):
     using the TRL (Transformer Reinforcement Learning) library.
     """
 
+    TRL_SFT_ULYSSES = "trl_sft_ulysses"
+    """Supervised fine-tuning trainer with Ulysses sequence parallelism.
+
+    This trainer extends TRL's SFT trainer with Ulysses sequence parallelism
+    support, enabling training on extremely long sequences (500K+ tokens)
+    by sharding sequences across multiple GPUs.
+    """
+
     TRL_DPO = "trl_dpo"
     """Direct Preference Optimization trainer from `trl` library.
 
@@ -688,6 +696,26 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
+    enable_ulysses_sequence_parallel: bool = False
+    """Whether to enable Ulysses sequence parallelism for long sequence training.
+
+    When enabled, sequences are sharded across multiple GPUs, allowing training
+    on extremely long sequences (500K+ tokens). This requires DeepSpeed and
+    distributed training to be enabled.
+
+    See: https://www.deepspeed.ai/tutorials/ulysses-alst-sequence-parallelism/
+    """
+
+    ulysses_sequence_parallel_size: int = 1
+    """Number of GPUs to distribute sequences across for Ulysses sequence parallelism.
+
+    This parameter determines how many GPUs will be used to shard sequences in
+    the sequence dimension. Must be <= world_size and ideally divides evenly
+    into the sequence length.
+
+    Only used when enable_ulysses_sequence_parallel=True.
+    """
+
     def to_hf(self, training_config=None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
@@ -724,6 +752,8 @@ class TrainingParams(BaseParams):
 
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
+        elif self.trainer_type == TrainerType.TRL_SFT_ULYSSES:
+            config_class = trl.SFTConfig  # Use same config as regular SFT
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
