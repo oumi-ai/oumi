@@ -84,18 +84,16 @@ def get_app() -> typer.Typer:
         name="synthesize",
         hidden=True,
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Synthesize a dataset.",
+        help="🚧 [Experimental] Synthesize a dataset.",
     )(synth)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
-    if experimental_features_enabled():
-        app.command(
-            context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-            help="🚧 [Experimental] Quantize a model.",
-        )(quantize)
-
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Quantize a model.",
+    )(quantize)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_dataset_file

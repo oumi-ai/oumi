@@ -14,6 +14,7 @@
 
 """AWQ (Activation-aware Weight Quantization) quantizer implementation."""
 
+import importlib
 import importlib.util
 
 import torch
@@ -48,7 +49,10 @@ class AwqQuantization(BaseQuantization):
 
     def __init__(self):
         """Initialize AWQ quantizer."""
-        self._awq = importlib.util.find_spec("autoawq")
+        if importlib.util.find_spec("awq") is not None:
+            self._awq = importlib.import_module("awq")
+        else:
+            self._awq = None
 
     @override
     def raise_if_requirements_not_met(self):
