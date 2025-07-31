@@ -46,11 +46,48 @@ jobs:
       run: |
         ./tests/scripts/predownload_for_github_gpu_tests.sh
 
+    - name: Set CUDA_HOME
+      run: |
+        # Find CUDA installation
+        if [ -d "/usr/local/cuda" ] && [ -f "/usr/local/cuda/bin/nvcc" ]; then
+          echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
+        elif [ -d "/opt/cuda" ] && [ -f "/opt/cuda/bin/nvcc" ]; then
+          echo "CUDA_HOME=/opt/cuda" >> $GITHUB_ENV
+        elif command -v nvcc &> /dev/null; then
+          NVCC_PATH=$(which nvcc)
+          CUDA_PATH=$(dirname $(dirname $NVCC_PATH))
+          echo "CUDA_HOME=$CUDA_PATH" >> $GITHUB_ENV
+        else
+          # Try to find CUDA in common locations
+          for cuda_dir in /usr/local/cuda-* /opt/cuda-*; do
+            if [ -d "$cuda_dir" ] && [ -f "$cuda_dir/bin/nvcc" ]; then
+              echo "CUDA_HOME=$cuda_dir" >> $GITHUB_ENV
+              break
+            fi
+          done
+        fi
+
+        # Verify CUDA_HOME is set
+        if [ -z "$CUDA_HOME" ]; then
+          echo "Warning: CUDA_HOME not found, setting to /usr/local/cuda as fallback"
+          echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
+        fi
+
+        echo "CUDA_HOME set to: $CUDA_HOME"
+
     - name: Run GPU tests
       run: |
         nvidia-smi
+        echo "CUDA_HOME: $CUDA_HOME"
+
+        # Verify nvcc is available
+        if [ -f "$CUDA_HOME/bin/nvcc" ]; then
+          echo "Found nvcc at: $CUDA_HOME/bin/nvcc"
+          $CUDA_HOME/bin/nvcc --version
+        else
+          echo "nvcc not found at $CUDA_HOME/bin/nvcc"
+          find /usr -name "nvcc" 2>/dev/null | head -5 || true
+        fi
 
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
-      env:
-        CUDA_HOME: /usr/local/cuda
