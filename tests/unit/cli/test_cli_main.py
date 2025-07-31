@@ -1,4 +1,3 @@
-import os
 from inspect import signature
 from typing import Callable, get_type_hints
 from unittest.mock import Mock, patch
@@ -11,11 +10,11 @@ from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
 from oumi.cli.infer import infer
-from oumi.cli.judge import conversations, dataset
-from oumi.cli.judge_v2 import judge_file
+from oumi.cli.judge import judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.main import get_app
+from oumi.cli.synth import synth
 from oumi.cli.train import train
 
 runner = CliRunner()
@@ -50,6 +49,13 @@ def mock_infer():
     with patch("oumi.cli.main.infer") as m_infer:
         _copy_command(m_infer, infer)
         yield m_infer
+
+
+@pytest.fixture
+def mock_synth():
+    with patch("oumi.cli.main.synth") as m_synth:
+        _copy_command(m_synth, synth)
+        yield m_synth
 
 
 @pytest.fixture
@@ -109,24 +115,10 @@ def mock_which():
 
 
 @pytest.fixture
-def mock_judge_dataset():
-    with patch("oumi.cli.main.dataset") as m_dataset:
-        _copy_command(m_dataset, dataset)
-        yield m_dataset
-
-
-@pytest.fixture
-def mock_judge_conversations():
-    with patch("oumi.cli.main.conversations") as m_conversations:
-        _copy_command(m_conversations, conversations)
-        yield m_conversations
-
-
-@pytest.fixture
-def mock_judge_v2():
-    with patch("oumi.cli.main.judge_file") as m_judge_file:
-        _copy_command(m_judge_file, judge_file)
-        yield m_judge_file
+def mock_judge():
+    with patch("oumi.cli.main.judge_dataset_file") as m_judge_dataset_file:
+        _copy_command(m_judge_dataset_file, judge_dataset_file)
+        yield m_judge_dataset_file
 
 
 @pytest.fixture
@@ -162,6 +154,20 @@ def test_main_infer_registered(mock_infer):
         get_app(), ["infer", "--config", "some/path", "--allow_extraargs"]
     )
     mock_infer.assert_called_once()
+
+
+def test_main_synth_registered(mock_synth):
+    _ = runner.invoke(
+        get_app(), ["synth", "--config", "some/path", "--allow_extraargs"]
+    )
+    mock_synth.assert_called_once()
+
+
+def test_main_synthesize_registered(mock_synth):
+    _ = runner.invoke(
+        get_app(), ["synthesize", "--config", "some/path", "--allow_extraargs"]
+    )
+    mock_synth.assert_called_once()
 
 
 def test_main_fetch_registered(mock_fetch):
@@ -256,56 +262,26 @@ def test_main_which_registered(mock_which):
     mock_which.assert_called_once()
 
 
-def test_main_judge_dataset_registered(mock_judge_dataset):
+def test_main_env_registered(mock_env):
+    _ = runner.invoke(get_app(), ["env"])
+    mock_env.assert_called_once()
+
+
+def test_main_judge_registered(mock_judge):
     _ = runner.invoke(
         get_app(),
         [
             "judge",
             "dataset",
             "--config",
-            "some_config",
-            "--dataset-name",
-            "some_dataset",
-        ],
-    )
-    mock_judge_dataset.assert_called_once()
-
-
-def test_main_env_registered(mock_env):
-    _ = runner.invoke(get_app(), ["env"])
-    mock_env.assert_called_once()
-
-
-def test_main_judge_conversations_registered(mock_judge_conversations):
-    _ = runner.invoke(
-        get_app(),
-        [
-            "judge",
-            "conversations",
-            "--config",
-            "some_config",
-            "--input-file",
-            "some_file.jsonl",
-        ],
-    )
-    mock_judge_conversations.assert_called_once()
-
-
-def test_main_judge_v2_registered(mock_judge_v2):
-    os.environ["OUMI_EXPERIMENTAL_JUDGE_V2"] = "True"
-    _ = runner.invoke(
-        get_app(),
-        [
-            "judge-v2",
-            "--judge-config",
             "./my_judge_config",
-            "--input-file",
+            "--input",
             "./my_input_file.jsonl",
-            "--output-file",
+            "--output",
             "./my_output_file.jsonl",
         ],
     )
-    mock_judge_v2.assert_called_once()
+    mock_judge.assert_called_once()
 
 
 def test_main_distributed_registered():

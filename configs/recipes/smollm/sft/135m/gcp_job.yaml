@@ -21,6 +21,8 @@ working_dir: .
 
 envs:
   OUMI_RUN_NAME: smollm135m.train
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
 
 setup: |
   set -e
@@ -31,7 +33,9 @@ run: |
   source ./configs/examples/misc/sky_init.sh
 
   set -x
-  oumi train -c configs/recipes/smollm/sft/135m/train.yaml \
-    --training.enable_wandb false
+  oumi train \
+      -c configs/recipes/smollm/sft/135m/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}" \
+      --training.enable_wandb=False
 
   echo "Training complete!"

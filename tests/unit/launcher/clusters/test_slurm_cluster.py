@@ -428,6 +428,59 @@ def test_slurm_cluster_run_job(mock_datetime, mock_slurm_client):
     assert job_status == expected_status
 
 
+def test_slurm_cluster_run_job_no_working_dir(mock_datetime, mock_slurm_client):
+    cluster = SlurmCluster("debug@host", mock_slurm_client)
+    mock_successful_cmd = Mock()
+    mock_successful_cmd.exit_code = 0
+    mock_slurm_client.run_commands.return_value = mock_successful_cmd
+    mock_slurm_client.submit_job.return_value = "1234"
+    mock_slurm_client.list_jobs.return_value = [
+        JobStatus(
+            id="1234",
+            name="some name",
+            status="RUNNING",
+            metadata="",
+            cluster="mycluster",
+            done=False,
+        )
+    ]
+    expected_status = JobStatus(
+        id="1234",
+        name="some name",
+        status="RUNNING",
+        metadata="",
+        cluster="debug@host",
+        done=False,
+    )
+    job_config = _get_default_job("slurm")
+    job_config.working_dir = None
+    job_config.file_mounts = {}
+    job_status = cluster.run_job(job_config)
+    mock_slurm_client.put_recursive.assert_not_called()
+    mock_slurm_client.run_commands.assert_has_calls(
+        [
+            call(["mkdir -p ~/oumi_launcher/20241009_130424513094"]),
+            call(["chmod +x ~/oumi_launcher/20241009_130424513094/oumi_job.sh"]),
+        ]
+    )
+    job_script = (
+        "#!/bin/bash\n#SBATCH --gpus-per-task=8 \n#SBATCH --cpus-per-task=4\n\n"
+        "export var1=val1\n\n"
+        "pip install -r requirements.txt\n./hello_world.sh\n"
+    )
+    mock_slurm_client.put.assert_called_once_with(
+        job_script, "~/oumi_launcher/20241009_130424513094/oumi_job.sh"
+    )
+    mock_slurm_client.submit_job.assert_called_once_with(
+        "~/oumi_launcher/20241009_130424513094/oumi_job.sh",
+        "~/oumi_launcher/20241009_130424513094",
+        2,
+        "myjob",
+    )
+    mock_slurm_client.list_jobs.assert_called_once_with()
+    assert job_status == expected_status
+
+
 def test_slurm_cluster_run_job_with_polling_succeeds(
     mock_time, mock_datetime, mock_slurm_client
 ):

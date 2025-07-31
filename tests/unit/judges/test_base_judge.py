@@ -18,7 +18,7 @@ import pytest
 
 from oumi.core.configs.params.judge_params import JudgeOutputType, JudgeResponseFormat
 from oumi.core.types.conversation import Conversation, Message, Role
-from oumi.judges_v2.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
+from oumi.judges.base_judge import BaseJudge, JudgeOutput, JudgeOutputField
 
 
 class TestJudgeOutputField:
@@ -530,9 +530,7 @@ class TestBaseJudge:
     def test_build_judgment_prompt_missing_placeholder(self, base_judge):
         judge_input = {"question": "What is 2+2?"}  # Missing 'answer'
 
-        with pytest.raises(
-            ValueError, match="Missing values for template placeholders"
-        ):
+        with pytest.raises(ValueError, match="Missing value for placeholder: answer"):
             base_judge._build_judgment_prompt(judge_input)
 
     def test_build_judgment_prompt_extra_data(self, base_judge):

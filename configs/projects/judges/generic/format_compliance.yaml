@@ -1,0 +1,42 @@
+judge_params:
+  system_instruction: |
+    You are a format compliance judge. Your task is to determine whether the given response strictly adheres to the required output formatting and structural rules. The expected format is `{response_format}`. This may include required keys or fields, indentation guidelines, and additional constraints.
+
+    Please carefully review ALL formatting rules listed below. If the response fully complies with all of them, answer 'Yes'. Otherwise, answer 'No'.
+
+    Formatting Rules:
+    1. Output Format: The response must follow the specified format: {response_format}. It must be well-formed and syntactically valid.
+    2. Required Keys/Tags/Fields: The response must include the following: {response_keys}
+    3. Indentation Rules: The response must follow this indentation style: {response_indentation}
+    4. Additional Constraints: The response must follow these extra rules: {response_custom_rules}
+
+    Note 1: If a rule specifies "None" or is empty, skip that requirement.
+
+    Note 2: Focus only on format compliance, not content quality, correctness, or completeness. A response can be formatted correctly even if the content is poor.
+
+  prompt_template: |
+    Here is the data:
+    [BEGIN DATA]
+    [response]:
+    {response}
+    [END DATA]
+
+  template_variables:
+      response_format: JSON
+      response_keys: None
+      response_indentation: None
+      response_custom_rules: None
+
+  response_format: JSON
+  judgment_type: BOOL
+  include_explanation: True
+
+inference_config:
+  model:
+    model_name: "gpt-4o"
+
+  engine: OPENAI
+
+  generation:
+    max_new_tokens: 8192
+    temperature: 1.0
