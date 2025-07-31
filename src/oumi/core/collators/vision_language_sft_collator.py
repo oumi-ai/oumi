@@ -128,6 +128,7 @@ class VisionLanguageSftCollator:
                 - Features are padded to the maximum size in the batch
                 - Useful for models with variable-sized outputs or heterogeneous data
                 - May be less efficient but more flexible than batch processing
+
                 When False (default), conversations are processed as a batch.
 
             train_on_completions_only: If True, only compute loss on the assistant's
@@ -211,12 +212,13 @@ class VisionLanguageSftCollator:
             batch: List of dictionaries, where each dictionary must contain a
                 "conversation_json" field with a serialized Conversation object.
 
-                Expected format:
-                [
-                    {"conversation_json": '{"messages": [...], "images": [...]}'},
-                    {"conversation_json": '{"messages": [...], "images": [...]}'},
-                    ...
-                ]
+                Expected format::
+
+                    [
+                        {"conversation_json": '{"messages": [...], "images": [...]}'},
+                        {"conversation_json": '{"messages": [...], "images": [...]}'},
+                        ...
+                    ]
 
                 The conversation JSON should include:
                 - messages: List of message dictionaries with role and content
@@ -235,7 +237,8 @@ class VisionLanguageSftCollator:
         Raises:
             ValueError: If batch is empty or any item lacks "conversation_json" field.
 
-        Example:
+        Example::
+
             >>> conversation = Conversation(messages=[
             ...     {"role": "user", "content": "What's in this image?"},
             ...     {"role": "assistant", "content": "I see a cat."}
@@ -244,6 +247,7 @@ class VisionLanguageSftCollator:
             >>> features = collator([batch_item])
             >>> print(features.keys())
             dict_keys(['input_ids', 'attention_mask', 'labels', 'pixel_values'])
+
         """
         batch_size = len(batch)
         if batch_size <= 0:
