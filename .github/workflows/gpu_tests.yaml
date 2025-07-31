@@ -40,89 +40,23 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_gpu]' hf_transfer --system
+        # Set DS_BUILD_OPS=0 during installation to prevent DeepSpeed from trying to build CUDA ops
+        DS_BUILD_OPS=0 uv pip install -e '.[ci_gpu]' hf_transfer --system
 
     - name: Download Test Data
       run: |
         ./tests/scripts/predownload_for_github_gpu_tests.sh
 
-    - name: Set CUDA_HOME
+    - name: Set CUDA Environment
       run: |
-        echo "=== Searching for CUDA installation ==="
-
-        # First, check if nvcc is available anywhere
-        echo "Checking for nvcc in PATH..."
-        if command -v nvcc &> /dev/null; then
-          NVCC_PATH=$(which nvcc)
-          echo "Found nvcc at: $NVCC_PATH"
-          CUDA_PATH=$(dirname $(dirname $NVCC_PATH))
-          echo "CUDA_HOME=$CUDA_PATH" >> $GITHUB_ENV
-        else
-          echo "nvcc not found in PATH"
-
-          # Search for CUDA installations
-          echo "Searching for CUDA installations..."
-          CUDA_FOUND=false
-
-          # Check common CUDA locations
-          for cuda_dir in /usr/local/cuda /usr/local/cuda-* /opt/cuda /opt/cuda-* /usr/cuda; do
-            if [ -d "$cuda_dir" ]; then
-              echo "Found CUDA directory: $cuda_dir"
-              if [ -f "$cuda_dir/bin/nvcc" ]; then
-                echo "  ✓ nvcc found at $cuda_dir/bin/nvcc"
-                echo "CUDA_HOME=$cuda_dir" >> $GITHUB_ENV
-                CUDA_FOUND=true
-                break
-              else
-                echo "  ✗ nvcc not found in $cuda_dir/bin/"
-              fi
-            fi
-          done
-
-          # If still not found, search more broadly
-          if [ "$CUDA_FOUND" = false ]; then
-            echo "Searching system-wide for nvcc..."
-            NVCC_LOCATIONS=$(find /usr -name "nvcc" 2>/dev/null | head -5 || true)
-            if [ ! -z "$NVCC_LOCATIONS" ]; then
-              echo "Found nvcc at:"
-              echo "$NVCC_LOCATIONS"
-              FIRST_NVCC=$(echo "$NVCC_LOCATIONS" | head -1)
-              CUDA_PATH=$(dirname $(dirname $FIRST_NVCC))
-              echo "Setting CUDA_HOME to: $CUDA_PATH"
-              echo "CUDA_HOME=$CUDA_PATH" >> $GITHUB_ENV
-            else
-              echo "No nvcc found on system"
-              # Set a fallback but also set flag to skip DeepSpeed build
-              echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
-              echo "DS_BUILD_OPS=0" >> $GITHUB_ENV
-              echo "PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True" >> $GITHUB_ENV
-            fi
-          fi
-        fi
-
-        echo "=== Final environment variables ==="
-        echo "CUDA_HOME: ${CUDA_HOME:-/usr/local/cuda}"
-        echo "DS_BUILD_OPS: ${DS_BUILD_OPS:-1}"
+        # Set CUDA_HOME to default location
+        echo "CUDA_HOME=/usr/local/cuda" >> $GITHUB_ENV
+        # Disable DeepSpeed CUDA ops building since nvcc is not available on the runner
+        echo "DS_BUILD_OPS=0" >> $GITHUB_ENV
 
     - name: Run GPU tests
       run: |
         nvidia-smi
-        echo "CUDA_HOME: $CUDA_HOME"
-        echo "DS_BUILD_OPS: $DS_BUILD_OPS"
-
-        # Verify nvcc is available
-        if [ -f "$CUDA_HOME/bin/nvcc" ]; then
-          echo "Found nvcc at: $CUDA_HOME/bin/nvcc"
-          $CUDA_HOME/bin/nvcc --version
-        else
-          echo "nvcc not found at $CUDA_HOME/bin/nvcc"
-          if [ "$DS_BUILD_OPS" = "0" ]; then
-            echo "DS_BUILD_OPS=0 is set, DeepSpeed will skip building CUDA ops"
-          else
-            echo "Searching for nvcc on system..."
-            find /usr -name "nvcc" 2>/dev/null | head -5 || true
-          fi
-        fi
 
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
