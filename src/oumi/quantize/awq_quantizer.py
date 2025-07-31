@@ -15,7 +15,7 @@
 """AWQ (Activation-aware Weight Quantization) quantizer implementation."""
 
 import importlib.util
-
+import importlib
 import torch
 from typing_extensions import override
 
@@ -48,7 +48,7 @@ class AwqQuantization(BaseQuantization):
 
     def __init__(self):
         """Initialize AWQ quantizer."""
-        self._awq = importlib.util.find_spec("autoawq")
+        self._awq = importlib.import_module("awq")
 
     @override
     def raise_if_requirements_not_met(self):
@@ -122,7 +122,7 @@ class AwqQuantization(BaseQuantization):
             **(config.model.model_kwargs or {}),
         }
 
-        model = self._awq.AutoAWQForCausalLM.from_pretrained(  # type: ignore
+        model = self._awq.AutoAWQForCausalLM.from_pretrained(
             config.model.model_name, **model_kwargs
         )
         tokenizer = AutoTokenizer.from_pretrained(
