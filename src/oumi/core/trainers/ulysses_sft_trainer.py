@@ -312,6 +312,35 @@ class UlyssesSFTTrainer(SFTTrainer):
         logger.info("Returning dataloader")
         return dataloader
 
+    def _recreate_dataloader_with_sp(self):
+        """Recreate the training dataloader with SP support after SP groups are initialized."""
+        try:
+            logger.info("Creating SP-enabled training dataloader...")
+            
+            # Get a fresh dataloader from the parent
+            base_dataloader = super().get_train_dataloader()
+            
+            # Wrap it with SP adapter now that groups are available
+            sp_dataloader = UlyssesSPDataLoaderAdapter(
+                base_dataloader,
+                sp_rank=self.sp_rank,
+                sp_group=self.sp_group,
+                sp_world_size=self.sp_world_size,
+                device=self.args.device if self.args else None,
+            )
+            
+            # Replace the trainer's dataloader
+            # This is a bit of a hack, but necessary since HF Trainer caches the dataloader
+            if hasattr(self, '_train_dataloader'):
+                self._train_dataloader = sp_dataloader
+                logger.info("Updated cached train dataloader with SP support")
+            
+            logger.info("Successfully recreated dataloader with SP support")
+            
+        except Exception as e:
+            logger.error(f"Failed to recreate dataloader with SP: {e}")
+            logger.warning("Continuing with standard dataloader")
+
     def get_eval_dataloader(self, eval_dataset=None) -> DataLoader:
         """Get evaluation dataloader.
 
@@ -617,6 +646,12 @@ class UlyssesSFTTrainer(SFTTrainer):
                 self._initialize_sp_groups()
                 
                 logger.info("SP groups initialization completed")
+                
+                # Recreate dataloader with SP support now that groups are available
+                if self.sp_group is not None:
+                    logger.info("Recreating dataloader with SP support...")
+                    self._recreate_dataloader_with_sp()
+                
                 return optimizer, lr_scheduler
 
             except Exception as e:
