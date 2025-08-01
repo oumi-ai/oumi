@@ -741,12 +741,14 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             original_config = self.model.config
 
             # Initialize DeepSpeed with MPU - this creates SP groups
+            # Initialize DeepSpeed without custom MPU - let DeepSpeed handle SP natively
+            # This should fix the averaged_gradients KeyError by using standard gradient state management
             engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                 model=self.model,
                 optimizer=self.optimizer,
                 lr_scheduler=self.lr_scheduler,
                 config=ds_config,
-                mpu=self.sp_manager.get_mpu(),  # Pass our MPU
+                # mpu=self.sp_manager.get_mpu(),  # Removed: causes gradient state mismatch
             )
 
             # Update trainer components

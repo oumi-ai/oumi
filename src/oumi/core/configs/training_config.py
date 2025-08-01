@@ -107,24 +107,13 @@ class TrainingConfig(BaseConfig):
             )
 
         # Verify values for model dtype and mixed precision training.
-        # Check for compatible precision settings
         if self.training.mixed_precision_dtype in [
             MixedPrecisionDtype.FP16,
             MixedPrecisionDtype.BF16,
         ]:
-            # Allow matching precision (e.g., BF16 model with BF16 mixed precision)
-            # or traditional fp32 -> mixed precision workflow
-            compatible_dtypes = [torch.float32]
-            if self.training.mixed_precision_dtype == MixedPrecisionDtype.BF16:
-                compatible_dtypes.append(torch.bfloat16)
-            elif self.training.mixed_precision_dtype == MixedPrecisionDtype.FP16:
-                compatible_dtypes.append(torch.float16)
-                
-            if self.model.torch_dtype not in compatible_dtypes:
+            if self.model.torch_dtype != torch.float32:
                 raise ValueError(
-                    f"Model dtype {self.model.torch_dtype} is incompatible with "
-                    f"mixed precision training {self.training.mixed_precision_dtype}. "
-                    f"Compatible dtypes: {compatible_dtypes}"
+                    "Model must be loaded in fp32 to enable mixed precision training."
                 )
 
         trainer_type: Final[TrainerType] = self.training.trainer_type

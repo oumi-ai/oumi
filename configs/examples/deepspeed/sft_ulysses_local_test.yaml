@@ -14,7 +14,7 @@
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
   model_max_length: 512  # Short sequences for local testing
-  torch_dtype_str: "float32"  # Use float32 for better compatibility
+  torch_dtype_str: "bfloat16"  # Match DeepSpeed precision (though DeepSpeed disabled for local test)
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "eager"  # Most compatible attention implementation
