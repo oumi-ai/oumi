@@ -89,6 +89,7 @@ def test_parse_configs_from_yaml_and_arg_list(config_path: str):
         JobConfig,
         JudgeConfig,
         TrainingConfig,
+        QuantizationConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
