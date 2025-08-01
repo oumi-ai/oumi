@@ -264,11 +264,16 @@ class UlyssesSFTTrainer(SFTTrainer):
         Returns:
             Training DataLoader, wrapped with UlyssesSPDataLoaderAdapter if SP enabled
         """
+        logger.info("Getting train dataloader...")
+        
         # Get the standard training dataloader from parent
         dataloader = super().get_train_dataloader()
+        logger.info("Got standard dataloader from parent")
 
         # Wrap with Ulysses SP data loader adapter if sequence parallelism is enabled
         if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
+            logger.info("Sequence parallelism enabled, checking SP groups...")
+            
             # Initialize SP groups if not already done
             # Called post-DeepSpeed initialization, so groups should be available
             if self.sp_group is None:
@@ -281,6 +286,7 @@ class UlyssesSFTTrainer(SFTTrainer):
                     f"sp_rank={self.sp_rank}, sp_world_size={self.sp_world_size}"
                 )
 
+                logger.info("About to create UlyssesSPDataLoaderAdapter...")
                 dataloader = UlyssesSPDataLoaderAdapter(
                     dataloader,
                     sp_rank=self.sp_rank,
@@ -288,6 +294,7 @@ class UlyssesSFTTrainer(SFTTrainer):
                     sp_world_size=self.sp_world_size,
                     device=self.args.device if self.args else None,
                 )
+                logger.info("Created UlyssesSPDataLoaderAdapter successfully")
 
                 logger.info(
                     "Successfully wrapped dataloader w/UlyssesSPDataLoaderAdapter"
@@ -298,7 +305,10 @@ class UlyssesSFTTrainer(SFTTrainer):
                     "This may mean DeepSpeed hasn't been properly initialized w/SP. "
                     "Falling back to standard dataloader."
                 )
+        else:
+            logger.info("Sequence parallelism not enabled or not available")
 
+        logger.info("Returning dataloader")
         return dataloader
 
     def get_eval_dataloader(self, eval_dataset=None) -> DataLoader:
