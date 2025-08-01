@@ -666,6 +666,17 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         self, model: torch.nn.Module, inputs: dict[str, Any]
     ) -> torch.Tensor:
         """Compute loss with Ulysses SP support."""
+        # Initialize SP groups after DeepSpeed is ready (lazy initialization)
+        if self.sp_config.is_enabled() and not self.sp_manager.is_initialized:
+            logger.info("Initializing SP groups after DeepSpeed initialization (lazy)")
+            success = self.sp_manager.initialize_groups()
+            if success and hasattr(self, "train_dataloader"):
+                logger.info("Recreating training dataloader with SP support...")
+                # Store current dataloader to avoid infinite recursion
+                old_dataloader = self.train_dataloader
+                self.train_dataloader = self.create_train_dataloader()
+                logger.info("Training dataloader recreated with SP support")
+        
         # Debug batch information
         if logger.isEnabledFor(10):  # DEBUG level
             logger.debug("Batch information:")
