@@ -15,7 +15,9 @@
 """Length analyzer for text content."""
 
 import re
-from typing import Any, Optional
+from typing import Any, Optional, Union
+
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry.registry import register_sample_analyzer
@@ -32,7 +34,7 @@ class LengthAnalyzer(SampleAnalyzer):
         word_count: bool = True,
         sentence_count: bool = True,
         token_count: bool = False,
-        tokenizer: Optional[Any] = None,
+        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
     ):
         """Initialize the length analyzer.
 
@@ -57,7 +59,9 @@ class LengthAnalyzer(SampleAnalyzer):
             )
 
     def analyze_message(
-        self, text_content: str, tokenizer: Optional[Any] = None
+        self,
+        text_content: str,
+        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
     ) -> dict[str, Any]:
         """Analyze text content and return length metrics.
 
