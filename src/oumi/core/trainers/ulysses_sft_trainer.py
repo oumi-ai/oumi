@@ -229,11 +229,17 @@ class UlyssesSFTTrainer(SFTTrainer):
         """
         if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
             try:
+                logger.info("Attempting to get SP group...")
                 # SP groups are available after deepspeed.initialize()
                 # This follows the ArcticTraining pattern from trainer.py:236-243
                 self.sp_group = groups._get_sequence_parallel_group()
+                logger.info("Got SP group, getting world size...")
+                
                 self.sp_world_size = groups._get_sequence_parallel_world_size()
+                logger.info("Got SP world size, getting rank...")
+                
                 self.sp_rank = groups._get_sequence_parallel_rank()
+                logger.info("Got SP rank")
 
                 logger.info(
                     f"Initialized SP groups: rank={self.sp_rank}, "
@@ -594,10 +600,12 @@ class UlyssesSFTTrainer(SFTTrainer):
                 self._deepspeed_initialized_with_mpu = True
 
                 # SP groups should now be available
-
+                logger.info("About to initialize SP groups...")
+                
                 # Now initialize SP groups since DeepSpeed is ready
                 self._initialize_sp_groups()
-
+                
+                logger.info("SP groups initialization completed")
                 return optimizer, lr_scheduler
 
             except Exception as e:
@@ -626,8 +634,12 @@ class UlyssesSFTTrainer(SFTTrainer):
         to properly set up sequence parallel groups. Based on ArcticTraining pattern.
         """
         if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
-            logger.info("Initializing SP groups after DeepSpeed initialization")
-            self._initialize_sp_groups()
+            # Skip this if we've already initialized with our custom DeepSpeed init
+            if not self._deepspeed_initialized_with_mpu:
+                logger.info("Initializing SP groups after DeepSpeed initialization")
+                self._initialize_sp_groups()
+            else:
+                logger.info("SP groups already initialized via custom DeepSpeed init")
 
     @classmethod
     def from_config(
