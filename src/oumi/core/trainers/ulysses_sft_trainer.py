@@ -367,24 +367,49 @@ class UlyssesSFTTrainer(SFTTrainer):
                 logger.error(f"Failed to create SP dataloader iterator: {iter_e}")
                 raise
             
-            # TEST: Try to iterate once to see if that's where the hang occurs
-            logger.info("TESTING: About to test first iteration of SP dataloader...")
-            try:
-                sp_iter = iter(sp_dataloader)
-                logger.info("TESTING: Got SP iterator, attempting first next()...")
-                first_batch = next(sp_iter)
-                logger.info("TESTING: Successfully got first batch from SP dataloader!")
-                logger.info(f"TESTING: First batch keys: {first_batch.keys() if hasattr(first_batch, 'keys') else 'No keys'}")
-            except Exception as test_e:
-                logger.error(f"TESTING: First iteration failed: {test_e}")
-                import traceback
-                logger.error(f"TESTING: Full traceback:\n{traceback.format_exc()}")
-                # Don't raise, continue with investigation
+            # SUCCESS: SP dataloader creation and first iteration work!
+            
+            # Wrap the SP dataloader with debugging
+            class DebugSPDataLoader:
+                def __init__(self, wrapped_dataloader):
+                    self.wrapped = wrapped_dataloader
+                    self.iteration_count = 0
+                
+                def __iter__(self):
+                    logger.info("=== SP DATALOADER __iter__ CALLED ===")
+                    return DebugSPDataLoaderIterator(iter(self.wrapped))
+                
+                def __len__(self):
+                    return len(self.wrapped)
+                    
+                def __getattr__(self, name):
+                    return getattr(self.wrapped, name)
+            
+            class DebugSPDataLoaderIterator:
+                def __init__(self, wrapped_iterator):
+                    self.wrapped = wrapped_iterator
+                    self.step = 0
+                
+                def __iter__(self):
+                    return self
+                
+                def __next__(self):
+                    logger.info(f"=== SP DATALOADER __next__ CALLED (step {self.step}) ===")
+                    try:
+                        result = next(self.wrapped)
+                        logger.info(f"=== SP DATALOADER __next__ SUCCESS (step {self.step}) ===")
+                        self.step += 1
+                        return result
+                    except Exception as e:
+                        logger.error(f"=== SP DATALOADER __next__ FAILED (step {self.step}): {e} ===")
+                        raise
+            
+            debug_sp_dataloader = DebugSPDataLoader(sp_dataloader)
             
             # Replace the trainer's dataloader
             # This is a bit of a hack, but necessary since HF Trainer caches the dataloader
             if hasattr(self, '_train_dataloader'):
-                self._train_dataloader = sp_dataloader
+                self._train_dataloader = debug_sp_dataloader
                 logger.info("Updated cached train dataloader with SP support")
             
             logger.info("Successfully recreated dataloader with SP support")
@@ -425,14 +450,24 @@ class UlyssesSFTTrainer(SFTTrainer):
         Returns:
             Loss tensor, optionally with model outputs
         """
+        logger.info("=== COMPUTE_LOSS CALLED ===")
+        logger.info(f"Inputs keys: {inputs.keys() if hasattr(inputs, 'keys') else 'No keys'}")
+        logger.info(f"SP size: {self.sequence_parallel_size}, DEEPSPEED available: {DEEPSPEED_ULYSSES_AVAILABLE}")
+        
         # Handle SP-specific loss computation
         if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
-            return self._compute_loss_ulysses_sp(model, inputs, return_outputs)
+            logger.info("Using Ulysses SP loss computation")
+            result = self._compute_loss_ulysses_sp(model, inputs, return_outputs)
+            logger.info("=== COMPUTE_LOSS COMPLETED (SP) ===")
+            return result
         else:
+            logger.info("Using standard loss computation")
             # Standard loss computation for non-SP case
-            return super().compute_loss(
+            result = super().compute_loss(
                 model, inputs, return_outputs, num_items_in_batch
             )
+            logger.info("=== COMPUTE_LOSS COMPLETED (STANDARD) ===")
+            return result
 
     def _compute_loss_ulysses_sp(self, model, inputs, return_outputs=False):
         """Compute loss for Ulysses sequence parallel training.
@@ -450,6 +485,9 @@ class UlyssesSFTTrainer(SFTTrainer):
         Returns:
             Loss tensor, optionally with model outputs
         """
+        logger.info("Starting Ulysses SP loss computation...")
+        logger.info(f"Input keys: {list(inputs.keys())}")
+        
         # Handle both 'labels' and 'shift_labels' formats for flexibility
         if "shift_labels" in inputs:
             shift_labels = inputs["shift_labels"]
