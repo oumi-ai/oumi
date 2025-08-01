@@ -318,9 +318,17 @@ class UlyssesSFTTrainer(SFTTrainer):
             logger.info("Creating SP-enabled training dataloader...")
             
             # Get a fresh dataloader from the parent
+            logger.info("About to call super().get_train_dataloader()...")
             base_dataloader = super().get_train_dataloader()
+            logger.info(f"Got base dataloader: {type(base_dataloader)}")
+            logger.info(f"Base dataloader length: {len(base_dataloader) if hasattr(base_dataloader, '__len__') else 'unknown'}")
+            
+            # Log SP parameters before wrapping
+            logger.info(f"SP parameters: rank={self.sp_rank}, world_size={self.sp_world_size}, group={self.sp_group}")
+            logger.info(f"Device: {self.args.device if self.args else None}")
             
             # Wrap it with SP adapter now that groups are available
+            logger.info("About to create UlyssesSPDataLoaderAdapter...")
             sp_dataloader = UlyssesSPDataLoaderAdapter(
                 base_dataloader,
                 sp_rank=self.sp_rank,
@@ -328,6 +336,16 @@ class UlyssesSFTTrainer(SFTTrainer):
                 sp_world_size=self.sp_world_size,
                 device=self.args.device if self.args else None,
             )
+            logger.info("Created UlyssesSPDataLoaderAdapter successfully")
+            
+            # Test the dataloader by getting an iterator (but don't iterate yet)
+            logger.info("Testing SP dataloader by getting iterator...")
+            try:
+                sp_iter = iter(sp_dataloader)
+                logger.info("Successfully created SP dataloader iterator")
+            except Exception as iter_e:
+                logger.error(f"Failed to create SP dataloader iterator: {iter_e}")
+                raise
             
             # Replace the trainer's dataloader
             # This is a bit of a hack, but necessary since HF Trainer caches the dataloader
@@ -338,7 +356,9 @@ class UlyssesSFTTrainer(SFTTrainer):
             logger.info("Successfully recreated dataloader with SP support")
             
         except Exception as e:
+            import traceback
             logger.error(f"Failed to recreate dataloader with SP: {e}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
             logger.warning("Continuing with standard dataloader")
 
     def get_eval_dataloader(self, eval_dataset=None) -> DataLoader:
