@@ -91,7 +91,7 @@ deepspeed:
   stage3_param_persistence_threshold: 100000  # Changed from "auto" to 100K - keep fewer params in memory
   stage3_max_live_parameters: 100000000    # Reduced from 1e9 to 1e8 - more frequent parameter eviction
   stage3_max_reuse_distance: 100000000     # Reduced from 1e9 to 1e8 - tighter parameter reuse window
-  stage3_gather_16bit_weights_on_model_save: True
+  stage3_gather_16bit_weights_on_model_save: False
 
   # Enable optimizer offloading (major VRAM savings with minimal runtime cost)
   offload_optimizer:
