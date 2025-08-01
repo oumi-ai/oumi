@@ -122,7 +122,10 @@ class TrainingConfig(BaseConfig):
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
             max_seq_length_key = None
-            if trainer_type == TrainerType.TRL_SFT:
+            if (
+                trainer_type == TrainerType.TRL_SFT
+                or trainer_type == TrainerType.TRL_SFT_ULYSSES
+            ):
                 max_seq_length_key = "max_seq_length"
             elif trainer_type == TrainerType.TRL_DPO:
                 max_seq_length_key = "max_length"
@@ -182,7 +185,10 @@ class TrainingConfig(BaseConfig):
                     )
                 dataset_params.dataset_kwargs["return_conversations"] = True
             # Extra setup for TRL_SFT.
-            if trainer_type == TrainerType.TRL_SFT:
+            if (
+                trainer_type == TrainerType.TRL_SFT
+                or trainer_type == TrainerType.TRL_SFT_ULYSSES
+            ):
                 if self.training.trainer_kwargs.get("remove_unused_columns", False):
                     raise ValueError(
                         "`remove_unused_columns` must be False "

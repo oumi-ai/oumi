@@ -20,7 +20,7 @@ model:
   load_pretrained_weights: True
   trust_remote_code: False
   attn_implementation: "sdpa"
-  
+
   # Flash attention optimization for long sequences
   # use_flash_attention_2: True  # Uncomment if available
 
@@ -36,45 +36,45 @@ data:
 training:
   # Use Ulysses-enabled SFT trainer
   trainer_type: "TRL_SFT_ULYSSES"
-  
+
   # Enable Ulysses Sequence Parallelism
   enable_ulysses_sequence_parallel: True
   ulysses_sequence_parallel_size: 8  # Shard across 8 GPUs
-  
+
   save_steps: 100
   max_steps: 500  # Shorter run for testing
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 32  # Very large accumulation
-  
+
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
     use_reentrant: False
-  
+
   optimizer: "adamw_torch_fused"
   learning_rate: 5e-6  # Very low LR for stability
   warmup_steps: 50
   weight_decay: 0.01
   max_grad_norm: 0.3  # Aggressive gradient clipping
   lr_scheduler_type: "cosine"
-  
+
   # Minimal data loading for memory efficiency
   dataloader_num_workers: 1
   dataloader_prefetch_factor: 1
-  
+
   logging_steps: 5
   output_dir: "output/ulysses_sp_multi_node_example"
   enable_wandb: False
   save_final_model: True
-  
+
   # Aggressive memory optimization
   empty_device_cache_steps: 10
-  
+
   # Multi-node specific settings
   ddp_find_unused_parameters: False
-  
+
   # Extended timeout for multi-node communication
   nccl_default_timeout_minutes: 30
-  
+
   # Determinism
   seed: 42
   use_deterministic: True
@@ -84,17 +84,17 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "ZERO_3"
   precision: "BF16"
-  
+
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 8  # Must match training parameter
-  
+
   # ZeRO-3 optimizations for multi-node
   stage3_prefetch_bucket_size: 50000000   # 5e7 - smaller for multi-node
   stage3_param_persistence_threshold: 10000  # Lower threshold
   stage3_max_live_parameters: 500000000   # 5e8 - reduced
   stage3_max_reuse_distance: 500000000    # 5e8 - reduced
   stage3_gather_16bit_weights_on_model_save: True
-  
+
   # Communication optimization for multi-node
   allgather_partitions: True
   allgather_bucket_size: 50000000   # 5e7 - smaller buckets
@@ -103,34 +103,34 @@ deepspeed:
   reduce_bucket_size: 50000000      # 5e7
   contiguous_gradients: True
   sub_group_size: 100000000         # 1e8 - smaller sub-groups
-  
+
   # Aggressive CPU offloading
   offload_optimizer:
     device: "CPU"
     pin_memory: True
     buffer_count: 8  # More buffers for multi-node
-  
+
   # Parameter offloading for extreme memory savings
   offload_param:
     device: "CPU"
     pin_memory: True
     buffer_count: 8
-  
+
   # Memory optimization
   zero_allow_untested_optimizer: True
   zero_force_ds_cpu_optimizer: True  # Force CPU optimizer
   memory_efficient_linear: False
-  
+
   # Activation checkpointing configuration
   activation_checkpointing:
     partition_activations: True
     cpu_checkpointing: True  # Offload activations to CPU
     contiguous_memory_optimization: True
     number_checkpoints: 4
-  
+
   # Logging and debugging
   steps_per_print: 5
   wall_clock_breakdown: True  # Enable for performance debugging
-  
+
   # Multi-node specific
   # communication_data_type: "fp16"  # Optional: reduce communication bandwidth

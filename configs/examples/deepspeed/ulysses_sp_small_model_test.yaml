@@ -37,42 +37,42 @@ data:
 training:
   # Use Ulysses-enabled SFT trainer
   trainer_type: "TRL_SFT_ULYSSES"
-  
+
   # Enable Ulysses Sequence Parallelism
   enable_ulysses_sequence_parallel: True
   ulysses_sequence_parallel_size: 2  # Minimal SP for testing
-  
+
   # Quick test configuration
   max_steps: 20  # Very short run
   eval_strategy: "steps"
   eval_steps: 10
   save_steps: 10
-  
+
   per_device_train_batch_size: 2
   per_device_eval_batch_size: 2
   gradient_accumulation_steps: 2
-  
+
   # Disable checkpointing for small model
   enable_gradient_checkpointing: False
-  
+
   optimizer: "adamw_torch"
   learning_rate: 2e-5
   warmup_steps: 5
   weight_decay: 0.01
   max_grad_norm: 1.0
   lr_scheduler_type: "linear"
-  
+
   dataloader_num_workers: 2
   dataloader_prefetch_factor: 2
-  
+
   logging_steps: 2
   output_dir: "output/ulysses_sp_small_model_test"
   enable_wandb: False
   save_final_model: False  # Don't save for testing
-  
+
   # Quick memory cleanup
   empty_device_cache_steps: 10
-  
+
   # Testing configuration
   seed: 42
   use_deterministic: True
@@ -83,20 +83,20 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "ZERO_1"  # Minimal ZeRO stage for testing
   precision: "BF16"
-  
+
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 2  # Must match training parameter
-  
+
   # Basic communication settings
   allgather_partitions: True
   allgather_bucket_size: 50000000  # 5e7
   overlap_comm: True
   contiguous_gradients: True
-  
+
   # No offloading for quick testing
   zero_allow_untested_optimizer: True
   zero_force_ds_cpu_optimizer: False
-  
+
   # Verbose logging for debugging
   steps_per_print: 2
   wall_clock_breakdown: True  # Enable to debug performance

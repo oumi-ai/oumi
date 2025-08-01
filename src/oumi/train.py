@@ -311,7 +311,10 @@ def train(
         # Otherwise, SFTTrainer's overridden `_set_signature_columns_if_needed()`
         # function will result in columns needed for VLM training (e.g. `pixel_values`)
         # to be dropped from the dataset.
-        if config.training.trainer_type == TrainerType.TRL_SFT:
+        if (
+            config.training.trainer_type == TrainerType.TRL_SFT
+            or config.training.trainer_type == TrainerType.TRL_SFT_ULYSSES
+        ):
             config.training.trainer_kwargs["remove_unused_columns"] = False
 
     # Load datasets.
@@ -438,7 +441,10 @@ def train(
     # 2. Packing is requested, and thus is processed by the
     # `PretrainingAsyncTextDataset` class
     # See OPE-1108 for more details.
-    if config.training.trainer_type == TrainerType.TRL_SFT:
+    if (
+        config.training.trainer_type == TrainerType.TRL_SFT
+        or config.training.trainer_type == TrainerType.TRL_SFT_ULYSSES
+    ):
         example = next(iter(train_dataset))
         if "input_ids" in example:
             logger.info(

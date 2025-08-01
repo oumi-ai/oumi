@@ -18,6 +18,6 @@ from oumi.core.parallel.ulysses_sp import (
 )
 
 __all__ = [
-    "UlyssesSPAttentionHF", 
+    "UlyssesSPAttentionHF",
     "UlyssesSPDataLoaderAdapter",
 ]
