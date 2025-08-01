@@ -45,6 +45,7 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click<8.2.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2.0,<3.3",
+    "deepspeed>=0.10.0,<=0.16.9",   # DeepSpeed ZeRO optimization for distributed training
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",
@@ -144,6 +145,13 @@ runpod = ["skypilot[runpod]"]
 
 synthesis = [
     "pdftext>=0.6.3", # Document ingestion for synthesis
+]
+
+# Flash Attention - separate group due to special installation requirements
+flash_attn = [
+    # Note: May require manual installation with: pip install flash-attn --no-build-isolation
+    # This is kept separate to avoid breaking existing environments
+    "flash-attn>=2.0.0",
 ]
 
 evaluation = [
@@ -260,6 +268,7 @@ pythonVersion = "3.9"
 pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+reportMissingImports = "none"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
