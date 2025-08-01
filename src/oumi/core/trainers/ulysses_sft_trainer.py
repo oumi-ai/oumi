@@ -522,46 +522,28 @@ class UlyssesSFTTrainer(SFTTrainer):
             sp_dataloader = LabelToShiftLabelsConverter(sp_dataloader)
             logger.info("Created LabelToShiftLabelsConverter wrapper")
             
-            # If we started with an Accelerate DataLoaderShard, recreate it with our wrapped dataloader
+            # If we started with an Accelerate DataLoaderShard, we need to preserve Accelerate's functionality
+            # but ensure our converter gets called. Instead of recreating DataLoaderShard (which unwraps us),
+            # let's monkey-patch our converter to mimic DataLoaderShard's interface
             if hasattr(base_dataloader, 'base_dataloader'):
-                logger.info("Recreating Accelerate DataLoaderShard with our wrapped dataloader...")
-                logger.info(f"sp_dataloader type before DataLoaderShard: {type(sp_dataloader)}")
+                logger.info("Original dataloader was Accelerate DataLoaderShard - copying its attributes to our converter...")
                 
-                # Create a custom DataLoaderShard that properly calls our wrapper's __iter__
-                from accelerate.data_loader import DataLoaderShard
+                # Copy essential DataLoaderShard attributes to our converter so it can replace the original
+                sp_dataloader.device = getattr(base_dataloader, 'device', None)
+                sp_dataloader.rng_types = getattr(base_dataloader, 'rng_types', None) 
+                sp_dataloader.synchronized_generator = getattr(base_dataloader, 'synchronized_generator', None)
+                sp_dataloader.skip_batches = getattr(base_dataloader, 'skip_batches', 0)
+                sp_dataloader.use_stateful_dataloader = getattr(base_dataloader, 'use_stateful_dataloader', False)
                 
-                class UlyssesDataLoaderShard(DataLoaderShard):
-                    """Custom DataLoaderShard that properly uses wrapper's __iter__ method."""
-                    
-                    def __iter__(self):
-                        """Override to use the wrapper's __iter__ method directly."""
-                        logger.info("=== UlyssesDataLoaderShard.__iter__ called - TRAINING ITERATION ===")
-                        logger.info(f"About to call iter() on base_dataloader: {type(self.base_dataloader)}")
-                        iterator = iter(self.base_dataloader)
-                        logger.info(f"Got iterator from base_dataloader: {type(iterator)}")
-                        return iterator
+                # Copy any other attributes that Accelerate might expect
+                for attr in ('_loader', '_batch_sampler', '_num_workers', '_pin_memory', '_timeout', '_worker_init_fn'):
+                    if hasattr(base_dataloader, attr):
+                        setattr(sp_dataloader, attr, getattr(base_dataloader, attr))
                 
-                logger.info(f"About to create UlyssesDataLoaderShard with sp_dataloader: {type(sp_dataloader)}")
-                original_sp_dataloader = sp_dataloader  # Keep reference to our converter
-                
-                sp_dataloader = UlyssesDataLoaderShard(
-                    sp_dataloader,
-                    device=getattr(base_dataloader, 'device', None),
-                    rng_types=getattr(base_dataloader, 'rng_types', None),
-                    synchronized_generator=getattr(base_dataloader, 'synchronized_generator', None),
-                    skip_batches=getattr(base_dataloader, 'skip_batches', 0),
-                    use_stateful_dataloader=getattr(base_dataloader, 'use_stateful_dataloader', False)
-                )
-                logger.info(f"Recreated UlyssesDataLoaderShard with SP support, type: {type(sp_dataloader)}")
-                logger.info(f"UlyssesDataLoaderShard.base_dataloader type: {type(getattr(sp_dataloader, 'base_dataloader', None))}")
-                logger.info(f"Expected our converter: {type(original_sp_dataloader)}")
-                
-                # Verify that our converter is properly set as base_dataloader
-                if not isinstance(sp_dataloader.base_dataloader, type(original_sp_dataloader)):
-                    logger.error(f"CRITICAL: DataLoaderShard constructor changed base_dataloader from {type(original_sp_dataloader)} to {type(sp_dataloader.base_dataloader)}")
-                    logger.error("This means our converter is being bypassed!")
-                else:
-                    logger.info("SUCCESS: Our converter is properly set as base_dataloader")
+                logger.info(f"Our converter now has DataLoaderShard attributes, type: {type(sp_dataloader)}")
+                logger.info("BYPASSING DataLoaderShard recreation - using our converter directly!")
+            else:
+                logger.info("Original dataloader was not Accelerate DataLoaderShard - using our converter directly")
 
             # Test the dataloader by getting an iterator (but don't iterate yet)
             logger.info("Testing SP dataloader by getting iterator...")
