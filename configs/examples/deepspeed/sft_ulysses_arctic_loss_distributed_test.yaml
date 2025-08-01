@@ -88,7 +88,7 @@ training:
 # Enable DeepSpeed for distributed Ulysses SP support with ZeRO (using ArcticTraining approach)
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "ZERO_1"  # Test ZeRO + SP with early DeepSpeed initialization
+  zero_stage: "ZERO_3"  # Match ArcticTraining exactly: ZERO_3 with CPU offloading
   precision: "BF16"
   
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
@@ -96,6 +96,11 @@ deepspeed:
   
   # Distributed Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 3  # Must match training parameter
+  
+  # ZERO_3 CPU offloading (exact match to ArcticTraining)
+  zero_force_ds_cpu_optimizer: True  # Force CPU optimizer for ZERO_3 + SP compatibility
+  cpu_offload_optimizer: True        # Enable CPU optimizer offloading
+  cpu_offload_params: True          # Enable parameter offloading for memory efficiency
   
   # Communication settings for distributed SP (ArcticTraining settings)
   allgather_partitions: True
@@ -105,7 +110,6 @@ deepspeed:
   
   # Optimizer settings
   zero_allow_untested_optimizer: True
-  zero_force_ds_cpu_optimizer: False
   
   # Training settings
   train_batch_size: "auto"
