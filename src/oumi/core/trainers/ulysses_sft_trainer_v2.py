@@ -255,8 +255,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 # CRITICAL: Generate labels for SFT training if missing
                 if "labels" not in result and "input_ids" in result:
                     logger.info("Generating labels from input_ids for SFT training")
-                    result["labels"] = result["input_ids"].clone()
+                    result["labels"] = self._create_sft_labels(result["input_ids"])
                     logger.info(f"Generated labels with shape: {result['labels'].shape}")
+                    
+                    # Debug label masking
+                    if logger.isEnabledFor(10):  # DEBUG level
+                        for i in range(min(2, result["labels"].shape[0])):  # Show first 2 samples
+                            valid_labels = (result["labels"][i] != -100).sum().item()
+                            total_labels = result["labels"][i].numel()
+                            logger.debug(f"Sample {i}: {valid_labels}/{total_labels} valid labels ({valid_labels/total_labels*100:.1f}%)")
                 
                 # Ensure all tensor sequences have equal length within the batch
                 # and are divisible by SP size
@@ -353,10 +360,132 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         # CRITICAL: Generate labels for SFT training if missing
         if "labels" not in result and "input_ids" in result:
             logger.info("Generating labels from input_ids for SFT training")
-            result["labels"] = result["input_ids"].clone()
+            result["labels"] = self._create_sft_labels(result["input_ids"])
             logger.info(f"Generated labels with shape: {result['labels'].shape}")
         
         return result
+    
+    def _create_sft_labels(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """Create labels for SFT training by masking prompt tokens.
+        
+        For instruction-following datasets, we want to only compute loss on the
+        assistant's response, not the user's prompt. This method attempts to
+        identify response tokens and mask prompt tokens with -100.
+        
+        Args:
+            input_ids: Input token IDs [batch_size, seq_len]
+            
+        Returns:
+            labels: Labels with prompt tokens masked as -100 [batch_size, seq_len]
+        """
+        labels = input_ids.clone()
+        
+        # Get tokenizer info for special tokens
+        if hasattr(self.processing_class, 'eos_token_id') and self.processing_class.eos_token_id is not None:
+            eos_token_id = self.processing_class.eos_token_id
+        else:
+            eos_token_id = None
+        
+        # For Alpaca-style datasets, we need to identify where the assistant response starts
+        # Common patterns to look for:
+        # - "### Response:" or "### Assistant:" or similar
+        # - After the last "### " pattern in the sequence
+        
+        if hasattr(self.processing_class, 'tokenize'):
+            try:
+                # Try to find common assistant prompt patterns
+                assistant_patterns = [
+                    "### Response:",
+                    "### Assistant:", 
+                    "Assistant:",
+                    "Response:",
+                    "<|assistant|>",
+                    "<|im_start|>assistant",
+                ]
+                
+                for batch_idx in range(labels.shape[0]):
+                    sequence = labels[batch_idx]
+                    
+                    # Decode tokens to text to find assistant marker
+                    try:
+                        text = self.processing_class.decode(sequence, skip_special_tokens=False)
+                        
+                        # Find the last occurrence of any assistant pattern
+                        assistant_start_pos = -1
+                        for pattern in assistant_patterns:
+                            pos = text.rfind(pattern)
+                            if pos > assistant_start_pos:
+                                assistant_start_pos = pos
+                        
+                        if assistant_start_pos != -1:
+                            # Find the token position corresponding to this text position
+                            # This is approximate but should work for most cases
+                            prefix_text = text[:assistant_start_pos]
+                            if prefix_text:
+                                try:
+                                    prefix_tokens = self.processing_class.encode(prefix_text, add_special_tokens=False)
+                                    mask_until = len(prefix_tokens)
+                                    
+                                    # Also mask the assistant pattern itself (usually 1-3 tokens)
+                                    pattern_tokens = self.processing_class.encode(
+                                        text[assistant_start_pos:assistant_start_pos+20], 
+                                        add_special_tokens=False
+                                    )
+                                    # Find end of pattern (usually ends with ":" or newline)
+                                    pattern_end = 2  # Default: mask pattern + colon
+                                    for i, token_id in enumerate(pattern_tokens):
+                                        if hasattr(self.processing_class, 'decode'):
+                                            token_text = self.processing_class.decode([token_id])
+                                            if '\n' in token_text or ':' in token_text:
+                                                pattern_end = i + 1
+                                                break
+                                    
+                                    mask_until += pattern_end
+                                    mask_until = min(mask_until, len(sequence) - 1)  # Leave at least one token for loss
+                                    
+                                    # Mask prompt tokens
+                                    labels[batch_idx, :mask_until] = -100
+                                    
+                                    logger.debug(f"Batch {batch_idx}: Masked {mask_until}/{len(sequence)} prompt tokens")
+                                    continue
+                                except Exception as e:
+                                    logger.debug(f"Failed to tokenize prefix for batch {batch_idx}: {e}")
+                        
+                        # Fallback: If no assistant pattern found, use a heuristic
+                        # Mask the first 70% of tokens (common for instruction datasets)
+                        fallback_mask_ratio = 0.7
+                        mask_until = int(len(sequence) * fallback_mask_ratio)
+                        mask_until = min(mask_until, len(sequence) - 5)  # Leave at least 5 tokens for loss
+                        labels[batch_idx, :mask_until] = -100
+                        logger.debug(f"Batch {batch_idx}: Fallback masking - masked {mask_until}/{len(sequence)} tokens")
+                        
+                    except Exception as e:
+                        logger.debug(f"Failed to decode sequence for batch {batch_idx}: {e}")
+                        # Ultimate fallback: mask first 70% of tokens
+                        mask_until = int(len(sequence) * 0.7)
+                        mask_until = min(mask_until, len(sequence) - 5)
+                        labels[batch_idx, :mask_until] = -100
+                        
+            except Exception as e:
+                logger.warning(f"Failed to create SFT labels with masking: {e}")
+                logger.info("Using simple approach: masking first 70% of tokens")
+                
+                # Simple fallback: mask first 70% of each sequence
+                for batch_idx in range(labels.shape[0]):
+                    seq_len = (labels[batch_idx] != self.processing_class.pad_token_id).sum().item() if hasattr(self.processing_class, 'pad_token_id') else labels.shape[1]
+                    mask_until = int(seq_len * 0.7)
+                    mask_until = min(mask_until, seq_len - 5)
+                    labels[batch_idx, :mask_until] = -100
+        else:
+            logger.warning("No tokenizer available for smart label masking, using simple approach")
+            # Simple fallback: mask first 70% of tokens
+            for batch_idx in range(labels.shape[0]):
+                seq_len = labels.shape[1]
+                mask_until = int(seq_len * 0.7)
+                mask_until = min(mask_until, seq_len - 5)
+                labels[batch_idx, :mask_until] = -100
+        
+        return labels
     
     def _pad_and_stack_tensors(self, tensors, key):
         """Pad tensors to same shape and stack them."""
