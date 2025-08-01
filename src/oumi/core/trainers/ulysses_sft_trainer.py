@@ -508,13 +508,21 @@ class UlyssesSFTTrainer(SFTTrainer):
 
                 # Create scheduler if needed
                 if self.lr_scheduler is None:
+                    # Calculate warmup steps safely
+                    warmup_steps = self.get_warmup_steps(num_training_steps)
+                    if warmup_steps is None:
+                        warmup_steps = 0
+                    
                     self.lr_scheduler = self.get_scheduler(
                         name=self.args.lr_scheduler_type,
                         optimizer=self.optimizer,
-                        num_warmup_steps=self.get_warmup_steps(num_training_steps),
+                        num_warmup_steps=warmup_steps,
                         num_training_steps=num_training_steps,
                     )
 
+                logger.info(f"About to call deepspeed.initialize with MPU: {self._mpu}")
+                logger.info(f"DeepSpeed config ulysses_sequence_parallel_size: {ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}")
+                
                 # Initialize DeepSpeed with MPU - this creates SP groups
                 engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                     model=self.model,
@@ -530,6 +538,14 @@ class UlyssesSFTTrainer(SFTTrainer):
                 self.lr_scheduler = lr_scheduler
 
                 logger.info("DeepSpeed initialized successfully with Ulysses SP MPU")
+
+                # Debug: Check if groups are available now
+                try:
+                    from deepspeed.utils import groups
+                    test_group = groups._get_sequence_parallel_group()
+                    logger.info(f"SP group found after deepspeed.initialize: {test_group}")
+                except Exception as e:
+                    logger.error(f"SP groups still not available after deepspeed.initialize: {e}")
 
                 # Now initialize SP groups since DeepSpeed is ready
                 self._initialize_sp_groups()
