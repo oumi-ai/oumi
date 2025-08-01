@@ -99,8 +99,16 @@ deepspeed:
   
   # ZERO_3 CPU offloading (exact match to ArcticTraining)
   zero_force_ds_cpu_optimizer: True  # Force CPU optimizer for ZERO_3 + SP compatibility
-  cpu_offload_optimizer: True        # Enable CPU optimizer offloading
-  cpu_offload_params: True          # Enable parameter offloading for memory efficiency
+  
+  # CPU optimizer offloading for ZERO_3 + SP compatibility
+  offload_optimizer:
+    device: "cpu"
+    pin_memory: True
+    
+  # CPU parameter offloading for memory efficiency with ZERO_3
+  offload_param:
+    device: "cpu" 
+    pin_memory: True
   
   # Communication settings for distributed SP (ArcticTraining settings)
   allgather_partitions: True
