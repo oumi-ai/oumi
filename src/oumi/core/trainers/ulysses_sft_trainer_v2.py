@@ -258,12 +258,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     result["labels"] = self._create_sft_labels(result["input_ids"])
                     logger.info(f"Generated labels with shape: {result['labels'].shape}")
                     
-                    # Debug label masking
-                    if logger.isEnabledFor(10):  # DEBUG level
-                        for i in range(min(2, result["labels"].shape[0])):  # Show first 2 samples
-                            valid_labels = (result["labels"][i] != -100).sum().item()
-                            total_labels = result["labels"][i].numel()
-                            logger.debug(f"Sample {i}: {valid_labels}/{total_labels} valid labels ({valid_labels/total_labels*100:.1f}%)")
+                    # Debug label masking - always show this since it's critical
+                    for i in range(min(2, result["labels"].shape[0])):  # Show first 2 samples
+                        valid_labels = (result["labels"][i] != -100).sum().item()
+                        total_labels = result["labels"][i].numel()
+                        logger.info(f"Sample {i}: {valid_labels}/{total_labels} valid labels ({valid_labels/total_labels*100:.1f}%)")
+                        if valid_labels == 0:
+                            logger.error(f"Sample {i}: ALL LABELS MASKED! This will cause NaN loss.")
+                        elif valid_labels < 5:
+                            logger.warning(f"Sample {i}: Very few valid labels ({valid_labels}), may cause unstable training.")
                 
                 # Ensure all tensor sequences have equal length within the batch
                 # and are divisible by SP size
