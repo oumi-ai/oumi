@@ -122,12 +122,17 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         self.use_liger_kernel = use_liger_kernel
 
         # Setup sequence parallelism
+        # Use the actual training batch size for micro_batch_size
+        effective_micro_batch_size = (
+            self.args.per_device_train_batch_size if self.args else micro_batch_size
+        )
+        
         self.sp_config = SequenceParallelConfig(
             sequence_parallel_size=sequence_parallel_size,
             model_name_or_path=model_name_or_path,
             attn_implementation=attn_implementation,
             max_length=max_length,
-            micro_batch_size=micro_batch_size,
+            micro_batch_size=effective_micro_batch_size,
         )
 
         self.sp_manager = SequenceParallelManager(self.sp_config)
@@ -145,9 +150,13 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         logger.info("UlyssesSFTTrainer V2 initialized successfully:")
         logger.info(f"  - Sequence parallel size: {self.sequence_parallel_size}")
         logger.info(f"  - Model name/path: {self.model_name_or_path}")
+        logger.info(f"  - Max length: {max_length}")
+        logger.info(f"  - Micro batch size: {effective_micro_batch_size}")
+        logger.info(f"  - Per device train batch size: {self.args.per_device_train_batch_size if self.args else 'N/A'}")
         logger.info(f"  - Tiled MLP compute: {self.tiled_mlp_compute}")
         logger.info(f"  - Liger kernel: {self.use_liger_kernel}")
         logger.info(f"  - SP enabled: {self.sp_config.is_enabled()}")
+        logger.info(f"  - Variable seq length: {self.sp_config.seq_length_is_variable}")
 
     def _setup_optimizations(self):
         """Setup memory and kernel optimizations."""
@@ -170,22 +179,74 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
     def create_train_dataloader(self) -> DataLoader:
         """Create training data loader with SP support."""
         logger.info("Creating training dataloader...")
+        logger.info(f"  - Dataset size: {len(self.train_dataset) if self.train_dataset else 'N/A'}")
+        logger.info(f"  - Batch size: {self.args.per_device_train_batch_size}")
+        logger.info(f"  - Data collator: {type(self.data_collator).__name__ if self.data_collator else 'None'}")
+        logger.info(f"  - SP manager initialized: {self.sp_manager.is_initialized}")
+
+        # Create SP-aware data collator if needed
+        collator = self.data_collator
+        if self.sp_config.is_enabled() and collator is not None:
+            collator = self._create_sp_aware_collator(self.data_collator)
 
         # Create base dataloader
         dataloader = ComponentFactory.create_data_loader(
             dataset=self.train_dataset,
             batch_size=self.args.per_device_train_batch_size,
             shuffle=True,
-            collate_fn=self.data_collator,
+            collate_fn=collator,
             num_workers=self.args.dataloader_num_workers,
         )
 
         # Wrap with SP support if enabled and groups are initialized
         if self.sp_manager.is_initialized:
+            logger.info("Wrapping dataloader with SP support...")
             dataloader = self.sp_manager.wrap_dataloader(dataloader, self.args.device)
+        elif self.sp_config.is_enabled():
+            logger.warning("SP is enabled but groups not initialized - using standard dataloader")
 
         logger.info("Training dataloader created successfully")
         return dataloader
+
+    def _create_sp_aware_collator(self, original_collator):
+        """Create a SP-aware collator that pads to lengths divisible by SP size."""
+        sp_size = self.sp_config.sequence_parallel_size
+        
+        def sp_collator(batch):
+            # Use original collator first
+            result = original_collator(batch)
+            
+            # Pad tensors to be divisible by SP size
+            for key, tensor in result.items():
+                if isinstance(tensor, torch.Tensor) and len(tensor.shape) >= 2:
+                    seq_len = tensor.shape[1]
+                    remainder = seq_len % sp_size
+                    
+                    if remainder != 0:
+                        pad_size = sp_size - remainder
+                        logger.debug(f"Padding {key} from length {seq_len} to {seq_len + pad_size} for SP divisibility")
+                        
+                        # Determine padding value
+                        if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+                            pad_value = self.processing_class.pad_token_id
+                        elif key == "labels":
+                            pad_value = -100  # Standard ignore index for labels
+                        elif key == "attention_mask":
+                            pad_value = 0  # Attention mask padding
+                        else:
+                            pad_value = 0  # Default padding
+                        
+                        # Create padding tensor
+                        pad_shape = list(tensor.shape)
+                        pad_shape[1] = pad_size  # Pad along sequence dimension
+                        padding = torch.full(pad_shape, pad_value, dtype=tensor.dtype, device=tensor.device)
+                        
+                        # Concatenate original tensor with padding
+                        result[key] = torch.cat([tensor, padding], dim=1)
+            
+            return result
+        
+        return sp_collator
 
     def create_eval_dataloader(self) -> DataLoader:
         """Create evaluation data loader."""
@@ -210,7 +271,28 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         self, model: torch.nn.Module, inputs: dict[str, Any]
     ) -> torch.Tensor:
         """Compute loss with Ulysses SP support."""
-        return self.loss_computer.compute_loss(model, inputs, return_outputs=False)
+        # Debug batch information
+        if logger.isEnabledFor(10):  # DEBUG level
+            logger.debug("Batch information:")
+            for key, value in inputs.items():
+                if isinstance(value, torch.Tensor):
+                    logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                else:
+                    logger.debug(f"  {key}: {type(value)}")
+        
+        try:
+            return self.loss_computer.compute_loss(model, inputs, return_outputs=False)
+        except Exception as e:
+            logger.error(f"Error in compute_loss: {e}")
+            logger.error("Batch details for debugging:")
+            for key, value in inputs.items():
+                if isinstance(value, torch.Tensor):
+                    logger.error(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                    if value.numel() < 50:  # Only log small tensors
+                        logger.error(f"  {key} values: {value}")
+                else:
+                    logger.error(f"  {key}: {type(value)} = {value}")
+            raise
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         """Create optimizer and scheduler with DeepSpeed integration."""

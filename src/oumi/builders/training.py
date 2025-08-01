@@ -251,9 +251,12 @@ def build_trainer(
                         use_liger_kernel = (
                             getattr(model_config, "model_type", "") == "liger"
                         )
+                        # Extract max_length from model config (correct location)
+                        max_length = getattr(model_config, "model_max_length", max_length)
 
                     if data_config is not None:
-                        max_length = getattr(data_config, "model_max_length", 4096)
+                        # Also check data config as fallback
+                        max_length = getattr(data_config, "model_max_length", max_length)
 
                     # Check for additional SP features
                     tiled_mlp_compute = getattr(

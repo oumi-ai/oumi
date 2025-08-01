@@ -189,6 +189,55 @@ class SequenceParallelManager:
             f"sp_rank={self.sp_rank}, sp_world_size={self.sp_world_size}"
         )
 
+        # Debug: Check what keys are in the first batch before wrapping
+        try:
+            first_batch = next(iter(dataloader))
+            logger.info("First batch keys before SP wrapping:")
+            for key, value in first_batch.items():
+                if isinstance(value, torch.Tensor):
+                    logger.info(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                else:
+                    logger.info(f"  {key}: {type(value)}")
+                    
+            # Check if labels field is present
+            if "labels" not in first_batch:
+                logger.error(
+                    "CRITICAL: 'labels' field missing from batch! "
+                    "This will cause UlyssesSPDataLoaderAdapter to fail. "
+                    f"Available keys: {list(first_batch.keys())}"
+                )
+                logger.error(
+                    "This suggests the dataset or data collator is not properly configured for SFT training."
+                )
+            
+            # Check sequence length divisibility for SP
+            if self.config.is_enabled():
+                for key, value in first_batch.items():
+                    if isinstance(value, torch.Tensor) and len(value.shape) >= 2:
+                        seq_len = value.shape[1]  # Assume [batch, seq_len, ...]
+                        if seq_len % self.config.sequence_parallel_size != 0:
+                            logger.warning(
+                                f"Sequence length {seq_len} for tensor '{key}' is not divisible by "
+                                f"sequence_parallel_size={self.config.sequence_parallel_size}. "
+                                f"This will cause SP errors. Consider setting model_max_length to a value "
+                                f"divisible by {self.config.sequence_parallel_size}."
+                            )
+                            
+                            # Suggest compatible lengths
+                            suggested_lengths = []
+                            for i in range(1, 5):  # Suggest a few options
+                                lower = (seq_len // self.config.sequence_parallel_size) * self.config.sequence_parallel_size
+                                upper = lower + self.config.sequence_parallel_size
+                                if lower > 0:
+                                    suggested_lengths.append(lower)
+                                suggested_lengths.append(upper)
+                            
+                            unique_suggestions = sorted(set(suggested_lengths))[:3]  # Top 3 suggestions
+                            logger.warning(f"Suggested model_max_length values: {unique_suggestions}")
+                
+        except Exception as e:
+            logger.error(f"Failed to inspect first batch: {e}")
+
         try:
             wrapped_dataloader = UlyssesSPDataLoaderAdapter(
                 dataloader,
@@ -360,10 +409,26 @@ class SequenceParallelLossComputer:
         return_outputs: bool = False,
     ) -> torch.Tensor:
         """Compute loss using standard method."""
-        logger.debug("Using standard loss computation")
+        logger.info("Using standard loss computation")
+        logger.info(f"Input keys: {list(inputs.keys())}")
+        
+        # Debug inputs
+        for key, value in inputs.items():
+            if isinstance(value, torch.Tensor):
+                logger.info(f"  {key}: shape={value.shape}, dtype={value.dtype}")
 
         outputs = model(**inputs, use_cache=False)
-        loss = outputs.loss
+        
+        logger.info(f"Model outputs type: {type(outputs)}")
+        logger.info(f"Model outputs has loss: {hasattr(outputs, 'loss')}")
+        
+        if hasattr(outputs, 'loss'):
+            loss = outputs.loss
+            logger.info(f"Loss from model: {loss}")
+        else:
+            logger.error("Model outputs do not contain 'loss' attribute!")
+            logger.error(f"Available attributes: {dir(outputs)}")
+            raise RuntimeError("Model forward pass did not return loss")
 
         if return_outputs:
             return (loss, outputs)
