@@ -421,6 +421,17 @@ class SequenceParallelLossComputer:
         for key, value in inputs.items():
             if isinstance(value, torch.Tensor):
                 logger.info(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                
+                # Check if all labels are -100 (filtered out)
+                if key == "labels":
+                    num_valid_labels = (value != -100).sum().item()
+                    total_labels = value.numel()
+                    logger.info(f"  Valid labels: {num_valid_labels}/{total_labels}")
+                    if num_valid_labels == 0:
+                        logger.error("All labels are -100! This will cause NaN loss.")
+                        logger.error("This usually means the chat template is not matching the data format.")
+                    elif num_valid_labels < total_labels * 0.1:  # Less than 10% valid
+                        logger.warning(f"Very few valid labels ({num_valid_labels}/{total_labels}). Check data format.")
 
         outputs = model(**inputs, use_cache=False)
         

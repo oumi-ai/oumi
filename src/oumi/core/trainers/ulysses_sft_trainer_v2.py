@@ -209,44 +209,196 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         return dataloader
 
     def _create_sp_aware_collator(self, original_collator):
-        """Create a SP-aware collator that pads to lengths divisible by SP size."""
+        """Create a robust collator that ensures equal-sized batches and SP divisibility."""
         sp_size = self.sp_config.sequence_parallel_size
         
         def sp_collator(batch):
-            # Use original collator first
-            result = original_collator(batch)
+            logger.debug(f"SP collator processing batch of size {len(batch)}")
             
-            # Pad tensors to be divisible by SP size
-            for key, tensor in result.items():
-                if isinstance(tensor, torch.Tensor) and len(tensor.shape) >= 2:
-                    seq_len = tensor.shape[1]
-                    remainder = seq_len % sp_size
-                    
-                    if remainder != 0:
-                        pad_size = sp_size - remainder
-                        logger.debug(f"Padding {key} from length {seq_len} to {seq_len + pad_size} for SP divisibility")
-                        
-                        # Determine padding value
-                        if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
-                            pad_value = self.processing_class.pad_token_id
-                        elif key == "labels":
-                            pad_value = -100  # Standard ignore index for labels
-                        elif key == "attention_mask":
-                            pad_value = 0  # Attention mask padding
-                        else:
-                            pad_value = 0  # Default padding
-                        
-                        # Create padding tensor
-                        pad_shape = list(tensor.shape)
-                        pad_shape[1] = pad_size  # Pad along sequence dimension
-                        padding = torch.full(pad_shape, pad_value, dtype=tensor.dtype, device=tensor.device)
-                        
-                        # Concatenate original tensor with padding
-                        result[key] = torch.cat([tensor, padding], dim=1)
+            # First, ensure we have a proper collator - if None, create a simple one
+            if original_collator is None:
+                logger.info("No collator provided - using simple dict collator")
+                result = self._simple_dict_collate(batch)
+            else:
+                try:
+                    result = original_collator(batch)
+                except Exception as e:
+                    logger.error(f"Original collator failed: {e}")
+                    logger.info("Falling back to simple dict collator")
+                    result = self._simple_dict_collate(batch)
+            
+            # Debug result before padding
+            logger.debug("Collator result before SP padding:")
+            for key, value in result.items():
+                if isinstance(value, torch.Tensor):
+                    logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+            
+            # Ensure all tensor sequences have equal length within the batch
+            # and are divisible by SP size
+            result = self._ensure_equal_length_and_sp_divisible(result, sp_size)
+            
+            # Debug final result
+            logger.debug("Final collator result:")
+            for key, value in result.items():
+                if isinstance(value, torch.Tensor):
+                    logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
             
             return result
         
         return sp_collator
+    
+    def _simple_dict_collate(self, batch):
+        """Simple dictionary-based collation that handles variable-length sequences."""
+        if not batch:
+            return {}
+        
+        # Get all unique keys from the batch
+        all_keys = set()
+        for item in batch:
+            all_keys.update(item.keys())
+        
+        result = {}
+        
+        for key in all_keys:
+            values = []
+            for item in batch:
+                if key in item:
+                    values.append(item[key])
+                else:
+                    # Handle missing keys by using a default value
+                    if key == "input_ids":
+                        values.append([])  # Empty sequence
+                    elif key == "labels":
+                        values.append([])  # Empty sequence
+                    elif key == "attention_mask":
+                        values.append([])  # Empty sequence
+                    else:
+                        values.append(None)
+            
+            # Convert lists to tensors if they contain numbers
+            if values and all(v is not None for v in values):
+                if all(isinstance(v, (list, tuple)) and len(v) > 0 and isinstance(v[0], (int, float)) for v in values):
+                    # Pad sequences to same length
+                    max_len = max(len(v) for v in values)
+                    padded_values = []
+                    
+                    for v in values:
+                        # Determine padding value
+                        if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+                            pad_value = self.processing_class.pad_token_id
+                        elif key == "labels":
+                            pad_value = -100
+                        elif key == "attention_mask":
+                            pad_value = 0
+                        else:
+                            pad_value = 0
+                        
+                        # Pad the sequence
+                        padded = list(v) + [pad_value] * (max_len - len(v))
+                        padded_values.append(padded)
+                    
+                    result[key] = torch.tensor(padded_values)
+                elif all(isinstance(v, torch.Tensor) for v in values):
+                    # Stack tensors if they have compatible shapes
+                    try:
+                        result[key] = torch.stack(values)
+                    except RuntimeError:
+                        # If stacking fails, pad to same shape
+                        result[key] = self._pad_and_stack_tensors(values, key)
+                else:
+                    result[key] = values
+            else:
+                result[key] = values
+        
+        return result
+    
+    def _pad_and_stack_tensors(self, tensors, key):
+        """Pad tensors to same shape and stack them."""
+        if not tensors:
+            return torch.tensor([])
+        
+        # Find maximum dimensions
+        max_dims = [0] * len(tensors[0].shape)
+        for tensor in tensors:
+            for i, dim in enumerate(tensor.shape):
+                max_dims[i] = max(max_dims[i], dim)
+        
+        # Determine padding value
+        if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+            pad_value = self.processing_class.pad_token_id
+        elif key == "labels":
+            pad_value = -100
+        elif key == "attention_mask":
+            pad_value = 0
+        else:
+            pad_value = 0
+        
+        # Pad each tensor to max dimensions
+        padded_tensors = []
+        for tensor in tensors:
+            # Calculate padding needed for each dimension
+            padding = []
+            for i in range(len(tensor.shape) - 1, -1, -1):  # PyTorch padding is in reverse order
+                pad_needed = max_dims[i] - tensor.shape[i]
+                padding.extend([0, pad_needed])
+            
+            if any(p > 0 for p in padding):
+                padded_tensor = torch.nn.functional.pad(tensor, padding, value=pad_value)
+            else:
+                padded_tensor = tensor
+            
+            padded_tensors.append(padded_tensor)
+        
+        return torch.stack(padded_tensors)
+    
+    def _ensure_equal_length_and_sp_divisible(self, result, sp_size):
+        """Ensure all tensors have equal length and are divisible by SP size."""
+        # Find sequence tensors (assume they have at least 2 dimensions with seq length in dim 1)
+        seq_tensors = {}
+        for key, tensor in result.items():
+            if isinstance(tensor, torch.Tensor) and len(tensor.shape) >= 2:
+                seq_tensors[key] = tensor
+        
+        if not seq_tensors:
+            return result
+        
+        # Find the maximum sequence length
+        max_seq_len = max(tensor.shape[1] for tensor in seq_tensors.values())
+        
+        # Ensure max length is divisible by SP size
+        if sp_size > 1:
+            remainder = max_seq_len % sp_size
+            if remainder != 0:
+                pad_to_sp = sp_size - remainder
+                max_seq_len += pad_to_sp
+                logger.debug(f"Padding to {max_seq_len} for SP divisibility (sp_size={sp_size})")
+        
+        # Pad all sequence tensors to the max length
+        for key, tensor in seq_tensors.items():
+            current_len = tensor.shape[1]
+            if current_len < max_seq_len:
+                pad_size = max_seq_len - current_len
+                
+                # Determine padding value
+                if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+                    pad_value = self.processing_class.pad_token_id
+                elif key == "labels":
+                    pad_value = -100
+                elif key == "attention_mask":
+                    pad_value = 0
+                else:
+                    pad_value = 0
+                
+                # Create padding tensor
+                pad_shape = list(tensor.shape)
+                pad_shape[1] = pad_size
+                padding = torch.full(pad_shape, pad_value, dtype=tensor.dtype, device=tensor.device)
+                
+                # Concatenate original with padding
+                result[key] = torch.cat([tensor, padding], dim=1)
+                logger.debug(f"Padded {key} from {current_len} to {max_seq_len}")
+        
+        return result
 
     def create_eval_dataloader(self) -> DataLoader:
         """Create evaluation data loader."""
