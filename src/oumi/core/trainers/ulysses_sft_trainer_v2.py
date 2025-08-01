@@ -668,7 +668,52 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         """Compute loss with Ulysses SP support."""
         # Initialize SP groups after DeepSpeed is ready (lazy initialization)
         if self.sp_config.is_enabled() and not self.sp_manager.is_initialized:
-            logger.info("Initializing SP groups after DeepSpeed initialization (lazy)")
+            logger.info("Attempting to initialize SP groups after DeepSpeed initialization (lazy)")
+            
+            # Check if DeepSpeed is actually initialized
+            is_deepspeed_enabled = hasattr(self.model, 'module') and hasattr(self.model, 'engine')
+            logger.info(f"DeepSpeed enabled: {is_deepspeed_enabled}")
+            
+            if is_deepspeed_enabled:
+                # Try to manually reinitialize DeepSpeed with MPU
+                logger.info("DeepSpeed is initialized but without SP groups - attempting manual reinit with MPU")
+                mpu = self.sp_manager.get_mpu()
+                if mpu is not None:
+                    logger.info("Reinitializing DeepSpeed with Ulysses SP MPU")
+                    
+                    try:
+                        import deepspeed
+                        
+                        # Get current DeepSpeed config
+                        current_config = self.model.config if hasattr(self.model, 'config') else self.args.deepspeed
+                        
+                        # Save current state
+                        current_model = self.model.module if hasattr(self.model, 'module') else self.model
+                        
+                        # Reinitialize with MPU
+                        model_engine, optimizer, _, lr_scheduler = deepspeed.initialize(
+                            model=current_model,
+                            optimizer=self.optimizer,
+                            lr_scheduler=self.lr_scheduler,
+                            config=current_config,
+                            mpu=mpu,  # Add the missing MPU
+                        )
+                        
+                        # Update references
+                        self.model = model_engine
+                        self.model_wrapped = model_engine
+                        if optimizer is not None:
+                            self.optimizer = optimizer
+                        if lr_scheduler is not None:
+                            self.lr_scheduler = lr_scheduler
+                        
+                        logger.info("DeepSpeed reinitialized with SP MPU successfully")
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to reinitialize DeepSpeed with MPU: {e}")
+                        logger.info("Continuing with standard initialization attempt")
+            
+            # Now try to initialize SP groups
             success = self.sp_manager.initialize_groups()
             if success and hasattr(self, "train_dataloader"):
                 logger.info("Recreating training dataloader with SP support...")
@@ -676,6 +721,8 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 old_dataloader = self.train_dataloader
                 self.train_dataloader = self.create_train_dataloader()
                 logger.info("Training dataloader recreated with SP support")
+            else:
+                logger.warning("SP groups initialization still failed after DeepSpeed reinit attempt")
         
         # Debug batch information
         if logger.isEnabledFor(10):  # DEBUG level
@@ -734,9 +781,13 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         """Create optimizer and scheduler with DeepSpeed integration."""
-        # TEMPORARILY DISABLE early initialization to test compatibility
-        logger.info("Using standard HF + DeepSpeed initialization path")
-        return super().create_optimizer_and_scheduler(num_training_steps)
+        # Re-enable early DeepSpeed initialization for SP + ZERO_3 compatibility
+        if self.sp_config.is_enabled() and self.args.deepspeed:
+            logger.info("SP + DeepSpeed detected - performing early initialization with ZERO_3")
+            return self._early_deepspeed_initialization(num_training_steps)
+        else:
+            logger.info("Using standard HF + DeepSpeed initialization path")
+            return super().create_optimizer_and_scheduler(num_training_steps)
 
     def _create_optimizer_with_deepspeed(self, num_training_steps: int):
         """Create optimizer with DeepSpeed and Ulysses SP integration."""
