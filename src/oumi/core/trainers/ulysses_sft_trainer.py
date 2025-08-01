@@ -122,6 +122,14 @@ class LabelToShiftLabelsConverter:
 
     def __getattr__(self, name):
         """Delegate attribute access to the wrapped dataloader."""
+        # Handle problematic attributes that may cause subscripting issues
+        if name in ('__getitems__', '__getitem__'):
+            if hasattr(self.dataloader, name):
+                logger.info(f"LabelToShiftLabelsConverter delegating '{name}' to wrapped dataloader")
+                return getattr(self.dataloader, name)
+            else:
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        
         logger.info(f"LabelToShiftLabelsConverter delegating attribute '{name}' to wrapped dataloader")
         return getattr(self.dataloader, name)
 
