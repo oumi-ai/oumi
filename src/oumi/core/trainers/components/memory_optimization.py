@@ -151,6 +151,12 @@ class MemoryOptimizer:
         )
 
         total_good_items = sum((shift_labels != -100).squeeze())
+        
+        # Handle case where all labels are masked to prevent division by zero
+        if total_good_items == 0:
+            logger.warning("All shift_labels are masked (-100), returning zero loss")
+            return torch.tensor(0.0, device=shift_labels.device, dtype=torch.float32)
+        
         loss = total_loss_sum / total_good_items
 
         return loss
