@@ -8,6 +8,7 @@
 # - Uses LIMO dataset with long mathematical sequences (up to 8192 tokens)
 # - Validates distributed SP-aware data processing and loss computation
 # - Tests SP-aware label masking to prevent "all labels masked" issue
+# - Note: Gradient accumulation disabled (not compatible with Ulysses SP + DeepSpeed ZeRO)
 #
 # Usage:
 #   torchrun --nproc-per-node=3 --standalone -m oumi train -c configs/examples/deepspeed/sft_ulysses_arctic_loss_distributed_test.yaml
@@ -49,7 +50,7 @@ training:
   # Training configuration optimized for SP with long sequences
   max_steps: 10  # Very short run to test Arctic loss with SP on long sequences
   per_device_train_batch_size: 1  # Small batch for memory efficiency with long sequences
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 1  # Disable gradient accumulation (not supported with SP + ZeRO)
   
   # Learning configuration
   learning_rate: 5e-5
@@ -106,7 +107,7 @@ deepspeed:
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"
-  gradient_accumulation_steps: "auto"
+  gradient_accumulation_steps: 1  # Must be 1 for SP + ZeRO compatibility
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False
