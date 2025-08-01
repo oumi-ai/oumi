@@ -311,10 +311,7 @@ def train(
         # Otherwise, SFTTrainer's overridden `_set_signature_columns_if_needed()`
         # function will result in columns needed for VLM training (e.g. `pixel_values`)
         # to be dropped from the dataset.
-        if (
-            config.training.trainer_type == TrainerType.TRL_SFT
-            or config.training.trainer_type == TrainerType.TRL_SFT_ULYSSES
-        ):
+        if config.training.trainer_type == TrainerType.TRL_SFT:
             config.training.trainer_kwargs["remove_unused_columns"] = False
 
     # Load datasets.
@@ -441,26 +438,11 @@ def train(
     # 2. Packing is requested, and thus is processed by the
     # `PretrainingAsyncTextDataset` class
     # See OPE-1108 for more details.
-    if (
-        config.training.trainer_type == TrainerType.TRL_SFT
-        or config.training.trainer_type == TrainerType.TRL_SFT_ULYSSES
-    ):
+    if config.training.trainer_type == TrainerType.TRL_SFT:
         example = next(iter(train_dataset))
         if "input_ids" in example:
-            # Check if user explicitly wants dataset preparation for Ulysses SP
+            # Dataset is already processed for TRL_SFT trainer
             skip_preparation = True
-            if config.training.trainer_type == TrainerType.TRL_SFT_ULYSSES:
-                # For Ulysses SP, check if user explicitly set
-                # skip_prepare_dataset to False
-                dataset_kwargs = config.training.trainer_kwargs.get(
-                    "dataset_kwargs", {}
-                )
-                if dataset_kwargs.get("skip_prepare_dataset", True) is False:
-                    logger.info(
-                        "Allowing dataset preparation for TRL_SFT_ULYSSES trainer "
-                        "since skip_prepare_dataset is explicitly set to False."
-                    )
-                    skip_preparation = False
 
             if skip_preparation:
                 logger.info(

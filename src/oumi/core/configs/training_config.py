@@ -122,10 +122,7 @@ class TrainingConfig(BaseConfig):
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
             max_seq_length_key = None
-            if (
-                trainer_type == TrainerType.TRL_SFT
-                or trainer_type == TrainerType.TRL_SFT_ULYSSES
-            ):
+            if trainer_type == TrainerType.TRL_SFT:
                 max_seq_length_key = "max_seq_length"
             elif trainer_type == TrainerType.TRL_DPO:
                 max_seq_length_key = "max_length"
@@ -185,10 +182,7 @@ class TrainingConfig(BaseConfig):
                     )
                 dataset_params.dataset_kwargs["return_conversations"] = True
             # Extra setup for TRL_SFT.
-            if (
-                trainer_type == TrainerType.TRL_SFT
-                or trainer_type == TrainerType.TRL_SFT_ULYSSES
-            ):
+            if trainer_type == TrainerType.TRL_SFT:
                 if self.training.trainer_kwargs.get("remove_unused_columns", False):
                     raise ValueError(
                         "`remove_unused_columns` must be False "
@@ -199,14 +193,11 @@ class TrainingConfig(BaseConfig):
                 self.training.trainer_kwargs["remove_unused_columns"] = False
 
                 # `trl` shouldn't be preparing the dataset, as we do it in Oumi.
-                # EXCEPTION: TRL_SFT_ULYSSES needs TRL dataset preparation to create
-                # shift_labels
-                if trainer_type == TrainerType.TRL_SFT:
-                    dataset_kwargs = self.training.trainer_kwargs.get(
-                        "dataset_kwargs", {}
-                    )
-                    dataset_kwargs["skip_prepare_dataset"] = True
-                    self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
+                dataset_kwargs = self.training.trainer_kwargs.get(
+                    "dataset_kwargs", {}
+                )
+                dataset_kwargs["skip_prepare_dataset"] = True
+                self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
 
         if len(self.model.processor_kwargs) > 0:
             model_processor_name: Final[str] = (
