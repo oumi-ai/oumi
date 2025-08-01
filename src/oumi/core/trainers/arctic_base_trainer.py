@@ -726,6 +726,10 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
         # Scale loss for gradient accumulation
         loss = loss / self.args.gradient_accumulation_steps
 
+        # Check for parameters without gradients before backward pass (SP + ZeRO issue)
+        if hasattr(self, 'sp_config') and getattr(self.sp_config, 'is_enabled', lambda: False)():
+            loss = self._ensure_all_params_connected(loss)
+
         # Backward pass
         loss.backward()
 

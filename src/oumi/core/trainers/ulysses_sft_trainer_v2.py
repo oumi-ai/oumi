@@ -714,6 +714,33 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     logger.error(f"  {key}: {type(value)} = {value}")
             raise
 
+    def _ensure_all_params_connected(self, loss: torch.Tensor) -> torch.Tensor:
+        """Ensure all model parameters are connected to the computation graph.
+        
+        This addresses the issue where some parameters don't get gradients computed
+        during Ulysses SP + ZeRO-3 training, causing 'NoneType' has no attribute 'numel' errors.
+        """
+        if not self.sp_config.is_enabled():
+            return loss
+            
+        logger.debug("Ensuring all parameters are connected to computation graph...")
+        
+        # Add a tiny regularization term that uses all parameters
+        # This ensures all parameters are part of the computation graph
+        param_sum = torch.tensor(0.0, device=loss.device, requires_grad=True)
+        param_count = 0
+        
+        for param in self.model.parameters():
+            if param.requires_grad:
+                param_count += 1
+                # Multiply by 0 so it doesn't affect the actual loss value
+                param_sum = param_sum + (param * 0.0).sum()
+        
+        logger.debug(f"Connected {param_count} parameters to computation graph")
+        
+        # Add tiny regularization term (effectively 0 but connects all params)
+        return loss + param_sum * 1e-12
+
     def _early_deepspeed_initialization(self, num_training_steps: int):
         """Perform early DeepSpeed initialization following Arctic pattern."""
         if self._deepspeed_initialized:
