@@ -395,6 +395,11 @@ class SequenceParallelLossComputer:
 
         # Aggregate loss across SP ranks
         loss = self.sp_manager.compute_loss_with_sp_aggregation(loss, shift_labels)
+        
+        # Ensure loss is a scalar for backward()
+        if loss is not None and hasattr(loss, 'shape') and loss.numel() > 1:
+            logger.debug(f"Reducing SP loss from shape {loss.shape} to scalar")
+            loss = loss.mean()
 
         if return_outputs:
             # For SP, return None for outputs to avoid issues with sharded outputs
@@ -425,6 +430,13 @@ class SequenceParallelLossComputer:
         if hasattr(outputs, 'loss'):
             loss = outputs.loss
             logger.info(f"Loss from model: {loss}")
+            
+            # Ensure loss is a scalar for backward()
+            if loss is not None and hasattr(loss, 'shape') and loss.numel() > 1:
+                logger.info(f"Reducing loss from shape {loss.shape} to scalar")
+                loss = loss.mean()
+                logger.info(f"Reduced loss: {loss}")
+                
         else:
             logger.error("Model outputs do not contain 'loss' attribute!")
             logger.error(f"Available attributes: {dir(outputs)}")

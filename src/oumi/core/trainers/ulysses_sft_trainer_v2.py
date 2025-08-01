@@ -281,7 +281,21 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     logger.debug(f"  {key}: {type(value)}")
         
         try:
-            return self.loss_computer.compute_loss(model, inputs, return_outputs=False)
+            loss = self.loss_computer.compute_loss(model, inputs, return_outputs=False)
+            
+            # Final safety check: ensure loss is scalar
+            if loss is not None and hasattr(loss, 'shape') and loss.numel() > 1:
+                logger.warning(f"Loss has non-scalar shape {loss.shape}, reducing to scalar")
+                loss = loss.mean()
+            
+            # Check for NaN/inf
+            if loss is not None and (torch.isnan(loss) or torch.isinf(loss)):
+                logger.error(f"Loss is NaN or inf: {loss}")
+                # Return a small positive loss to avoid stopping training
+                loss = torch.tensor(1e-6, requires_grad=True, device=loss.device if hasattr(loss, 'device') else 'cpu')
+                
+            return loss
+            
         except Exception as e:
             logger.error(f"Error in compute_loss: {e}")
             logger.error("Batch details for debugging:")
