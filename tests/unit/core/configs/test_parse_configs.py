@@ -10,6 +10,7 @@ from oumi.core.configs import (
     InferenceConfig,
     JobConfig,
     JudgeConfig,
+    QuantizationConfig,
     TrainingConfig,
 )
 from oumi.core.types import HardwareException
@@ -57,6 +58,7 @@ def test_parse_configs(config_path: str):
         JobConfig,
         JudgeConfig,
         TrainingConfig,
+        QuantizationConfig,
     ]
     error_messages = []
     for config_class in valid_config_classes:
