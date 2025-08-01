@@ -723,15 +723,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         """Create optimizer and scheduler with DeepSpeed integration."""
-        # If we need early DeepSpeed init and haven't done it yet, do it now
-        if self._needs_early_deepspeed_init and not self._deepspeed_initialized:
-            return self._early_deepspeed_initialization(num_training_steps)
-        elif self._deepspeed_initialized:
-            # Already initialized early, nothing to do
-            return
-        else:
-            # Standard path for non-SP cases
-            return super().create_optimizer_and_scheduler(num_training_steps)
+        # TEMPORARILY DISABLE early initialization to test compatibility
+        logger.info("Using standard HF + DeepSpeed initialization path")
+        return super().create_optimizer_and_scheduler(num_training_steps)
 
     def _create_optimizer_with_deepspeed(self, num_training_steps: int):
         """Create optimizer with DeepSpeed and Ulysses SP integration."""
