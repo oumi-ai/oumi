@@ -108,7 +108,6 @@ class TestQuantizeModule:
                 model=ModelParams(model_name="test/model"),
                 method="invalid_method",
                 output_path="test.pytorch",
-                output_format="pytorch",
             )
 
     @patch("oumi.builders.quantizers.build_quantizer")
