@@ -130,7 +130,9 @@ class UlyssesSFTTrainer(SFTTrainer):
             )
 
         self.sequence_parallel_size = sequence_parallel_size
-        self.original_sequence_parallel_size = sequence_parallel_size  # Preserve original value
+        self.original_sequence_parallel_size = (
+            sequence_parallel_size  # Preserve original value
+        )
         self.model_name_or_path = model_name_or_path
         self.attn_implementation = attn_implementation
         self.max_length = max_length
@@ -213,7 +215,7 @@ class UlyssesSFTTrainer(SFTTrainer):
             # The DeepSpeed implementation returns the parallel_state_sp module itself
             # which contains the SP groups functionality, not a separate MPU object
             self._mpu = mpu_result
-            
+
             logger.info(
                 "Ulysses SP attention patches applied successfully using DeepSpeed"
             )
@@ -234,10 +236,10 @@ class UlyssesSFTTrainer(SFTTrainer):
                 # This follows the ArcticTraining pattern from trainer.py:236-243
                 self.sp_group = groups._get_sequence_parallel_group()
                 logger.info("Got SP group, getting world size...")
-                
+
                 self.sp_world_size = groups._get_sequence_parallel_world_size()
                 logger.info("Got SP world size, getting rank...")
-                
+
                 self.sp_rank = groups._get_sequence_parallel_rank()
                 logger.info("Got SP rank")
 
@@ -252,7 +254,8 @@ class UlyssesSFTTrainer(SFTTrainer):
                     "hasn't been initialized yet or SP groups haven't been created. "
                     "Falling back to standard training mode."
                 )
-                # Don't disable SP here - we might initialize it later via custom DeepSpeed init
+                # Don't disable SP here - we might initialize it later via custom
+                # DeepSpeed init
                 # Just clear the SP group info for now
                 self.sp_group = None
                 self.sp_world_size = 1
@@ -265,36 +268,40 @@ class UlyssesSFTTrainer(SFTTrainer):
             Training DataLoader, wrapped with UlyssesSPDataLoaderAdapter if SP enabled
         """
         logger.info("Getting train dataloader...")
-        
+
         # Get the standard training dataloader from parent
         dataloader = super().get_train_dataloader()
         logger.info("Got standard dataloader from parent")
-        
+
         # Create a debugging wrapper to log when dataloader is actually used
-        if hasattr(dataloader, '__iter__'):
+        if hasattr(dataloader, "__iter__"):
             original_iter = dataloader.__iter__
+
             def debug_iter():
                 logger.info("=== DATALOADER __iter__ CALLED ===")
                 iterator = original_iter()
-                
+
                 # Wrap the iterator's __next__ method
                 original_next = iterator.__next__
+
                 def debug_next():
                     logger.info("=== DATALOADER __next__ CALLED ===")
                     result = original_next()
                     logger.info("=== DATALOADER __next__ COMPLETED ===")
                     return result
+
                 iterator.__next__ = debug_next
-                
+
                 logger.info("=== DATALOADER __iter__ RETURNING ITERATOR ===")
                 return iterator
+
             dataloader.__iter__ = debug_iter
 
         # Wrap with Ulysses SP data loader adapter if sequence parallelism is enabled
         # Use original_sequence_parallel_size in case sequence_parallel_size was reset
         if self.original_sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
             logger.info("Sequence parallelism enabled, checking SP groups...")
-            
+
             # Initialize SP groups if not already done
             # Called post-DeepSpeed initialization, so groups should be available
             if self.sp_group is None:
@@ -333,20 +340,32 @@ class UlyssesSFTTrainer(SFTTrainer):
         return dataloader
 
     def _recreate_dataloader_with_sp(self):
-        """Recreate the training dataloader with SP support after SP groups are initialized."""
+        """Recreate the training dataloader with SP support.
+
+        This method recreates the training dataloader after SP groups are
+        initialized.
+        """
         try:
             logger.info("Creating SP-enabled training dataloader...")
-            
+
             # Get a fresh dataloader from the parent
             logger.info("About to call super().get_train_dataloader()...")
             base_dataloader = super().get_train_dataloader()
             logger.info(f"Got base dataloader: {type(base_dataloader)}")
-            logger.info(f"Base dataloader length: {len(base_dataloader) if hasattr(base_dataloader, '__len__') else 'unknown'}")
-            
+            base_dataloader_length = (
+                len(base_dataloader)
+                if hasattr(base_dataloader, "__len__")
+                else "unknown"
+            )
+            logger.info(f"Base dataloader length: {base_dataloader_length}")
+
             # Log SP parameters before wrapping
-            logger.info(f"SP parameters: rank={self.sp_rank}, world_size={self.sp_world_size}, group={self.sp_group}")
+            logger.info(
+                f"SP parameters: rank={self.sp_rank}, "
+                f"world_size={self.sp_world_size}, group={self.sp_group}"
+            )
             logger.info(f"Device: {self.args.device if self.args else None}")
-            
+
             # Wrap it with SP adapter now that groups are available
             logger.info("About to create UlyssesSPDataLoaderAdapter...")
             sp_dataloader = UlyssesSPDataLoaderAdapter(
@@ -357,77 +376,95 @@ class UlyssesSFTTrainer(SFTTrainer):
                 device=self.args.device if self.args else None,
             )
             logger.info("Created UlyssesSPDataLoaderAdapter successfully")
-            
+
             # Test the dataloader by getting an iterator (but don't iterate yet)
             logger.info("Testing SP dataloader by getting iterator...")
             try:
-                sp_iter = iter(sp_dataloader)
+                _ = iter(sp_dataloader)
                 logger.info("Successfully created SP dataloader iterator")
             except Exception as iter_e:
                 logger.error(f"Failed to create SP dataloader iterator: {iter_e}")
                 raise
-            
+
             # SUCCESS: SP dataloader creation and first iteration work!
-            
+
             # Wrap the SP dataloader with debugging
             class DebugSPDataLoader:
                 def __init__(self, wrapped_dataloader):
                     self.wrapped = wrapped_dataloader
                     self.iteration_count = 0
-                
+
                 def __iter__(self):
                     logger.info("=== SP DATALOADER __iter__ CALLED ===")
                     return DebugSPDataLoaderIterator(iter(self.wrapped))
-                
+
                 def __len__(self):
                     return len(self.wrapped)
-                    
+
                 def __getattr__(self, name):
                     return getattr(self.wrapped, name)
-            
+
             class DebugSPDataLoaderIterator:
                 def __init__(self, wrapped_iterator):
                     self.wrapped = wrapped_iterator
                     self.step = 0
-                
+
                 def __iter__(self):
                     return self
-                
+
                 def __next__(self):
-                    logger.info(f"=== SP DATALOADER __next__ CALLED (step {self.step}) ===")
+                    logger.info(
+                        f"=== SP DATALOADER __next__ CALLED (step {self.step}) ==="
+                    )
                     try:
                         result = next(self.wrapped)
-                        logger.info(f"=== SP DATALOADER __next__ SUCCESS (step {self.step}) ===")
+                        logger.info(
+                            f"=== SP DATALOADER __next__ SUCCESS (step {self.step}) ==="
+                        )
                         self.step += 1
                         return result
                     except Exception as e:
-                        logger.error(f"=== SP DATALOADER __next__ FAILED (step {self.step}): {e} ===")
+                        logger.error(
+                            f"=== SP DATALOADER __next__ FAILED (step {self.step}): "
+                            f"{e} ==="
+                        )
                         raise
-            
+
             debug_sp_dataloader = DebugSPDataLoader(sp_dataloader)
-            
+
             # Replace the trainer's dataloader
-            # This is a bit of a hack, but necessary since HF Trainer caches the dataloader
+            # This is a bit of a hack, but necessary since HF Trainer caches the
+            # dataloader
             # Clear all possible cached dataloaders
-            for attr in ['_train_dataloader', 'train_dataloader', '_cached_train_dataloader']:
+            for attr in [
+                "_train_dataloader",
+                "train_dataloader",
+                "_cached_train_dataloader",
+            ]:
                 if hasattr(self, attr):
                     setattr(self, attr, debug_sp_dataloader)
-                    logger.info(f"Updated cached train dataloader '{attr}' with SP support")
-            
+                    logger.info(
+                        f"Updated cached train dataloader '{attr}' with SP support"
+                    )
+
             # Also try to override the get_train_dataloader method temporarily
             def get_sp_dataloader():
                 logger.info("=== CUSTOM get_train_dataloader CALLED ===")
                 return debug_sp_dataloader
-            
+
             # Replace the method on this instance
             import types
-            self.get_train_dataloader = types.MethodType(lambda self: get_sp_dataloader(), self)
+
+            self.get_train_dataloader = types.MethodType(
+                lambda self: get_sp_dataloader(), self
+            )
             logger.info("Overrode get_train_dataloader method")
-            
+
             logger.info("Successfully recreated dataloader with SP support")
-            
+
         except Exception as e:
             import traceback
+
             logger.error(f"Failed to recreate dataloader with SP: {e}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
             logger.warning("Continuing with standard dataloader")
@@ -463,22 +500,36 @@ class UlyssesSFTTrainer(SFTTrainer):
             Loss tensor, optionally with model outputs
         """
         logger.info("=== COMPUTE_LOSS CALLED ===")
-        logger.info(f"Inputs keys: {inputs.keys() if hasattr(inputs, 'keys') else 'No keys'}")
-        logger.info(f"SP size: {self.sequence_parallel_size}, DEEPSPEED available: {DEEPSPEED_ULYSSES_AVAILABLE}")
-        
+        logger.info(
+            f"Inputs keys: {inputs.keys() if hasattr(inputs, 'keys') else 'No keys'}"
+        )
+        logger.info(
+            f"SP size: {self.sequence_parallel_size}, "
+            f"DEEPSPEED available: {DEEPSPEED_ULYSSES_AVAILABLE}"
+        )
+
         # Handle SP-specific loss computation
-        # Check if we have SP-processed data (should have 'shift_labels' from SP dataloader)
+        # Check if we have SP-processed data (should have 'shift_labels' from SP
+        # dataloader)
         has_sp_data = "shift_labels" in inputs
         logger.info(f"Has SP data (shift_labels): {has_sp_data}")
-        
-        if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE and has_sp_data:
+
+        if (
+            self.sequence_parallel_size > 1
+            and DEEPSPEED_ULYSSES_AVAILABLE
+            and has_sp_data
+        ):
             logger.info("Using Ulysses SP loss computation")
             result = self._compute_loss_ulysses_sp(model, inputs, return_outputs)
             logger.info("=== COMPUTE_LOSS COMPLETED (SP) ===")
             return result
         else:
             logger.info("Using standard loss computation")
-            logger.info(f"Reason: SP size={self.sequence_parallel_size}, DeepSpeed available={DEEPSPEED_ULYSSES_AVAILABLE}, Has SP data={has_sp_data}")
+            logger.info(
+                f"Reason: SP size={self.sequence_parallel_size}, "
+                f"DeepSpeed available={DEEPSPEED_ULYSSES_AVAILABLE}, "
+                f"Has SP data={has_sp_data}"
+            )
             # Standard loss computation for non-SP case
             result = super().compute_loss(
                 model, inputs, return_outputs, num_items_in_batch
@@ -490,13 +541,13 @@ class UlyssesSFTTrainer(SFTTrainer):
         """Compute loss for Ulysses sequence parallel training.
 
         Based on ArcticTraining's sophisticated loss computation that handles:
-        1. shift_labels preprocessing
+        1. Strict validation of shift_labels format (from SP dataloader)
         2. Tiled logits+loss computation for memory efficiency
         3. Weighted loss aggregation across SP ranks
 
         Args:
             model: The model to compute loss for
-            inputs: Input batch (should contain 'shift_labels' if from SP data loader)
+            inputs: Input batch (must contain 'shift_labels' from SP data loader)
             return_outputs: Whether to return model outputs
 
         Returns:
@@ -504,51 +555,29 @@ class UlyssesSFTTrainer(SFTTrainer):
         """
         logger.info("Starting Ulysses SP loss computation...")
         logger.info(f"Input keys: {list(inputs.keys())}")
-        
-        # Handle both 'labels' and 'shift_labels' formats for flexibility
-        logger.info("Processing labels...")
-        if "shift_labels" in inputs:
-            logger.info("Found shift_labels in inputs")
-            shift_labels = inputs["shift_labels"]
-        elif "labels" in inputs:
-            logger.info("Found labels in inputs, converting to shift_labels...")
-            # Convert labels to shift_labels if needed
-            labels = inputs["labels"]
-            logger.info(f"Labels shape: {labels.shape}")
-            
-            # Shift labels for causal LM: shift right by one position
-            logger.info("Shifting labels...")
-            shift_labels = labels[..., 1:].contiguous()
-            logger.info(f"Shifted labels shape: {shift_labels.shape}")
-            
-            # Pad with -100 (ignore index) at the end
-            logger.info("Padding shift_labels...")
-            padding = torch.full(
-                (shift_labels.shape[0], 1),
-                -100,
-                dtype=shift_labels.dtype,
-                device=shift_labels.device,
-            )
-            logger.info(f"Padding shape: {padding.shape}")
-            
-            shift_labels = torch.cat([shift_labels, padding], dim=1)
-            logger.info(f"Final shift_labels shape: {shift_labels.shape}")
-            
-            # Update inputs to use shift_labels
-            logger.info("Updating inputs dictionary...")
-            inputs = {k: v for k, v in inputs.items() if k != "labels"}
-            inputs["shift_labels"] = shift_labels
-            logger.info("Labels conversion completed")
-        else:
+
+        # Strict validation following ArcticTraining pattern
+        if "labels" in inputs:
             raise ValueError(
-                "Missing 'labels' or 'shift_labels' in batch for loss computation."
+                "Found 'labels' in batch - they shouldn't be there for Ulysses SP, "
+                "instead 'shift_labels' should be there. Check that "
+                "UlyssesSPDataLoaderAdapter has been applied to the original DataLoader object."
+            )
+        
+        if "shift_labels" not in inputs:
+            raise ValueError(
+                "shift_labels are missing from the batch - check that "
+                "UlyssesSPDataLoaderAdapter has been applied to the original DataLoader object."
             )
 
         shift_labels = inputs["shift_labels"]
-        logger.info(f"Final shift_labels shape: {shift_labels.shape}")
+        logger.info(f"Found shift_labels with shape: {shift_labels.shape}")
 
         # Choose loss computation strategy
-        logger.info(f"Choosing loss computation strategy. use_liger_kernel: {self.use_liger_kernel}")
+        logger.info(
+            f"Choosing loss computation strategy. "
+            f"use_liger_kernel: {self.use_liger_kernel}"
+        )
         if self.use_liger_kernel:
             logger.info("Using Liger fused cross-entropy...")
             # Use Liger fused cross-entropy for maximum efficiency
@@ -598,7 +627,7 @@ class UlyssesSFTTrainer(SFTTrainer):
             Computed loss tensor
         """
         logger.info("Starting tiled logits loss computation...")
-        
+
         # Automatically determine number of shards based on memory target
         # Target ~1GB of fp32 logits per shard
         slice_size_in_gb = 1.0
@@ -609,16 +638,18 @@ class UlyssesSFTTrainer(SFTTrainer):
         num_shards = max(1, math.ceil(size_in_gb / slice_size_in_gb))
 
         logger.info(f"Using {num_shards} shards for tiled logits computation")
-        logger.info(f"Batch size: {bs}, Sequence length: {seqlen}, Vocab size: {vocab_size}")
+        logger.info(
+            f"Batch size: {bs}, Sequence length: {seqlen}, Vocab size: {vocab_size}"
+        )
 
         # Get model outputs (hidden states)
         logger.info("Getting model outputs (forward pass)...")
         outputs = model.model(**inputs, use_cache=False)
         logger.info("Model forward pass completed")
-        
+
         hidden_states = outputs.last_hidden_state
         logger.info(f"Hidden states shape: {hidden_states.shape}")
-        
+
         compute_params = [model.lm_head.weight]
         mask = None
         output_reduction = "sum"
@@ -681,42 +712,77 @@ class UlyssesSFTTrainer(SFTTrainer):
 
                     with open(ds_config) as f:
                         ds_config = json.load(f)
-                
+
                 # Ensure ulysses_sequence_parallel_size is in the config
-                # Use original value, not potentially modified self.sequence_parallel_size
-                if 'ulysses_sequence_parallel_size' not in ds_config:
+                # Use original value, not potentially modified
+                # self.sequence_parallel_size
+                if "ulysses_sequence_parallel_size" not in ds_config:
                     logger.warning(
-                        f"Adding ulysses_sequence_parallel_size={self.original_sequence_parallel_size} to DeepSpeed config"
+                        f"Adding ulysses_sequence_parallel_size="
+                        f"{self.original_sequence_parallel_size} to DeepSpeed config"
                     )
-                    ds_config['ulysses_sequence_parallel_size'] = self.original_sequence_parallel_size
-                
+                    ds_config["ulysses_sequence_parallel_size"] = (
+                        self.original_sequence_parallel_size
+                    )
+
                 # Handle 'auto' values and fix batch size types in config
-                # When values are 'auto', DeepSpeed will calculate them based on other parameters
+                # When values are 'auto', DeepSpeed will calculate them based on
+                # other parameters
                 # We need to remove them or set appropriate defaults
-                if 'train_batch_size' in ds_config and ds_config['train_batch_size'] == 'auto':
-                    # Let DeepSpeed calculate from micro_batch_size * gradient_accumulation * world_size
-                    del ds_config['train_batch_size']
-                    logger.info("Removed train_batch_size='auto' to let DeepSpeed calculate it")
-                
-                if 'train_micro_batch_size_per_gpu' in ds_config and ds_config['train_micro_batch_size_per_gpu'] == 'auto':
+                if (
+                    "train_batch_size" in ds_config
+                    and ds_config["train_batch_size"] == "auto"
+                ):
+                    # Let DeepSpeed calculate from micro_batch_size *
+                    # gradient_accumulation * world_size
+                    del ds_config["train_batch_size"]
+                    logger.info(
+                        "Removed train_batch_size='auto' to let DeepSpeed calculate it"
+                    )
+
+                if (
+                    "train_micro_batch_size_per_gpu" in ds_config
+                    and ds_config["train_micro_batch_size_per_gpu"] == "auto"
+                ):
                     # Use the micro_batch_size from training args
-                    ds_config['train_micro_batch_size_per_gpu'] = self.args.per_device_train_batch_size
-                    logger.info(f"Set train_micro_batch_size_per_gpu={ds_config['train_micro_batch_size_per_gpu']}")
-                
-                if 'gradient_accumulation_steps' in ds_config and ds_config['gradient_accumulation_steps'] == 'auto':
+                    ds_config["train_micro_batch_size_per_gpu"] = (
+                        self.args.per_device_train_batch_size
+                    )
+                    logger.info(
+                        f"Set train_micro_batch_size_per_gpu="
+                        f"{ds_config['train_micro_batch_size_per_gpu']}"
+                    )
+
+                if (
+                    "gradient_accumulation_steps" in ds_config
+                    and ds_config["gradient_accumulation_steps"] == "auto"
+                ):
                     # Use gradient accumulation from training args
-                    ds_config['gradient_accumulation_steps'] = self.args.gradient_accumulation_steps
-                    logger.info(f"Set gradient_accumulation_steps={ds_config['gradient_accumulation_steps']}")
-                
+                    ds_config["gradient_accumulation_steps"] = (
+                        self.args.gradient_accumulation_steps
+                    )
+                    logger.info(
+                        f"Set gradient_accumulation_steps="
+                        f"{ds_config['gradient_accumulation_steps']}"
+                    )
+
                 # Now convert any remaining string numbers to integers
-                for key in ['train_batch_size', 'train_micro_batch_size_per_gpu', 
-                           'gradient_accumulation_steps', 'micro_batch_per_gpu']:
+                for key in [
+                    "train_batch_size",
+                    "train_micro_batch_size_per_gpu",
+                    "gradient_accumulation_steps",
+                    "micro_batch_per_gpu",
+                ]:
                     if key in ds_config and isinstance(ds_config[key], str):
                         try:
                             ds_config[key] = int(ds_config[key])
-                            logger.info(f"Converted {key} from string to int: {ds_config[key]}")
+                            logger.info(
+                                f"Converted {key} from string to int: {ds_config[key]}"
+                            )
                         except ValueError:
-                            logger.error(f"Failed to convert {key}='{ds_config[key]}' to int")
+                            logger.error(
+                                f"Failed to convert {key}='{ds_config[key]}' to int"
+                            )
 
                 # Create optimizer if needed (similar to HF Trainer pattern)
                 if self.optimizer is None:
@@ -742,12 +808,13 @@ class UlyssesSFTTrainer(SFTTrainer):
                     )
 
                 logger.info(
-                    f"Initializing DeepSpeed with ulysses_sequence_parallel_size={ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}"
+                    f"Initializing DeepSpeed with ulysses_sequence_parallel_size="
+                    f"{ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}"
                 )
 
                 # Save the original model config before DeepSpeed wrapping
                 original_config = self.model.config
-                
+
                 # Initialize DeepSpeed with MPU - this creates SP groups
                 engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                     model=self.model,
@@ -761,34 +828,39 @@ class UlyssesSFTTrainer(SFTTrainer):
                 self.model = engine
                 self.optimizer = optimizer
                 self.lr_scheduler = lr_scheduler
-                
+
                 # Restore original config if DeepSpeed replaced it with a dict
-                if hasattr(self.model, 'config') and isinstance(self.model.config, dict):
+                if hasattr(self.model, "config") and isinstance(
+                    self.model.config, dict
+                ):
                     self.model.config = original_config
-                    logger.info("Restored original model config after DeepSpeed initialization")
+                    logger.info(
+                        "Restored original model config after DeepSpeed initialization"
+                    )
 
                 logger.info("DeepSpeed initialized successfully with Ulysses SP MPU")
-                
+
                 # Mark that we've initialized with MPU
                 self._deepspeed_initialized_with_mpu = True
 
                 # SP groups should now be available
                 logger.info("About to initialize SP groups...")
-                
+
                 # Now initialize SP groups since DeepSpeed is ready
                 self._initialize_sp_groups()
-                
+
                 logger.info("SP groups initialization completed")
-                
+
                 # Recreate dataloader with SP support now that groups are available
                 if self.sp_group is not None:
                     logger.info("Recreating dataloader with SP support...")
                     self._recreate_dataloader_with_sp()
-                
+
                 return optimizer, lr_scheduler
 
             except Exception as e:
                 import traceback
+
                 logger.error(f"Failed to initialize DeepSpeed with MPU: {e}")
                 logger.error(f"Full traceback:\n{traceback.format_exc()}")
                 logger.warning("Falling back to standard DeepSpeed initialization")

@@ -450,19 +450,22 @@ def train(
             # Check if user explicitly wants dataset preparation for Ulysses SP
             skip_preparation = True
             if config.training.trainer_type == TrainerType.TRL_SFT_ULYSSES:
-                # For Ulysses SP, check if user explicitly set skip_prepare_dataset to False
-                dataset_kwargs = config.training.trainer_kwargs.get("dataset_kwargs", {})
+                # For Ulysses SP, check if user explicitly set
+                # skip_prepare_dataset to False
+                dataset_kwargs = config.training.trainer_kwargs.get(
+                    "dataset_kwargs", {}
+                )
                 if dataset_kwargs.get("skip_prepare_dataset", True) is False:
                     logger.info(
                         "Allowing dataset preparation for TRL_SFT_ULYSSES trainer "
                         "since skip_prepare_dataset is explicitly set to False."
                     )
                     skip_preparation = False
-            
+
             if skip_preparation:
                 logger.info(
-                    "Skipping dataset preparation for TRL_SFT trainer since the dataset is "
-                    "already processed."
+                    "Skipping dataset preparation for TRL_SFT trainer since the "
+                    "dataset is already processed."
                 )
                 if "dataset_kwargs" not in config.training.trainer_kwargs:
                     config.training.trainer_kwargs["dataset_kwargs"] = {}

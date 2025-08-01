@@ -81,7 +81,7 @@ training:
   seed: 42
   use_deterministic: True
   include_performance_metrics: True
-  
+
   # SFT-specific kwargs for sequence length handling
   trainer_kwargs:
     max_seq_length: 4096  # This should match model_max_length

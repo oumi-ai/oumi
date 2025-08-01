@@ -45,7 +45,7 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click<8.2.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2.0,<3.3",
-    "deepspeed>=0.17.3,<0.18",      # DeepSpeed ZeRO optimization and Ulysses SP for distributed training
+    "deepspeed @ git+https://github.com/deepspeedai/DeepSpeed@c4b1a8c",  # DeepSpeed ZeRO optimization and Ulysses SP for distributed training (same commit as ArcticTraining)
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",

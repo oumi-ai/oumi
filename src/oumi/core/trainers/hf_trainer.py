@@ -47,9 +47,9 @@ class HuggingFaceTrainer(BaseTrainer):
         logger.info("About to call HF trainer.train()...")
         logger.info(f"Trainer type: {type(self._hf_trainer)}")
         logger.info(f"Resume from checkpoint: {resume_from_checkpoint}")
-        
+
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
-        
+
         logger.info("HF trainer.train() completed successfully")
 
     def save_state(self) -> None:
