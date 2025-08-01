@@ -1,0 +1,107 @@
+# Arctic Loss Distributed Test Configuration for SFT_ULYSSES Trainer
+# This configuration tests the full Arctic loss computation with true Ulysses SP (distributed)
+#
+# Key features:
+# - Enables Ulysses SP with size=2 for true distributed SP testing
+# - Tests full Arctic loss computation path (tiled logits + memory optimization)  
+# - Uses longer sequences to trigger SP and memory optimizations
+# - Validates distributed SP-aware data processing and loss computation
+#
+# Usage:
+#   torchrun --nproc-per-node=2 --standalone -m oumi train -c configs/examples/sft_ulysses_arctic_loss_distributed_test.yaml
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 2048  # Longer sequences to trigger SP optimizations
+  torch_dtype_str: "float32"  # Use float32 for mixed precision compatibility
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"  # SDPA for Ulysses SP compatibility
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[:20]"  # Use 20 examples for distributed Arctic loss testing
+        shuffle: True
+        seed: 42
+    collator_name: "text_with_padding"
+    target_col: "prompt"
+
+training:
+  # Use our custom SFT trainer WITH distributed Ulysses SP
+  trainer_type: "SFT_ULYSSES"
+  
+  # ENABLE distributed Ulysses SP for true Arctic loss testing
+  enable_ulysses_sequence_parallel: True
+  ulysses_sequence_parallel_size: 2  # 2 GPUs for true SP
+  
+  # Enable all Arctic memory optimizations
+  tiled_mlp_compute: True  # Enable tiled MLP computation
+  use_liger_kernel: False  # Test non-Liger path (tiled logits computation)
+  activation_checkpoint_cpu_offload: False  # Keep on GPU for testing
+  
+  # Training configuration optimized for SP
+  max_steps: 8  # Short run to test Arctic loss with SP
+  per_device_train_batch_size: 1  # Small batch for memory efficiency
+  gradient_accumulation_steps: 2
+  
+  # Learning configuration
+  learning_rate: 5e-5
+  warmup_steps: 1
+  weight_decay: 0.01
+  
+  # Logging and saving
+  logging_steps: 1
+  save_steps: 4
+  save_final_model: True
+  output_dir: "output/sft_ulysses_arctic_loss_distributed_test"
+  
+  # Disable evaluation for simpler testing
+  eval_strategy: "no"
+  
+  # Memory and performance for SP
+  dataloader_num_workers: 0  # Single-threaded for stability
+  enable_gradient_checkpointing: True  # Test with gradient checkpointing
+  mixed_precision_dtype: "BF16"  # Use mixed precision with SP
+  
+  # SFT kwargs for SP
+  trainer_kwargs:
+    pad_to_multiple_of: 2  # Pad sequences to multiples of SP size
+  
+  # Seed for reproducibility
+  seed: 42
+  data_seed: 42
+  
+  # Logging
+  log_level: "info"  # Verbose to see Arctic loss messages
+  enable_tensorboard: True
+  enable_wandb: False
+  enable_mlflow: False
+
+# Enable DeepSpeed for distributed Ulysses SP support
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_1"  # ZeRO-1 for distributed training
+  precision: "BF16"
+  
+  # Distributed Ulysses Sequence Parallelism
+  ulysses_sequence_parallel_size: 2  # Must match training parameter
+  
+  # Communication settings for distributed SP
+  allgather_partitions: True
+  allgather_bucket_size: 50000000  # 5e7
+  overlap_comm: True
+  contiguous_gradients: True
+  
+  # Optimizer settings
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+  
+  # Training settings
+  train_batch_size: "auto"
+  train_micro_batch_size_per_gpu: "auto"
+  gradient_accumulation_steps: "auto"
+  gradient_clipping: "auto"
+  steps_per_print: 2
+  wall_clock_breakdown: False
