@@ -125,6 +125,6 @@ deepspeed:
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"
   gradient_accumulation_steps: 3  # Test gradient accumulation with early DeepSpeed initialization
-  gradient_clipping: 1.0
+  gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False

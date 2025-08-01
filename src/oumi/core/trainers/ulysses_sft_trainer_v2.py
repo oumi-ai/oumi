@@ -871,6 +871,21 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 f"Set gradient_accumulation_steps={ds_config['gradient_accumulation_steps']}"
             )
 
+        # Handle gradient_clipping
+        if ds_config.get("gradient_clipping") == "auto":
+            # Convert "auto" to the default gradient clipping value
+            ds_config["gradient_clipping"] = self.args.max_grad_norm if hasattr(self.args, 'max_grad_norm') else 1.0
+            logger.info(f"Set gradient_clipping={ds_config['gradient_clipping']} (converted from 'auto')")
+        elif isinstance(ds_config.get("gradient_clipping"), str):
+            try:
+                ds_config["gradient_clipping"] = float(ds_config["gradient_clipping"])
+                logger.info(f"Converted gradient_clipping from string to float: {ds_config['gradient_clipping']}")
+            except ValueError:
+                logger.error(f"Failed to convert gradient_clipping='{ds_config['gradient_clipping']}' to float")
+                # Fallback to default
+                ds_config["gradient_clipping"] = 1.0
+                logger.info(f"Using fallback gradient_clipping=1.0")
+
         # Convert string numbers to integers
         for key in [
             "train_batch_size",
