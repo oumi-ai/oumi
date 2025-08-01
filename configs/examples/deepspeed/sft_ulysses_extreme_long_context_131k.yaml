@@ -21,7 +21,7 @@
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Use larger model for extreme test
   model_max_length: 131072  # 131K tokens - extreme long context
-  torch_dtype_str: "bfloat16"
+  torch_dtype_str: "float32"  # Load in fp32 for mixed precision compatibility
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "sdpa"  # SDPA for Ulysses SP compatibility
@@ -110,18 +110,14 @@ deepspeed:
   stage3_gather_16bit_weights_on_model_save: True
   
   # CPU offloading for extreme memory savings
-  zero_optimization:
-    offload_optimizer:
-      device: "cpu"
-      pin_memory: True
-      buffer_count: 4
-      fast_init: False
-    offload_param:
-      device: "cpu"
-      pin_memory: True
-      buffer_count: 5
-      buffer_size: 1000000000  # 1e9
-      max_in_cpu: 2000000000   # 2e9
+  offload_optimizer:
+    device: "CPU"
+    pin_memory: True
+    buffer_count: 4
+  offload_param:
+    device: "CPU"
+    pin_memory: True
+    buffer_count: 5
   
   # Communication optimization for extreme sequences
   allgather_partitions: True
@@ -145,4 +141,3 @@ deepspeed:
   # Logging and monitoring
   steps_per_print: 1
   wall_clock_breakdown: True  # Monitor performance bottlenecks
-  dump_state: False  # Skip state dumps to save space
