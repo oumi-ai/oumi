@@ -139,3 +139,8 @@ deepspeed:
 
   # Multi-node specific
   # communication_data_type: "fp16"  # Optional: reduce communication bandwidth
+  
+  # Timeout and communication settings to prevent hangs
+  comms_logger_enabled: false
+  dump_state: false
+  communication_data_type: bfloat16

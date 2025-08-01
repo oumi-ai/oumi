@@ -111,3 +111,8 @@ deepspeed:
   # Verbose logging for debugging
   steps_per_print: 2
   wall_clock_breakdown: True  # Enable to debug performance
+  
+  # Timeout and communication settings to prevent hangs
+  comms_logger_enabled: false
+  dump_state: false
+  communication_data_type: bfloat16

@@ -91,3 +91,8 @@ deepspeed:
   # Logging
   steps_per_print: 10
   wall_clock_breakdown: False
+  
+  # Timeout and communication settings to prevent hangs
+  comms_logger_enabled: false
+  dump_state: false
+  communication_data_type: bfloat16
