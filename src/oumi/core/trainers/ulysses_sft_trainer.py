@@ -130,6 +130,7 @@ class UlyssesSFTTrainer(SFTTrainer):
             )
 
         self.sequence_parallel_size = sequence_parallel_size
+        self.original_sequence_parallel_size = sequence_parallel_size  # Preserve original value
         self.model_name_or_path = model_name_or_path
         self.attn_implementation = attn_implementation
         self.max_length = max_length
@@ -210,7 +211,11 @@ class UlyssesSFTTrainer(SFTTrainer):
             )
             logger.info(f"UlyssesSPAttentionHF.register_with_transformers returned: {mpu_result}")
             logger.info(f"Type of returned value: {type(mpu_result)}")
+            
+            # The DeepSpeed implementation returns the parallel_state_sp module itself
+            # which contains the SP groups functionality, not a separate MPU object
             self._mpu = mpu_result
+            
             logger.info(
                 "Ulysses SP attention patches applied successfully using DeepSpeed"
             )
@@ -501,11 +506,22 @@ class UlyssesSFTTrainer(SFTTrainer):
                         ds_config = json.load(f)
                 
                 # Ensure ulysses_sequence_parallel_size is in the config
+                # Use original value, not potentially modified self.sequence_parallel_size
                 if 'ulysses_sequence_parallel_size' not in ds_config:
                     logger.warning(
-                        f"Adding ulysses_sequence_parallel_size={self.sequence_parallel_size} to DeepSpeed config"
+                        f"Adding ulysses_sequence_parallel_size={self.original_sequence_parallel_size} to DeepSpeed config"
                     )
-                    ds_config['ulysses_sequence_parallel_size'] = self.sequence_parallel_size
+                    ds_config['ulysses_sequence_parallel_size'] = self.original_sequence_parallel_size
+                
+                # Fix batch size types in config (convert strings to integers)
+                for key in ['train_batch_size', 'train_micro_batch_size_per_gpu', 
+                           'gradient_accumulation_steps', 'micro_batch_per_gpu']:
+                    if key in ds_config and isinstance(ds_config[key], str):
+                        try:
+                            ds_config[key] = int(ds_config[key])
+                            logger.info(f"Converted {key} from string to int: {ds_config[key]}")
+                        except ValueError:
+                            logger.error(f"Failed to convert {key}='{ds_config[key]}' to int")
 
                 # Create optimizer if needed (similar to HF Trainer pattern)
                 if self.optimizer is None:
@@ -534,6 +550,7 @@ class UlyssesSFTTrainer(SFTTrainer):
                 logger.info(
                     f"DeepSpeed config ulysses_sequence_parallel_size: {ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}"
                 )
+                logger.info(f"Original sequence_parallel_size: {self.original_sequence_parallel_size}")
 
                 # Initialize DeepSpeed with MPU - this creates SP groups
                 engine, optimizer, _, lr_scheduler = deepspeed.initialize(
