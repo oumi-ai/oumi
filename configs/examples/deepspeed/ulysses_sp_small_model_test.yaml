@@ -86,6 +86,8 @@ training:
   trainer_kwargs:
     max_seq_length: 4096  # This should match model_max_length
     pad_to_multiple_of: 3  # Pad sequences to multiples of SP size!
+    dataset_kwargs:
+      skip_prepare_dataset: false  # Force dataset preparation for Ulysses SP!
 
 # Minimal DeepSpeed configuration for testing
 deepspeed:

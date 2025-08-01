@@ -408,9 +408,21 @@ class UlyssesSFTTrainer(SFTTrainer):
             
             # Replace the trainer's dataloader
             # This is a bit of a hack, but necessary since HF Trainer caches the dataloader
-            if hasattr(self, '_train_dataloader'):
-                self._train_dataloader = debug_sp_dataloader
-                logger.info("Updated cached train dataloader with SP support")
+            # Clear all possible cached dataloaders
+            for attr in ['_train_dataloader', 'train_dataloader', '_cached_train_dataloader']:
+                if hasattr(self, attr):
+                    setattr(self, attr, debug_sp_dataloader)
+                    logger.info(f"Updated cached train dataloader '{attr}' with SP support")
+            
+            # Also try to override the get_train_dataloader method temporarily
+            def get_sp_dataloader():
+                logger.info("=== CUSTOM get_train_dataloader CALLED ===")
+                return debug_sp_dataloader
+            
+            # Replace the method on this instance
+            import types
+            self.get_train_dataloader = types.MethodType(lambda self: get_sp_dataloader(), self)
+            logger.info("Overrode get_train_dataloader method")
             
             logger.info("Successfully recreated dataloader with SP support")
             
@@ -455,13 +467,18 @@ class UlyssesSFTTrainer(SFTTrainer):
         logger.info(f"SP size: {self.sequence_parallel_size}, DEEPSPEED available: {DEEPSPEED_ULYSSES_AVAILABLE}")
         
         # Handle SP-specific loss computation
-        if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
+        # Check if we have SP-processed data (should have 'shift_labels' from SP dataloader)
+        has_sp_data = "shift_labels" in inputs
+        logger.info(f"Has SP data (shift_labels): {has_sp_data}")
+        
+        if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE and has_sp_data:
             logger.info("Using Ulysses SP loss computation")
             result = self._compute_loss_ulysses_sp(model, inputs, return_outputs)
             logger.info("=== COMPUTE_LOSS COMPLETED (SP) ===")
             return result
         else:
             logger.info("Using standard loss computation")
+            logger.info(f"Reason: SP size={self.sequence_parallel_size}, DeepSpeed available={DEEPSPEED_ULYSSES_AVAILABLE}, Has SP data={has_sp_data}")
             # Standard loss computation for non-SP case
             result = super().compute_loss(
                 model, inputs, return_outputs, num_items_in_batch
@@ -489,44 +506,60 @@ class UlyssesSFTTrainer(SFTTrainer):
         logger.info(f"Input keys: {list(inputs.keys())}")
         
         # Handle both 'labels' and 'shift_labels' formats for flexibility
+        logger.info("Processing labels...")
         if "shift_labels" in inputs:
+            logger.info("Found shift_labels in inputs")
             shift_labels = inputs["shift_labels"]
         elif "labels" in inputs:
+            logger.info("Found labels in inputs, converting to shift_labels...")
             # Convert labels to shift_labels if needed
             labels = inputs["labels"]
+            logger.info(f"Labels shape: {labels.shape}")
+            
             # Shift labels for causal LM: shift right by one position
+            logger.info("Shifting labels...")
             shift_labels = labels[..., 1:].contiguous()
+            logger.info(f"Shifted labels shape: {shift_labels.shape}")
+            
             # Pad with -100 (ignore index) at the end
-            shift_labels = torch.cat(
-                [
-                    shift_labels,
-                    torch.full(
-                        (shift_labels.shape[0], 1),
-                        -100,
-                        dtype=shift_labels.dtype,
-                        device=shift_labels.device,
-                    ),
-                ],
-                dim=1,
+            logger.info("Padding shift_labels...")
+            padding = torch.full(
+                (shift_labels.shape[0], 1),
+                -100,
+                dtype=shift_labels.dtype,
+                device=shift_labels.device,
             )
+            logger.info(f"Padding shape: {padding.shape}")
+            
+            shift_labels = torch.cat([shift_labels, padding], dim=1)
+            logger.info(f"Final shift_labels shape: {shift_labels.shape}")
+            
             # Update inputs to use shift_labels
+            logger.info("Updating inputs dictionary...")
             inputs = {k: v for k, v in inputs.items() if k != "labels"}
             inputs["shift_labels"] = shift_labels
+            logger.info("Labels conversion completed")
         else:
             raise ValueError(
                 "Missing 'labels' or 'shift_labels' in batch for loss computation."
             )
 
         shift_labels = inputs["shift_labels"]
+        logger.info(f"Final shift_labels shape: {shift_labels.shape}")
 
         # Choose loss computation strategy
+        logger.info(f"Choosing loss computation strategy. use_liger_kernel: {self.use_liger_kernel}")
         if self.use_liger_kernel:
+            logger.info("Using Liger fused cross-entropy...")
             # Use Liger fused cross-entropy for maximum efficiency
             outputs = model(**inputs, use_cache=False)
             loss = outputs.loss
+            logger.info("Liger loss computation completed")
         else:
+            logger.info("Using tiled logits+loss computation...")
             # Use tiled logits+loss computation for memory efficiency
             loss = self._compute_tiled_logits_loss(model, inputs, shift_labels)
+            logger.info("Tiled logits loss computation completed")
 
         # Differentiable weighted per-shard-loss aggregation across SP ranks
         if self.sp_group is not None:
@@ -564,6 +597,8 @@ class UlyssesSFTTrainer(SFTTrainer):
         Returns:
             Computed loss tensor
         """
+        logger.info("Starting tiled logits loss computation...")
+        
         # Automatically determine number of shards based on memory target
         # Target ~1GB of fp32 logits per shard
         slice_size_in_gb = 1.0
@@ -573,11 +608,17 @@ class UlyssesSFTTrainer(SFTTrainer):
         size_in_gb = logits_numel * 4 / (2**30)  # fp32
         num_shards = max(1, math.ceil(size_in_gb / slice_size_in_gb))
 
-        logger.debug(f"Using {num_shards} shards for tiled logits computation")
+        logger.info(f"Using {num_shards} shards for tiled logits computation")
+        logger.info(f"Batch size: {bs}, Sequence length: {seqlen}, Vocab size: {vocab_size}")
 
         # Get model outputs (hidden states)
+        logger.info("Getting model outputs (forward pass)...")
         outputs = model.model(**inputs, use_cache=False)
+        logger.info("Model forward pass completed")
+        
         hidden_states = outputs.last_hidden_state
+        logger.info(f"Hidden states shape: {hidden_states.shape}")
+        
         compute_params = [model.lm_head.weight]
         mask = None
         output_reduction = "sum"
