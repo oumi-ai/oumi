@@ -26,6 +26,7 @@ from oumi.core.trainers import (
     BaseTrainer,
     HuggingFaceTrainer,
     UlyssesSFTTrainer,
+    UlyssesSFTTrainerV2,
     VerlGrpoTrainer,
 )
 from oumi.core.trainers import Trainer as OumiTrainer
@@ -204,10 +205,101 @@ def build_trainer(
 
         return _init_ulysses_sft_trainer
 
+    def _create_ulysses_sft_v2_builder_fn() -> Callable[..., BaseTrainer]:
+        def _init_ulysses_sft_v2_trainer(*args, **kwargs) -> BaseTrainer:
+            training_args = kwargs.pop("args", None)
+            training_config = kwargs.pop("training_config", None)
+            callbacks = kwargs.pop("callbacks", [])
+
+            if training_args is not None:
+                training_args = cast(TrainingParams, training_args)
+                training_args.finalize_and_validate()
+
+            hf_args = training_args.to_hf(training_config)
+            if is_world_process_zero():
+                logger.info(pformat(hf_args))
+
+            # Extract Ulysses SP configuration
+            sequence_parallel_size = 1
+            model_name_or_path = None
+            attn_implementation = "sdpa"
+            max_length = 4096
+            micro_batch_size = 1
+            tiled_mlp_compute = False
+            use_liger_kernel = False
+
+            if training_args is not None:
+                if training_args.enable_ulysses_sequence_parallel:
+                    sequence_parallel_size = (
+                        training_args.ulysses_sequence_parallel_size
+                    )
+                    logger.info(
+                        f"Enabling Ulysses SP with "
+                        f"sequence_parallel_size={sequence_parallel_size}"
+                    )
+
+                # Extract additional configuration from training_config if available
+                if training_config is not None:
+                    model_config = getattr(training_config, "model", None)
+                    data_config = getattr(training_config, "data", None)
+
+                    if model_config is not None:
+                        model_name_or_path = getattr(model_config, "model_name", None)
+                        attn_implementation = getattr(
+                            model_config, "attn_implementation", "sdpa"
+                        )
+                        use_liger_kernel = (
+                            getattr(model_config, "model_type", "") == "liger"
+                        )
+
+                    if data_config is not None:
+                        max_length = getattr(data_config, "model_max_length", 4096)
+
+                    # Check for additional SP features
+                    tiled_mlp_compute = getattr(
+                        training_config, "tiled_mlp_compute", False
+                    )
+
+                micro_batch_size = getattr(
+                    training_args, "per_device_train_batch_size", 1
+                )
+
+                # Extract additional training parameters
+                tiled_mlp_compute = getattr(
+                    training_args, "tiled_mlp_compute", tiled_mlp_compute
+                )
+                use_liger_kernel = getattr(
+                    training_args, "use_liger_kernel", use_liger_kernel
+                )
+
+            # Create Ulysses SFT trainer V2 (custom Arctic-based trainer)
+            trainer = UlyssesSFTTrainerV2(
+                *args,
+                **kwargs,
+                args=hf_args,
+                sequence_parallel_size=sequence_parallel_size,
+                model_name_or_path=model_name_or_path,
+                attn_implementation=attn_implementation,
+                max_length=max_length,
+                micro_batch_size=micro_batch_size,
+                tiled_mlp_compute=tiled_mlp_compute,
+                use_liger_kernel=use_liger_kernel,
+            )
+
+            # Add callbacks directly to the trainer
+            # (not wrapping with HuggingFaceTrainer)
+            if callbacks:
+                for callback in callbacks:
+                    trainer.add_callback(callback)
+
+            return trainer
+
+        return _init_ulysses_sft_v2_trainer
+
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_SFT_ULYSSES:
-        return _create_ulysses_sft_builder_fn()
+        return _create_ulysses_sft_v2_builder_fn()
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(trl.DPOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:

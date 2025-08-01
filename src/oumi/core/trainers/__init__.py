@@ -28,10 +28,14 @@ Note:
         class documentation.
 """
 
+from oumi.core.trainers.arctic_base_trainer import ArcticBaseTrainer
 from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.core.trainers.hf_trainer import HuggingFaceTrainer
 from oumi.core.trainers.oumi_trainer import Trainer
 from oumi.core.trainers.ulysses_sft_trainer import UlyssesSFTTrainer
+from oumi.core.trainers.ulysses_sft_trainer_v2 import (
+    UlyssesSFTTrainer as UlyssesSFTTrainerV2,
+)
 from oumi.core.trainers.verl_grpo_trainer import VerlGrpoTrainer
 
 __all__ = [
@@ -39,5 +43,7 @@ __all__ = [
     "HuggingFaceTrainer",
     "Trainer",
     "UlyssesSFTTrainer",
+    "UlyssesSFTTrainerV2",
     "VerlGrpoTrainer",
+    "ArcticBaseTrainer",
 ]

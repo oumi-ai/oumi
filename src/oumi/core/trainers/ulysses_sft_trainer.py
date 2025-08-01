@@ -563,7 +563,7 @@ class UlyssesSFTTrainer(SFTTrainer):
                 "instead 'shift_labels' should be there. Check that "
                 "UlyssesSPDataLoaderAdapter has been applied to the original DataLoader object."
             )
-        
+
         if "shift_labels" not in inputs:
             raise ValueError(
                 "shift_labels are missing from the batch - check that "
