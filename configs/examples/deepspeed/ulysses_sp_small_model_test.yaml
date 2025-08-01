@@ -67,8 +67,7 @@ training:
   max_grad_norm: 1.0
   lr_scheduler_type: "linear"
 
-  dataloader_num_workers: 2
-  dataloader_prefetch_factor: 2
+  dataloader_num_workers: 0
 
   logging_steps: 2
   output_dir: "output/ulysses_sp_small_model_test"
@@ -82,6 +81,11 @@ training:
   seed: 42
   use_deterministic: True
   include_performance_metrics: True
+  
+  # SFT-specific kwargs for sequence length handling
+  trainer_kwargs:
+    max_seq_length: 4096  # This should match model_max_length
+    pad_to_multiple_of: 3  # Pad sequences to multiples of SP size!
 
 # Minimal DeepSpeed configuration for testing
 deepspeed:
