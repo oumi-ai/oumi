@@ -38,12 +38,13 @@ class TrainerType(Enum):
     using the TRL (Transformer Reinforcement Learning) library.
     """
 
-    TRL_SFT_ULYSSES = "trl_sft_ulysses"
-    """Supervised fine-tuning trainer with Ulysses sequence parallelism.
+    SFT_ULYSSES = "sft_ulysses"
+    """Custom supervised fine-tuning trainer with Ulysses sequence parallelism.
 
-    This trainer extends TRL's SFT trainer with Ulysses sequence parallelism
-    support, enabling training on extremely long sequences (500K+ tokens)
-    by sharding sequences across multiple GPUs.
+    This trainer implements a custom SFT trainer following ArcticTraining patterns
+    with Ulysses sequence parallelism support, enabling training on extremely 
+    long sequences (500K+ tokens) by sharding sequences across multiple GPUs.
+    Does not depend on TRL.
     """
 
     TRL_DPO = "trl_dpo"
@@ -777,7 +778,7 @@ class TrainingParams(BaseParams):
 
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
-        elif self.trainer_type == TrainerType.TRL_SFT_ULYSSES:
+        elif self.trainer_type == TrainerType.SFT_ULYSSES:
             # Use standard HF TrainingArguments for our custom trainer, not TRL SFTConfig
             config_class = transformers.TrainingArguments
         elif self.trainer_type == TrainerType.TRL_DPO:
@@ -790,7 +791,7 @@ class TrainingParams(BaseParams):
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
 
         # Filter out TRL-specific parameters when using our custom trainer with TrainingArguments
-        if self.trainer_type == TrainerType.TRL_SFT_ULYSSES:
+        if self.trainer_type == TrainerType.SFT_ULYSSES:
             trl_specific_params = {
                 'activation_offloading', 'completion_only_loss', 'dataset_kwargs', 
                 'dataset_num_proc', 'dataset_text_field', 'eos_token', 'eval_packing',

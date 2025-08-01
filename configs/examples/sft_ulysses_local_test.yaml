@@ -1,0 +1,89 @@
+# End-to-End Local Test Configuration for SFT_ULYSSES Trainer
+# This configuration tests the custom SFT_ULYSSES trainer without distributed training
+#
+# Key features:
+# - Uses tiny model for fast execution
+# - Disables Ulysses SP for single-GPU testing
+# - Minimal dataset for quick validation
+# - Tests core trainer functionality
+# - Validates data pipeline, loss computation, and model saving
+#
+# Usage:
+#   python -m oumi train -c configs/examples/sft_ulysses_local_test.yaml
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 512  # Short sequences for local testing
+  torch_dtype_str: "float32"  # Use float32 for better compatibility
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "eager"  # Most compatible attention implementation
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[:50]"  # Use only 50 examples for quick testing
+        shuffle: True
+        seed: 42
+    collator_name: "text_with_padding"
+    target_col: "prompt"
+  
+  validation:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[50:60]"  # 10 validation samples
+    collator_name: "text_with_padding"
+    target_col: "prompt"
+
+training:
+  # Use our custom SFT trainer (WITHOUT Ulysses SP for local testing)
+  trainer_type: "SFT_ULYSSES"
+  
+  # DISABLE Ulysses SP for local single-GPU testing
+  enable_ulysses_sequence_parallel: False
+  ulysses_sequence_parallel_size: 1
+  
+  # Minimal training configuration for fast testing
+  max_steps: 5  # Very short training run
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 1
+  
+  # Learning configuration
+  learning_rate: 5e-5
+  warmup_steps: 1
+  weight_decay: 0.01
+  
+  # Logging and saving
+  logging_steps: 1
+  save_steps: 3
+  save_final_model: True
+  output_dir: "output/sft_ulysses_local_test"
+  
+  # Disable evaluation for simpler local testing
+  eval_strategy: "no"
+  
+  # Memory and performance
+  dataloader_num_workers: 0  # Single-threaded for simplicity
+  enable_gradient_checkpointing: False
+  mixed_precision_dtype: "NONE"  # Disable mixed precision for debugging
+  
+  # Disable features that might cause issues in local testing
+  tiled_mlp_compute: False
+  use_liger_kernel: False
+  activation_checkpoint_cpu_offload: False
+  
+  # Seed for reproducibility
+  seed: 42
+  data_seed: 42
+  
+  # Logging
+  log_level: "info"
+  enable_tensorboard: True
+  enable_wandb: False
+  enable_mlflow: False
+
+# No DeepSpeed for local testing
+deepspeed:
+  enable_deepspeed: False

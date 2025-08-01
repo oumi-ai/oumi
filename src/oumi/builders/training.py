@@ -308,7 +308,7 @@ def build_trainer(
 
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
-    elif trainer_type == TrainerType.TRL_SFT_ULYSSES:
+    elif trainer_type == TrainerType.SFT_ULYSSES:
         return _create_ulysses_sft_v2_builder_fn()
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(trl.DPOTrainer)

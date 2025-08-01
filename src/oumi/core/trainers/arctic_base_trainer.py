@@ -769,11 +769,18 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
                 }
 
                 loss = self.compute_loss(self.model, batch)
-                total_loss += loss.item()
-                num_samples += 1
+                if loss is not None:
+                    total_loss += loss.item()
+                    num_samples += 1
+                else:
+                    logger.warning("Loss is None during evaluation, skipping batch")
 
-        self.state.eval_loss = total_loss / num_samples
-        logger.info(f"Evaluation loss: {self.state.eval_loss:.4f}")
+        if num_samples > 0:
+            self.state.eval_loss = total_loss / num_samples
+            logger.info(f"Evaluation loss: {self.state.eval_loss:.4f}")
+        else:
+            self.state.eval_loss = float('nan')
+            logger.warning("No valid evaluation losses computed - setting eval_loss to NaN")
 
 
 # Default callbacks

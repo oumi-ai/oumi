@@ -35,7 +35,7 @@ data:
 
 training:
   # Use Ulysses-enabled SFT trainer
-  trainer_type: "TRL_SFT_ULYSSES"
+  trainer_type: "SFT_ULYSSES"
 
   # Enable Ulysses Sequence Parallelism
   enable_ulysses_sequence_parallel: True
