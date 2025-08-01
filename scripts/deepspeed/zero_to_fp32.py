@@ -1,14 +1,28 @@
 #!/usr/bin/env python
-
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
-
+#
 # DeepSpeed Team
+#
+# Copyright 2025 - Oumi
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-# This script extracts fp32 consolidated weights from a zero 1, 2 and 3 DeepSpeed checkpoints. It gets
-# copied into the top level checkpoint dir, so the user can easily do the conversion at any point in
-# the future. Once extracted, the weights don't require DeepSpeed and can be used in any
-# application.
+# This script extracts fp32 consolidated weights from a zero 1, 2 and 3
+# DeepSpeed checkpoints. It gets copied into the top level checkpoint dir,
+# so the user can easily do the conversion at any point in the future.
+# Once extracted, the weights don't require DeepSpeed and can be used in
+# any application.
 #
 # example:
 #   python zero_to_fp32.py . output_dir/
@@ -17,10 +31,8 @@
 
 import argparse
 import gc
-import glob
 import json
 import math
-import os
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -40,14 +52,17 @@ from deepspeed.checkpoint.constants import (
     ZERO_STAGE,
 )
 
-# while this script doesn't use deepspeed to recover data, since the checkpoints are pickled with
-# DeepSpeed data structures it has to be available in the current python environment.
+# while this script doesn't use deepspeed to recover data, since the
+# checkpoints are pickled with DeepSpeed data structures it has to be
+# available in the current python environment.
 from deepspeed.utils import logger
 from tqdm import tqdm
 
 
 @dataclass
 class zero_model_state:
+    """Zero model state data structure."""
+
     buffers: dict()
     param_shapes: dict()
     shared_params: list
@@ -63,11 +78,14 @@ device = torch.device("cpu")
 
 
 def atoi(text):
+    """Convert string to integer if possible."""
     return int(text) if text.isdigit() else text
 
 
 def natural_keys(text):
-    """alist.sort(key=natural_keys) sorts in human order
+    """Sort in human order.
+
+    alist.sort(key=natural_keys) sorts in human order
     http://nedbatchelder.com/blog/200712/human_sorting.html
     (See Toothy's implementation in the comments)
     """
@@ -75,26 +93,36 @@ def natural_keys(text):
 
 
 def get_model_state_file(checkpoint_dir, zero_stage):
-    if not os.path.isdir(checkpoint_dir):
+    """Get model state file path based on zero stage."""
+    from pathlib import Path
+
+    checkpoint_path = Path(checkpoint_dir)
+    if not checkpoint_path.is_dir():
         raise FileNotFoundError(f"Directory '{checkpoint_dir}' doesn't exist")
 
     # there should be only one file
     if zero_stage <= 2:
-        file = os.path.join(checkpoint_dir, "mp_rank_00_model_states.pt")
+        file = checkpoint_path / "mp_rank_00_model_states.pt"
     elif zero_stage == 3:
-        file = os.path.join(checkpoint_dir, "zero_pp_rank_0_mp_rank_00_model_states.pt")
+        file = checkpoint_path / "zero_pp_rank_0_mp_rank_00_model_states.pt"
 
-    if not os.path.exists(file):
+    if not file.exists():
         raise FileNotFoundError(f"can't find model states file at '{file}'")
 
-    return file
+    return str(file)
 
 
 def get_checkpoint_files(checkpoint_dir, glob_pattern):
+    """Get checkpoint files matching pattern."""
+    from pathlib import Path
+
     # XXX: need to test that this simple glob rule works for multi-node setup too
+    checkpoint_path = Path(checkpoint_dir)
     ckpt_files = sorted(
-        glob.glob(os.path.join(checkpoint_dir, glob_pattern)), key=natural_keys
+        checkpoint_path.glob(glob_pattern), key=lambda x: natural_keys(str(x))
     )
+
+    ckpt_files = [str(f) for f in ckpt_files]
 
     if len(ckpt_files) == 0:
         raise FileNotFoundError(
@@ -105,14 +133,17 @@ def get_checkpoint_files(checkpoint_dir, glob_pattern):
 
 
 def get_optim_files(checkpoint_dir):
+    """Get optimizer state files."""
     return get_checkpoint_files(checkpoint_dir, "*_optim_states.pt")
 
 
 def get_model_state_files(checkpoint_dir):
+    """Get model state files."""
     return get_checkpoint_files(checkpoint_dir, "*_model_states.pt")
 
 
 def parse_model_states(files):
+    """Parse model state files and return zero model states."""
     zero_model_states = []
     for file in files:
         state_dict = torch.load(file, map_location=device, weights_only=False)
@@ -123,7 +154,8 @@ def parse_model_states(files):
         if debug:
             print("Found buffers:", buffer_names)
 
-        # recover just the buffers while restoring them to fp32 if they were saved in fp16
+        # recover just the buffers while restoring them to fp32 if they were
+        # saved in fp16
         buffers = {
             k: v.float() for k, v in state_dict["module"].items() if k in buffer_names
         }
@@ -163,11 +195,13 @@ def parse_model_states(files):
 
 
 def parse_optim_states(files, ds_checkpoint_dir):
+    """Parse optimizer state files and return zero stage info."""
     total_files = len(files)
     state_dicts = []
     for f in tqdm(files, desc="Loading checkpoint shards"):
         state_dict = torch.load(f, map_location=device, mmap=True, weights_only=False)
-        # immediately discard the potentially huge 2 optimizer states as we only care for fp32 master weights
+        # immediately discard the potentially huge 2 optimizer states as we only
+        # care for fp32 master weights
         # and also handle the case where it was already removed by another helper script
         state_dict["optimizer_state_dict"].pop("optimizer_state_dict", None)
         state_dicts.append(state_dict)
@@ -177,8 +211,10 @@ def parse_optim_states(files, ds_checkpoint_dir):
     zero_stage = state_dicts[0][OPTIMIZER_STATE_DICT][ZERO_STAGE]
     world_size = state_dicts[0][OPTIMIZER_STATE_DICT][PARTITION_COUNT]
 
-    # For ZeRO-2 each param group can have different partition_count as data parallelism for expert
-    # parameters can be different from data parallelism for non-expert parameters. So we can just
+    # For ZeRO-2 each param group can have different partition_count as data
+    # parallelism for expert
+    # parameters can be different from data parallelism for non-expert
+    # parameters. So we can just
     # use the max of the partition_count to get the dp world_size.
 
     if type(world_size) is list:
@@ -186,8 +222,10 @@ def parse_optim_states(files, ds_checkpoint_dir):
 
     if world_size != total_files:
         raise ValueError(
-            f"Expected {world_size} of '*_optim_states.pt' under '{ds_checkpoint_dir}' but found {total_files} files. "
-            "Possibly due to an overwrite of an old checkpoint, or a checkpoint didn't get saved by one or more processes."
+            f"Expected {world_size} of '*_optim_states.pt' under "
+            f"'{ds_checkpoint_dir}' but found {total_files} files. "
+            "Possibly due to an overwrite of an old checkpoint, or a checkpoint "
+            "didn't get saved by one or more processes."
         )
 
     # the groups are named differently in each stage
@@ -208,10 +246,12 @@ def parse_optim_states(files, ds_checkpoint_dir):
 def _get_fp32_state_dict_from_zero_checkpoint(
     ds_checkpoint_dir, exclude_frozen_parameters
 ):
-    """Returns fp32 state_dict reconstructed from ds checkpoint
+    """Returns fp32 state_dict reconstructed from ds checkpoint.
 
     Args:
-        - ``ds_checkpoint_dir``: path to the deepspeed checkpoint folder (where the optimizer files are)
+        ds_checkpoint_dir: path to the deepspeed checkpoint folder
+          (where the optimizer files are)
+        exclude_frozen_parameters: whether to exclude frozen parameters
 
     """
     print(f"Processing zero checkpoint '{ds_checkpoint_dir}'")
@@ -231,11 +271,17 @@ def _get_fp32_state_dict_from_zero_checkpoint(
 
     if zero_stage <= 2:
         return _get_fp32_state_dict_from_zero2_checkpoint(
-            world_size, fp32_flat_groups, zero_model_states, exclude_frozen_parameters
+            world_size,
+            fp32_flat_groups,
+            zero_model_states,
+            exclude_frozen_parameters,
         )
     elif zero_stage == 3:
         return _get_fp32_state_dict_from_zero3_checkpoint(
-            world_size, fp32_flat_groups, zero_model_states, exclude_frozen_parameters
+            world_size,
+            fp32_flat_groups,
+            zero_model_states,
+            exclude_frozen_parameters,
         )
 
 
@@ -274,7 +320,8 @@ def _zero2_merge_frozen_params(state_dict, zero_model_states):
             )
 
     print(
-        f"Reconstructed Frozen fp32 state dict with {total_params} params {total_numel} elements"
+        f"Reconstructed Frozen fp32 state dict with {total_params} params "
+        f"{total_numel} elements"
     )
 
 
@@ -323,7 +370,8 @@ def _zero2_merge_trainable_params(
         print(f"Need {wanted_numel} numels in {wanted_params} params.")
 
     # params
-    # XXX: for huge models that can't fit into the host's RAM we will have to recode this to support
+    # XXX: for huge models that can't fit into the host's RAM we will have to
+    # recode this to support
     # out-of-core computing solution
     total_numel = 0
     total_params = 0
@@ -341,17 +389,22 @@ def _zero2_merge_trainable_params(
 
             if debug:
                 print(
-                    f"{name} full shape: {shape} unpartitioned numel {unpartitioned_numel} "
+                    f"{name} full shape: {shape} unpartitioned numel "
+                    f"{unpartitioned_numel}"
                 )
             state_dict[name] = full_single_fp32_vector.narrow(
                 0, offset, unpartitioned_numel
             ).view(shape)
             offset += unpartitioned_numel
 
-        # Z2 started to align to 2*world_size to improve nccl performance. Therefore both offset and
-        # avail_numel can differ by anywhere between 0..2*world_size. Due to two unrelated complex
-        # paddings performed in the code it's almost impossible to predict the exact numbers w/o the
-        # live optimizer object, so we are checking that the numbers are within the right range
+        # Z2 started to align to 2*world_size to improve nccl performance.
+        # Therefore both offset and
+        # avail_numel can differ by anywhere between 0..2*world_size. Due to
+        # two unrelated complex
+        # paddings performed in the code it's almost impossible to predict the
+        # exact numbers w/o the
+        # live optimizer object, so we are checking that the numbers are
+        # within the right range
         align_to = 2 * world_size
 
         def zero2_align(x):
@@ -373,7 +426,8 @@ def _zero2_merge_trainable_params(
             )
 
     print(
-        f"Reconstructed fp32 state dict with {total_params} params {total_numel} elements"
+        f"Reconstructed fp32 state dict with {total_params} params "
+        f"{total_numel} elements"
     )
 
 
@@ -404,6 +458,7 @@ def _get_fp32_state_dict_from_zero2_checkpoint(
 
 
 def zero3_partitioned_param_info(unpartitioned_numel, world_size):
+    """Calculate partitioned parameter info for ZeRO-3."""
     remainder = unpartitioned_numel % world_size
     padding_numel = (world_size - remainder) if remainder else 0
     partitioned_numel = math.ceil(unpartitioned_numel / world_size)
@@ -460,22 +515,27 @@ def _zero3_merge_frozen_params(state_dict, world_size, zero_model_states):
 
         if debug:
             print(
-                f"Frozen params: {total_params} {name} full shape: {shape} partition0 numel={partitioned_numel} partitioned_padding_numel={partitioned_padding_numel}"
+                f"Frozen params: {total_params} {name} full shape: {shape} "
+                f"partition0 numel={partitioned_numel} "
+                f"partitioned_padding_numel={partitioned_padding_numel}"
             )
 
     print(
-        f"Reconstructed Frozen fp32 state dict with {total_params} params {total_numel} elements"
+        f"Reconstructed Frozen fp32 state dict with {total_params} params "
+        f"{total_numel} elements"
     )
 
 
 class GatheredTensor:
     """A pseudo tensor that collects partitioned weights.
+
     It is more memory efficient when there are multiple groups.
     """
 
     def __init__(
         self, flat_groups, flat_groups_offset, offset, partitioned_numel, shape
     ):
+        """Initialize GatheredTensor."""
         self.flat_groups = flat_groups
         self.flat_groups_offset = flat_groups_offset
         self.offset = offset
@@ -532,8 +592,9 @@ def _zero3_merge_trainable_params(
         sum([flat_group.numel() for flat_group in fp32_flat_groups[0]]) * world_size
     )
 
-    # Reconstruction protocol: For zero3 we need to zip the partitions together at boundary of each
-    # param, re-consolidating each param, while dealing with padding if any
+    # Reconstruction protocol: For zero3 we need to zip the partitions
+    # together at boundary of each param, re-consolidating each param, while
+    # dealing with padding if any
 
     # merge list of dicts, preserving order
     param_shapes = {k: v for d in param_shapes for k, v in d.items()}
@@ -552,7 +613,8 @@ def _zero3_merge_trainable_params(
         )
 
     # params
-    # XXX: for huge models that can't fit into the host's RAM we will have to recode this to support
+    # XXX: for huge models that can't fit into the host's RAM we will have to
+    # recode this to support
     # out-of-core computing solution
     offset = 0
     total_numel = 0
@@ -570,7 +632,9 @@ def _zero3_merge_trainable_params(
 
         if debug:
             print(
-                f"Trainable params: {total_params} {name} full shape: {shape} partition0 numel={partitioned_numel} partitioned_padding_numel={partitioned_padding_numel}"
+                f"Trainable params: {total_params} {name} full shape: {shape} "
+                f"partition0 numel={partitioned_numel} "
+                f"partitioned_padding_numel={partitioned_padding_numel}"
             )
 
         # memory efficient tensor
@@ -589,7 +653,8 @@ def _zero3_merge_trainable_params(
         )
 
     print(
-        f"Reconstructed Trainable fp32 state dict with {total_params} params {total_numel} elements"
+        f"Reconstructed Trainable fp32 state dict with {total_params} params "
+        f"{total_numel} elements"
     )
 
 
@@ -620,7 +685,7 @@ def _get_fp32_state_dict_from_zero3_checkpoint(
 
 
 def to_torch_tensor(state_dict, return_empty_tensor=False):
-    """Convert state_dict of GatheredTensor to torch tensor"""
+    """Convert state_dict of GatheredTensor to torch tensor."""
     torch_state_dict = {}
     converted_tensors = {}
     for name, tensor in state_dict.items():
@@ -640,15 +705,19 @@ def to_torch_tensor(state_dict, return_empty_tensor=False):
 def get_fp32_state_dict_from_zero_checkpoint(
     checkpoint_dir, tag=None, exclude_frozen_parameters=False, lazy_mode=False
 ):
-    """Convert ZeRO 2 or 3 checkpoint into a single fp32 consolidated state_dict that can be loaded with
-    ``load_state_dict()`` and used for training without DeepSpeed or shared with others, for example
-    via a model hub.
+    """Convert ZeRO 2 or 3 checkpoint into a single fp32 consolidated state_dict.
+
+    The state_dict can be loaded with ``load_state_dict()`` and used for training
+    without DeepSpeed or shared with others, for example via a model hub.
 
     Args:
-        - ``checkpoint_dir``: path to the desired checkpoint folder
-        - ``tag``: checkpoint tag used as a unique identifier for checkpoint. If not provided will attempt to load tag in 'latest' file. e.g., ``global_step14``
-        - ``exclude_frozen_parameters``: exclude frozen parameters
-        - ``lazy_mode``: get state_dict in lazy mode. It returns a dict of pesduo tensor instead of torch tensor, which is more memory efficient.
+        checkpoint_dir: path to the desired checkpoint folder
+        tag: checkpoint tag used as a unique identifier for checkpoint.
+          If not provided will attempt to load tag in 'latest' file.
+          e.g., ``global_step14``
+        exclude_frozen_parameters: exclude frozen parameters
+        lazy_mode: get state_dict in lazy mode. It returns a dict of
+          pesduo tensor instead of torch tensor, which is more memory efficient.
           Convert the pesduo tensor to torch tensor by ``.contiguous()``
 
     Returns:
@@ -656,45 +725,60 @@ def get_fp32_state_dict_from_zero_checkpoint(
 
     A typical usage might be ::
 
-        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
+        from deepspeed.utils.zero_to_fp32 import (
+            get_fp32_state_dict_from_zero_checkpoint
+        )
         # do the training and checkpoint saving
-        state_dict = get_fp32_state_dict_from_zero_checkpoint(checkpoint_dir) # already on cpu
+        state_dict = get_fp32_state_dict_from_zero_checkpoint(
+            checkpoint_dir
+        )  # already on cpu
         model = model.cpu() # move to cpu
         model.load_state_dict(state_dict)
         # submit to model hub or save the model to share with others
 
-    In this example the ``model`` will no longer be usable in the deepspeed context of the same
-    application. i.e. you will need to re-initialize the deepspeed engine, since
+    In this example the ``model`` will no longer be usable in the deepspeed
+    context of the same application. i.e. you will need to re-initialize the
+    deepspeed engine, since
     ``model.load_state_dict(state_dict)`` will remove all the deepspeed magic from it.
 
-    If you want it all done for you, use ``load_state_dict_from_zero_checkpoint`` instead.
+    If you want it all done for you, use ``load_state_dict_from_zero_checkpoint``
+    instead.
 
-    Note: the above usage may not work if your application doesn't have sufficient free CPU memory.
-    You may need to use the offline approach using the ``zero_to_fp32.py`` script that is saved with
+    Note: the above usage may not work if your application doesn't have
+    sufficient free CPU memory. You may need to use the offline approach using
+    the ``zero_to_fp32.py`` script that is saved with
     the checkpoint. Or you can load state_dict in lazy mode ::
 
-        from deepspeed.utils.zero_to_fp32 import get_fp32_state_dict_from_zero_checkpoint
-        state_dict = get_fp32_state_dict_from_zero_checkpoint(checkpoint_dir, lazy_mode=True) # not on cpu
+        from deepspeed.utils.zero_to_fp32 import (
+            get_fp32_state_dict_from_zero_checkpoint
+        )
+        state_dict = get_fp32_state_dict_from_zero_checkpoint(
+            checkpoint_dir, lazy_mode=True
+        )  # not on cpu
         for name, lazy_tensor in state_dict.item():
             tensor = lazy_tensor.contiguous()  # to cpu
             print(name, tensor)
             # del tensor to release memory if it no longer in use
     """
     if tag is None:
-        latest_path = os.path.join(checkpoint_dir, "latest")
-        if os.path.isfile(latest_path):
+        from pathlib import Path
+
+        latest_path = Path(checkpoint_dir) / "latest"
+        if latest_path.is_file():
             with open(latest_path) as fd:
                 tag = fd.read().strip()
         else:
             raise ValueError(f"Unable to find 'latest' file at {latest_path}")
 
-    ds_checkpoint_dir = os.path.join(checkpoint_dir, tag)
+    from pathlib import Path
 
-    if not os.path.isdir(ds_checkpoint_dir):
+    ds_checkpoint_dir = Path(checkpoint_dir) / tag
+
+    if not ds_checkpoint_dir.is_dir():
         raise FileNotFoundError(f"Directory '{ds_checkpoint_dir}' doesn't exist")
 
     state_dict = _get_fp32_state_dict_from_zero_checkpoint(
-        ds_checkpoint_dir, exclude_frozen_parameters
+        str(ds_checkpoint_dir), exclude_frozen_parameters
     )
     if lazy_mode:
         return state_dict
@@ -710,16 +794,23 @@ def convert_zero_checkpoint_to_fp32_state_dict(
     tag=None,
     exclude_frozen_parameters=False,
 ):
-    """Convert ZeRO 2 or 3 checkpoint into a single fp32 consolidated ``state_dict`` file that can be
-    loaded with ``torch.load(file)`` + ``load_state_dict()`` and used for training without DeepSpeed.
+    """Convert ZeRO 2 or 3 checkpoint into a single fp32 consolidated ``state_dict``.
+
+    The file can be loaded with ``torch.load(file)`` + ``load_state_dict()``
+    and used for training without DeepSpeed.
 
     Args:
-        - ``checkpoint_dir``: path to the desired checkpoint folder. (one that contains the tag-folder, like ``global_step14``)
-        - ``output_dir``: directory to the pytorch fp32 state_dict output files
-        - ``max_shard_size``: the maximum size for a checkpoint before being sharded, default value is 5GB
-        - ``safe_serialization``:  whether to save the model using `safetensors` or the traditional PyTorch way (that uses `pickle`).
-        - ``tag``: checkpoint tag used as a unique identifier for checkpoint. If not provided will attempt to load tag in the file named ``latest`` in the checkpoint folder, e.g., ``global_step14``
-        - ``exclude_frozen_parameters``: exclude frozen parameters
+        checkpoint_dir: path to the desired checkpoint folder.
+          (one that contains the tag-folder, like ``global_step14``)
+        output_dir: directory to the pytorch fp32 state_dict output files
+        max_shard_size: the maximum size for a checkpoint before being
+          sharded, default value is 5GB
+        safe_serialization: whether to save the model using
+          `safetensors` or the traditional PyTorch way (that uses `pickle`).
+        tag: checkpoint tag used as a unique identifier for checkpoint.
+          If not provided will attempt to load tag in the file named ``latest``
+          in the checkpoint folder, e.g., ``global_step14``
+        exclude_frozen_parameters: exclude frozen parameters
     """
     # Dependency pre-check
     if safe_serialization:
@@ -727,7 +818,8 @@ def convert_zero_checkpoint_to_fp32_state_dict(
             from safetensors.torch import save_file
         except ImportError:
             print(
-                "If you want to use `safe_serialization`, please `pip install safetensors`"
+                "If you want to use `safe_serialization`, please "
+                "`pip install safetensors`"
             )
             raise
     if max_shard_size is not None:
@@ -735,7 +827,8 @@ def convert_zero_checkpoint_to_fp32_state_dict(
             from huggingface_hub import split_torch_state_dict_into_shards
         except ImportError:
             print(
-                "If you want to use `max_shard_size`, please `pip install huggingface_hub`"
+                "If you want to use `max_shard_size`, please "
+                "`pip install huggingface_hub`"
             )
             raise
 
@@ -769,7 +862,9 @@ def convert_zero_checkpoint_to_fp32_state_dict(
         )
 
     # Save the model by shard
-    os.makedirs(output_dir, exist_ok=True)
+    from pathlib import Path
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     filename_to_tensors = state_dict_split.filename_to_tensors.items()
     for shard_file, tensors in tqdm(
         filename_to_tensors, desc="Saving checkpoint shards"
@@ -778,11 +873,13 @@ def convert_zero_checkpoint_to_fp32_state_dict(
             tensor_name: state_dict[tensor_name] for tensor_name in tensors
         }
         shard_state_dict = to_torch_tensor(shard_state_dict)
-        output_path = os.path.join(output_dir, shard_file)
+        from pathlib import Path
+
+        output_path = Path(output_dir) / shard_file
         if safe_serialization:
             save_file(shard_state_dict, output_path, metadata={"format": "pt"})
         else:
-            torch.save(shard_state_dict, output_path)
+            torch.save(shard_state_dict, str(output_path))
         # release the memory of current shard
         for tensor_name in list(shard_state_dict.keys()):
             del state_dict[tensor_name]
@@ -801,37 +898,50 @@ def convert_zero_checkpoint_to_fp32_state_dict(
             if safe_serialization
             else "pytorch_model.bin.index.json"
         )
-        save_index_file = os.path.join(output_dir, save_index_file)
-        with open(save_index_file, "w", encoding="utf-8") as f:
+        from pathlib import Path
+
+        save_index_file = Path(output_dir) / save_index_file
+        with open(str(save_index_file), "w", encoding="utf-8") as f:
             content = json.dumps(index, indent=2, sort_keys=True) + "\n"
             f.write(content)
 
 
 def load_state_dict_from_zero_checkpoint(model, checkpoint_dir, tag=None):
-    """1. Put the provided model to cpu
+    """Load state dict from zero checkpoint.
+
+    1. Put the provided model to cpu
     2. Convert ZeRO 2 or 3 checkpoint into a single fp32 consolidated ``state_dict``
     3. Load it into the provided model
 
     Args:
-        - ``model``: the model object to update
-        - ``checkpoint_dir``: path to the desired checkpoint folder. (one that contains the tag-folder, like ``global_step14``)
-        - ``tag``: checkpoint tag used as a unique identifier for checkpoint. If not provided will attempt to load tag in the file named ``latest`` in the checkpoint folder, e.g., ``global_step14``
+        model: the model object to update
+        checkpoint_dir: path to the desired checkpoint folder.
+          (one that contains the tag-folder, like ``global_step14``)
+        tag: checkpoint tag used as a unique identifier for checkpoint.
+          If not provided will attempt to load tag in the file named ``latest``
+          in the checkpoint folder, e.g., ``global_step14``
 
     Returns:
         - ``model`: modified model
 
-    Make sure you have plenty of CPU memory available before you call this function. If you don't
-    have enough use the ``zero_to_fp32.py`` utility to do the conversion. You will find it
+    Make sure you have plenty of CPU memory available before you call this
+    function. If you don't have enough use the ``zero_to_fp32.py`` utility to
+    do the conversion. You will find it
     conveniently placed for you in the checkpoint folder.
 
     A typical usage might be ::
 
-        from deepspeed.utils.zero_to_fp32 import load_state_dict_from_zero_checkpoint
-        model = load_state_dict_from_zero_checkpoint(trainer.model, checkpoint_dir)
+        from deepspeed.utils.zero_to_fp32 import (
+            load_state_dict_from_zero_checkpoint
+        )
+        model = load_state_dict_from_zero_checkpoint(
+            trainer.model, checkpoint_dir
+        )
         # submit to model hub or save the model to share with others
 
-    Note, that once this was run, the ``model`` will no longer be usable in the deepspeed context
-    of the same application. i.e. you will need to re-initialize the deepspeed engine, since
+    Note, that once this was run, the ``model`` will no longer be usable in
+    the deepspeed context of the same application. i.e. you will need to
+    re-initialize the deepspeed engine, since
     ``model.load_state_dict(state_dict)`` will remove all the deepspeed magic from it.
 
     """
@@ -855,30 +965,42 @@ if __name__ == "__main__":
     parser.add_argument(
         "output_dir",
         type=str,
-        help="directory to the pytorch fp32 state_dict output files"
-        "(e.g. path/checkpoint-12-output/)",
+        help=(
+            "directory to the pytorch fp32 state_dict output files "
+            "(e.g. path/checkpoint-12-output/)"
+        ),
     )
     parser.add_argument(
         "--max_shard_size",
         type=str,
         default="5GB",
-        help="The maximum size for a checkpoint before being sharded. Checkpoints shard will then be each of size"
-        "lower than this size. If expressed as a string, needs to be digits followed by a unit (like `5MB`"
-        "We default it to 5GB in order for models to be able to run easily on free-tier google colab instances"
-        "without CPU OOM issues.",
+        help=(
+            "The maximum size for a checkpoint before being sharded. "
+            "Checkpoints shard will then be each of size lower than this size. "
+            "If expressed as a string, needs to be digits followed by a unit "
+            "(like `5MB`). We default it to 5GB in order for models to be able "
+            "to run easily on free-tier google colab instances without CPU OOM "
+            "issues."
+        ),
     )
     parser.add_argument(
         "--safe_serialization",
         default=False,
         action="store_true",
-        help="Whether to save the model using `safetensors` or the traditional PyTorch way (that uses `pickle`).",
+        help=(
+            "Whether to save the model using `safetensors` or the traditional "
+            "PyTorch way (that uses `pickle`)."
+        ),
     )
     parser.add_argument(
         "-t",
         "--tag",
         type=str,
         default=None,
-        help="checkpoint tag used as a unique identifier for checkpoint. e.g., global_step1",
+        help=(
+            "checkpoint tag used as a unique identifier for checkpoint. "
+            "e.g., global_step1"
+        ),
     )
     parser.add_argument(
         "--exclude_frozen_parameters",
