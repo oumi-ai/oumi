@@ -38,6 +38,10 @@ class HuggingFaceTrainer(BaseTrainer):
 
     def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
         """Trains a model."""
+        # Initialize SP groups after DeepSpeed initialization for UlyssesSFTTrainer
+        if hasattr(self._hf_trainer, "initialize_after_deepspeed"):
+            self._hf_trainer.initialize_after_deepspeed()
+
         self._hf_trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     def save_state(self) -> None:

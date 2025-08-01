@@ -215,10 +215,15 @@ class UlyssesSFTTrainer(SFTTrainer):
             raise
 
     def _initialize_sp_groups(self):
-        """Initialize sequence parallel process groups after DeepSpeed init."""
+        """Initialize sequence parallel process groups after DeepSpeed init.
+
+        Based on ArcticTraining reference implementation, SP groups are only
+        available after deepspeed.initialize() has been called.
+        """
         if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
             try:
-                # Get SP process groups from DeepSpeed
+                # SP groups are available after deepspeed.initialize()
+                # This follows the ArcticTraining pattern from trainer.py:236-243
                 self.sp_group = groups._get_sequence_parallel_group()
                 self.sp_world_size = groups._get_sequence_parallel_world_size()
                 self.sp_rank = groups._get_sequence_parallel_rank()
@@ -229,6 +234,11 @@ class UlyssesSFTTrainer(SFTTrainer):
                 )
             except Exception as e:
                 logger.error(f"Failed to initialize SP groups: {e}")
+                logger.warning(
+                    "SP groups initialization failed. This usually means DeepSpeed "
+                    "hasn't been initialized yet or SP groups haven't been created. "
+                    "Falling back to standard training mode."
+                )
                 # Fallback to single GPU mode
                 self.sequence_parallel_size = 1
                 self.sp_group = None
@@ -247,7 +257,9 @@ class UlyssesSFTTrainer(SFTTrainer):
         # Wrap with Ulysses SP data loader adapter if sequence parallelism is enabled
         if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
             # Initialize SP groups if not already done
+            # Called post-DeepSpeed initialization, so groups should be available
             if self.sp_group is None:
+                logger.info("SP groups not initialized, attempting initialization...")
                 self._initialize_sp_groups()
 
             if self.sp_group is not None:
@@ -263,9 +275,15 @@ class UlyssesSFTTrainer(SFTTrainer):
                     sp_world_size=self.sp_world_size,
                     device=self.args.device if self.args else None,
                 )
+
+                logger.info(
+                    "Successfully wrapped dataloader w/UlyssesSPDataLoaderAdapter"
+                )
             else:
                 logger.warning(
-                    "SP groups not available, falling back to standard dataloader"
+                    "SP groups still not available after initialization attempt. "
+                    "This may mean DeepSpeed hasn't been properly initialized w/SP. "
+                    "Falling back to standard dataloader."
                 )
 
         return dataloader
@@ -462,6 +480,16 @@ class UlyssesSFTTrainer(SFTTrainer):
             MPU object for DeepSpeed, or None if not using SP
         """
         return self._mpu
+
+    def initialize_after_deepspeed(self):
+        """Initialize SP-related components after DeepSpeed initialization.
+
+        This method should be called after DeepSpeed has been initialized
+        to properly set up sequence parallel groups. Based on ArcticTraining pattern.
+        """
+        if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
+            logger.info("Initializing SP groups after DeepSpeed initialization")
+            self._initialize_sp_groups()
 
     @classmethod
     def from_config(
