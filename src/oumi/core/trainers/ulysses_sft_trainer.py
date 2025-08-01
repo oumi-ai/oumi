@@ -631,20 +631,22 @@ class UlyssesSFTTrainer(SFTTrainer):
                 else:
                     logger.info(f"🎯 No cached dataloader found for '{attr}'")
 
-            # Also try to override the get_train_dataloader method temporarily
-            def get_sp_dataloader():
+            # CRITICAL: Override get_train_dataloader method more aggressively 
+            def get_sp_dataloader_wrapper(self_arg):
                 logger.info("🎯 === CUSTOM get_train_dataloader CALLED DURING TRAINING ===")
                 logger.info(f"🎯 Returning dataloader type: {type(debug_sp_dataloader)}")
                 logger.info(f"🎯 This should be our LabelToShiftLabelsConverter!")
+                
+                # Also cache it in all possible locations to prevent multiple calls
+                self_arg._train_dataloader = debug_sp_dataloader
+                logger.info("🎯 CACHED our converter in _train_dataloader")
+                
                 return debug_sp_dataloader
 
-            # Replace the method on this instance
+            # Replace the method on this instance with bound method
             import types
-
-            self.get_train_dataloader = types.MethodType(
-                lambda self: get_sp_dataloader(), self
-            )
-            logger.info("Overrode get_train_dataloader method")
+            self.get_train_dataloader = types.MethodType(get_sp_dataloader_wrapper, self)
+            logger.info("🎯 CRITICAL: Aggressively overrode get_train_dataloader method")
 
             logger.info("Successfully recreated dataloader with SP support")
 
