@@ -726,11 +726,20 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
         # Scale loss for gradient accumulation
         loss = loss / self.args.gradient_accumulation_steps
 
-        # Note: Skip gradient connection fix as it causes shape mismatches
-        # The original 'NoneType' gradient issue needs a different approach
+
+        # Debug: Check for None gradients before backward pass (SP + ZeRO-3 debugging)
+        if hasattr(self, 'sp_config') and getattr(self.sp_config, 'is_enabled', lambda: False)():
+            self._debug_gradient_state(before_backward=True)
 
         # Backward pass
-        loss.backward()
+        try:
+            loss.backward()
+        except Exception as e:
+            # Debug gradient state on failure
+            if hasattr(self, 'sp_config') and getattr(self.sp_config, 'is_enabled', lambda: False)():
+                logger.error(f"Backward pass failed with error: {e}")
+                self._debug_gradient_state(before_backward=False, error=True)
+            raise
 
         # Gradient accumulation check
         if (self.state.local_step + 1) % self.args.gradient_accumulation_steps == 0:

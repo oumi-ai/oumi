@@ -44,13 +44,13 @@ training:
   
   # Enable all Arctic memory optimizations
   tiled_mlp_compute: True  # Enable tiled MLP computation
-  use_liger_kernel: True  # Use Liger kernel instead of tiled logits to avoid gradient issues
+  use_liger_kernel: True  # Use Liger kernel like ArcticTraining
   activation_checkpoint_cpu_offload: False  # Keep on GPU for testing
   
   # Training configuration optimized for SP with long sequences
   max_steps: 10  # Very short run to test Arctic loss with SP on long sequences
   per_device_train_batch_size: 1  # Small batch for memory efficiency with long sequences
-  gradient_accumulation_steps: 1  # Reduce to avoid gradient issues with SP + ZeRO-3
+  gradient_accumulation_steps: 3  # Test gradient accumulation with early DeepSpeed initialization
   
   # Learning configuration
   learning_rate: 5e-5
@@ -124,7 +124,7 @@ deepspeed:
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"
-  gradient_accumulation_steps: 1  # Reduce to avoid gradient issues with SP + ZeRO-3
+  gradient_accumulation_steps: 3  # Test gradient accumulation with early DeepSpeed initialization
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False

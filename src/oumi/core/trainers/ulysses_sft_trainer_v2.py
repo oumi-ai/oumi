@@ -714,34 +714,47 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     logger.error(f"  {key}: {type(value)} = {value}")
             raise
 
-    def _ensure_all_params_connected(self, loss: torch.Tensor) -> torch.Tensor:
-        """Ensure all model parameters are connected to the computation graph.
+    def _debug_gradient_state(self, before_backward: bool = True, error: bool = False):
+        """Debug gradient state to understand None gradient issue with SP + ZeRO-3."""
+        phase = "before backward" if before_backward else "after backward failure"
+        logger.info(f"=== Gradient state debugging ({phase}) ===")
         
-        This addresses the issue where some parameters don't get gradients computed
-        during Ulysses SP + ZeRO-3 training, causing 'NoneType' has no attribute 'numel' errors.
-        """
-        if not self.sp_config.is_enabled():
-            return loss
-            
-        logger.debug("Ensuring all parameters are connected to computation graph...")
+        none_grad_params = []
+        has_grad_params = []
+        total_params = 0
         
-        # Create a very small regularization term that uses all parameters
-        # but doesn't interfere with gradient shapes
-        param_norm_sum = 0.0
-        param_count = 0
-        
-        for param in self.model.parameters():
+        for name, param in self.model.named_parameters():
             if param.requires_grad:
-                param_count += 1
-                # Use parameter norm instead of direct sum to avoid shape issues
-                param_norm_sum = param_norm_sum + torch.norm(param, dtype=torch.float32) * 0.0
+                total_params += 1
+                if param.grad is None:
+                    none_grad_params.append(name)
+                else:
+                    has_grad_params.append(name)
         
-        logger.debug(f"Connected {param_count} parameters to computation graph via norm regularization")
+        logger.info(f"Total parameters requiring gradients: {total_params}")
+        logger.info(f"Parameters with gradients: {len(has_grad_params)}")
+        logger.info(f"Parameters with None gradients: {len(none_grad_params)}")
         
-        # Add tiny regularization term (effectively 0 but connects all params)
-        # Convert to same device and dtype as loss
-        regularization = torch.tensor(param_norm_sum, device=loss.device, dtype=loss.dtype)
-        return loss + regularization * 1e-15
+        if none_grad_params:
+            logger.warning(f"Parameters with None gradients:")
+            for i, name in enumerate(none_grad_params[:10]):  # Show first 10
+                logger.warning(f"  {i+1}. {name}")
+            if len(none_grad_params) > 10:
+                logger.warning(f"  ... and {len(none_grad_params) - 10} more")
+                
+        if has_grad_params and not before_backward:
+            logger.info("Parameters with gradients (first 5):")
+            for i, name in enumerate(has_grad_params[:5]):
+                param = dict(self.model.named_parameters())[name]
+                grad_info = f"shape={param.grad.shape}, norm={param.grad.norm():.6f}" if param.grad is not None else "None"
+                logger.info(f"  {i+1}. {name}: {grad_info}")
+        
+        # Check if this matches the pattern from ArcticTraining
+        if error:
+            logger.error("This error occurs in ZeRO-3's gradient reduction phase")
+            logger.error("ArcticTraining somehow avoids this - need to check their approach")
+        
+        logger.info("=== End gradient debugging ===")
 
     def _early_deepspeed_initialization(self, num_training_steps: int):
         """Perform early DeepSpeed initialization following Arctic pattern."""
