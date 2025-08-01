@@ -15,18 +15,18 @@
 """Tests for UlyssesSFTTrainer V2 (Arctic-based implementation)."""
 
 import json
-import tempfile
-from unittest.mock import MagicMock, patch, mock_open
 import os
+import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 from transformers import TrainingArguments
 
-from src.oumi.core.trainers.ulysses_sft_trainer_v2 import UlyssesSFTTrainer
 from src.oumi.core.trainers.arctic_base_trainer import TrainerRegistry
-from src.oumi.core.trainers.components.sequence_parallel import SequenceParallelConfig
 from src.oumi.core.trainers.components.memory_optimization import MemoryOptimizer
+from src.oumi.core.trainers.components.sequence_parallel import SequenceParallelConfig
+from src.oumi.core.trainers.ulysses_sft_trainer_v2 import UlyssesSFTTrainer
 
 
 @pytest.fixture
@@ -68,7 +68,9 @@ def mock_dataset():
         {"input_ids": torch.tensor([4, 5, 6]), "labels": torch.tensor([4, 5, 6])},
     ]
     dataset.__iter__ = MagicMock(return_value=iter(sample_data))
-    dataset.__getitem__ = MagicMock(side_effect=lambda i: sample_data[i % len(sample_data)])
+    dataset.__getitem__ = MagicMock(
+        side_effect=lambda i: sample_data[i % len(sample_data)]
+    )
     return dataset
 
 
@@ -93,7 +95,9 @@ def training_args():
 class TestUlyssesSFTTrainerV2:
     """Test suite for UlyssesSFTTrainer V2."""
 
-    def test_trainer_creation_without_deepspeed(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    def test_trainer_creation_without_deepspeed(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test that trainer can be created without DeepSpeed."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -103,15 +107,20 @@ class TestUlyssesSFTTrainerV2:
             sequence_parallel_size=1,
             model_name_or_path="test-model",
         )
-        
+
         assert trainer.model == mock_model
         assert trainer.sequence_parallel_size == 1
         assert trainer.model_name_or_path == "test-model"
         assert trainer.sp_config.sequence_parallel_size == 1
         assert not trainer.sp_config.is_enabled()
 
-    @patch("src.oumi.core.trainers.components.sequence_parallel.DEEPSPEED_ULYSSES_AVAILABLE", False)
-    def test_trainer_creation_with_sp_no_deepspeed(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    @patch(
+        "src.oumi.core.trainers.components.sequence_parallel.DEEPSPEED_ULYSSES_AVAILABLE",
+        False,
+    )
+    def test_trainer_creation_with_sp_no_deepspeed(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test that trainer raises error when SP is requested but DeepSpeed is not available."""
         with pytest.raises(RuntimeError, match="DeepSpeed Ulysses SP is required"):
             UlyssesSFTTrainer(
@@ -123,13 +132,18 @@ class TestUlyssesSFTTrainerV2:
                 model_name_or_path="test-model",
             )
 
-    @patch("src.oumi.core.trainers.components.sequence_parallel.DEEPSPEED_ULYSSES_AVAILABLE", True)
+    @patch(
+        "src.oumi.core.trainers.components.sequence_parallel.DEEPSPEED_ULYSSES_AVAILABLE",
+        True,
+    )
     @patch("src.oumi.core.trainers.components.sequence_parallel.UlyssesSPAttentionHF")
-    def test_trainer_creation_with_sp(self, mock_sp_attention, mock_model, mock_tokenizer, mock_dataset, training_args):
+    def test_trainer_creation_with_sp(
+        self, mock_sp_attention, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test trainer creation with sequence parallelism enabled."""
         # Mock the SP setup
         mock_sp_attention.register_with_transformers.return_value = MagicMock()
-        
+
         trainer = UlyssesSFTTrainer(
             model=mock_model,
             args=training_args,
@@ -138,14 +152,26 @@ class TestUlyssesSFTTrainerV2:
             sequence_parallel_size=2,
             model_name_or_path="test-model",
         )
-        
+
         assert trainer.sequence_parallel_size == 2
         assert trainer.sp_config.is_enabled()
         mock_sp_attention.register_with_transformers.assert_called_once()
 
-    @patch("src.oumi.core.trainers.components.memory_optimization.TILED_MLP_AVAILABLE", True)
-    @patch("src.oumi.core.trainers.components.memory_optimization.enable_tiled_mlp_compute")
-    def test_tiled_mlp_setup(self, mock_enable_tiled_mlp, mock_model, mock_tokenizer, mock_dataset, training_args):
+    @patch(
+        "src.oumi.core.trainers.components.memory_optimization.TILED_MLP_AVAILABLE",
+        True,
+    )
+    @patch(
+        "src.oumi.core.trainers.components.memory_optimization.enable_tiled_mlp_compute"
+    )
+    def test_tiled_mlp_setup(
+        self,
+        mock_enable_tiled_mlp,
+        mock_model,
+        mock_tokenizer,
+        mock_dataset,
+        training_args,
+    ):
         """Test tiled MLP computation setup."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -155,13 +181,26 @@ class TestUlyssesSFTTrainerV2:
             tiled_mlp_compute=True,
             model_name_or_path="test-model",
         )
-        
+
         assert trainer.tiled_mlp_compute == True
         mock_enable_tiled_mlp.assert_called_once_with("test-model")
 
-    @patch("src.oumi.core.trainers.components.memory_optimization.LigerKernelOptimizer.is_available", return_value=True)
-    @patch("src.oumi.core.trainers.components.memory_optimization.LigerKernelOptimizer.apply_liger_kernels")
-    def test_liger_kernel_setup(self, mock_apply_liger, mock_is_available, mock_model, mock_tokenizer, mock_dataset, training_args):
+    @patch(
+        "src.oumi.core.trainers.components.memory_optimization.LigerKernelOptimizer.is_available",
+        return_value=True,
+    )
+    @patch(
+        "src.oumi.core.trainers.components.memory_optimization.LigerKernelOptimizer.apply_liger_kernels"
+    )
+    def test_liger_kernel_setup(
+        self,
+        mock_apply_liger,
+        mock_is_available,
+        mock_model,
+        mock_tokenizer,
+        mock_dataset,
+        training_args,
+    ):
         """Test Liger kernel setup."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -170,11 +209,13 @@ class TestUlyssesSFTTrainerV2:
             processing_class=mock_tokenizer,
             use_liger_kernel=True,
         )
-        
+
         assert trainer.use_liger_kernel == True
         mock_apply_liger.assert_called_once_with(mock_model, True)
 
-    def test_create_train_dataloader(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    def test_create_train_dataloader(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test training dataloader creation."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -182,12 +223,14 @@ class TestUlyssesSFTTrainerV2:
             train_dataset=mock_dataset,
             processing_class=mock_tokenizer,
         )
-        
+
         dataloader = trainer.create_train_dataloader()
         assert dataloader is not None
-        assert hasattr(dataloader, '__iter__')
+        assert hasattr(dataloader, "__iter__")
 
-    def test_create_eval_dataloader(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    def test_create_eval_dataloader(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test evaluation dataloader creation."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -196,12 +239,14 @@ class TestUlyssesSFTTrainerV2:
             eval_dataset=mock_dataset,
             processing_class=mock_tokenizer,
         )
-        
+
         dataloader = trainer.create_eval_dataloader()
         assert dataloader is not None
-        assert hasattr(dataloader, '__iter__')
+        assert hasattr(dataloader, "__iter__")
 
-    def test_compute_loss_standard(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    def test_compute_loss_standard(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test standard loss computation."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -209,20 +254,28 @@ class TestUlyssesSFTTrainerV2:
             train_dataset=mock_dataset,
             processing_class=mock_tokenizer,
         )
-        
+
         # Mock model output
         mock_outputs = MagicMock()
         mock_outputs.loss = torch.tensor(1.0)
         mock_model.return_value = mock_outputs
-        
-        inputs = {"input_ids": torch.tensor([[1, 2, 3]]), "labels": torch.tensor([[1, 2, 3]])}
+
+        inputs = {
+            "input_ids": torch.tensor([[1, 2, 3]]),
+            "labels": torch.tensor([[1, 2, 3]]),
+        }
         loss = trainer.compute_loss(mock_model, inputs)
-        
+
         assert isinstance(loss, torch.Tensor)
         assert loss.item() == 1.0
 
-    @patch("src.oumi.core.trainers.components.sequence_parallel.DEEPSPEED_ULYSSES_AVAILABLE", True)
-    def test_compute_loss_with_sp(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    @patch(
+        "src.oumi.core.trainers.components.sequence_parallel.DEEPSPEED_ULYSSES_AVAILABLE",
+        True,
+    )
+    def test_compute_loss_with_sp(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test loss computation with sequence parallelism."""
         trainer = UlyssesSFTTrainer(
             model=mock_model,
@@ -231,24 +284,26 @@ class TestUlyssesSFTTrainerV2:
             processing_class=mock_tokenizer,
             sequence_parallel_size=2,
         )
-        
+
         # Setup SP manager for testing
         trainer.sp_manager.sp_group = MagicMock()
         trainer.sp_manager._initialized = True
-        
+
         # Mock SP batch format
         inputs = {"shift_labels": torch.tensor([[1, 2, 3]])}
-        
+
         # Mock model output for SP loss
         mock_outputs = MagicMock()
         mock_outputs.loss = torch.tensor(1.0)
         mock_model.return_value = mock_outputs
-        
+
         loss = trainer.compute_loss(mock_model, inputs)
-        
+
         assert isinstance(loss, torch.Tensor)
 
-    def test_deepspeed_config_preparation(self, mock_model, mock_tokenizer, mock_dataset, training_args):
+    def test_deepspeed_config_preparation(
+        self, mock_model, mock_tokenizer, mock_dataset, training_args
+    ):
         """Test DeepSpeed configuration preparation."""
         # Create a temporary DeepSpeed config file
         ds_config = {
@@ -256,14 +311,14 @@ class TestUlyssesSFTTrainerV2:
             "train_micro_batch_size_per_gpu": "auto",
             "gradient_accumulation_steps": "auto",
         }
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(ds_config, f)
             config_path = f.name
-        
+
         try:
             training_args.deepspeed = config_path
-            
+
             trainer = UlyssesSFTTrainer(
                 model=mock_model,
                 args=training_args,
@@ -271,13 +326,13 @@ class TestUlyssesSFTTrainerV2:
                 processing_class=mock_tokenizer,
                 sequence_parallel_size=2,
             )
-            
+
             prepared_config = trainer._prepare_deepspeed_config()
-            
+
             # Check that auto values are handled
             assert "ulysses_sequence_parallel_size" in prepared_config
             assert prepared_config["ulysses_sequence_parallel_size"] == 2
-            
+
         finally:
             os.unlink(config_path)
 
@@ -296,7 +351,7 @@ class TestUlyssesSFTTrainerV2:
             model_name_or_path="test-model",
             use_liger_kernel=True,
         )
-        
+
         assert isinstance(trainer, UlyssesSFTTrainer)
         assert trainer.sequence_parallel_size == 2
         assert trainer.model_name_or_path == "test-model"
@@ -330,9 +385,13 @@ class TestMemoryOptimizer:
 
     @patch("torch.cuda.is_available", return_value=True)
     @patch("torch.cuda.memory_allocated", return_value=1024 * 1024 * 1024)  # 1GB
-    @patch("torch.cuda.max_memory_allocated", return_value=2 * 1024 * 1024 * 1024)  # 2GB
+    @patch(
+        "torch.cuda.max_memory_allocated", return_value=2 * 1024 * 1024 * 1024
+    )  # 2GB
     @patch("torch.cuda.memory_reserved", return_value=3 * 1024 * 1024 * 1024)  # 3GB
-    def test_get_memory_usage_with_cuda(self, mock_reserved, mock_max, mock_current, mock_available):
+    def test_get_memory_usage_with_cuda(
+        self, mock_reserved, mock_max, mock_current, mock_available
+    ):
         """Test memory usage with CUDA available."""
         stats = MemoryOptimizer.get_memory_usage()
         assert stats["current_gb"] == 1.0
@@ -355,7 +414,7 @@ class TestComponentFactory:
     def test_create_optimizer(self):
         """Test optimizer creation."""
         from src.oumi.core.trainers.arctic_base_trainer import ComponentFactory
-        
+
         model = torch.nn.Linear(10, 5)
         optimizer = ComponentFactory.create_optimizer(
             model=model,
@@ -363,7 +422,7 @@ class TestComponentFactory:
             learning_rate=1e-4,
             weight_decay=0.01,
         )
-        
+
         assert optimizer is not None
         assert optimizer.param_groups[0]["lr"] == 1e-4
         assert optimizer.param_groups[0]["weight_decay"] == 0.01
@@ -371,22 +430,25 @@ class TestComponentFactory:
     def test_create_data_loader(self):
         """Test data loader creation."""
         from src.oumi.core.trainers.arctic_base_trainer import ComponentFactory
-        
+
         # Create a simple dataset
         class SimpleDataset(torch.utils.data.Dataset):
             def __len__(self):
                 return 10
-            
+
             def __getitem__(self, idx):
-                return {"input_ids": torch.tensor([1, 2, 3]), "labels": torch.tensor([1, 2, 3])}
-        
+                return {
+                    "input_ids": torch.tensor([1, 2, 3]),
+                    "labels": torch.tensor([1, 2, 3]),
+                }
+
         dataset = SimpleDataset()
         dataloader = ComponentFactory.create_data_loader(
             dataset=dataset,
             batch_size=2,
             shuffle=True,
         )
-        
+
         assert dataloader is not None
         assert dataloader.batch_size == 2
         assert len(dataloader) == 5  # 10 samples / 2 batch_size

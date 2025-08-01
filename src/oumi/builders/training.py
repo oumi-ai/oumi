@@ -288,7 +288,8 @@ def build_trainer(
             )
 
             # Add callbacks directly to the trainer
-            # (not wrapping with HuggingFaceTrainer since trainer inherits from BaseTrainer)
+            # (not wrapping with HuggingFaceTrainer since trainer inherits from
+            # BaseTrainer)
             if callbacks:
                 for callback in callbacks:
                     trainer.add_callback(callback)
