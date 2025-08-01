@@ -128,6 +128,8 @@ class TrainingConfig(BaseConfig):
                 max_seq_length_key = "max_length"
                 # TODO: DPOTrainer also defines "max_prompt_length" and
                 # "max_target_length". How to handle them?
+            elif trainer_type == TrainerType.SFT_ULYSSES:
+                max_seq_length_key = "max_length"
             else:
                 logger.warning(
                     f"Ignored model.model_max_length={max_seq_length_value} "
