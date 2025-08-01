@@ -88,7 +88,7 @@ training:
 # Enable DeepSpeed for distributed Ulysses SP support with ZeRO (using ArcticTraining approach)
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "ZERO_3"  # Match ArcticTraining exactly: ZERO_3 with CPU offloading
+  zero_stage: "3"  # ZERO_3 with CPU offloading (enum expects "3" not "ZERO_3")
   precision: "BF16"
   
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
@@ -128,9 +128,3 @@ deepspeed:
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False
-  
-  # Disable profiling to avoid engine_timers issues
-  flops_profiler:
-    enabled: False
-  tensorboard:
-    enabled: False

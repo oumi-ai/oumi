@@ -666,63 +666,12 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         self, model: torch.nn.Module, inputs: dict[str, Any]
     ) -> torch.Tensor:
         """Compute loss with Ulysses SP support."""
-        # Initialize SP groups after DeepSpeed is ready (lazy initialization)
+        # SP groups should already be initialized by early DeepSpeed init
+        # If they're not, something went wrong with our initialization timing
         if self.sp_config.is_enabled() and not self.sp_manager.is_initialized:
-            logger.info("Attempting to initialize SP groups after DeepSpeed initialization (lazy)")
-            
-            # Check if DeepSpeed is actually initialized
-            is_deepspeed_enabled = hasattr(self.model, 'module') and hasattr(self.model, 'engine')
-            logger.info(f"DeepSpeed enabled: {is_deepspeed_enabled}")
-            
-            if is_deepspeed_enabled:
-                # Try to manually reinitialize DeepSpeed with MPU
-                logger.info("DeepSpeed is initialized but without SP groups - attempting manual reinit with MPU")
-                mpu = self.sp_manager.get_mpu()
-                if mpu is not None:
-                    logger.info("Reinitializing DeepSpeed with Ulysses SP MPU")
-                    
-                    try:
-                        import deepspeed
-                        
-                        # Get current DeepSpeed config
-                        current_config = self.model.config if hasattr(self.model, 'config') else self.args.deepspeed
-                        
-                        # Save current state
-                        current_model = self.model.module if hasattr(self.model, 'module') else self.model
-                        
-                        # Reinitialize with MPU
-                        model_engine, optimizer, _, lr_scheduler = deepspeed.initialize(
-                            model=current_model,
-                            optimizer=self.optimizer,
-                            lr_scheduler=self.lr_scheduler,
-                            config=current_config,
-                            mpu=mpu,  # Add the missing MPU
-                        )
-                        
-                        # Update references
-                        self.model = model_engine
-                        self.model_wrapped = model_engine
-                        if optimizer is not None:
-                            self.optimizer = optimizer
-                        if lr_scheduler is not None:
-                            self.lr_scheduler = lr_scheduler
-                        
-                        logger.info("DeepSpeed reinitialized with SP MPU successfully")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to reinitialize DeepSpeed with MPU: {e}")
-                        logger.info("Continuing with standard initialization attempt")
-            
-            # Now try to initialize SP groups
-            success = self.sp_manager.initialize_groups()
-            if success and hasattr(self, "train_dataloader"):
-                logger.info("Recreating training dataloader with SP support...")
-                # Store current dataloader to avoid infinite recursion
-                old_dataloader = self.train_dataloader
-                self.train_dataloader = self.create_train_dataloader()
-                logger.info("Training dataloader recreated with SP support")
-            else:
-                logger.warning("SP groups initialization still failed after DeepSpeed reinit attempt")
+            logger.error("SP is enabled but groups not initialized in compute_loss!")
+            logger.error("This suggests early DeepSpeed initialization failed.")
+            logger.error("Falling back to standard loss computation without SP.")
         
         # Debug batch information
         if logger.isEnabledFor(10):  # DEBUG level
