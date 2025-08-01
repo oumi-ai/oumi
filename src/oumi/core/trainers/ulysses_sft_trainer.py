@@ -120,16 +120,26 @@ class LabelToShiftLabelsConverter:
         """Return length of the wrapped dataloader."""
         return len(self.dataloader)
 
+    def __getitem__(self, index):
+        """Support subscriptable access by delegating to wrapped dataloader."""
+        logger.info(f"LabelToShiftLabelsConverter.__getitem__ called with index {index}")
+        if hasattr(self.dataloader, '__getitem__'):
+            return self.dataloader[index]
+        else:
+            raise TypeError(f"'{type(self.dataloader).__name__}' object is not subscriptable")
+
+    def __getitems__(self, indices):
+        """Support batch subscriptable access by delegating to wrapped dataloader."""
+        logger.info(f"LabelToShiftLabelsConverter.__getitems__ called with indices {indices}")
+        if hasattr(self.dataloader, '__getitems__'):
+            return self.dataloader.__getitems__(indices)
+        elif hasattr(self.dataloader, '__getitem__'):
+            return [self.dataloader[i] for i in indices]
+        else:
+            raise TypeError(f"'{type(self.dataloader).__name__}' object does not support batch subscripting")
+
     def __getattr__(self, name):
         """Delegate attribute access to the wrapped dataloader."""
-        # Handle problematic attributes that may cause subscripting issues
-        if name in ('__getitems__', '__getitem__'):
-            if hasattr(self.dataloader, name):
-                logger.info(f"LabelToShiftLabelsConverter delegating '{name}' to wrapped dataloader")
-                return getattr(self.dataloader, name)
-            else:
-                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-        
         logger.info(f"LabelToShiftLabelsConverter delegating attribute '{name}' to wrapped dataloader")
         return getattr(self.dataloader, name)
 
