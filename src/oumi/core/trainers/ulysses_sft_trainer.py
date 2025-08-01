@@ -63,6 +63,60 @@ except ImportError:
     TILED_MLP_AVAILABLE = False
 
 
+class LabelToShiftLabelsConverter:
+    """Wrapper that converts 'labels' to 'shift_labels' for Ulysses SP.
+    
+    This ensures that batches contain 'shift_labels' instead of 'labels' as expected
+    by the ArcticTraining loss computation pattern.
+    """
+
+    def __init__(self, dataloader):
+        """Initialize the converter wrapper.
+        
+        Args:
+            dataloader: The dataloader to wrap (typically UlyssesSPDataLoaderAdapter)
+        """
+        self.dataloader = dataloader
+        logger.info("Initialized LabelToShiftLabelsConverter")
+
+    def __iter__(self):
+        """Iterate over the wrapped dataloader, converting labels to shift_labels."""
+        for batch in self.dataloader:
+            # Convert labels to shift_labels if present
+            if "labels" in batch and "shift_labels" not in batch:
+                logger.debug("Converting labels to shift_labels in SP dataloader")
+                labels = batch["labels"]
+                
+                # Shift labels for causal LM: shift left by one position
+                # This matches the standard causal LM pattern where input[i] predicts label[i+1]
+                shift_labels = labels[..., 1:].contiguous()
+                
+                # Pad with -100 (ignore index) at the end
+                padding = torch.full(
+                    (shift_labels.shape[0], 1),
+                    -100,
+                    dtype=shift_labels.dtype,
+                    device=shift_labels.device,
+                )
+                shift_labels = torch.cat([shift_labels, padding], dim=1)
+                
+                # Replace labels with shift_labels
+                batch = {k: v for k, v in batch.items() if k != "labels"}
+                batch["shift_labels"] = shift_labels
+                
+                logger.debug(f"Converted labels to shift_labels, shape: {shift_labels.shape}")
+            
+            yield batch
+
+    def __len__(self):
+        """Return length of the wrapped dataloader."""
+        return len(self.dataloader)
+
+    def __getattr__(self, name):
+        """Delegate attribute access to the wrapped dataloader."""
+        return getattr(self.dataloader, name)
+
+
 class UlyssesSFTTrainer(SFTTrainer):
     """SFT Trainer with Ulysses sequence parallelism support.
 
@@ -315,7 +369,7 @@ class UlyssesSFTTrainer(SFTTrainer):
                 )
 
                 logger.info("About to create UlyssesSPDataLoaderAdapter...")
-                dataloader = UlyssesSPDataLoaderAdapter(
+                sp_dataloader = UlyssesSPDataLoaderAdapter(
                     dataloader,
                     sp_rank=self.sp_rank,
                     sp_group=self.sp_group,
@@ -323,6 +377,11 @@ class UlyssesSFTTrainer(SFTTrainer):
                     device=self.args.device if self.args else None,
                 )
                 logger.info("Created UlyssesSPDataLoaderAdapter successfully")
+                
+                # Wrap with our own converter to ensure labels->shift_labels conversion
+                logger.info("Wrapping with labels-to-shift_labels converter...")
+                dataloader = LabelToShiftLabelsConverter(sp_dataloader)
+                logger.info("Created LabelToShiftLabelsConverter wrapper")
 
                 logger.info(
                     "Successfully wrapped dataloader w/UlyssesSPDataLoaderAdapter"
@@ -376,6 +435,11 @@ class UlyssesSFTTrainer(SFTTrainer):
                 device=self.args.device if self.args else None,
             )
             logger.info("Created UlyssesSPDataLoaderAdapter successfully")
+            
+            # Wrap with our converter to ensure labels->shift_labels conversion
+            logger.info("Wrapping with labels-to-shift_labels converter...")
+            sp_dataloader = LabelToShiftLabelsConverter(sp_dataloader)
+            logger.info("Created LabelToShiftLabelsConverter wrapper")
 
             # Test the dataloader by getting an iterator (but don't iterate yet)
             logger.info("Testing SP dataloader by getting iterator...")
