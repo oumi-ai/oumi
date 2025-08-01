@@ -1,0 +1,148 @@
+# Extreme Long Context Test - 131K Tokens with Ulysses SP and Arctic Loss
+# This configuration tests the ultimate limits of sequence parallelism and Arctic loss
+# using the MRCR dataset which contains extremely long context sequences (up to 131K tokens)
+#
+# Key features:
+# - Sequences up to 131,072 tokens (2^17) using Ulysses SP with size=8
+# - Tests Arctic loss computation path with extreme memory optimization
+# - Uses MRCR dataset with very long context reasoning tasks
+# - Validates SP-aware processing and memory management at scale
+# - ZeRO-3 + CPU offloading for maximum memory efficiency
+# - ArcticTraining compatibility settings for ZeRO + SP
+#
+# Requirements:
+# - 8 GPUs with at least 40GB memory each (A100 or H100 recommended)
+# - High-memory CPU (256GB+ RAM recommended for offloading)
+# - High-speed interconnect for SP communication
+#
+# Usage:
+#   torchrun --nproc-per-node=8 --standalone -m oumi train -c configs/examples/deepspeed/sft_ulysses_extreme_long_context_131k.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"  # Use larger model for extreme test
+  model_max_length: 131072  # 131K tokens - extreme long context
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"  # SDPA for Ulysses SP compatibility
+
+data:
+  train:
+    datasets:
+      - dataset_name: "PromptResponseDataset"
+        split: "train[:20]"  # Very small dataset due to extreme sequence length
+        dataset_kwargs:
+          hf_dataset_path: "openai/mrcr"  # Multi-step reasoning with very long contexts
+          prompt_column: "question"
+          response_column: "answer"
+        shuffle: True
+        seed: 42
+    collator_name: "text_with_padding"
+
+training:
+  # Use Ulysses-enabled SFT trainer with Arctic loss
+  trainer_type: "SFT_ULYSSES"
+  
+  # Enable extreme Ulysses Sequence Parallelism
+  enable_ulysses_sequence_parallel: True
+  ulysses_sequence_parallel_size: 8  # Shard 131K sequences across 8 GPUs
+  
+  # Enable all Arctic memory optimizations for extreme context
+  tiled_mlp_compute: True  # Essential for extreme sequences
+  use_liger_kernel: False  # Use Arctic tiled logits computation
+  activation_checkpoint_cpu_offload: True  # Offload activations to CPU
+  
+  # Training configuration for extreme sequences
+  max_steps: 5  # Very short run due to extreme compute requirements
+  per_device_train_batch_size: 1  # Minimal batch size for 131K sequences
+  gradient_accumulation_steps: 8  # Match SP size per ArcticTraining approach
+  
+  # Conservative learning settings for stability
+  learning_rate: 5e-6  # Very low LR for extreme sequences
+  warmup_steps: 1
+  weight_decay: 0.01
+  max_grad_norm: 0.3  # Very conservative gradient clipping
+  
+  # Memory optimization settings
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  mixed_precision_dtype: "BF16"
+  
+  # Minimal logging and saving
+  logging_steps: 1
+  save_steps: 999  # Don't save checkpoints during test
+  save_final_model: False  # Skip final model save for test
+  output_dir: "output/sft_ulysses_extreme_long_context_131k"
+  
+  # Disable evaluation for extreme test
+  eval_strategy: "no"
+  
+  # Memory management
+  dataloader_num_workers: 0  # Single-threaded for memory efficiency
+  empty_device_cache_steps: 1  # Clear cache after every step
+  
+  # Determinism and logging
+  seed: 42
+  data_seed: 42
+  log_level: "info"
+  enable_tensorboard: False  # Disable to save memory
+  enable_wandb: False
+  enable_mlflow: False
+
+# DeepSpeed ZeRO-3 with maximum memory optimization
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_3"  # Full sharding for maximum memory efficiency
+  precision: "BF16"
+  
+  # Ulysses Sequence Parallelism
+  ulysses_sequence_parallel_size: 8  # Must match training parameter
+  
+  # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
+  seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
+  
+  # ZeRO-3 optimizations for extreme sequences
+  stage3_prefetch_bucket_size: 100000000   # 1e8 - large buckets for efficiency
+  stage3_param_persistence_threshold: 100000  # Higher threshold
+  stage3_max_live_parameters: 2000000000   # 2e9 - larger live params
+  stage3_max_reuse_distance: 2000000000    # 2e9
+  stage3_gather_16bit_weights_on_model_save: True
+  
+  # CPU offloading for extreme memory savings
+  zero_optimization:
+    offload_optimizer:
+      device: "cpu"
+      pin_memory: True
+      buffer_count: 4
+      fast_init: False
+    offload_param:
+      device: "cpu"
+      pin_memory: True
+      buffer_count: 5
+      buffer_size: 1000000000  # 1e9
+      max_in_cpu: 2000000000   # 2e9
+  
+  # Communication optimization for extreme sequences
+  allgather_partitions: True
+  allgather_bucket_size: 500000000  # 5e8 - large buckets
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 500000000     # 5e8
+  contiguous_gradients: True
+  sub_group_size: 2000000000        # 2e9
+  
+  # Memory management
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+  
+  # Training settings
+  train_batch_size: "auto"
+  train_micro_batch_size_per_gpu: "auto"
+  gradient_accumulation_steps: 8  # Match SP size
+  gradient_clipping: "auto"
+  
+  # Logging and monitoring
+  steps_per_print: 1
+  wall_clock_breakdown: True  # Monitor performance bottlenecks
+  dump_state: False  # Skip state dumps to save space

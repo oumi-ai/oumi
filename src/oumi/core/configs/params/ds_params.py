@@ -237,6 +237,15 @@ class DSParams(BaseParams):
     Must be <= world_size and work_size must be divisible by this value.
     """
 
+    seq_parallel_communication_data_type: Optional[str] = None
+    """Data type for sequence parallelism communication.
+    
+    Controls the precision used for communication operations in sequence parallelism.
+    Common values: "bf16", "fp16", "fp32". Setting this to "bf16" is critical for
+    compatibility between ZeRO optimization and sequence parallelism (as used in ArcticTraining).
+    When None, uses default communication data type.
+    """
+
     def __post_init__(self) -> None:
         """Validate DeepSpeed configuration parameters."""
         # Validate offloading configurations
@@ -384,10 +393,15 @@ class DSParams(BaseParams):
 
         # Add Ulysses sequence parallelism if configured
         if self.ulysses_sequence_parallel_size > 1:
-            config["ulysses_sequence_parallel"] = {
+            ulysses_config = {
                 "parallel_size": self.ulysses_sequence_parallel_size,
                 "enabled": True,
             }
+            config["ulysses_sequence_parallel"] = ulysses_config
+
+        # Add sequence parallel communication data type if specified
+        if self.seq_parallel_communication_data_type is not None:
+            config["seq_parallel_communication_data_type"] = self.seq_parallel_communication_data_type
 
         return config
 
