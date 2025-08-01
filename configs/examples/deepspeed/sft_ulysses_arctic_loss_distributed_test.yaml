@@ -12,7 +12,7 @@
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
-  model_max_length: 2048  # Longer sequences to trigger SP optimizations
+  model_max_length: 2049  # Longer sequences to trigger SP optimizations
   torch_dtype_str: "float32"  # Use float32 for mixed precision compatibility
   load_pretrained_weights: True
   trust_remote_code: True
@@ -22,7 +22,7 @@ data:
   train:
     datasets:
       - dataset_name: "yahma/alpaca-cleaned"
-        split: "train[:20]"  # Use 20 examples for distributed Arctic loss testing
+        split: "train[:200]"  # Use 200 examples for distributed Arctic loss testing
         shuffle: True
         seed: 42
     collator_name: "text_with_padding"
@@ -34,7 +34,7 @@ training:
   
   # ENABLE distributed Ulysses SP for true Arctic loss testing
   enable_ulysses_sequence_parallel: True
-  ulysses_sequence_parallel_size: 2  # 2 GPUs for true SP
+  ulysses_sequence_parallel_size: 3  # 2 GPUs for true SP
   
   # Enable all Arctic memory optimizations
   tiled_mlp_compute: True  # Enable tiled MLP computation
@@ -42,7 +42,7 @@ training:
   activation_checkpoint_cpu_offload: False  # Keep on GPU for testing
   
   # Training configuration optimized for SP
-  max_steps: 8  # Short run to test Arctic loss with SP
+  max_steps: 20  # Short run to test Arctic loss with SP
   per_device_train_batch_size: 1  # Small batch for memory efficiency
   gradient_accumulation_steps: 2
   
@@ -53,7 +53,7 @@ training:
   
   # Logging and saving
   logging_steps: 1
-  save_steps: 4
+  save_steps: 5
   save_final_model: True
   output_dir: "output/sft_ulysses_arctic_loss_distributed_test"
   
@@ -67,7 +67,7 @@ training:
   
   # SFT kwargs for SP
   trainer_kwargs:
-    pad_to_multiple_of: 2  # Pad sequences to multiples of SP size
+    pad_to_multiple_of: 3  # Pad sequences to multiples of SP size
   
   # Seed for reproducibility
   seed: 42
@@ -86,7 +86,7 @@ deepspeed:
   precision: "BF16"
   
   # Distributed Ulysses Sequence Parallelism
-  ulysses_sequence_parallel_size: 2  # Must match training parameter
+  ulysses_sequence_parallel_size: 3  # Must match training parameter
   
   # Communication settings for distributed SP
   allgather_partitions: True
@@ -103,5 +103,5 @@ deepspeed:
   train_micro_batch_size_per_gpu: "auto"
   gradient_accumulation_steps: "auto"
   gradient_clipping: "auto"
-  steps_per_print: 2
+  steps_per_print: 5
   wall_clock_breakdown: False
