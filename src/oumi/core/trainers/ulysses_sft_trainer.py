@@ -143,6 +143,7 @@ class UlyssesSFTTrainer(SFTTrainer):
         self.sp_world_size = 1
         self.sp_rank = 0
         self._mpu = None
+        self._deepspeed_initialized_with_mpu = False
 
         # Setup tiled MLP compute before model initialization if enabled
         if self.tiled_mlp_compute and self.model_name_or_path:
@@ -513,7 +514,25 @@ class UlyssesSFTTrainer(SFTTrainer):
                     )
                     ds_config['ulysses_sequence_parallel_size'] = self.original_sequence_parallel_size
                 
-                # Fix batch size types in config (convert strings to integers)
+                # Handle 'auto' values and fix batch size types in config
+                # When values are 'auto', DeepSpeed will calculate them based on other parameters
+                # We need to remove them or set appropriate defaults
+                if 'train_batch_size' in ds_config and ds_config['train_batch_size'] == 'auto':
+                    # Let DeepSpeed calculate from micro_batch_size * gradient_accumulation * world_size
+                    del ds_config['train_batch_size']
+                    logger.info("Removed train_batch_size='auto' to let DeepSpeed calculate it")
+                
+                if 'train_micro_batch_size_per_gpu' in ds_config and ds_config['train_micro_batch_size_per_gpu'] == 'auto':
+                    # Use the micro_batch_size from training args
+                    ds_config['train_micro_batch_size_per_gpu'] = self.args.per_device_train_batch_size
+                    logger.info(f"Set train_micro_batch_size_per_gpu={ds_config['train_micro_batch_size_per_gpu']}")
+                
+                if 'gradient_accumulation_steps' in ds_config and ds_config['gradient_accumulation_steps'] == 'auto':
+                    # Use gradient accumulation from training args
+                    ds_config['gradient_accumulation_steps'] = self.args.gradient_accumulation_steps
+                    logger.info(f"Set gradient_accumulation_steps={ds_config['gradient_accumulation_steps']}")
+                
+                # Now convert any remaining string numbers to integers
                 for key in ['train_batch_size', 'train_micro_batch_size_per_gpu', 
                            'gradient_accumulation_steps', 'micro_batch_per_gpu']:
                     if key in ds_config and isinstance(ds_config[key], str):
@@ -567,6 +586,9 @@ class UlyssesSFTTrainer(SFTTrainer):
                 self.lr_scheduler = lr_scheduler
 
                 logger.info("DeepSpeed initialized successfully with Ulysses SP MPU")
+                
+                # Mark that we've initialized with MPU
+                self._deepspeed_initialized_with_mpu = True
 
                 # Debug: Check if groups are available now
                 try:
