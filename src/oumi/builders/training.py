@@ -174,7 +174,7 @@ def build_trainer(
                     training_args, "use_liger_kernel", use_liger_kernel
                 )
 
-            # Create Ulysses SFT trainer
+            # Create Ulysses SFT trainer with all original kwargs (including data_collator)
             ulysses_trainer = UlyssesSFTTrainer(
                 *args,
                 **kwargs,
@@ -187,6 +187,10 @@ def build_trainer(
                 tiled_mlp_compute=tiled_mlp_compute,
                 use_liger_kernel=use_liger_kernel,
             )
+            
+            # Debug: Log what collator we received
+            data_collator = kwargs.get('data_collator', None)
+            logger.info(f"UlyssesSFTTrainer V2 received data_collator: {type(data_collator).__name__ if data_collator else 'None'}")
 
             trainer = HuggingFaceTrainer(ulysses_trainer, processor)
 
