@@ -16,7 +16,7 @@
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
   model_max_length: 8192  # Long sequences from LIMO dataset (reduced from 16384 for memory efficiency)
-  torch_dtype_str: "float32"  # Use float32 for mixed precision compatibility
+  torch_dtype_str: "bfloat16"  # Match DeepSpeed precision to avoid gradient bucket mismatch
   load_pretrained_weights: True
   trust_remote_code: True
   attn_implementation: "sdpa"  # SDPA for Ulysses SP compatibility
