@@ -42,6 +42,11 @@ training:
   enable_ulysses_sequence_parallel: True
   ulysses_sequence_parallel_size: 2  # Minimal SP for testing
 
+  # Enable additional memory optimizations for testing
+  tiled_mlp_compute: False  # Disable for small model testing
+  use_liger_kernel: False   # Disable for compatibility testing
+  activation_checkpoint_cpu_offload: False  # Disable for short sequences
+
   # Quick test configuration
   max_steps: 20  # Very short run
   eval_strategy: "steps"

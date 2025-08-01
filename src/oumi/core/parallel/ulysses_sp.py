@@ -22,7 +22,7 @@ https://github.com/snowflakedb/ArcticTraining/pull/45
 """
 
 import importlib.util
-from typing import Dict, Optional
+from typing import Optional
 
 import torch
 import torch.distributed as dist
@@ -63,8 +63,9 @@ class UlyssesSPDataLoaderAdapter:
 
         if sequence_parallel_size != dist.get_world_size():
             logger.warning(
-                f"Ulysses SP currently requires sequence_parallel_size ({sequence_parallel_size}) "
-                f"to equal world_size ({dist.get_world_size()}). This may cause issues."
+                f"Ulysses SP currently requires sequence_parallel_size "
+                f"({sequence_parallel_size}) to equal world_size "
+                f"({dist.get_world_size()}). This may cause issues."
             )
 
     def __iter__(self):
@@ -253,8 +254,9 @@ def _ulysses_sp_attention_forward(
     # TODO: Support process groups for sequence_parallel_size < world_size
     if sequence_parallel_size != world_size:
         logger.warning(
-            f"Ulysses SP currently requires sequence_parallel_size ({sequence_parallel_size}) "
-            f"to equal world_size ({world_size}). Using world_size for sequence parallelism."
+            f"Ulysses SP currently requires sequence_parallel_size "
+            f"({sequence_parallel_size}) to equal world_size ({world_size}). "
+            f"Using world_size for sequence parallelism."
         )
         sequence_parallel_size = world_size
 
@@ -277,9 +279,11 @@ def _ulysses_sp_attention_forward(
     if attention_mask is not None:
         # Use all_gather list of tensors instead of all_gather_into_tensor
         # This handles variable tensor shapes more reliably
-        attention_mask_list = [torch.zeros_like(attention_mask) for _ in range(world_size)]
+        attention_mask_list = [
+            torch.zeros_like(attention_mask) for _ in range(world_size)
+        ]
         dist.all_gather(attention_mask_list, attention_mask)
-        
+
         # Concatenate along sequence dimension (dim=1 for 2D masks, dim=-1 for others)
         if attention_mask.dim() == 2:
             gathered_attention_mask = torch.cat(attention_mask_list, dim=1)
@@ -292,7 +296,7 @@ def _ulysses_sp_attention_forward(
         # Use all_gather list of tensors for position_ids as well
         position_ids_list = [torch.zeros_like(position_ids) for _ in range(world_size)]
         dist.all_gather(position_ids_list, position_ids)
-        
+
         # Concatenate along sequence dimension (typically dim=1)
         if position_ids.dim() >= 2:
             gathered_position_ids = torch.cat(position_ids_list, dim=1)
@@ -376,7 +380,8 @@ def setup_ulysses_sp(
     )
 
     logger.info(
-        f"Ulysses SP setup complete with sequence_parallel_size={sequence_parallel_size}"
+        f"Ulysses SP setup complete with "
+        f"sequence_parallel_size={sequence_parallel_size}"
     )
 
     return model, adapted_dataloader

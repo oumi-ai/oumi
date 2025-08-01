@@ -716,6 +716,31 @@ class TrainingParams(BaseParams):
     Only used when enable_ulysses_sequence_parallel=True.
     """
 
+    tiled_mlp_compute: bool = False
+    """Whether to enable tiled MLP computation for memory efficiency.
+
+    When enabled, MLP layers are computed in smaller tiles to reduce peak memory
+    usage, especially beneficial for very long sequences. This can save significant
+    GPU memory but may have a small performance overhead.
+    """
+
+    activation_checkpoint_cpu_offload: bool = False
+    """Whether to offload activation checkpoints to CPU memory.
+
+    When enabled, activation checkpoints are stored in CPU memory instead of GPU
+    memory, which can significantly reduce GPU memory usage for very long sequences.
+    This is most beneficial for sequences longer than 64K tokens.
+    Note: This requires ample CPU memory and may slow down training.
+    """
+
+    use_liger_kernel: bool = False
+    """Whether to use Liger kernel optimizations for better performance.
+
+    When enabled, uses Liger's fused kernels for operations like cross-entropy
+    loss computation, which can provide better memory efficiency and speed.
+    Requires liger-kernel to be installed.
+    """
+
     def to_hf(self, training_config=None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 

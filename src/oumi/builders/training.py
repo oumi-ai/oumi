@@ -122,14 +122,56 @@ def build_trainer(
 
             # Extract Ulysses SP configuration
             sequence_parallel_size = 1
+            model_name_or_path = None
+            attn_implementation = "sdpa"
+            max_length = 4096
+            micro_batch_size = 1
+            tiled_mlp_compute = False
+            use_liger_kernel = False
+
             if training_args is not None:
                 if training_args.enable_ulysses_sequence_parallel:
                     sequence_parallel_size = (
                         training_args.ulysses_sequence_parallel_size
                     )
                     logger.info(
-                        f"Enabling Ulysses SP with sequence_parallel_size={sequence_parallel_size}"
+                        f"Enabling Ulysses SP with "
+                        f"sequence_parallel_size={sequence_parallel_size}"
                     )
+
+                # Extract additional configuration from training_config if available
+                if training_config is not None:
+                    model_config = getattr(training_config, "model", None)
+                    data_config = getattr(training_config, "data", None)
+
+                    if model_config is not None:
+                        model_name_or_path = getattr(model_config, "model_name", None)
+                        attn_implementation = getattr(
+                            model_config, "attn_implementation", "sdpa"
+                        )
+                        use_liger_kernel = (
+                            getattr(model_config, "model_type", "") == "liger"
+                        )
+
+                    if data_config is not None:
+                        max_length = getattr(data_config, "model_max_length", 4096)
+
+                    # Check for additional SP features
+                    tiled_mlp_compute = getattr(
+                        training_config, "tiled_mlp_compute", False
+                    )
+
+                micro_batch_size = getattr(
+                    training_args, "per_device_train_batch_size", 1
+                )
+
+                # Extract additional training parameters
+                tiled_mlp_compute = getattr(
+                    training_args, "tiled_mlp_compute", tiled_mlp_compute
+                )
+                use_liger_kernel = getattr(
+                    training_args, "use_liger_kernel", use_liger_kernel
+                )
 
             # Create Ulysses SFT trainer
             ulysses_trainer = UlyssesSFTTrainer(
@@ -137,6 +179,12 @@ def build_trainer(
                 **kwargs,
                 args=hf_args,
                 sequence_parallel_size=sequence_parallel_size,
+                model_name_or_path=model_name_or_path,
+                attn_implementation=attn_implementation,
+                max_length=max_length,
+                micro_batch_size=micro_batch_size,
+                tiled_mlp_compute=tiled_mlp_compute,
+                use_liger_kernel=use_liger_kernel,
             )
 
             trainer = HuggingFaceTrainer(ulysses_trainer, processor)

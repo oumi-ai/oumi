@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Parallel computing utilities for Oumi.
+
+This package provides utilities for parallel and distributed training,
+including sequence parallelism, tiled computation, and other performance
+optimizations.
+"""
+
 from oumi.core.parallel.ulysses_sp import (
     UlyssesSPAttentionHF,
     UlyssesSPDataLoaderAdapter,
