@@ -63,11 +63,14 @@ except ImportError:
     TILED_MLP_AVAILABLE = False
 
 
-class LabelToShiftLabelsConverter:
-    """Wrapper that converts 'labels' to 'shift_labels' for Ulysses SP.
+from torch.utils.data import DataLoader
+
+class LabelToShiftLabelsConverter(DataLoader):
+    """DataLoader that converts 'labels' to 'shift_labels' for Ulysses SP.
     
     This ensures that batches contain 'shift_labels' instead of 'labels' as expected
-    by the ArcticTraining loss computation pattern.
+    by the ArcticTraining loss computation pattern. Inherits from DataLoader so that
+    Accelerate's DataLoaderShard doesn't unwrap it.
     """
 
     def __init__(self, dataloader):
@@ -76,8 +79,22 @@ class LabelToShiftLabelsConverter:
         Args:
             dataloader: The dataloader to wrap (typically UlyssesSPDataLoaderAdapter)
         """
+        # Don't call super().__init__() since we're not actually creating a new DataLoader
+        # We're just inheriting the class so Accelerate doesn't unwrap us
         self.dataloader = dataloader
         logger.info(f"Initialized LabelToShiftLabelsConverter wrapping: {type(dataloader)}")
+        
+        # Copy essential attributes from the wrapped dataloader so we look like a real DataLoader
+        if hasattr(dataloader, 'dataset'):
+            self.dataset = dataloader.dataset
+        if hasattr(dataloader, 'batch_size'):
+            self.batch_size = dataloader.batch_size
+        if hasattr(dataloader, 'num_workers'):
+            self.num_workers = dataloader.num_workers
+        if hasattr(dataloader, 'pin_memory'):
+            self.pin_memory = dataloader.pin_memory
+        if hasattr(dataloader, 'drop_last'):
+            self.drop_last = dataloader.drop_last
 
     def __iter__(self):
         """Iterate over the wrapped dataloader, converting labels to shift_labels."""
