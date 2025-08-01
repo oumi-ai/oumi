@@ -725,21 +725,23 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             
         logger.debug("Ensuring all parameters are connected to computation graph...")
         
-        # Add a tiny regularization term that uses all parameters
-        # This ensures all parameters are part of the computation graph
-        param_sum = torch.tensor(0.0, device=loss.device, requires_grad=True)
+        # Create a very small regularization term that uses all parameters
+        # but doesn't interfere with gradient shapes
+        param_norm_sum = 0.0
         param_count = 0
         
         for param in self.model.parameters():
             if param.requires_grad:
                 param_count += 1
-                # Multiply by 0 so it doesn't affect the actual loss value
-                param_sum = param_sum + (param * 0.0).sum()
+                # Use parameter norm instead of direct sum to avoid shape issues
+                param_norm_sum = param_norm_sum + torch.norm(param, dtype=torch.float32) * 0.0
         
-        logger.debug(f"Connected {param_count} parameters to computation graph")
+        logger.debug(f"Connected {param_count} parameters to computation graph via norm regularization")
         
         # Add tiny regularization term (effectively 0 but connects all params)
-        return loss + param_sum * 1e-12
+        # Convert to same device and dtype as loss
+        regularization = torch.tensor(param_norm_sum, device=loss.device, dtype=loss.dtype)
+        return loss + regularization * 1e-15
 
     def _early_deepspeed_initialization(self, num_training_steps: int):
         """Perform early DeepSpeed initialization following Arctic pattern."""
