@@ -727,23 +727,17 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
         loss = loss / self.args.gradient_accumulation_steps
 
 
-        # Debug: Check for None gradients before backward pass (SP + ZeRO-3 debugging)
-        if hasattr(self, 'sp_config') and getattr(self.sp_config, 'is_enabled', lambda: False)():
-            self._debug_gradient_state(before_backward=True)
-
         # Use DeepSpeed model's backward method (following ArcticTraining pattern)
         # This should handle ZeRO-3 + SP gradient management better than loss.backward()
         try:
             if hasattr(self.model, 'backward') and hasattr(self.model, 'step'):
                 # DeepSpeed model - use model.backward() like ArcticTraining
-                logger.debug("Using DeepSpeed model.backward() method")
                 self.model.backward(loss)
             else:
                 # Fallback to standard backward pass
-                logger.debug("Using standard loss.backward() method")
                 loss.backward()
         except Exception as e:
-            # Debug gradient state on failure
+            # Debug gradient state on failure for troubleshooting
             if hasattr(self, 'sp_config') and getattr(self.sp_config, 'is_enabled', lambda: False)():
                 logger.error(f"Backward pass failed with error: {e}")
                 self._debug_gradient_state(before_backward=False, error=True)
@@ -760,12 +754,10 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
             # Use DeepSpeed model's step method when available (following ArcticTraining pattern)
             if hasattr(self.model, 'step') and hasattr(self.model, 'backward'):
                 # DeepSpeed model - use model.step() like ArcticTraining
-                logger.debug("Using DeepSpeed model.step() method")
                 self.model.step()
                 # DeepSpeed handles optimizer and scheduler stepping internally
             else:
                 # Standard optimizer step
-                logger.debug("Using standard optimizer.step() method")
                 self.optimizer.step()
                 if self.lr_scheduler is not None:
                     self.lr_scheduler.step()
