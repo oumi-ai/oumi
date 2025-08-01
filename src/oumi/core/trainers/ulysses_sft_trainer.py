@@ -98,13 +98,13 @@ class LabelToShiftLabelsConverter(DataLoader):
 
     def __iter__(self):
         """Iterate over the wrapped dataloader, converting labels to shift_labels."""
-        logger.info("=== LabelToShiftLabelsConverter.__iter__ CALLED ===")
+        logger.info("🎯 === LabelToShiftLabelsConverter.__iter__ CALLED - TRAINING IS USING OUR CONVERTER! ===")
         for batch_idx, batch in enumerate(self.dataloader):
-            logger.info(f"=== Processing batch {batch_idx}, keys: {list(batch.keys())} ===")
+            logger.info(f"🎯 === Processing batch {batch_idx}, keys: {list(batch.keys())} ===")
             
             # Convert labels to shift_labels if present
             if "labels" in batch and "shift_labels" not in batch:
-                logger.info("Converting labels to shift_labels in SP dataloader")
+                logger.info("🎯 CONVERTING LABELS TO SHIFT_LABELS IN SP DATALOADER!")
                 labels = batch["labels"]
                 logger.info(f"Original labels shape: {labels.shape}")
                 
@@ -127,7 +127,7 @@ class LabelToShiftLabelsConverter(DataLoader):
                 batch = {k: v for k, v in batch.items() if k != "labels"}
                 batch["shift_labels"] = shift_labels
                 
-                logger.info(f"Converted labels to shift_labels, final keys: {list(batch.keys())}")
+                logger.info(f"🎯 SUCCESS! Converted labels to shift_labels, final keys: {list(batch.keys())}")
             else:
                 logger.info(f"No conversion needed - labels in batch: {'labels' in batch}, shift_labels in batch: {'shift_labels' in batch}")
             
@@ -630,7 +630,9 @@ class UlyssesSFTTrainer(SFTTrainer):
 
             # Also try to override the get_train_dataloader method temporarily
             def get_sp_dataloader():
-                logger.info("=== CUSTOM get_train_dataloader CALLED ===")
+                logger.info("🎯 === CUSTOM get_train_dataloader CALLED DURING TRAINING ===")
+                logger.info(f"🎯 Returning dataloader type: {type(debug_sp_dataloader)}")
+                logger.info(f"🎯 This should be our LabelToShiftLabelsConverter!")
                 return debug_sp_dataloader
 
             # Replace the method on this instance
