@@ -8,7 +8,7 @@
 # - Uses LIMO dataset with long mathematical sequences (up to 8192 tokens)
 # - Validates distributed SP-aware data processing and loss computation
 # - Tests SP-aware label masking to prevent "all labels masked" issue
-# - Note: Gradient accumulation disabled (not compatible with Ulysses SP + DeepSpeed ZeRO)
+# - Note: ZeRO disabled (ZERO_0) to avoid SP + ZeRO optimizer conflicts
 #
 # Usage:
 #   torchrun --nproc-per-node=3 --standalone -m oumi train -c configs/examples/deepspeed/sft_ulysses_arctic_loss_distributed_test.yaml
@@ -85,19 +85,19 @@ training:
   enable_wandb: False
   enable_mlflow: False
 
-# Enable DeepSpeed for distributed Ulysses SP support
+# Enable DeepSpeed for distributed Ulysses SP support (without ZeRO for testing)
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "ZERO_1"  # ZeRO-1 for distributed training
+  zero_stage: "ZERO_0"  # Disable ZeRO to avoid SP + ZeRO conflicts
   precision: "BF16"
   
   # Distributed Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 3  # Must match training parameter
   
   # Communication settings for distributed SP
-  allgather_partitions: True
+  allgather_partitions: False  # Disable for ZERO_0
   allgather_bucket_size: 50000000  # 5e7
-  overlap_comm: True
+  overlap_comm: False  # Disable for ZERO_0
   contiguous_gradients: True
   
   # Optimizer settings
@@ -107,7 +107,7 @@ deepspeed:
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"
-  gradient_accumulation_steps: 1  # Must be 1 for SP + ZeRO compatibility
+  gradient_accumulation_steps: 1  # Keep as 1 for simplicity
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False
