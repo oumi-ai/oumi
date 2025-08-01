@@ -283,7 +283,9 @@ class UlyssesSFTTrainer(SFTTrainer):
         # is primarily for training very long sequences
         return super().get_eval_dataloader(eval_dataset)
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(
+        self, model, inputs, return_outputs=False, num_items_in_batch=None
+    ):
         """Compute loss with support for Ulysses SP.
 
         This method implements the sophisticated loss computation from ArcticTraining
@@ -293,6 +295,7 @@ class UlyssesSFTTrainer(SFTTrainer):
             model: The model to compute loss for
             inputs: Input batch
             return_outputs: Whether to return model outputs
+            num_items_in_batch: Number of items in the batch (for compatibility)
 
         Returns:
             Loss tensor, optionally with model outputs
@@ -302,7 +305,9 @@ class UlyssesSFTTrainer(SFTTrainer):
             return self._compute_loss_ulysses_sp(model, inputs, return_outputs)
         else:
             # Standard loss computation for non-SP case
-            return super().compute_loss(model, inputs, return_outputs)
+            return super().compute_loss(
+                model, inputs, return_outputs, num_items_in_batch
+            )
 
     def _compute_loss_ulysses_sp(self, model, inputs, return_outputs=False):
         """Compute loss for Ulysses sequence parallel training.
