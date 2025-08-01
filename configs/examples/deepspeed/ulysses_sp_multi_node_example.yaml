@@ -92,6 +92,9 @@ deepspeed:
 
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 8  # Must match training parameter
+  
+  # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
+  seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
 
   # ZeRO-3 optimizations for multi-node
   stage3_prefetch_bucket_size: 50000000   # 5e7 - smaller for multi-node

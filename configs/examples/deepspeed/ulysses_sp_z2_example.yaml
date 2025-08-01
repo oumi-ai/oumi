@@ -38,7 +38,7 @@ training:
   save_steps: 500
   num_train_epochs: 1
   per_device_train_batch_size: 1  # Reduced due to longer sequences
-  gradient_accumulation_steps: 8   # Increased for effective batch size
+  gradient_accumulation_steps: 2   # ArcticTraining approach: match SP size
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -75,6 +75,9 @@ deepspeed:
 
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 2  # Must match training parameter
+  
+  # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
+  seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
 
   # Communication optimization for sequence parallelism
   allgather_partitions: True

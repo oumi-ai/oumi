@@ -8,7 +8,7 @@
 # - Uses LIMO dataset with long mathematical sequences (up to 8192 tokens)
 # - Validates distributed SP-aware data processing and loss computation
 # - Tests SP-aware label masking to prevent "all labels masked" issue
-# - Note: ZeRO disabled (ZERO_0) to avoid SP + ZeRO optimizer conflicts
+# - Note: Uses ArcticTraining's ZeRO + SP compatibility approach with seq_parallel_communication_data_type
 #
 # Usage:
 #   torchrun --nproc-per-node=3 --standalone -m oumi train -c configs/examples/deepspeed/sft_ulysses_arctic_loss_distributed_test.yaml
@@ -50,7 +50,7 @@ training:
   # Training configuration optimized for SP with long sequences
   max_steps: 10  # Very short run to test Arctic loss with SP on long sequences
   per_device_train_batch_size: 1  # Small batch for memory efficiency with long sequences
-  gradient_accumulation_steps: 1  # Disable gradient accumulation (not supported with SP + ZeRO)
+  gradient_accumulation_steps: 3  # ArcticTraining approach: match SP size for optimal performance
   
   # Learning configuration
   learning_rate: 5e-5
@@ -85,19 +85,22 @@ training:
   enable_wandb: False
   enable_mlflow: False
 
-# Enable DeepSpeed for distributed Ulysses SP support (without ZeRO for testing)
+# Enable DeepSpeed for distributed Ulysses SP support with ZeRO (using ArcticTraining approach)
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "ZERO_0"  # Disable ZeRO to avoid SP + ZeRO conflicts
+  zero_stage: "ZERO_1"  # Re-enable ZeRO with proper SP settings
   precision: "BF16"
+  
+  # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
+  seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
   
   # Distributed Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 3  # Must match training parameter
   
-  # Communication settings for distributed SP
-  allgather_partitions: False  # Disable for ZERO_0
+  # Communication settings for distributed SP (ArcticTraining settings)
+  allgather_partitions: True
   allgather_bucket_size: 50000000  # 5e7
-  overlap_comm: False  # Disable for ZERO_0
+  overlap_comm: True
   contiguous_gradients: True
   
   # Optimizer settings
@@ -107,7 +110,7 @@ deepspeed:
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"
-  gradient_accumulation_steps: 1  # Keep as 1 for simplicity
+  gradient_accumulation_steps: 3  # ArcticTraining approach: match SP size
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False
