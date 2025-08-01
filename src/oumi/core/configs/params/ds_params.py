@@ -248,6 +248,14 @@ class DSParams(BaseParams):
 
     def __post_init__(self) -> None:
         """Validate DeepSpeed configuration parameters."""
+        # Convert string to enum if needed
+        if isinstance(self.zero_stage, str):
+            try:
+                self.zero_stage = ZeRORuntimeStage(self.zero_stage)
+            except ValueError:
+                # Try with the enum name
+                self.zero_stage = ZeRORuntimeStage[self.zero_stage]
+        
         # Validate offloading configurations
         if (
             self.offload_param is not None
