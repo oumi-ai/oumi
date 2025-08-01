@@ -31,6 +31,7 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizerBase,
     ProcessorMixin,
+    Trainer,
     TrainingArguments,
 )
 from trl import SFTTrainer
@@ -472,6 +473,77 @@ class UlyssesSFTTrainer(SFTTrainer):
         loss = total_loss_sum / total_good_items
 
         return loss
+
+    def create_optimizer_and_scheduler(self, num_training_steps: int):
+        """Override to pass MPU to DeepSpeed initialization for Ulysses SP.
+
+        This ensures the MPU created during Ulysses SP setup is properly passed
+        to DeepSpeed initialization so sequence parallel groups are created.
+        Based on ArcticTraining pattern where MPU is passed to deepspeed.initialize().
+        """
+        if self.is_deepspeed_enabled and self._mpu is not None:
+            logger.info("Initializing DeepSpeed with Ulysses SP MPU")
+
+            try:
+                # Initialize DeepSpeed with our MPU
+                # This is where the sequence parallel groups get created
+                import deepspeed
+
+                # Get DeepSpeed config
+                ds_config = self.args.deepspeed
+                if isinstance(ds_config, str):
+                    import json
+
+                    with open(ds_config) as f:
+                        ds_config = json.load(f)
+
+                # Create optimizer if needed (similar to HF Trainer pattern)
+                if self.optimizer is None:
+                    optimizer_cls, optimizer_kwargs = (
+                        Trainer.get_optimizer_cls_and_kwargs(self.args)
+                    )
+                    self.optimizer = optimizer_cls(
+                        self.model.parameters(), **optimizer_kwargs
+                    )
+
+                # Create scheduler if needed
+                if self.lr_scheduler is None:
+                    self.lr_scheduler = self.get_scheduler(
+                        name=self.args.lr_scheduler_type,
+                        optimizer=self.optimizer,
+                        num_warmup_steps=self.get_warmup_steps(num_training_steps),
+                        num_training_steps=num_training_steps,
+                    )
+
+                # Initialize DeepSpeed with MPU - this creates SP groups
+                engine, optimizer, _, lr_scheduler = deepspeed.initialize(
+                    model=self.model,
+                    optimizer=self.optimizer,
+                    lr_scheduler=self.lr_scheduler,
+                    config=ds_config,
+                    mpu=self._mpu,  # This is the key - pass our MPU
+                )
+
+                # Update trainer's components
+                self.model = engine
+                self.optimizer = optimizer
+                self.lr_scheduler = lr_scheduler
+
+                logger.info("DeepSpeed initialized successfully with Ulysses SP MPU")
+
+                # Now initialize SP groups since DeepSpeed is ready
+                self._initialize_sp_groups()
+
+                return optimizer, lr_scheduler
+
+            except Exception as e:
+                logger.error(f"Failed to initialize DeepSpeed with MPU: {e}")
+                logger.warning("Falling back to standard DeepSpeed initialization")
+                # Fall back to standard initialization
+                return super().create_optimizer_and_scheduler(num_training_steps)
+        else:
+            # Standard initialization for non-SP case
+            return super().create_optimizer_and_scheduler(num_training_steps)
 
     def get_mpu(self):
         """Get the model parallel unit (MPU) for DeepSpeed initialization.
