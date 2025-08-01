@@ -128,3 +128,9 @@ deepspeed:
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False
+  
+  # Disable profiling to avoid engine_timers issues
+  flops_profiler:
+    enabled: False
+  tensorboard:
+    enabled: False
