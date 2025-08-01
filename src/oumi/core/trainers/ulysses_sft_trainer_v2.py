@@ -126,7 +126,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         effective_micro_batch_size = (
             self.args.per_device_train_batch_size if self.args else micro_batch_size
         )
-        
+
         self.sp_config = SequenceParallelConfig(
             sequence_parallel_size=sequence_parallel_size,
             model_name_or_path=model_name_or_path,
@@ -216,24 +216,24 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
     def _create_sp_aware_collator(self, original_collator):
         """Create a robust collator that ensures equal-sized batches and SP divisibility."""
         sp_size = self.sp_config.sequence_parallel_size
-        
+
         def sp_collator(batch):
             try:
                 logger.debug(f"SP collator processing batch of size {len(batch)}")
-                
+
                 # Debug the batch structure
                 if batch and logger.isEnabledFor(10):  # DEBUG level
                     logger.debug("Batch sample structure:")
                     sample = batch[0]
                     for key, value in sample.items():
                         if isinstance(value, (list, torch.Tensor)):
-                            if hasattr(value, 'shape'):
+                            if hasattr(value, "shape"):
                                 logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
                             else:
                                 logger.debug(f"  {key}: list length={len(value)}")
                         else:
                             logger.debug(f"  {key}: {type(value)}")
-                
+
                 # First, ensure we have a proper collator - if None, create a simple one
                 if original_collator is None:
                     logger.info("No collator provided - using simple dict collator")
@@ -245,19 +245,19 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                         logger.error(f"Original collator failed: {e}")
                         logger.info("Falling back to simple dict collator")
                         result = self._simple_dict_collate(batch)
-                
+
                 # Debug result before padding
                 logger.debug("Collator result before SP padding:")
                 for key, value in result.items():
                     if isinstance(value, torch.Tensor):
                         logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
-                
+
                 # CRITICAL: Generate labels for SFT training if missing
                 if "labels" not in result and "input_ids" in result:
                     logger.info("Generating labels from input_ids for SFT training")
                     result["labels"] = self._create_sft_labels(result["input_ids"])
                     logger.info(f"Generated labels with shape: {result['labels'].shape}")
-                    
+
                     # Debug label masking - always show this since it's critical
                     for i in range(min(2, result["labels"].shape[0])):  # Show first 2 samples
                         valid_labels = (result["labels"][i] != -100).sum().item()
@@ -267,19 +267,19 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                             logger.error(f"Sample {i}: ALL LABELS MASKED! This will cause NaN loss.")
                         elif valid_labels < 5:
                             logger.warning(f"Sample {i}: Very few valid labels ({valid_labels}), may cause unstable training.")
-                
+
                 # Ensure all tensor sequences have equal length within the batch
                 # and are divisible by SP size
                 result = self._ensure_equal_length_and_sp_divisible(result, sp_size)
-                
+
                 # Debug final result
                 logger.debug("Final collator result:")
                 for key, value in result.items():
                     if isinstance(value, torch.Tensor):
                         logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
-                
+
                 return result
-                
+
             except Exception as e:
                 logger.error(f"SP collator failed: {e}")
                 logger.error(f"Batch info: {len(batch)} items")
@@ -289,26 +289,26 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                         logger.error(f"Item {i}:")
                         for key, value in item.items():
                             if isinstance(value, (list, torch.Tensor)):
-                                if hasattr(value, 'shape'):
+                                if hasattr(value, "shape"):
                                     logger.error(f"  {key}: shape={value.shape}")
                                 else:
                                     logger.error(f"  {key}: list length={len(value)}")
                 raise
-        
+
         return sp_collator
-    
+
     def _simple_dict_collate(self, batch):
         """Simple dictionary-based collation that handles variable-length sequences."""
         if not batch:
             return {}
-        
+
         # Get all unique keys from the batch
         all_keys = set()
         for item in batch:
             all_keys.update(item.keys())
-        
+
         result = {}
-        
+
         for key in all_keys:
             values = []
             for item in batch:
@@ -324,17 +324,17 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                         values.append([])  # Empty sequence
                     else:
                         values.append(None)
-            
+
             # Convert lists to tensors if they contain numbers
             if values and all(v is not None for v in values):
                 if all(isinstance(v, (list, tuple)) and len(v) > 0 and isinstance(v[0], (int, float)) for v in values):
                     # Pad sequences to same length
                     max_len = max(len(v) for v in values)
                     padded_values = []
-                    
+
                     for v in values:
                         # Determine padding value
-                        if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+                        if key == "input_ids" and hasattr(self.processing_class, "pad_token_id"):
                             pad_value = self.processing_class.pad_token_id
                         elif key == "labels":
                             pad_value = -100
@@ -342,11 +342,11 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                             pad_value = 0
                         else:
                             pad_value = 0
-                        
+
                         # Pad the sequence
                         padded = list(v) + [pad_value] * (max_len - len(v))
                         padded_values.append(padded)
-                    
+
                     result[key] = torch.tensor(padded_values)
                 elif all(isinstance(v, torch.Tensor) for v in values):
                     # Stack tensors if they have compatible shapes
@@ -359,15 +359,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     result[key] = values
             else:
                 result[key] = values
-        
+
         # CRITICAL: Generate labels for SFT training if missing
         if "labels" not in result and "input_ids" in result:
             logger.info("Generating labels from input_ids for SFT training")
             result["labels"] = self._create_sft_labels(result["input_ids"])
             logger.info(f"Generated labels with shape: {result['labels'].shape}")
-        
+
         return result
-    
+
     def _create_sft_labels(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Create labels for SFT training by masking prompt tokens.
         
@@ -382,19 +382,19 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             labels: Labels with prompt tokens masked as -100 [batch_size, seq_len]
         """
         labels = input_ids.clone()
-        
+
         # Get tokenizer info for special tokens
-        if hasattr(self.processing_class, 'eos_token_id') and self.processing_class.eos_token_id is not None:
+        if hasattr(self.processing_class, "eos_token_id") and self.processing_class.eos_token_id is not None:
             eos_token_id = self.processing_class.eos_token_id
         else:
             eos_token_id = None
-        
+
         # For Alpaca-style datasets, we need to identify where the assistant response starts
         # Common patterns to look for:
         # - "### Response:" or "### Assistant:" or similar
         # - After the last "### " pattern in the sequence
-        
-        if hasattr(self.processing_class, 'tokenize'):
+
+        if hasattr(self.processing_class, "tokenize"):
             try:
                 # Try to find common assistant prompt patterns
                 assistant_patterns = [
@@ -404,22 +404,27 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     "Response:",
                     "<|assistant|>",
                     "<|im_start|>assistant",
+                    # Patterns for conversation datasets (like LIMO via PromptResponseDataset)
+                    "assistant\n",  # Lowercase from conversation format
+                    "ASSISTANT\n",  # Uppercase variant
+                    "assistant:",  # With colon
+                    "ASSISTANT:",  # Uppercase with colon
                 ]
-                
+
                 for batch_idx in range(labels.shape[0]):
                     sequence = labels[batch_idx]
-                    
+
                     # Decode tokens to text to find assistant marker
                     try:
                         text = self.processing_class.decode(sequence, skip_special_tokens=False)
-                        
+
                         # Find the last occurrence of any assistant pattern
                         assistant_start_pos = -1
                         for pattern in assistant_patterns:
                             pos = text.rfind(pattern)
                             if pos > assistant_start_pos:
                                 assistant_start_pos = pos
-                        
+
                         if assistant_start_pos != -1:
                             # Find the token position corresponding to this text position
                             # This is approximate but should work for most cases
@@ -428,81 +433,126 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                                 try:
                                     prefix_tokens = self.processing_class.encode(prefix_text, add_special_tokens=False)
                                     mask_until = len(prefix_tokens)
-                                    
+
                                     # Also mask the assistant pattern itself (usually 1-3 tokens)
                                     pattern_tokens = self.processing_class.encode(
-                                        text[assistant_start_pos:assistant_start_pos+20], 
+                                        text[assistant_start_pos:assistant_start_pos+20],
                                         add_special_tokens=False
                                     )
                                     # Find end of pattern (usually ends with ":" or newline)
                                     pattern_end = 2  # Default: mask pattern + colon
                                     for i, token_id in enumerate(pattern_tokens):
-                                        if hasattr(self.processing_class, 'decode'):
+                                        if hasattr(self.processing_class, "decode"):
                                             token_text = self.processing_class.decode([token_id])
-                                            if '\n' in token_text or ':' in token_text:
+                                            if "\n" in token_text or ":" in token_text:
                                                 pattern_end = i + 1
                                                 break
-                                    
+
                                     mask_until += pattern_end
                                     mask_until = min(mask_until, len(sequence) - 1)  # Leave at least one token for loss
-                                    
+
                                     # Mask prompt tokens
                                     labels[batch_idx, :mask_until] = -100
-                                    
+
                                     logger.debug(f"Batch {batch_idx}: Masked {mask_until}/{len(sequence)} prompt tokens")
                                     continue
                                 except Exception as e:
                                     logger.debug(f"Failed to tokenize prefix for batch {batch_idx}: {e}")
+
+                        # Fallback: If no assistant pattern found, use a conservative heuristic
+                        # For SP training, be more conservative to ensure we have valid labels after sequence shortening
+                        seq_len = len(sequence)
                         
-                        # Fallback: If no assistant pattern found, use a heuristic
-                        # Mask the first 70% of tokens (common for instruction datasets)
-                        fallback_mask_ratio = 0.7
-                        mask_until = int(len(sequence) * fallback_mask_ratio)
-                        mask_until = min(mask_until, len(sequence) - 5)  # Leave at least 5 tokens for loss
+                        if self.sp_config.is_enabled():
+                            # For SP: ensure we leave enough tokens after potential sequence shortening
+                            # SP can shorten sequences significantly, so use a more conservative ratio
+                            min_response_tokens = max(10, seq_len // 4)  # At least 25% or 10 tokens for response
+                            mask_until = seq_len - min_response_tokens
+                            logger.debug(f"SP-aware masking: leaving {min_response_tokens} tokens for response")
+                        else:
+                            # Standard masking for non-SP training
+                            fallback_mask_ratio = 0.7
+                            mask_until = int(seq_len * fallback_mask_ratio)
+                            mask_until = min(mask_until, seq_len - 5)  # Leave at least 5 tokens for loss
+                        
+                        # Ensure we don't mask everything
+                        mask_until = max(0, min(mask_until, seq_len - 3))  # Always leave at least 3 tokens
                         labels[batch_idx, :mask_until] = -100
-                        logger.debug(f"Batch {batch_idx}: Fallback masking - masked {mask_until}/{len(sequence)} tokens")
                         
+                        remaining_tokens = seq_len - mask_until
+                        logger.debug(f"Batch {batch_idx}: Fallback masking - masked {mask_until}/{seq_len} tokens, leaving {remaining_tokens} for loss")
+
                     except Exception as e:
                         logger.debug(f"Failed to decode sequence for batch {batch_idx}: {e}")
-                        # Ultimate fallback: mask first 70% of tokens
-                        mask_until = int(len(sequence) * 0.7)
-                        mask_until = min(mask_until, len(sequence) - 5)
-                        labels[batch_idx, :mask_until] = -100
+                        # Ultimate fallback: conservative masking
+                        seq_len = len(sequence)
+                        if self.sp_config.is_enabled():
+                            # SP-aware conservative masking
+                            min_response_tokens = max(10, seq_len // 4)
+                            mask_until = seq_len - min_response_tokens
+                        else:
+                            # Standard masking
+                            mask_until = int(seq_len * 0.7)
+                            mask_until = min(mask_until, seq_len - 5)
                         
+                        # Always leave at least 3 tokens
+                        mask_until = max(0, min(mask_until, seq_len - 3))
+                        labels[batch_idx, :mask_until] = -100
+
             except Exception as e:
                 logger.warning(f"Failed to create SFT labels with masking: {e}")
                 logger.info("Using simple approach: masking first 70% of tokens")
-                
-                # Simple fallback: mask first 70% of each sequence
+
+                # Simple fallback: conservative masking for SP
                 for batch_idx in range(labels.shape[0]):
-                    seq_len = (labels[batch_idx] != self.processing_class.pad_token_id).sum().item() if hasattr(self.processing_class, 'pad_token_id') else labels.shape[1]
-                    mask_until = int(seq_len * 0.7)
-                    mask_until = min(mask_until, seq_len - 5)
+                    seq_len = (labels[batch_idx] != self.processing_class.pad_token_id).sum().item() if hasattr(self.processing_class, "pad_token_id") else labels.shape[1]
+                    
+                    if self.sp_config.is_enabled():
+                        # SP-aware conservative masking
+                        min_response_tokens = max(10, seq_len // 4)
+                        mask_until = seq_len - min_response_tokens
+                    else:
+                        # Standard masking
+                        mask_until = int(seq_len * 0.7)
+                        mask_until = min(mask_until, seq_len - 5)
+                    
+                    # Always leave at least 3 tokens
+                    mask_until = max(0, min(mask_until, seq_len - 3))
                     labels[batch_idx, :mask_until] = -100
         else:
             logger.warning("No tokenizer available for smart label masking, using simple approach")
-            # Simple fallback: mask first 70% of tokens
+            # Simple fallback: conservative masking
             for batch_idx in range(labels.shape[0]):
                 seq_len = labels.shape[1]
-                mask_until = int(seq_len * 0.7)
-                mask_until = min(mask_until, seq_len - 5)
+                
+                if self.sp_config.is_enabled():
+                    # SP-aware conservative masking
+                    min_response_tokens = max(10, seq_len // 4)
+                    mask_until = seq_len - min_response_tokens
+                else:
+                    # Standard masking
+                    mask_until = int(seq_len * 0.7)
+                    mask_until = min(mask_until, seq_len - 5)
+                
+                # Always leave at least 3 tokens
+                mask_until = max(0, min(mask_until, seq_len - 3))
                 labels[batch_idx, :mask_until] = -100
-        
+
         return labels
-    
+
     def _pad_and_stack_tensors(self, tensors, key):
         """Pad tensors to same shape and stack them."""
         if not tensors:
             return torch.tensor([])
-        
+
         # Find maximum dimensions
         max_dims = [0] * len(tensors[0].shape)
         for tensor in tensors:
             for i, dim in enumerate(tensor.shape):
                 max_dims[i] = max(max_dims[i], dim)
-        
+
         # Determine padding value
-        if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+        if key == "input_ids" and hasattr(self.processing_class, "pad_token_id"):
             pad_value = self.processing_class.pad_token_id
         elif key == "labels":
             pad_value = -100
@@ -510,7 +560,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             pad_value = 0
         else:
             pad_value = 0
-        
+
         # Pad each tensor to max dimensions
         padded_tensors = []
         for tensor in tensors:
@@ -519,16 +569,16 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             for i in range(len(tensor.shape) - 1, -1, -1):  # PyTorch padding is in reverse order
                 pad_needed = max_dims[i] - tensor.shape[i]
                 padding.extend([0, pad_needed])
-            
+
             if any(p > 0 for p in padding):
                 padded_tensor = torch.nn.functional.pad(tensor, padding, value=pad_value)
             else:
                 padded_tensor = tensor
-            
+
             padded_tensors.append(padded_tensor)
-        
+
         return torch.stack(padded_tensors)
-    
+
     def _ensure_equal_length_and_sp_divisible(self, result, sp_size):
         """Ensure all tensors have equal length and are divisible by SP size."""
         # Find sequence tensors (assume they have at least 2 dimensions with seq length in dim 1)
@@ -536,13 +586,13 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         for key, tensor in result.items():
             if isinstance(tensor, torch.Tensor) and len(tensor.shape) >= 2:
                 seq_tensors[key] = tensor
-        
+
         if not seq_tensors:
             return result
-        
+
         # Find the maximum sequence length
         max_seq_len = max(tensor.shape[1] for tensor in seq_tensors.values())
-        
+
         # Ensure max length is divisible by SP size
         if sp_size > 1:
             remainder = max_seq_len % sp_size
@@ -550,15 +600,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 pad_to_sp = sp_size - remainder
                 max_seq_len += pad_to_sp
                 logger.debug(f"Padding to {max_seq_len} for SP divisibility (sp_size={sp_size})")
-        
+
         # Pad all sequence tensors to the max length
         for key, tensor in seq_tensors.items():
             current_len = tensor.shape[1]
             if current_len < max_seq_len:
                 pad_size = max_seq_len - current_len
-                
+
                 # Determine padding value
-                if key == "input_ids" and hasattr(self.processing_class, 'pad_token_id'):
+                if key == "input_ids" and hasattr(self.processing_class, "pad_token_id"):
                     pad_value = self.processing_class.pad_token_id
                 elif key == "labels":
                     pad_value = -100
@@ -566,16 +616,16 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     pad_value = 0
                 else:
                     pad_value = 0
-                
+
                 # Create padding tensor
                 pad_shape = list(tensor.shape)
                 pad_shape[1] = pad_size
                 padding = torch.full(pad_shape, pad_value, dtype=tensor.dtype, device=tensor.device)
-                
+
                 # Concatenate original with padding
                 result[key] = torch.cat([tensor, padding], dim=1)
                 logger.debug(f"Padded {key} from {current_len} to {max_seq_len}")
-        
+
         return result
 
     def create_eval_dataloader(self) -> DataLoader:
@@ -609,27 +659,27 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
                 else:
                     logger.debug(f"  {key}: {type(value)}")
-        
+
         try:
             loss = self.loss_computer.compute_loss(model, inputs, return_outputs=False)
-            
+
             # Final safety check: ensure loss is scalar
-            if loss is not None and hasattr(loss, 'shape') and loss.numel() > 1:
+            if loss is not None and hasattr(loss, "shape") and loss.numel() > 1:
                 logger.warning(f"Loss has non-scalar shape {loss.shape}, reducing to scalar")
                 loss = loss.mean()
-            
+
             # Check for NaN/inf (only if loss is actually a tensor)
             if loss is not None and isinstance(loss, torch.Tensor) and (torch.isnan(loss) or torch.isinf(loss)):
                 logger.error(f"Loss is NaN or inf: {loss}")
                 # Return a small positive loss to avoid stopping training
-                loss = torch.tensor(1e-6, requires_grad=True, device=loss.device if hasattr(loss, 'device') else 'cpu')
+                loss = torch.tensor(1e-6, requires_grad=True, device=loss.device if hasattr(loss, "device") else "cpu")
             elif loss is not None and not isinstance(loss, torch.Tensor):
                 # If loss is not a tensor (e.g., dict with logits), return None for evaluation
                 logger.debug(f"Loss is not a tensor (type: {type(loss)}), returning None for evaluation")
                 loss = None
-                
+
             return loss
-            
+
         except Exception as e:
             logger.error(f"Error in compute_loss: {e}")
             logger.error("Batch details for debugging:")

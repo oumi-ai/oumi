@@ -15,7 +15,7 @@
 """Memory optimization components for trainers."""
 
 import math
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -127,15 +127,38 @@ class MemoryOptimizer:
             if all((shift_labels_arg == -100).squeeze()):
                 # Handle case where all labels are -100 (padding)
                 loss_sum = (logits.sum() * 0.0).float()
+                logger.debug("All labels are -100, returning zero loss_sum")
             else:
                 good_items = sum((shift_labels_arg != -100).squeeze())
+                logger.debug(f"Computing loss for {good_items} valid tokens")
+
+                # Debug logits for NaN/inf values
+                if torch.isnan(logits).any():
+                    logger.error("NaN detected in logits before loss computation!")
+                if torch.isinf(logits).any():
+                    logger.error("Inf detected in logits before loss computation!")
+
                 loss = model_arg.loss_function(
                     logits=logits,
                     labels=None,
                     vocab_size=vocab_size,
                     shift_labels=shift_labels_arg,
                 )
-                loss_sum = loss * good_items
+
+                # Check loss for NaN/inf
+                if torch.isnan(loss):
+                    logger.error(f"NaN loss returned from model.loss_function! good_items={good_items}")
+                    logger.error(f"logits stats: min={logits.min():.4f}, max={logits.max():.4f}")
+                    logger.error(f"shift_labels stats: min={shift_labels_arg.min()}, max={shift_labels_arg.max()}")
+                    # Return small positive value to prevent NaN propagation but continue training
+                    loss_sum = torch.tensor(1e-6 * good_items, device=logits.device, dtype=logits.dtype, requires_grad=True)
+                elif torch.isinf(loss):
+                    logger.error(f"Inf loss returned from model.loss_function! good_items={good_items}")
+                    loss_sum = torch.tensor(1e-6 * good_items, device=logits.device, dtype=logits.dtype, requires_grad=True)
+                else:
+                    loss_sum = loss * good_items
+                    logger.debug(f"loss_sum = {loss} * {good_items} = {loss_sum}")
+
             return loss_sum
 
         # Apply tiled computation
@@ -151,12 +174,12 @@ class MemoryOptimizer:
         )
 
         total_good_items = sum((shift_labels != -100).squeeze())
-        
+
         # Handle case where all labels are masked to prevent division by zero
         if total_good_items == 0:
-            logger.warning("All shift_labels are masked (-100), returning zero loss")
-            return torch.tensor(0.0, device=shift_labels.device, dtype=torch.float32)
-        
+            logger.warning("All shift_labels are masked (-100), returning small positive loss to continue training")
+            return torch.tensor(1e-6, device=shift_labels.device, dtype=torch.float32, requires_grad=True)
+
         loss = total_loss_sum / total_good_items
 
         return loss

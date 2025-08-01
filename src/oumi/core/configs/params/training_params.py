@@ -793,13 +793,13 @@ class TrainingParams(BaseParams):
         # Filter out TRL-specific parameters when using our custom trainer with TrainingArguments
         if self.trainer_type == TrainerType.SFT_ULYSSES:
             trl_specific_params = {
-                'activation_offloading', 'completion_only_loss', 'dataset_kwargs', 
-                'dataset_num_proc', 'dataset_text_field', 'eos_token', 'eval_packing',
-                'max_length', 'max_seq_length', 'model_init_kwargs', 'packing', 
-                'pad_to_multiple_of', 'pad_token', 'padding_free'
+                "activation_offloading", "completion_only_loss", "dataset_kwargs",
+                "dataset_num_proc", "dataset_text_field", "eos_token", "eval_packing",
+                "max_length", "max_seq_length", "model_init_kwargs", "packing",
+                "pad_to_multiple_of", "pad_token", "padding_free"
             }
             # Remove TRL-specific parameters from trainer_kwargs
-            trainer_kwargs = {k: v for k, v in trainer_kwargs.items() 
+            trainer_kwargs = {k: v for k, v in trainer_kwargs.items()
                             if k not in trl_specific_params}
 
         # Add DeepSpeed configuration if enabled

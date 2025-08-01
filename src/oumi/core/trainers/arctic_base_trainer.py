@@ -779,7 +779,7 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
             self.state.eval_loss = total_loss / num_samples
             logger.info(f"Evaluation loss: {self.state.eval_loss:.4f}")
         else:
-            self.state.eval_loss = float('nan')
+            self.state.eval_loss = float("nan")
             logger.warning("No valid evaluation losses computed - setting eval_loss to NaN")
 
 
