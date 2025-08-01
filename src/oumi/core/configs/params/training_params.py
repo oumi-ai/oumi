@@ -778,7 +778,8 @@ class TrainingParams(BaseParams):
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_SFT_ULYSSES:
-            config_class = trl.SFTConfig  # Use same config as regular SFT
+            # Use standard HF TrainingArguments for our custom trainer, not TRL SFTConfig
+            config_class = transformers.TrainingArguments
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:

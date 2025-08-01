@@ -211,6 +211,7 @@ def build_trainer(
 
     def _create_ulysses_sft_v2_builder_fn() -> Callable[..., BaseTrainer]:
         def _init_ulysses_sft_v2_trainer(*args, **kwargs) -> BaseTrainer:
+            logger.info("*** USING ULYSSES SFT V2 TRAINER BUILDER ***")
             training_args = kwargs.pop("args", None)
             training_config = kwargs.pop("training_config", None)
             callbacks = kwargs.pop("callbacks", [])
