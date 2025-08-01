@@ -81,15 +81,20 @@ class LabelToShiftLabelsConverter:
 
     def __iter__(self):
         """Iterate over the wrapped dataloader, converting labels to shift_labels."""
-        for batch in self.dataloader:
+        logger.info("=== LabelToShiftLabelsConverter.__iter__ CALLED ===")
+        for batch_idx, batch in enumerate(self.dataloader):
+            logger.info(f"=== Processing batch {batch_idx}, keys: {list(batch.keys())} ===")
+            
             # Convert labels to shift_labels if present
             if "labels" in batch and "shift_labels" not in batch:
-                logger.debug("Converting labels to shift_labels in SP dataloader")
+                logger.info("Converting labels to shift_labels in SP dataloader")
                 labels = batch["labels"]
+                logger.info(f"Original labels shape: {labels.shape}")
                 
                 # Shift labels for causal LM: shift left by one position
                 # This matches the standard causal LM pattern where input[i] predicts label[i+1]
                 shift_labels = labels[..., 1:].contiguous()
+                logger.info(f"After shifting, shape: {shift_labels.shape}")
                 
                 # Pad with -100 (ignore index) at the end
                 padding = torch.full(
@@ -99,12 +104,15 @@ class LabelToShiftLabelsConverter:
                     device=shift_labels.device,
                 )
                 shift_labels = torch.cat([shift_labels, padding], dim=1)
+                logger.info(f"After padding, final shape: {shift_labels.shape}")
                 
                 # Replace labels with shift_labels
                 batch = {k: v for k, v in batch.items() if k != "labels"}
                 batch["shift_labels"] = shift_labels
                 
-                logger.debug(f"Converted labels to shift_labels, shape: {shift_labels.shape}")
+                logger.info(f"Converted labels to shift_labels, final keys: {list(batch.keys())}")
+            else:
+                logger.info(f"No conversion needed - labels in batch: {'labels' in batch}, shift_labels in batch: {'shift_labels' in batch}")
             
             yield batch
 
@@ -502,14 +510,22 @@ class UlyssesSFTTrainer(SFTTrainer):
             # Clear all possible cached dataloaders
             for attr in [
                 "_train_dataloader",
-                "train_dataloader",
+                "train_dataloader", 
                 "_cached_train_dataloader",
+                "_train_dataloader_initialized",
+                "_dataloader",
+                "dataloader",
             ]:
                 if hasattr(self, attr):
-                    setattr(self, attr, debug_sp_dataloader)
-                    logger.info(
-                        f"Updated cached train dataloader '{attr}' with SP support"
-                    )
+                    if attr.endswith("_initialized"):
+                        # Reset initialization flags
+                        setattr(self, attr, False)
+                        logger.info(f"Reset dataloader flag '{attr}' to False")
+                    else:
+                        setattr(self, attr, debug_sp_dataloader)
+                        logger.info(
+                            f"Updated cached train dataloader '{attr}' with SP support"
+                        )
 
             # Also try to override the get_train_dataloader method temporarily
             def get_sp_dataloader():
