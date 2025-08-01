@@ -61,10 +61,10 @@ class UlyssesSPDataLoaderAdapter:
                 "Distributed training must be initialized for Ulysses SP"
             )
 
-        if sequence_parallel_size > dist.get_world_size():
-            raise ValueError(
-                f"Sequence parallel size ({sequence_parallel_size}) cannot exceed "
-                f"world size ({dist.get_world_size()})"
+        if sequence_parallel_size != dist.get_world_size():
+            logger.warning(
+                f"Ulysses SP currently requires sequence_parallel_size ({sequence_parallel_size}) "
+                f"to equal world_size ({dist.get_world_size()}). This may cause issues."
             )
 
     def __iter__(self):
@@ -248,6 +248,15 @@ def _ulysses_sp_attention_forward(
     batch_size, seq_len, hidden_size = hidden_states.shape
     world_size = dist.get_world_size()
     rank = dist.get_rank()
+
+    # For simplicity, we currently require sequence_parallel_size == world_size
+    # TODO: Support process groups for sequence_parallel_size < world_size
+    if sequence_parallel_size != world_size:
+        logger.warning(
+            f"Ulysses SP currently requires sequence_parallel_size ({sequence_parallel_size}) "
+            f"to equal world_size ({world_size}). Using world_size for sequence parallelism."
+        )
+        sequence_parallel_size = world_size
 
     # All-gather sequence shards
     gathered_hidden_states = torch.zeros(
