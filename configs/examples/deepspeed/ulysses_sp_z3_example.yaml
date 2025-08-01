@@ -62,6 +62,10 @@ training:
 
   # Memory optimization
   empty_device_cache_steps: 25
+  
+  # Arctic memory optimizations for extreme sequences
+  tiled_mlp_compute: True  # Enable for extreme sequences
+  use_liger_kernel: True  # Use Liger kernel instead of tiled logits to avoid gradient issues
 
   # Determinism for debugging
   seed: 42

@@ -61,6 +61,10 @@ training:
 
   # Memory optimization for long sequences
   empty_device_cache_steps: 50
+  
+  # Arctic memory optimizations
+  tiled_mlp_compute: False  # Keep disabled for standard training
+  use_liger_kernel: True  # Use Liger kernel for memory efficiency
 
   # SFT-specific kwargs for Ulysses SP
   trainer_kwargs:

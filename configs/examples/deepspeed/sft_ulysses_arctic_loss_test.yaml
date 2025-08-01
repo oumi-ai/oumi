@@ -38,7 +38,7 @@ training:
   
   # Enable Arctic memory optimizations
   tiled_mlp_compute: True  # Enable tiled MLP computation
-  use_liger_kernel: False  # Test non-Liger path (tiled logits computation)
+  use_liger_kernel: True  # Use Liger kernel instead of tiled logits to avoid gradient issues
   activation_checkpoint_cpu_offload: False  # Keep on GPU for testing
   
   # Training configuration

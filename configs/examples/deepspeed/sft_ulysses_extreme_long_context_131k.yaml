@@ -49,7 +49,7 @@ training:
   
   # Enable all Arctic memory optimizations for extreme context
   tiled_mlp_compute: True  # Essential for extreme sequences
-  use_liger_kernel: False  # Use Arctic tiled logits computation
+  use_liger_kernel: True  # Use Liger kernel instead of tiled logits to avoid gradient issues
   activation_checkpoint_cpu_offload: True  # Offload activations to CPU
   
   # Training configuration for extreme sequences
