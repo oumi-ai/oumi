@@ -141,6 +141,13 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         # Setup SP before training
         if self.sp_config.is_enabled():
             self.sp_manager.setup()
+        
+        logger.info(f"UlyssesSFTTrainer V2 initialized successfully:")
+        logger.info(f"  - Sequence parallel size: {self.sequence_parallel_size}")
+        logger.info(f"  - Model name/path: {self.model_name_or_path}")
+        logger.info(f"  - Tiled MLP compute: {self.tiled_mlp_compute}")
+        logger.info(f"  - Liger kernel: {self.use_liger_kernel}")
+        logger.info(f"  - SP enabled: {self.sp_config.is_enabled()}")
     
     def _setup_optimizations(self):
         """Setup memory and kernel optimizations."""
@@ -356,6 +363,23 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             num_warmup_steps=num_warmup_steps,
             num_training_steps=num_training_steps,
         )
+    
+    def initialize_after_deepspeed(self):
+        """Initialize SP-related components after DeepSpeed initialization.
+        
+        This method should be called after DeepSpeed has been initialized
+        to properly set up sequence parallel groups. Based on ArcticTraining pattern.
+        """
+        if self.sp_manager.is_enabled and not self.sp_manager.is_initialized:
+            logger.info("Initializing SP groups after DeepSpeed initialization")
+            self.sp_manager.initialize_groups()
+            
+            # Recreate training dataloader with SP support if groups are available
+            if self.sp_manager.is_initialized and hasattr(self, 'train_dataloader'):
+                logger.info("Recreating training dataloader with SP support...")
+                self.train_dataloader = self.create_train_dataloader()
+        else:
+            logger.info("SP already initialized or not enabled")
     
     @classmethod
     def from_config(

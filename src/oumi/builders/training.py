@@ -273,6 +273,7 @@ def build_trainer(
                 )
 
             # Create Ulysses SFT trainer V2 (custom Arctic-based trainer)
+            # This trainer inherits from BaseTrainer directly, so no wrapping needed
             trainer = UlyssesSFTTrainerV2(
                 *args,
                 **kwargs,
@@ -287,7 +288,7 @@ def build_trainer(
             )
 
             # Add callbacks directly to the trainer
-            # (not wrapping with HuggingFaceTrainer)
+            # (not wrapping with HuggingFaceTrainer since trainer inherits from BaseTrainer)
             if callbacks:
                 for callback in callbacks:
                     trainer.add_callback(callback)

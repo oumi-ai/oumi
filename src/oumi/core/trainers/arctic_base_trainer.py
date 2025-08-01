@@ -35,6 +35,8 @@ from transformers import (
     TrainingArguments,
 )
 
+from oumi.core.configs import TrainingConfig
+from oumi.core.trainers.base_trainer import BaseTrainer
 from oumi.utils.logging import logger
 
 
@@ -276,7 +278,7 @@ class ComponentFactory:
         )
 
 
-class ArcticBaseTrainer(CallbackMixin, abc.ABC):
+class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
     """Abstract base trainer following ArcticTraining patterns.
     
     This provides the foundation for custom trainers with:
@@ -392,9 +394,18 @@ class ArcticBaseTrainer(CallbackMixin, abc.ABC):
         
         return self.optimizer, self.lr_scheduler
     
-    def train(self) -> None:
-        """Main training loop."""
+    def train(self, resume_from_checkpoint: Optional[str] = None) -> None:
+        """Main training loop.
+        
+        Args:
+            resume_from_checkpoint: Optional path to checkpoint to resume from
+        """
         logger.info("Starting training...")
+        
+        # Handle checkpoint resumption
+        if resume_from_checkpoint is not None:
+            logger.info(f"Resuming training from checkpoint: {resume_from_checkpoint}")
+            self._load_checkpoint(resume_from_checkpoint)
         
         # Setup training components
         self._setup_training()
@@ -426,6 +437,106 @@ class ArcticBaseTrainer(CallbackMixin, abc.ABC):
             self._call_callbacks("on_train_end", self, self.state)
         
         logger.info("Training completed!")
+    
+    def save_state(self) -> None:
+        """Save the trainer state.
+        
+        Under distributed environment this is done only for a process with rank 0.
+        """
+        if self.state.rank == 0 and self.args.output_dir:
+            state_path = os.path.join(self.args.output_dir, "trainer_state.json")
+            
+            # Convert state to dictionary for JSON serialization
+            state_dict = {
+                "epoch": self.state.epoch,
+                "global_step": self.state.global_step,
+                "train_loss": self.state.train_loss,
+                "eval_loss": self.state.eval_loss,
+                "learning_rate": self.state.learning_rate,
+            }
+            
+            import json
+            with open(state_path, "w") as f:
+                json.dump(state_dict, f, indent=2)
+            
+            logger.info(f"Saved trainer state to {state_path}")
+    
+    def save_model(self, config: TrainingConfig, final: bool = True) -> None:
+        """Save the model's state dictionary to the specified output directory.
+        
+        Args:
+            config: The Oumi training config
+            final: Whether this is the final model being saved during training
+        """
+        if self.state.rank == 0 and self.args.output_dir:
+            # Create output directory
+            os.makedirs(self.args.output_dir, exist_ok=True)
+            
+            # Save model
+            if hasattr(self.model, 'save_pretrained'):
+                self.model.save_pretrained(self.args.output_dir)
+                logger.info(f"Saved model to {self.args.output_dir}")
+            else:
+                model_path = os.path.join(self.args.output_dir, "pytorch_model.bin")
+                torch.save(self.model.state_dict(), model_path)
+                logger.info(f"Saved model state dict to {model_path}")
+            
+            # Save tokenizer/processing class
+            if self.processing_class and hasattr(self.processing_class, 'save_pretrained'):
+                self.processing_class.save_pretrained(self.args.output_dir)
+                logger.info(f"Saved processing class to {self.args.output_dir}")
+            
+            # Save training state
+            self.save_state()
+    
+    def _load_checkpoint(self, checkpoint_path: str) -> None:
+        """Load training state from checkpoint.
+        
+        Args:
+            checkpoint_path: Path to the checkpoint directory or file
+        """
+        if os.path.isdir(checkpoint_path):
+            # Directory path - look for standard checkpoint files
+            model_path = os.path.join(checkpoint_path, "pytorch_model.bin")
+            state_path = os.path.join(checkpoint_path, "trainer_state.json")
+            optimizer_path = os.path.join(checkpoint_path, "optimizer.pt")
+            scheduler_path = os.path.join(checkpoint_path, "scheduler.pt")
+            
+            # Load model state
+            if os.path.exists(model_path):
+                if hasattr(self.model, 'load_state_dict'):
+                    state_dict = torch.load(model_path, map_location='cpu')
+                    self.model.load_state_dict(state_dict)
+                    logger.info(f"Loaded model from {model_path}")
+            
+            # Load trainer state
+            if os.path.exists(state_path):
+                import json
+                with open(state_path, 'r') as f:
+                    state_dict = json.load(f)
+                
+                self.state.epoch = state_dict.get("epoch", 0)
+                self.state.global_step = state_dict.get("global_step", 0)
+                self.state.train_loss = state_dict.get("train_loss", 0.0)
+                self.state.eval_loss = state_dict.get("eval_loss", None)
+                self.state.learning_rate = state_dict.get("learning_rate", 0.0)
+                
+                logger.info(f"Loaded trainer state from {state_path}")
+            
+            # Load optimizer state (if optimizer is already created)
+            if os.path.exists(optimizer_path) and self.optimizer is not None:
+                optimizer_state = torch.load(optimizer_path, map_location='cpu')
+                self.optimizer.load_state_dict(optimizer_state)
+                logger.info(f"Loaded optimizer state from {optimizer_path}")
+            
+            # Load scheduler state (if scheduler is already created)
+            if os.path.exists(scheduler_path) and self.lr_scheduler is not None:
+                scheduler_state = torch.load(scheduler_path, map_location='cpu')
+                self.lr_scheduler.load_state_dict(scheduler_state)
+                logger.info(f"Loaded scheduler state from {scheduler_path}")
+        
+        else:
+            logger.warning(f"Checkpoint path {checkpoint_path} is not a directory")
     
     def _setup_training(self):
         """Setup training components."""
