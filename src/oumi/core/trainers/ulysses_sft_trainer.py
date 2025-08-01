@@ -518,8 +518,14 @@ class UlyssesSFTTrainer(SFTTrainer):
                     
                     def __iter__(self):
                         """Override to use the wrapper's __iter__ method directly."""
-                        logger.info("UlyssesDataLoaderShard.__iter__ called - using wrapper directly")
-                        return iter(self.base_dataloader)
+                        logger.info("=== UlyssesDataLoaderShard.__iter__ called - TRAINING ITERATION ===")
+                        logger.info(f"About to call iter() on base_dataloader: {type(self.base_dataloader)}")
+                        iterator = iter(self.base_dataloader)
+                        logger.info(f"Got iterator from base_dataloader: {type(iterator)}")
+                        return iterator
+                
+                logger.info(f"About to create UlyssesDataLoaderShard with sp_dataloader: {type(sp_dataloader)}")
+                original_sp_dataloader = sp_dataloader  # Keep reference to our converter
                 
                 sp_dataloader = UlyssesDataLoaderShard(
                     sp_dataloader,
@@ -531,6 +537,14 @@ class UlyssesSFTTrainer(SFTTrainer):
                 )
                 logger.info(f"Recreated UlyssesDataLoaderShard with SP support, type: {type(sp_dataloader)}")
                 logger.info(f"UlyssesDataLoaderShard.base_dataloader type: {type(getattr(sp_dataloader, 'base_dataloader', None))}")
+                logger.info(f"Expected our converter: {type(original_sp_dataloader)}")
+                
+                # Verify that our converter is properly set as base_dataloader
+                if not isinstance(sp_dataloader.base_dataloader, type(original_sp_dataloader)):
+                    logger.error(f"CRITICAL: DataLoaderShard constructor changed base_dataloader from {type(original_sp_dataloader)} to {type(sp_dataloader.base_dataloader)}")
+                    logger.error("This means our converter is being bypassed!")
+                else:
+                    logger.info("SUCCESS: Our converter is properly set as base_dataloader")
 
             # Test the dataloader by getting an iterator (but don't iterate yet)
             logger.info("Testing SP dataloader by getting iterator...")
