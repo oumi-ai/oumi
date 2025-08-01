@@ -269,6 +269,26 @@ class UlyssesSFTTrainer(SFTTrainer):
         # Get the standard training dataloader from parent
         dataloader = super().get_train_dataloader()
         logger.info("Got standard dataloader from parent")
+        
+        # Create a debugging wrapper to log when dataloader is actually used
+        if hasattr(dataloader, '__iter__'):
+            original_iter = dataloader.__iter__
+            def debug_iter():
+                logger.info("=== DATALOADER __iter__ CALLED ===")
+                iterator = original_iter()
+                
+                # Wrap the iterator's __next__ method
+                original_next = iterator.__next__
+                def debug_next():
+                    logger.info("=== DATALOADER __next__ CALLED ===")
+                    result = original_next()
+                    logger.info("=== DATALOADER __next__ COMPLETED ===")
+                    return result
+                iterator.__next__ = debug_next
+                
+                logger.info("=== DATALOADER __iter__ RETURNING ITERATOR ===")
+                return iterator
+            dataloader.__iter__ = debug_iter
 
         # Wrap with Ulysses SP data loader adapter if sequence parallelism is enabled
         # Use original_sequence_parallel_size in case sequence_parallel_size was reset
@@ -346,6 +366,20 @@ class UlyssesSFTTrainer(SFTTrainer):
             except Exception as iter_e:
                 logger.error(f"Failed to create SP dataloader iterator: {iter_e}")
                 raise
+            
+            # TEST: Try to iterate once to see if that's where the hang occurs
+            logger.info("TESTING: About to test first iteration of SP dataloader...")
+            try:
+                sp_iter = iter(sp_dataloader)
+                logger.info("TESTING: Got SP iterator, attempting first next()...")
+                first_batch = next(sp_iter)
+                logger.info("TESTING: Successfully got first batch from SP dataloader!")
+                logger.info(f"TESTING: First batch keys: {first_batch.keys() if hasattr(first_batch, 'keys') else 'No keys'}")
+            except Exception as test_e:
+                logger.error(f"TESTING: First iteration failed: {test_e}")
+                import traceback
+                logger.error(f"TESTING: Full traceback:\n{traceback.format_exc()}")
+                # Don't raise, continue with investigation
             
             # Replace the trainer's dataloader
             # This is a bit of a hack, but necessary since HF Trainer caches the dataloader
