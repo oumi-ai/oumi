@@ -32,7 +32,6 @@ class TestQuantizeModule:
             model=ModelParams(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"),
             method="awq_q4_0",
             output_path="test_model.pytorch",
-            output_format="pytorch",
         )
 
     @patch("oumi.builders.quantizers.build_quantizer")
