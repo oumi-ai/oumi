@@ -50,7 +50,7 @@ training:
   # Training configuration optimized for SP with long sequences
   max_steps: 10  # Very short run to test Arctic loss with SP on long sequences
   per_device_train_batch_size: 1  # Small batch for memory efficiency with long sequences
-  gradient_accumulation_steps: 3  # ArcticTraining approach: match SP size for optimal performance
+  gradient_accumulation_steps: 3  # Test gradient accumulation with early DeepSpeed initialization
   
   # Learning configuration
   learning_rate: 5e-5
@@ -88,7 +88,7 @@ training:
 # Enable DeepSpeed for distributed Ulysses SP support with ZeRO (using ArcticTraining approach)
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "ZERO_1"  # Re-enable ZeRO with proper SP settings
+  zero_stage: "ZERO_1"  # Test ZeRO + SP with early DeepSpeed initialization
   precision: "BF16"
   
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
@@ -110,7 +110,7 @@ deepspeed:
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"
-  gradient_accumulation_steps: 3  # ArcticTraining approach: match SP size
+  gradient_accumulation_steps: 3  # Test gradient accumulation with early DeepSpeed initialization
   gradient_clipping: "auto"
   steps_per_print: 5
   wall_clock_breakdown: False

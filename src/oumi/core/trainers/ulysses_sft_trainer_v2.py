@@ -147,6 +147,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         if self.sp_config.is_enabled():
             self.sp_manager.setup()
 
+        # Early DeepSpeed initialization (Arctic pattern) - moved from create_optimizer_and_scheduler
+        # This prevents gradient state corruption by initializing DeepSpeed before HF Trainer setup
+        self._deepspeed_initialized = False
+        if self.is_deepspeed_enabled and self.sp_manager.get_mpu() is not None:
+            # Schedule early DeepSpeed initialization - will happen after parent __init__ completes
+            self._needs_early_deepspeed_init = True
+        else:
+            self._needs_early_deepspeed_init = False
+
         logger.info("UlyssesSFTTrainer V2 initialized successfully:")
         logger.info(f"  - Sequence parallel size: {self.sequence_parallel_size}")
         logger.info(f"  - Model name/path: {self.model_name_or_path}")
@@ -182,6 +191,12 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         logger.info(f"  - Dataset size: {len(self.train_dataset) if self.train_dataset else 'N/A'}")
         logger.info(f"  - Batch size: {self.args.per_device_train_batch_size}")
         logger.info(f"  - Data collator: {type(self.data_collator).__name__ if self.data_collator else 'None'}")
+        
+        # If we did early DeepSpeed initialization but didn't recreate dataloader yet, do it now
+        if (self._deepspeed_initialized and self.sp_manager.is_initialized 
+            and not hasattr(self, '_sp_dataloader_created')):
+            logger.info("  - SP was initialized early, ensuring SP-aware dataloader creation")
+            self._sp_dataloader_created = True
         logger.info(f"  - SP manager initialized: {self.sp_manager.is_initialized}")
 
         # ALWAYS create our robust collator to handle variable-length sequences
@@ -692,11 +707,30 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     logger.error(f"  {key}: {type(value)} = {value}")
             raise
 
+    def _early_deepspeed_initialization(self, num_training_steps: int):
+        """Perform early DeepSpeed initialization following Arctic pattern."""
+        if self._deepspeed_initialized:
+            return
+            
+        logger.info("Performing early DeepSpeed initialization (Arctic pattern)")
+        
+        # Create optimizer and scheduler first (like Arctic)
+        super().create_optimizer_and_scheduler(num_training_steps)
+        
+        # Now initialize DeepSpeed immediately
+        self._create_optimizer_with_deepspeed(num_training_steps)
+        self._deepspeed_initialized = True
+
     def create_optimizer_and_scheduler(self, num_training_steps: int):
         """Create optimizer and scheduler with DeepSpeed integration."""
-        if self.is_deepspeed_enabled and self.sp_manager.get_mpu() is not None:
-            return self._create_optimizer_with_deepspeed(num_training_steps)
+        # If we need early DeepSpeed init and haven't done it yet, do it now
+        if self._needs_early_deepspeed_init and not self._deepspeed_initialized:
+            return self._early_deepspeed_initialization(num_training_steps)
+        elif self._deepspeed_initialized:
+            # Already initialized early, nothing to do
+            return
         else:
+            # Standard path for non-SP cases
             return super().create_optimizer_and_scheduler(num_training_steps)
 
     def _create_optimizer_with_deepspeed(self, num_training_steps: int):
@@ -741,14 +775,12 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             original_config = self.model.config
 
             # Initialize DeepSpeed with MPU - this creates SP groups
-            # Initialize DeepSpeed without custom MPU - let DeepSpeed handle SP natively
-            # This should fix the averaged_gradients KeyError by using standard gradient state management
             engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                 model=self.model,
                 optimizer=self.optimizer,
                 lr_scheduler=self.lr_scheduler,
                 config=ds_config,
-                # mpu=self.sp_manager.get_mpu(),  # Removed: causes gradient state mismatch
+                mpu=self.sp_manager.get_mpu(),  # Pass our MPU
             )
 
             # Update trainer components
@@ -769,9 +801,13 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             self.sp_manager.initialize_groups()
 
             # Recreate training dataloader with SP support if groups are available
-            if self.sp_manager.is_initialized:
+            # Only do this if we have a train_dataset (not during early initialization)
+            if self.sp_manager.is_initialized and hasattr(self, 'train_dataset') and self.train_dataset is not None:
                 logger.info("Recreating training dataloader with SP support...")
                 self.train_dataloader = self.create_train_dataloader()
+                logger.info("Training dataloader created successfully")
+            elif self.sp_manager.is_initialized:
+                logger.info("SP groups initialized - dataloader recreation will happen later when train_dataset is available")
 
             return optimizer, lr_scheduler
 
