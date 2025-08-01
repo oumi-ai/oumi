@@ -210,9 +210,6 @@ class UlyssesSFTTrainer(SFTTrainer):
                 micro_batch_size=self.micro_batch_size,
                 seq_length_is_variable=True,
             )
-            logger.info(f"UlyssesSPAttentionHF.register_with_transformers returned: {mpu_result}")
-            logger.info(f"Type of returned value: {type(mpu_result)}")
-            
             # The DeepSpeed implementation returns the parallel_state_sp module itself
             # which contains the SP groups functionality, not a separate MPU object
             self._mpu = mpu_result
@@ -565,12 +562,13 @@ class UlyssesSFTTrainer(SFTTrainer):
                         num_training_steps=num_training_steps,
                     )
 
-                logger.info(f"About to call deepspeed.initialize with MPU: {self._mpu}")
                 logger.info(
-                    f"DeepSpeed config ulysses_sequence_parallel_size: {ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}"
+                    f"Initializing DeepSpeed with ulysses_sequence_parallel_size={ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}"
                 )
-                logger.info(f"Original sequence_parallel_size: {self.original_sequence_parallel_size}")
 
+                # Save the original model config before DeepSpeed wrapping
+                original_config = self.model.config
+                
                 # Initialize DeepSpeed with MPU - this creates SP groups
                 engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                     model=self.model,
@@ -584,24 +582,18 @@ class UlyssesSFTTrainer(SFTTrainer):
                 self.model = engine
                 self.optimizer = optimizer
                 self.lr_scheduler = lr_scheduler
+                
+                # Restore original config if DeepSpeed replaced it with a dict
+                if hasattr(self.model, 'config') and isinstance(self.model.config, dict):
+                    self.model.config = original_config
+                    logger.info("Restored original model config after DeepSpeed initialization")
 
                 logger.info("DeepSpeed initialized successfully with Ulysses SP MPU")
                 
                 # Mark that we've initialized with MPU
                 self._deepspeed_initialized_with_mpu = True
 
-                # Debug: Check if groups are available now
-                try:
-                    from deepspeed.utils import groups
-
-                    test_group = groups._get_sequence_parallel_group()
-                    logger.info(
-                        f"SP group found after deepspeed.initialize: {test_group}"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"SP groups still not available after deepspeed.initialize: {e}"
-                    )
+                # SP groups should now be available
 
                 # Now initialize SP groups since DeepSpeed is ready
                 self._initialize_sp_groups()
