@@ -128,7 +128,7 @@ class TestAwqQuantizationSimple:
         config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
             method="awq_q4_0",
-            output_path="test.pytorch",
+            output_path="test",
         )
         # Should not raise
         self.awq_quantizer.validate_config(config)

@@ -31,7 +31,7 @@ class TestQuantizeModule:
         self.valid_config = QuantizationConfig(
             model=ModelParams(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"),
             method="awq_q4_0",
-            output_path="test_model.pytorch",
+            output_path="test_model",
         )
 
     @patch("oumi.builders.quantizers.build_quantizer")
@@ -107,7 +107,7 @@ class TestQuantizeModule:
             QuantizationConfig(
                 model=ModelParams(model_name="test/model"),
                 method="invalid_method",
-                output_path="test.pytorch",
+                output_path="test",
             )
 
     @patch("oumi.builders.quantizers.build_quantizer")

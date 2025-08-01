@@ -29,12 +29,12 @@ class TestBitsAndBytesQuantization:
         self.valid_config_4bit = QuantizationConfig(
             model=ModelParams(model_name="gpt2"),
             method="bnb_4bit",
-            output_path="test_model_4bit.pytorch",
+            output_path="test_model_4bit",
         )
         self.valid_config_8bit = QuantizationConfig(
             model=ModelParams(model_name="gpt2"),
             method="bnb_8bit",
-            output_path="test_model_8bit.pytorch",
+            output_path="test_model_8bit",
         )
 
     def test_supported_methods(self):
@@ -76,7 +76,7 @@ class TestBitsAndBytesQuantization:
             QuantizationConfig(
                 model=ModelParams(model_name="test/model"),
                 method="awq_q4_0",
-                output_path="test.pytorch",
+                output_path="test",
                 output_format="unknown",
             )
 
