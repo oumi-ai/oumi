@@ -927,6 +927,56 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         else:
             logger.info("SP already initialized or not enabled")
 
+    def _wrap_model(self, model, training=True, dataloader=None):
+        """Override HF's _wrap_model to include Ulysses SP MPU in DeepSpeed initialization."""
+        if self.sp_config.is_enabled() and hasattr(self, 'sp_manager'):
+            # Get the MPU from SP manager
+            mpu = self.sp_manager.get_mpu()
+            if mpu is not None:
+                logger.info("Overriding DeepSpeed initialization to include Ulysses SP MPU")
+                
+                # We need to manually initialize DeepSpeed with MPU
+                # This replaces HF's standard DeepSpeed initialization
+                if self.args.deepspeed and not getattr(self.model, "is_deepspeed_enabled", False):
+                    import deepspeed
+                    from transformers.integrations.deepspeed import deepspeed_config
+                    
+                    # Get DeepSpeed config from HF
+                    deepspeed_plugin = self.accelerator.state.deepspeed_plugin
+                    config = deepspeed_plugin.deepspeed_config if deepspeed_plugin else None
+                    
+                    if config is None:
+                        config = self.args.deepspeed
+                    
+                    logger.info("Initializing DeepSpeed with Ulysses SP MPU")
+                    
+                    # Initialize with MPU
+                    model_engine, optimizer, _, lr_scheduler = deepspeed.initialize(
+                        model=model,
+                        optimizer=self.optimizer,
+                        lr_scheduler=self.lr_scheduler,
+                        config=config,
+                        mpu=mpu,  # This is the critical part
+                    )
+                    
+                    # Update references
+                    self.model = model_engine
+                    self.model_wrapped = model_engine
+                    self.optimizer = optimizer
+                    self.lr_scheduler = lr_scheduler
+                    
+                    # Initialize SP groups now that DeepSpeed is ready
+                    logger.info("Initializing SP groups after DeepSpeed+MPU initialization")
+                    success = self.sp_manager.initialize_groups()
+                    if success and hasattr(self, "train_dataloader"):
+                        logger.info("Recreating training dataloader with SP support...")
+                        self.train_dataloader = self.create_train_dataloader()
+                    
+                    return self.model
+        
+        # Fall back to standard HF behavior if no SP or MPU
+        return super()._wrap_model(model, training, dataloader)
+
     @classmethod
     def from_config(
         cls,
