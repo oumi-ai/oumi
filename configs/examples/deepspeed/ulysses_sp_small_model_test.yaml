@@ -9,7 +9,7 @@
 # - Suitable for CI/CD testing
 #
 # Usage:
-#   torchrun --nproc_per_node=2 -m oumi.train -c configs/examples/deepspeed/ulysses_sp_small_model_test.yaml
+#   torchrun --nproc_per_node=3 -m oumi.train -c configs/examples/deepspeed/ulysses_sp_small_model_test.yaml
 
 model:
   model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
@@ -40,7 +40,7 @@ training:
 
   # Enable Ulysses Sequence Parallelism
   enable_ulysses_sequence_parallel: True
-  ulysses_sequence_parallel_size: 2  # Minimal SP for testing
+  ulysses_sequence_parallel_size: 3  # Must divide 9 attention heads (SmolLM2 has 9 heads)
 
   # Enable additional memory optimizations for testing
   tiled_mlp_compute: False  # Disable for small model testing
@@ -90,7 +90,7 @@ deepspeed:
   precision: "BF16"
 
   # Ulysses Sequence Parallelism
-  ulysses_sequence_parallel_size: 2  # Must match training parameter
+  ulysses_sequence_parallel_size: 3  # Must match training parameter
 
   # Basic communication settings
   allgather_partitions: True
