@@ -200,7 +200,7 @@ class UlyssesSFTTrainer(SFTTrainer):
 
         try:
             # Register Ulysses SP with transformers using DeepSpeed's implementation
-            self._mpu = UlyssesSPAttentionHF.register_with_transformers(
+            mpu_result = UlyssesSPAttentionHF.register_with_transformers(
                 model_name_or_path=self.model_name_or_path,
                 core_attn_implementation=self.attn_implementation,
                 sequence_parallel_size=self.sequence_parallel_size,
@@ -208,6 +208,9 @@ class UlyssesSFTTrainer(SFTTrainer):
                 micro_batch_size=self.micro_batch_size,
                 seq_length_is_variable=True,
             )
+            logger.info(f"UlyssesSPAttentionHF.register_with_transformers returned: {mpu_result}")
+            logger.info(f"Type of returned value: {type(mpu_result)}")
+            self._mpu = mpu_result
             logger.info(
                 "Ulysses SP attention patches applied successfully using DeepSpeed"
             )
@@ -496,6 +499,13 @@ class UlyssesSFTTrainer(SFTTrainer):
 
                     with open(ds_config) as f:
                         ds_config = json.load(f)
+                
+                # Ensure ulysses_sequence_parallel_size is in the config
+                if 'ulysses_sequence_parallel_size' not in ds_config:
+                    logger.warning(
+                        f"Adding ulysses_sequence_parallel_size={self.sequence_parallel_size} to DeepSpeed config"
+                    )
+                    ds_config['ulysses_sequence_parallel_size'] = self.sequence_parallel_size
 
                 # Create optimizer if needed (similar to HF Trainer pattern)
                 if self.optimizer is None:
@@ -512,7 +522,7 @@ class UlyssesSFTTrainer(SFTTrainer):
                     warmup_steps = self.get_warmup_steps(num_training_steps)
                     if warmup_steps is None:
                         warmup_steps = 0
-                    
+
                     self.lr_scheduler = self.get_scheduler(
                         name=self.args.lr_scheduler_type,
                         optimizer=self.optimizer,
@@ -521,8 +531,10 @@ class UlyssesSFTTrainer(SFTTrainer):
                     )
 
                 logger.info(f"About to call deepspeed.initialize with MPU: {self._mpu}")
-                logger.info(f"DeepSpeed config ulysses_sequence_parallel_size: {ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}")
-                
+                logger.info(
+                    f"DeepSpeed config ulysses_sequence_parallel_size: {ds_config.get('ulysses_sequence_parallel_size', 'NOT SET')}"
+                )
+
                 # Initialize DeepSpeed with MPU - this creates SP groups
                 engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                     model=self.model,
@@ -542,10 +554,15 @@ class UlyssesSFTTrainer(SFTTrainer):
                 # Debug: Check if groups are available now
                 try:
                     from deepspeed.utils import groups
+
                     test_group = groups._get_sequence_parallel_group()
-                    logger.info(f"SP group found after deepspeed.initialize: {test_group}")
+                    logger.info(
+                        f"SP group found after deepspeed.initialize: {test_group}"
+                    )
                 except Exception as e:
-                    logger.error(f"SP groups still not available after deepspeed.initialize: {e}")
+                    logger.error(
+                        f"SP groups still not available after deepspeed.initialize: {e}"
+                    )
 
                 # Now initialize SP groups since DeepSpeed is ready
                 self._initialize_sp_groups()
@@ -553,7 +570,9 @@ class UlyssesSFTTrainer(SFTTrainer):
                 return optimizer, lr_scheduler
 
             except Exception as e:
+                import traceback
                 logger.error(f"Failed to initialize DeepSpeed with MPU: {e}")
+                logger.error(f"Full traceback:\n{traceback.format_exc()}")
                 logger.warning("Falling back to standard DeepSpeed initialization")
                 # Fall back to standard initialization
                 return super().create_optimizer_and_scheduler(num_training_steps)
