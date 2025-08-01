@@ -16,7 +16,7 @@ This directory contains example configurations for model quantization using Oumi
 oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output quantized_model
 
 # Using configuration file (requires GPU)
-oumi quantize --config configs/quantization/awq_quantization_config.yaml
+oumi quantize --config configs/examples/quantization/awq_quantization_config.yaml
 ```
 
 ## Supported Methods
