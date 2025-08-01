@@ -136,8 +136,14 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
-                # Create analyzer instance with keyword arguments from params
-                sample_analyzer = analyzer_class(**analyzer_params.params)
+                # Prepare parameters for analyzer constructor
+                analyzer_kwargs = dict(analyzer_params.params)
+
+                if self.tokenizer is not None:
+                    analyzer_kwargs["tokenizer"] = self.tokenizer
+
+                # Create analyzer instance with keyword arguments
+                sample_analyzer = analyzer_class(**analyzer_kwargs)
                 sample_analyzers[analyzer_params.id] = sample_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
