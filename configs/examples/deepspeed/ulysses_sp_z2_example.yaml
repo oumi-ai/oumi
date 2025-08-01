@@ -1,0 +1,88 @@
+# Ulysses Sequence Parallelism with DeepSpeed ZeRO-2
+# This example demonstrates using Ulysses SP for long sequence training
+# Combined with ZeRO-2 for memory-efficient training on 16K+ sequences
+#
+# Key features:
+# - Sequences sharded across 2 GPUs using Ulysses SP
+# - ZeRO-2 for optimizer state and gradient sharding
+# - Suitable for training on sequences up to 32K tokens
+#
+# Usage:
+#   torchrun --nproc_per_node=2 -m oumi.train -c configs/examples/deepspeed/ulysses_sp_z2_example.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 16384  # Extended sequence length
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: False
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"
+        split: "train"
+        shuffle: True
+        seed: 42
+    # Data will use model.model_max_length for sequence length
+
+training:
+  # Use Ulysses-enabled SFT trainer
+  trainer_type: "TRL_SFT_ULYSSES"
+  
+  # Enable Ulysses Sequence Parallelism
+  enable_ulysses_sequence_parallel: True
+  ulysses_sequence_parallel_size: 2  # Shard sequences across 2 GPUs
+  
+  save_steps: 500
+  num_train_epochs: 1
+  per_device_train_batch_size: 1  # Reduced due to longer sequences
+  gradient_accumulation_steps: 8   # Increased for effective batch size
+  
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  lr_scheduler_type: "cosine"
+  
+  dataloader_num_workers: 4  # Reduced for memory efficiency
+  dataloader_prefetch_factor: 2
+  
+  logging_steps: 10
+  output_dir: "output/ulysses_sp_z2_example"
+  enable_wandb: False
+  save_final_model: True
+  
+  # Memory optimization for long sequences
+  empty_device_cache_steps: 50
+
+# DeepSpeed configuration with Ulysses SP
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_2"
+  precision: "BF16"
+  
+  # Ulysses Sequence Parallelism
+  ulysses_sequence_parallel_size: 2  # Must match training parameter
+  
+  # Communication optimization for sequence parallelism
+  allgather_partitions: True
+  allgather_bucket_size: 500000000  # 5e8
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 500000000     # 5e8
+  contiguous_gradients: True
+  
+  # Memory optimization
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+  
+  # Logging
+  steps_per_print: 10
+  wall_clock_breakdown: False

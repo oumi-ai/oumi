@@ -1,0 +1,102 @@
+# Ulysses Sequence Parallelism Test Configuration for Small Models
+# This example is designed for testing Ulysses SP functionality
+# with small models on limited GPU resources
+#
+# Key features:
+# - Uses small model (SmolLM 135M) for quick testing
+# - Minimal resource requirements
+# - Short training run for validation
+# - Suitable for CI/CD testing
+#
+# Usage:
+#   torchrun --nproc_per_node=2 -m oumi.train -c configs/examples/deepspeed/ulysses_sp_small_model_test.yaml
+
+model:
+  model_name: "HuggingFaceTB/SmolLM2-135M-Instruct"
+  model_max_length: 4096  # Moderate sequence length for testing
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[:1000]"  # Use only 1000 samples for testing
+        shuffle: True
+        seed: 42
+    target_col: "prompt"
+
+  validation:
+    datasets:
+      - dataset_name: "yahma/alpaca-cleaned"
+        split: "train[1000:1100]"  # 100 validation samples
+    target_col: "prompt"
+
+training:
+  # Use Ulysses-enabled SFT trainer
+  trainer_type: "TRL_SFT_ULYSSES"
+  
+  # Enable Ulysses Sequence Parallelism
+  enable_ulysses_sequence_parallel: True
+  ulysses_sequence_parallel_size: 2  # Minimal SP for testing
+  
+  # Quick test configuration
+  max_steps: 20  # Very short run
+  eval_strategy: "steps"
+  eval_steps: 10
+  save_steps: 10
+  
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 2
+  
+  # Disable checkpointing for small model
+  enable_gradient_checkpointing: False
+  
+  optimizer: "adamw_torch"
+  learning_rate: 2e-5
+  warmup_steps: 5
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  lr_scheduler_type: "linear"
+  
+  dataloader_num_workers: 2
+  dataloader_prefetch_factor: 2
+  
+  logging_steps: 2
+  output_dir: "output/ulysses_sp_small_model_test"
+  enable_wandb: False
+  save_final_model: False  # Don't save for testing
+  
+  # Quick memory cleanup
+  empty_device_cache_steps: 10
+  
+  # Testing configuration
+  seed: 42
+  use_deterministic: True
+  include_performance_metrics: True
+
+# Minimal DeepSpeed configuration for testing
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_1"  # Minimal ZeRO stage for testing
+  precision: "BF16"
+  
+  # Ulysses Sequence Parallelism
+  ulysses_sequence_parallel_size: 2  # Must match training parameter
+  
+  # Basic communication settings
+  allgather_partitions: True
+  allgather_bucket_size: 50000000  # 5e7
+  overlap_comm: True
+  contiguous_gradients: True
+  
+  # No offloading for quick testing
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+  
+  # Verbose logging for debugging
+  steps_per_print: 2
+  wall_clock_breakdown: True  # Enable to debug performance

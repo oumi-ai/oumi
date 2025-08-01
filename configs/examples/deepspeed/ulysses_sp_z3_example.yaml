@@ -1,0 +1,116 @@
+# Ulysses Sequence Parallelism with DeepSpeed ZeRO-3
+# This example demonstrates using Ulysses SP for extreme long sequence training
+# Combined with ZeRO-3 for maximum memory efficiency on 32K+ sequences
+#
+# Key features:
+# - Sequences sharded across 4 GPUs using Ulysses SP
+# - ZeRO-3 for full model, optimizer, and gradient sharding
+# - Suitable for training on sequences up to 128K tokens
+# - CPU offloading for additional memory savings
+#
+# Usage:
+#   torchrun --nproc_per_node=4 -m oumi.train -c configs/examples/deepspeed/ulysses_sp_z3_example.yaml
+
+model:
+  model_name: "meta-llama/Llama-3.1-8B-Instruct"
+  model_max_length: 32768  # Very long sequences
+  torch_dtype_str: "bfloat16"
+  load_pretrained_weights: True
+  trust_remote_code: False
+  attn_implementation: "sdpa"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "togethercomputer/Long-Data-Collections"
+        split: "train"
+        shuffle: True
+        seed: 42
+    # Data will use model.model_max_length for sequence length
+
+training:
+  # Use Ulysses-enabled SFT trainer
+  trainer_type: "TRL_SFT_ULYSSES"
+  
+  # Enable Ulysses Sequence Parallelism
+  enable_ulysses_sequence_parallel: True
+  ulysses_sequence_parallel_size: 4  # Shard sequences across 4 GPUs
+  
+  save_steps: 250
+  max_steps: 1000  # Use max_steps for testing
+  per_device_train_batch_size: 1  # Minimal batch size for long sequences
+  gradient_accumulation_steps: 16  # Large accumulation for effective batch size
+  
+  enable_gradient_checkpointing: True
+  gradient_checkpointing_kwargs:
+    use_reentrant: False
+  
+  optimizer: "adamw_torch_fused"
+  learning_rate: 1e-5  # Lower LR for stability with long sequences
+  warmup_steps: 100
+  weight_decay: 0.01
+  max_grad_norm: 0.5  # Lower gradient clipping for stability
+  lr_scheduler_type: "cosine"
+  
+  dataloader_num_workers: 2  # Minimal workers for memory efficiency
+  dataloader_prefetch_factor: 1
+  
+  logging_steps: 10
+  output_dir: "output/ulysses_sp_z3_example"
+  enable_wandb: False
+  save_final_model: True
+  
+  # Memory optimization
+  empty_device_cache_steps: 25
+  
+  # Determinism for debugging
+  seed: 42
+  use_deterministic: True
+
+# DeepSpeed configuration with Ulysses SP and ZeRO-3
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_3"
+  precision: "BF16"
+  
+  # Ulysses Sequence Parallelism
+  ulysses_sequence_parallel_size: 4  # Must match training parameter
+  
+  # ZeRO-3 specific optimizations
+  stage3_prefetch_bucket_size: "auto"
+  stage3_param_persistence_threshold: "auto"
+  stage3_max_live_parameters: 1000000000  # 1e9
+  stage3_max_reuse_distance: 1000000000   # 1e9
+  stage3_gather_16bit_weights_on_model_save: True
+  
+  # Communication optimization
+  allgather_partitions: True
+  allgather_bucket_size: 200000000  # 2e8 - smaller for ZeRO-3
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 200000000     # 2e8
+  contiguous_gradients: True
+  sub_group_size: 1000000000        # 1e9
+  
+  # CPU offloading for maximum memory efficiency
+  offload_optimizer:
+    device: "CPU"
+    pin_memory: True
+    buffer_count: 4
+  
+  # Optional: Also offload parameters for extreme memory savings
+  # offload_param:
+  #   device: "CPU"
+  #   pin_memory: True
+  #   buffer_count: 5
+  #   buffer_size: 100000000  # 1e8
+  #   max_in_cpu: 1000000000  # 1e9
+  
+  # Memory optimization
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+  memory_efficient_linear: False
+  
+  # Logging
+  steps_per_print: 10
+  wall_clock_breakdown: False
