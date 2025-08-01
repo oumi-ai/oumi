@@ -609,6 +609,8 @@ class UlyssesSFTTrainer(SFTTrainer):
             # This is a bit of a hack, but necessary since HF Trainer caches the
             # dataloader
             # Clear all possible cached dataloaders
+            logger.info("🎯 CRITICAL: Checking for cached dataloaders that might bypass our converter...")
+            
             for attr in [
                 "_train_dataloader",
                 "train_dataloader", 
@@ -618,15 +620,16 @@ class UlyssesSFTTrainer(SFTTrainer):
                 "dataloader",
             ]:
                 if hasattr(self, attr):
+                    old_value = getattr(self, attr)
                     if attr.endswith("_initialized"):
                         # Reset initialization flags
                         setattr(self, attr, False)
-                        logger.info(f"Reset dataloader flag '{attr}' to False")
+                        logger.info(f"🎯 Reset dataloader flag '{attr}' to False (was: {old_value})")
                     else:
                         setattr(self, attr, debug_sp_dataloader)
-                        logger.info(
-                            f"Updated cached train dataloader '{attr}' with SP support"
-                        )
+                        logger.info(f"🎯 CRITICAL: Replaced cached dataloader '{attr}' (was: {type(old_value)}) with our converter!")
+                else:
+                    logger.info(f"🎯 No cached dataloader found for '{attr}'")
 
             # Also try to override the get_train_dataloader method temporarily
             def get_sp_dataloader():
