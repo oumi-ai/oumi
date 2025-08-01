@@ -252,8 +252,8 @@ class UlyssesSFTTrainer(SFTTrainer):
                     "hasn't been initialized yet or SP groups haven't been created. "
                     "Falling back to standard training mode."
                 )
-                # Fallback to single GPU mode
-                self.sequence_parallel_size = 1
+                # Don't disable SP here - we might initialize it later via custom DeepSpeed init
+                # Just clear the SP group info for now
                 self.sp_group = None
                 self.sp_world_size = 1
                 self.sp_rank = 0
@@ -271,7 +271,8 @@ class UlyssesSFTTrainer(SFTTrainer):
         logger.info("Got standard dataloader from parent")
 
         # Wrap with Ulysses SP data loader adapter if sequence parallelism is enabled
-        if self.sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
+        # Use original_sequence_parallel_size in case sequence_parallel_size was reset
+        if self.original_sequence_parallel_size > 1 and DEEPSPEED_ULYSSES_AVAILABLE:
             logger.info("Sequence parallelism enabled, checking SP groups...")
             
             # Initialize SP groups if not already done
