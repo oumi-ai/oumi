@@ -184,10 +184,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         logger.info(f"  - Data collator: {type(self.data_collator).__name__ if self.data_collator else 'None'}")
         logger.info(f"  - SP manager initialized: {self.sp_manager.is_initialized}")
 
-        # Create SP-aware data collator if needed
-        collator = self.data_collator
-        if self.sp_config.is_enabled() and collator is not None:
-            collator = self._create_sp_aware_collator(self.data_collator)
+        # ALWAYS create our robust collator to handle variable-length sequences
+        # This is crucial because PyTorch's default collator fails with variable lengths
+        collator = self._create_sp_aware_collator(self.data_collator)
+        logger.info(f"  - Using robust SP-aware collator wrapping: {type(self.data_collator).__name__}")
+
+        # Set num_workers to 0 to avoid multiprocessing collation issues
+        num_workers = 0 if self.sp_config.is_enabled() else self.args.dataloader_num_workers
+        if num_workers != self.args.dataloader_num_workers:
+            logger.info(f"  - Forcing num_workers=0 for SP compatibility (was {self.args.dataloader_num_workers})")
 
         # Create base dataloader
         dataloader = ComponentFactory.create_data_loader(
@@ -195,7 +200,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             batch_size=self.args.per_device_train_batch_size,
             shuffle=True,
             collate_fn=collator,
-            num_workers=self.args.dataloader_num_workers,
+            num_workers=num_workers,
         )
 
         # Wrap with SP support if enabled and groups are initialized
@@ -213,37 +218,66 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         sp_size = self.sp_config.sequence_parallel_size
         
         def sp_collator(batch):
-            logger.debug(f"SP collator processing batch of size {len(batch)}")
-            
-            # First, ensure we have a proper collator - if None, create a simple one
-            if original_collator is None:
-                logger.info("No collator provided - using simple dict collator")
-                result = self._simple_dict_collate(batch)
-            else:
-                try:
-                    result = original_collator(batch)
-                except Exception as e:
-                    logger.error(f"Original collator failed: {e}")
-                    logger.info("Falling back to simple dict collator")
+            try:
+                logger.debug(f"SP collator processing batch of size {len(batch)}")
+                
+                # Debug the batch structure
+                if batch and logger.isEnabledFor(10):  # DEBUG level
+                    logger.debug("Batch sample structure:")
+                    sample = batch[0]
+                    for key, value in sample.items():
+                        if isinstance(value, (list, torch.Tensor)):
+                            if hasattr(value, 'shape'):
+                                logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                            else:
+                                logger.debug(f"  {key}: list length={len(value)}")
+                        else:
+                            logger.debug(f"  {key}: {type(value)}")
+                
+                # First, ensure we have a proper collator - if None, create a simple one
+                if original_collator is None:
+                    logger.info("No collator provided - using simple dict collator")
                     result = self._simple_dict_collate(batch)
-            
-            # Debug result before padding
-            logger.debug("Collator result before SP padding:")
-            for key, value in result.items():
-                if isinstance(value, torch.Tensor):
-                    logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
-            
-            # Ensure all tensor sequences have equal length within the batch
-            # and are divisible by SP size
-            result = self._ensure_equal_length_and_sp_divisible(result, sp_size)
-            
-            # Debug final result
-            logger.debug("Final collator result:")
-            for key, value in result.items():
-                if isinstance(value, torch.Tensor):
-                    logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
-            
-            return result
+                else:
+                    try:
+                        result = original_collator(batch)
+                    except Exception as e:
+                        logger.error(f"Original collator failed: {e}")
+                        logger.info("Falling back to simple dict collator")
+                        result = self._simple_dict_collate(batch)
+                
+                # Debug result before padding
+                logger.debug("Collator result before SP padding:")
+                for key, value in result.items():
+                    if isinstance(value, torch.Tensor):
+                        logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                
+                # Ensure all tensor sequences have equal length within the batch
+                # and are divisible by SP size
+                result = self._ensure_equal_length_and_sp_divisible(result, sp_size)
+                
+                # Debug final result
+                logger.debug("Final collator result:")
+                for key, value in result.items():
+                    if isinstance(value, torch.Tensor):
+                        logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                
+                return result
+                
+            except Exception as e:
+                logger.error(f"SP collator failed: {e}")
+                logger.error(f"Batch info: {len(batch)} items")
+                if batch:
+                    logger.error(f"First item keys: {list(batch[0].keys())}")
+                    for i, item in enumerate(batch[:3]):  # Show first 3 items
+                        logger.error(f"Item {i}:")
+                        for key, value in item.items():
+                            if isinstance(value, (list, torch.Tensor)):
+                                if hasattr(value, 'shape'):
+                                    logger.error(f"  {key}: shape={value.shape}")
+                                else:
+                                    logger.error(f"  {key}: list length={len(value)}")
+                raise
         
         return sp_collator
     
