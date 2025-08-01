@@ -252,6 +252,12 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     if isinstance(value, torch.Tensor):
                         logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
                 
+                # CRITICAL: Generate labels for SFT training if missing
+                if "labels" not in result and "input_ids" in result:
+                    logger.info("Generating labels from input_ids for SFT training")
+                    result["labels"] = result["input_ids"].clone()
+                    logger.info(f"Generated labels with shape: {result['labels'].shape}")
+                
                 # Ensure all tensor sequences have equal length within the batch
                 # and are divisible by SP size
                 result = self._ensure_equal_length_and_sp_divisible(result, sp_size)
@@ -343,6 +349,12 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     result[key] = values
             else:
                 result[key] = values
+        
+        # CRITICAL: Generate labels for SFT training if missing
+        if "labels" not in result and "input_ids" in result:
+            logger.info("Generating labels from input_ids for SFT training")
+            result["labels"] = result["input_ids"].clone()
+            logger.info(f"Generated labels with shape: {result['labels'].shape}")
         
         return result
     
