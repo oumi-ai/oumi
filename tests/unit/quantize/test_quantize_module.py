@@ -71,8 +71,8 @@ class TestQuantizeModule:
         bnb_config = QuantizationConfig(
             model=ModelParams(model_name="gpt2"),
             method="bnb_4bit",
-            output_path="test_model.pytorch",
-            output_format="pytorch",
+            output_path="test_model",
+            output_format="safetensors",
         )
 
         # Mock quantizer
@@ -82,7 +82,7 @@ class TestQuantizeModule:
             quantized_size_bytes=512,
             output_path="/path/to/bnb_model",
             quantization_method="bnb_4bit",
-            format_type="pytorch",
+            format_type="safetensors",
         )
         mock_build_quantizer.return_value = mock_quantizer
 
