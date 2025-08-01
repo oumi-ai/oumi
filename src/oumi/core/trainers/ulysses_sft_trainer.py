@@ -376,9 +376,18 @@ class UlyssesSFTTrainer(SFTTrainer):
                     f"sp_rank={self.sp_rank}, sp_world_size={self.sp_world_size}"
                 )
 
+                # Check if this is an Accelerate DataLoaderShard
+                if hasattr(dataloader, 'dataloader'):
+                    logger.info("Found Accelerate DataLoaderShard, extracting underlying dataloader...")
+                    underlying_dataloader = dataloader.dataloader
+                    logger.info(f"Underlying dataloader type: {type(underlying_dataloader)}")
+                else:
+                    underlying_dataloader = dataloader
+                    logger.info("Using dataloader directly (not Accelerate wrapped)")
+
                 logger.info("About to create UlyssesSPDataLoaderAdapter...")
                 sp_dataloader = UlyssesSPDataLoaderAdapter(
-                    dataloader,
+                    underlying_dataloader,
                     sp_rank=self.sp_rank,
                     sp_group=self.sp_group,
                     sp_world_size=self.sp_world_size,
@@ -388,8 +397,22 @@ class UlyssesSFTTrainer(SFTTrainer):
                 
                 # Wrap with our own converter to ensure labels->shift_labels conversion
                 logger.info("Wrapping with labels-to-shift_labels converter...")
-                dataloader = LabelToShiftLabelsConverter(sp_dataloader)
+                sp_dataloader = LabelToShiftLabelsConverter(sp_dataloader)
                 logger.info("Created LabelToShiftLabelsConverter wrapper")
+                
+                # If we started with an Accelerate DataLoaderShard, recreate it
+                if hasattr(dataloader, 'dataloader'):
+                    logger.info("Recreating Accelerate DataLoaderShard with our wrapped dataloader...")
+                    from accelerate.data_loader import DataLoaderShard
+                    dataloader = DataLoaderShard(
+                        sp_dataloader,
+                        split_batches=getattr(dataloader, 'split_batches', False),
+                        even_batches=getattr(dataloader, 'even_batches', True),
+                        batch_sampler=getattr(dataloader, 'batch_sampler', None)
+                    )
+                    logger.info("Recreated DataLoaderShard with SP support")
+                else:
+                    dataloader = sp_dataloader
 
                 logger.info(
                     "Successfully wrapped dataloader w/UlyssesSPDataLoaderAdapter"
@@ -433,10 +456,19 @@ class UlyssesSFTTrainer(SFTTrainer):
             )
             logger.info(f"Device: {self.args.device if self.args else None}")
 
-            # Wrap it with SP adapter now that groups are available
+            # Check if this is an Accelerate DataLoaderShard - we need to get the underlying dataloader
+            if hasattr(base_dataloader, 'dataloader'):
+                logger.info("Found Accelerate DataLoaderShard, extracting underlying dataloader...")
+                underlying_dataloader = base_dataloader.dataloader
+                logger.info(f"Underlying dataloader type: {type(underlying_dataloader)}")
+            else:
+                underlying_dataloader = base_dataloader
+                logger.info("Using dataloader directly (not Accelerate wrapped)")
+
+            # Wrap the underlying dataloader with SP adapter
             logger.info("About to create UlyssesSPDataLoaderAdapter...")
             sp_dataloader = UlyssesSPDataLoaderAdapter(
-                base_dataloader,
+                underlying_dataloader,
                 sp_rank=self.sp_rank,
                 sp_group=self.sp_group,
                 sp_world_size=self.sp_world_size,
@@ -448,6 +480,19 @@ class UlyssesSFTTrainer(SFTTrainer):
             logger.info("Wrapping with labels-to-shift_labels converter...")
             sp_dataloader = LabelToShiftLabelsConverter(sp_dataloader)
             logger.info("Created LabelToShiftLabelsConverter wrapper")
+            
+            # If we started with an Accelerate DataLoaderShard, recreate it with our wrapped dataloader
+            if hasattr(base_dataloader, 'dataloader'):
+                logger.info("Recreating Accelerate DataLoaderShard with our wrapped dataloader...")
+                # Copy attributes from the original shard
+                from accelerate.data_loader import DataLoaderShard
+                sp_dataloader = DataLoaderShard(
+                    sp_dataloader,
+                    split_batches=getattr(base_dataloader, 'split_batches', False),
+                    even_batches=getattr(base_dataloader, 'even_batches', True),
+                    batch_sampler=getattr(base_dataloader, 'batch_sampler', None)
+                )
+                logger.info("Recreated DataLoaderShard with SP support")
 
             # Test the dataloader by getting an iterator (but don't iterate yet)
             logger.info("Testing SP dataloader by getting iterator...")
