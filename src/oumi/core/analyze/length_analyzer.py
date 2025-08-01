@@ -35,6 +35,7 @@ class LengthAnalyzer(SampleAnalyzer):
         sentence_count: bool = True,
         token_count: bool = False,
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+        include_special_tokens: bool = True,
     ):
         """Initialize the length analyzer.
 
@@ -45,12 +46,16 @@ class LengthAnalyzer(SampleAnalyzer):
             token_count: Whether to compute token count
             tokenizer: Tokenizer to use for token counting
                 (required if token_count=True)
+            include_special_tokens: Whether to include special tokens in token count.
+                Defaults to True to match training tokenization. Set to False for raw
+                content analysis only.
         """
         self.char_count = char_count
         self.word_count = word_count
         self.sentence_count = sentence_count
         self.token_count = token_count
         self.tokenizer = tokenizer
+        self.include_special_tokens = include_special_tokens
         # Validate tokenizer requirements
         if self.token_count and tokenizer is None:
             raise ValueError(
@@ -93,7 +98,9 @@ class LengthAnalyzer(SampleAnalyzer):
             tokenizer_to_use = tokenizer or self.tokenizer
             if tokenizer_to_use is not None:
                 # Use tokenizer for accurate token count
-                tokens = tokenizer_to_use.encode(text_content, add_special_tokens=False)
+                tokens = tokenizer_to_use.encode(
+                    text_content, add_special_tokens=self.include_special_tokens
+                )
                 metrics["token_count"] = len(tokens)
 
         return metrics

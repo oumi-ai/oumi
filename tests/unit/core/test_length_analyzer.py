@@ -81,9 +81,17 @@ def test_analyzer_instantiation():
 def test_token_count():
     """Test token count functionality."""
 
-    # Test token count with tokenizer
+    # Test token count with tokenizer (default: includes special tokens)
     mock_tokenizer = Mock()
-    mock_tokenizer.encode.return_value = [1, 2, 3, 4, 5]  # 5 tokens
+    mock_tokenizer.encode.return_value = [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        2,
+    ]  # 7 tokens with special tokens
 
     analyzer = LengthAnalyzer(
         char_count=False,
@@ -94,11 +102,38 @@ def test_token_count():
     )
     result = analyzer.analyze_message("Hello, world!", tokenizer=mock_tokenizer)
 
-    assert result["token_count"] == 5
+    assert result["token_count"] == 7
     mock_tokenizer.encode.assert_called_once_with(
+        "Hello, world!", add_special_tokens=True
+    )
+
+    # Test without special tokens (explicitly set to False)
+    mock_tokenizer_no_special = Mock()
+    mock_tokenizer_no_special.encode.return_value = [
+        1,
+        2,
+        3,
+        4,
+        5,
+    ]  # 5 tokens without special tokens
+
+    analyzer_no_special = LengthAnalyzer(
+        char_count=False,
+        word_count=False,
+        sentence_count=False,
+        token_count=True,
+        tokenizer=mock_tokenizer_no_special,
+        include_special_tokens=False,
+    )
+    result = analyzer_no_special.analyze_message(
+        "Hello, world!", tokenizer=mock_tokenizer_no_special
+    )
+
+    assert result["token_count"] == 5
+    mock_tokenizer_no_special.encode.assert_called_once_with(
         "Hello, world!", add_special_tokens=False
     )
 
     # Test without tokenizer (should fail during initialization)
     result = analyzer.analyze_message("Hello, world!")
-    assert result["token_count"] == 5  # uses instance tokenizer
+    assert result["token_count"] == 7  # uses instance tokenizer with default (True)
