@@ -618,11 +618,15 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 logger.warning(f"Loss has non-scalar shape {loss.shape}, reducing to scalar")
                 loss = loss.mean()
             
-            # Check for NaN/inf
-            if loss is not None and (torch.isnan(loss) or torch.isinf(loss)):
+            # Check for NaN/inf (only if loss is actually a tensor)
+            if loss is not None and isinstance(loss, torch.Tensor) and (torch.isnan(loss) or torch.isinf(loss)):
                 logger.error(f"Loss is NaN or inf: {loss}")
                 # Return a small positive loss to avoid stopping training
                 loss = torch.tensor(1e-6, requires_grad=True, device=loss.device if hasattr(loss, 'device') else 'cpu')
+            elif loss is not None and not isinstance(loss, torch.Tensor):
+                # If loss is not a tensor (e.g., dict with logits), return None for evaluation
+                logger.debug(f"Loss is not a tensor (type: {type(loss)}), returning None for evaluation")
+                loss = None
                 
             return loss
             
