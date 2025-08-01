@@ -8,16 +8,16 @@ This guide covers the `oumi quantize` command for reducing model size while main
 
 ```bash
 # Quantize TinyLlama to 4-bit
-oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output model.pytorch
+oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output quantized_model
 ```
 
 **Expected Output:**
 
 ```
 ✅ Model quantized successfully!
-📁 Output saved to: model.pytorch
+📁 Output saved to: quantized_model
 🔧 Method: awq_q4_0
-📋 Format: pytorch
+📋 Format: safetensors
 📊 Quantized size: 0.65 GB
 ```
 
@@ -29,11 +29,11 @@ AWQ (Activation-aware Weight Quantization) provides the best quality-to-size rat
 
 ```bash
 # 4-bit AWQ quantization
-oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output tinyllama_awq4bit.pytorch
-oumi quantize --method awq_q4_0 --model "oumi-ai/HallOumi-8B" --output halloumi_awq4bit.pytorch
+oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output tinyllama_awq4bit
+oumi quantize --method awq_q4_0 --model "oumi-ai/HallOumi-8B" --output halloumi_awq4bit
 
 # Higher precision 8-bit AWQ
-oumi quantize --method awq_q8_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output tinyllama_awq8bit.pytorch
+oumi quantize --method awq_q8_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output tinyllama_awq8bit
 ```
 
 **Supported AWQ Methods:**
@@ -49,10 +49,10 @@ For broader model compatibility when AWQ isn't supported:
 
 ```bash
 # 4-bit quantization with NF4
-oumi quantize --method bnb_4bit --model "gpt2" --output gpt2_4bit.pytorch
+oumi quantize --method bnb_4bit --model "gpt2" --output gpt2_4bit
 
 # 8-bit quantization
-oumi quantize --method bnb_8bit --model "microsoft/DialoGPT-medium" --output dialogpt_8bit.pytorch
+oumi quantize --method bnb_8bit --model "microsoft/DialoGPT-medium" --output dialogpt_8bit
 ```
 
 **Supported BitsAndBytes Methods:**
@@ -70,8 +70,8 @@ model:
   model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
   trust_remote_code: false
 method: "awq_q4_0"
-output_path: "tinyllama_quantized.pytorch"
-output_format: "pytorch"      # Options: pytorch, safetensors
+output_path: "tinyllama_quantized"
+output_format: "safetensors"      # Options: safetensors
 awq_group_size: 128          # AWQ-specific: weight grouping size
 calibration_samples: 512     # AWQ-specific: calibration dataset size
 ```
@@ -86,7 +86,6 @@ oumi quantize --config quantization_config.yaml
 
 Currently supported output formats:
 
-- **pytorch**: PyTorch state dict format (`.pytorch` extension)
 - **safetensors**: HuggingFace safetensors format (`.safetensors` extension)
 
 > **Note**: GGUF format mentioned in examples is not yet implemented in the current version.
@@ -152,4 +151,4 @@ oumi quantize --config CONFIG_FILE --method awq_q8_0
 
 1. **GPU Memory**: Large models may require significant GPU memory during quantization
 2. **Supported Models**: AWQ works best with Llama-family models; use BitsAndBytes for others
-3. **Output Path**: Ensure the output extension matches the format (`.pytorch` or `.safetensors`)
+3. **Output Path**: Ensure the output extension matches the format (`.safetensors`)

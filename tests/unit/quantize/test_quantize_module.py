@@ -31,8 +31,7 @@ class TestQuantizeModule:
         self.valid_config = QuantizationConfig(
             model=ModelParams(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"),
             method="awq_q4_0",
-            output_path="test_model.pytorch",
-            output_format="pytorch",
+            output_path="test_model",
         )
 
     @patch("oumi.builders.quantizers.build_quantizer")
@@ -72,8 +71,8 @@ class TestQuantizeModule:
         bnb_config = QuantizationConfig(
             model=ModelParams(model_name="gpt2"),
             method="bnb_4bit",
-            output_path="test_model.pytorch",
-            output_format="pytorch",
+            output_path="test_model",
+            output_format="safetensors",
         )
 
         # Mock quantizer
@@ -83,7 +82,7 @@ class TestQuantizeModule:
             quantized_size_bytes=512,
             output_path="/path/to/bnb_model",
             quantization_method="bnb_4bit",
-            format_type="pytorch",
+            format_type="safetensors",
         )
         mock_build_quantizer.return_value = mock_quantizer
 
@@ -108,8 +107,7 @@ class TestQuantizeModule:
             QuantizationConfig(
                 model=ModelParams(model_name="test/model"),
                 method="invalid_method",
-                output_path="test.pytorch",
-                output_format="pytorch",
+                output_path="test",
             )
 
     @patch("oumi.builders.quantizers.build_quantizer")

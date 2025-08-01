@@ -45,7 +45,7 @@ class AwqQuantization(BaseQuantization):
     """
 
     supported_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
-    supported_formats = ["pytorch"]
+    supported_formats = ["safetensors"]
 
     def __init__(self):
         """Initialize AWQ quantizer."""
