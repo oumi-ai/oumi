@@ -98,7 +98,7 @@ deepspeed:
   ulysses_sequence_parallel_size: 3  # Must match training parameter
   
   # ZERO_3 CPU offloading (exact match to ArcticTraining)
-  zero_force_ds_cpu_optimizer: True  # Force CPU optimizer for ZERO_3 + SP compatibility
+  zero_force_ds_cpu_optimizer: False  # Allow PyTorch AdamW optimizer with offloading
   
   # CPU optimizer offloading for ZERO_3 + SP compatibility
   offload_optimizer:
