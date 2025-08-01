@@ -62,6 +62,11 @@ training:
   # Memory optimization for long sequences
   empty_device_cache_steps: 50
 
+  # SFT-specific kwargs for Ulysses SP
+  trainer_kwargs:
+    dataset_kwargs:
+      skip_prepare_dataset: false  # Force dataset preparation for Ulysses SP!
+
 # DeepSpeed configuration with Ulysses SP
 deepspeed:
   enable_deepspeed: True

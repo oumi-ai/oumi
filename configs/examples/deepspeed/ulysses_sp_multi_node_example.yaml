@@ -79,6 +79,11 @@ training:
   seed: 42
   use_deterministic: True
 
+  # SFT-specific kwargs for Ulysses SP
+  trainer_kwargs:
+    dataset_kwargs:
+      skip_prepare_dataset: false  # Force dataset preparation for Ulysses SP!
+
 # DeepSpeed configuration for multi-node Ulysses SP
 deepspeed:
   enable_deepspeed: True
