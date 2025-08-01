@@ -77,7 +77,7 @@ class LabelToShiftLabelsConverter:
             dataloader: The dataloader to wrap (typically UlyssesSPDataLoaderAdapter)
         """
         self.dataloader = dataloader
-        logger.info("Initialized LabelToShiftLabelsConverter")
+        logger.info(f"Initialized LabelToShiftLabelsConverter wrapping: {type(dataloader)}")
 
     def __iter__(self):
         """Iterate over the wrapped dataloader, converting labels to shift_labels."""
@@ -122,6 +122,7 @@ class LabelToShiftLabelsConverter:
 
     def __getattr__(self, name):
         """Delegate attribute access to the wrapped dataloader."""
+        logger.info(f"LabelToShiftLabelsConverter delegating attribute '{name}' to wrapped dataloader")
         return getattr(self.dataloader, name)
 
 
@@ -486,9 +487,20 @@ class UlyssesSFTTrainer(SFTTrainer):
             # If we started with an Accelerate DataLoaderShard, recreate it with our wrapped dataloader
             if hasattr(base_dataloader, 'base_dataloader'):
                 logger.info("Recreating Accelerate DataLoaderShard with our wrapped dataloader...")
-                # Copy attributes from the original shard
+                logger.info(f"sp_dataloader type before DataLoaderShard: {type(sp_dataloader)}")
+                
+                # Create a custom DataLoaderShard that properly calls our wrapper's __iter__
                 from accelerate.data_loader import DataLoaderShard
-                sp_dataloader = DataLoaderShard(
+                
+                class UlyssesDataLoaderShard(DataLoaderShard):
+                    """Custom DataLoaderShard that properly uses wrapper's __iter__ method."""
+                    
+                    def __iter__(self):
+                        """Override to use the wrapper's __iter__ method directly."""
+                        logger.info("UlyssesDataLoaderShard.__iter__ called - using wrapper directly")
+                        return iter(self.base_dataloader)
+                
+                sp_dataloader = UlyssesDataLoaderShard(
                     sp_dataloader,
                     device=getattr(base_dataloader, 'device', None),
                     rng_types=getattr(base_dataloader, 'rng_types', None),
@@ -496,13 +508,29 @@ class UlyssesSFTTrainer(SFTTrainer):
                     skip_batches=getattr(base_dataloader, 'skip_batches', 0),
                     use_stateful_dataloader=getattr(base_dataloader, 'use_stateful_dataloader', False)
                 )
-                logger.info("Recreated DataLoaderShard with SP support")
+                logger.info(f"Recreated UlyssesDataLoaderShard with SP support, type: {type(sp_dataloader)}")
+                logger.info(f"UlyssesDataLoaderShard.base_dataloader type: {type(getattr(sp_dataloader, 'base_dataloader', None))}")
 
             # Test the dataloader by getting an iterator (but don't iterate yet)
             logger.info("Testing SP dataloader by getting iterator...")
             try:
-                _ = iter(sp_dataloader)
-                logger.info("Successfully created SP dataloader iterator")
+                test_iter = iter(sp_dataloader)
+                logger.info(f"Successfully created SP dataloader iterator: {type(test_iter)}")
+                
+                # Try to get the first batch to test the conversion
+                logger.info("Testing iterator by getting first batch...")
+                try:
+                    first_batch = next(test_iter)
+                    logger.info(f"Got first batch with keys: {list(first_batch.keys())}")
+                    if "shift_labels" in first_batch:
+                        logger.info("SUCCESS: First batch contains shift_labels!")
+                    elif "labels" in first_batch:
+                        logger.warning("PROBLEM: First batch still contains labels instead of shift_labels")
+                except StopIteration:
+                    logger.warning("Iterator is empty - no batches")
+                except Exception as batch_e:
+                    logger.error(f"Error getting first batch: {batch_e}")
+                    
             except Exception as iter_e:
                 logger.error(f"Failed to create SP dataloader iterator: {iter_e}")
                 raise
