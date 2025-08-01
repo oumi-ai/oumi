@@ -275,26 +275,29 @@ def _ulysses_sp_attention_forward(
     gathered_position_ids = None
 
     if attention_mask is not None:
-        gathered_attention_mask = torch.zeros(
-            batch_size,
-            seq_len * sequence_parallel_size,
-            dtype=attention_mask.dtype,
-            device=attention_mask.device,
-        )
-        dist.all_gather_into_tensor(
-            gathered_attention_mask.view(-1), attention_mask.view(-1)
-        )
+        # Use all_gather list of tensors instead of all_gather_into_tensor
+        # This handles variable tensor shapes more reliably
+        attention_mask_list = [torch.zeros_like(attention_mask) for _ in range(world_size)]
+        dist.all_gather(attention_mask_list, attention_mask)
+        
+        # Concatenate along sequence dimension (dim=1 for 2D masks, dim=-1 for others)
+        if attention_mask.dim() == 2:
+            gathered_attention_mask = torch.cat(attention_mask_list, dim=1)
+        elif attention_mask.dim() >= 3:
+            gathered_attention_mask = torch.cat(attention_mask_list, dim=-1)
+        else:
+            gathered_attention_mask = attention_mask  # Fallback
 
     if position_ids is not None:
-        gathered_position_ids = torch.zeros(
-            batch_size,
-            seq_len * sequence_parallel_size,
-            dtype=position_ids.dtype,
-            device=position_ids.device,
-        )
-        dist.all_gather_into_tensor(
-            gathered_position_ids.view(-1), position_ids.view(-1)
-        )
+        # Use all_gather list of tensors for position_ids as well
+        position_ids_list = [torch.zeros_like(position_ids) for _ in range(world_size)]
+        dist.all_gather(position_ids_list, position_ids)
+        
+        # Concatenate along sequence dimension (typically dim=1)
+        if position_ids.dim() >= 2:
+            gathered_position_ids = torch.cat(position_ids_list, dim=1)
+        else:
+            gathered_position_ids = torch.cat(position_ids_list, dim=0)
 
     # Compute attention on full sequence
     attention_output = original_forward(
