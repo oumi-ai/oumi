@@ -242,7 +242,7 @@ class DSParams(BaseParams):
 
     Controls the precision used for communication operations in sequence parallelism.
     Common values: "bf16", "fp16", "fp32". Setting this to "bf16" is critical for
-    compatibility between ZeRO optimization and sequence parallelism 
+    compatibility between ZeRO optimization and sequence parallelism
     (as used in ArcticTraining).
     When None, uses default communication data type.
     """
