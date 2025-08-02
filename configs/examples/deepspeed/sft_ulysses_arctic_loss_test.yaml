@@ -31,44 +31,44 @@ data:
 training:
   # Use our custom SFT trainer WITH Ulysses SP for Arctic loss testing
   trainer_type: "SFT_ULYSSES"
-  
+
   # ENABLE Ulysses SP with size=1 for single-GPU Arctic loss testing
   enable_ulysses_sequence_parallel: True
   ulysses_sequence_parallel_size: 1  # Single GPU but with SP enabled
-  
+
   # Enable Arctic memory optimizations
   tiled_mlp_compute: True  # Enable tiled MLP computation
   use_liger_kernel: True  # Use Liger kernel instead of tiled logits to avoid gradient issues
   activation_checkpoint_cpu_offload: False  # Keep on GPU for testing
-  
+
   # Training configuration
   max_steps: 10  # Short run to test Arctic loss
   per_device_train_batch_size: 1  # Small batch for memory efficiency
   gradient_accumulation_steps: 2
-  
+
   # Learning configuration
   learning_rate: 1e-4
   warmup_steps: 2
   weight_decay: 0.01
-  
+
   # Logging and saving
   logging_steps: 1
   save_steps: 5
   save_final_model: True
   output_dir: "output/sft_ulysses_arctic_loss_test"
-  
+
   # Disable evaluation for simpler testing
   eval_strategy: "no"
-  
+
   # Memory and performance
   dataloader_num_workers: 0  # Single-threaded for stability
   enable_gradient_checkpointing: True  # Test with gradient checkpointing
   mixed_precision_dtype: "BF16"  # Use mixed precision
-  
+
   # Seed for reproducibility
   seed: 42
   data_seed: 42
-  
+
   # Logging
   log_level: "info"  # More verbose to see Arctic loss messages
   enable_tensorboard: True
@@ -80,23 +80,23 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "ZERO_1"  # Minimal ZeRO for single GPU
   precision: "BF16"
-  
+
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 1  # Single GPU but with SP enabled
-  
+
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
   seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
-  
+
   # Basic communication settings
   allgather_partitions: True
   allgather_bucket_size: 50000000  # 5e7
   overlap_comm: True
   contiguous_gradients: True
-  
+
   # Optimizer settings
   zero_allow_untested_optimizer: True
   zero_force_ds_cpu_optimizer: False
-  
+
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"

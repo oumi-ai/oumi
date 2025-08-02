@@ -161,7 +161,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         logger.info(f"  - Model name/path: {self.model_name_or_path}")
         logger.info(f"  - Max length: {max_length}")
         logger.info(f"  - Micro batch size: {effective_micro_batch_size}")
-        logger.info(f"  - Per device train batch size: {self.args.per_device_train_batch_size if self.args else 'N/A'}")
+        logger.info(
+            f"  - Per device train batch size: {self.args.per_device_train_batch_size if self.args else 'N/A'}"
+        )
         logger.info(f"  - Tiled MLP compute: {self.tiled_mlp_compute}")
         logger.info(f"  - Liger kernel: {self.use_liger_kernel}")
         logger.info(f"  - SP enabled: {self.sp_config.is_enabled()}")
@@ -188,26 +190,41 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
     def create_train_dataloader(self) -> DataLoader:
         """Create training data loader with SP support."""
         logger.info("Creating training dataloader...")
-        logger.info(f"  - Dataset size: {len(self.train_dataset) if self.train_dataset else 'N/A'}")
+        logger.info(
+            f"  - Dataset size: {len(self.train_dataset) if self.train_dataset else 'N/A'}"
+        )
         logger.info(f"  - Batch size: {self.args.per_device_train_batch_size}")
-        logger.info(f"  - Data collator: {type(self.data_collator).__name__ if self.data_collator else 'None'}")
-        
+        logger.info(
+            f"  - Data collator: {type(self.data_collator).__name__ if self.data_collator else 'None'}"
+        )
+
         # If we did early DeepSpeed initialization but didn't recreate dataloader yet, do it now
-        if (self._deepspeed_initialized and self.sp_manager.is_initialized 
-            and not hasattr(self, '_sp_dataloader_created')):
-            logger.info("  - SP was initialized early, ensuring SP-aware dataloader creation")
+        if (
+            self._deepspeed_initialized
+            and self.sp_manager.is_initialized
+            and not hasattr(self, "_sp_dataloader_created")
+        ):
+            logger.info(
+                "  - SP was initialized early, ensuring SP-aware dataloader creation"
+            )
             self._sp_dataloader_created = True
         logger.info(f"  - SP manager initialized: {self.sp_manager.is_initialized}")
 
         # ALWAYS create our robust collator to handle variable-length sequences
         # This is crucial because PyTorch's default collator fails with variable lengths
         collator = self._create_sp_aware_collator(self.data_collator)
-        logger.info(f"  - Using robust SP-aware collator wrapping: {type(self.data_collator).__name__}")
+        logger.info(
+            f"  - Using robust SP-aware collator wrapping: {type(self.data_collator).__name__}"
+        )
 
         # Set num_workers to 0 to avoid multiprocessing collation issues
-        num_workers = 0 if self.sp_config.is_enabled() else self.args.dataloader_num_workers
+        num_workers = (
+            0 if self.sp_config.is_enabled() else self.args.dataloader_num_workers
+        )
         if num_workers != self.args.dataloader_num_workers:
-            logger.info(f"  - Forcing num_workers=0 for SP compatibility (was {self.args.dataloader_num_workers})")
+            logger.info(
+                f"  - Forcing num_workers=0 for SP compatibility (was {self.args.dataloader_num_workers})"
+            )
 
         # Create base dataloader
         dataloader = ComponentFactory.create_data_loader(
@@ -223,7 +240,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             logger.info("Wrapping dataloader with SP support...")
             dataloader = self.sp_manager.wrap_dataloader(dataloader, self.args.device)
         elif self.sp_config.is_enabled():
-            logger.warning("SP is enabled but groups not initialized - using standard dataloader")
+            logger.warning(
+                "SP is enabled but groups not initialized - using standard dataloader"
+            )
 
         logger.info("Training dataloader created successfully")
         return dataloader
@@ -243,7 +262,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     for key, value in sample.items():
                         if isinstance(value, (list, torch.Tensor)):
                             if hasattr(value, "shape"):
-                                logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                                logger.debug(
+                                    f"  {key}: shape={value.shape}, dtype={value.dtype}"
+                                )
                             else:
                                 logger.debug(f"  {key}: list length={len(value)}")
                         else:
@@ -265,23 +286,35 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 logger.debug("Collator result before SP padding:")
                 for key, value in result.items():
                     if isinstance(value, torch.Tensor):
-                        logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                        logger.debug(
+                            f"  {key}: shape={value.shape}, dtype={value.dtype}"
+                        )
 
                 # CRITICAL: Generate labels for SFT training if missing
                 if "labels" not in result and "input_ids" in result:
                     logger.info("Generating labels from input_ids for SFT training")
                     result["labels"] = self._create_sft_labels(result["input_ids"])
-                    logger.info(f"Generated labels with shape: {result['labels'].shape}")
+                    logger.info(
+                        f"Generated labels with shape: {result['labels'].shape}"
+                    )
 
                     # Debug label masking - always show this since it's critical
-                    for i in range(min(2, result["labels"].shape[0])):  # Show first 2 samples
+                    for i in range(
+                        min(2, result["labels"].shape[0])
+                    ):  # Show first 2 samples
                         valid_labels = (result["labels"][i] != -100).sum().item()
                         total_labels = result["labels"][i].numel()
-                        logger.info(f"Sample {i}: {valid_labels}/{total_labels} valid labels ({valid_labels/total_labels*100:.1f}%)")
+                        logger.info(
+                            f"Sample {i}: {valid_labels}/{total_labels} valid labels ({valid_labels / total_labels * 100:.1f}%)"
+                        )
                         if valid_labels == 0:
-                            logger.error(f"Sample {i}: ALL LABELS MASKED! This will cause NaN loss.")
+                            logger.error(
+                                f"Sample {i}: ALL LABELS MASKED! This will cause NaN loss."
+                            )
                         elif valid_labels < 5:
-                            logger.warning(f"Sample {i}: Very few valid labels ({valid_labels}), may cause unstable training.")
+                            logger.warning(
+                                f"Sample {i}: Very few valid labels ({valid_labels}), may cause unstable training."
+                            )
 
                 # Ensure all tensor sequences have equal length within the batch
                 # and are divisible by SP size
@@ -291,7 +324,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 logger.debug("Final collator result:")
                 for key, value in result.items():
                     if isinstance(value, torch.Tensor):
-                        logger.debug(f"  {key}: shape={value.shape}, dtype={value.dtype}")
+                        logger.debug(
+                            f"  {key}: shape={value.shape}, dtype={value.dtype}"
+                        )
 
                 return result
 
@@ -342,14 +377,21 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
             # Convert lists to tensors if they contain numbers
             if values and all(v is not None for v in values):
-                if all(isinstance(v, (list, tuple)) and len(v) > 0 and isinstance(v[0], (int, float)) for v in values):
+                if all(
+                    isinstance(v, (list, tuple))
+                    and len(v) > 0
+                    and isinstance(v[0], (int, float))
+                    for v in values
+                ):
                     # Pad sequences to same length
                     max_len = max(len(v) for v in values)
                     padded_values = []
 
                     for v in values:
                         # Determine padding value
-                        if key == "input_ids" and hasattr(self.processing_class, "pad_token_id"):
+                        if key == "input_ids" and hasattr(
+                            self.processing_class, "pad_token_id"
+                        ):
                             pad_value = self.processing_class.pad_token_id
                         elif key == "labels":
                             pad_value = -100
@@ -385,21 +427,24 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
     def _create_sft_labels(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Create labels for SFT training by masking prompt tokens.
-        
+
         For instruction-following datasets, we want to only compute loss on the
         assistant's response, not the user's prompt. This method attempts to
         identify response tokens and mask prompt tokens with -100.
-        
+
         Args:
             input_ids: Input token IDs [batch_size, seq_len]
-            
+
         Returns:
             labels: Labels with prompt tokens masked as -100 [batch_size, seq_len]
         """
         labels = input_ids.clone()
 
         # Get tokenizer info for special tokens
-        if hasattr(self.processing_class, "eos_token_id") and self.processing_class.eos_token_id is not None:
+        if (
+            hasattr(self.processing_class, "eos_token_id")
+            and self.processing_class.eos_token_id is not None
+        ):
             eos_token_id = self.processing_class.eos_token_id
         else:
             eos_token_id = None
@@ -414,7 +459,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 # Try to find common assistant prompt patterns
                 assistant_patterns = [
                     "### Response:",
-                    "### Assistant:", 
+                    "### Assistant:",
                     "Assistant:",
                     "Response:",
                     "<|assistant|>",
@@ -431,7 +476,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
                     # Decode tokens to text to find assistant marker
                     try:
-                        text = self.processing_class.decode(sequence, skip_special_tokens=False)
+                        text = self.processing_class.decode(
+                            sequence, skip_special_tokens=False
+                        )
 
                         # Find the last occurrence of any assistant pattern
                         assistant_start_pos = -1
@@ -446,59 +493,84 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                             prefix_text = text[:assistant_start_pos]
                             if prefix_text:
                                 try:
-                                    prefix_tokens = self.processing_class.encode(prefix_text, add_special_tokens=False)
+                                    prefix_tokens = self.processing_class.encode(
+                                        prefix_text, add_special_tokens=False
+                                    )
                                     mask_until = len(prefix_tokens)
 
                                     # Also mask the assistant pattern itself (usually 1-3 tokens)
                                     pattern_tokens = self.processing_class.encode(
-                                        text[assistant_start_pos:assistant_start_pos+20],
-                                        add_special_tokens=False
+                                        text[
+                                            assistant_start_pos : assistant_start_pos
+                                            + 20
+                                        ],
+                                        add_special_tokens=False,
                                     )
                                     # Find end of pattern (usually ends with ":" or newline)
                                     pattern_end = 2  # Default: mask pattern + colon
                                     for i, token_id in enumerate(pattern_tokens):
                                         if hasattr(self.processing_class, "decode"):
-                                            token_text = self.processing_class.decode([token_id])
+                                            token_text = self.processing_class.decode(
+                                                [token_id]
+                                            )
                                             if "\n" in token_text or ":" in token_text:
                                                 pattern_end = i + 1
                                                 break
 
                                     mask_until += pattern_end
-                                    mask_until = min(mask_until, len(sequence) - 1)  # Leave at least one token for loss
+                                    mask_until = min(
+                                        mask_until, len(sequence) - 1
+                                    )  # Leave at least one token for loss
 
                                     # Mask prompt tokens
                                     labels[batch_idx, :mask_until] = -100
 
-                                    logger.debug(f"Batch {batch_idx}: Masked {mask_until}/{len(sequence)} prompt tokens")
+                                    logger.debug(
+                                        f"Batch {batch_idx}: Masked {mask_until}/{len(sequence)} prompt tokens"
+                                    )
                                     continue
                                 except Exception as e:
-                                    logger.debug(f"Failed to tokenize prefix for batch {batch_idx}: {e}")
+                                    logger.debug(
+                                        f"Failed to tokenize prefix for batch {batch_idx}: {e}"
+                                    )
 
                         # Fallback: If no assistant pattern found, use a conservative heuristic
                         # For SP training, be more conservative to ensure we have valid labels after sequence shortening
                         seq_len = len(sequence)
-                        
+
                         if self.sp_config.is_enabled():
                             # For SP: ensure we leave enough tokens after potential sequence shortening
                             # SP can shorten sequences significantly, so use a more conservative ratio
-                            min_response_tokens = max(10, seq_len // 4)  # At least 25% or 10 tokens for response
+                            min_response_tokens = max(
+                                10, seq_len // 4
+                            )  # At least 25% or 10 tokens for response
                             mask_until = seq_len - min_response_tokens
-                            logger.debug(f"SP-aware masking: leaving {min_response_tokens} tokens for response")
+                            logger.debug(
+                                f"SP-aware masking: leaving {min_response_tokens} tokens for response"
+                            )
                         else:
                             # Standard masking for non-SP training
                             fallback_mask_ratio = 0.7
                             mask_until = int(seq_len * fallback_mask_ratio)
-                            mask_until = min(mask_until, seq_len - 5)  # Leave at least 5 tokens for loss
-                        
+                            mask_until = min(
+                                mask_until, seq_len - 5
+                            )  # Leave at least 5 tokens for loss
+
                         # Ensure we don't mask everything
-                        mask_until = max(0, min(mask_until, seq_len - 3))  # Always leave at least 3 tokens
+                        mask_until = max(
+                            0, min(mask_until, seq_len - 3)
+                        )  # Always leave at least 3 tokens
                         labels[batch_idx, :mask_until] = -100
-                        
+
                         remaining_tokens = seq_len - mask_until
-                        logger.debug(f"Batch {batch_idx}: Fallback masking - masked {mask_until}/{seq_len} tokens, leaving {remaining_tokens} for loss")
+                        logger.debug(
+                            f"Batch {batch_idx}: Fallback masking - masked {mask_until}/{seq_len} tokens, leaving {remaining_tokens} for loss"
+                        )
 
                     except Exception as e:
-                        logger.debug(f"Failed to decode sequence for batch {batch_idx}: {e}")
+                        logger.debug(
+                            f"Failed to decode sequence for batch {batch_idx}: {e}"
+                        )
                         # Ultimate fallback: conservative masking
                         seq_len = len(sequence)
                         if self.sp_config.is_enabled():
@@ -509,7 +581,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                             # Standard masking
                             mask_until = int(seq_len * 0.7)
                             mask_until = min(mask_until, seq_len - 5)
-                        
+
                         # Always leave at least 3 tokens
                         mask_until = max(0, min(mask_until, seq_len - 3))
                         labels[batch_idx, :mask_until] = -100
@@ -520,8 +592,14 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
                 # Simple fallback: conservative masking for SP
                 for batch_idx in range(labels.shape[0]):
-                    seq_len = (labels[batch_idx] != self.processing_class.pad_token_id).sum().item() if hasattr(self.processing_class, "pad_token_id") else labels.shape[1]
-                    
+                    seq_len = (
+                        (labels[batch_idx] != self.processing_class.pad_token_id)
+                        .sum()
+                        .item()
+                        if hasattr(self.processing_class, "pad_token_id")
+                        else labels.shape[1]
+                    )
+
                     if self.sp_config.is_enabled():
                         # SP-aware conservative masking
                         min_response_tokens = max(10, seq_len // 4)
@@ -530,16 +608,18 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                         # Standard masking
                         mask_until = int(seq_len * 0.7)
                         mask_until = min(mask_until, seq_len - 5)
-                    
+
                     # Always leave at least 3 tokens
                     mask_until = max(0, min(mask_until, seq_len - 3))
                     labels[batch_idx, :mask_until] = -100
         else:
-            logger.warning("No tokenizer available for smart label masking, using simple approach")
+            logger.warning(
+                "No tokenizer available for smart label masking, using simple approach"
+            )
             # Simple fallback: conservative masking
             for batch_idx in range(labels.shape[0]):
                 seq_len = labels.shape[1]
-                
+
                 if self.sp_config.is_enabled():
                     # SP-aware conservative masking
                     min_response_tokens = max(10, seq_len // 4)
@@ -548,7 +628,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     # Standard masking
                     mask_until = int(seq_len * 0.7)
                     mask_until = min(mask_until, seq_len - 5)
-                
+
                 # Always leave at least 3 tokens
                 mask_until = max(0, min(mask_until, seq_len - 3))
                 labels[batch_idx, :mask_until] = -100
@@ -581,12 +661,16 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         for tensor in tensors:
             # Calculate padding needed for each dimension
             padding = []
-            for i in range(len(tensor.shape) - 1, -1, -1):  # PyTorch padding is in reverse order
+            for i in range(
+                len(tensor.shape) - 1, -1, -1
+            ):  # PyTorch padding is in reverse order
                 pad_needed = max_dims[i] - tensor.shape[i]
                 padding.extend([0, pad_needed])
 
             if any(p > 0 for p in padding):
-                padded_tensor = torch.nn.functional.pad(tensor, padding, value=pad_value)
+                padded_tensor = torch.nn.functional.pad(
+                    tensor, padding, value=pad_value
+                )
             else:
                 padded_tensor = tensor
 
@@ -614,7 +698,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             if remainder != 0:
                 pad_to_sp = sp_size - remainder
                 max_seq_len += pad_to_sp
-                logger.debug(f"Padding to {max_seq_len} for SP divisibility (sp_size={sp_size})")
+                logger.debug(
+                    f"Padding to {max_seq_len} for SP divisibility (sp_size={sp_size})"
+                )
 
         # Pad all sequence tensors to the max length
         for key, tensor in seq_tensors.items():
@@ -623,7 +709,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 pad_size = max_seq_len - current_len
 
                 # Determine padding value
-                if key == "input_ids" and hasattr(self.processing_class, "pad_token_id"):
+                if key == "input_ids" and hasattr(
+                    self.processing_class, "pad_token_id"
+                ):
                     pad_value = self.processing_class.pad_token_id
                 elif key == "labels":
                     pad_value = -100
@@ -635,7 +723,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                 # Create padding tensor
                 pad_shape = list(tensor.shape)
                 pad_shape[1] = pad_size
-                padding = torch.full(pad_shape, pad_value, dtype=tensor.dtype, device=tensor.device)
+                padding = torch.full(
+                    pad_shape, pad_value, dtype=tensor.dtype, device=tensor.device
+                )
 
                 # Concatenate original with padding
                 result[key] = torch.cat([tensor, padding], dim=1)
@@ -672,7 +762,7 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
             logger.error("SP is enabled but groups not initialized in compute_loss!")
             logger.error("This suggests early DeepSpeed initialization failed.")
             logger.error("Falling back to standard loss computation without SP.")
-        
+
         # Debug batch information
         if logger.isEnabledFor(10):  # DEBUG level
             logger.debug("Batch information:")
@@ -687,17 +777,29 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
             # Final safety check: ensure loss is scalar
             if loss is not None and hasattr(loss, "shape") and loss.numel() > 1:
-                logger.warning(f"Loss has non-scalar shape {loss.shape}, reducing to scalar")
+                logger.warning(
+                    f"Loss has non-scalar shape {loss.shape}, reducing to scalar"
+                )
                 loss = loss.mean()
 
             # Check for NaN/inf (only if loss is actually a tensor)
-            if loss is not None and isinstance(loss, torch.Tensor) and (torch.isnan(loss) or torch.isinf(loss)):
+            if (
+                loss is not None
+                and isinstance(loss, torch.Tensor)
+                and (torch.isnan(loss) or torch.isinf(loss))
+            ):
                 logger.error(f"Loss is NaN or inf: {loss}")
                 # Return a small positive loss to avoid stopping training
-                loss = torch.tensor(1e-6, requires_grad=True, device=loss.device if hasattr(loss, "device") else "cpu")
+                loss = torch.tensor(
+                    1e-6,
+                    requires_grad=True,
+                    device=loss.device if hasattr(loss, "device") else "cpu",
+                )
             elif loss is not None and not isinstance(loss, torch.Tensor):
                 # If loss is not a tensor (e.g., dict with logits), return None for evaluation
-                logger.debug(f"Loss is not a tensor (type: {type(loss)}), returning None for evaluation")
+                logger.debug(
+                    f"Loss is not a tensor (type: {type(loss)}), returning None for evaluation"
+                )
                 loss = None
 
             return loss
@@ -718,11 +820,11 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         """Debug gradient state to understand None gradient issue with SP + ZeRO-3."""
         phase = "before backward" if before_backward else "after backward failure"
         logger.info(f"=== Gradient state debugging ({phase}) ===")
-        
+
         none_grad_params = []
         has_grad_params = []
         total_params = 0
-        
+
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 total_params += 1
@@ -730,42 +832,48 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                     none_grad_params.append(name)
                 else:
                     has_grad_params.append(name)
-        
+
         logger.info(f"Total parameters requiring gradients: {total_params}")
         logger.info(f"Parameters with gradients: {len(has_grad_params)}")
         logger.info(f"Parameters with None gradients: {len(none_grad_params)}")
-        
+
         if none_grad_params:
-            logger.warning(f"Parameters with None gradients:")
+            logger.warning("Parameters with None gradients:")
             for i, name in enumerate(none_grad_params[:10]):  # Show first 10
-                logger.warning(f"  {i+1}. {name}")
+                logger.warning(f"  {i + 1}. {name}")
             if len(none_grad_params) > 10:
                 logger.warning(f"  ... and {len(none_grad_params) - 10} more")
-                
+
         if has_grad_params and not before_backward:
             logger.info("Parameters with gradients (first 5):")
             for i, name in enumerate(has_grad_params[:5]):
                 param = dict(self.model.named_parameters())[name]
-                grad_info = f"shape={param.grad.shape}, norm={param.grad.norm():.6f}" if param.grad is not None else "None"
-                logger.info(f"  {i+1}. {name}: {grad_info}")
-        
+                grad_info = (
+                    f"shape={param.grad.shape}, norm={param.grad.norm():.6f}"
+                    if param.grad is not None
+                    else "None"
+                )
+                logger.info(f"  {i + 1}. {name}: {grad_info}")
+
         # Check if this matches the pattern from ArcticTraining
         if error:
             logger.error("This error occurs in ZeRO-3's gradient reduction phase")
-            logger.error("ArcticTraining somehow avoids this - need to check their approach")
-        
+            logger.error(
+                "ArcticTraining somehow avoids this - need to check their approach"
+            )
+
         logger.info("=== End gradient debugging ===")
 
     def _early_deepspeed_initialization(self, num_training_steps: int):
         """Perform early DeepSpeed initialization following Arctic pattern."""
         if self._deepspeed_initialized:
             return
-            
+
         logger.info("Performing early DeepSpeed initialization (Arctic pattern)")
-        
+
         # Create optimizer and scheduler first (like Arctic)
         super().create_optimizer_and_scheduler(num_training_steps)
-        
+
         # Now initialize DeepSpeed immediately
         self._create_optimizer_with_deepspeed(num_training_steps)
         self._deepspeed_initialized = True
@@ -774,7 +882,9 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         """Create optimizer and scheduler with DeepSpeed integration."""
         # Re-enable early DeepSpeed initialization for SP + ZERO_3 compatibility
         if self.sp_config.is_enabled() and self.args.deepspeed:
-            logger.info("SP + DeepSpeed detected - performing early initialization with ZERO_3")
+            logger.info(
+                "SP + DeepSpeed detected - performing early initialization with ZERO_3"
+            )
             return self._early_deepspeed_initialization(num_training_steps)
         else:
             logger.info("Using standard HF + DeepSpeed initialization path")
@@ -849,12 +959,18 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
             # Recreate training dataloader with SP support if groups are available
             # Only do this if we have a train_dataset (not during early initialization)
-            if self.sp_manager.is_initialized and hasattr(self, 'train_dataset') and self.train_dataset is not None:
+            if (
+                self.sp_manager.is_initialized
+                and hasattr(self, "train_dataset")
+                and self.train_dataset is not None
+            ):
                 logger.info("Recreating training dataloader with SP support...")
                 self.train_dataloader = self.create_train_dataloader()
                 logger.info("Training dataloader created successfully")
             elif self.sp_manager.is_initialized:
-                logger.info("SP groups initialized - dataloader recreation will happen later when train_dataset is available")
+                logger.info(
+                    "SP groups initialized - dataloader recreation will happen later when train_dataset is available"
+                )
 
             return optimizer, lr_scheduler
 
@@ -916,17 +1032,25 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
         # Handle gradient_clipping
         if ds_config.get("gradient_clipping") == "auto":
             # Convert "auto" to the default gradient clipping value
-            ds_config["gradient_clipping"] = self.args.max_grad_norm if hasattr(self.args, 'max_grad_norm') else 1.0
-            logger.info(f"Set gradient_clipping={ds_config['gradient_clipping']} (converted from 'auto')")
+            ds_config["gradient_clipping"] = (
+                self.args.max_grad_norm if hasattr(self.args, "max_grad_norm") else 1.0
+            )
+            logger.info(
+                f"Set gradient_clipping={ds_config['gradient_clipping']} (converted from 'auto')"
+            )
         elif isinstance(ds_config.get("gradient_clipping"), str):
             try:
                 ds_config["gradient_clipping"] = float(ds_config["gradient_clipping"])
-                logger.info(f"Converted gradient_clipping from string to float: {ds_config['gradient_clipping']}")
+                logger.info(
+                    f"Converted gradient_clipping from string to float: {ds_config['gradient_clipping']}"
+                )
             except ValueError:
-                logger.error(f"Failed to convert gradient_clipping='{ds_config['gradient_clipping']}' to float")
+                logger.error(
+                    f"Failed to convert gradient_clipping='{ds_config['gradient_clipping']}' to float"
+                )
                 # Fallback to default
                 ds_config["gradient_clipping"] = 1.0
-                logger.info(f"Using fallback gradient_clipping=1.0")
+                logger.info("Using fallback gradient_clipping=1.0")
 
         # Convert string numbers to integers
         for key in [
@@ -986,27 +1110,32 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
 
     def _wrap_model(self, model, training=True, dataloader=None):
         """Override HF's _wrap_model to include Ulysses SP MPU in DeepSpeed initialization."""
-        if self.sp_config.is_enabled() and hasattr(self, 'sp_manager'):
+        if self.sp_config.is_enabled() and hasattr(self, "sp_manager"):
             # Get the MPU from SP manager
             mpu = self.sp_manager.get_mpu()
             if mpu is not None:
-                logger.info("Overriding DeepSpeed initialization to include Ulysses SP MPU")
-                
+                logger.info(
+                    "Overriding DeepSpeed initialization to include Ulysses SP MPU"
+                )
+
                 # We need to manually initialize DeepSpeed with MPU
                 # This replaces HF's standard DeepSpeed initialization
-                if self.args.deepspeed and not getattr(self.model, "is_deepspeed_enabled", False):
+                if self.args.deepspeed and not getattr(
+                    self.model, "is_deepspeed_enabled", False
+                ):
                     import deepspeed
-                    from transformers.integrations.deepspeed import deepspeed_config
-                    
+
                     # Get DeepSpeed config from HF
                     deepspeed_plugin = self.accelerator.state.deepspeed_plugin
-                    config = deepspeed_plugin.deepspeed_config if deepspeed_plugin else None
-                    
+                    config = (
+                        deepspeed_plugin.deepspeed_config if deepspeed_plugin else None
+                    )
+
                     if config is None:
                         config = self.args.deepspeed
-                    
+
                     logger.info("Initializing DeepSpeed with Ulysses SP MPU")
-                    
+
                     # Initialize with MPU
                     model_engine, optimizer, _, lr_scheduler = deepspeed.initialize(
                         model=model,
@@ -1015,22 +1144,24 @@ class UlyssesSFTTrainer(ArcticBaseTrainer):
                         config=config,
                         mpu=mpu,  # This is the critical part
                     )
-                    
+
                     # Update references
                     self.model = model_engine
                     self.model_wrapped = model_engine
                     self.optimizer = optimizer
                     self.lr_scheduler = lr_scheduler
-                    
+
                     # Initialize SP groups now that DeepSpeed is ready
-                    logger.info("Initializing SP groups after DeepSpeed+MPU initialization")
+                    logger.info(
+                        "Initializing SP groups after DeepSpeed+MPU initialization"
+                    )
                     success = self.sp_manager.initialize_groups()
                     if success and hasattr(self, "train_dataloader"):
                         logger.info("Recreating training dataloader with SP support...")
                         self.train_dataloader = self.create_train_dataloader()
-                    
+
                     return self.model
-        
+
         # Fall back to standard HF behavior if no SP or MPU
         return super()._wrap_model(model, training, dataloader)
 

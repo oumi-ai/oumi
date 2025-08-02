@@ -61,7 +61,7 @@ training:
 
   # Memory optimization for long sequences
   empty_device_cache_steps: 50
-  
+
   # Arctic memory optimizations
   tiled_mlp_compute: False  # Keep disabled for standard training
   use_liger_kernel: True  # Use Liger kernel for memory efficiency
@@ -79,7 +79,7 @@ deepspeed:
 
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 2  # Must match training parameter
-  
+
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
   seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
 

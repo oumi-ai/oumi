@@ -195,9 +195,7 @@ class TrainingConfig(BaseConfig):
                 self.training.trainer_kwargs["remove_unused_columns"] = False
 
                 # `trl` shouldn't be preparing the dataset, as we do it in Oumi.
-                dataset_kwargs = self.training.trainer_kwargs.get(
-                    "dataset_kwargs", {}
-                )
+                dataset_kwargs = self.training.trainer_kwargs.get("dataset_kwargs", {})
                 dataset_kwargs["skip_prepare_dataset"] = True
                 self.training.trainer_kwargs["dataset_kwargs"] = dataset_kwargs
 

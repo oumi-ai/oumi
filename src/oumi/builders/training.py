@@ -174,7 +174,8 @@ def build_trainer(
                     training_args, "use_liger_kernel", use_liger_kernel
                 )
 
-            # Create Ulysses SFT trainer with all original kwargs (including data_collator)
+            # Create Ulysses SFT trainer with all original kwargs
+            # (including data_collator)
             ulysses_trainer = UlyssesSFTTrainer(
                 *args,
                 **kwargs,
@@ -190,7 +191,10 @@ def build_trainer(
 
             # Debug: Log what collator we received
             data_collator = kwargs.get("data_collator", None)
-            logger.info(f"UlyssesSFTTrainer V2 received data_collator: {type(data_collator).__name__ if data_collator else 'None'}")
+            collator_name = (
+                type(data_collator).__name__ if data_collator else "None"
+            )
+            logger.info(f"UlyssesSFTTrainer V2 received data_collator: {collator_name}")
 
             trainer = HuggingFaceTrainer(ulysses_trainer, processor)
 
@@ -257,11 +261,15 @@ def build_trainer(
                             getattr(model_config, "model_type", "") == "liger"
                         )
                         # Extract max_length from model config (correct location)
-                        max_length = getattr(model_config, "model_max_length", max_length)
+                        max_length = getattr(
+                            model_config, "model_max_length", max_length
+                        )
 
                     if data_config is not None:
                         # Also check data config as fallback
-                        max_length = getattr(data_config, "model_max_length", max_length)
+                        max_length = getattr(
+                            data_config, "model_max_length", max_length
+                        )
 
                     # Check for additional SP features
                     tiled_mlp_compute = getattr(

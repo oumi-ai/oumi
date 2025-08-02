@@ -239,10 +239,11 @@ class DSParams(BaseParams):
 
     seq_parallel_communication_data_type: Optional[str] = None
     """Data type for sequence parallelism communication.
-    
+
     Controls the precision used for communication operations in sequence parallelism.
     Common values: "bf16", "fp16", "fp32". Setting this to "bf16" is critical for
-    compatibility between ZeRO optimization and sequence parallelism (as used in ArcticTraining).
+    compatibility between ZeRO optimization and sequence parallelism 
+    (as used in ArcticTraining).
     When None, uses default communication data type.
     """
 
@@ -255,7 +256,7 @@ class DSParams(BaseParams):
             except ValueError:
                 # Try with the enum name
                 self.zero_stage = ZeRORuntimeStage[self.zero_stage]
-        
+
         # Validate offloading configurations
         if (
             self.offload_param is not None
@@ -409,7 +410,9 @@ class DSParams(BaseParams):
 
         # Add sequence parallel communication data type if specified
         if self.seq_parallel_communication_data_type is not None:
-            config["seq_parallel_communication_data_type"] = self.seq_parallel_communication_data_type
+            config["seq_parallel_communication_data_type"] = (
+                self.seq_parallel_communication_data_type
+            )
 
         return config
 

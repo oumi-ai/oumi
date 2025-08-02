@@ -42,7 +42,7 @@ class TrainerType(Enum):
     """Custom supervised fine-tuning trainer with Ulysses sequence parallelism.
 
     This trainer implements a custom SFT trainer following ArcticTraining patterns
-    with Ulysses sequence parallelism support, enabling training on extremely 
+    with Ulysses sequence parallelism support, enabling training on extremely
     long sequences (500K+ tokens) by sharding sequences across multiple GPUs.
     Does not depend on TRL.
     """
@@ -779,7 +779,8 @@ class TrainingParams(BaseParams):
         if self.trainer_type == TrainerType.TRL_SFT:
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.SFT_ULYSSES:
-            # Use standard HF TrainingArguments for our custom trainer, not TRL SFTConfig
+            # Use standard HF TrainingArguments for our custom trainer,
+            # not TRL SFTConfig
             config_class = transformers.TrainingArguments
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
@@ -790,17 +791,29 @@ class TrainingParams(BaseParams):
 
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
 
-        # Filter out TRL-specific parameters when using our custom trainer with TrainingArguments
+        # Filter out TRL-specific parameters when using our custom trainer
+        # with TrainingArguments
         if self.trainer_type == TrainerType.SFT_ULYSSES:
             trl_specific_params = {
-                "activation_offloading", "completion_only_loss", "dataset_kwargs",
-                "dataset_num_proc", "dataset_text_field", "eos_token", "eval_packing",
-                "max_length", "max_seq_length", "model_init_kwargs", "packing",
-                "pad_to_multiple_of", "pad_token", "padding_free"
+                "activation_offloading",
+                "completion_only_loss",
+                "dataset_kwargs",
+                "dataset_num_proc",
+                "dataset_text_field",
+                "eos_token",
+                "eval_packing",
+                "max_length",
+                "max_seq_length",
+                "model_init_kwargs",
+                "packing",
+                "pad_to_multiple_of",
+                "pad_token",
+                "padding_free",
             }
             # Remove TRL-specific parameters from trainer_kwargs
-            trainer_kwargs = {k: v for k, v in trainer_kwargs.items()
-                            if k not in trl_specific_params}
+            trainer_kwargs = {
+                k: v for k, v in trainer_kwargs.items() if k not in trl_specific_params
+            }
 
         # Add DeepSpeed configuration if enabled
         # NOTE: DeepSpeed config is passed directly to trainer_kwargs instead of through

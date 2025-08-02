@@ -4,7 +4,7 @@
 #
 # Key features:
 # - Enables Ulysses SP with size=3 for true distributed SP testing
-# - Tests full Arctic loss computation path (tiled logits + memory optimization)  
+# - Tests full Arctic loss computation path (tiled logits + memory optimization)
 # - Uses LIMO dataset with long mathematical sequences (up to 8192 tokens)
 # - Validates distributed SP-aware data processing and loss computation
 # - Tests SP-aware label masking to prevent "all labels masked" issue
@@ -37,48 +37,48 @@ data:
 training:
   # Use our custom SFT trainer WITH distributed Ulysses SP
   trainer_type: "SFT_ULYSSES"
-  
+
   # ENABLE distributed Ulysses SP for true Arctic loss testing
   enable_ulysses_sequence_parallel: True
   ulysses_sequence_parallel_size: 3  # 3 GPUs for true SP
-  
+
   # Enable all Arctic memory optimizations
   tiled_mlp_compute: True  # Enable tiled MLP computation
   use_liger_kernel: True  # Use Liger kernel like ArcticTraining
   activation_checkpoint_cpu_offload: False  # Keep on GPU for testing
-  
+
   # Training configuration optimized for SP with long sequences
   max_steps: 10  # Very short run to test Arctic loss with SP on long sequences
   per_device_train_batch_size: 1  # Small batch for memory efficiency with long sequences
   gradient_accumulation_steps: 3  # Test gradient accumulation with early DeepSpeed initialization
-  
+
   # Learning configuration
   learning_rate: 5e-5
   warmup_steps: 1
   weight_decay: 0.01
-  
+
   # Logging and saving
   logging_steps: 1
   save_steps: 5
   save_final_model: True
   output_dir: "output/sft_ulysses_arctic_loss_distributed_test"
-  
+
   # Disable evaluation for simpler testing
   eval_strategy: "no"
-  
+
   # Memory and performance for SP
   dataloader_num_workers: 0  # Single-threaded for stability
   enable_gradient_checkpointing: True  # Test with gradient checkpointing
   mixed_precision_dtype: "BF16"  # Use mixed precision with SP
-  
+
   # SFT kwargs for SP
   trainer_kwargs:
     pad_to_multiple_of: 3  # Pad sequences to multiples of SP size
-  
+
   # Seed for reproducibility
   seed: 42
   data_seed: 42
-  
+
   # Logging
   log_level: "info"  # Verbose to see Arctic loss messages
   enable_tensorboard: True
@@ -90,37 +90,37 @@ deepspeed:
   enable_deepspeed: True
   zero_stage: "ZERO_3"  # ZERO_3 with CPU offloading
   precision: "BF16"
-  
+
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
   seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
-  
+
   # Distributed Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 3  # Must match training parameter
-  
+
   # ZERO_3 CPU offloading (exact match to ArcticTraining)
   zero_force_ds_cpu_optimizer: False  # Allow PyTorch AdamW optimizer with offloading
-  
+
   # CPU optimizer offloading for ZERO_3 + SP compatibility
   offload_optimizer:
     device: "CPU"
     pin_memory: True
     buffer_count: 4
-    
+
   # CPU parameter offloading for memory efficiency with ZERO_3
   offload_param:
-    device: "CPU" 
+    device: "CPU"
     pin_memory: True
     buffer_count: 4
-  
+
   # Communication settings for distributed SP (ArcticTraining settings)
   allgather_partitions: True
   allgather_bucket_size: 50000000  # 5e7
   overlap_comm: True
   contiguous_gradients: True
-  
+
   # Optimizer settings
   zero_allow_untested_optimizer: True
-  
+
   # Training settings
   train_batch_size: "auto"
   train_micro_batch_size_per_gpu: "auto"

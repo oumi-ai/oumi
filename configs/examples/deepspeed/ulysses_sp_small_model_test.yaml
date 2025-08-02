@@ -59,7 +59,7 @@ training:
 
   # Disable checkpointing for small model
   enable_gradient_checkpointing: False
-  
+
   # Memory optimizations already set above
 
   optimizer: "adamw_torch"
@@ -99,7 +99,7 @@ deepspeed:
 
   # Ulysses Sequence Parallelism
   ulysses_sequence_parallel_size: 3  # Must match training parameter
-  
+
   # CRITICAL: ArcticTraining compatibility setting for ZeRO + SP
   seq_parallel_communication_data_type: "bf16"  # Essential for ZeRO + SP compatibility
 

@@ -726,11 +726,10 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
         # Scale loss for gradient accumulation
         loss = loss / self.args.gradient_accumulation_steps
 
-
         # Use DeepSpeed model's backward method (following ArcticTraining pattern)
         # This should handle ZeRO-3 + SP gradient management better than loss.backward()
         try:
-            if hasattr(self.model, 'backward') and hasattr(self.model, 'step'):
+            if hasattr(self.model, "backward") and hasattr(self.model, "step"):
                 # DeepSpeed model - use model.backward() like ArcticTraining
                 self.model.backward(loss)
             else:
@@ -738,7 +737,10 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
                 loss.backward()
         except Exception as e:
             # Debug gradient state on failure for troubleshooting
-            if hasattr(self, 'sp_config') and getattr(self.sp_config, 'is_enabled', lambda: False)():
+            if (
+                hasattr(self, "sp_config")
+                and getattr(self.sp_config, "is_enabled", lambda: False)()
+            ):
                 logger.error(f"Backward pass failed with error: {e}")
                 self._debug_gradient_state(before_backward=False, error=True)
             raise
@@ -752,7 +754,7 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
                 )
 
             # Use DeepSpeed model's step method when available (following ArcticTraining pattern)
-            if hasattr(self.model, 'step') and hasattr(self.model, 'backward'):
+            if hasattr(self.model, "step") and hasattr(self.model, "backward"):
                 # DeepSpeed model - use model.step() like ArcticTraining
                 self.model.step()
                 # DeepSpeed handles optimizer and scheduler stepping internally
@@ -799,7 +801,9 @@ class ArcticBaseTrainer(BaseTrainer, CallbackMixin, abc.ABC):
             logger.info(f"Evaluation loss: {self.state.eval_loss:.4f}")
         else:
             self.state.eval_loss = float("nan")
-            logger.warning("No valid evaluation losses computed - setting eval_loss to NaN")
+            logger.warning(
+                "No valid evaluation losses computed - setting eval_loss to NaN"
+            )
 
 
 # Default callbacks

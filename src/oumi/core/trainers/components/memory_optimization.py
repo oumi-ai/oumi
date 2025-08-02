@@ -98,7 +98,7 @@ class MemoryOptimizer:
         # Automatically determine number of shards based on memory target
         bs, seqlen = shift_labels.shape
         # Handle DeepSpeed wrapped models for config access
-        if hasattr(model, 'module'):
+        if hasattr(model, "module"):
             vocab_size = model.module.config.vocab_size
         else:
             vocab_size = model.config.vocab_size
@@ -114,7 +114,7 @@ class MemoryOptimizer:
         # Get model outputs (hidden states)
         logger.info("Getting model outputs (forward pass)...")
         # Handle DeepSpeed wrapped models
-        if hasattr(model, 'module'):
+        if hasattr(model, "module"):
             # DeepSpeed wraps the model, access the underlying model
             base_model = model.module
         else:
@@ -126,7 +126,7 @@ class MemoryOptimizer:
         logger.info(f"Hidden states shape: {hidden_states.shape}")
 
         # Handle DeepSpeed wrapped models for lm_head access
-        if hasattr(model, 'module'):
+        if hasattr(model, "module"):
             compute_params = [model.module.lm_head.weight]
         else:
             compute_params = [model.lm_head.weight]
@@ -161,14 +161,32 @@ class MemoryOptimizer:
 
                 # Check loss for NaN/inf
                 if torch.isnan(loss):
-                    logger.error(f"NaN loss returned from model.loss_function! good_items={good_items}")
-                    logger.error(f"logits stats: min={logits.min():.4f}, max={logits.max():.4f}")
-                    logger.error(f"shift_labels stats: min={shift_labels_arg.min()}, max={shift_labels_arg.max()}")
+                    logger.error(
+                        f"NaN loss returned from model.loss_function! good_items={good_items}"
+                    )
+                    logger.error(
+                        f"logits stats: min={logits.min():.4f}, max={logits.max():.4f}"
+                    )
+                    logger.error(
+                        f"shift_labels stats: min={shift_labels_arg.min()}, max={shift_labels_arg.max()}"
+                    )
                     # Return small positive value to prevent NaN propagation but continue training
-                    loss_sum = torch.tensor(1e-6 * good_items, device=logits.device, dtype=logits.dtype, requires_grad=True)
+                    loss_sum = torch.tensor(
+                        1e-6 * good_items,
+                        device=logits.device,
+                        dtype=logits.dtype,
+                        requires_grad=True,
+                    )
                 elif torch.isinf(loss):
-                    logger.error(f"Inf loss returned from model.loss_function! good_items={good_items}")
-                    loss_sum = torch.tensor(1e-6 * good_items, device=logits.device, dtype=logits.dtype, requires_grad=True)
+                    logger.error(
+                        f"Inf loss returned from model.loss_function! good_items={good_items}"
+                    )
+                    loss_sum = torch.tensor(
+                        1e-6 * good_items,
+                        device=logits.device,
+                        dtype=logits.dtype,
+                        requires_grad=True,
+                    )
                 else:
                     loss_sum = loss * good_items
                     logger.debug(f"loss_sum = {loss} * {good_items} = {loss_sum}")
@@ -177,7 +195,7 @@ class MemoryOptimizer:
 
         # Apply tiled computation
         # Pass the unwrapped model to the loss function
-        model_for_loss = model.module if hasattr(model, 'module') else model
+        model_for_loss = model.module if hasattr(model, "module") else model
         total_loss_sum = TiledFusedLogitsLoss.apply(
             fused_logits_loss_fn,
             model_for_loss,
@@ -193,8 +211,15 @@ class MemoryOptimizer:
 
         # Handle case where all labels are masked to prevent division by zero
         if total_good_items == 0:
-            logger.warning("All shift_labels are masked (-100), returning small positive loss to continue training")
-            return torch.tensor(1e-6, device=shift_labels.device, dtype=torch.float32, requires_grad=True)
+            logger.warning(
+                "All shift_labels are masked (-100), returning small positive loss to continue training"
+            )
+            return torch.tensor(
+                1e-6,
+                device=shift_labels.device,
+                dtype=torch.float32,
+                requires_grad=True,
+            )
 
         loss = total_loss_sum / total_good_items
 

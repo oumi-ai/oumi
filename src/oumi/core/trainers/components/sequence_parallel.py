@@ -226,14 +226,20 @@ class SequenceParallelManager:
                             # Suggest compatible lengths
                             suggested_lengths = []
                             for i in range(1, 5):  # Suggest a few options
-                                lower = (seq_len // self.config.sequence_parallel_size) * self.config.sequence_parallel_size
+                                lower = (
+                                    seq_len // self.config.sequence_parallel_size
+                                ) * self.config.sequence_parallel_size
                                 upper = lower + self.config.sequence_parallel_size
                                 if lower > 0:
                                     suggested_lengths.append(lower)
                                 suggested_lengths.append(upper)
 
-                            unique_suggestions = sorted(set(suggested_lengths))[:3]  # Top 3 suggestions
-                            logger.warning(f"Suggested model_max_length values: {unique_suggestions}")
+                            unique_suggestions = sorted(set(suggested_lengths))[
+                                :3
+                            ]  # Top 3 suggestions
+                            logger.warning(
+                                f"Suggested model_max_length values: {unique_suggestions}"
+                            )
 
         except Exception as e:
             logger.error(f"Failed to inspect first batch: {e}")
@@ -384,7 +390,7 @@ class SequenceParallelLossComputer:
         if self.use_liger_kernel:
             logger.debug("Using Liger fused cross-entropy...")
             # Handle DeepSpeed wrapped models
-            if hasattr(model, 'module'):
+            if hasattr(model, "module"):
                 outputs = model.module(**inputs, use_cache=False)
             else:
                 outputs = model(**inputs, use_cache=False)
@@ -433,12 +439,16 @@ class SequenceParallelLossComputer:
                     logger.info(f"  Valid labels: {num_valid_labels}/{total_labels}")
                     if num_valid_labels == 0:
                         logger.error("All labels are -100! This will cause NaN loss.")
-                        logger.error("This usually means the chat template is not matching the data format.")
+                        logger.error(
+                            "This usually means the chat template is not matching the data format."
+                        )
                     elif num_valid_labels < total_labels * 0.1:  # Less than 10% valid
-                        logger.warning(f"Very few valid labels ({num_valid_labels}/{total_labels}). Check data format.")
+                        logger.warning(
+                            f"Very few valid labels ({num_valid_labels}/{total_labels}). Check data format."
+                        )
 
         # Handle DeepSpeed wrapped models
-        if hasattr(model, 'module'):
+        if hasattr(model, "module"):
             # DeepSpeed wraps the model in a DeepSpeedEngine with .module attribute
             outputs = model.module(**inputs, use_cache=False)
         else:
