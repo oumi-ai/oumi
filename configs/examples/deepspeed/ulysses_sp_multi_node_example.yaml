@@ -123,10 +123,11 @@ deepspeed:
     buffer_count: 8  # More buffers for multi-node
 
   # Parameter offloading for extreme memory savings
-  offload_param:
-    device: "CPU"
-    pin_memory: True
-    buffer_count: 8
+  # Disabled to avoid CUDA memory pinning errors
+  # offload_param:
+  #   device: "CPU"
+  #   pin_memory: False
+  #   buffer_count: 8
 
   # Memory optimization
   zero_allow_untested_optimizer: True

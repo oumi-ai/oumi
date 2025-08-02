@@ -114,10 +114,11 @@ deepspeed:
     device: "CPU"
     pin_memory: True
     buffer_count: 4
-  offload_param:
-    device: "CPU"
-    pin_memory: True
-    buffer_count: 5
+  # Disabled to avoid CUDA memory pinning errors
+  # offload_param:
+  #   device: "CPU"
+  #   pin_memory: False
+  #   buffer_count: 5
 
   # Communication optimization for extreme sequences
   allgather_partitions: True

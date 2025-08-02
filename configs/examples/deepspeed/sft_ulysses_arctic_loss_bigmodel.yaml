@@ -3,7 +3,7 @@
 # using the LIMO mathematical reasoning dataset for longer, more complex sequences.
 #
 # Key features:
-# - Enables Ulysses SP with size=3 for true distributed SP testing
+# - Enables Ulysses SP with size=4 for true distributed SP testing
 # - Tests full Arctic loss computation path (tiled logits + memory optimization)
 # - Uses LIMO dataset with long mathematical sequences (up to 32768 tokens)
 # - Validates distributed SP-aware data processing and loss computation
