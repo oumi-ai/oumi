@@ -120,10 +120,11 @@ deepspeed:
   reduce_scatter: False  # Disable reduce scatter optimizations
   
   # Additional settings to disable memory pinning and avoid CUDA errors
-  stage3_max_live_parameters: 1000000000
-  stage3_max_reuse_distance: 1000000000
-  stage3_prefetch_bucket_size: 50000000
-  stage3_param_persistence_threshold: 100000
+  # Use smaller values to minimize GPU memory usage and avoid pinning
+  stage3_max_live_parameters: 100000000  # Smaller to force more CPU offloading
+  stage3_max_reuse_distance: 100000000   # Smaller to force more CPU offloading  
+  stage3_prefetch_bucket_size: 10000000  # Smaller prefetch buckets
+  stage3_param_persistence_threshold: 10000  # Lower threshold to offload more
   stage3_gather_16bit_weights_on_model_save: False
   
   # Note: Memory pinning is controlled via offload_optimizer and offload_param settings above
