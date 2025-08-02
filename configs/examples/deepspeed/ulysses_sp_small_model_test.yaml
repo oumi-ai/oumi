@@ -60,9 +60,7 @@ training:
   # Disable checkpointing for small model
   enable_gradient_checkpointing: False
   
-  # Memory optimizations (keep minimal for small model test)
-  tiled_mlp_compute: False  # Keep disabled for small model
-  use_liger_kernel: False  # Keep disabled for small model test
+  # Memory optimizations already set above
 
   optimizer: "adamw_torch"
   learning_rate: 2e-5
