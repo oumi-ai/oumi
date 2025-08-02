@@ -97,12 +97,7 @@ deepspeed:
   # ulysses_sequence_parallel_size is already set in training section
 
   # ZERO_3 CPU offloading with memory pinning disabled
-  zero_force_ds_cpu_optimizer: False  # Incompatible
-  
-  # Disable memory pinning to avoid CUDA errors
-  zero3_init_flag: False
-  zero3_save_16bit_model: False
-  cpu_offload: True
+  zero_force_ds_cpu_optimizer: False  # Keep as requested
 
   # CPU optimizer offloading for ZERO_3 + SP compatibility
   offload_optimizer:
@@ -117,10 +112,12 @@ deepspeed:
     buffer_count: 4
 
   # Communication settings for distributed SP (ArcticTraining settings)
-  allgather_partitions: True
+  # Disable allgather partitions which may use pinned memory to avoid CUDA errors
+  allgather_partitions: False
   allgather_bucket_size: 50000000  # 5e7
   overlap_comm: True
   contiguous_gradients: True
+  reduce_scatter: False  # Disable reduce scatter optimizations
   
   # Additional settings to disable memory pinning and avoid CUDA errors
   stage3_max_live_parameters: 1000000000
@@ -129,11 +126,7 @@ deepspeed:
   stage3_param_persistence_threshold: 100000
   stage3_gather_16bit_weights_on_model_save: False
   
-  # Disable all forms of memory pinning
-  pin_memory: False
-  # Use CPU tensors for fp16 partitions to avoid GPU pinning
-  fp16_enabled: False
-  bf16_enabled: True
+  # Note: Memory pinning is controlled via offload_optimizer and offload_param settings above
 
   # Optimizer settings
   zero_allow_untested_optimizer: True
