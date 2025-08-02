@@ -383,7 +383,11 @@ class SequenceParallelLossComputer:
 
         if self.use_liger_kernel:
             logger.debug("Using Liger fused cross-entropy...")
-            outputs = model(**inputs, use_cache=False)
+            # Handle DeepSpeed wrapped models
+            if hasattr(model, 'module'):
+                outputs = model.module(**inputs, use_cache=False)
+            else:
+                outputs = model(**inputs, use_cache=False)
             loss = outputs.loss
         else:
             logger.debug("Using tiled logits+loss computation...")
@@ -433,7 +437,12 @@ class SequenceParallelLossComputer:
                     elif num_valid_labels < total_labels * 0.1:  # Less than 10% valid
                         logger.warning(f"Very few valid labels ({num_valid_labels}/{total_labels}). Check data format.")
 
-        outputs = model(**inputs, use_cache=False)
+        # Handle DeepSpeed wrapped models
+        if hasattr(model, 'module'):
+            # DeepSpeed wraps the model in a DeepSpeedEngine with .module attribute
+            outputs = model.module(**inputs, use_cache=False)
+        else:
+            outputs = model(**inputs, use_cache=False)
 
         logger.info(f"Model outputs type: {type(outputs)}")
         logger.info(f"Model outputs has loss: {hasattr(outputs, 'loss')}")

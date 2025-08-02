@@ -97,7 +97,11 @@ class MemoryOptimizer:
 
         # Automatically determine number of shards based on memory target
         bs, seqlen = shift_labels.shape
-        vocab_size = model.config.vocab_size
+        # Handle DeepSpeed wrapped models for config access
+        if hasattr(model, 'module'):
+            vocab_size = model.module.config.vocab_size
+        else:
+            vocab_size = model.config.vocab_size
         logits_numel = bs * seqlen * vocab_size
         size_in_gb = logits_numel * 4 / (2**30)  # fp32
         num_shards = max(1, math.ceil(size_in_gb / slice_size_gb))
@@ -109,13 +113,23 @@ class MemoryOptimizer:
 
         # Get model outputs (hidden states)
         logger.info("Getting model outputs (forward pass)...")
-        outputs = model.model(**inputs, use_cache=False)
+        # Handle DeepSpeed wrapped models
+        if hasattr(model, 'module'):
+            # DeepSpeed wraps the model, access the underlying model
+            base_model = model.module
+        else:
+            base_model = model
+        outputs = base_model.model(**inputs, use_cache=False)
         logger.info("Model forward pass completed")
 
         hidden_states = outputs.last_hidden_state
         logger.info(f"Hidden states shape: {hidden_states.shape}")
 
-        compute_params = [model.lm_head.weight]
+        # Handle DeepSpeed wrapped models for lm_head access
+        if hasattr(model, 'module'):
+            compute_params = [model.module.lm_head.weight]
+        else:
+            compute_params = [model.lm_head.weight]
         mask = None
         output_reduction = "sum"
 
@@ -162,9 +176,11 @@ class MemoryOptimizer:
             return loss_sum
 
         # Apply tiled computation
+        # Pass the unwrapped model to the loss function
+        model_for_loss = model.module if hasattr(model, 'module') else model
         total_loss_sum = TiledFusedLogitsLoss.apply(
             fused_logits_loss_fn,
-            model,
+            model_for_loss,
             hidden_states,
             shift_labels,
             mask,
