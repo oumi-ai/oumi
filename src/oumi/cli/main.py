@@ -26,6 +26,7 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.model import ls as model_ls
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -134,6 +135,10 @@ def get_app() -> typer.Typer:
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
+
+    model_app = typer.Typer(pretty_exceptions_enable=False)
+    model_app.command(name="ls", help="List locally cached models.")(model_ls)
+    app.add_typer(model_app, name="model", help="Manage local model cache.")
 
     return app
 
