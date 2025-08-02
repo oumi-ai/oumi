@@ -106,10 +106,10 @@ deepspeed:
     buffer_count: 4
 
   # CPU parameter offloading for memory efficiency with ZERO_3
-  offload_param:
-    device: "CPU"
-    pin_memory: False
-    buffer_count: 4
+  # offload_param:
+  #   device: "CPU"
+  #   pin_memory: False
+  #   buffer_count: 4
 
   # Communication settings for distributed SP (ArcticTraining settings)
   # Disable allgather partitions which may use pinned memory to avoid CUDA errors
