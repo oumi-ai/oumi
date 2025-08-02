@@ -18,6 +18,7 @@ Allows users to specify the image, question, and answer columns at the config le
 """
 
 import base64
+from pathlib import Path
 from typing import Any, Optional, Union
 
 import pandas as pd
@@ -92,7 +93,14 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
                 "Only one of `system_prompt` or `system_prompt_column` can be provided."
             )
 
-        kwargs["dataset_name"] = hf_dataset_path
+        if Path(hf_dataset_path).exists():
+            # If the path exists, it's a local dataset
+            kwargs["dataset_path"] = hf_dataset_path
+            kwargs["dataset_name"] = "hf_vision"
+        else:
+            # Otherwise, assume it's a remote dataset
+            kwargs["dataset_name"] = hf_dataset_path
+
         super().__init__(**kwargs)
 
     def _get_image_content_item(self, image_data) -> ContentItem:
