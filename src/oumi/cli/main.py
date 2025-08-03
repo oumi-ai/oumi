@@ -26,7 +26,10 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
+from oumi.cli.model import card as model_card
+from oumi.cli.model import get as model_get
 from oumi.cli.model import ls as model_ls
+from oumi.cli.model import rm as model_rm
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -136,6 +139,9 @@ def get_app() -> typer.Typer:
 
     model_app = typer.Typer(pretty_exceptions_enable=False)
     model_app.command(name="ls", help="List locally cached models.")(model_ls)
+    model_app.command(name="get", help="Download a model from Hugging Face.")(model_get)
+    model_app.command(name="card", help="Show the model card for a model.")(model_card)
+    model_app.command(name="rm", help="Remove a model from the local cache.")(model_rm)
     app.add_typer(model_app, name="model", help="Manage local model cache.")
 
     return app
