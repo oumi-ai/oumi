@@ -122,7 +122,7 @@ verbose: true               # Enable detailed logging
 
 ## Examples Directory
 
-See [examples/quantization/](../examples/quantization/) for ready-to-use configurations:
+See {gh}`examples/quantization/ <configs/examples/quantization>` for ready-to-use configurations:
 
 - `quantization_config.yaml` - Basic quantization setup
 - `calibrated_quantization_config.yaml` - Production setup with enhanced calibration

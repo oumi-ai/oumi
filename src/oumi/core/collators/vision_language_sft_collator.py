@@ -55,17 +55,19 @@ class VisionLanguageSftCollator:
     tensor batches.
 
     Key Features:
-        - Processes Conversation objects containing text and image data
-        - Uses model-specific processors to extract image features
-        - Handles tokenization and feature generation in one step
-        - Supports various vision-language architectures
-        - Manages padding, truncation, and label masking
+
+    - Processes Conversation objects containing text and image data
+    - Uses model-specific processors to extract image features
+    - Handles tokenization and feature generation in one step
+    - Supports various vision-language architectures
+    - Manages padding, truncation, and label masking
 
     The collator expects batch items with a "conversation_json" field containing
     serialized Conversation objects. These conversations can include:
-        - Multiple turns of dialogue
-        - Image references (paths, URLs, or base64 data)
-        - System prompts and user/assistant messages
+
+    - Multiple turns of dialogue
+    - Image references (paths, URLs, or base64 data)
+    - System prompts and user/assistant messages
     """
 
     def __init__(
