@@ -636,10 +636,12 @@ class TrainingParams(BaseParams):
 
         1. Values specified by this field.
         2. Values automatically set by Oumi in
-           `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()` for verl params
+           `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()`
+           for verl params
            which have corresponding Oumi params. For example,
            Oumi's `training.output_dir` -> verl's `trainer.default_local_dir`
-        3. Default verl config values in `src/oumi/core/trainers/verl_trainer_config.yaml`.
+        3. Default verl config values in
+           `src/oumi/core/trainers/verl_trainer_config.yaml`.
     """
 
     profiler: ProfilerParams = field(default_factory=ProfilerParams)

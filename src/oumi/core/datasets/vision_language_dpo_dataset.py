@@ -116,8 +116,12 @@ class VisionLanguageDpoDataset(BaseExperimentalDpoDataset):
                     {
                         "prompt": "What's in this image?",
                         "images": ["path/to/image.jpg", ...],  # Optional
-                        "chosen": [{"role": "assistant", "content": "preferred response"}],
-                        "rejected": [{"role": "assistant", "content": "rejected response"}]
+                        "chosen": [
+                            {"role": "assistant", "content": "preferred response"}
+                        ],
+                        "rejected": [
+                            {"role": "assistant", "content": "rejected response"}
+                        ]
                     }
 
         Returns:
