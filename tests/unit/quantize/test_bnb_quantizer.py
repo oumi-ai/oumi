@@ -29,14 +29,12 @@ class TestBitsAndBytesQuantization:
         self.valid_config_4bit = QuantizationConfig(
             model=ModelParams(model_name="gpt2"),
             method="bnb_4bit",
-            output_path="test_model_4bit.pytorch",
-            output_format="pytorch",
+            output_path="test_model_4bit",
         )
         self.valid_config_8bit = QuantizationConfig(
             model=ModelParams(model_name="gpt2"),
             method="bnb_8bit",
-            output_path="test_model_8bit.pytorch",
-            output_format="pytorch",
+            output_path="test_model_8bit",
         )
 
     def test_supported_methods(self):
@@ -46,7 +44,7 @@ class TestBitsAndBytesQuantization:
 
     def test_supported_formats(self):
         """Test BitsAndBytes supported output formats."""
-        expected_formats = ["pytorch", "safetensors"]
+        expected_formats = ["safetensors"]
         assert self.bnb_quantizer.supported_formats == expected_formats
 
     def test_supports_method_4bit(self):
@@ -74,15 +72,13 @@ class TestBitsAndBytesQuantization:
 
     def test_validate_config_invalid_method(self):
         """Test validate_config with non-BNB method."""
-        invalid_config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            method="awq_q4_0",
-            output_path="test.pytorch",
-            output_format="pytorch",
-        )
-
-        with pytest.raises(ValueError, match="not supported by"):
-            self.bnb_quantizer.validate_config(invalid_config)
+        with pytest.raises(ValueError, match="Unsupported output format"):
+            QuantizationConfig(
+                model=ModelParams(model_name="test/model"),
+                method="awq_q4_0",
+                output_path="test",
+                output_format="unknown",
+            )
 
     def test_str_representation(self):
         """Test string representation of BNB quantizer."""
@@ -118,8 +114,8 @@ class TestBitsAndBytesQuantizationSimple:
         config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
             method="bnb_4bit",
-            output_path="test.pytorch",
-            output_format="pytorch",
+            output_path="test",
+            output_format="safetensors",
         )
         # Should not raise
         self.bnb_quantizer.validate_config(config)

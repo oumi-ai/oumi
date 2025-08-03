@@ -42,10 +42,9 @@ def quantize(
             "--method",
             help=(
                 "Quantization method to use. "
-                "AWQ methods (recommended, but GPU only): awq_q4_0 (default), "
+                "AWQ methods: awq_q4_0 (default), "
                 "awq_q4_1, awq_q8_0, awq_f16. "
-                "BitsAndBytes methods (recommended, but CPU only): bnb_4bit, "
-                "bnb_8bit. "
+                "BitsAndBytes methods: bnb_4bit, bnb_8bit. "
             ),
         ),
     ] = "awq_q4_0",
@@ -66,10 +65,7 @@ def quantize(
         str,
         typer.Option(
             "--output",
-            help=(
-                "Output path for the quantized model. "
-                "Default creates 'quantized_model' in current directory."
-            ),
+            help="Output path for the quantized model.",
         ),
     ] = "quantized_model",
 ):
@@ -111,18 +107,8 @@ def quantize(
         if output != "quantized_model.gguf":  # Only override if not default
             parsed_config.output_path = output
 
-        # Determine appropriate output format based on method
-        if method.startswith("awq_"):
-            output_format = "pytorch"
-        elif method.startswith("bnb_"):
-            output_format = "pytorch"  # or "safetensors" depending on preference
-        else:
-            raise ValueError(
-                f"Unsupported quantization method: {method}. "
-                f"Must be one of: {SUPPORTED_METHODS}."
-            )
-
-        parsed_config.output_format = output_format
+        # Only safetensors is supported for now
+        parsed_config.output_format = "safetensors"
     else:
         # Create config from CLI arguments
         if not model:  # Empty string or Nones
