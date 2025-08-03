@@ -16,7 +16,7 @@
 
 import importlib
 import importlib.util
-import importlib
+
 import torch
 from typing_extensions import override
 
@@ -126,7 +126,7 @@ class AwqQuantization(BaseQuantization):
             **(config.model.model_kwargs or {}),
         }
 
-        model = self._awq.AutoAWQForCausalLM.from_pretrained(
+        model = self._awq.AutoAWQForCausalLM.from_pretrained(  # type: ignore
             config.model.model_name, **model_kwargs
         )
         tokenizer = AutoTokenizer.from_pretrained(
