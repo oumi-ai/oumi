@@ -27,6 +27,7 @@ from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
+from oumi.cli.synth import synth
 from oumi.cli.train import train
 
 _ASCII_LOGO = r"""
@@ -77,14 +78,22 @@ def get_app() -> typer.Typer:
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Synthesize a dataset.",
+    )(synth)
+    app.command(  # Alias for synth
+        name="synthesize",
+        hidden=True,
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="🚧 [Experimental] Synthesize a dataset.",
+    )(synth)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
-    if experimental_features_enabled():
-        app.command(
-            context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-            help="🚧 [Experimental] Quantize a model.",
-        )(quantize)
-
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Quantize a model.",
+    )(quantize)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_dataset_file

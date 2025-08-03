@@ -14,6 +14,7 @@ from oumi.cli.judge import judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.main import get_app
+from oumi.cli.synth import synth
 from oumi.cli.train import train
 
 runner = CliRunner()
@@ -48,6 +49,13 @@ def mock_infer():
     with patch("oumi.cli.main.infer") as m_infer:
         _copy_command(m_infer, infer)
         yield m_infer
+
+
+@pytest.fixture
+def mock_synth():
+    with patch("oumi.cli.main.synth") as m_synth:
+        _copy_command(m_synth, synth)
+        yield m_synth
 
 
 @pytest.fixture
@@ -146,6 +154,20 @@ def test_main_infer_registered(mock_infer):
         get_app(), ["infer", "--config", "some/path", "--allow_extraargs"]
     )
     mock_infer.assert_called_once()
+
+
+def test_main_synth_registered(mock_synth):
+    _ = runner.invoke(
+        get_app(), ["synth", "--config", "some/path", "--allow_extraargs"]
+    )
+    mock_synth.assert_called_once()
+
+
+def test_main_synthesize_registered(mock_synth):
+    _ = runner.invoke(
+        get_app(), ["synthesize", "--config", "some/path", "--allow_extraargs"]
+    )
+    mock_synth.assert_called_once()
 
 
 def test_main_fetch_registered(mock_fetch):

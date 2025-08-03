@@ -20,10 +20,11 @@ from oumi.core.configs.params.synthesis_params import (
     GeneratedAttribute,
     PermutableAttribute,
     PermutableAttributeValue,
+    TextMessage,
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
 from oumi.core.synthesis.data_synthesizer import DataSynthesizer
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Role
 
 
 @pytest.fixture
@@ -64,33 +65,29 @@ def mock_generated_attributes():
     return [
         GeneratedAttribute(
             id="content",
-            instruction_messages=Conversation(
-                messages=[
-                    Message(
-                        role=Role.SYSTEM,
-                        content="You are a helpful assistant.",
-                    ),
-                    Message(
-                        role=Role.USER,
-                        content="Write a {style.value} paragraph.",
-                    ),
-                ]
-            ),
+            instruction_messages=[
+                TextMessage(
+                    role=Role.SYSTEM,
+                    content="You are a helpful assistant.",
+                ),
+                TextMessage(
+                    role=Role.USER,
+                    content="Write a {style.value} paragraph.",
+                ),
+            ],
         ),
         GeneratedAttribute(
             id="summary",
-            instruction_messages=Conversation(
-                messages=[
-                    Message(
-                        role=Role.SYSTEM,
-                        content="You are a helpful assistant.",
-                    ),
-                    Message(
-                        role=Role.USER,
-                        content="Summarize the content: {content}",
-                    ),
-                ]
-            ),
+            instruction_messages=[
+                TextMessage(
+                    role=Role.SYSTEM,
+                    content="You are a helpful assistant.",
+                ),
+                TextMessage(
+                    role=Role.USER,
+                    content="Summarize the content: {content}",
+                ),
+            ],
         ),
     ]
 
