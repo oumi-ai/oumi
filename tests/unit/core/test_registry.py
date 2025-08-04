@@ -4,9 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.analyze.dataset_analyzer import (
-    SampleAnalysisResult,
-)
+from oumi.core.analyze.types import SampleAnalysisResult
 from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
@@ -570,8 +568,6 @@ def test_registry_sample_analyzer():
                 conversation_index=0,
                 messages=[],
                 conversation=ConversationAnalysisResult(
-                    conversation_id="dummy",
-                    conversation_index=0,
                     analyzer_metrics={},
                 ),
             )
@@ -594,8 +590,6 @@ def test_registry_sample_analyzer_get_all():
                 conversation_index=0,
                 messages=[],
                 conversation=ConversationAnalysisResult(
-                    conversation_id="analyzer_one",
-                    conversation_index=0,
                     analyzer_metrics={},
                 ),
             )
@@ -612,8 +606,6 @@ def test_registry_sample_analyzer_get_all():
                 conversation_index=0,
                 messages=[],
                 conversation=ConversationAnalysisResult(
-                    conversation_id="analyzer_two",
-                    conversation_index=0,
                     analyzer_metrics={},
                 ),
             )
@@ -635,8 +627,6 @@ def test_registry_sample_analyzer_failure_register_twice():
                 conversation_index=0,
                 messages=[],
                 conversation=ConversationAnalysisResult(
-                    conversation_id="dummy",
-                    conversation_index=0,
                     analyzer_metrics={},
                 ),
             )
@@ -657,8 +647,6 @@ def test_registry_sample_analyzer_failure_register_twice():
                     conversation_index=0,
                     messages=[],
                     conversation=ConversationAnalysisResult(
-                        conversation_id="another_dummy",
-                        conversation_index=0,
                         analyzer_metrics={},
                     ),
                 )

@@ -19,12 +19,12 @@ from typing import Any, Optional, Union
 
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from oumi.core.analyze.dataset_analyzer import (
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
+from oumi.core.analyze.types import (
     ConversationAnalysisResult,
     MessageAnalysisResult,
     SampleAnalysisResult,
 )
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation
 
@@ -104,8 +104,6 @@ class LengthAnalyzer(SampleAnalyzer):
 
             # Create MessageAnalysisResult
             message_result = MessageAnalysisResult(
-                conversation_id=conversation.conversation_id or "unknown",
-                conversation_index=0,  # Single conversation
                 message_index=msg_idx,
                 role=message.role.value,
                 message_id=message.id or f"msg_{msg_idx}",
@@ -125,8 +123,6 @@ class LengthAnalyzer(SampleAnalyzer):
 
         # Create ConversationAnalysisResult
         conversation_result = ConversationAnalysisResult(
-            conversation_id=conversation.conversation_id or "unknown",
-            conversation_index=0,  # Single conversation
             analyzer_metrics=conversation_metrics,
         )
 

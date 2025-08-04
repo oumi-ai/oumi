@@ -13,218 +13,64 @@
 # limitations under the License.
 
 import copy
-from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Optional, Union
 
 import pandas as pd
 from tqdm import tqdm
 
+from oumi.core.analyze.types import (
+    ConversationAnalysisResult,
+    DatasetAnalysisResult,
+    MessageAnalysisResult,
+)
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
-from oumi.core.registry.registry import REGISTRY
+from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import load_dataset_from_config
 from oumi.utils.logging import logger
 
 
-@dataclass
-class MessageAnalysisResult:
-    """Result of analyzing a single message in a conversation.
-
-    Attributes:
-        conversation_id: Unique identifier for the conversation
-        conversation_index: Index of the conversation in the dataset
-        message_index: Index of the message within the conversation
-        role: Role of the message sender (e.g., 'user', 'assistant')
-        message_id: Unique identifier for the message
-        text_content: The text content of the message
-        analyzer_metrics: Dictionary of metrics computed by sample analyzers,
-            with keys prefixed by analyzer ID to avoid conflicts
-    """
-
-    ANALYZER_METRICS_FIELD = "analyzer_metrics"
-
-    conversation_id: str
-    conversation_index: int
-    message_index: int
-    role: str
-    message_id: str
-    text_content: str
-    analyzer_metrics: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary with flattened analyzer metrics.
-
-        Returns:
-            Dictionary representation of the analysis result with analyzer metrics
-            flattened into the main dictionary (prefixed by analyzer ID)
-        """
-        base_dict = asdict(self)
-        # Flatten analyzer_metrics into the main dict
-        analyzer_metrics = base_dict.pop(self.ANALYZER_METRICS_FIELD, {})
-        base_dict.update(analyzer_metrics)
-        return base_dict
-
-
-@dataclass
-class ConversationAnalysisResult:
-    """Result of analyzing a conversation.
-
-    Attributes:
-        conversation_id: Unique identifier for the conversation
-        conversation_index: Index of the conversation in the dataset
-        analyzer_metrics: Dictionary of metrics computed by sample analyzers,
-            with keys prefixed by analyzer ID to avoid conflicts
-    """
-
-    ANALYZER_METRICS_FIELD = "analyzer_metrics"
-
-    conversation_id: str
-    conversation_index: int
-    analyzer_metrics: dict[str, Any]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary with flattened analyzer metrics.
-
-        Returns:
-            Dictionary representation of the analysis result with analyzer metrics
-            flattened into the main dictionary (prefixed by analyzer ID)
-        """
-        base_dict = asdict(self)
-        # Flatten analyzer_metrics into the main dict
-        analyzer_metrics = base_dict.pop(self.ANALYZER_METRICS_FIELD, {})
-        base_dict.update(analyzer_metrics)
-        return base_dict
-
-
-@dataclass
-class SampleAnalysisResult:
-    """Result of analyzing a single conversation sample.
-
-    This class combines both message-level and conversation-level analysis results
-    for a single conversation, making it easier to work with analyzer results.
-
-    Attributes:
-        conversation_id: Unique identifier for the conversation
-        conversation_index: Index of the conversation in the dataset
-        messages: List of analysis results for each individual message
-        conversation: Analysis result for the conversation as a whole
-    """
-
-    conversation_id: str
-    conversation_index: int
-    messages: list[MessageAnalysisResult]
-    conversation: ConversationAnalysisResult
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-
-@dataclass
-class DatasetAnalysisResult:
-    """Complete result of dataset analysis.
-
-    Attributes:
-        dataset_name: Name of the analyzed dataset
-        total_conversations: Total number of conversations in the dataset
-        conversations_analyzed: Number of conversations actually analyzed
-        samples: List of analysis results for each conversation sample
-    """
-
-    dataset_name: str
-    total_conversations: int
-    conversations_analyzed: int
-    samples: list[SampleAnalysisResult]
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """Convert the analysis results to a pandas DataFrame.
-
-        Returns:
-            DataFrame with flattened analyzer metrics for easy querying.
-            Each row represents one message with all its analysis metrics.
-        """
-        # Flatten all messages from all samples into a single list
-        all_messages = []
-        for sample in self.samples:
-            for message in sample.messages:
-                all_messages.append(message.to_dict())
-
-        return pd.DataFrame(all_messages)
-
-    def to_conversation_dataframe(self) -> pd.DataFrame:
-        """Convert the conversation analysis results to a pandas DataFrame.
-
-        Returns:
-            DataFrame with flattened analyzer metrics for easy querying.
-            Each row represents one conversation with all its analysis metrics.
-        """
-        # Convert each conversation to dict with flattened metrics
-        conversation_dicts = [sample.conversation.to_dict() for sample in self.samples]
-        return pd.DataFrame(conversation_dicts)
-
-
 class DatasetAnalyzer:
-    """Orchestrates dataset analysis by creating and managing sample analyzers."""
+    """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
     def __init__(self, config: AnalyzeConfig):
-        """Initialize the dataset analyzer with configuration.
+        """Initialize the dataset analyzer.
 
         Args:
-            config: AnalyzeConfig object containing all analysis parameters
+            config: Configuration for the analysis
         """
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
         self.tokenizer = config.tokenizer
 
+        # Load dataset from config
         self.dataset = load_dataset_from_config(config)
-        self.sample_analyzers = self._initialize_sample_analyzers()
 
-        # Initialize analysis results as None
-        self._analysis_results: Optional[DatasetAnalysisResult] = None
-        self._analysis_df: Optional[pd.DataFrame] = None
-        self._conversation_df: Optional[pd.DataFrame] = None
-
-    def _initialize_sample_analyzers(self):
-        """Initialize sample analyzer plugins from configuration."""
-        sample_analyzers = {}
-        for analyzer_params in self.config.analyzers:
-            try:
-                # Get the analyzer class from the registry
-                analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
-                if analyzer_class is None:
-                    raise ValueError(
-                        f"Sample analyzer '{analyzer_params.id}' not found in registry"
-                    )
-
-                # Prepare parameters for analyzer constructor
-                analyzer_kwargs = dict(analyzer_params.params)
-
-                if self.tokenizer is not None:
-                    analyzer_kwargs["tokenizer"] = self.tokenizer
-
-                # Create analyzer instance with keyword arguments
-                sample_analyzer = analyzer_class(**analyzer_kwargs)
-                sample_analyzers[analyzer_params.id] = sample_analyzer
-                logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
-            except Exception as e:
-                logger.error(
-                    f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
+        # Initialize sample analyzers
+        self.sample_analyzers = {}
+        for analyzer_config in config.analyzers:
+            analyzer_class = REGISTRY.get_sample_analyzer(analyzer_config.id)
+            if analyzer_class is None:
+                raise ValueError(
+                    f"Sample analyzer '{analyzer_config.id}' not found in registry"
                 )
-                logger.error(f"Analyzer configuration: {analyzer_params}")
-        return sample_analyzers
+
+            # Prepare parameters for analyzer constructor
+            analyzer_kwargs = dict(analyzer_config.params)
+
+            # Add tokenizer if provided in config
+            if self.tokenizer is not None:
+                analyzer_kwargs["tokenizer"] = self.tokenizer
+
+            analyzer = analyzer_class(**analyzer_kwargs)
+            self.sample_analyzers[analyzer_config.id] = analyzer
+
+        # Analysis results
+        self._analysis_results: Optional[DatasetAnalysisResult] = None
+        self._merged_df: Optional[pd.DataFrame] = None
+        self._message_df: Optional[pd.DataFrame] = None
+        self._conversation_df: Optional[pd.DataFrame] = None
 
     def analyze_dataset(self) -> None:
         """Analyze the dataset and store results internally.
@@ -272,8 +118,8 @@ class DatasetAnalyzer:
     def _compute_conversation_metrics(self) -> None:
         """Compute metrics for all conversations in the dataset.
 
-        This method processes each conversation once and extracts both
-        message-level and conversation-level metrics from the analyzer results.
+        This method processes each conversation and creates DataFrames with
+        prefixed columns for each analyzer's metrics.
         """
         total_conversations = len(self.dataset)
 
@@ -291,8 +137,9 @@ class DatasetAnalyzer:
             conversations_to_analyze,
         )
 
-        # Collect all analysis results
-        sample_results = []
+        # Collect DataFrames for messages and conversations
+        message_dfs = []
+        conversation_dfs = []
 
         # Use tqdm for progress monitoring
         for conv_idx in tqdm(
@@ -301,127 +148,179 @@ class DatasetAnalyzer:
             unit="conv",
         ):
             conversation = self.dataset.conversation(conv_idx)
+            conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
 
-            # Compute all metrics for this conversation using all analyzers
-            analyzer_results = self._compute_conversation_analyzer_metrics(
-                conversation, conv_idx
-            )
-
-            # Combine results from all analyzers for this conversation
-            if analyzer_results:
-                # Use the first analyzer result as the base and merge others
-                base_result = analyzer_results[0]
-
-                # Merge messages from all analyzers
-                all_messages = base_result.messages.copy()
-                for analyzer_result in analyzer_results[1:]:
-                    all_messages.extend(analyzer_result.messages)
-
-                # Merge conversation metrics from all analyzers
-                all_conversation_metrics = (
-                    base_result.conversation.analyzer_metrics.copy()
-                )
-                for analyzer_result in analyzer_results[1:]:
-                    all_conversation_metrics.update(
-                        analyzer_result.conversation.analyzer_metrics
+            # Process each analyzer for this conversation
+            for analyzer_id, analyzer in self.sample_analyzers.items():
+                try:
+                    analyzer_result = analyzer.compute_metrics(
+                        conversation, self.tokenizer
                     )
 
-                # Create combined conversation result
-                combined_conversation = ConversationAnalysisResult(
-                    conversation_id=conversation.conversation_id or f"conv_{conv_idx}",
-                    conversation_index=conv_idx,
-                    analyzer_metrics=all_conversation_metrics,
-                )
+                    # Convert to DataFrames with prefixed columns
+                    message_df = self._convert_messages_to_df(
+                        analyzer_result.messages, analyzer_id, conversation_id, conv_idx
+                    )
+                    conversation_df = self._convert_conversation_to_df(
+                        analyzer_result.conversation,
+                        analyzer_id,
+                        conversation_id,
+                        conv_idx,
+                    )
 
-                # Create combined sample result
-                sample_result = SampleAnalysisResult(
-                    conversation_id=conversation.conversation_id or f"conv_{conv_idx}",
-                    conversation_index=conv_idx,
-                    messages=all_messages,
-                    conversation=combined_conversation,
-                )
+                    message_dfs.append(message_df)
+                    conversation_dfs.append(conversation_df)
 
-                sample_results.append(sample_result)
+                except Exception as e:
+                    logger.warning(
+                        f"Analyzer {analyzer_id} failed for conversation "
+                        f"{conv_idx}: {e}"
+                    )
 
-        # Create final analysis results
+        # Create final DataFrames
+        if message_dfs:
+            self._message_df = pd.concat(message_dfs, ignore_index=True)
+        else:
+            self._message_df = pd.DataFrame()
+
+        if conversation_dfs:
+            self._conversation_df = pd.concat(conversation_dfs, ignore_index=True)
+        else:
+            self._conversation_df = pd.DataFrame()
+
+        # Create merged DataFrame with both message and conversation metrics
+        if not self._message_df.empty and not self._conversation_df.empty:
+            self._merged_df = self._message_df.merge(
+                self._conversation_df,
+                on=["conversation_id", "conversation_index"],
+                how="left",
+            )
+        elif not self._message_df.empty:
+            self._merged_df = self._message_df.copy()
+        elif not self._conversation_df.empty:
+            self._merged_df = self._conversation_df.copy()
+        else:
+            self._merged_df = pd.DataFrame()
+
+        # Store metadata for backward compatibility
         self._analysis_results = DatasetAnalysisResult(
-            dataset_name=self.dataset_name
-            or "",  # Config validation ensures this is not None
+            dataset_name=self.dataset_name or "",
             total_conversations=total_conversations,
             conversations_analyzed=conversations_to_analyze,
-            samples=sample_results,
+            samples=[],  # Empty since we're using DataFrames now
         )
 
-        # Convert to DataFrames and save as member variables
-        self._analysis_df = self._analysis_results.to_dataframe()
-        self._conversation_df = self._analysis_results.to_conversation_dataframe()
-
-    def _compute_conversation_analyzer_metrics(
-        self, conversation, conv_idx: int
-    ) -> list[SampleAnalysisResult]:
-        """Compute all analyzer metrics for a single conversation.
-
-        Args:
-            conversation: The conversation object to analyze
-            conv_idx: Index of the conversation in the dataset
-
-        Returns:
-            List of SampleAnalysisResult objects from all analyzers
-        """
-        analyzer_results = []
-
-        for analyzer_id, analyzer in self.sample_analyzers.items():
-            try:
-                analyzer_result = analyzer.compute_metrics(conversation, self.tokenizer)
-                analyzer_results.append(analyzer_result)
-            except Exception as e:
-                logger.warning(
-                    f"Analyzer {analyzer_id} failed for conversation {conv_idx}: {e}"
-                )
-
-        return analyzer_results
-
-    def query(
+    def _convert_messages_to_df(
         self,
-        query_expression: str,
+        messages: list[MessageAnalysisResult],
+        analyzer_id: str,
+        conversation_id: str,
+        conversation_index: int,
     ) -> pd.DataFrame:
-        """Query analysis results using pandas query expression.
+        """Convert message results to DataFrame with prefixed columns."""
+        if not messages:
+            return pd.DataFrame()
+
+        rows = []
+        for message in messages:
+            row = {
+                "conversation_id": conversation_id,
+                "conversation_index": conversation_index,
+                "message_index": message.message_index,
+                "role": message.role,
+                "message_id": message.message_id,
+                "text_content": message.text_content,
+            }
+
+            # Add analyzer metrics with message_ prefix
+            for key, value in message.analyzer_metrics.items():
+                row[f"message_{analyzer_id}_{key}"] = value
+
+            rows.append(row)
+
+        return pd.DataFrame(rows)
+
+    def _convert_conversation_to_df(
+        self,
+        conversation: ConversationAnalysisResult,
+        analyzer_id: str,
+        conversation_id: str,
+        conversation_index: int,
+    ) -> pd.DataFrame:
+        """Convert conversation result to DataFrame with prefixed columns."""
+        row = {
+            "conversation_id": conversation_id,
+            "conversation_index": conversation_index,
+        }
+
+        # Add analyzer metrics with conversation_ prefix
+        for key, value in conversation.analyzer_metrics.items():
+            row[f"conversation_{analyzer_id}_{key}"] = value
+
+        return pd.DataFrame([row])
+
+    def query(self, query_expression: str) -> pd.DataFrame:
+        """Query the analysis results using pandas query syntax.
 
         Args:
-            query_expression: Pandas query expression to filter analysis results
-            Please see pandas DataFrame query documentation for more information:
-            https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.query.html
+            query_expression: Pandas query expression (e.g., "char_count > 10")
 
         Returns:
-            DataFrame with filtered analysis results
-
-        Examples:
-            # Filter for short messages
-            short_messages = analyzer.query("length_word_count < 10")
-
-            # Filter for assistant messages
-            assistant_messages = analyzer.query("role == 'assistant'")
-
-            # Filter for long user messages
-            long_user = analyzer.query("role == 'user' and length_word_count > 100")
-
+            DataFrame containing rows that match the query expression
         """
         # Run analysis if not already done
-        if self._analysis_df is None:
+        if self._merged_df is None:
             logger.info("Analysis not yet run, starting analysis...")
             self.analyze_dataset()
-            # After analysis, _analysis_df should be populated
-            assert self._analysis_df is not None
+            # After analysis, _merged_df should be populated
+            assert self._merged_df is not None
 
         # Apply the query filter
         try:
-            filtered_df = self._analysis_df.query(query_expression)
+            filtered_df = self._merged_df.query(query_expression)
             logger.info(f"Query '{query_expression}' returned {len(filtered_df)} rows")
         except Exception as e:
             logger.error(f"Query failed: {e}")
-            raise ValueError(f"Invalid query expression '{query_expression}': {e}")
+            raise ValueError(f"Invalid query expression: {query_expression}") from e
 
         return filtered_df
+
+    @property
+    def analysis_df(self) -> Union[pd.DataFrame, None]:
+        """Get the merged analysis DataFrame with both message and conversation metrics.
+
+        Returns:
+            DataFrame with columns prefixed by message_ and conversation_ for each
+            analyzer
+        """
+        if self._merged_df is None:
+            logger.info("Analysis not yet run, starting analysis...")
+            self.analyze_dataset()
+        return self._merged_df
+
+    @property
+    def message_df(self) -> Union[pd.DataFrame, None]:
+        """Get the message-level analysis DataFrame.
+
+        Returns:
+            DataFrame with message-level metrics prefixed by message_
+        """
+        if self._message_df is None:
+            logger.info("Analysis not yet run, starting analysis...")
+            self.analyze_dataset()
+        return self._message_df
+
+    @property
+    def conversation_df(self) -> Union[pd.DataFrame, None]:
+        """Get the conversation-level analysis DataFrame.
+
+        Returns:
+            DataFrame with conversation-level metrics prefixed by conversation_
+        """
+        if self._conversation_df is None:
+            logger.info("Analysis not yet run, starting analysis...")
+            self.analyze_dataset()
+        return self._conversation_df
 
     def query_conversations(
         self,
@@ -438,11 +337,6 @@ class DatasetAnalyzer:
 
         Examples:
             # Filter for short conversations
-            short_conversations = analyzer.query_conversations(
-                "length_word_count < 100"
-            )
-
-            # Filter for long conversations
             long_conversations = analyzer.query_conversations(
                 "length_token_count > 1000"
             )

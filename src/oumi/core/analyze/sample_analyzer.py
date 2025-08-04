@@ -17,7 +17,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-from oumi.core.analyze.dataset_analyzer import SampleAnalysisResult
+from oumi.core.analyze.types import SampleAnalysisResult
 from oumi.core.types.conversation import Conversation
 
 

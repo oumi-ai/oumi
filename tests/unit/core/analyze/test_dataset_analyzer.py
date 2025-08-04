@@ -12,8 +12,8 @@ from oumi.core.analyze.dataset_analyzer import (
     ConversationAnalysisResult,
     DatasetAnalyzer,
     MessageAnalysisResult,
-    SampleAnalysisResult,
 )
+from oumi.core.analyze.types import SampleAnalysisResult
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -50,8 +50,6 @@ class MockSampleAnalyzer:
 
             # Create MessageAnalysisResult
             message_result = MessageAnalysisResult(
-                conversation_id=conversation.conversation_id or "unknown",
-                conversation_index=0,  # Will be updated by DatasetAnalyzer
                 message_index=msg_idx,
                 role=message.role.value,
                 message_id=message.id or f"msg_{msg_idx}",
@@ -78,8 +76,6 @@ class MockSampleAnalyzer:
 
         # Create ConversationAnalysisResult
         conversation_result = ConversationAnalysisResult(
-            conversation_id=conversation.conversation_id or "unknown",
-            conversation_index=0,  # Will be updated by DatasetAnalyzer
             analyzer_metrics=conversation_metrics,
         )
 
@@ -432,14 +428,17 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
 
     # Find the message with missing conversation ID
     null_conv_message = None
+    null_conv_sample = None
     for sample in results.samples:
         for msg in sample.messages:
             if msg.text_content == "Test message without conversation ID":
                 null_conv_message = msg
+                null_conv_sample = sample
                 break
 
     assert null_conv_message is not None
-    assert null_conv_message.conversation_id == "conv_3"  # Should use fallback
+    assert null_conv_sample is not None
+    assert null_conv_sample.conversation_id == "conv_3"  # Should use fallback
 
 
 def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
