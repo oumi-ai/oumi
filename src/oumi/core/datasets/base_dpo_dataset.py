@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Optional
 
 from typing_extensions import override
 
@@ -28,12 +28,8 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-class BaseExperimentalDpoDataset(BaseMapDataset):
-    """Preprocess the samples to the Oumi format.
-
-    Warning:
-        This class is experimental and subject to change.
-    """
+class BaseDpoDataset(BaseMapDataset):
+    """Preprocess the samples to the Oumi format."""
 
     def __init__(
         self,
@@ -45,7 +41,16 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         return_tensors: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the BaseExperimentalDpoDataset class."""
+        """Initializes a new instance of the BaseDpoDataset class.
+
+        The dataset expects data in the format::
+
+            {
+                "prompt": "How is the weather in Tokyo?",
+                "chosen": [{"role": "assistant", "content": "It's sunny and warm."}],
+                "rejected": [{"role": "assistant", "content": "It's rainy and cold."}]
+            }
+        """
         super().__init__(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
@@ -69,24 +74,13 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         chosen_chat = samples[_CHOSEN_KEY]
         rejected_chat = samples[_REJECTED_KEY]
 
-        chosen_chat_response = self._extract_from_chat_format(chosen_chat)
-        rejected_chat_response = self._extract_from_chat_format(rejected_chat)
-
         return {
             _PROMPT_KEY: prompt,
-            _CHOSEN_KEY: chosen_chat_response,
-            _REJECTED_KEY: rejected_chat_response,
+            _CHOSEN_KEY: chosen_chat,
+            _REJECTED_KEY: rejected_chat,
         }
 
     @override
     def transform(self, sample: dict) -> dict:
         """Transform the samples to the Oumi format."""
         return self.transform_preference(sample)
-
-    def _extract_from_chat_format(self, sample: list[dict[str, Any]]) -> str:
-        """Extract the last 'assistant' turn in the chat."""
-        for turn in sample[::-1]:
-            if turn[_ROLE] == _ASSISTANT:
-                return turn[_CONTENT]
-
-        raise ValueError("No chat turn was found with an 'assistant' role.")

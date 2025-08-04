@@ -468,9 +468,7 @@ def train(
     ) as profiler:
         with torch.profiler.record_function("create_trainer"):
             callbacks = build_training_callbacks(config, model, profiler)
-            processing_class = (
-                tokenizer if processor is None else processor.raw_processor
-            )
+            processing_class = tokenizer if processor is None else processor
             trainer = create_trainer_fn(
                 model=model,
                 processing_class=processing_class,

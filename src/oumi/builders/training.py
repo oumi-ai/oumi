@@ -22,7 +22,12 @@ import trl
 from oumi.core.configs import TrainerType, TrainingParams
 from oumi.core.distributed import is_world_process_zero
 from oumi.core.processors.base_processor import BaseProcessor
-from oumi.core.trainers import BaseTrainer, HuggingFaceTrainer, VerlGrpoTrainer
+from oumi.core.trainers import (
+    BaseTrainer,
+    HuggingFaceTrainer,
+    TrlDpoTrainer,
+    VerlGrpoTrainer,
+)
 from oumi.core.trainers import Trainer as OumiTrainer
 from oumi.utils.logging import logger
 
@@ -103,7 +108,7 @@ def build_trainer(
     if trainer_type == TrainerType.TRL_SFT:
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
-        return _create_hf_builder_fn(trl.DPOTrainer)
+        return _create_hf_builder_fn(TrlDpoTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:
         return _create_hf_builder_fn(trl.GRPOTrainer)
     elif trainer_type == TrainerType.HF:
