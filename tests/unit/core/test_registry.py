@@ -4,6 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from oumi.core.analyze.dataset_analyzer import (
+    SampleAnalysisResult,
+)
 from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
@@ -557,11 +560,21 @@ def test_register_evaluation_fn_without_inputs_happy_path():
 def test_registry_sample_analyzer():
     @register_sample_analyzer("dummy_analyzer")
     class DummyAnalyzer:
-        def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
-            return {"length": len(text_content)}
+        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+            from oumi.core.analyze.dataset_analyzer import (
+                ConversationAnalysisResult,
+            )
 
-        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
-            return {"length": len(str(conversation))}
+            return SampleAnalysisResult(
+                conversation_id="dummy",
+                conversation_index=0,
+                messages=[],
+                conversation=ConversationAnalysisResult(
+                    conversation_id="dummy",
+                    conversation_index=0,
+                    analyzer_metrics={},
+                ),
+            )
 
     assert REGISTRY.contains("dummy_analyzer", RegistryType.SAMPLE_ANALYZER)
     assert REGISTRY.get("dummy_analyzer", RegistryType.SAMPLE_ANALYZER) == DummyAnalyzer
@@ -571,19 +584,39 @@ def test_registry_sample_analyzer():
 def test_registry_sample_analyzer_get_all():
     @register_sample_analyzer("analyzer_one")
     class AnalyzerOne:
-        def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
-            return {"length": len(text_content)}
+        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+            from oumi.core.analyze.dataset_analyzer import (
+                ConversationAnalysisResult,
+            )
 
-        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
-            return {"length": len(str(conversation))}
+            return SampleAnalysisResult(
+                conversation_id="analyzer_one",
+                conversation_index=0,
+                messages=[],
+                conversation=ConversationAnalysisResult(
+                    conversation_id="analyzer_one",
+                    conversation_index=0,
+                    analyzer_metrics={},
+                ),
+            )
 
     @register_sample_analyzer("analyzer_two")
     class AnalyzerTwo:
-        def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
-            return {"word_count": len(text_content.split())}
+        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+            from oumi.core.analyze.dataset_analyzer import (
+                ConversationAnalysisResult,
+            )
 
-        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
-            return {"word_count": len(str(conversation).split())}
+            return SampleAnalysisResult(
+                conversation_id="analyzer_two",
+                conversation_index=0,
+                messages=[],
+                conversation=ConversationAnalysisResult(
+                    conversation_id="analyzer_two",
+                    conversation_index=0,
+                    analyzer_metrics={},
+                ),
+            )
 
     all_analyzers = REGISTRY.get_all(RegistryType.SAMPLE_ANALYZER).values()
     assert list(all_analyzers) == [AnalyzerOne, AnalyzerTwo]
@@ -592,23 +625,43 @@ def test_registry_sample_analyzer_get_all():
 def test_registry_sample_analyzer_failure_register_twice():
     @register_sample_analyzer("duplicate_analyzer")
     class DummyAnalyzer:
-        def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
-            return {"length": len(text_content)}
+        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+            from oumi.core.analyze.dataset_analyzer import (
+                ConversationAnalysisResult,
+            )
 
-        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
-            return {"length": len(str(conversation))}
+            return SampleAnalysisResult(
+                conversation_id="dummy",
+                conversation_index=0,
+                messages=[],
+                conversation=ConversationAnalysisResult(
+                    conversation_id="dummy",
+                    conversation_index=0,
+                    analyzer_metrics={},
+                ),
+            )
 
     with pytest.raises(ValueError) as exception_info:
 
         @register_sample_analyzer("duplicate_analyzer")
         class AnotherDummyAnalyzer:
-            def analyze_message(
-                self, text_content: str, message_metadata: dict
-            ) -> dict:
-                return {"word_count": len(text_content.split())}
+            def compute_metrics(
+                self, conversation, tokenizer=None
+            ) -> SampleAnalysisResult:
+                from oumi.core.analyze.dataset_analyzer import (
+                    ConversationAnalysisResult,
+                )
 
-            def analyze_conversation(self, conversation, tokenizer=None) -> dict:
-                return {"word_count": len(str(conversation).split())}
+                return SampleAnalysisResult(
+                    conversation_id="another_dummy",
+                    conversation_index=0,
+                    messages=[],
+                    conversation=ConversationAnalysisResult(
+                        conversation_id="another_dummy",
+                        conversation_index=0,
+                        analyzer_metrics={},
+                    ),
+                )
 
     assert "already registered" in str(exception_info.value)
 

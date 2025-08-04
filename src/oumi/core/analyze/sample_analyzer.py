@@ -17,6 +17,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
+from oumi.core.analyze.dataset_analyzer import SampleAnalysisResult
 from oumi.core.types.conversation import Conversation
 
 
@@ -24,35 +25,22 @@ class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
 
     @abstractmethod
-    def analyze_message(
-        self, text_content: str, tokenizer: Optional[Any] = None
-    ) -> dict[str, Any]:
-        """Analyze a single message and return metrics.
-
-        Args:
-            text_content: The text content to analyze
-            tokenizer: Optional tokenizer to use for tokenization-based analysis
-
-        Returns:
-            Dictionary containing analysis metrics
-        """
-        pass
-
-    @abstractmethod
-    def analyze_conversation(
+    def compute_metrics(
         self, conversation: Conversation, tokenizer: Optional[Any] = None
-    ) -> dict[str, Any]:
-        """Analyze a conversation and return metrics.
+    ) -> SampleAnalysisResult:
+        """Compute both message-level and conversation-level metrics.
 
-        This method can either aggregate message-level metrics or implement
-        its own conversation-level analysis (e.g., tokenizing the entire
-        rendered conversation).
+        This method analyzes a conversation and returns metrics for both individual
+        messages and the conversation as a whole. Each analyzer can decide its own
+        strategy for computing conversation-level metrics (e.g., aggregating message
+        metrics or implementing custom conversation-level analysis).
 
         Args:
             conversation: The conversation object to analyze
             tokenizer: Optional tokenizer to use for tokenization-based analysis
 
         Returns:
-            Dictionary containing conversation-level analysis metrics
+            SampleAnalysisResult: Complete analysis result containing both
+            message-level and conversation-level metrics for the conversation.
         """
         pass

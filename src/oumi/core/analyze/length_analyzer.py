@@ -19,8 +19,13 @@ from typing import Any, Optional, Union
 
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
+from oumi.core.analyze.dataset_analyzer import (
+    ConversationAnalysisResult,
+    MessageAnalysisResult,
+    SampleAnalysisResult,
+)
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
-from oumi.core.registry.registry import register_sample_analyzer
+from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation
 
 
@@ -64,12 +69,81 @@ class LengthAnalyzer(SampleAnalyzer):
                 "Set token_count=False or provide a tokenizer."
             )
 
-    def analyze_message(
+    def compute_metrics(
+        self,
+        conversation: Conversation,
+        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+    ) -> SampleAnalysisResult:
+        """Compute both message-level and conversation-level length metrics.
+
+        This implementation:
+        1. Analyzes each message individually for message-level metrics
+        2. Renders the entire conversation as text for conversation-level metrics
+           (which may give different results than aggregating message metrics)
+
+        Args:
+            conversation: The conversation object to analyze
+            tokenizer: Optional tokenizer to use for token counting
+
+        Returns:
+            SampleAnalysisResult: Complete analysis result containing both
+            message-level and conversation-level metrics for the conversation.
+        """
+        # Step 1: Compute message-level metrics
+        message_results = []
+        for msg_idx, message in enumerate(conversation.messages):
+            # Get text content for this message
+            if isinstance(message.content, str):
+                text_content = message.content
+            else:
+                # For multimodal content, extract text only
+                text_content = message.compute_flattened_text_content()
+
+            # Compute metrics for this message
+            message_metrics = self._compute_message_metrics(text_content, tokenizer)
+
+            # Create MessageAnalysisResult
+            message_result = MessageAnalysisResult(
+                conversation_id=conversation.conversation_id or "unknown",
+                conversation_index=0,  # Single conversation
+                message_index=msg_idx,
+                role=message.role.value,
+                message_id=message.id or f"msg_{msg_idx}",
+                text_content=text_content,
+                analyzer_metrics=message_metrics,
+            )
+            message_results.append(message_result)
+
+        # Step 2: Compute conversation-level metrics
+        # Render the entire conversation as text
+        conversation_text = self._render_conversation_as_text(conversation)
+
+        # Compute conversation-level metrics
+        conversation_metrics = self._compute_message_metrics(
+            conversation_text, tokenizer
+        )
+
+        # Create ConversationAnalysisResult
+        conversation_result = ConversationAnalysisResult(
+            conversation_id=conversation.conversation_id or "unknown",
+            conversation_index=0,  # Single conversation
+            analyzer_metrics=conversation_metrics,
+        )
+
+        # Create and return SampleAnalysisResult
+        return SampleAnalysisResult(
+            conversation_id=conversation.conversation_id or "unknown",
+            conversation_index=0,  # Single conversation
+            messages=message_results,
+            conversation=conversation_result,
+        )
+
+    def _compute_message_metrics(
         self,
         text_content: str,
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
     ) -> dict[str, Any]:
-        """Analyze text content and return length metrics.
+        """Compute length metrics for a single text content.
 
         Args:
             text_content: The text content to analyze
@@ -105,30 +179,6 @@ class LengthAnalyzer(SampleAnalyzer):
                 metrics["token_count"] = len(tokens)
 
         return metrics
-
-    def analyze_conversation(
-        self,
-        conversation: Conversation,
-        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
-    ) -> dict[str, Any]:
-        """Analyze a conversation and return length metrics.
-
-        This implementation renders the entire conversation as text and then
-        analyzes it as a single unit, which may give different results than
-        aggregating individual message metrics.
-
-        Args:
-            conversation: The conversation object to analyze
-            tokenizer: Optional tokenizer to use for token counting
-
-        Returns:
-            Dictionary containing conversation-level length metrics
-        """
-        # Render the entire conversation as text
-        conversation_text = self._render_conversation_as_text(conversation)
-
-        # Use the same analysis logic as analyze_message
-        return self.analyze_message(conversation_text, tokenizer)
 
     def _render_conversation_as_text(self, conversation: Conversation) -> str:
         """Render a conversation as a single text string.

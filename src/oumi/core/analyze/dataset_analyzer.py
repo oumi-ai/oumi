@@ -97,6 +97,34 @@ class ConversationAnalysisResult:
 
 
 @dataclass
+class SampleAnalysisResult:
+    """Result of analyzing a single conversation sample.
+
+    This class combines both message-level and conversation-level analysis results
+    for a single conversation, making it easier to work with analyzer results.
+
+    Attributes:
+        conversation_id: Unique identifier for the conversation
+        conversation_index: Index of the conversation in the dataset
+        messages: List of analysis results for each individual message
+        conversation: Analysis result for the conversation as a whole
+    """
+
+    conversation_id: str
+    conversation_index: int
+    messages: list[MessageAnalysisResult]
+    conversation: ConversationAnalysisResult
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the analysis result to a dictionary.
+
+        Returns:
+            Dictionary representation of the analysis result
+        """
+        return asdict(self)
+
+
+@dataclass
 class DatasetAnalysisResult:
     """Complete result of dataset analysis.
 
@@ -104,17 +132,13 @@ class DatasetAnalysisResult:
         dataset_name: Name of the analyzed dataset
         total_conversations: Total number of conversations in the dataset
         conversations_analyzed: Number of conversations actually analyzed
-        total_messages: Total number of messages analyzed
-        messages: List of analysis results for each individual message
-        conversations: List of analysis results for each conversation
+        samples: List of analysis results for each conversation sample
     """
 
     dataset_name: str
     total_conversations: int
     conversations_analyzed: int
-    total_messages: int
-    messages: list[MessageAnalysisResult]
-    conversations: list[ConversationAnalysisResult]
+    samples: list[SampleAnalysisResult]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the analysis result to a dictionary.
@@ -131,9 +155,13 @@ class DatasetAnalysisResult:
             DataFrame with flattened analyzer metrics for easy querying.
             Each row represents one message with all its analysis metrics.
         """
-        # Convert each message to dict with flattened metrics
-        message_dicts = [msg.to_dict() for msg in self.messages]
-        return pd.DataFrame(message_dicts)
+        # Flatten all messages from all samples into a single list
+        all_messages = []
+        for sample in self.samples:
+            for message in sample.messages:
+                all_messages.append(message.to_dict())
+
+        return pd.DataFrame(all_messages)
 
     def to_conversation_dataframe(self) -> pd.DataFrame:
         """Convert the conversation analysis results to a pandas DataFrame.
@@ -143,7 +171,7 @@ class DatasetAnalysisResult:
             Each row represents one conversation with all its analysis metrics.
         """
         # Convert each conversation to dict with flattened metrics
-        conversation_dicts = [conv.to_dict() for conv in self.conversations]
+        conversation_dicts = [sample.conversation.to_dict() for sample in self.samples]
         return pd.DataFrame(conversation_dicts)
 
 
@@ -202,9 +230,10 @@ class DatasetAnalyzer:
         """Analyze the dataset and store results internally.
 
         This method performs both message-level and conversation-level analysis
-        using the configured sample analyzers. Each sample analyzer processes
-        individual messages and entire conversations, returning metrics for both.
-        Results are stored internally and can be accessed via the query() method.
+        using the configured sample analyzers. Each analyzer processes entire
+        conversations and returns metrics for both individual messages and
+        conversations as a whole. Results are stored internally and can be
+        accessed via the query() method.
 
         Raises:
             ValueError: If no analyzers are configured for analysis.
@@ -228,12 +257,7 @@ class DatasetAnalyzer:
 
         logger.info(f"Analyzing {conversations_to_analyze} conversations")
 
-        # Step 1: Per-message level analysis
-        logger.info("Step 1: Computing message metrics...")
-        self._compute_message_metrics()
-
-        # Step 2: Per-conversation level analysis
-        logger.info("Step 2: Computing conversation metrics...")
+        # Analyze all conversations in a single pass
         self._compute_conversation_metrics()
 
     @property
@@ -245,58 +269,11 @@ class DatasetAnalyzer:
         """
         return self._analysis_results
 
-    def _compute_message_metrics(self) -> None:
-        """Compute metrics for all messages in the dataset.
-
-        Results are stored in self._analysis_results.
-        """
-        total_conversations = len(self.dataset)
-
-        # Apply conversation limit if specified
-        max_conversations = self.config.sample_count
-
-        if max_conversations is not None:
-            if max_conversations <= 0:
-                raise ValueError(
-                    f"sample_count must be positive, got {max_conversations}. "
-                    "Use None to analyze all conversations."
-                )
-            conversations_to_analyze = min(total_conversations, max_conversations)
-            logger.info(
-                f"Limiting analysis to first {max_conversations} "
-                f"conversations (dataset has {total_conversations} total)"
-            )
-        else:
-            conversations_to_analyze = total_conversations
-
-        logger.info(
-            "Analyzing %d conversations for message-level metrics",
-            conversations_to_analyze,
-        )
-
-        # Collect all message analysis results
-        message_results = []
-
-        # Use tqdm for progress monitoring
-        for conv_idx in tqdm(
-            range(conversations_to_analyze),
-            desc=f"Analyzing messages in {self.dataset_name}",
-            unit="conv",
-        ):
-            conversation = self.dataset.conversation(conv_idx)
-            for msg_idx, message in enumerate(conversation.messages):
-                message_result = self._compute_per_message_metrics(
-                    message, conv_idx, msg_idx, conversation
-                )
-                message_results.append(message_result)
-
-        # Store message results temporarily
-        self._message_results = message_results
-
     def _compute_conversation_metrics(self) -> None:
         """Compute metrics for all conversations in the dataset.
 
-        Results are combined with message results in self._analysis_results.
+        This method processes each conversation once and extracts both
+        message-level and conversation-level metrics from the analyzer results.
         """
         total_conversations = len(self.dataset)
 
@@ -309,12 +286,13 @@ class DatasetAnalyzer:
             conversations_to_analyze = total_conversations
 
         logger.info(
-            "Analyzing %d conversations for conversation-level metrics",
+            "Analyzing %d conversations for both message-level and "
+            "conversation-level metrics",
             conversations_to_analyze,
         )
 
-        # Collect all conversation analysis results
-        conversation_results = []
+        # Collect all analysis results
+        sample_results = []
 
         # Use tqdm for progress monitoring
         for conv_idx in tqdm(
@@ -323,115 +301,85 @@ class DatasetAnalyzer:
             unit="conv",
         ):
             conversation = self.dataset.conversation(conv_idx)
-            conversation_result = self._compute_per_conversation_metrics(
+
+            # Compute all metrics for this conversation using all analyzers
+            analyzer_results = self._compute_conversation_analyzer_metrics(
                 conversation, conv_idx
             )
-            conversation_results.append(conversation_result)
 
-        # Combine message and conversation results
+            # Combine results from all analyzers for this conversation
+            if analyzer_results:
+                # Use the first analyzer result as the base and merge others
+                base_result = analyzer_results[0]
+
+                # Merge messages from all analyzers
+                all_messages = base_result.messages.copy()
+                for analyzer_result in analyzer_results[1:]:
+                    all_messages.extend(analyzer_result.messages)
+
+                # Merge conversation metrics from all analyzers
+                all_conversation_metrics = (
+                    base_result.conversation.analyzer_metrics.copy()
+                )
+                for analyzer_result in analyzer_results[1:]:
+                    all_conversation_metrics.update(
+                        analyzer_result.conversation.analyzer_metrics
+                    )
+
+                # Create combined conversation result
+                combined_conversation = ConversationAnalysisResult(
+                    conversation_id=conversation.conversation_id or f"conv_{conv_idx}",
+                    conversation_index=conv_idx,
+                    analyzer_metrics=all_conversation_metrics,
+                )
+
+                # Create combined sample result
+                sample_result = SampleAnalysisResult(
+                    conversation_id=conversation.conversation_id or f"conv_{conv_idx}",
+                    conversation_index=conv_idx,
+                    messages=all_messages,
+                    conversation=combined_conversation,
+                )
+
+                sample_results.append(sample_result)
+
+        # Create final analysis results
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name
             or "",  # Config validation ensures this is not None
             total_conversations=total_conversations,
             conversations_analyzed=conversations_to_analyze,
-            total_messages=len(self._message_results),
-            messages=self._message_results,
-            conversations=conversation_results,
+            samples=sample_results,
         )
 
         # Convert to DataFrames and save as member variables
         self._analysis_df = self._analysis_results.to_dataframe()
         self._conversation_df = self._analysis_results.to_conversation_dataframe()
 
-    def _compute_per_message_metrics(
-        self, message, conv_idx: int, msg_idx: int, conversation
-    ) -> MessageAnalysisResult:
-        """Compute metrics for a single message.
-
-        Args:
-            message: The message object to analyze
-            conv_idx: Index of the conversation in the dataset
-            msg_idx: Index of the message within the conversation
-            conversation: The conversation object containing the message
-
-        Returns:
-            MessageAnalysisResult: Structured result containing message metadata
-            and analyzer metrics for the individual message.
-        """
-        # Get text content
-        if isinstance(message.content, str):
-            text_content = message.content
-        else:
-            # For multimodal content, extract text only
-            text_content = message.compute_flattened_text_content()
-
-        # Extract basic message information
-        conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
-        message_id = message.id or f"msg_{conv_idx}_{msg_idx}"
-        role = message.role.value
-
-        # Compute metrics using all configured analyzers
-        analyzer_metrics: dict[str, Any] = {}
-        for analyzer_id, analyzer in self.sample_analyzers.items():
-            try:
-                analyzer_metrics_raw = analyzer.analyze_message(
-                    text_content, self.tokenizer
-                )
-                # Prefix metrics with analyzer ID to avoid conflicts
-                for key, value in analyzer_metrics_raw.items():
-                    analyzer_metrics[f"{analyzer_id}_{key}"] = value
-            except Exception as e:
-                logger.warning(
-                    f"Analyzer {analyzer_id} failed for message "
-                    f"{conv_idx}_{msg_idx}: {e}"
-                )
-
-        return MessageAnalysisResult(
-            conversation_id=conversation_id,
-            conversation_index=conv_idx,
-            message_index=msg_idx,
-            role=role,
-            message_id=message_id,
-            text_content=text_content,
-            **{MessageAnalysisResult.ANALYZER_METRICS_FIELD: analyzer_metrics},
-        )
-
-    def _compute_per_conversation_metrics(
+    def _compute_conversation_analyzer_metrics(
         self, conversation, conv_idx: int
-    ) -> ConversationAnalysisResult:
-        """Compute metrics for a single conversation.
+    ) -> list[SampleAnalysisResult]:
+        """Compute all analyzer metrics for a single conversation.
 
         Args:
             conversation: The conversation object to analyze
             conv_idx: Index of the conversation in the dataset
 
         Returns:
-            ConversationAnalysisResult: Structured result containing conversation
-            metadata and analyzer metrics for the entire conversation.
+            List of SampleAnalysisResult objects from all analyzers
         """
-        # Extract basic conversation information
-        conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
+        analyzer_results = []
 
-        # Compute metrics using all configured analyzers
-        analyzer_metrics: dict[str, Any] = {}
         for analyzer_id, analyzer in self.sample_analyzers.items():
             try:
-                analyzer_metrics_raw = analyzer.analyze_conversation(
-                    conversation, self.tokenizer
-                )
-                # Prefix metrics with analyzer ID to avoid conflicts
-                for key, value in analyzer_metrics_raw.items():
-                    analyzer_metrics[f"{analyzer_id}_{key}"] = value
+                analyzer_result = analyzer.compute_metrics(conversation, self.tokenizer)
+                analyzer_results.append(analyzer_result)
             except Exception as e:
                 logger.warning(
                     f"Analyzer {analyzer_id} failed for conversation {conv_idx}: {e}"
                 )
 
-        return ConversationAnalysisResult(
-            conversation_id=conversation_id,
-            conversation_index=conv_idx,
-            **{ConversationAnalysisResult.ANALYZER_METRICS_FIELD: analyzer_metrics},
-        )
+        return analyzer_results
 
     def query(
         self,

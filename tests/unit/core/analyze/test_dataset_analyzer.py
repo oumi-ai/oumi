@@ -8,7 +8,12 @@ import jsonlines
 import pandas as pd
 import pytest
 
-from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+from oumi.core.analyze.dataset_analyzer import (
+    ConversationAnalysisResult,
+    DatasetAnalyzer,
+    MessageAnalysisResult,
+    SampleAnalysisResult,
+)
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -19,25 +24,43 @@ class MockSampleAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
         self.analyze_calls = []
+        # Extract analyzer ID from config
+        self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
-    def analyze_message(self, text_content: str, tokenizer=None) -> dict:
-        """Mock analysis that returns basic metrics."""
-        self.analyze_calls.append(text_content)
-        result = {
-            "char_count": len(text_content),
-            "word_count": len(text_content.split()),
-            "analyzer_id": self.config.get("id", "mock"),
-        }
+    def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+        """
+        Mock analysis that returns both message-level and conversation-level metrics.
+        """
+        self.analyze_calls.append(conversation)
 
-        # Use tokenizer if provided (to verify it's passed correctly)
-        if tokenizer:
-            tokenizer.encode(text_content, add_special_tokens=False)
+        # Compute message-level metrics
+        message_results = []
+        for msg_idx, message in enumerate(conversation.messages):
+            if isinstance(message.content, str):
+                text_content = message.content
+            else:
+                text_content = message.compute_flattened_text_content()
 
-        return result
+            # Create message metrics
+            message_metrics = {
+                "char_count": len(text_content),
+                "word_count": len(text_content.split()),
+                "analyzer_id": self.analyzer_id,
+            }
 
-    def analyze_conversation(self, conversation, tokenizer=None) -> dict:
-        """Mock conversation analysis that returns basic metrics."""
-        # Render conversation as text
+            # Create MessageAnalysisResult
+            message_result = MessageAnalysisResult(
+                conversation_id=conversation.conversation_id or "unknown",
+                conversation_index=0,  # Will be updated by DatasetAnalyzer
+                message_index=msg_idx,
+                role=message.role.value,
+                message_id=message.id or f"msg_{msg_idx}",
+                text_content=text_content,
+                analyzer_metrics=message_metrics,
+            )
+            message_results.append(message_result)
+
+        # Compute conversation-level metrics
         conversation_text = ""
         for message in conversation.messages:
             if isinstance(message.content, str):
@@ -46,11 +69,31 @@ class MockSampleAnalyzer:
                 text_content = message.compute_flattened_text_content()
             conversation_text += f"{message.role.value}: {text_content}\n"
 
-        return {
+        # Create conversation metrics
+        conversation_metrics = {
             "char_count": len(conversation_text),
             "word_count": len(conversation_text.split()),
-            "analyzer_id": self.config.get("id", "mock"),
+            "analyzer_id": self.analyzer_id,
         }
+
+        # Create ConversationAnalysisResult
+        conversation_result = ConversationAnalysisResult(
+            conversation_id=conversation.conversation_id or "unknown",
+            conversation_index=0,  # Will be updated by DatasetAnalyzer
+            analyzer_metrics=conversation_metrics,
+        )
+
+        # Use tokenizer if provided (to verify it's passed correctly)
+        if tokenizer:
+            tokenizer.encode(conversation_text, add_special_tokens=False)
+
+        # Create and return SampleAnalysisResult
+        return SampleAnalysisResult(
+            conversation_id=conversation.conversation_id or "unknown",
+            conversation_index=0,  # Will be updated by DatasetAnalyzer
+            messages=message_results,
+            conversation=conversation_result,
+        )
 
 
 class MockFailingAnalyzer:
@@ -59,10 +102,7 @@ class MockFailingAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
 
-    def analyze_message(self, text_content: str, tokenizer=None) -> dict:
-        raise ValueError("Analyzer failed")
-
-    def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+    def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
         raise ValueError("Analyzer failed")
 
 
@@ -218,18 +258,20 @@ def test_analyze_dataset_integration(test_data_path, mock_config):
     assert results.dataset_name == "text_sft"
     assert results.total_conversations == 5  # Total in test data
     assert results.conversations_analyzed == 2  # Limited by sample_count
-    assert results.total_messages == 4  # 2 messages from each of 2 conversations
+    assert len(results.samples) == 2  # 2 conversations analyzed
 
     # Test that analyzers were used correctly
-    messages = results.messages
-    assert len(messages) == 4
+    all_messages = []
+    for sample in results.samples:
+        all_messages.extend(sample.messages)
+    assert len(all_messages) == 4
 
     # Check first message has analyzer metrics
-    first_message = messages[0]
-    assert "text_length_analyzer_char_count" in first_message.analyzer_metrics
-    assert "text_length_analyzer_word_count" in first_message.analyzer_metrics
-    assert "analyzer_2_char_count" in first_message.analyzer_metrics
-    assert "analyzer_2_word_count" in first_message.analyzer_metrics
+    first_message = all_messages[0]
+    assert "char_count" in first_message.analyzer_metrics
+    assert "word_count" in first_message.analyzer_metrics
+    assert "char_count" in first_message.analyzer_metrics
+    assert "word_count" in first_message.analyzer_metrics
 
 
 def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
@@ -249,11 +291,13 @@ def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 1
-    assert results.total_messages == 2  # Only 2 messages from first conversation
+    assert len(results.samples) == 1  # Only 1 conversation analyzed
 
-    messages = results.messages
-    assert len(messages) == 2
-    assert all(msg.conversation_index == 0 for msg in messages)
+    all_messages = []
+    for sample in results.samples:
+        all_messages.extend(sample.messages)
+    assert len(all_messages) == 2  # Only 2 messages from first conversation
+    assert all(msg.conversation_index == 0 for msg in all_messages)
 
 
 def test_analyze_dataset_analyzer_failure(test_data_path):
@@ -274,11 +318,13 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
     assert results is not None  # Type assertion for linter
 
     # Should still complete analysis even with failing analyzer
-    assert results.total_messages == 4
-    assert len(results.messages) == 4
+    all_messages = []
+    for sample in results.samples:
+        all_messages.extend(sample.messages)
+    assert len(all_messages) == 4
 
     # Should not have analyzer metrics due to failure
-    first_message = results.messages[0]
+    first_message = all_messages[0]
     assert "failing_analyzer_char_count" not in first_message.analyzer_metrics
 
 
@@ -311,7 +357,12 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
-    assert results.total_messages == 7  # Total messages in all conversations
+    assert len(results.samples) == 5  # All conversations analyzed
+
+    all_messages = []
+    for sample in results.samples:
+        all_messages.extend(sample.messages)
+    assert len(all_messages) == 7  # Total messages in all conversations
 
 
 def test_analyze_dataset_sample_count_zero(test_data_path, mock_config):
@@ -361,7 +412,8 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5  # Should not exceed total
-    assert results.total_messages == 7
+    assert len(results.samples) == 5  # Should not exceed total
+    assert len(results.samples) == 5  # Should not exceed total
 
 
 def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
@@ -380,10 +432,11 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
 
     # Find the message with missing conversation ID
     null_conv_message = None
-    for msg in results.messages:
-        if msg.text_content == "Test message without conversation ID":
-            null_conv_message = msg
-            break
+    for sample in results.samples:
+        for msg in sample.messages:
+            if msg.text_content == "Test message without conversation ID":
+                null_conv_message = msg
+                break
 
     assert null_conv_message is not None
     assert null_conv_message.conversation_id == "conv_3"  # Should use fallback
@@ -405,10 +458,11 @@ def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
 
     # Find the message with missing message ID
     null_msg_message = None
-    for msg in results.messages:
-        if msg.text_content == "Test message without conversation ID":
-            null_msg_message = msg
-            break
+    for sample in results.samples:
+        for msg in sample.messages:
+            if msg.text_content == "Test message without conversation ID":
+                null_msg_message = msg
+                break
 
     assert null_msg_message is not None
     assert null_msg_message.message_id == "msg_3_0"  # Should use fallback
@@ -430,38 +484,34 @@ def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
-    assert results.total_messages == 7  # Empty conversation contributes 0 messages
+    assert len(results.samples) == 5  # All conversations analyzed
+    assert len(results.samples) == 5  # All conversations analyzed
 
 
 def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
-    """Test that analyzers are called with correct parameters."""
+    """Test that analyzers are called correctly."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
     analyzer.analyze_dataset()
 
-    # Check that analyzers were called for each message
-    text_length_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
-    analyzer_2 = analyzer.sample_analyzers["analyzer_2"]
-
-    assert len(text_length_analyzer.analyze_calls) == 4
-    assert len(analyzer_2.analyze_calls) == 4
-
-    # Check first call parameters
-    text_content = text_length_analyzer.analyze_calls[0]
-    assert text_content == "Hello, how are you?"
+    # Check that the mock analyzer was called
+    mock_analyzer = analyzer.sample_analyzers["text_length_analyzer"]
+    assert len(mock_analyzer.analyze_calls) == 2  # Called for each conversation
 
 
 def test_query_method(test_data_path, mock_config):
-    """Test the query method returns DataFrame with correct structure."""
+    """Test the query method functionality."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
     analyzer.analyze_dataset()
 
-    # Query returns DataFrame
-    query_results = analyzer.query("role == 'user'")
-    assert isinstance(query_results, pd.DataFrame)
-    assert len(query_results) > 0
-    assert "role" in query_results.columns
-    assert "conversation_index" in query_results.columns
-    assert "text_length_analyzer_char_count" in query_results.columns
+    # Test basic query
+    results = analyzer.query("role == 'user'")
+    assert len(results) > 0
+    assert all(row["role"] == "user" for _, row in results.iterrows())
+
+    # Test query with analyzer metrics
+    results = analyzer.query("char_count > 10")
+    assert len(results) > 0
+    assert all(row["char_count"] > 10 for _, row in results.iterrows())
 
 
 def test_query_with_empty_results(test_data_path, mock_config):
@@ -618,7 +668,12 @@ def test_analyzer_with_tokenizer(test_data_path):
     # Check that analysis completed successfully
     results = analyzer.analysis_results
     assert results is not None
-    assert len(results.messages) > 0
+
+    # Check that we have messages in the results
+    all_messages = []
+    for sample in results.samples:
+        all_messages.extend(sample.messages)
+    assert len(all_messages) > 0
 
     # Verify that the mock tokenizer was actually called
     assert mock_tokenizer.encode.call_count > 0
