@@ -45,7 +45,7 @@ class AwqQuantization(BaseQuantization):
     """
 
     supported_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
-    supported_formats = ["safetensors", "pytorch"]
+    supported_formats = ["safetensors"]
 
     def __init__(self):
         """Initialize AWQ quantizer."""
@@ -80,9 +80,6 @@ class AwqQuantization(BaseQuantization):
             Dictionary containing quantization results
         """
         self.validate_config(config)
-        if config.output_format != "pytorch":
-            raise ValueError("AWQ quantization only supports PyTorch format.")
-
         logger.info("Starting AWQ quantization pipeline...")
 
         # Step 1: AWQ quantization
