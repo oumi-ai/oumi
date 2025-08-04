@@ -80,9 +80,6 @@ class AwqQuantization(BaseQuantization):
             Dictionary containing quantization results
         """
         self.validate_config(config)
-        if config.output_format != "pytorch":
-            raise ValueError("AWQ quantization only supports PyTorch format.")
-
         logger.info("Starting AWQ quantization pipeline...")
 
         # Step 1: AWQ quantization
