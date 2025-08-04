@@ -70,9 +70,8 @@ dependencies = [
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
     # if python > 3.13, install from source for now.
-    "torchdata>=0.9.0,<0.10.0; python_version < '3.13'",   # Used by data pipes loader
-    "torchdata>=0.10.0,<0.11.0; python_version >= '3.13'",
-    "torchvision>=0.21.0,<0.22",                           # Used by some VLM-s (multimodal)
+    "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
+    "torchvision>=0.21.0,<0.22", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
