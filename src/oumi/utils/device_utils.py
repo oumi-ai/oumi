@@ -16,14 +16,13 @@ from collections.abc import Sequence
 from pprint import pformat
 from typing import NamedTuple, Optional
 
-from pynvml import NVML_ERROR_NOT_SUPPORTED, NVMLError
-
 from oumi.utils.logging import logger
 
 try:
     # The library is only useful for NVIDIA GPUs, and
     # may not be installed for other vendors e.g., AMD
     import pynvml  # pyright: ignore[reportMissingImports]
+    from pynvml import NVML_ERROR_NOT_SUPPORTED, NVMLError
 except ModuleNotFoundError:
     pynvml = None
 
