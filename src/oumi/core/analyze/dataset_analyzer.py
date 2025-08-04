@@ -364,7 +364,8 @@ class DatasetAnalyzer:
         Returns:
             A new dataset object containing only the filtered conversations
 
-        Examples:
+        Examples::
+
             # Filter for conversations with short messages
             short_dataset = analyzer.filter("length_word_count < 10")
 
@@ -373,8 +374,8 @@ class DatasetAnalyzer:
 
             # Filter for conversations with long user messages
             long_user_dataset = analyzer.filter(
-                "role == 'user' and length_word_count > 100"
-            )
+                "role == 'user' and length_word_count > 100")
+
         """
         # Get filtered analysis results
         filtered_df = self.query(query_expression)

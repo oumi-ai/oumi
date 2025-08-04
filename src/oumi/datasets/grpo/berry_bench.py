@@ -30,22 +30,23 @@ _SYSTEM_PROMPT = (
 class BerryBenchGrpoDataset(BaseExperimentalGrpoDataset):
     r"""Dataset class for the `oumi-ai/berrybench-v0.1.1` dataset.
 
-    A sample from the dataset:
-    {
-        "messages": [
-            {
-                "content": "Return a JSON object showing the frequency of each character in the word '黒い'. Only include characters that appear in the word.",
-                "role": "user",
-            }
-        ],
-        "metadata": {
-            "character_count": 2,
-            "difficulty": 3,
-            "expected_response": '{"\\u9ed2": 1, "\\u3044": 1}',
-            "language": "japanese",
-            "word": "黒い",
-        },
-    }
+    A sample from the dataset::
+
+        {
+            "messages": [
+                {
+                    "content": "Return a JSON object showing the frequency of each character in the word '黒い'. Only include characters that appear in the word.",
+                    "role": "user",
+                }
+            ],
+            "metadata": {
+                "character_count": 2,
+                "difficulty": 3,
+                "expected_response": '{"\\u9ed2": 1, "\\u3044": 1}',
+                "language": "japanese",
+                "word": "黒い",
+            },
+        }
     """  # noqa: E501
 
     default_dataset = "oumi-ai/berrybench-v0.1.1"
