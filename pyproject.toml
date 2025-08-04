@@ -156,6 +156,8 @@ evaluation = [
     "sentencepiece>=0.1.98",
 ]
 
+quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46"]
+
 bitnet = ["onebitllms>=0.0.3"]
 
 cambrian = [
