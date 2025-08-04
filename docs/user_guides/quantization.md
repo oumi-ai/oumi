@@ -4,6 +4,8 @@
 
 This guide covers the `oumi quantize` command for reducing model size while maintaining performance.
 
+> **NOTE**: Quantization requires a GPU to run.
+
 ## Quick Start
 
 ```bash
@@ -93,10 +95,12 @@ Currently supported output formats:
 ## Installation
 
 ```bash
-# For AWQ quantization
+pip install oumi[quantization]
+
+# Alternatively, for AWQ quantization only
 pip install autoawq
 
-# For BitsAndBytes quantization
+# Alternatively, for BitsAndBytes quantization only
 pip install bitsandbytes
 ```
 

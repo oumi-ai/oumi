@@ -60,7 +60,7 @@ class AwqQuantization(BaseQuantization):
         if self._awq is None:
             raise RuntimeError(
                 "AWQ quantization requires autoawq library.\n"
-                "Install with: `pip install autoawq`\n"
+                "Install with: `pip install oumi[quantization]`\n"
             )
 
         if not torch.cuda.is_available():
