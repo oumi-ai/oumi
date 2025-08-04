@@ -17,6 +17,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
+from oumi.core.types.conversation import Conversation
+
 
 class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
@@ -33,5 +35,24 @@ class SampleAnalyzer(ABC):
 
         Returns:
             Dictionary containing analysis metrics
+        """
+        pass
+
+    @abstractmethod
+    def analyze_conversation(
+        self, conversation: Conversation, tokenizer: Optional[Any] = None
+    ) -> dict[str, Any]:
+        """Analyze a conversation and return metrics.
+
+        This method can either aggregate message-level metrics or implement
+        its own conversation-level analysis (e.g., tokenizing the entire
+        rendered conversation).
+
+        Args:
+            conversation: The conversation object to analyze
+            tokenizer: Optional tokenizer to use for tokenization-based analysis
+
+        Returns:
+            Dictionary containing conversation-level analysis metrics
         """
         pass

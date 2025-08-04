@@ -35,6 +35,23 @@ class MockSampleAnalyzer:
 
         return result
 
+    def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+        """Mock conversation analysis that returns basic metrics."""
+        # Render conversation as text
+        conversation_text = ""
+        for message in conversation.messages:
+            if isinstance(message.content, str):
+                text_content = message.content
+            else:
+                text_content = message.compute_flattened_text_content()
+            conversation_text += f"{message.role.value}: {text_content}\n"
+
+        return {
+            "char_count": len(conversation_text),
+            "word_count": len(conversation_text.split()),
+            "analyzer_id": self.config.get("id", "mock"),
+        }
+
 
 class MockFailingAnalyzer:
     """Mock analyzer that always fails."""
@@ -43,6 +60,9 @@ class MockFailingAnalyzer:
         self.config = kwargs
 
     def analyze_message(self, text_content: str, tokenizer=None) -> dict:
+        raise ValueError("Analyzer failed")
+
+    def analyze_conversation(self, conversation, tokenizer=None) -> dict:
         raise ValueError("Analyzer failed")
 
 

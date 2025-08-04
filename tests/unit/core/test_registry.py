@@ -560,6 +560,9 @@ def test_registry_sample_analyzer():
         def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
             return {"length": len(text_content)}
 
+        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+            return {"length": len(str(conversation))}
+
     assert REGISTRY.contains("dummy_analyzer", RegistryType.SAMPLE_ANALYZER)
     assert REGISTRY.get("dummy_analyzer", RegistryType.SAMPLE_ANALYZER) == DummyAnalyzer
     assert not REGISTRY.contains("some_other_analyzer", RegistryType.SAMPLE_ANALYZER)
@@ -571,10 +574,16 @@ def test_registry_sample_analyzer_get_all():
         def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
             return {"length": len(text_content)}
 
+        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+            return {"length": len(str(conversation))}
+
     @register_sample_analyzer("analyzer_two")
     class AnalyzerTwo:
         def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
             return {"word_count": len(text_content.split())}
+
+        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+            return {"word_count": len(str(conversation).split())}
 
     all_analyzers = REGISTRY.get_all(RegistryType.SAMPLE_ANALYZER).values()
     assert list(all_analyzers) == [AnalyzerOne, AnalyzerTwo]
@@ -586,6 +595,9 @@ def test_registry_sample_analyzer_failure_register_twice():
         def analyze_message(self, text_content: str, message_metadata: dict) -> dict:
             return {"length": len(text_content)}
 
+        def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+            return {"length": len(str(conversation))}
+
     with pytest.raises(ValueError) as exception_info:
 
         @register_sample_analyzer("duplicate_analyzer")
@@ -594,6 +606,9 @@ def test_registry_sample_analyzer_failure_register_twice():
                 self, text_content: str, message_metadata: dict
             ) -> dict:
                 return {"word_count": len(text_content.split())}
+
+            def analyze_conversation(self, conversation, tokenizer=None) -> dict:
+                return {"word_count": len(str(conversation).split())}
 
     assert "already registered" in str(exception_info.value)
 

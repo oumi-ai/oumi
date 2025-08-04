@@ -20,6 +20,7 @@ with different types of sample analyzers (length, safety, etc.).
 
 # Import base classes
 from oumi.core.analyze.dataset_analyzer import (
+    ConversationAnalysisResult,
     DatasetAnalysisResult,
     DatasetAnalyzer,
     MessageAnalysisResult,
@@ -34,5 +35,6 @@ __all__ = [
     "DatasetAnalyzer",
     "DatasetAnalysisResult",
     "MessageAnalysisResult",
+    "ConversationAnalysisResult",
     "LengthAnalyzer",
 ]

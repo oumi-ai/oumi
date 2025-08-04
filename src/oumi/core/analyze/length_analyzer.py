@@ -21,6 +21,7 @@ from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry.registry import register_sample_analyzer
+from oumi.core.types.conversation import Conversation
 
 
 @register_sample_analyzer("length")
@@ -104,3 +105,53 @@ class LengthAnalyzer(SampleAnalyzer):
                 metrics["token_count"] = len(tokens)
 
         return metrics
+
+    def analyze_conversation(
+        self,
+        conversation: Conversation,
+        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+    ) -> dict[str, Any]:
+        """Analyze a conversation and return length metrics.
+
+        This implementation renders the entire conversation as text and then
+        analyzes it as a single unit, which may give different results than
+        aggregating individual message metrics.
+
+        Args:
+            conversation: The conversation object to analyze
+            tokenizer: Optional tokenizer to use for token counting
+
+        Returns:
+            Dictionary containing conversation-level length metrics
+        """
+        # Render the entire conversation as text
+        conversation_text = self._render_conversation_as_text(conversation)
+
+        # Use the same analysis logic as analyze_message
+        return self.analyze_message(conversation_text, tokenizer)
+
+    def _render_conversation_as_text(self, conversation: Conversation) -> str:
+        """Render a conversation as a single text string.
+
+        Args:
+            conversation: The conversation to render
+
+        Returns:
+            The conversation rendered as text with role prefixes
+        """
+        rendered_parts = []
+
+        for message in conversation.messages:
+            # Get the text content of the message
+            if isinstance(message.content, str):
+                text_content = message.content
+            else:
+                # For multimodal content, extract text only
+                text_content = message.compute_flattened_text_content()
+
+            # Add role prefix and message content
+            role_prefix = f"{message.role.value}: "
+            rendered_parts.append(role_prefix + text_content)
+
+        # Join all messages with newlines
+        return "\n".join(rendered_parts)
