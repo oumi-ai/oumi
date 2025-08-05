@@ -22,6 +22,7 @@
 </p>
 
 ## 🔥 News
+- [2025/08] [Oumi v0.3.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.3.0) with model quantization (AWQ), an improved LLM-as-a-Judge API, and Adaptive Inference
 - [2025/07] Recipe for [Qwen3 235B](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml)
 - [2025/07] July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://youtu.be/f3SU_heBP54)
 - [2025/06] [Oumi v0.2.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.2.0) with support for GRPO fine-tuning, a plethora of new model support, and much more
