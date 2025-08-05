@@ -1,0 +1,54 @@
+# Job config to LoRA tune gpt-oss-20b.
+#
+# Requirements:
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#   - Log into WandB (`wandb login`) or disable `enable_wandb`
+#
+# Usage:
+#   oumi launch up -c oumi://configs/recipes/gpt_oss/sft/20b_lora/lambda_job.yaml --cluster gpt-oss-20b-lora
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: gpt-oss-20b-lora
+
+resources:
+  cloud: lambda
+  accelerators: "A100:1"
+  use_spot: false
+  disk_size: 400 # Disk size in GBs
+
+working_dir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc # WandB credentials
+
+envs:
+  WANDB_PROJECT: oumi-train
+  OUMI_RUN_NAME: gpt-oss-20b.lora
+
+setup: |
+  set -e
+  pip install uv && uv pip install oumi[gpu] hf_transfer
+  uv pip install --upgrade accelerate transformers kernels
+  uv pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/test/cu128
+  uv pip install git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
+
+  # Install model from HF Hub. This tool increases download speed compared to
+  # downloading the model during training.
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download openai/gpt-oss-20b
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi distributed torchrun \
+      -m oumi train \
+      -c oumi://configs/recipes/gpt_oss/sft/20b_lora/train.yaml \
+      --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
