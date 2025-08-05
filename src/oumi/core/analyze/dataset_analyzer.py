@@ -205,14 +205,12 @@ class DatasetAnalyzer:
         )
 
         total_conversations = len(self.dataset)
-
         conversations_to_analyze = min(
             total_conversations, self.config.sample_count or total_conversations
         )
 
         logger.info(f"Analyzing {conversations_to_analyze} conversations")
 
-        # Analyze all conversations in a single pass
         self._compute_conversation_metrics()
 
     @property
@@ -237,6 +235,10 @@ class DatasetAnalyzer:
 
         if max_conversations is not None:
             conversations_to_analyze = min(total_conversations, max_conversations)
+            logger.info(
+                f"Limiting analysis to first {max_conversations} "
+                f"conversations (dataset has {total_conversations} total)"
+            )
         else:
             conversations_to_analyze = total_conversations
 
