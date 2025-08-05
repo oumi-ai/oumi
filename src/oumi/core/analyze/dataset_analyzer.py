@@ -127,43 +127,57 @@ class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
     def __init__(self, config: AnalyzeConfig):
-        """Initialize the dataset analyzer.
+        """Initialize the dataset analyzer with configuration.
 
         Args:
-            config: Configuration for the analysis
+            config: AnalyzeConfig object containing all analysis parameters
         """
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
         self.tokenizer = config.tokenizer
 
-        # Load dataset from config
         self.dataset = load_dataset_from_config(config)
+        self.sample_analyzers = self._initialize_sample_analyzers()
 
-        # Initialize sample analyzers
-        self.sample_analyzers = {}
-        for analyzer_config in config.analyzers:
-            analyzer_class = REGISTRY.get_sample_analyzer(analyzer_config.id)
-            if analyzer_class is None:
-                raise ValueError(
-                    f"Sample analyzer '{analyzer_config.id}' not found in registry"
-                )
-
-            # Prepare parameters for analyzer constructor
-            analyzer_kwargs = dict(analyzer_config.params)
-
-            # Add tokenizer if provided in config
-            if self.tokenizer is not None:
-                analyzer_kwargs["tokenizer"] = self.tokenizer
-
-            analyzer = analyzer_class(**analyzer_kwargs)
-            self.sample_analyzers[analyzer_config.id] = analyzer
-
-        # Analysis results
+        # Initialize analysis results as None
         self._analysis_results: Optional[DatasetAnalysisResult] = None
         self._merged_df: Optional[pd.DataFrame] = None
         self._message_df: Optional[pd.DataFrame] = None
         self._conversation_df: Optional[pd.DataFrame] = None
+
+    def _initialize_sample_analyzers(self) -> dict[str, Any]:
+        """Initialize sample analyzer plugins from configuration.
+
+        Returns:
+            Dictionary mapping analyzer IDs to analyzer instances
+        """
+        sample_analyzers = {}
+        for analyzer_params in self.config.analyzers:
+            try:
+                # Get the analyzer class from the registry
+                analyzer_class = REGISTRY.get_sample_analyzer(analyzer_params.id)
+                if analyzer_class is None:
+                    raise ValueError(
+                        f"Sample analyzer '{analyzer_params.id}' not found in registry"
+                    )
+
+                # Prepare parameters for analyzer constructor
+                analyzer_kwargs = dict(analyzer_params.params)
+
+                if self.tokenizer is not None:
+                    analyzer_kwargs["tokenizer"] = self.tokenizer
+
+                # Create analyzer instance with keyword arguments
+                sample_analyzer = analyzer_class(**analyzer_kwargs)
+                sample_analyzers[analyzer_params.id] = sample_analyzer
+                logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
+            except Exception as e:
+                logger.error(
+                    f"Failed to initialize sample analyzer {analyzer_params.id}: {e}"
+                )
+                logger.error(f"Analyzer configuration: {analyzer_params}")
+        return sample_analyzers
 
     def analyze_dataset(self) -> None:
         """Analyze the dataset and store results internally.
