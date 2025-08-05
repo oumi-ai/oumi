@@ -36,15 +36,17 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
     vision-language preference optimization tasks. It handles the processing of
     both image and text data for preference learning.
 
-    The dataset expects data in the format:
-    {
-        "prompt": "What's in this image?",
-        "images": ["path/to/image.jpg", ...],  # Optional image paths/URLs
-        "chosen": [{"role": "assistant", "content": "I see a cat"}],
-        "rejected": [{"role": "assistant", "content": "I see a dog"}]
-    }
+    The dataset expects data in the format::
 
-    Example:
+        {
+            "prompt": "What's in this image?",
+            "images": ["path/to/image.jpg", ...],  # Optional image paths/URLs
+            "chosen": [{"role": "assistant", "content": "I see a cat"}],
+            "rejected": [{"role": "assistant", "content": "I see a dog"}]
+        }
+
+    Example::
+
         >>> from oumi.builders import build_processor, build_tokenizer
         >>> from oumi.core.configs import ModelParams
         >>> from oumi.core.datasets import VisionLanguageDpoDataset
@@ -106,23 +108,22 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
     def transform_preference(self, sample: dict) -> dict:
         """Transform a DPO sample to the format expected by DPO trainer.
 
-        Args:
-            sample: Raw preference data sample
-
-        Returns:
-            Dict with prompt, chosen, and rejected conversations or features
-
         Transforms a raw DPO example into three Oumi Conversation objects.
 
         Args:
-            example (dict): A dictionary representing a single DPO preference example.
-                Expected format:
-                {
-                    "prompt": "What's in this image?",
-                    "images": ["path/to/image.jpg", ...],  # Optional
-                    "chosen": [{"role": "assistant", "content": "preferred response"}],
-                    "rejected": [{"role": "assistant", "content": "rejected response"}]
-                }
+            sample (dict): A dictionary representing a single DPO preference example.
+                Expected format::
+
+                    {
+                        "prompt": "What's in this image?",
+                        "images": ["path/to/image.jpg", ...],  # Optional
+                        "chosen": [
+                            {"role": "assistant", "content": "preferred response"}
+                        ],
+                        "rejected": [
+                            {"role": "assistant", "content": "rejected response"}
+                        ]
+                    }
 
         Returns:
             Dict with prompt, chosen, and rejected conversations or features

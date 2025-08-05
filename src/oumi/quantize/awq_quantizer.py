@@ -60,7 +60,7 @@ class AwqQuantization(BaseQuantization):
         if self._awq is None:
             raise RuntimeError(
                 "AWQ quantization requires autoawq library.\n"
-                "Install with: `pip install autoawq`\n"
+                "Install with: `pip install oumi[quantization]`\n"
             )
 
         if not torch.cuda.is_available():
@@ -80,9 +80,6 @@ class AwqQuantization(BaseQuantization):
             Dictionary containing quantization results
         """
         self.validate_config(config)
-        if config.output_format != "pytorch":
-            raise ValueError("AWQ quantization only supports PyTorch format.")
-
         logger.info("Starting AWQ quantization pipeline...")
 
         # Step 1: AWQ quantization
