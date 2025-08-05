@@ -13,7 +13,6 @@ from oumi.core.analyze.dataset_analyzer import (
     ConversationAnalysisResult,
     DatasetAnalyzer,
     MessageAnalysisResult,
-    SampleAnalysisResult,
 )
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.datasets import TextSftJsonLinesDataset
@@ -28,7 +27,9 @@ class MockSampleAnalyzer:
         # Extract analyzer ID from config
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
-    def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+    def analyze_sample(
+        self, conversation, tokenizer=None
+    ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
         """
         Mock analysis that returns both message-level and conversation-level metrics.
         """
@@ -84,13 +85,8 @@ class MockSampleAnalyzer:
             analyzer_metrics=conversation_metrics,
         )
 
-        # Create and return SampleAnalysisResult
-        return SampleAnalysisResult(
-            conversation_id=conversation.conversation_id or "unknown",
-            conversation_index=0,  # Single conversation
-            messages=message_results,
-            conversation=conversation_result,
-        )
+        # Return individual components
+        return message_results, conversation_result
 
 
 class MockFailingAnalyzer:

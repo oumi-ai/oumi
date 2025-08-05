@@ -22,7 +22,6 @@ from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from oumi.core.analyze.dataset_analyzer import (
     ConversationAnalysisResult,
     MessageAnalysisResult,
-    SampleAnalysisResult,
 )
 from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
@@ -77,20 +76,22 @@ class LengthAnalyzer(SampleAnalyzer):
         self,
         conversation: Conversation,
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
-    ) -> SampleAnalysisResult:
+    ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
         """Analyze a conversation sample and return comprehensive length metrics.
 
         1. Analyzes each message individually for message-level metrics
-        2. Renders the entire conversation as text for conversation-level metrics
-           (which may give different results than aggregating message metrics)
+        2. Computes conversation-level metrics by:
+           - Aggregating message-level char, word, and sentence counts
+           - Using dataset tokenization for conversation-level token count
 
         Args:
             conversation: The conversation object to analyze
             tokenizer: Optional tokenizer to use for token counting
 
         Returns:
-            SampleAnalysisResult: Complete analysis result containing both
-            message-level and conversation-level metrics for the conversation.
+            Tuple containing:
+            - List of MessageAnalysisResult objects for each message
+            - ConversationAnalysisResult for the conversation as a whole
         """
         # Step 1: Compute message-level metrics
         message_results = self.compute_message_metrics(conversation, tokenizer)
@@ -100,13 +101,8 @@ class LengthAnalyzer(SampleAnalyzer):
             conversation, tokenizer, message_results
         )
 
-        # Create and return SampleAnalysisResult
-        return SampleAnalysisResult(
-            conversation_id=conversation.conversation_id or "unknown",
-            conversation_index=0,  # Single conversation
-            messages=message_results,
-            conversation=conversation_result,
-        )
+        # Return individual components
+        return message_results, conversation_result
 
     def compute_message_metrics(
         self,

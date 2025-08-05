@@ -73,34 +73,6 @@ class ConversationAnalysisResult:
 
 
 @dataclass
-class SampleAnalysisResult:
-    """Result of analyzing a single conversation sample.
-
-    This class combines both message-level and conversation-level analysis results
-    for a single conversation, making it easier to work with analyzer results.
-
-    Attributes:
-        conversation_id: Unique identifier for the conversation
-        conversation_index: Index of the conversation in the dataset
-        messages: List of analysis results for each individual message
-        conversation: Analysis result for the conversation as a whole
-    """
-
-    conversation_id: str
-    conversation_index: int
-    messages: list[MessageAnalysisResult]
-    conversation: ConversationAnalysisResult
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
-
-        Returns:
-            Dictionary representation of the analysis result
-        """
-        return asdict(self)
-
-
-@dataclass
 class DatasetAnalysisResult:
     """Complete result of dataset analysis.
 
@@ -269,16 +241,16 @@ class DatasetAnalyzer:
             conversation_has_data = False
             for analyzer_id, analyzer in self.sample_analyzers.items():
                 try:
-                    analyzer_result = analyzer.analyze_sample(
+                    message_results, conversation_result = analyzer.analyze_sample(
                         conversation, self.tokenizer
                     )
 
                     # Convert to DataFrames with prefixed columns
                     message_df = self._convert_messages_to_df(
-                        analyzer_result.messages, analyzer_id, conversation_id, conv_idx
+                        message_results, analyzer_id, conversation_id, conv_idx
                     )
                     conversation_df = self._convert_conversation_to_df(
-                        analyzer_result.conversation,
+                        conversation_result,
                         analyzer_id,
                         conversation_id,
                         conv_idx,

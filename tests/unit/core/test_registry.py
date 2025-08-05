@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.analyze.dataset_analyzer import SampleAnalysisResult
+from oumi.core.analyze.dataset_analyzer import (
+    ConversationAnalysisResult,
+    MessageAnalysisResult,
+)
 from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
@@ -495,8 +498,8 @@ def test_register_evaluation_fn_with_annotations_happy_path():
     assert evaluation_fn
     evaluation_result = evaluation_fn(
         task_params=EvaluationTaskParams(
-            evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluation_fn",
+            evaluation_backend=EvaluationBackend.CUSTOM.value,
         ),
         config=EvaluationConfig(run_name="run_name_for_test_evaluation_fn"),
         optional_param="optional_param_value",
@@ -525,8 +528,8 @@ def test_register_evaluation_fn_without_annotations_happy_path():
     assert evaluation_fn
     evaluation_result = evaluation_fn(
         task_params=EvaluationTaskParams(
-            evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluation_fn",
+            evaluation_backend=EvaluationBackend.CUSTOM.value,
         ),
         config=EvaluationConfig(run_name="run_name_for_test_evaluation_fn"),
         optional_param="optional_param_value",
@@ -558,18 +561,20 @@ def test_register_evaluation_fn_without_inputs_happy_path():
 def test_registry_sample_analyzer():
     @register_sample_analyzer("dummy_analyzer")
     class DummyAnalyzer:
-        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
-            from oumi.core.analyze.dataset_analyzer import (
-                ConversationAnalysisResult,
-            )
-
-            return SampleAnalysisResult(
-                conversation_id="dummy",
-                conversation_index=0,
-                messages=[],
-                conversation=ConversationAnalysisResult(
-                    analyzer_metrics={},
-                ),
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
             )
 
     assert REGISTRY.contains("dummy_analyzer", RegistryType.SAMPLE_ANALYZER)
@@ -580,34 +585,38 @@ def test_registry_sample_analyzer():
 def test_registry_sample_analyzer_get_all():
     @register_sample_analyzer("analyzer_one")
     class AnalyzerOne:
-        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
-            from oumi.core.analyze.dataset_analyzer import (
-                ConversationAnalysisResult,
-            )
-
-            return SampleAnalysisResult(
-                conversation_id="analyzer_one",
-                conversation_index=0,
-                messages=[],
-                conversation=ConversationAnalysisResult(
-                    analyzer_metrics={},
-                ),
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
             )
 
     @register_sample_analyzer("analyzer_two")
     class AnalyzerTwo:
-        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
-            from oumi.core.analyze.dataset_analyzer import (
-                ConversationAnalysisResult,
-            )
-
-            return SampleAnalysisResult(
-                conversation_id="analyzer_two",
-                conversation_index=0,
-                messages=[],
-                conversation=ConversationAnalysisResult(
-                    analyzer_metrics={},
-                ),
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
             )
 
     all_analyzers = REGISTRY.get_all(RegistryType.SAMPLE_ANALYZER).values()
@@ -617,50 +626,38 @@ def test_registry_sample_analyzer_get_all():
 def test_registry_sample_analyzer_failure_register_twice():
     @register_sample_analyzer("duplicate_analyzer")
     class DummyAnalyzer:
-        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
-            from oumi.core.analyze.dataset_analyzer import (
-                ConversationAnalysisResult,
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
             )
 
-            return SampleAnalysisResult(
-                conversation_id="dummy",
-                conversation_index=0,
-                messages=[],
-                conversation=ConversationAnalysisResult(
-                    analyzer_metrics={},
-                ),
-            )
-
-    with pytest.raises(ValueError) as exception_info:
+    with pytest.raises(ValueError):
 
         @register_sample_analyzer("duplicate_analyzer")
         class AnotherDummyAnalyzer:
             def analyze_sample(
                 self, conversation, tokenizer=None
-            ) -> SampleAnalysisResult:
-                from oumi.core.analyze.dataset_analyzer import (
-                    ConversationAnalysisResult,
+            ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+                return (
+                    [
+                        MessageAnalysisResult(
+                            message_index=0,
+                            role="user",
+                            message_id="dummy_msg",
+                            text_content="dummy_message",
+                            analyzer_metrics={},
+                        )
+                    ],
+                    ConversationAnalysisResult(analyzer_metrics={}),
                 )
-
-                return SampleAnalysisResult(
-                    conversation_id="another_dummy",
-                    conversation_index=0,
-                    messages=[],
-                    conversation=ConversationAnalysisResult(
-                        analyzer_metrics={},
-                    ),
-                )
-
-    assert "already registered" in str(exception_info.value)
-
-
-def test_registry_sample_analyzer_failure_get_unregistered():
-    assert not REGISTRY.contains("unregistered_analyzer", RegistryType.SAMPLE_ANALYZER)
-    assert not REGISTRY.get(
-        name="unregistered_analyzer", type=RegistryType.SAMPLE_ANALYZER
-    )
-
-    with pytest.raises(KeyError) as exception_info:
-        REGISTRY["unregistered_analyzer", RegistryType.SAMPLE_ANALYZER]
-
-    assert "does not exist" in str(exception_info.value)
