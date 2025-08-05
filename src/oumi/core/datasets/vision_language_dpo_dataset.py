@@ -17,7 +17,7 @@ from typing import Any, Optional, Union
 from PIL import Image
 from typing_extensions import override
 
-from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
+from oumi.core.datasets.base_dpo_dataset import BaseDpoDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Type
 from oumi.utils.conversation_utils import load_pil_image_from_content_item
@@ -28,10 +28,10 @@ _REJECTED_KEY = "rejected"
 _IMAGES_KEY = "images"
 
 
-class VisionLanguageDpoDataset(BaseExperimentalDpoDataset):
+class VisionLanguageDpoDataset(BaseDpoDataset):
     """Dataset for vision-language DPO (Direct Preference Optimization) models.
 
-    This class extends BaseExperimentalDpoDataset to provide functionality specific to
+    This class extends BaseDpoDataset to provide functionality specific to
     vision-language preference optimization tasks. It handles the processing of
     both image and text data for preference learning.
 

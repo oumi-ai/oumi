@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from oumi.core.datasets import BaseExperimentalDpoDataset
+from oumi.core.datasets import BaseDpoDataset
 from oumi.core.registry import register_dataset
 
 
 @register_dataset("mlabonne/orpo-dpo-mix-40k")
-class OrpoDpoMix40kDataset(BaseExperimentalDpoDataset):
+class OrpoDpoMix40kDataset(BaseDpoDataset):
     """Preprocess the ORPO dataset for DPO.
 
     A dataset designed for ORPO (Offline Reinforcement Learning for Preference
