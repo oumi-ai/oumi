@@ -138,6 +138,7 @@ class DatasetAnalyzer:
         self.tokenizer = config.tokenizer
 
         self.dataset = load_dataset_from_config(config)
+
         self.sample_analyzers = self._initialize_sample_analyzers()
 
         # Initialize analysis results as None
@@ -204,10 +205,6 @@ class DatasetAnalyzer:
         )
 
         total_conversations = len(self.dataset)
-
-        # Validate sample_count
-        if self.config.sample_count is not None and self.config.sample_count <= 0:
-            raise ValueError("sample_count must be positive")
 
         conversations_to_analyze = min(
             total_conversations, self.config.sample_count or total_conversations
