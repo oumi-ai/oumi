@@ -97,6 +97,11 @@ class DatasetAnalyzer:
         )
 
         total_conversations = len(self.dataset)
+
+        # Validate sample_count
+        if self.config.sample_count is not None and self.config.sample_count <= 0:
+            raise ValueError("sample_count must be positive")
+
         conversations_to_analyze = min(
             total_conversations, self.config.sample_count or total_conversations
         )
@@ -151,6 +156,7 @@ class DatasetAnalyzer:
             conversation_id = conversation.conversation_id or f"conv_{conv_idx}"
 
             # Process each analyzer for this conversation
+            conversation_has_data = False
             for analyzer_id, analyzer in self.sample_analyzers.items():
                 try:
                     analyzer_result = analyzer.compute_metrics(
@@ -168,14 +174,35 @@ class DatasetAnalyzer:
                         conv_idx,
                     )
 
-                    message_dfs.append(message_df)
+                    # Always add conversation_df (even if empty) to ensure conversation
+                    # is represented
                     conversation_dfs.append(conversation_df)
+
+                    # Only add message_df if it has data
+                    if not message_df.empty:
+                        message_dfs.append(message_df)
+                        conversation_has_data = True
 
                 except Exception as e:
                     logger.warning(
                         f"Analyzer {analyzer_id} failed for conversation "
                         f"{conv_idx}: {e}"
                     )
+
+            # If no analyzers succeeded, add a placeholder row for this conversation
+            if not conversation_has_data:
+                # Create a placeholder row with only basic columns (no analyzer columns)
+                placeholder_row = {
+                    "conversation_id": conversation_id,
+                    "conversation_index": conv_idx,
+                    "message_index": 0,  # Add required message columns
+                    "role": "system",  # Default role
+                    "message_id": f"placeholder_{conv_idx}_0",
+                    "text_content": "",  # Empty content
+                }
+
+                placeholder_df = pd.DataFrame([placeholder_row])
+                message_dfs.append(placeholder_df)  # Add to message_dfs instead
 
         # Create final DataFrames
         if message_dfs:
@@ -202,12 +229,11 @@ class DatasetAnalyzer:
         else:
             self._merged_df = pd.DataFrame()
 
-        # Store metadata for backward compatibility
+        # Store metadata
         self._analysis_results = DatasetAnalysisResult(
             dataset_name=self.dataset_name or "",
             total_conversations=total_conversations,
             conversations_analyzed=conversations_to_analyze,
-            samples=[],  # Empty since we're using DataFrames now
         )
 
     def _convert_messages_to_df(

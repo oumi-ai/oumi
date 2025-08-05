@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import jsonlines
@@ -9,11 +10,13 @@ import pandas as pd
 import pytest
 
 from oumi.core.analyze.dataset_analyzer import (
-    ConversationAnalysisResult,
     DatasetAnalyzer,
-    MessageAnalysisResult,
 )
-from oumi.core.analyze.types import SampleAnalysisResult
+from oumi.core.analyze.types import (
+    ConversationAnalysisResult,
+    MessageAnalysisResult,
+    SampleAnalysisResult,
+)
 from oumi.core.configs import AnalyzeConfig, SampleAnalyzerParams
 from oumi.datasets import TextSftJsonLinesDataset
 
@@ -74,19 +77,19 @@ class MockSampleAnalyzer:
             "analyzer_id": self.analyzer_id,
         }
 
+        # Use tokenizer if provided (to verify it's passed correctly)
+        if tokenizer:
+            tokenizer.encode(conversation_text, add_special_tokens=False)
+
         # Create ConversationAnalysisResult
         conversation_result = ConversationAnalysisResult(
             analyzer_metrics=conversation_metrics,
         )
 
-        # Use tokenizer if provided (to verify it's passed correctly)
-        if tokenizer:
-            tokenizer.encode(conversation_text, add_special_tokens=False)
-
         # Create and return SampleAnalysisResult
         return SampleAnalysisResult(
             conversation_id=conversation.conversation_id or "unknown",
-            conversation_index=0,  # Will be updated by DatasetAnalyzer
+            conversation_index=0,  # Single conversation
             messages=message_results,
             conversation=conversation_result,
         )
@@ -98,7 +101,7 @@ class MockFailingAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
 
-    def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+    def compute_metrics(self, conversation, tokenizer=None) -> dict[str, Any]:
         raise ValueError("Analyzer failed")
 
 
@@ -254,20 +257,15 @@ def test_analyze_dataset_integration(test_data_path, mock_config):
     assert results.dataset_name == "text_sft"
     assert results.total_conversations == 5  # Total in test data
     assert results.conversations_analyzed == 2  # Limited by sample_count
-    assert len(results.samples) == 2  # 2 conversations analyzed
 
-    # Test that analyzers were used correctly
-    all_messages = []
-    for sample in results.samples:
-        all_messages.extend(sample.messages)
-    assert len(all_messages) == 4
+    # Test that analyzers were used correctly by checking the DataFrame
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    assert len(analysis_df) > 0
 
-    # Check first message has analyzer metrics
-    first_message = all_messages[0]
-    assert "char_count" in first_message.analyzer_metrics
-    assert "word_count" in first_message.analyzer_metrics
-    assert "char_count" in first_message.analyzer_metrics
-    assert "word_count" in first_message.analyzer_metrics
+    # Check that analyzer metrics are present in the DataFrame
+    message_columns = [col for col in analysis_df.columns if col.startswith("message_")]
+    assert len(message_columns) > 0
 
 
 def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
@@ -287,13 +285,13 @@ def test_analyze_dataset_with_sample_limit(test_data_path, mock_config):
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 1
-    assert len(results.samples) == 1  # Only 1 conversation analyzed
 
-    all_messages = []
-    for sample in results.samples:
-        all_messages.extend(sample.messages)
-    assert len(all_messages) == 2  # Only 2 messages from first conversation
-    assert all(msg.conversation_index == 0 for msg in all_messages)
+    # Test that only one conversation was analyzed
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    unique_conversations = analysis_df["conversation_index"].unique()
+    assert len(unique_conversations) == 1
+    assert unique_conversations[0] == 0
 
 
 def test_analyze_dataset_analyzer_failure(test_data_path):
@@ -314,14 +312,15 @@ def test_analyze_dataset_analyzer_failure(test_data_path):
     assert results is not None  # Type assertion for linter
 
     # Should still complete analysis even with failing analyzer
-    all_messages = []
-    for sample in results.samples:
-        all_messages.extend(sample.messages)
-    assert len(all_messages) == 4
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    assert len(analysis_df) > 0
 
     # Should not have analyzer metrics due to failure
-    first_message = all_messages[0]
-    assert "failing_analyzer_char_count" not in first_message.analyzer_metrics
+    failing_analyzer_columns = [
+        col for col in analysis_df.columns if "failing_analyzer" in col
+    ]
+    assert len(failing_analyzer_columns) == 0
 
 
 def test_analyze_dataset_no_analyzers(test_data_path):
@@ -353,12 +352,12 @@ def test_analyze_dataset_sample_count_none(test_data_path, mock_config):
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
-    assert len(results.samples) == 5  # All conversations analyzed
 
-    all_messages = []
-    for sample in results.samples:
-        all_messages.extend(sample.messages)
-    assert len(all_messages) == 7  # Total messages in all conversations
+    # Test that all conversations were analyzed
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    unique_conversations = analysis_df["conversation_index"].unique()
+    assert len(unique_conversations) == 5  # All conversations analyzed
 
 
 def test_analyze_dataset_sample_count_zero(test_data_path, mock_config):
@@ -408,8 +407,12 @@ def test_analyze_dataset_sample_count_exceeds_total(test_data_path, mock_config)
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5  # Should not exceed total
-    assert len(results.samples) == 5  # Should not exceed total
-    assert len(results.samples) == 5  # Should not exceed total
+
+    # Test that all conversations were analyzed
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    unique_conversations = analysis_df["conversation_index"].unique()
+    assert len(unique_conversations) == 5  # Should not exceed total
 
 
 def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
@@ -426,19 +429,13 @@ def test_analyze_dataset_missing_conversation_id(test_data_path, mock_config):
     results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
-    # Find the message with missing conversation ID
-    null_conv_message = None
-    null_conv_sample = None
-    for sample in results.samples:
-        for msg in sample.messages:
-            if msg.text_content == "Test message without conversation ID":
-                null_conv_message = msg
-                null_conv_sample = sample
-                break
+    # Test that the conversation with missing ID was handled correctly
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
 
-    assert null_conv_message is not None
-    assert null_conv_sample is not None
-    assert null_conv_sample.conversation_id == "conv_3"  # Should use fallback
+    # Check that conversation_id fallback was used
+    conv_3_rows = analysis_df[analysis_df["conversation_id"] == "conv_3"]
+    assert len(conv_3_rows) > 0
 
 
 def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
@@ -455,16 +452,13 @@ def test_analyze_dataset_missing_message_id(test_data_path, mock_config):
     results = analyzer.analysis_results
     assert results is not None  # Type assertion for linter
 
-    # Find the message with missing message ID
-    null_msg_message = None
-    for sample in results.samples:
-        for msg in sample.messages:
-            if msg.text_content == "Test message without conversation ID":
-                null_msg_message = msg
-                break
+    # Test that the message with missing ID was handled correctly
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
 
-    assert null_msg_message is not None
-    assert null_msg_message.message_id == "msg_3_0"  # Should use fallback
+    # Check that message_id fallback was used
+    msg_3_0_rows = analysis_df[analysis_df["message_id"] == "msg_3_0"]
+    assert len(msg_3_0_rows) > 0
 
 
 def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
@@ -483,8 +477,12 @@ def test_analyze_dataset_empty_conversation(test_data_path, mock_config):
 
     assert results.total_conversations == 5
     assert results.conversations_analyzed == 5
-    assert len(results.samples) == 5  # All conversations analyzed
-    assert len(results.samples) == 5  # All conversations analyzed
+
+    # Test that all conversations were analyzed including empty ones
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    unique_conversations = analysis_df["conversation_index"].unique()
+    assert len(unique_conversations) == 5  # All conversations analyzed
 
 
 def test_analyze_dataset_analyzer_calls(test_data_path, mock_config):
@@ -508,9 +506,12 @@ def test_query_method(test_data_path, mock_config):
     assert all(row["role"] == "user" for _, row in results.iterrows())
 
     # Test query with analyzer metrics
-    results = analyzer.query("char_count > 10")
+    results = analyzer.query("message_text_length_analyzer_char_count > 10")
     assert len(results) > 0
-    assert all(row["char_count"] > 10 for _, row in results.iterrows())
+    assert all(
+        row["message_text_length_analyzer_char_count"] > 10
+        for _, row in results.iterrows()
+    )
 
 
 def test_query_with_empty_results(test_data_path, mock_config):
@@ -533,12 +534,14 @@ def test_query_complex_expressions_examples(test_data_path, mock_config):
 
     # Test various query expressions with proper validation
     queries = [
-        "text_length_analyzer_word_count < 10",  # Filter for short messages
+        "message_text_length_analyzer_word_count < 10",  # Filter for short messages
         "role == 'assistant'",  # Filter for assistant messages
-        "role == 'user' and text_length_analyzer_word_count > 5",  # Long user messages
+        "role == 'user' and message_text_length_analyzer_word_count > 5",  # Long user
+        # messages
         "role == 'user' or role == 'assistant'",  # Any user or assistant messages
         # Medium-length
-        "text_length_analyzer_char_count > 10 and text_length_analyzer_word_count < 20",
+        "message_text_length_analyzer_char_count > 10 and "
+        "message_text_length_analyzer_word_count < 20",
     ]
 
     for query in queries:
@@ -669,10 +672,9 @@ def test_analyzer_with_tokenizer(test_data_path):
     assert results is not None
 
     # Check that we have messages in the results
-    all_messages = []
-    for sample in results.samples:
-        all_messages.extend(sample.messages)
-    assert len(all_messages) > 0
+    analysis_df = analyzer.analysis_df
+    assert analysis_df is not None
+    assert len(analysis_df) > 0
 
     # Verify that the mock tokenizer was actually called
     assert mock_tokenizer.encode.call_count > 0

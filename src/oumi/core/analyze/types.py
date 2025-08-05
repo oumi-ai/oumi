@@ -86,13 +86,11 @@ class DatasetAnalysisResult:
         dataset_name: Name of the analyzed dataset
         total_conversations: Total number of conversations in the dataset
         conversations_analyzed: Number of conversations actually analyzed
-        samples: List of analysis results for each conversation sample
     """
 
     dataset_name: str
     total_conversations: int
     conversations_analyzed: int
-    samples: list[SampleAnalysisResult]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the analysis result to a dictionary.
