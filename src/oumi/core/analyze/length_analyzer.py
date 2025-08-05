@@ -42,6 +42,7 @@ class LengthAnalyzer(SampleAnalyzer):
         token_count: bool = False,
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
         include_special_tokens: bool = True,
+        dataset=None,
     ):
         """Initialize the length analyzer.
 
@@ -55,6 +56,8 @@ class LengthAnalyzer(SampleAnalyzer):
             include_special_tokens: Whether to include special tokens in token count.
                 Defaults to True to match training tokenization. Set to False for raw
                 content analysis only.
+            dataset: Optional dataset to use for conversation text formatting.
+                If provided, uses dataset.tokenize() for consistent formatting.
         """
         self.char_count = char_count
         self.word_count = word_count
@@ -62,6 +65,7 @@ class LengthAnalyzer(SampleAnalyzer):
         self.token_count = token_count
         self.tokenizer = tokenizer
         self.include_special_tokens = include_special_tokens
+        self.dataset = dataset
         # Validate tokenizer requirements
         if self.token_count and tokenizer is None:
             raise ValueError(
@@ -76,7 +80,6 @@ class LengthAnalyzer(SampleAnalyzer):
     ) -> SampleAnalysisResult:
         """Analyze a conversation sample and return comprehensive length metrics.
 
-        This implementation:
         1. Analyzes each message individually for message-level metrics
         2. Renders the entire conversation as text for conversation-level metrics
            (which may give different results than aggregating message metrics)
@@ -90,6 +93,35 @@ class LengthAnalyzer(SampleAnalyzer):
             message-level and conversation-level metrics for the conversation.
         """
         # Step 1: Compute message-level metrics
+        message_results = self.compute_message_metrics(conversation, tokenizer)
+
+        # Step 2: Compute conversation-level metrics using message results
+        conversation_result = self.compute_conversation_metrics(
+            conversation, tokenizer, message_results
+        )
+
+        # Create and return SampleAnalysisResult
+        return SampleAnalysisResult(
+            conversation_id=conversation.conversation_id or "unknown",
+            conversation_index=0,  # Single conversation
+            messages=message_results,
+            conversation=conversation_result,
+        )
+
+    def compute_message_metrics(
+        self,
+        conversation: Conversation,
+        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+    ) -> list[MessageAnalysisResult]:
+        """Compute message-level length metrics for each message in the conversation.
+
+        Args:
+            conversation: The conversation object to analyze
+            tokenizer: Optional tokenizer to use for token counting
+
+        Returns:
+            List of MessageAnalysisResult objects, one for each message
+        """
         message_results = []
         for msg_idx, message in enumerate(conversation.messages):
             # Get text content for this message
@@ -100,7 +132,7 @@ class LengthAnalyzer(SampleAnalyzer):
                 text_content = message.compute_flattened_text_content()
 
             # Compute metrics for this message
-            message_metrics = self._compute_message_metrics(text_content, tokenizer)
+            message_metrics = self.compute_length_metrics(text_content, tokenizer)
 
             # Create MessageAnalysisResult
             message_result = MessageAnalysisResult(
@@ -112,34 +144,73 @@ class LengthAnalyzer(SampleAnalyzer):
             )
             message_results.append(message_result)
 
-        # Step 2: Compute conversation-level metrics
-        # Render the entire conversation as text
-        conversation_text = self._render_conversation_as_text(conversation)
+        return message_results
 
-        # Compute conversation-level metrics
-        conversation_metrics = self._compute_message_metrics(
-            conversation_text, tokenizer
-        )
+    def compute_conversation_metrics(
+        self,
+        conversation: Conversation,
+        tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
+        message_results: Optional[list[MessageAnalysisResult]] = None,
+    ) -> ConversationAnalysisResult:
+        """Compute conversation-level length metrics for the entire conversation.
+
+        Args:
+            conversation: The conversation object to analyze
+            tokenizer: Optional tokenizer to use for token counting
+            message_results: Optional pre-computed message results for aggregation
+
+        Returns:
+            ConversationAnalysisResult containing conversation-level metrics
+        """
+        # For char, word, and sentence counts, aggregate message-level metrics
+        conversation_metrics = {}
+
+        # Aggregate message-level metrics for non-token metrics
+        if self.char_count:
+            if message_results is not None:
+                # Use pre-computed message results
+                total_chars = sum(
+                    msg.analyzer_metrics.get("char_count", 0) for msg in message_results
+                )
+                conversation_metrics["char_count"] = total_chars
+
+        if self.word_count:
+            if message_results is not None:
+                # Use pre-computed message results
+                total_words = sum(
+                    msg.analyzer_metrics.get("word_count", 0) for msg in message_results
+                )
+                conversation_metrics["word_count"] = total_words
+
+        if self.sentence_count:
+            if message_results is not None:
+                # Use pre-computed message results
+                total_sentences = sum(
+                    msg.analyzer_metrics.get("sentence_count", 0)
+                    for msg in message_results
+                )
+                conversation_metrics["sentence_count"] = total_sentences
+
+        # For token count, use the tokenized conversation
+        if self.token_count and self.dataset is not None:
+            # Get tokenized result directly and extract token count
+            tokenized_result = self.dataset.tokenize(conversation, tokenize=True)
+            conversation_metrics["token_count"] = len(tokenized_result["input_ids"])
 
         # Create ConversationAnalysisResult
-        conversation_result = ConversationAnalysisResult(
+        return ConversationAnalysisResult(
             analyzer_metrics=conversation_metrics,
         )
 
-        # Create and return SampleAnalysisResult
-        return SampleAnalysisResult(
-            conversation_id=conversation.conversation_id or "unknown",
-            conversation_index=0,  # Single conversation
-            messages=message_results,
-            conversation=conversation_result,
-        )
-
-    def _compute_message_metrics(
+    def compute_length_metrics(
         self,
         text_content: str,
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
     ) -> dict[str, Any]:
         """Compute length metrics for a single text content.
+
+        This is a helper function that can be used by both message-level and
+        conversation-level analysis.
 
         Args:
             text_content: The text content to analyze
@@ -175,29 +246,3 @@ class LengthAnalyzer(SampleAnalyzer):
                 metrics["token_count"] = len(tokens)
 
         return metrics
-
-    def _render_conversation_as_text(self, conversation: Conversation) -> str:
-        """Render a conversation as a single text string.
-
-        Args:
-            conversation: The conversation to render
-
-        Returns:
-            The conversation rendered as text with role prefixes
-        """
-        rendered_parts = []
-
-        for message in conversation.messages:
-            # Get the text content of the message
-            if isinstance(message.content, str):
-                text_content = message.content
-            else:
-                # For multimodal content, extract text only
-                text_content = message.compute_flattened_text_content()
-
-            # Add role prefix and message content
-            role_prefix = f"{message.role.value}: "
-            rendered_parts.append(role_prefix + text_content)
-
-        # Join all messages with newlines
-        return "\n".join(rendered_parts)
