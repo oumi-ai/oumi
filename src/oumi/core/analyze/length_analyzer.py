@@ -69,12 +69,12 @@ class LengthAnalyzer(SampleAnalyzer):
                 "Set token_count=False or provide a tokenizer."
             )
 
-    def compute_metrics(
+    def analyze_sample(
         self,
         conversation: Conversation,
         tokenizer: Optional[Union[PreTrainedTokenizer, PreTrainedTokenizerFast]] = None,
     ) -> SampleAnalysisResult:
-        """Compute both message-level and conversation-level length metrics.
+        """Analyze a conversation sample and return comprehensive length metrics.
 
         This implementation:
         1. Analyzes each message individually for message-level metrics

@@ -28,7 +28,7 @@ class MockSampleAnalyzer:
         # Extract analyzer ID from config
         self.analyzer_id = kwargs.get("analyzer_id", "mock")
 
-    def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+    def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
         """
         Mock analysis that returns both message-level and conversation-level metrics.
         """
@@ -99,7 +99,7 @@ class MockFailingAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
 
-    def compute_metrics(self, conversation, tokenizer=None) -> dict[str, Any]:
+    def analyze_sample(self, conversation, tokenizer=None) -> dict[str, Any]:
         raise ValueError("Analyzer failed")
 
 

@@ -30,7 +30,7 @@ def test_char_count():
         char_count=True, word_count=False, sentence_count=False, token_count=False
     )
     conv = _single_message_conversation("Hello, world!")
-    result = analyzer.compute_metrics(conv)
+    result = analyzer.analyze_sample(conv)
     assert result.messages[0].analyzer_metrics["char_count"] == 13
     # Only char_count should be present
     assert len(result.messages[0].analyzer_metrics) == 1
@@ -42,7 +42,7 @@ def test_word_count():
         char_count=False, word_count=True, sentence_count=False, token_count=False
     )
     conv = _single_message_conversation("Hello world! This is a test.")
-    result = analyzer.compute_metrics(conv)
+    result = analyzer.analyze_sample(conv)
     assert result.messages[0].analyzer_metrics["word_count"] == 6
     # Only word_count should be present
     assert len(result.messages[0].analyzer_metrics) == 1
@@ -54,7 +54,7 @@ def test_sentence_count():
         char_count=False, word_count=False, sentence_count=True, token_count=False
     )
     conv = _single_message_conversation("Hello world! This is a test. How are you?")
-    result = analyzer.compute_metrics(conv)
+    result = analyzer.analyze_sample(conv)
     assert result.messages[0].analyzer_metrics["sentence_count"] == 3
     # Only sentence_count should be present
     assert len(result.messages[0].analyzer_metrics) == 1
@@ -65,7 +65,7 @@ def test_analyzer_instantiation():
     # Test with defaults
     analyzer = LengthAnalyzer()
     conv = _single_message_conversation("Hello, world!")
-    result = analyzer.compute_metrics(conv)
+    result = analyzer.analyze_sample(conv)
     assert result.messages[0].analyzer_metrics["char_count"] == 13
     assert result.messages[0].analyzer_metrics["word_count"] == 2
     assert result.messages[0].analyzer_metrics["sentence_count"] == 1
@@ -76,7 +76,7 @@ def test_analyzer_instantiation():
         char_count=True, word_count=False, sentence_count=True, token_count=False
     )
     conv = _single_message_conversation("Hello, world!")
-    result = analyzer.compute_metrics(conv)
+    result = analyzer.analyze_sample(conv)
     assert result.messages[0].analyzer_metrics["char_count"] == 13
     assert "word_count" not in result.messages[0].analyzer_metrics
     assert result.messages[0].analyzer_metrics["sentence_count"] == 1
@@ -85,7 +85,7 @@ def test_analyzer_instantiation():
     # Test with partial parameters (some defaults, some overridden)
     analyzer = LengthAnalyzer(char_count=False, word_count=True)
     conv = _single_message_conversation("Hello, world!")
-    result = analyzer.compute_metrics(conv)
+    result = analyzer.analyze_sample(conv)
     assert "char_count" not in result.messages[0].analyzer_metrics
     assert result.messages[0].analyzer_metrics["word_count"] == 2
     assert result.messages[0].analyzer_metrics["sentence_count"] == 1  # Default True
@@ -105,9 +105,9 @@ def test_token_count():
         tokenizer=mock_tokenizer,
     )
     conv = _single_message_conversation("Hello, world!")
-    result = analyzer.compute_metrics(conv, tokenizer=mock_tokenizer)
+    result = analyzer.analyze_sample(conv, tokenizer=mock_tokenizer)
     assert result.messages[0].analyzer_metrics["token_count"] == 7
-    # compute_metrics calls tokenizer twice: once for message, once for conversation
+    # analyze_sample calls tokenizer twice: once for message, once for conversation
     assert mock_tokenizer.encode.call_count == 2
     # Check that it was called with the message text
     mock_tokenizer.encode.assert_any_call("Hello, world!", add_special_tokens=True)
@@ -124,11 +124,11 @@ def test_token_count():
         include_special_tokens=False,
     )
     conv = _single_message_conversation("Hello, world!")
-    result = analyzer_no_special.compute_metrics(
+    result = analyzer_no_special.analyze_sample(
         conv, tokenizer=mock_tokenizer_no_special
     )
     assert result.messages[0].analyzer_metrics["token_count"] == 5
-    # compute_metrics calls tokenizer twice: once for message, once for conversation
+    # analyze_sample calls tokenizer twice: once for message, once for conversation
     assert mock_tokenizer_no_special.encode.call_count == 2
     # Check that it was called with the message text
     mock_tokenizer_no_special.encode.assert_any_call(

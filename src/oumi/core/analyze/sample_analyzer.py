@@ -25,10 +25,10 @@ class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
 
     @abstractmethod
-    def compute_metrics(
+    def analyze_sample(
         self, conversation: Conversation, tokenizer: Optional[Any] = None
     ) -> SampleAnalysisResult:
-        """Compute both message-level and conversation-level metrics.
+        """Analyze a conversation sample and return comprehensive analysis results.
 
         This method analyzes a conversation and returns metrics for both individual
         messages and the conversation as a whole. Each analyzer can decide its own

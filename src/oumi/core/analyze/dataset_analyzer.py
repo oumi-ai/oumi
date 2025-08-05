@@ -234,6 +234,7 @@ class DatasetAnalyzer:
         max_conversations = self.config.sample_count
 
         if max_conversations is not None:
+            # AnalyzeConfig ensures sample_count is greater than 0
             conversations_to_analyze = min(total_conversations, max_conversations)
             logger.info(
                 f"Limiting analysis to first {max_conversations} "
@@ -265,7 +266,7 @@ class DatasetAnalyzer:
             conversation_has_data = False
             for analyzer_id, analyzer in self.sample_analyzers.items():
                 try:
-                    analyzer_result = analyzer.compute_metrics(
+                    analyzer_result = analyzer.analyze_sample(
                         conversation, self.tokenizer
                     )
 

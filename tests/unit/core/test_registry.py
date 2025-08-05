@@ -558,7 +558,7 @@ def test_register_evaluation_fn_without_inputs_happy_path():
 def test_registry_sample_analyzer():
     @register_sample_analyzer("dummy_analyzer")
     class DummyAnalyzer:
-        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
             from oumi.core.analyze.dataset_analyzer import (
                 ConversationAnalysisResult,
             )
@@ -580,7 +580,7 @@ def test_registry_sample_analyzer():
 def test_registry_sample_analyzer_get_all():
     @register_sample_analyzer("analyzer_one")
     class AnalyzerOne:
-        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
             from oumi.core.analyze.dataset_analyzer import (
                 ConversationAnalysisResult,
             )
@@ -596,7 +596,7 @@ def test_registry_sample_analyzer_get_all():
 
     @register_sample_analyzer("analyzer_two")
     class AnalyzerTwo:
-        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
             from oumi.core.analyze.dataset_analyzer import (
                 ConversationAnalysisResult,
             )
@@ -617,7 +617,7 @@ def test_registry_sample_analyzer_get_all():
 def test_registry_sample_analyzer_failure_register_twice():
     @register_sample_analyzer("duplicate_analyzer")
     class DummyAnalyzer:
-        def compute_metrics(self, conversation, tokenizer=None) -> SampleAnalysisResult:
+        def analyze_sample(self, conversation, tokenizer=None) -> SampleAnalysisResult:
             from oumi.core.analyze.dataset_analyzer import (
                 ConversationAnalysisResult,
             )
@@ -635,7 +635,7 @@ def test_registry_sample_analyzer_failure_register_twice():
 
         @register_sample_analyzer("duplicate_analyzer")
         class AnotherDummyAnalyzer:
-            def compute_metrics(
+            def analyze_sample(
                 self, conversation, tokenizer=None
             ) -> SampleAnalysisResult:
                 from oumi.core.analyze.dataset_analyzer import (
