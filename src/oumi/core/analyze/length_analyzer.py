@@ -19,12 +19,12 @@ from typing import Any, Optional, Union
 
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from oumi.core.analyze.sample_analyzer import SampleAnalyzer
-from oumi.core.analyze.types import (
+from oumi.core.analyze.dataset_analyzer import (
     ConversationAnalysisResult,
     MessageAnalysisResult,
     SampleAnalysisResult,
 )
+from oumi.core.analyze.sample_analyzer import SampleAnalyzer
 from oumi.core.registry import register_sample_analyzer
 from oumi.core.types.conversation import Conversation
 

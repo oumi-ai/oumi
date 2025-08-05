@@ -10,10 +10,8 @@ import pandas as pd
 import pytest
 
 from oumi.core.analyze.dataset_analyzer import (
-    DatasetAnalyzer,
-)
-from oumi.core.analyze.types import (
     ConversationAnalysisResult,
+    DatasetAnalyzer,
     MessageAnalysisResult,
     SampleAnalysisResult,
 )

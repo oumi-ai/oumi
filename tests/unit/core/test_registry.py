@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from oumi.core.analyze.types import SampleAnalysisResult
+from oumi.core.analyze.dataset_analyzer import SampleAnalysisResult
 from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
