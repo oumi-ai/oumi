@@ -28,11 +28,11 @@ from oumi.utils.logging import logger
 
 @dataclass
 class MessageAnalysisResult:
-    """Result of analyzing a single message.
+    """Result of analyzing a single message in a conversation.
 
     Attributes:
         message_index: Index of the message within the conversation
-        role: Role of the message (user, assistant, system, etc.)
+        role: Role of the message sender (e.g., 'user', 'assistant')
         message_id: Unique identifier for the message
         text_content: The text content of the message
         analyzer_metrics: Dictionary containing analyzer metrics for this message
@@ -45,7 +45,7 @@ class MessageAnalysisResult:
     analyzer_metrics: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert the analysis result to a dictionary.
+        """Convert the analysis result to a dictionary with flattened analyzer metrics.
 
         Returns:
             Dictionary representation of the analysis result
