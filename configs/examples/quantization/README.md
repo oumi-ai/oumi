@@ -4,6 +4,8 @@
 
 This directory contains example configurations for model quantization using Oumi's AWQ and BitsAndBytes quantization methods.
 
+> **NOTE**: Quantization requires a GPU to run.
+
 ## Configuration Files
 
 - **`awq_quantization_config.yaml`** - AWQ 4-bit quantization with calibration
@@ -15,7 +17,7 @@ This directory contains example configurations for model quantization using Oumi
 # Simplest command-line usage
 oumi quantize --method awq_q4_0 --model "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --output quantized_model
 
-# Using configuration file (requires GPU)
+# Using configuration file
 oumi quantize --config configs/examples/quantization/awq_quantization_config.yaml
 ```
 
@@ -40,10 +42,12 @@ oumi quantize --config configs/examples/quantization/awq_quantization_config.yam
 ## Requirements
 
 ```bash
-# For AWQ quantization
+pip install oumi[quantization]
+
+# Alternatively, for AWQ quantization only
 pip install autoawq
 
-# For BitsAndBytes quantization
+# Alternatively, for BitsAndBytes quantization only
 pip install bitsandbytes
 ```
 

@@ -20,7 +20,7 @@ prerelease = "allow"
 name = "oumi"
 dynamic = ["version"]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.13"
 description = "Oumi - Modeling Platform"
 authors = [{ name = "Oumi Team", email = "contact@oumi.ai" }]
 license = { file = "LICENSE" }
@@ -30,7 +30,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -70,9 +69,8 @@ dependencies = [
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
     # if python > 3.13, install from source for now.
-    "torchdata>=0.9.0,<0.10.0; python_version < '3.13'",                                     # Used by data pipes loader
-    "torchdata @ git+https://github.com/pytorch/data.git@v0.9.0 ; python_version >= '3.13'",
-    "torchvision>=0.21.0,<0.22",                                                             # Used by some VLM-s (multimodal)
+    "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
+    "torchvision>=0.21.0,<0.22", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
@@ -155,6 +153,8 @@ evaluation = [
     "sympy>=1.12",                  # leaderboard_math_hard
     "sentencepiece>=0.1.98",
 ]
+
+quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
