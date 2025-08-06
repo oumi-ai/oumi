@@ -186,6 +186,7 @@ gpt_oss = [
     "transformers>=4.55.0",  # Required for GPT OSS model support
     "mxfp4>=0.1.0",         # MXFP4 quantization support
     "kernels", #Relevant Kernels
+    "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
     # Flash Attention 3 is required but needs separate installation
     # pip install flash-attn>=3.0.0 --no-build-isolation
 ]
