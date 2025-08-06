@@ -210,7 +210,7 @@ def _create_gpt_oss_config() -> InternalModelConfig:
     They support tool use, multi-turn conversations, and reasoning traces.
     """
     config = InternalModelConfig()
-    # GPT OSS uses a custom chat template with reasoning channels
+    # GPT OSS can use a custom chat template, but allow override to None
     config.chat_template = "gpt_oss"
     # Support for MXFP4 quantization
     config.quantization_support = ["mxfp4"]

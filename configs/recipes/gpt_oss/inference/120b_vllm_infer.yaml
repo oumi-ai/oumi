@@ -18,7 +18,7 @@ model:
   model_name: "openai/gpt-oss-120b"
   torch_dtype_str: "float16"
   trust_remote_code: true
-  chat_template: null  # Use model's built-in chat template
+  chat_template: "auto"  # Use model's built-in chat template
   attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
   enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
 
