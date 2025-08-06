@@ -178,14 +178,13 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 
 # GPT OSS support - requires special installation procedure
 gpt_oss = [
-    # Note: vLLM GPT OSS build requires manual installation:
-    # pip install --pre vllm==0.10.1+gptoss \
-    #     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
-    #     --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
-    #     --index-strategy unsafe-best-match
-    # 
-    # PyTorch nightly is required for vLLM GPT OSS compatibility
-    # These will be installed from the same index as vLLM uses
+    # PyTorch 2.7.0 with CUDA 12.8
+    "torch==2.7.0",
+    "torchvision==0.22.0", 
+    "torchaudio==2.7.0",
+    # vLLM GPT OSS build - direct wheel URL for Python 3.12, Linux x86_64
+    # For other Python versions/platforms, use manual installation
+    "vllm @ https://wheels.vllm.ai/gpt-oss/vllm-0.10.2+gptoss-cp312-cp312-linux_x86_64.whl ; python_version == '3.12' and platform_system == 'Linux' and platform_machine == 'x86_64'",
     "transformers>=4.55.0",  # Required for GPT OSS model support
     "gpt-oss>=0.1.0",       # GPT OSS package with MXFP4 quantization support
     "kernels",              # HuggingFace kernels for Flash Attention 3

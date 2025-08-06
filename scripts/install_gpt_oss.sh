@@ -30,34 +30,22 @@ if [[ -z "$CONDA_DEFAULT_ENV" && -z "$VIRTUAL_ENV" ]]; then
     fi
 fi
 
-# Step 1: Install PyTorch nightly and GPT OSS dependencies
+# Step 1: Install all GPT OSS dependencies at once
 echo ""
-echo "📦 Step 1: Installing PyTorch nightly and GPT OSS dependencies..."
+echo "📦 Step 1: Installing all GPT OSS dependencies..."
 pip install uv
 
-# Install PyTorch nightly from the same index vLLM uses
-echo "   Installing PyTorch nightly for vLLM compatibility..."
-uv pip install --pre \
-    torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/nightly/cu128
-
-# Install other GPT OSS dependencies
-echo "   Installing remaining GPT OSS dependencies..."
-uv pip install "oumi[gpt_oss]"
-
-# Step 2: Install vLLM GPT OSS build
-echo ""
-echo "🔧 Step 2: Installing vLLM GPT OSS build..."
+# Install everything together so uv can resolve dependencies properly
+echo "   Installing GPT OSS dependencies and vLLM in one command..."
 echo "   This may take several minutes..."
 
-uv pip install --pre vllm==0.10.1+gptoss \
+uv pip install "oumi[gpt_oss]" vllm==0.10.2+gptoss \
     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
-    --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
-    --index-strategy unsafe-best-match
+    --index-url https://download.pytorch.org/whl/cu128
 
-# Step 3: Flash Attention 3 (using pre-compiled kernel instead)
+# Step 2: Flash Attention 3 (using pre-compiled kernel instead)
 echo ""
-echo "⚡ Step 3: Using pre-compiled vLLM Flash Attention 3 kernel..."
+echo "⚡ Step 2: Using pre-compiled vLLM Flash Attention 3 kernel..."
 echo "   Flash Attention 3 will be loaded from kernels-community/vllm-flash-attn3"
 echo "   No compilation needed - kernel will be downloaded on first use"
 
@@ -114,9 +102,9 @@ echo "   No compilation needed - kernel will be downloaded on first use"
 # 
 # echo "   ✓ Flash Attention 3 installed from source"
 
-# Step 4: Verify installation
+# Step 3: Verify installation
 echo ""
-echo "🔍 Step 4: Verifying installation..."
+echo "🔍 Step 3: Verifying installation..."
 
 # Check if Python can import the packages
 python -c "
