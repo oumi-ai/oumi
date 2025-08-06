@@ -251,11 +251,10 @@ def build_huggingface_model(
     # the weights from scratch based on the params in the config and the model class.
     transformers_model_class = _get_transformers_model_class(hf_config)
 
-    torch_dtype = model_params.torch_dtype or model_params.torch_dtype_str
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
-            torch_dtype=torch_dtype,
+            torch_dtype=model_params.torch_dtype,
             device_map=device_map,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
@@ -267,7 +266,7 @@ def build_huggingface_model(
     else:
         model = transformers_model_class.from_config(
             config=hf_config,
-            torch_dtype=torch_dtype,
+            torch_dtype=model_params.torch_dtype,
             trust_remote_code=model_params.trust_remote_code,
             attn_implementation=model_params.attn_implementation,
             **kwargs,
