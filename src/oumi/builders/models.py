@@ -488,7 +488,7 @@ def build_tokenizer(
         tokenizer.model_max_length = model_params.model_max_length
 
     template_name: str = ""
-    if model_params.chat_template:
+    if model_params.chat_template is not None:
         logger.info(
             f"Using the chat template '{model_params.chat_template}' "
             f"specified in model config for {tokenizer_id_str}. "
