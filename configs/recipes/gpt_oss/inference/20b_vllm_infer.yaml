@@ -12,7 +12,7 @@
 
 model:
   model_name: "openai/gpt-oss-20b"
-  torch_dtype_str: "float16"
+  torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
   attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
