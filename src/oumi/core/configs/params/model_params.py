@@ -107,17 +107,19 @@ class ModelParams(BaseParams):
     Defaults to False for safety.
     """
 
-    torch_dtype_str: str = "float32"
-    """The data type to use for the model's parameters as a string.
+    torch_dtype_str: str = "auto"
+    """The data type to use for the model's parameters, as a string.
 
     Valid options are:
+    - "auto": Use the default dtype of the model, which is usually specified in the
+      config.json file for HF models.
     - "float32" or "f32" or "float" for 32-bit floating point
     - "float16" or "f16" or "half" for 16-bit floating point
     - "bfloat16" or "bf16" for brain floating point
     - "float64" or "f64" or "double" for 64-bit floating point
 
-    This string will be converted to the corresponding torch.dtype.
-    Defaults to "float32" for full precision.
+    If not "auto", the string will be converted to the corresponding torch.dtype.
+    Defaults to "auto".
     """
 
     compile: bool = False
@@ -204,7 +206,9 @@ class ModelParams(BaseParams):
 
     def __post_init__(self):
         """Populate additional params."""
-        self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
+        self.torch_dtype = None
+        if self.torch_dtype_str != "auto":
+            self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
 
         if len(self.processor_kwargs) > 0:
             conflicting_keys = {f.name for f in fields(self)}.intersection(
