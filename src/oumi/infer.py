@@ -261,45 +261,63 @@ def infer_interactive(
             
         try:
             with console.status("[bold green]Thinking...[/bold green]", spinner="dots"):
-                # Build the full conversation including history
-                system_messages = (
-                    [Message(role=Role.SYSTEM, content=system_prompt)] if system_prompt else []
-                )
-                
-                # Convert conversation history to Message objects
-                history_messages = []
-                for msg in conversation_history:
-                    if msg["role"] == "user":
-                        history_messages.append(Message(role=Role.USER, content=msg["content"]))
-                    elif msg["role"] == "assistant":
-                        history_messages.append(Message(role=Role.ASSISTANT, content=msg["content"]))
-                
-                # Add the current user input
-                current_user_message = Message(role=Role.USER, content=input_text)
-                
-                # Create conversation with full history
-                full_conversation = Conversation(
-                    messages=system_messages + history_messages + [current_user_message]
-                )
-                
-                # Call inference engine directly with the full conversation
-                model_response = inference_engine.infer(
-                    input=[full_conversation],
-                    inference_config=config,
-                )
+                # Check if this is a NATIVE engine that supports conversation history
+                from oumi.core.configs import InferenceEngineType
+                if config.engine == InferenceEngineType.NATIVE:
+                    # Build the full conversation including history for NATIVE engine
+                    system_messages = (
+                        [Message(role=Role.SYSTEM, content=system_prompt)] if system_prompt else []
+                    )
+                    
+                    # Convert conversation history to Message objects
+                    history_messages = []
+                    for msg in conversation_history:
+                        if msg["role"] == "user":
+                            history_messages.append(Message(role=Role.USER, content=msg["content"]))
+                        elif msg["role"] == "assistant":
+                            history_messages.append(Message(role=Role.ASSISTANT, content=msg["content"]))
+                    
+                    # Add the current user input
+                    current_user_message = Message(role=Role.USER, content=input_text)
+                    
+                    # Create conversation with full history
+                    full_conversation = Conversation(
+                        messages=system_messages + history_messages + [current_user_message]
+                    )
+                    
+                    # Call inference engine directly with the full conversation
+                    model_response = inference_engine.infer(
+                        input=[full_conversation],
+                        inference_config=config,
+                    )
+                else:
+                    # For VLLM and other engines, use the original single-input approach
+                    model_response = infer(
+                        config=config,
+                        inputs=[input_text],
+                        system_prompt=system_prompt,
+                        input_image_bytes=input_image_bytes,
+                        inference_engine=inference_engine,
+                    )
             
             # Format and display the response
             for conversation in model_response:
                 _format_conversation_response(conversation, console, model_name)
                 
-            # Store both user and assistant messages in history after successful inference
-            conversation_history.append({"role": "user", "content": input_text})
-            
-            # Store assistant response in history
-            for conversation in model_response:
-                for message in conversation.messages:
-                    if message.role == Role.ASSISTANT and isinstance(message.content, str):
-                        conversation_history.append({"role": "assistant", "content": message.content})
+            # Store conversation history (only for NATIVE engine which supports it)
+            if config.engine == InferenceEngineType.NATIVE:
+                # For NATIVE engine, store both user and assistant messages in history after successful inference
+                conversation_history.append({"role": "user", "content": input_text})
+                
+                # Store assistant response in history
+                for conversation in model_response:
+                    for message in conversation.messages:
+                        if message.role == Role.ASSISTANT and isinstance(message.content, str):
+                            conversation_history.append({"role": "assistant", "content": message.content})
+            else:
+                # For other engines like VLLM, conversation history is handled by the engine itself
+                # so we don't manually track it here
+                pass
                         
         except Exception as e:
             console.print(Panel(
