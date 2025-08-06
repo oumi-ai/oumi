@@ -28,6 +28,12 @@ model:
   # Use vLLM Flash Attention 3 kernel for optimal performance
   attn_implementation: "kernels-community/vllm-flash-attn3"
   enable_hf_kernels: true  # Enable HF kernels for FA3 optimization
+  
+  # Disable quantization for training (dequantize MXFP4 models)
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+      dequantize: true
 
 data:
   train:
@@ -65,7 +71,6 @@ training:
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
-    eta_min_ratio: 0.1
   
   # Performance settings
   dataloader_num_workers: 8
