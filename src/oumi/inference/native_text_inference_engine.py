@@ -354,7 +354,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
             output_batch_decoded = self._tokenizer.batch_decode(
                 output_batch.data,
-                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
             for conversation, response in zip(
