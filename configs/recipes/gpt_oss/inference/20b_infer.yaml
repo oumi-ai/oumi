@@ -21,6 +21,6 @@ model:
   attn_implementation: "kernels-community/vllm-flash-attn3"
 
 generation:
-  max_new_tokens: 131072
+  max_new_tokens: 8192
 
 engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
