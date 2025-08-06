@@ -25,6 +25,7 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
+from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -758,6 +759,33 @@ class TrainingParams(BaseParams):
             config_class = transformers.TrainingArguments
 
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
+
+        # Add packing configuration for TRL trainers
+        if self.trainer_type in [TrainerType.TRL_SFT, TrainerType.TRL_DPO]:
+            if self.packing:
+                # Prevent conflicts with user-specified packing in trainer_kwargs
+                if "packing" in trainer_kwargs:
+                    logger.warning(
+                        "Both training.packing and trainer_kwargs.packing are specified. "
+                        "Using trainer_kwargs.packing value."
+                    )
+                else:
+                    trainer_kwargs["packing"] = self.packing
+                
+                # Add packing strategy if not already specified
+                if "dataset_kwargs" not in trainer_kwargs:
+                    trainer_kwargs["dataset_kwargs"] = {}
+                if "packing_strategy" not in trainer_kwargs["dataset_kwargs"]:
+                    trainer_kwargs["dataset_kwargs"]["packing_strategy"] = self.packing_strategy
+                
+                # Disable data_collator when packing is enabled to avoid conflicts
+                # TRL will handle data collation internally for packed sequences
+                if "data_collator" not in trainer_kwargs:
+                    trainer_kwargs["data_collator"] = None
+                    logger.info(
+                        "Packing enabled: data_collator set to None to avoid conflicts. "
+                        "TRL will handle data collation for packed sequences."
+                    )
 
         # Add DeepSpeed configuration if enabled
         # NOTE: DeepSpeed config is passed directly to trainer_kwargs instead of through

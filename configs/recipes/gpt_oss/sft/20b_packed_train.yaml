@@ -1,0 +1,76 @@
+# GPT OSS 20B SFT training with advanced packing and vLLM Flash Attention 3
+# This config demonstrates the new features from accelerate launch integration:
+# - Automatic sequence packing for improved efficiency
+# - vLLM Flash Attention 3 kernel from HuggingFace Hub
+# - Optimal settings for reasoning-focused training
+#
+# Usage:
+#   oumi train -c configs/recipes/gpt_oss/sft/20b_packed_train.yaml
+#
+# Features Enabled:
+#   - Sequence packing with "wrapped" strategy (equivalent to accelerate launch --packing true)
+#   - kernels-community/vllm-flash-attn3 attention implementation
+#   - HuggingFace kernels optimization for H100/H800 GPUs
+#   - Mixed reasoning and multilingual training dataset
+#
+# Hardware Requirements:
+#   - H100 or H800 GPU recommended for FA3 kernels
+#   - CUDA >= 12.3 for Flash Attention 3 source installation
+#   - 40GB+ VRAM per GPU for 20B model
+
+model:
+  model_name: "openai/gpt-oss-20b"
+  model_max_length: 4096
+  torch_dtype_str: "float32"  # FP32 for mixed precision training
+  trust_remote_code: true
+  
+  # Use vLLM Flash Attention 3 kernel for optimal performance
+  attn_implementation: "kernels-community/vllm-flash-attn3"
+  enable_hf_kernels: true  # Enable HF kernels for FA3 optimization
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/Multilingual-Thinking"
+        # This dataset contains reasoning chains in multiple languages,
+        # perfect for GPT OSS's reasoning capabilities
+    # No collator needed - TRL handles packing internally
+    target_col: "messages"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: false  # Full fine-tuning
+  
+  # Sequence packing configuration (replaces accelerate launch --packing true)
+  packing: true
+  packing_strategy: "wrapped"  # Pack sequences end-to-end with attention masking
+  
+  # Training schedule
+  save_steps: 100
+  num_train_epochs: 1
+  per_device_train_batch_size: 1  # Reduced for 20B model
+  gradient_accumulation_steps: 4   # Effective batch size: 4 per GPU
+  
+  # Memory optimization
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  
+  # Optimizer settings optimized for reasoning models  
+  optimizer: "adamw_torch_fused"
+  learning_rate: 1.0e-05  # Lower LR for stability with large models
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
+    eta_min_ratio: 0.1
+  
+  # Performance settings
+  dataloader_num_workers: 8
+  logging_steps: 10
+  output_dir: "./outputs/gpt_oss_20b_packed"
+  seed: 42
+  
+  # Mixed precision settings for Flash Attention 3
+  mixed_precision_dtype: "BF16"  # Enable BF16 mixed precision for optimal FA3 performance
