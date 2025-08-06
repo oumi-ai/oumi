@@ -138,10 +138,10 @@ except ImportError as e:
     sys.exit(1)
 
 try:
-    import mxfp4
-    print('✓ MXFP4 available')
+    import gpt_oss
+    print('✓ GPT OSS package available (includes MXFP4 quantization support)')
 except ImportError as e:
-    print('❌ MXFP4 import failed:', e)
+    print('❌ GPT OSS package import failed:', e)
     sys.exit(1)
 
 try:
