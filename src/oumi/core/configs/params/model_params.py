@@ -43,11 +43,16 @@ def _resolve_flash_attention_implementation(requested: str) -> Optional[str]:
 
     Args:
         requested: The requested attention implementation ("flash_attention",
-                  "flash_attention_2", or other)
+                  "flash_attention_2", kernel path, or other)
 
     Returns:
         The resolved attention implementation, or None if not available
     """
+    # Handle kernel-based implementations (e.g., "kernels-community/vllm-flash-attn3")
+    if "/" in requested and "kernels" in requested.lower():
+        logger.info(f"Using kernel-based attention implementation: {requested}")
+        return requested
+        
     # Handle backward compatibility and new "flash_attention" syntax
     if requested not in ["flash_attention", "flash_attention_2"]:
         return requested
@@ -198,6 +203,8 @@ class ModelParams(BaseParams):
       version (Flash Attention 3 from source, Flash Attention 2 from pip, or SDPA fallback)
     - "flash_attention_2": [DEPRECATED] Use Flash Attention 2. Use "flash_attention" instead.
     - "eager": Manual implementation of attention
+    - "kernels-community/vllm-flash-attn3": Use vLLM Flash Attention 3 kernel from HF Hub
+    - Custom kernel paths: Any HuggingFace Hub path to attention kernels
     """
 
     device_map: Optional[str] = "auto"

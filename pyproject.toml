@@ -66,13 +66,13 @@ dependencies = [
     "safetensors>=0.5.0,<0.6.0",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.6.0,<2.7.0",
+    "torch>=2.6.0,<2.8.0",
     "torchao>=0.11.0,<0.12",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
     # if python > 3.13, install from source for now.
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
-    "torchvision>=0.21.0,<0.22", # Used by some VLM-s (multimodal)
+    "torchvision>=0.21.0,<0.23", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
@@ -183,6 +183,8 @@ gpt_oss = [
     #     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
     #     --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
     #     --index-strategy unsafe-best-match
+    "torch @ https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250806%2Bcu128-cp312-cp312-linux_x86_64.whl",
+    "torchvision @ https://download.pytorch.org/whl/nightly/cu128/torchvision-0.22.0.dev20250806%2Bcu128-cp312-cp312-linux_x86_64.whl",
     "transformers>=4.55.0",  # Required for GPT OSS model support
     "mxfp4>=0.1.0",         # MXFP4 quantization support
     "kernels", #Relevant Kernels
