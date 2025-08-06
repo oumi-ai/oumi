@@ -488,7 +488,13 @@ def build_tokenizer(
         tokenizer.model_max_length = model_params.model_max_length
 
     template_name: str = ""
-    if model_params.chat_template is not None:
+    if model_params.chat_template == "auto":
+        # "auto" means use model's built-in template, don't override
+        logger.info(
+            f"Chat template set to 'auto' - using model's built-in template for {tokenizer_id_str}."
+        )
+        template_name = ""  # Don't set any template name to avoid override
+    elif model_params.chat_template is not None:
         logger.info(
             f"Using the chat template '{model_params.chat_template}' "
             f"specified in model config for {tokenizer_id_str}. "
