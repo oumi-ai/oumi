@@ -187,8 +187,8 @@ gpt_oss = [
     # PyTorch nightly is required for vLLM GPT OSS compatibility
     # These will be installed from the same index as vLLM uses
     "transformers>=4.55.0",  # Required for GPT OSS model support
-    "mxfp4>=0.1.0",         # MXFP4 quantization support
-    "kernels", #Relevant Kernels
+    "gpt-oss>=0.1.0",       # GPT OSS package with MXFP4 quantization support
+    "kernels",              # HuggingFace kernels for Flash Attention 3
     "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
     # Flash Attention 3 via kernels-community/vllm-flash-attn3 (no compilation needed)
 ]
