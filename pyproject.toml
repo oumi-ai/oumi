@@ -38,7 +38,7 @@ classifiers = [
 
 dependencies = [
     "accelerate>=1.7.0,<1.8",
-    "aiohttp>=3.10,<3.12",          # Used by inference engine
+    "aiohttp",          # Used by inference engine
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
@@ -61,23 +61,23 @@ dependencies = [
     "pexpect>=4.8.0,<4.9",       # Used by Polaris client
     "pillow>=11.1.0,<11.2",      # Used by image datasets
     "protobuf>=5.29.0",
-    "pydantic>=2.9.2,<2.10",
+    "pydantic>=2.9.2",
     "responses>=0.25.0,<0.26",
     "safetensors>=0.5.0,<0.6.0",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.6.0,<2.8.0",
+    "torch>=2.6.0",
     "torchao>=0.11.0,<0.12",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
     # if python > 3.13, install from source for now.
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
-    "torchvision>=0.21.0,<0.23", # Used by some VLM-s (multimodal)
+    "torchvision", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.51.0,<4.52",
-    "trl>=0.18.0,<0.19",
+    "transformers",
+    "trl",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
@@ -177,13 +177,8 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 
 # GPT OSS support - requires special installation procedure
 gpt_oss = [
-    # PyTorch 2.7.0 with CUDA 12.8
-    "torch==2.7.0",
-    "torchvision==0.22.0", 
-    "torchaudio==2.7.0",
     # Note: vLLM GPT OSS build must be installed separately via:
     # pip install vllm==0.10.2+gptoss --extra-index-url https://wheels.vllm.ai/gpt-oss/
-    "transformers>=4.55.0",  # Required for GPT OSS model support
     "gpt-oss>=0.1.0",       # GPT OSS package with MXFP4 quantization support
     "kernels",              # HuggingFace kernels for Flash Attention 3
     "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
@@ -193,7 +188,6 @@ gpt_oss = [
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis]",
-    "vllm>=0.8.3,<0.9",             # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3.5,<0.4", # For LlamaCppInferenceEngine
