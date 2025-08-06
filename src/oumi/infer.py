@@ -46,16 +46,72 @@ def _process_latex_expressions(content: str) -> str:
     
     def latex_to_ascii(match):
         latex_expr = match.group(1).strip()
+        is_display_math = match.group(0).startswith(r'\[')  # Display math vs inline math
+        
         try:
-            # Use SymPy's built-in LaTeX parser
-            parsed_expr = parse_latex(latex_expr)
-            ascii_math = pretty(parsed_expr, use_unicode=True)
-            return f"\n{ascii_math}\n"
+            # Check if the expression contains \text{} commands
+            if r'\text{' in latex_expr:
+                # For expressions with \text{}, skip SymPy parsing and use manual processing
+                raise Exception("Contains \\text{}, use manual processing")
+            else:
+                # Use SymPy's built-in LaTeX parser on expressions without \text{}
+                parsed_expr = parse_latex(latex_expr)
+                
+                # For display math, use full pretty printing
+                if is_display_math:
+                    ascii_math = pretty(parsed_expr, use_unicode=True)
+                else:
+                    # For inline math, try compact representation first
+                    ascii_math = pretty(parsed_expr, use_unicode=True, wrap_line=False)
+                    
+                    # If it's still multi-line, try even more compact representation
+                    if '\n' in ascii_math:
+                        # Use the string representation with Unicode symbols
+                        ascii_math = str(parsed_expr)
+                        # Apply basic Unicode substitutions for better readability
+                        unicode_replacements = [
+                            ('**', '^'),
+                            ('*', '⋅'),
+                            ('sqrt', '√'),
+                            ('pi', 'π'),
+                            ('infinity', '∞'),
+                        ]
+                        for pattern, replacement in unicode_replacements:
+                            ascii_math = ascii_math.replace(pattern, replacement)
+            
+            # Return with appropriate formatting
+            if is_display_math:
+                return f"\n{ascii_math}\n"
+            else:
+                return ascii_math
         except Exception:
             # If parsing fails, try simple formatting with Unicode symbols
             try:
-                # Basic fallback substitutions for common patterns
+                # Enhanced fallback processing for expressions with \text{} commands
                 simple_expr = latex_expr
+                
+                # Handle \text{} commands by extracting the text content
+                simple_expr = re.sub(r'\\text\{([^}]+)\}', r'\1', simple_expr)
+                
+                # Handle fractions manually for better display
+                def process_frac(match):
+                    numerator = match.group(1).strip()
+                    denominator = match.group(2).strip()
+                    
+                    # For display math, create ASCII fraction
+                    if is_display_math:
+                        # Create a proper fraction display
+                        max_width = max(len(numerator), len(denominator)) + 2
+                        line = '─' * max_width
+                        return f"\n{numerator.center(max_width)}\n{line}\n{denominator.center(max_width)}\n"
+                    else:
+                        # For inline, use simple division notation
+                        return f"({numerator})/({denominator})"
+                
+                # Handle \frac{}{} commands
+                simple_expr = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', process_frac, simple_expr)
+                
+                # Basic symbol replacements
                 simple_replacements = [
                     (r'\\times', '×'),
                     (r'\\cdot', '·'),
@@ -66,7 +122,8 @@ def _process_latex_expressions(content: str) -> str:
                     (r'\\leq|\\le', '≤'),
                     (r'\\neq|\\ne', '≠'),
                     (r'\\pm', '±'),
-                    (r'\^(\{[^}]+\}|\w)', r'^\1'),  # Keep exponents as superscript
+                    (r'\\sqrt\{([^}]+)\}', r'√\1'),
+                    (r'\^(\{[^}]+\}|\w)', r'^\1'),  # Keep exponents
                     (r'\_(\{[^}]+\}|\w)', r'_\1'),  # Keep subscripts
                 ]
                 
@@ -75,7 +132,15 @@ def _process_latex_expressions(content: str) -> str:
                 
                 # Remove remaining curly braces
                 simple_expr = re.sub(r'\{([^}]+)\}', r'\1', simple_expr)
-                return f" {simple_expr} "
+                
+                # Clean up extra spaces
+                simple_expr = re.sub(r'\s+', ' ', simple_expr).strip()
+                
+                # Respect display vs inline math formatting
+                if is_display_math:
+                    return f"\n{simple_expr}\n"
+                else:
+                    return f" {simple_expr} "
             except Exception:
                 # Ultimate fallback: return original LaTeX
                 return match.group(0)
