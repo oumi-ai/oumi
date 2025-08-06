@@ -58,8 +58,75 @@ training:
   seed: 42
   dataloader_num_workers: 12
 
-# DeepSpeed ZeRO-3 configuration 
+# DeepSpeed ZeRO-3 configuration with full parameter set
 deepspeed:
   enable_deepspeed: true
   zero_stage: "ZERO_3"
   precision: "BF16"
+
+  # ZeRO-3 optimization parameters
+  overlap_comm: true
+  contiguous_gradients: true
+  sub_group_size: 1000000000  # 1e9
+  reduce_bucket_size: "auto"
+  
+  # ZeRO-3 specific stage3 parameters
+  stage3_prefetch_bucket_size: "auto"
+  stage3_param_persistence_threshold: "auto"
+  stage3_max_live_parameters: 1000000000  # 1e9
+  stage3_max_reuse_distance: 1000000000   # 1e9
+  stage3_gather_16bit_weights_on_model_save: true
+  memory_efficient_linear: false
+  stage3_gather_fp16_weights_on_model_save: false
+
+  # Offload configuration - keep on GPU for performance
+  offload_optimizer:
+    device: "NONE"
+  offload_param:
+    device: "NONE"
+
+  # Activation checkpointing settings
+  activation_checkpointing:
+    partition_activations: false
+    cpu_checkpointing: false
+    contiguous_memory_optimization: false
+    number_checkpoints: null
+    synchronize_checkpoint_boundary: false
+    profile: false
+
+  # Async I/O settings
+  aio:
+    block_size: 1048576
+    queue_depth: 8
+    thread_count: 1
+    single_submit: false
+    overlap_events: true
+
+  # Gradient clipping
+  gradient_clipping: 1.0
+
+  # Mixed precision BF16 configuration
+  bf16:
+    enabled: true
+    auto_cast: false
+    loss_scale: 0
+    initial_scale_power: 16
+    loss_scale_window: 1000
+    hysteresis: 2
+    min_loss_scale: 1
+
+  # Training batch configuration
+  train_batch_size: "auto"
+  train_micro_batch_size_per_gpu: "auto"
+  gradient_accumulation_steps: "auto"
+
+  # Communication logging
+  comms_logger:
+    enabled: false
+    verbose: false
+    prof_all: false
+    debug: false
+
+  # Monitoring
+  steps_per_print: 10
+  wall_clock_breakdown: false

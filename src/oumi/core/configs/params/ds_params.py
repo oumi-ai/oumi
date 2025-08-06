@@ -52,6 +52,9 @@ class DeepSpeedPrecision(str, Enum):
 class DeepSpeedOffloadDevice(str, Enum):
     """Offload device options for DeepSpeed."""
 
+    NONE = "none"
+    """No offloading - keep on GPU."""
+
     CPU = "cpu"
     """Offload to CPU memory."""
 
@@ -63,7 +66,7 @@ class DeepSpeedOffloadDevice(str, Enum):
 class OffloadConfig:
     """Configuration for DeepSpeed parameter/optimizer offloading."""
 
-    device: DeepSpeedOffloadDevice = DeepSpeedOffloadDevice.CPU
+    device: DeepSpeedOffloadDevice = DeepSpeedOffloadDevice.NONE
     """Device to offload to."""
 
     pin_memory: bool = True
@@ -89,6 +92,69 @@ class OffloadConfig:
 
     thread_count: int = 1
     """Number of threads for NVMe operations."""
+
+
+@dataclass
+class AIOConfig:
+    """Configuration for DeepSpeed Async I/O operations."""
+
+    block_size: int = 1048576
+    """Buffer block size for async I/O operations."""
+
+    queue_depth: int = 8
+    """Queue depth for async I/O operations."""
+
+    thread_count: int = 1
+    """Number of threads for async I/O operations."""
+
+    single_submit: bool = False
+    """Whether to use single submission for async I/O operations."""
+
+    overlap_events: bool = True
+    """Whether to overlap async I/O events."""
+
+
+@dataclass
+class CommsLoggerConfig:
+    """Configuration for DeepSpeed communication logging."""
+
+    enabled: bool = False
+    """Whether to enable communication logging."""
+
+    verbose: bool = False
+    """Whether to enable verbose communication logging."""
+
+    prof_all: bool = False
+    """Whether to profile all communication operations."""
+
+    debug: bool = False
+    """Whether to enable debug communication logging."""
+
+
+@dataclass
+class BF16Config:
+    """Configuration for DeepSpeed BF16 mixed precision."""
+
+    enabled: bool = True
+    """Whether to enable BF16 mixed precision."""
+
+    auto_cast: bool = False
+    """Whether to enable automatic casting to BF16."""
+
+    loss_scale: float = 0
+    """Loss scaling value for BF16 training."""
+
+    initial_scale_power: int = 16
+    """Initial scale power for dynamic loss scaling."""
+
+    loss_scale_window: int = 1000
+    """Window size for dynamic loss scaling."""
+
+    hysteresis: int = 2
+    """Hysteresis for dynamic loss scaling."""
+
+    min_loss_scale: int = 1
+    """Minimum loss scale value."""
 
 
 @dataclass
@@ -180,6 +246,9 @@ class DSParams(BaseParams):
     stage3_gather_16bit_weights_on_model_save: bool = True
     """Whether to gather 16-bit weights during model saving in ZeRO-3."""
 
+    stage3_gather_fp16_weights_on_model_save: bool = False
+    """Whether to gather FP16 weights during model saving in ZeRO-3."""
+
     sub_group_size: int = int(1e9)
     """Sub-group size for ZeRO-3 parameter sharding."""
 
@@ -220,6 +289,16 @@ class DSParams(BaseParams):
     # Memory optimization
     memory_efficient_linear: bool = False
     """Enable memory-efficient linear layers."""
+
+    # Additional configuration objects
+    aio: Optional[AIOConfig] = None
+    """Configuration for async I/O operations."""
+
+    comms_logger: Optional[CommsLoggerConfig] = None
+    """Configuration for communication logging."""
+
+    bf16: Optional[BF16Config] = None
+    """Configuration for BF16 mixed precision."""
 
     # Logging and monitoring
     steps_per_print: int = 10
@@ -280,7 +359,18 @@ class DSParams(BaseParams):
                 "min_loss_scale": 1,
             }
         elif self.precision == DeepSpeedPrecision.BF16:
-            config["bf16"] = {"enabled": "auto"}
+            if self.bf16 is not None:
+                config["bf16"] = {
+                    "enabled": self.bf16.enabled,
+                    "auto_cast": self.bf16.auto_cast,
+                    "loss_scale": self.bf16.loss_scale,
+                    "initial_scale_power": self.bf16.initial_scale_power,
+                    "loss_scale_window": self.bf16.loss_scale_window,
+                    "hysteresis": self.bf16.hysteresis,
+                    "min_loss_scale": self.bf16.min_loss_scale,
+                }
+            else:
+                config["bf16"] = {"enabled": "auto"}
 
         # Add ZeRO optimization configuration
         zero_config: dict[str, Any] = {
@@ -321,57 +411,86 @@ class DSParams(BaseParams):
                     "stage3_gather_16bit_weights_on_model_save": (
                         self.stage3_gather_16bit_weights_on_model_save
                     ),
+                    "stage3_gather_fp16_weights_on_model_save": (
+                        self.stage3_gather_fp16_weights_on_model_save
+                    ),
+                    "memory_efficient_linear": self.memory_efficient_linear,
                 }
             )
 
         # Add offloading configurations
         if self.offload_optimizer is not None:
-            offload_config: dict[str, Any] = {
-                "device": self.offload_optimizer.device.value,
-                "pin_memory": self.offload_optimizer.pin_memory,
-            }
-            if self.offload_optimizer.device == DeepSpeedOffloadDevice.NVME:
-                offload_config.update(
-                    {
-                        "buffer_count": self.offload_optimizer.buffer_count_nvme,
-                        "block_size": self.offload_optimizer.block_size,
-                        "queue_depth": self.offload_optimizer.queue_depth,
-                        "single_submit": self.offload_optimizer.single_submit,
-                        "overlap_events": self.offload_optimizer.overlap_events,
-                        "thread_count": self.offload_optimizer.thread_count,
-                    }
-                )
+            if self.offload_optimizer.device == DeepSpeedOffloadDevice.NONE:
+                zero_config["offload_optimizer"] = {"device": "none"}
             else:
-                offload_config["buffer_count"] = self.offload_optimizer.buffer_count
+                offload_config: dict[str, Any] = {
+                    "device": self.offload_optimizer.device.value,
+                    "pin_memory": self.offload_optimizer.pin_memory,
+                }
+                if self.offload_optimizer.device == DeepSpeedOffloadDevice.NVME:
+                    offload_config.update(
+                        {
+                            "buffer_count": self.offload_optimizer.buffer_count_nvme,
+                            "block_size": self.offload_optimizer.block_size,
+                            "queue_depth": self.offload_optimizer.queue_depth,
+                            "single_submit": self.offload_optimizer.single_submit,
+                            "overlap_events": self.offload_optimizer.overlap_events,
+                            "thread_count": self.offload_optimizer.thread_count,
+                        }
+                    )
+                else:
+                    offload_config["buffer_count"] = self.offload_optimizer.buffer_count
 
-            zero_config["offload_optimizer"] = offload_config
+                zero_config["offload_optimizer"] = offload_config
 
         if self.offload_param is not None:
-            offload_config: dict[str, Any] = {
-                "device": self.offload_param.device.value,
-                "pin_memory": self.offload_param.pin_memory,
-            }
-            if self.offload_param.device == DeepSpeedOffloadDevice.NVME:
-                offload_config.update(
-                    {
-                        "buffer_count": self.offload_param.buffer_count_nvme,
-                        "block_size": self.offload_param.block_size,
-                        "queue_depth": self.offload_param.queue_depth,
-                        "single_submit": self.offload_param.single_submit,
-                        "overlap_events": self.offload_param.overlap_events,
-                        "thread_count": self.offload_param.thread_count,
-                    }
-                )
+            if self.offload_param.device == DeepSpeedOffloadDevice.NONE:
+                zero_config["offload_param"] = {"device": "none"}
             else:
-                offload_config["buffer_count"] = self.offload_param.buffer_count
+                offload_config: dict[str, Any] = {
+                    "device": self.offload_param.device.value,
+                    "pin_memory": self.offload_param.pin_memory,
+                }
+                if self.offload_param.device == DeepSpeedOffloadDevice.NVME:
+                    offload_config.update(
+                        {
+                            "buffer_count": self.offload_param.buffer_count_nvme,
+                            "block_size": self.offload_param.block_size,
+                            "queue_depth": self.offload_param.queue_depth,
+                            "single_submit": self.offload_param.single_submit,
+                            "overlap_events": self.offload_param.overlap_events,
+                            "thread_count": self.offload_param.thread_count,
+                        }
+                    )
+                else:
+                    offload_config["buffer_count"] = self.offload_param.buffer_count
 
-            zero_config["offload_param"] = offload_config
+                zero_config["offload_param"] = offload_config
 
         config["zero_optimization"] = zero_config
 
         # Add activation checkpointing if configured
         if self.activation_checkpointing:
             config["activation_checkpointing"] = self.activation_checkpointing
+
+        # Add async I/O configuration
+        if self.aio is not None:
+            config["aio"] = {
+                "block_size": self.aio.block_size,
+                "queue_depth": self.aio.queue_depth,
+                "thread_count": self.aio.thread_count,
+                "single_submit": self.aio.single_submit,
+                "overlap_events": self.aio.overlap_events,
+            }
+
+        # Add communication logger configuration
+        if self.comms_logger is not None:
+            config["comms_logger"] = {
+                "enabled": self.comms_logger.enabled,
+                "verbose": self.comms_logger.verbose,
+                "prof_all": self.comms_logger.prof_all,
+                "debug": self.comms_logger.debug,
+            }
 
         return config
 
