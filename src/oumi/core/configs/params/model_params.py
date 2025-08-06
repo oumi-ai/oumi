@@ -38,6 +38,18 @@ def _is_flash_attn_3_available() -> bool:
         return False
 
 
+def _is_kernels_fa3_available() -> bool:
+    """Check if Flash Attention 3 is available via kernels package."""
+    try:
+        from oumi.core.kernels.detection import is_flash_attn3_kernel_available
+        return is_flash_attn3_kernel_available()
+    except ImportError:
+        return False
+    except Exception:
+        # If detection fails for any reason, assume not available
+        return False
+
+
 def _resolve_flash_attention_implementation(requested: str) -> Optional[str]:
     """Resolve requested Flash Attention to best available implementation.
 
@@ -64,10 +76,14 @@ def _resolve_flash_attention_implementation(requested: str) -> Optional[str]:
             "Use 'flash_attention' for automatic detection of best available version."
         )
 
-    # Priority order: FA3 source → FA2 pip → SDPA fallback
+    # Priority order: FA3 source → FA3 kernels → FA2 pip → SDPA fallback
     if _is_flash_attn_3_available():
         logger.info("Using Flash Attention 3 (source installation)")
         return "flash_attention_2"  # HF still expects this value internally
+
+    if _is_kernels_fa3_available():
+        logger.info("Using Flash Attention 3 (kernels package)")
+        return "kernels-community/vllm-flash-attn3"
 
     if is_flash_attn_2_available():
         logger.info("Using Flash Attention 2 (pip installation)")
