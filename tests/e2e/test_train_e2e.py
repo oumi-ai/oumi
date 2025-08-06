@@ -571,7 +571,7 @@ def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path:
             ),
             max_steps=5,
             save_steps=5,
-            skip=True,  # Issues with this test since torch 2.6.0 upgrade. Skip for now
+            skip=False,  # Issues with this test since torch 2.6.0 upgrade. Skip for now
             # until we upgrade to the next torch version.
         ),
         TrainTestConfig(
