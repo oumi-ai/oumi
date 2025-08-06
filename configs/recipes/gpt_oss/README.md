@@ -17,6 +17,12 @@ Configs for OpenAI's gpt-oss model family. See the [blog post](https://huggingfa
 
 ### Inference
 
+To run interactive inference on gpt-oss-20b locally:
+
+```shell
+oumi infer -i -c oumi://configs/recipes/gpt_oss/inference/20b_infer.yaml
+```
+
 To run interactive remote inference on gpt-oss-120b on Together AI:
 
 ```shell
