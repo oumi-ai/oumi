@@ -2,8 +2,7 @@
 #
 # Requirements:
 #   - Run on a Hopper-family GPU. See https://huggingface.co/blog/welcome-openai-gpt-oss#using-transformers.
-#   - Run `uv pip install -U accelerate transformers kernels torchvision`
-#   - Run `uv pip install triton==3.4.0 git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels`
+#   - Run `uv pip install -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels`
 #   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
 #
 # Usage:
