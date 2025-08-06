@@ -16,6 +16,12 @@ model:
   chat_template: "auto"  # Use model's built-in chat template
   attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
   enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
+  
+  # Disable quantization for training (dequantize MXFP4 models)
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+      dequantize: true
 
 data:
   train:
@@ -37,6 +43,9 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
   warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
   logging_steps: 10
   output_dir: "./outputs/gpt_oss_20b_lora"
 
