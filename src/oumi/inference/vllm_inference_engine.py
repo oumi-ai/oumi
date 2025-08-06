@@ -104,6 +104,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     if model_params.model_kwargs.get(key):
                         quantization = "bitsandbytes"
                         break
+                # Check if quantization is MXFP4.
+                if not quantization and model_params.model_kwargs.get(
+                    "quantization_config"
+                ):
+                    quant_config = model_params.model_kwargs.get("quantization_config")
+                    if (
+                        isinstance(quant_config, dict)
+                        and quant_config.get("quant_method") == "mxfp4"
+                    ):
+                        quantization = "mxfp4"
             if not quantization and model_params.model_kwargs.get("filename"):
                 # Check if quantization is GGUF.
                 gguf_filename = str(model_params.model_kwargs.get("filename"))
@@ -124,6 +134,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization and quantization == "bitsandbytes":
             vllm_kwargs["load_format"] = "bitsandbytes"
             logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
+        elif quantization and quantization == "mxfp4":
+            vllm_kwargs["quantization"] = "mxfp4"
+            logger.info("VLLM engine loading a `MXFP4` quantized model.")
         elif quantization and quantization == "gguf":
             # Download the GGUF file from HuggingFace to a local cache.
             gguf_local_path = get_local_filepath_for_gguf(
