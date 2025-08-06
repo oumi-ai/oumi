@@ -174,22 +174,26 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["max_num_seqs"] = max_num_seqs
 
         self._tokenizer = build_tokenizer(model_params)
-        self._llm = vllm.LLM(
-            model=model_params.model_name,
-            tokenizer=model_params.tokenizer_name,
-            trust_remote_code=model_params.trust_remote_code,
-            dtype=model_params.torch_dtype_str,
-            # TODO: these params should be settable via config,
-            # but they don't belong to model_params
-            quantization=quantization,
-            tensor_parallel_size=tensor_parallel_size,
-            enable_prefix_caching=enable_prefix_caching,
-            enable_lora=self._lora_request is not None,
-            max_model_len=model_params.model_max_length,
-            gpu_memory_utilization=gpu_memory_utilization,
-            enforce_eager=enforce_eager,
+        # Build vLLM arguments, avoiding conflicts
+        final_vllm_kwargs = {
+            "model": model_params.model_name,
+            "tokenizer": model_params.tokenizer_name,
+            "trust_remote_code": model_params.trust_remote_code,
+            "dtype": model_params.torch_dtype_str,
+            "tensor_parallel_size": tensor_parallel_size,
+            "enable_prefix_caching": enable_prefix_caching,
+            "enable_lora": self._lora_request is not None,
+            "max_model_len": model_params.model_max_length,
+            "gpu_memory_utilization": gpu_memory_utilization,
+            "enforce_eager": enforce_eager,
             **vllm_kwargs,
-        )
+        }
+
+        # Only add quantization if not already in vllm_kwargs and not None
+        if quantization is not None and "quantization" not in vllm_kwargs:
+            final_vllm_kwargs["quantization"] = quantization
+
+        self._llm = vllm.LLM(**final_vllm_kwargs)
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 
