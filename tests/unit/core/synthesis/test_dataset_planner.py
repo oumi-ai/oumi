@@ -28,7 +28,9 @@ from oumi.core.configs.params.synthesis_params import (
     PermutableAttributeValue,
     SegmentationStrategy,
 )
+from oumi.core.synthesis.dataset_ingestion import DatasetReader
 from oumi.core.synthesis.dataset_planner import DatasetPlanner
+from oumi.core.synthesis.document_ingestion import DocumentReader
 
 
 @pytest.fixture(autouse=True)
@@ -211,6 +213,19 @@ def mock_document_segments():
             "This is segment 3 of document 2.",
         ],
     ]
+
+
+def test_dataset_planner_default_initialization():
+    """Test that DatasetPlanner initializes with default readers when no args."""
+    planner = DatasetPlanner()
+
+    assert planner is not None
+
+    assert planner._document_reader is not None
+    assert planner._dataset_reader is not None
+
+    assert isinstance(planner._document_reader, DocumentReader)
+    assert isinstance(planner._dataset_reader, DatasetReader)
 
 
 def test_plan_with_no_permutable_attributes(planner):
