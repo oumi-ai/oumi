@@ -265,6 +265,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
             guided_decoding=guided_decoding,
+            skip_special_tokens=generation_params.skip_special_tokens,
         )
 
         output_conversations = []
