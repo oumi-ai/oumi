@@ -17,6 +17,10 @@ import sys
 
 import typer
 
+from oumi.cli.cache import card as cache_card
+from oumi.cli.cache import get as cache_get
+from oumi.cli.cache import ls as cache_ls
+from oumi.cli.cache import rm as cache_rm
 from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
@@ -26,10 +30,6 @@ from oumi.cli.infer import infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
-from oumi.cli.model import card as model_card
-from oumi.cli.model import get as model_get
-from oumi.cli.model import ls as model_ls
-from oumi.cli.model import rm as model_rm
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
@@ -137,12 +137,18 @@ def get_app() -> typer.Typer:
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
 
-    model_app = typer.Typer(pretty_exceptions_enable=False)
-    model_app.command(name="ls", help="List locally cached models.")(model_ls)
-    model_app.command(name="get", help="Download a model from Hugging Face.")(model_get)
-    model_app.command(name="card", help="Show the model card for a model.")(model_card)
-    model_app.command(name="rm", help="Remove a model from the local cache.")(model_rm)
-    app.add_typer(model_app, name="model", help="Manage local model cache.")
+    cache_app = typer.Typer(pretty_exceptions_enable=False)
+    cache_app.command(name="ls", help="List locally cached items.")(cache_ls)
+    cache_app.command(name="get", help="Download a repository from Hugging Face.")(
+        cache_get
+    )
+    cache_app.command(name="card", help="Show information for a repository.")(
+        cache_card
+    )
+    cache_app.command(name="rm", help="Remove a repository from the local cache.")(
+        cache_rm
+    )
+    app.add_typer(cache_app, name="cache", help="Manage local Hugging Face cache.")
 
     return app
 

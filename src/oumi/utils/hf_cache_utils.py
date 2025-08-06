@@ -20,8 +20,8 @@ from huggingface_hub.utils import scan_cache_dir
 
 
 @dataclass
-class CachedModel:
-    """A class representing a cached model."""
+class CachedItem:
+    """A class representing a cached HuggingFace repository item."""
 
     repo_id: str
     size_bytes: int
@@ -33,10 +33,10 @@ class CachedModel:
     nb_files: int
 
 
-def list_cached_models() -> list[CachedModel]:
-    """List all cached models in the cache directory."""
+def list_hf_cache() -> list[CachedItem]:
+    """List all cached items in the HuggingFace cache directory."""
     cache_dir: HFCacheInfo = scan_cache_dir()
-    cached_models: list[CachedModel] = []
+    cached_items: list[CachedItem] = []
     for repo in cache_dir.repos:
         repo_id: str = repo.repo_id
         size_bytes: float = repo.size_on_disk
@@ -46,8 +46,8 @@ def list_cached_models() -> list[CachedModel]:
         repo_type: str = repo.repo_type
         nb_files: int = repo.nb_files
         size: str = format_size(size_bytes)
-        cached_models.append(
-            CachedModel(
+        cached_items.append(
+            CachedItem(
                 repo_id=repo_id,
                 size_bytes=size_bytes,
                 size=size,
@@ -58,7 +58,7 @@ def list_cached_models() -> list[CachedModel]:
                 nb_files=nb_files,
             )
         )
-    return cached_models
+    return cached_items
 
 
 def format_size(size_bytes: float) -> str:
