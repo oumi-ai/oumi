@@ -14,6 +14,13 @@
 
 from typing import Optional
 
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.syntax import Syntax
+from rich.text import Text
+
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
@@ -40,6 +47,49 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     )
 
 
+def _format_conversation_response(conversation: Conversation, console: Console) -> None:
+    """Format and display a conversation response with Rich formatting."""
+    for message in conversation.messages:
+        if message.role == Role.USER:
+            continue
+        
+        # Extract the text content from the message
+        if isinstance(message.content, str):
+            content = message.content
+        elif isinstance(message.content, list):
+            content = ""
+            for item in message.content:
+                if hasattr(item, 'content') and item.content:
+                    content += str(item.content)
+        else:
+            content = str(message.content)
+        
+        # Try to render as markdown if it looks like markdown, otherwise as plain text
+        if any(marker in content for marker in ['```', '**', '*', '#', '`']):
+            try:
+                console.print(Panel(
+                    Markdown(content),
+                    title=f"[bold cyan]Assistant[/bold cyan]",
+                    border_style="cyan",
+                    padding=(1, 2)
+                ))
+            except Exception:
+                # Fallback to plain text if markdown parsing fails
+                console.print(Panel(
+                    Text(content, style="white"),
+                    title=f"[bold cyan]Assistant[/bold cyan]",
+                    border_style="cyan",
+                    padding=(1, 2)
+                ))
+        else:
+            console.print(Panel(
+                Text(content, style="white"),
+                title=f"[bold cyan]Assistant[/bold cyan]",
+                border_style="cyan",
+                padding=(1, 2)
+            ))
+
+
 def infer_interactive(
     config: InferenceConfig,
     *,
@@ -47,28 +97,76 @@ def infer_interactive(
     system_prompt: Optional[str] = None,
 ) -> None:
     """Interactively provide the model response for a user-provided input."""
+    console = Console()
+    
+    # Display welcome message
+    console.print(Panel(
+        Text("🤖 Oumi Interactive Chat", style="bold magenta"),
+        subtitle="[dim]Press Ctrl+C or Ctrl+D to exit[/dim]",
+        border_style="magenta"
+    ))
+    
+    # Display model info
+    model_name = getattr(config.model, 'model_name', 'Unknown Model')
+    engine_type = config.engine.value if config.engine else "native"
+    
+    console.print(f"[bold green]Model:[/bold green] {model_name}")
+    console.print(f"[bold green]Engine:[/bold green] {engine_type}")
+    if system_prompt:
+        console.print(f"[bold green]System Prompt:[/bold green] {system_prompt}")
+    console.print()
+    
     # Create engine up front to avoid reinitializing it for each input.
     inference_engine = get_engine(config)
+    
+    conversation_history = []
+    
     while True:
         try:
-            input_text = input("Enter your input prompt: ")
+            # Use Rich prompt for better UX
+            input_text = Prompt.ask(
+                "[bold blue]You[/bold blue]",
+                console=console
+            )
+            if not input_text.strip():
+                continue
+                
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
-            print("\nExiting...")
+            console.print("\n[yellow]👋 Goodbye![/yellow]")
             return
-        model_response = infer(
-            config=config,
-            inputs=[
-                input_text,
-            ],
-            system_prompt=system_prompt,
-            input_image_bytes=input_image_bytes,
-            inference_engine=inference_engine,
-        )
-        for g in model_response:
-            print("------------")
-            print(repr(g))
-            print("------------")
-        print()
+            
+        # Store user message in history
+        conversation_history.append({"role": "user", "content": input_text})
+        
+        try:
+            with console.status("[bold green]Thinking...[/bold green]", spinner="dots"):
+                model_response = infer(
+                    config=config,
+                    inputs=[input_text],
+                    system_prompt=system_prompt,
+                    input_image_bytes=input_image_bytes,
+                    inference_engine=inference_engine,
+                )
+            
+            # Format and display the response
+            for conversation in model_response:
+                _format_conversation_response(conversation, console)
+                
+                # Store assistant response in history
+                for message in conversation.messages:
+                    if message.role == Role.ASSISTANT or message.role == Role.USER:
+                        continue
+                    if isinstance(message.content, str):
+                        conversation_history.append({"role": "assistant", "content": message.content})
+                        
+        except Exception as e:
+            console.print(Panel(
+                f"[red]Error: {str(e)}[/red]",
+                title="[bold red]Error[/bold red]",
+                border_style="red"
+            ))
+        
+        console.print()  # Add spacing between exchanges
 
 
 def infer(

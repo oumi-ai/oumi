@@ -21,13 +21,19 @@
 model:
   model_name: "openai/gpt-oss-20b"
   model_max_length: 4096
-  torch_dtype_str: "float32"  # FP32 for mixed precision training
+  torch_dtype_str: "bfloat16"  # BF16 for optimal training performance
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
   
   # Use vLLM Flash Attention 3 kernel for optimal performance
   attn_implementation: "kernels-community/vllm-flash-attn3"
   enable_hf_kernels: true  # Enable HF kernels for FA3 optimization
+  
+  # Disable quantization for training (dequantize MXFP4 models)
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+      dequantize: true
 
 data:
   train:
@@ -73,5 +79,4 @@ training:
   output_dir: "./outputs/gpt_oss_20b_packed"
   seed: 42
   
-  # Mixed precision settings for Flash Attention 3
-  mixed_precision_dtype: "BF16"  # Enable BF16 mixed precision for optimal FA3 performance
+  # Mixed precision is handled by the model's bfloat16 dtype

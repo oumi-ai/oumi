@@ -38,6 +38,18 @@ def infer(
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
+    server_mode: Annotated[
+        bool,
+        typer.Option("--server-mode", help="Run as HTTP server compatible with OpenAI API."),
+    ] = False,
+    host: Annotated[
+        str,
+        typer.Option("--host", help="Host address for server mode."),
+    ] = "0.0.0.0",
+    port: Annotated[
+        int,
+        typer.Option("--port", help="Port for server mode."),
+    ] = 8000,
     image: Annotated[
         Optional[str],
         typer.Option(
@@ -146,6 +158,18 @@ def infer(
             table.add_row(repr(generation))
         cli_utils.CONSOLE.print(table)
         return
+    # Handle server mode
+    if server_mode:
+        from oumi.server import run_server
+        
+        logger.info(f"Starting Oumi inference server on {host}:{port}")
+        return run_server(
+            config=parsed_config,
+            host=host,
+            port=port,
+            system_prompt=system_prompt,
+        )
+    
     if not interactive:
         logger.warning(
             "No input path provided, running in interactive mode. "
