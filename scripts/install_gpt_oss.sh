@@ -35,7 +35,6 @@ echo ""
 echo "📦 Step 1: Installing standard GPT OSS dependencies..."
 pip install uv
 uv pip install "oumi[gpt_oss]"
-uv pip install git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
 
 # Step 2: Install vLLM GPT OSS build
 echo ""
@@ -78,7 +77,7 @@ git clone https://github.com/Dao-AILab/flash-attention.git "$TEMP_DIR"
 cd "$TEMP_DIR/hopper"
 
 echo "   Compiling Flash Attention 3 (this may take 10-20 minutes)..."
-pip install .
+uv pip install .
 
 # Clean up
 cd - >/dev/null

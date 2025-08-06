@@ -21,12 +21,13 @@ from oumi.utils.logging import logger
 
 def is_kernels_available() -> bool:
     """Check if the HuggingFace kernels package is available.
-    
+
     Returns:
         True if the kernels package can be imported, False otherwise.
     """
     try:
         import kernels  # pyright: ignore[reportMissingImports]
+
         return True
     except ImportError:
         return False
@@ -34,15 +35,16 @@ def is_kernels_available() -> bool:
 
 def is_flash_attn3_kernel_available() -> bool:
     """Check if the Flash Attention 3 kernel from HF Hub is available.
-    
+
     Returns:
         True if the flash-attn3 kernel can be loaded, False otherwise.
     """
     if not is_kernels_available():
         return False
-        
+
     try:
         from kernels import get_kernel  # pyright: ignore[reportMissingImports]
+
         # Try to load the flash-attn3 kernel
         kernel = get_kernel("kernels-community/flash-attn3")
         return kernel is not None
@@ -53,7 +55,7 @@ def is_flash_attn3_kernel_available() -> bool:
 
 def get_available_kernels_info() -> dict[str, bool]:
     """Get information about available kernel optimizations.
-    
+
     Returns:
         Dictionary with kernel availability status.
     """
@@ -65,10 +67,10 @@ def get_available_kernels_info() -> dict[str, bool]:
 
 def load_flash_attn3_kernel() -> Optional[object]:
     """Load the Flash Attention 3 kernel from the HF Hub.
-    
+
     Returns:
         The loaded kernel object, or None if not available.
-        
+
     Raises:
         ImportError: If kernels package is not available.
         RuntimeError: If kernel cannot be loaded.
@@ -77,9 +79,10 @@ def load_flash_attn3_kernel() -> Optional[object]:
         raise ImportError(
             "kernels package is required. Install with: pip install kernels"
         )
-    
+
     try:
         from kernels import get_kernel  # pyright: ignore[reportMissingImports]
+
         kernel = get_kernel("kernels-community/flash-attn3")
         if kernel is None:
             raise RuntimeError("Failed to load flash-attn3 kernel from Hub")

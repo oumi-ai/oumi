@@ -14,9 +14,7 @@
 
 """MXFP4 quantization implementation for GPT OSS models."""
 
-import os
 from pathlib import Path
-from typing import Optional
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -28,6 +26,7 @@ from oumi.utils.logging import logger
 
 try:
     import mxfp4
+
     MXFP4_AVAILABLE = True
 except ImportError:
     MXFP4_AVAILABLE = False
@@ -36,71 +35,71 @@ except ImportError:
 
 class MXFP4Quantizer(BaseQuantization):
     """MXFP4 quantizer for GPT OSS models.
-    
+
     MXFP4 is a 4-bit mixed-precision floating-point format designed
     specifically for efficient deployment of large language models.
     It's the native quantization format for GPT OSS models.
     """
-    
+
     # Define supported methods and formats
     supported_methods = ["mxfp4"]
     supported_formats = ["safetensors"]
 
     def quantize(self, config: QuantizationConfig) -> QuantizationResult:
         """Quantize a model using MXFP4.
-        
+
         Args:
             config: Quantization configuration.
-        
+
         Returns:
             QuantizationResult with quantization details.
-        
+
         Raises:
             ImportError: If mxfp4 package is not installed.
             ValueError: If configuration is invalid.
         """
         self.raise_if_requirements_not_met()
-        
+
         if config.quantization_method not in self.supported_methods:
             raise ValueError(
                 f"Invalid quantization method for MXFP4: {config.quantization_method}. "
                 f"Supported methods: {self.supported_methods}"
             )
-        
+
         # Create output directory
         output_path = Path(config.output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"Loading model from {config.model_id}")
-        
+
         # Load model and tokenizer
         model = AutoModelForCausalLM.from_pretrained(
             config.model_id,
             torch_dtype=torch.float16,
             trust_remote_code=config.trust_remote_code,
         )
-        
+
         tokenizer = AutoTokenizer.from_pretrained(
             config.model_id,
             trust_remote_code=config.trust_remote_code,
         )
-        
+
         logger.info("Starting MXFP4 quantization...")
-        
+
         # Apply MXFP4 quantization
         quantized_model = mxfp4.quantize_model(
             model,
             bits=4,
             group_size=128,  # Default group size for MXFP4
         )
-        
+
         # Set quantization config in model
         quantized_model.config.quantization_config = {
             "quant_method": "mxfp4",
             "bits": 4,
             "group_size": 128,
         }
-        
+
         # Save quantized model
         logger.info(f"Saving MXFP4 quantized model to {output_path}")
         quantized_model.save_pretrained(
@@ -108,15 +107,15 @@ class MXFP4Quantizer(BaseQuantization):
             safe_serialization=True,
             max_shard_size="10GB",
         )
-        
+
         # Save tokenizer
         tokenizer.save_pretrained(output_path)
-        
+
         # Calculate quantized model size
         quantized_size = get_directory_size(str(output_path))
-        
+
         logger.info("MXFP4 quantization completed successfully")
-        
+
         return QuantizationResult(
             quantized_size_bytes=quantized_size,
             output_path=str(output_path),
@@ -133,10 +132,10 @@ class MXFP4Quantizer(BaseQuantization):
 
     def supports_method(self, method: str) -> bool:
         """Check if this quantizer supports the given method.
-        
+
         Args:
             method: Quantization method name.
-        
+
         Returns:
             True if method is supported.
         """
@@ -144,7 +143,7 @@ class MXFP4Quantizer(BaseQuantization):
 
     def raise_if_requirements_not_met(self) -> None:
         """Raise an error if requirements are not met.
-        
+
         Raises:
             ImportError: If mxfp4 package is not installed.
         """
@@ -154,15 +153,13 @@ class MXFP4Quantizer(BaseQuantization):
                 "Install with: pip install mxfp4"
             )
 
-    def _calculate_compression_ratio(
-        self, model_id: str, quantized_size: int
-    ) -> float:
+    def _calculate_compression_ratio(self, model_id: str, quantized_size: int) -> float:
         """Calculate compression ratio.
-        
+
         Args:
             model_id: Original model ID.
             quantized_size: Size of quantized model in bytes.
-        
+
         Returns:
             Compression ratio.
         """

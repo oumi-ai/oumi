@@ -1,0 +1,65 @@
+# DeepSpeed ZeRO-3 distributed training config for GPT OSS 20B
+# Replicates HF GPT-OSS recipes zero3.yaml for memory-efficient training
+#
+# This config enables ZeRO-3 optimization for training large models with
+# reduced memory footprint through parameter, gradient, and optimizer sharding.
+# Designed for multi-GPU training (recommended: 8 GPUs).
+#
+# Key features from HF recipe:
+#   - ZeRO Stage 3 with parameter sharding
+#   - BF16 mixed precision
+#   - Gradient clipping
+#   - Memory-efficient training
+#
+# Usage:
+#   # Single machine, 8 GPUs
+#   oumi train -c configs/recipes/gpt_oss/sft/20b_deepspeed_zero3.yaml
+#
+# See Also:
+#   - HF Recipe: https://github.com/huggingface/gpt-oss-recipes/blob/main/configs/zero3.yaml
+#   - DeepSpeed ZeRO: https://www.deepspeed.ai/tutorials/zero/
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+
+model:
+  model_name: "openai/gpt-oss-20b"
+  model_max_length: 4096
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: true
+  attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
+  enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/Multilingual-Thinking"
+    collator_name: "text_completions_only_with_padding"
+    target_col: "messages"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: false  # Full fine-tuning with ZeRO-3
+  save_steps: 100
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1  # HF recipe uses 1
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-05
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0  # HF recipe gradient clipping
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
+    eta_min_ratio: 0.1
+  logging_steps: 10
+  output_dir: "./outputs/gpt_oss_20b_zero3"
+  seed: 42
+  dataloader_num_workers: 12
+
+# DeepSpeed ZeRO-3 configuration 
+deepspeed:
+  enable_deepspeed: true
+  zero_stage: "ZERO_3"
+  precision: "BF16"
