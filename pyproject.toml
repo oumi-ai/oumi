@@ -183,14 +183,14 @@ gpt_oss = [
     #     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
     #     --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
     #     --index-strategy unsafe-best-match
-    "torch @ https://download.pytorch.org/whl/nightly/cu128/torch-2.7.0.dev20250806%2Bcu128-cp312-cp312-linux_x86_64.whl",
-    "torchvision @ https://download.pytorch.org/whl/nightly/cu128/torchvision-0.22.0.dev20250806%2Bcu128-cp312-cp312-linux_x86_64.whl",
+    # 
+    # PyTorch nightly is required for vLLM GPT OSS compatibility
+    # These will be installed from the same index as vLLM uses
     "transformers>=4.55.0",  # Required for GPT OSS model support
     "mxfp4>=0.1.0",         # MXFP4 quantization support
     "kernels", #Relevant Kernels
     "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
-    # Flash Attention 3 is required but needs separate installation
-    # pip install flash-attn>=3.0.0 --no-build-isolation
+    # Flash Attention 3 via kernels-community/vllm-flash-attn3 (no compilation needed)
 ]
 
 # CI targets
