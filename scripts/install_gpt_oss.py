@@ -59,17 +59,28 @@ packages = [
     ('vllm', 'vLLM'),
     ('transformers', 'Transformers'),  
     ('mxfp4', 'MXFP4'),
-    ('flash_attn', 'Flash Attention')
+    ('flash_attn_interface', 'Flash Attention 3')
 ]
 
 failed = False
 for module_name, display_name in packages:
     try:
         module = __import__(module_name)
-        version = getattr(module, '__version__', 'unknown')
-        print(f'✓ {display_name} version: {version}')
+        if module_name == 'flash_attn_interface':
+            # Special handling for Flash Attention 3
+            print(f'✓ {display_name} interface available')
+            # Test that the main function is accessible
+            module.flash_attn_func
+            print(f'✓ {display_name} function accessible')
+        else:
+            version = getattr(module, '__version__', 'unknown')
+            print(f'✓ {display_name} version: {version}')
     except ImportError as e:
-        print(f'❌ {display_name} import failed: {e}')
+        if module_name == 'flash_attn_interface':
+            print(f'❌ {display_name} import failed: {e}')
+            print('   Note: Flash Attention 3 requires H100/H800 GPU and CUDA >= 12.3')
+        else:
+            print(f'❌ {display_name} import failed: {e}')
         failed = True
 
 if not failed:
@@ -121,12 +132,59 @@ def main():
         print("❌ Failed to install vLLM GPT OSS build")
         return 1
     
-    # Step 3: Install Flash Attention 3
-    print("\n⚡ Step 3: Installing Flash Attention 3...")
-    print("   This compilation may take 10-15 minutes...")
-    if not run_command('pip install "flash-attn>=3.0.0" --no-build-isolation'):
-        print("❌ Failed to install Flash Attention 3")
+    # Step 3: Install Flash Attention 3 from source
+    print("\n⚡ Step 3: Installing Flash Attention 3 from source...")
+    print("   This requires H100/H800 GPU and CUDA >= 12.3")
+    
+    # Check CUDA version
+    try:
+        result = subprocess.run(['nvcc', '--version'], capture_output=True, text=True)
+        if result.returncode == 0:
+            import re
+            cuda_match = re.search(r'release (\d+\.\d+)', result.stdout)
+            if cuda_match:
+                print(f"   Detected CUDA version: {cuda_match.group(1)}")
+        else:
+            print("⚠️  WARNING: nvcc not found. Flash Attention 3 requires CUDA >= 12.3")
+    except FileNotFoundError:
+        print("⚠️  WARNING: nvcc not found. Flash Attention 3 requires CUDA >= 12.3")
+    
+    # Install compilation dependencies
+    print("   Installing compilation dependencies...")
+    if not run_command('pip install packaging ninja'):
+        print("❌ Failed to install compilation dependencies")
         return 1
+    
+    # Check RAM and set MAX_JOBS
+    try:
+        import psutil
+        ram_gb = psutil.virtual_memory().total // (1024**3)
+        if ram_gb < 96:
+            print(f"   Detected {ram_gb}GB RAM, limiting parallel jobs to 4")
+            os.environ['MAX_JOBS'] = '4'
+    except ImportError:
+        print("   psutil not available, using default compilation settings")
+    
+    # Clone and install Flash Attention 3
+    import tempfile
+    import shutil
+    
+    print("   Cloning Flash Attention repository...")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_path = Path(temp_dir) / "flash-attention"
+        if not run_command(f'git clone https://github.com/Dao-AILab/flash-attention.git "{repo_path}"'):
+            print("❌ Failed to clone Flash Attention repository")
+            return 1
+        
+        hopper_path = repo_path / "hopper"
+        os.chdir(hopper_path)
+        
+        print("   Compiling Flash Attention 3 (this may take 10-20 minutes)...")
+        if not run_command('python setup.py install'):
+            print("❌ Failed to compile Flash Attention 3")
+            return 1
+        
+        print("   ✓ Flash Attention 3 installed from source")
     
     # Step 4: Verify installation
     if not verify_installation():
