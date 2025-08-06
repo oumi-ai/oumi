@@ -17,7 +17,7 @@ import time
 from importlib.metadata import version
 from pathlib import Path
 from pprint import pformat
-from typing import Any, Callable, Final, Optional, Union
+from typing import Any, Callable, Final, Optional, Union, cast
 
 import datasets as hf_datasets
 import torch
@@ -497,7 +497,12 @@ def train(
                     f"Instead got {config.peft.bnb_4bit_quant_storage} and "
                     f"{config.model.torch_dtype}."
                 )
-            coerce_model_to_dtype(model, config.model.torch_dtype)
+            if config.model.torch_dtype_str == "auto":
+                raise ValueError(
+                    "torch_dtype cannot be 'auto' for QLoRA FSDP training. "
+                    "Please specify a dtype."
+                )
+            coerce_model_to_dtype(model, cast(torch.dtype, config.model.torch_dtype))
             logger.info(f"Coerced model to dtype {config.model.torch_dtype}!")
 
         with torch.profiler.record_function("wait_for_all_ranks"):
