@@ -37,14 +37,18 @@ pip install uv
 
 # Install GPT OSS dependencies first (includes PyTorch)
 echo "   Installing GPT OSS dependencies..."
-uv pip install "oumi[gpt_oss]" --index-url https://download.pytorch.org/whl/cu128
+# Use PyPI as primary index, PyTorch as extra index to ensure all packages are found
+uv pip install "oumi[gpt_oss]" \
+    --index-url https://pypi.org/simple/ \
+    --extra-index-url https://download.pytorch.org/whl/cu128
 
 # Install vLLM GPT OSS build separately with proper index strategy
 echo "   Installing vLLM GPT OSS build..."
 echo "   This may take several minutes..."
 uv pip install vllm==0.10.2+gptoss \
+    --index-url https://pypi.org/simple/ \
     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
-    --index-url https://download.pytorch.org/whl/cu128 \
+    --extra-index-url https://download.pytorch.org/whl/cu128 \
     --index-strategy unsafe-best-match
 
 # Step 2: Flash Attention 3 (using pre-compiled kernel instead)
