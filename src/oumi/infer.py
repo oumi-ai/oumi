@@ -35,6 +35,60 @@ from oumi.core.types.conversation import (
 from oumi.utils.logging import logger
 
 
+def _process_gpt_oss_tags(content: str, console: Console) -> None:
+    """Process and render GPT-OSS reasoning tags with nice formatting."""
+    
+    # Pattern to match GPT-OSS reasoning blocks
+    # <|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>...
+    pattern = r'<\|channel\|>(\w+)<\|message\|>(.*?)(?:<\|end\|><\|start\|>assistant<\|channel\|>(\w+)<\|message\|>(.*?))?(?:<\|end\|>|$)'
+    
+    matches = list(re.finditer(pattern, content, re.DOTALL))
+    
+    if matches:
+        for match in matches:
+            channel1 = match.group(1)  # e.g., "analysis"
+            content1 = match.group(2).strip()  # analysis content
+            channel2 = match.group(3)  # e.g., "final" 
+            content2 = match.group(4).strip() if match.group(4) else ""  # final content
+            
+            # Render analysis section
+            if channel1 == "analysis":
+                console.print(Panel(
+                    Text(content1, style="dim cyan"),
+                    title="[bold yellow]🧠 Analysis[/bold yellow]",
+                    border_style="yellow",
+                    padding=(0, 1),
+                    expand=False
+                ))
+            else:
+                console.print(Panel(
+                    Text(content1, style="white"),
+                    title=f"[bold magenta]{channel1.title()}[/bold magenta]",
+                    border_style="magenta",
+                    padding=(0, 1)
+                ))
+            
+            # Render final response section
+            if channel2 and content2:
+                if channel2 == "final":
+                    console.print(Panel(
+                        Text(content2, style="bright_white"),
+                        title="[bold green]💬 Response[/bold green]",
+                        border_style="green",
+                        padding=(0, 1)
+                    ))
+                else:
+                    console.print(Panel(
+                        Text(content2, style="white"),
+                        title=f"[bold blue]{channel2.title()}[/bold blue]",
+                        border_style="blue",
+                        padding=(0, 1)
+                    ))
+        return True  # Indicates we processed special tags
+    
+    return False  # No special tags found
+
+
 def _process_latex_expressions(content: str) -> str:
     """Process LaTeX expressions in content and convert them to ASCII art using sympy."""
     try:
@@ -182,7 +236,12 @@ def _format_conversation_response(conversation: Conversation, console: Console, 
         else:
             content = str(message.content)
         
-        # Process LaTeX expressions first
+        # Check for GPT-OSS reasoning tags first
+        if _process_gpt_oss_tags(content, console):
+            # Special tags were processed, we're done
+            return
+        
+        # Process LaTeX expressions if no special tags
         content = _process_latex_expressions(content)
         
         # Extract just the model name without organization/path
