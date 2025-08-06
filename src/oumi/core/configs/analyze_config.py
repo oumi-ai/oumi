@@ -67,6 +67,16 @@ class AnalyzeConfig(BaseConfig):
     """Tokenizer to use for dataset loading. If None, dataset will be loaded
     without tokenizer."""
 
+    # Add processor parameters for vision-language datasets
+    processor_name: Optional[str] = None
+    """Processor name for vision-language datasets."""
+
+    processor_kwargs: dict[str, Any] = field(default_factory=dict)
+    """Processor-specific parameters."""
+
+    trust_remote_code: bool = False
+    """Whether to trust remote code for processor loading."""
+
     def __post_init__(self):
         """Validates the configuration parameters."""
         if not self.dataset_name:
