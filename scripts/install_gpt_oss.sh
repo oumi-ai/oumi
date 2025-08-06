@@ -46,11 +46,44 @@ uv pip install --pre vllm==0.10.1+gptoss \
     --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
     --index-strategy unsafe-best-match
 
-# Step 3: Install Flash Attention 3
+# Step 3: Install Flash Attention 3 from source
 echo ""
-echo "⚡ Step 3: Installing Flash Attention 3..."
-echo "   This compilation may take 10-15 minutes..."
-uv pip install "flash-attn>=3.0.0" --no-build-isolation
+echo "⚡ Step 3: Installing Flash Attention 3 from source..."
+echo "   This requires H100/H800 GPU and CUDA >= 12.3"
+
+# Check CUDA version
+if command -v nvcc >/dev/null 2>&1; then
+    CUDA_VERSION=$(nvcc --version | grep "release" | sed 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/')
+    echo "   Detected CUDA version: $CUDA_VERSION"
+else
+    echo "⚠️  WARNING: nvcc not found. Flash Attention 3 requires CUDA >= 12.3"
+fi
+
+# Install required dependencies
+echo "   Installing compilation dependencies..."
+uv pip install packaging ninja
+
+# Check available RAM and set MAX_JOBS if needed
+RAM_GB=$(free -g | awk '/^Mem:/{print $2}')
+if [ "$RAM_GB" -lt 96 ] 2>/dev/null; then
+    echo "   Detected ${RAM_GB}GB RAM, limiting parallel jobs to 4"
+    export MAX_JOBS=4
+fi
+
+# Clone and install Flash Attention 3
+echo "   Cloning Flash Attention repository..."
+TEMP_DIR=$(mktemp -d)
+git clone https://github.com/Dao-AILab/flash-attention.git "$TEMP_DIR"
+cd "$TEMP_DIR/hopper"
+
+echo "   Compiling Flash Attention 3 (this may take 10-20 minutes)..."
+python setup.py install
+
+# Clean up
+cd - >/dev/null
+rm -rf "$TEMP_DIR"
+
+echo "   ✓ Flash Attention 3 installed from source"
 
 # Step 4: Verify installation
 echo ""
@@ -83,10 +116,14 @@ except ImportError as e:
     sys.exit(1)
 
 try:
-    import flash_attn
-    print('✓ Flash Attention version:', flash_attn.__version__)
+    import flash_attn_interface
+    print('✓ Flash Attention 3 interface available')
+    # Test the function to ensure it works
+    flash_attn_interface.flash_attn_func
+    print('✓ Flash Attention 3 function accessible')
 except ImportError as e:
-    print('❌ Flash Attention import failed:', e)
+    print('❌ Flash Attention 3 import failed:', e)
+    print('   Note: Flash Attention 3 requires H100/H800 GPU and CUDA >= 12.3')
     sys.exit(1)
 
 print('')
