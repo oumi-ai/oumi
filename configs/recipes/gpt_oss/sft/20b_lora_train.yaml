@@ -43,6 +43,9 @@ training:
   optimizer: "adamw_torch_fused"
   learning_rate: 2.0e-05
   warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
   logging_steps: 10
   output_dir: "./outputs/gpt_oss_20b_lora"
 

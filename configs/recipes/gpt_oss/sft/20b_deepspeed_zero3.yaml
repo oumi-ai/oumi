@@ -59,7 +59,6 @@ training:
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
-    eta_min_ratio: 0.1
   logging_steps: 10
   output_dir: "./outputs/gpt_oss_20b_zero3"
   seed: 42

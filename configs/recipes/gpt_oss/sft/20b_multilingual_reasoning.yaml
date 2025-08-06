@@ -15,7 +15,7 @@
 
 model:
   model_name: "openai/gpt-oss-20b"
-  model_max_length: 4096
+  model_max_length: 2048
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
@@ -42,7 +42,7 @@ training:
   use_peft: false  # Full fine-tuning like HF sft_full.yaml
   save_steps: 100
   num_train_epochs: 1  # Single epoch following HF recipe
-  per_device_train_batch_size: 2  # HF recipe batch size
+  per_device_train_batch_size: 1  # HF recipe batch size
   gradient_accumulation_steps: 1
   enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
@@ -53,7 +53,6 @@ training:
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
-    eta_min_ratio: 0.1  # Min LR = 10% of initial (HF style)
   logging_steps: 10
   output_dir: "./outputs/gpt_oss_20b_multilingual_reasoning"
   run_name: "gpt-oss-20b-multilingual-reasoner"  # HF style naming
