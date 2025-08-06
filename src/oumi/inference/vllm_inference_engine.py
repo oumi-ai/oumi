@@ -399,6 +399,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             "max_new_tokens",
             "min_p",
             "presence_penalty",
+            "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",
             "temperature",
