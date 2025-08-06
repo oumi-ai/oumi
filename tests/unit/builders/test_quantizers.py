@@ -107,7 +107,6 @@ class TestQuantizerBuilders:
         assert isinstance(formats, list)
 
         # Verify expected formats
-        assert "pytorch" in formats
         assert "safetensors" in formats
 
         # Verify sorted

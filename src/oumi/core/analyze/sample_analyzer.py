@@ -15,18 +15,21 @@
 """Base classes for sample analyzer plugins."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 
 class SampleAnalyzer(ABC):
     """Base class for sample analyzer plugins that analyze individual samples."""
 
     @abstractmethod
-    def analyze_message(self, text_content: str) -> dict[str, Any]:
+    def analyze_message(
+        self, text_content: str, tokenizer: Optional[Any] = None
+    ) -> dict[str, Any]:
         """Analyze a single message and return metrics.
 
         Args:
             text_content: The text content to analyze
+            tokenizer: Optional tokenizer to use for tokenization-based analysis
 
         Returns:
             Dictionary containing analysis metrics

@@ -17,7 +17,7 @@ from typing import Any, Optional, Union
 from PIL import Image
 from typing_extensions import override
 
-from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
+from oumi.core.datasets.base_dpo_dataset import BaseDpoDataset
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import ContentItem, Type
 from oumi.utils.conversation_utils import load_pil_image_from_content_item
@@ -28,22 +28,24 @@ _REJECTED_KEY = "rejected"
 _IMAGES_KEY = "images"
 
 
-class VisionLanguageDpoDataset(BaseExperimentalDpoDataset):
+class VisionLanguageDpoDataset(BaseDpoDataset):
     """Dataset for vision-language DPO (Direct Preference Optimization) models.
 
-    This class extends BaseExperimentalDpoDataset to provide functionality specific to
+    This class extends BaseDpoDataset to provide functionality specific to
     vision-language preference optimization tasks. It handles the processing of
     both image and text data for preference learning.
 
-    The dataset expects data in the format:
-    {
-        "prompt": "What's in this image?",
-        "images": ["path/to/image.jpg", ...],  # Optional image paths/URLs
-        "chosen": [{"role": "assistant", "content": "I see a cat"}],
-        "rejected": [{"role": "assistant", "content": "I see a dog"}]
-    }
+    The dataset expects data in the format::
 
-    Example:
+        {
+            "prompt": "What's in this image?",
+            "images": ["path/to/image.jpg", ...],  # Optional image paths/URLs
+            "chosen": [{"role": "assistant", "content": "I see a cat"}],
+            "rejected": [{"role": "assistant", "content": "I see a dog"}]
+        }
+
+    Example::
+
         >>> from oumi.builders import build_processor, build_tokenizer
         >>> from oumi.core.configs import ModelParams
         >>> from oumi.core.datasets import VisionLanguageDpoDataset
@@ -105,23 +107,22 @@ class VisionLanguageDpoDataset(BaseExperimentalDpoDataset):
     def transform_preference(self, sample: dict) -> dict:
         """Transform a DPO sample to the format expected by DPO trainer.
 
-        Args:
-            sample: Raw preference data sample
-
-        Returns:
-            Dict with prompt, chosen, and rejected conversations or features
-
         Transforms a raw DPO example into three Oumi Conversation objects.
 
         Args:
-            example (dict): A dictionary representing a single DPO preference example.
-                Expected format:
-                {
-                    "prompt": "What's in this image?",
-                    "images": ["path/to/image.jpg", ...],  # Optional
-                    "chosen": [{"role": "assistant", "content": "preferred response"}],
-                    "rejected": [{"role": "assistant", "content": "rejected response"}]
-                }
+            sample (dict): A dictionary representing a single DPO preference example.
+                Expected format::
+
+                    {
+                        "prompt": "What's in this image?",
+                        "images": ["path/to/image.jpg", ...],  # Optional
+                        "chosen": [
+                            {"role": "assistant", "content": "preferred response"}
+                        ],
+                        "rejected": [
+                            {"role": "assistant", "content": "rejected response"}
+                        ]
+                    }
 
         Returns:
             Dict with prompt, chosen, and rejected conversations or features

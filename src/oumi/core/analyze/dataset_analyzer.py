@@ -115,6 +115,7 @@ class DatasetAnalyzer:
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
+        self.tokenizer = config.tokenizer
 
         self.dataset = load_dataset_from_config(config)
         self.sample_analyzers = self._initialize_sample_analyzers()
@@ -135,8 +136,14 @@ class DatasetAnalyzer:
                         f"Sample analyzer '{analyzer_params.id}' not found in registry"
                     )
 
-                # Create analyzer instance with keyword arguments from params
-                sample_analyzer = analyzer_class(**analyzer_params.params)
+                # Prepare parameters for analyzer constructor
+                analyzer_kwargs = dict(analyzer_params.params)
+
+                if self.tokenizer is not None:
+                    analyzer_kwargs["tokenizer"] = self.tokenizer
+
+                # Create analyzer instance with keyword arguments
+                sample_analyzer = analyzer_class(**analyzer_kwargs)
                 sample_analyzers[analyzer_params.id] = sample_analyzer
                 logger.info(f"Initialized sample analyzer: {analyzer_params.id}")
             except Exception as e:
@@ -278,7 +285,9 @@ class DatasetAnalyzer:
         analyzer_metrics: dict[str, Any] = {}
         for analyzer_id, analyzer in self.sample_analyzers.items():
             try:
-                analyzer_metrics_raw = analyzer.analyze_message(text_content)
+                analyzer_metrics_raw = analyzer.analyze_message(
+                    text_content, self.tokenizer
+                )
                 # Prefix metrics with analyzer ID to avoid conflicts
                 for key, value in analyzer_metrics_raw.items():
                     analyzer_metrics[f"{analyzer_id}_{key}"] = value
@@ -355,7 +364,8 @@ class DatasetAnalyzer:
         Returns:
             A new dataset object containing only the filtered conversations
 
-        Examples:
+        Examples::
+
             # Filter for conversations with short messages
             short_dataset = analyzer.filter("length_word_count < 10")
 
@@ -364,8 +374,8 @@ class DatasetAnalyzer:
 
             # Filter for conversations with long user messages
             long_user_dataset = analyzer.filter(
-                "role == 'user' and length_word_count > 100"
-            )
+                "role == 'user' and length_word_count > 100")
+
         """
         # Get filtered analysis results
         filtered_df = self.query(query_expression)

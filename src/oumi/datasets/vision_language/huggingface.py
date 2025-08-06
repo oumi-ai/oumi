@@ -40,11 +40,13 @@ class HuggingFaceVisionDataset(VisionLanguageSftDataset):
     """Converts HuggingFace Vision-Language Datasets to Oumi Message format.
 
     This dataset handles standard HuggingFace datasets that contain:
+
     - An image column (containing image data or paths)
     - A question/prompt column (text input)
     - An optional answer column (text output)
 
-    Example:
+    Example::
+
         dataset = HuggingFaceVisionDataset(
             hf_dataset_path="HuggingFaceM4/VQAv2",
             image_column="image",
