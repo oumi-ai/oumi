@@ -1,0 +1,47 @@
+# Job config to run inference on gpt-oss-120b using vLLM on Lambda.
+#
+# Requirements:
+#   - Set up SkyPilot Lambda: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
+#
+# Usage:
+#   oumi launch up -c oumi://configs/recipes/gpt_oss/inference/120b_vllm_lambda_job.yaml --cluster gpt-oss-120b-vllm-infer
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: gpt-oss-120b-vllm-infer
+
+resources:
+  cloud: lambda
+  accelerators: "H100:2"
+  use_spot: false
+
+working_dir: .
+
+setup: |
+  set -e
+
+  conda create -n oumi python=3.12 -y
+  conda activate oumi
+  pip install uv && uv pip install --pre oumi[gpu] hf_transfer
+  uv pip install --pre vllm==0.10.1+gptoss \
+    --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
+    --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
+    --index-strategy unsafe-best-match \
+    --force-reinstall --no-cache
+
+  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download openai/gpt-oss-120b --exclude original/*
+
+run: |
+  set -e  # Exit if any command failed.
+  source ./configs/examples/misc/sky_init.sh
+
+  set -x
+  oumi infer -i \
+    -c oumi://configs/recipes/gpt_oss/inference/120b_infer.yaml \
+    --engine VLLM
+
+  echo "Node ${SKYPILOT_NODE_RANK} is all done!"
