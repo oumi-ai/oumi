@@ -182,9 +182,8 @@ gpt_oss = [
     "torch==2.7.0",
     "torchvision==0.22.0", 
     "torchaudio==2.7.0",
-    # vLLM GPT OSS build - direct wheel URL for Python 3.12, Linux x86_64
-    # For other Python versions/platforms, use manual installation
-    "vllm @ https://wheels.vllm.ai/gpt-oss/vllm-0.10.2+gptoss-cp312-cp312-linux_x86_64.whl ; python_version == '3.12' and platform_system == 'Linux' and platform_machine == 'x86_64'",
+    # Note: vLLM GPT OSS build must be installed separately via:
+    # pip install vllm==0.10.2+gptoss --extra-index-url https://wheels.vllm.ai/gpt-oss/
     "transformers>=4.55.0",  # Required for GPT OSS model support
     "gpt-oss>=0.1.0",       # GPT OSS package with MXFP4 quantization support
     "kernels",              # HuggingFace kernels for Flash Attention 3

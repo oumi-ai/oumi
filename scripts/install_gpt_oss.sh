@@ -35,13 +35,17 @@ echo ""
 echo "📦 Step 1: Installing all GPT OSS dependencies..."
 pip install uv
 
-# Install everything together so uv can resolve dependencies properly
-echo "   Installing GPT OSS dependencies and vLLM in one command..."
-echo "   This may take several minutes..."
+# Install GPT OSS dependencies first (includes PyTorch)
+echo "   Installing GPT OSS dependencies..."
+uv pip install "oumi[gpt_oss]" --index-url https://download.pytorch.org/whl/cu128
 
-uv pip install "oumi[gpt_oss]" vllm==0.10.2+gptoss \
+# Install vLLM GPT OSS build separately with proper index strategy
+echo "   Installing vLLM GPT OSS build..."
+echo "   This may take several minutes..."
+uv pip install vllm==0.10.2+gptoss \
     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
-    --index-url https://download.pytorch.org/whl/cu128
+    --index-url https://download.pytorch.org/whl/cu128 \
+    --index-strategy unsafe-best-match
 
 # Step 2: Flash Attention 3 (using pre-compiled kernel instead)
 echo ""
