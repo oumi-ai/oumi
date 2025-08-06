@@ -23,6 +23,7 @@ model:
   model_max_length: 4096
   torch_dtype_str: "float32"  # FP32 for mixed precision training
   trust_remote_code: true
+  chat_template: null  # Use model's built-in chat template
   
   # Use vLLM Flash Attention 3 kernel for optimal performance
   attn_implementation: "kernels-community/vllm-flash-attn3"
