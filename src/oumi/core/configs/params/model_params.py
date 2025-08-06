@@ -30,6 +30,7 @@ def _is_flash_attn_3_available() -> bool:
     """Check if Flash Attention 3 is available from source installation."""
     try:
         import flash_attn_interface
+
         # Test that the main function is accessible
         flash_attn_interface.flash_attn_func
         return True
@@ -39,34 +40,34 @@ def _is_flash_attn_3_available() -> bool:
 
 def _resolve_flash_attention_implementation(requested: str) -> Optional[str]:
     """Resolve requested Flash Attention to best available implementation.
-    
+
     Args:
-        requested: The requested attention implementation ("flash_attention", 
+        requested: The requested attention implementation ("flash_attention",
                   "flash_attention_2", or other)
-                  
+
     Returns:
         The resolved attention implementation, or None if not available
     """
     # Handle backward compatibility and new "flash_attention" syntax
     if requested not in ["flash_attention", "flash_attention_2"]:
         return requested
-        
+
     # Deprecation warning for old syntax
     if requested == "flash_attention_2":
         logger.warning(
             "attn_implementation='flash_attention_2' is deprecated. "
             "Use 'flash_attention' for automatic detection of best available version."
         )
-    
+
     # Priority order: FA3 source → FA2 pip → SDPA fallback
     if _is_flash_attn_3_available():
         logger.info("Using Flash Attention 3 (source installation)")
         return "flash_attention_2"  # HF still expects this value internally
-    
+
     if is_flash_attn_2_available():
-        logger.info("Using Flash Attention 2 (pip installation)")  
+        logger.info("Using Flash Attention 2 (pip installation)")
         return "flash_attention_2"
-    
+
     logger.warning(
         "Flash Attention requested but not available. "
         "Falling back to PyTorch SDPA. For optimal performance, install: "
@@ -238,7 +239,7 @@ class ModelParams(BaseParams):
     supported hardware (H100/H800 GPUs).
 
     Requires:
-        - kernels package: pip install kernels  
+        - kernels package: pip install kernels
         - Flash Attention 3 source installation
         - Compatible hardware (H100/H800)
     """
@@ -267,18 +268,21 @@ class ModelParams(BaseParams):
 
     def _is_using_flash_attention_3(self) -> bool:
         """Check if this configuration will use Flash Attention 3."""
-        return (self.attn_implementation in ["flash_attention", "flash_attention_2"] 
-                and _is_flash_attn_3_available())
+        return (
+            self.attn_implementation in ["flash_attention", "flash_attention_2"]
+            and _is_flash_attn_3_available()
+        )
 
     def _validate_flash_attention_3_requirements(self) -> None:
         """Validate Flash Attention 3 hardware and software requirements."""
         try:
             import torch
+
             if not torch.cuda.is_available():
                 raise HardwareException(
                     "Flash Attention 3 requires CUDA but no CUDA devices found."
                 )
-            
+
             # Check CUDA capability (H100/H800 requirement)
             device_capability = torch.cuda.get_device_capability()
             if device_capability[0] < 9:  # H100/H800 are compute capability 9.0
@@ -356,14 +360,16 @@ class ModelParams(BaseParams):
 
         # Resolve and validate attention implementation
         if self.attn_implementation is not None:
-            resolved_attn = _resolve_flash_attention_implementation(self.attn_implementation)
+            resolved_attn = _resolve_flash_attention_implementation(
+                self.attn_implementation
+            )
             if resolved_attn is None:
                 raise HardwareException(
                     f"Attention implementation '{self.attn_implementation}' is not available. "
                     "Check hardware compatibility and installation requirements."
                 )
             self.attn_implementation = resolved_attn
-            
+
             # Validate Flash Attention 3 requirements if we're using it
             if self._is_using_flash_attention_3():
                 self._validate_flash_attention_3_requirements()

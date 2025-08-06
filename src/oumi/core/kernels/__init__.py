@@ -25,7 +25,7 @@ from oumi.core.kernels.detection import (
 from oumi.core.kernels.model_enhancer import enhance_model_with_kernels
 
 __all__ = [
-    "is_kernels_available", 
+    "is_kernels_available",
     "is_flash_attn3_kernel_available",
     "enhance_model_with_kernels",
 ]

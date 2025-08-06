@@ -16,7 +16,7 @@ model:
   trust_remote_code: true
   attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
   enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
-  
+
   # Enable MXFP4 quantization for efficient inference
   model_kwargs:
     quantization_config:
