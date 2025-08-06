@@ -31,8 +31,7 @@ class TestAwqQuantization:
         self.valid_config = QuantizationConfig(
             model=ModelParams(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"),
             method="awq_q4_0",
-            output_path="test_model.pytorch",
-            output_format="pytorch",
+            output_path="test_model",
         )
 
     def test_supported_methods(self):
@@ -42,7 +41,7 @@ class TestAwqQuantization:
 
     def test_supported_formats(self):
         """Test AWQ supported output formats."""
-        expected_formats = ["pytorch"]
+        expected_formats = ["safetensors"]
         assert self.awq_quantizer.supported_formats == expected_formats
 
     def test_supports_method_valid(self):
@@ -68,8 +67,7 @@ class TestAwqQuantization:
         invalid_config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
             method="bnb_4bit",
-            output_path="test.pytorch",
-            output_format="pytorch",
+            output_path="test",
         )
 
         with pytest.raises(ValueError, match="not supported by"):
@@ -77,14 +75,14 @@ class TestAwqQuantization:
 
     def test_validate_config_invalid_format(self):
         """Test validate_config with invalid format."""
-        config = QuantizationConfig(
-            model=ModelParams(model_name="test/model"),
-            method="awq_q4_0",
-            output_path="test.safetensors",
-            output_format="safetensors",
-        )
-        with pytest.raises(ValueError, match="not supported by"):
-            self.awq_quantizer.validate_config(config)
+
+        with pytest.raises(ValueError, match="Unsupported output format"):
+            QuantizationConfig(
+                model=ModelParams(model_name="test/model"),
+                method="awq_q4_0",
+                output_path="test",
+                output_format="unknown",
+            )
 
     def test_str_representation(self):
         """Test string representation of AWQ quantizer."""
@@ -130,8 +128,7 @@ class TestAwqQuantizationSimple:
         config = QuantizationConfig(
             model=ModelParams(model_name="test/model"),
             method="awq_q4_0",
-            output_path="test.pytorch",
-            output_format="pytorch",
+            output_path="test",
         )
         # Should not raise
         self.awq_quantizer.validate_config(config)

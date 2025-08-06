@@ -20,14 +20,20 @@ class MockSampleAnalyzer:
         self.config = kwargs
         self.analyze_calls = []
 
-    def analyze_message(self, text_content: str) -> dict:
+    def analyze_message(self, text_content: str, tokenizer=None) -> dict:
         """Mock analysis that returns basic metrics."""
         self.analyze_calls.append(text_content)
-        return {
+        result = {
             "char_count": len(text_content),
             "word_count": len(text_content.split()),
             "analyzer_id": self.config.get("id", "mock"),
         }
+
+        # Use tokenizer if provided (to verify it's passed correctly)
+        if tokenizer:
+            tokenizer.encode(text_content, add_special_tokens=False)
+
+        return result
 
 
 class MockFailingAnalyzer:
@@ -36,7 +42,7 @@ class MockFailingAnalyzer:
     def __init__(self, **kwargs):
         self.config = kwargs
 
-    def analyze_message(self, text_content: str) -> dict:
+    def analyze_message(self, text_content: str, tokenizer=None) -> dict:
         raise ValueError("Analyzer failed")
 
 
@@ -560,3 +566,39 @@ def test_invalid_expressions(test_data_path, mock_config):
 
         with pytest.raises((ValueError, KeyError)):
             analyzer.filter(expression)
+
+
+def test_analyzer_with_tokenizer(test_data_path):
+    """Test that tokenizer is properly passed to analyzers."""
+    from unittest.mock import Mock
+
+    # Create a mock tokenizer
+    mock_tokenizer = Mock()
+    mock_tokenizer.encode.return_value = [1, 2, 3]  # 3 tokens
+
+    # Create config with tokenizer
+    config = AnalyzeConfig(
+        dataset_name="text_sft",
+        split="train",
+        sample_count=2,
+        tokenizer=mock_tokenizer,
+        analyzers=[
+            SampleAnalyzerParams(
+                id="text_length_analyzer",
+                params={"char_count": True, "word_count": True, "token_count": True},
+            ),
+        ],
+    )
+
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
+
+    # Run analysis to trigger tokenizer usage
+    analyzer.analyze_dataset()
+
+    # Check that analysis completed successfully
+    results = analyzer.analysis_results
+    assert results is not None
+    assert len(results.messages) > 0
+
+    # Verify that the mock tokenizer was actually called
+    assert mock_tokenizer.encode.call_count > 0

@@ -32,7 +32,8 @@ class VisionDpoJsonlinesDataset(VisionLanguageDpoDataset):
 
     See `VisionLanguageDpoDataset` for more details.
 
-    Example:
+    Example::
+
         dataset = VisionDpoJsonlinesDataset(
             dataset_path="data/dataset_examples/vision_language_dpo_format.jsonl"
         )
