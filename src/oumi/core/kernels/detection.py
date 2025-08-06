@@ -45,8 +45,9 @@ def is_flash_attn3_kernel_available() -> bool:
     try:
         from kernels import get_kernel  # pyright: ignore[reportMissingImports]
 
-        # Try to load the flash-attn3 kernel
-        kernel = get_kernel("kernels-community/flash-attn3")
+        # Try to load the vllm-flash-attn3 kernel (updated for better vLLM compatibility)
+        kernel = get_kernel("kernels-community/vllm-flash-attn3")
+        # kernel = get_kernel("kernels-community/flash-attn3")  # Previous kernel option
         return kernel is not None
     except Exception as e:
         logger.debug(f"Flash Attention 3 kernel not available: {e}")
@@ -83,9 +84,10 @@ def load_flash_attn3_kernel() -> Optional[object]:
     try:
         from kernels import get_kernel  # pyright: ignore[reportMissingImports]
 
-        kernel = get_kernel("kernels-community/flash-attn3")
+        kernel = get_kernel("kernels-community/vllm-flash-attn3")
+        # kernel = get_kernel("kernels-community/flash-attn3")  # Previous kernel option
         if kernel is None:
-            raise RuntimeError("Failed to load flash-attn3 kernel from Hub")
+            raise RuntimeError("Failed to load vllm-flash-attn3 kernel from Hub")
         return kernel
     except Exception as e:
         raise RuntimeError(f"Failed to load flash-attn3 kernel: {e}") from e

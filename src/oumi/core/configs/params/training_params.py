@@ -691,6 +691,29 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
+    # ---------------------
+    # Sequence packing params.
+    # ---------------------
+    packing: bool = False
+    """Whether to enable sequence packing for efficient training.
+    
+    When enabled, multiple examples are concatenated into a single sequence
+    up to the maximum sequence length, reducing padding and improving efficiency.
+    This is particularly beneficial for datasets with variable-length sequences.
+    """
+
+    packing_strategy: str = "wrapped"
+    """Strategy for sequence packing when packing=True.
+    
+    Options:
+    - "wrapped": Pack sequences end-to-end with attention masking (recommended)
+    - "truncated": Pack sequences but truncate if they exceed max length
+    - "padded": Pack sequences with padding between examples
+    
+    The "wrapped" strategy provides the best efficiency while maintaining
+    proper attention boundaries between examples.
+    """
+
     def to_hf(self, training_config=None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
