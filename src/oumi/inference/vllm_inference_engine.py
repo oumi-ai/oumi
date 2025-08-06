@@ -135,7 +135,10 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["load_format"] = "bitsandbytes"
             logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
         elif quantization and quantization == "mxfp4":
+            # For MXFP4, set quantization in vllm_kwargs and clear the quantization variable
+            # to avoid passing it twice
             vllm_kwargs["quantization"] = "mxfp4"
+            quantization = None  # Avoid double setting
             logger.info("VLLM engine loading a `MXFP4` quantized model.")
         elif quantization and quantization == "gguf":
             # Download the GGUF file from HuggingFace to a local cache.
