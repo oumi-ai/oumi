@@ -203,6 +203,25 @@ def _create_gpt2_config() -> InternalModelConfig:
     )
 
 
+def _create_gpt_oss_config() -> InternalModelConfig:
+    """Creates configuration for OpenAI GPT OSS models.
+
+    GPT OSS models are MoE architectures with reasoning capabilities.
+    They support tool use, multi-turn conversations, and reasoning traces.
+    """
+    config = InternalModelConfig()
+    # GPT OSS uses a custom chat template with reasoning channels
+    config.chat_template = "gpt_oss"
+    # Support for MXFP4 quantization
+    config.quantization_support = ["mxfp4"]
+    # Enable MoE architecture support
+    config.is_moe = True
+    # Support reasoning traces and effort levels
+    config.supports_reasoning = True
+    config.supports_tool_use = True
+    return config
+
+
 @functools.cache
 def get_default_vlm_model_config() -> InternalModelConfig:
     """Returns default VLM model config."""
@@ -465,6 +484,12 @@ def get_all_models_map() -> Mapping[
             model_class=default_llm_class,
             tested=True,
             config=_create_gpt2_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="gpt_oss",
+            model_class=default_llm_class,
+            tested=False,
+            config=_create_gpt_oss_config(),
         ),
         _ModelTypeInfo(
             model_type="blip-2",

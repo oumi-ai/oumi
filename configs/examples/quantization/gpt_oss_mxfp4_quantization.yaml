@@ -1,0 +1,28 @@
+# Example config for quantizing GPT OSS models to MXFP4 format
+#
+# Usage:
+#   oumi quantize -c configs/examples/quantization/gpt_oss_mxfp4_quantization.yaml
+#
+# This config demonstrates how to quantize GPT OSS models using their native
+# MXFP4 (4-bit mixed-precision floating-point) format for efficient deployment.
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/quantization.html
+#   - Config class: oumi.core.configs.QuantizationConfig
+
+# Model configuration
+model:
+  model_name: "openai/gpt-oss-20b"  # Can be either gpt-oss-20b or gpt-oss-120b
+  tokenizer_name: "openai/gpt-oss-20b"  # Tokenizer to use
+  model_kwargs:
+    torch_dtype: "float16"  # Load model in half precision
+    trust_remote_code: true  # Required for custom models
+  adapter_model: null  # No LoRA adapter
+
+# Quantization settings
+method: "mxfp4"  # MXFP4 is the native format for GPT OSS
+output_path: "./outputs/gpt-oss-20b-mxfp4"  # Output directory
+
+# Performance tuning
+batch_size: 1  # Smaller batch for memory efficiency with large models
+verbose: true  # Detailed progress logging
