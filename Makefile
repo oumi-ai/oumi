@@ -43,6 +43,7 @@ help:
 	@echo "  docs-rebuild      - Fully rebuild the docs: (a) Regenerate apidoc RST and (b) build html docs from source"
 	@echo "  doctest           - Run doctests on documentation files"
 	@echo "  doctest-file      - Run doctests on a specific documentation file"
+	@echo "  install-gpt-oss   - Install GPT OSS dependencies (vLLM GPT OSS, Flash Attention 3, etc.)"
 
 # If we detect the system is an Intel Mac, print an error message and exit.
 setup:
@@ -184,4 +185,17 @@ doctest-file:
 	fi
 	$(CONDA_RUN) $(SPHINXBUILD) -b doctest "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(FILE)
 
-.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file
+install-gpt-oss:
+	@echo "🚀 Installing GPT OSS dependencies..."
+	@if command -v conda >/dev/null 2>&1 && conda env list | grep -q "^oumi-oss "; then \
+		echo "Using conda environment: oumi-oss"; \
+		conda run -n oumi-oss bash scripts/install_gpt_oss.sh; \
+	elif command -v conda >/dev/null 2>&1 && conda env list | grep -q "^$(CONDA_ENV) "; then \
+		echo "Using conda environment: $(CONDA_ENV)"; \
+		$(CONDA_RUN) bash scripts/install_gpt_oss.sh; \
+	else \
+		echo "No conda environment found (tried oumi-oss, $(CONDA_ENV)). Running in current environment..."; \
+		bash scripts/install_gpt_oss.sh; \
+	fi
+
+.PHONY: help setup upgrade clean check format test coverage gcpssh gcpcode docs docs-help docs-serve docs-rebuild copy-doc-files clean-docs doctest doctest-file install-gpt-oss
