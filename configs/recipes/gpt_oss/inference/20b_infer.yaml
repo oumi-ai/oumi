@@ -1,7 +1,7 @@
 # Inference config for gpt-oss-20b.
 #
 # Requirements:
-#   - Run `uv pip install -U accelerate transformers kernels torchvision `
+#   - Run `uv pip install -U accelerate transformers kernels torchvision`
 #   - Run `uv pip install triton==3.4.0 git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels`
 #   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
 #
