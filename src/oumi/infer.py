@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from typing import Optional
 
 from rich.console import Console
@@ -34,6 +35,58 @@ from oumi.core.types.conversation import (
 from oumi.utils.logging import logger
 
 
+def _process_latex_expressions(content: str) -> str:
+    """Process LaTeX expressions in content and convert them to ASCII art using sympy."""
+    try:
+        from sympy.parsing.latex import parse_latex
+        from sympy.printing.pretty import pretty
+    except ImportError:
+        # If sympy latex parsing is not available, return content as-is
+        return content
+    
+    def latex_to_ascii(match):
+        latex_expr = match.group(1).strip()
+        try:
+            # Use SymPy's built-in LaTeX parser
+            parsed_expr = parse_latex(latex_expr)
+            ascii_math = pretty(parsed_expr, use_unicode=True)
+            return f"\n{ascii_math}\n"
+        except Exception:
+            # If parsing fails, try simple formatting with Unicode symbols
+            try:
+                # Basic fallback substitutions for common patterns
+                simple_expr = latex_expr
+                simple_replacements = [
+                    (r'\\times', '×'),
+                    (r'\\cdot', '·'),
+                    (r'\\div', '÷'),
+                    (r'\\pi', 'π'),
+                    (r'\\infty', '∞'),
+                    (r'\\geq|\\ge', '≥'),
+                    (r'\\leq|\\le', '≤'),
+                    (r'\\neq|\\ne', '≠'),
+                    (r'\\pm', '±'),
+                    (r'\^(\{[^}]+\}|\w)', r'^\1'),  # Keep exponents as superscript
+                    (r'\_(\{[^}]+\}|\w)', r'_\1'),  # Keep subscripts
+                ]
+                
+                for pattern, replacement in simple_replacements:
+                    simple_expr = re.sub(pattern, replacement, simple_expr)
+                
+                # Remove remaining curly braces
+                simple_expr = re.sub(r'\{([^}]+)\}', r'\1', simple_expr)
+                return f" {simple_expr} "
+            except Exception:
+                # Ultimate fallback: return original LaTeX
+                return match.group(0)
+    
+    # Process both display \[...\] and inline \(...\) LaTeX
+    content = re.sub(r'\\\[(.*?)\\\]', latex_to_ascii, content, flags=re.DOTALL)
+    content = re.sub(r'\\\((.*?)\\\)', latex_to_ascii, content, flags=re.DOTALL)
+    
+    return content
+
+
 def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     """Returns the inference engine based on the provided config."""
     if config.engine is None:
@@ -47,7 +100,7 @@ def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
     )
 
 
-def _format_conversation_response(conversation: Conversation, console: Console) -> None:
+def _format_conversation_response(conversation: Conversation, console: Console, model_name: str = "Assistant") -> None:
     """Format and display a conversation response with Rich formatting."""
     for message in conversation.messages:
         if message.role == Role.USER:
@@ -64,12 +117,18 @@ def _format_conversation_response(conversation: Conversation, console: Console) 
         else:
             content = str(message.content)
         
+        # Process LaTeX expressions first
+        content = _process_latex_expressions(content)
+        
+        # Extract just the model name without organization/path
+        display_name = model_name.split('/')[-1] if '/' in model_name else model_name
+        
         # Try to render as markdown if it looks like markdown, otherwise as plain text
         if any(marker in content for marker in ['```', '**', '*', '#', '`']):
             try:
                 console.print(Panel(
                     Markdown(content),
-                    title=f"[bold cyan]Assistant[/bold cyan]",
+                    title=f"[bold cyan]{display_name}[/bold cyan]",
                     border_style="cyan",
                     padding=(1, 2)
                 ))
@@ -77,14 +136,14 @@ def _format_conversation_response(conversation: Conversation, console: Console) 
                 # Fallback to plain text if markdown parsing fails
                 console.print(Panel(
                     Text(content, style="white"),
-                    title=f"[bold cyan]Assistant[/bold cyan]",
+                    title=f"[bold cyan]{display_name}[/bold cyan]",
                     border_style="cyan",
                     padding=(1, 2)
                 ))
         else:
             console.print(Panel(
                 Text(content, style="white"),
-                title=f"[bold cyan]Assistant[/bold cyan]",
+                title=f"[bold cyan]{display_name}[/bold cyan]",
                 border_style="cyan",
                 padding=(1, 2)
             ))
@@ -150,7 +209,7 @@ def infer_interactive(
             
             # Format and display the response
             for conversation in model_response:
-                _format_conversation_response(conversation, console)
+                _format_conversation_response(conversation, console, model_name)
                 
                 # Store assistant response in history
                 for message in conversation.messages:
