@@ -77,7 +77,8 @@ git clone https://github.com/Dao-AILab/flash-attention.git "$TEMP_DIR"
 cd "$TEMP_DIR/hopper"
 
 echo "   Compiling Flash Attention 3 (this may take 10-20 minutes)..."
-uv pip install .
+echo "   Using --no-build-isolation for CUDA environment access..."
+uv pip install . --no-build-isolation
 
 # Clean up
 cd - >/dev/null
