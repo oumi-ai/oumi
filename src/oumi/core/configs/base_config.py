@@ -85,9 +85,14 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
     # Try to convert functions to their source code
     if callable(config):
         try:
-            return inspect.getsource(config)
-        except (TypeError, OSError):
-            pass
+            # Lambda functions and built-in functions can't have source extracted
+            source = inspect.getsource(config)
+            # Only return source if we successfully got it
+            return source
+        except (TypeError, OSError, IOError):
+            # Can't get source for lambdas, built-ins, or C extensions
+            removed_paths.add(path)
+            return None
 
     # For any other type, remove it and track the path
     removed_paths.add(path)
