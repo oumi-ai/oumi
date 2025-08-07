@@ -37,45 +37,46 @@ classifiers = [
 ]
 
 dependencies = [
-    "accelerate>=1.7.0,<1.8",
-    "aiohttp>=3.10,<3.12",          # Used by inference engine
+    "accelerate>=1.7.0,<2.0",
+    "aiohttp>=3.10,<3.16",          # Used by inference engine
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
-    "click<8.2.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2.0,<3.3",
+    "click<8.3.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
+    "datasets>=3.2,<3.3",
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",
     "mlflow>=3.1.4",                # Logging to MLflow
-    "numpy>=1.26.4,<2.0",
+    "numpy>=1.26.4,<2.4",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
-    "omegaconf>=2.4.0dev3,<2.5",
+    # We pin the exact dev version so that the --pre flag isn't needed for uv pip install.
+    "omegaconf==2.4.0.dev3",
     "packaging",
     "pandas>=2.0.3,<3",
     "peft>=0.15.0,<0.16",
     "pexpect>=4.8.0,<4.9",       # Used by Polaris client
-    "pillow>=11.1.0,<11.2",      # Used by image datasets
+    "pillow>=11.1.0,<11.4",      # Used by image datasets
     "protobuf>=5.29.0",
-    "pydantic>=2.9.2,<2.10",
+    "pydantic>=2.9.2,<2.12",
     "responses>=0.25.0,<0.26",
-    "safetensors>=0.5.0,<0.6.0",
+    "safetensors>=0.6.1,<0.7",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.6.0,<2.7.0",
-    "torchao>=0.11.0,<0.12",     # Used by transformers
+    "torch>=2.6,<2.9.0",
+    "torchao>=0.11.0,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
     # if python > 3.13, install from source for now.
     "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
-    "torchvision>=0.21.0,<0.22", # Used by some VLM-s (multimodal)
+    "torchvision>=0.21.0,<0.23", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
     # enabled. See OPE-875 and https://github.com/huggingface/transformers/issues/36040.
-    "transformers>=4.51.0,<4.52",
-    "trl>=0.18.0,<0.19",
+    "transformers>=4.55.0,<4.56",
+    "trl>=0.21.0,<0.22",
     "typer",                      # Used by CLI
     "typing_extensions",          # Backports of typing updates to python 3.9
     "wandb>=0.19.3,<0.20",        # Logging to Weights and Biases.
@@ -122,8 +123,8 @@ gpu = [
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl==0.4.0",      # Used for the VERL_GRPO trainer.
-    "vllm>=0.8.3,<0.9", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "verl==0.4.0",        # Used for the VERL_GRPO trainer.
+    "vllm>=0.10.0,<0.11", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
 ]
 
 # Targets for supported cloud providers
@@ -170,7 +171,7 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis]",
-    "vllm>=0.8.3,<0.9",             # For VLLMInferenceEngine
+    "vllm>=0.10.0,<0.11",           # For VLLMInferenceEngine
     # This may fail to install. As a temporary workaround, run:
     # CMAKE_ARGS="-DLLAVA_BUILD=OFF" pip install -U llama-cpp-python
     "llama-cpp-python>=0.3.5,<0.4", # For LlamaCppInferenceEngine
