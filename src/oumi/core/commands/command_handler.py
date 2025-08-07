@@ -82,7 +82,7 @@ class CommandHandler:
         # Initialize file attachment system
         max_context = getattr(config.model, 'model_max_length', 4096)
         model_name = getattr(config.model, 'model_name', 'default')
-        context_manager = ContextWindowManager(max_context, model_name)
+        context_manager = ContextWindowManager(max_context_length=max_context, model_name=model_name)
         self.file_handler = FileHandler(context_manager)
     
     def handle_command(self, command: ParsedCommand) -> CommandResult:
