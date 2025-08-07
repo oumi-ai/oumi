@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
-import json
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Optional
 
 from aiohttp import web
 from aiohttp.web import Response
 
 from oumi.core.configs import InferenceConfig
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Message, Role
 from oumi.infer import get_engine, infer
 from oumi.utils.logging import logger
 
@@ -38,10 +36,10 @@ class OpenAICompatibleServer:
         self.config = config
         self.system_prompt = system_prompt
         self.inference_engine: BaseInferenceEngine = get_engine(config)
-        
+
         # Model info for /v1/models endpoint
         self.model_info = {
-            "id": getattr(config.model, 'model_name', 'oumi-model'),
+            "id": getattr(config.model, "model_name", "oumi-model"),
             "object": "model",
             "created": int(time.time()),
             "owned_by": "oumi",
@@ -53,10 +51,7 @@ class OpenAICompatibleServer:
 
     async def handle_models(self, request: web.Request) -> Response:
         """List available models endpoint."""
-        return web.json_response({
-            "object": "list",
-            "data": [self.model_info]
-        })
+        return web.json_response({"object": "list", "data": [self.model_info]})
 
     async def handle_chat_completions(self, request: web.Request) -> Response:
         """Handle chat completions requests in OpenAI format."""
@@ -64,16 +59,26 @@ class OpenAICompatibleServer:
             data = await request.json()
         except Exception as e:
             return web.json_response(
-                {"error": {"message": f"Invalid JSON: {str(e)}", "type": "invalid_request_error"}},
-                status=400
+                {
+                    "error": {
+                        "message": f"Invalid JSON: {str(e)}",
+                        "type": "invalid_request_error",
+                    }
+                },
+                status=400,
             )
 
         # Extract required fields
         messages = data.get("messages", [])
         if not messages:
             return web.json_response(
-                {"error": {"message": "messages field is required", "type": "invalid_request_error"}},
-                status=400
+                {
+                    "error": {
+                        "message": "messages field is required",
+                        "type": "invalid_request_error",
+                    }
+                },
+                status=400,
             )
 
         # Extract optional fields
@@ -85,11 +90,13 @@ class OpenAICompatibleServer:
         try:
             # Convert OpenAI format messages to Oumi conversation format
             oumi_messages = []
-            
+
             # Add system prompt if provided
             if self.system_prompt:
-                oumi_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
-            
+                oumi_messages.append(
+                    Message(role=Role.SYSTEM, content=self.system_prompt)
+                )
+
             # Convert messages
             for msg in messages:
                 role_mapping = {
@@ -105,10 +112,15 @@ class OpenAICompatibleServer:
             user_messages = [msg for msg in messages if msg.get("role") == "user"]
             if not user_messages:
                 return web.json_response(
-                    {"error": {"message": "No user message found", "type": "invalid_request_error"}},
-                    status=400
+                    {
+                        "error": {
+                            "message": "No user message found",
+                            "type": "invalid_request_error",
+                        }
+                    },
+                    status=400,
                 )
-            
+
             latest_user_content = user_messages[-1].get("content", "")
 
             # Run inference
@@ -121,8 +133,13 @@ class OpenAICompatibleServer:
 
             if not results:
                 return web.json_response(
-                    {"error": {"message": "No response generated", "type": "server_error"}},
-                    status=500
+                    {
+                        "error": {
+                            "message": "No response generated",
+                            "type": "server_error",
+                        }
+                    },
+                    status=500,
                 )
 
             # Extract response content
@@ -136,7 +153,7 @@ class OpenAICompatibleServer:
                         break
                     elif isinstance(message.content, list):
                         for item in message.content:
-                            if hasattr(item, 'content') and item.content:
+                            if hasattr(item, "content") and item.content:
                                 response_content = str(item.content)
                                 break
 
@@ -149,19 +166,19 @@ class OpenAICompatibleServer:
                 "object": "chat.completion",
                 "created": int(time.time()),
                 "model": model,
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": response_content
-                    },
-                    "finish_reason": "stop"
-                }],
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": response_content},
+                        "finish_reason": "stop",
+                    }
+                ],
                 "usage": {
                     "prompt_tokens": len(latest_user_content.split()),
                     "completion_tokens": len(response_content.split()),
-                    "total_tokens": len(latest_user_content.split()) + len(response_content.split())
-                }
+                    "total_tokens": len(latest_user_content.split())
+                    + len(response_content.split()),
+                },
             }
 
             # Handle streaming vs non-streaming
@@ -175,29 +192,36 @@ class OpenAICompatibleServer:
         except Exception as e:
             logger.error(f"Error during inference: {str(e)}")
             return web.json_response(
-                {"error": {"message": f"Inference failed: {str(e)}", "type": "server_error"}},
-                status=500
+                {
+                    "error": {
+                        "message": f"Inference failed: {str(e)}",
+                        "type": "server_error",
+                    }
+                },
+                status=500,
             )
 
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application."""
         app = web.Application()
-        
+
         # Add routes
         app.router.add_get("/health", self.handle_health)
         app.router.add_get("/v1/models", self.handle_models)
         app.router.add_post("/v1/chat/completions", self.handle_chat_completions)
-        
+
         # Add CORS headers for web clients
         async def add_cors_headers(request, handler):
             response = await handler(request)
             response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+            response.headers["Access-Control-Allow-Headers"] = (
+                "Content-Type, Authorization"
+            )
             return response
-        
+
         app.middlewares.append(add_cors_headers)
-        
+
         return app
 
 
@@ -210,14 +234,16 @@ def run_server(
     """Run the OpenAI-compatible HTTP server."""
     server = OpenAICompatibleServer(config, system_prompt)
     app = server.create_app()
-    
-    logger.info(f"🚀 Starting Oumi inference server")
+
+    logger.info("🚀 Starting Oumi inference server")
     logger.info(f"📍 Server URL: http://{host}:{port}")
-    logger.info(f"🔗 OpenAI-compatible endpoints:")
+    logger.info("🔗 OpenAI-compatible endpoints:")
     logger.info(f"   • Models: http://{host}:{port}/v1/models")
     logger.info(f"   • Chat: http://{host}:{port}/v1/chat/completions")
-    logger.info(f"💡 Use with any OpenAI-compatible client by setting base_url to http://{host}:{port}/v1")
-    logger.info(f"🛑 Press Ctrl+C to stop")
-    
+    logger.info(
+        f"💡 Use with any OpenAI-compatible client by setting base_url to http://{host}:{port}/v1"
+    )
+    logger.info("🛑 Press Ctrl+C to stop")
+
     # Run the server
     web.run_app(app, host=host, port=port, access_log=logger)

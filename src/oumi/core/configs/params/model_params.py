@@ -42,6 +42,7 @@ def _is_kernels_fa3_available() -> bool:
     """Check if Flash Attention 3 is available via kernels package."""
     try:
         from oumi.core.kernels.detection import is_flash_attn3_kernel_available
+
         return is_flash_attn3_kernel_available()
     except ImportError:
         return False
@@ -64,7 +65,7 @@ def _resolve_flash_attention_implementation(requested: str) -> Optional[str]:
     if "/" in requested and "kernels" in requested.lower():
         logger.info(f"Using kernel-based attention implementation: {requested}")
         return requested
-        
+
     # Handle backward compatibility and new "flash_attention" syntax
     if requested not in ["flash_attention", "flash_attention_2"]:
         return requested

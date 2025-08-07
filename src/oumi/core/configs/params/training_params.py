@@ -697,7 +697,7 @@ class TrainingParams(BaseParams):
     # ---------------------
     packing: bool = False
     """Whether to enable sequence packing for efficient training.
-    
+
     When enabled, multiple examples are concatenated into a single sequence
     up to the maximum sequence length, reducing padding and improving efficiency.
     This is particularly beneficial for datasets with variable-length sequences.
@@ -705,12 +705,12 @@ class TrainingParams(BaseParams):
 
     packing_strategy: str = "wrapped"
     """Strategy for sequence packing when packing=True.
-    
+
     Options:
     - "wrapped": Pack sequences end-to-end with attention masking (recommended)
     - "truncated": Pack sequences but truncate if they exceed max length
     - "padded": Pack sequences with padding between examples
-    
+
     The "wrapped" strategy provides the best efficiency while maintaining
     proper attention boundaries between examples.
     """
@@ -771,13 +771,15 @@ class TrainingParams(BaseParams):
                     )
                 else:
                     trainer_kwargs["packing"] = self.packing
-                
+
                 # Add packing strategy if not already specified
                 if "dataset_kwargs" not in trainer_kwargs:
                     trainer_kwargs["dataset_kwargs"] = {}
                 if "packing_strategy" not in trainer_kwargs["dataset_kwargs"]:
-                    trainer_kwargs["dataset_kwargs"]["packing_strategy"] = self.packing_strategy
-                
+                    trainer_kwargs["dataset_kwargs"]["packing_strategy"] = (
+                        self.packing_strategy
+                    )
+
                 # Disable data_collator when packing is enabled to avoid conflicts
                 # TRL will handle data collation internally for packed sequences
                 if "data_collator" not in trainer_kwargs:

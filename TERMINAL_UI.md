@@ -6,7 +6,7 @@ This document describes the new terminal UI enhancements for Oumi inference, pro
 
 ### ✨ Enhanced Interactive Mode
 - **Rich formatting** with syntax highlighting for code blocks
-- **Markdown rendering** for properly formatted responses  
+- **Markdown rendering** for properly formatted responses
 - **Panels and borders** for clear conversation separation
 - **Loading indicators** with animated spinners
 - **Error handling** with styled error messages
@@ -20,7 +20,7 @@ This document describes the new terminal UI enhancements for Oumi inference, pro
 
 ### 🤖 AIChat Integration
 - **Professional TUI client** with advanced features
-- **Automatic server management** 
+- **Automatic server management**
 - **Configuration backup** and restoration
 - **Multi-model support** and switching
 
@@ -40,7 +40,7 @@ oumi infer -i -c my_config.yaml --system-prompt "You are a helpful coding assist
 
 **Features:**
 - 🎨 Beautiful Rich-formatted output
-- 📱 Responsive terminal interface  
+- 📱 Responsive terminal interface
 - ⚡ Direct model access (no HTTP overhead)
 - 🔧 Built into Oumi CLI
 
@@ -89,7 +89,7 @@ oumi infer [OPTIONS] -c CONFIG_FILE
 Options:
   -i, --interactive           Run in enhanced interactive session
   --server-mode              Run as HTTP server (OpenAI-compatible)
-  --host HOST                Server host (default: 0.0.0.0)  
+  --host HOST                Server host (default: 0.0.0.0)
   --port PORT                Server port (default: 8000)
   --system-prompt TEXT       System prompt for the model
   --image PATH               Input image for vision models
@@ -103,7 +103,7 @@ oumi-chat [OPTIONS] -c CONFIG_FILE
 Options:
   -c, --config CONFIG        Path to inference configuration (required)
   -h, --host HOST           Server host (default: 0.0.0.0)
-  -p, --port PORT           Server port (default: 8000)  
+  -p, --port PORT           Server port (default: 8000)
   -s, --system-prompt TEXT  System prompt for the model
   --use-aichat              Use AIChat TUI client
   --aichat-model MODEL      Model name for AIChat
@@ -147,10 +147,10 @@ print(response.choices[0].message.content)
    ```bash
    # Via cargo
    cargo install aichat
-   
+
    # Via Homebrew (macOS)
    brew install aichat
-   
+
    # Via package manager (Arch Linux)
    pacman -S aichat
    ```
@@ -162,7 +162,7 @@ print(response.choices[0].message.content)
 
    The script will:
    - Automatically start the Oumi server
-   - Configure AIChat to use your Oumi server  
+   - Configure AIChat to use your Oumi server
    - Launch the AIChat TUI
    - Clean up when you exit
 
@@ -219,7 +219,7 @@ If you prefer manual setup:
 When using AIChat with the wrapper script:
 
 - **Advanced editing:** Multi-line input with syntax highlighting
-- **History management:** Persistent conversation history  
+- **History management:** Persistent conversation history
 - **Model switching:** Switch between models with `.model` command
 - **Session management:** Save and load conversation sessions
 - **Customizable themes:** Light and dark theme support
@@ -338,7 +338,7 @@ print(chat.choices[0].message.content)
 curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "oumi-model", 
+    "model": "oumi-model",
     "messages": [{"role": "user", "content": "Hello world!"}],
     "temperature": 0.7,
     "max_tokens": 200
@@ -349,7 +349,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 1. **Try the enhanced interactive mode** - Start with basic chat
 2. **Experiment with different models** - Test various model sizes
-3. **Set up AIChat integration** - For the best TUI experience  
+3. **Set up AIChat integration** - For the best TUI experience
 4. **Build custom clients** - Use the OpenAI-compatible API
 5. **Create wrapper scripts** - Customize for your workflow
 

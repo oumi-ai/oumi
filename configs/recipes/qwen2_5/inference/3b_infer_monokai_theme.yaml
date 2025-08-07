@@ -1,0 +1,56 @@
+# Inference config for Qwen2.5 3B Instruct with Monokai theme styling.
+# This config uses the popular Monokai color scheme familiar to developers.
+#
+# Requirements:
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_infer_monokai_theme.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen2.5-3B-Instruct"
+  model_max_length: 16384
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+  min_p: 0.0
+  use_sampling: True
+  presence_penalty: 0.0
+
+engine: NATIVE
+
+# Monokai theme with developer-familiar colors
+style:
+  theme_name: "monokai"
+  welcome_style: "bold #ae81ff"  # Monokai purple
+  welcome_border_style: "#ae81ff"
+  user_prompt_style: "bold #66d9ef"  # Monokai blue
+  assistant_title_style: "bold #a6e22e"  # Monokai green
+  assistant_border_style: "#a6e22e"
+  assistant_text_style: "#f8f8f2"  # Monokai foreground
+  assistant_padding: [1, 2]
+  status_style: "bold #a6e22e"  # Monokai green
+  error_style: "#f92672"  # Monokai red
+  error_title_style: "bold #f92672"
+  error_border_style: "#f92672"
+  analysis_text_style: "#66d9ef"  # Monokai blue
+  analysis_title_style: "bold #fd971f"  # Monokai orange
+  analysis_border_style: "#fd971f"
+  response_text_style: "#f8f8f2"  # Monokai foreground
+  response_title_style: "bold #a6e22e"  # Monokai green
+  response_border_style: "#a6e22e"
+  use_emoji: true
+  expand_panels: false
+  panel_box_style: "rounded"
+  code_theme: "monokai"  # Consistent code highlighting
