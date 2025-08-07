@@ -22,8 +22,10 @@ from rich.prompt import Prompt
 from rich.text import Text
 
 from oumi.builders.inference_engines import build_inference_engine
+from oumi.core.commands import CommandHandler, CommandParser
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.input import MultiLineInput, InputAction
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -394,16 +396,64 @@ def infer_interactive(
     inference_engine = get_engine(config)
 
     conversation_history = []
+    
+    # Initialize command system and input handler
+    command_parser = CommandParser()
+    command_handler = CommandHandler(console, config, conversation_history, inference_engine)
+    input_handler = MultiLineInput(console, config.style.user_prompt_style)
 
     while True:
         try:
-            # Use Rich prompt for better UX
-            input_text = Prompt.ask(
-                f"[{config.style.user_prompt_style}]You[/{config.style.user_prompt_style}]",
-                console=console,
-            )
+            # Get input using multi-line input handler
+            input_result = input_handler.get_input("You")
+            
+            # Handle input result actions
+            if input_result.should_exit:
+                return
+            elif input_result.cancelled:
+                continue
+            elif input_result.multiline_toggled:
+                # Mode was toggled, get new input
+                continue
+            elif input_result.action != InputAction.SUBMIT:
+                # Some other action that doesn't require inference
+                continue
+            
+            input_text = input_result.text
             if not input_text.strip():
                 continue
+            
+            # Check for commands first
+            if command_parser.is_command(input_text):
+                parsed_command = command_parser.parse_command(input_text)
+                
+                if parsed_command is None:
+                    command_handler.display_command_error("Invalid command syntax")
+                    continue
+                
+                # Validate the command
+                is_valid, error_msg = command_parser.validate_command(parsed_command)
+                if not is_valid:
+                    command_handler.display_command_error(error_msg)
+                    continue
+                
+                # Execute the command
+                command_result = command_handler.handle_command(parsed_command)
+                
+                # Handle command result
+                if not command_result.success and command_result.message:
+                    command_handler.display_command_error(command_result.message)
+                elif command_result.success and command_result.message:
+                    command_handler.display_command_success(command_result.message)
+                
+                # Check if we should exit
+                if command_result.should_exit:
+                    return
+                
+                # Check if we should continue to next iteration (skip inference)
+                if not command_result.should_continue:
+                    console.print()  # Add spacing
+                    continue
 
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             emoji = "👋 " if config.style.use_emoji else ""
@@ -433,6 +483,8 @@ def infer_interactive(
 
                     # Convert conversation history to Message objects
                     history_messages = []
+                    current_user_content = []
+                    
                     for msg in conversation_history:
                         if msg["role"] == "user":
                             history_messages.append(
@@ -442,9 +494,15 @@ def infer_interactive(
                             history_messages.append(
                                 Message(role=Role.ASSISTANT, content=msg["content"])
                             )
+                        elif msg["role"] == "attachment":
+                            # Collect attachment content items for the current message
+                            current_user_content.extend(msg["content_items"])
+                    
+                    # Add text input to content
+                    current_user_content.append(ContentItem(type=Type.TEXT, content=input_text))
 
-                    # Add the current user input
-                    current_user_message = Message(role=Role.USER, content=input_text)
+                    # Add the current user input with any attachments
+                    current_user_message = Message(role=Role.USER, content=current_user_content)
 
                     # Create conversation with full history
                     full_conversation = Conversation(
