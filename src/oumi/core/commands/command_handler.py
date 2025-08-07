@@ -408,15 +408,15 @@ class CommandHandler:
     
     def _add_attachment_to_conversation(self, result):
         """Add attachment content to conversation history for next inference."""
-        # Add a marker that content is attached
-        # The actual content will be passed to inference separately
-        attachment_marker = {
+        # Simply add the text content to conversation history
+        # This will be prepended to the next user message
+        attachment_entry = {
             "role": "attachment",
             "file_name": result.file_info.name,
             "file_type": result.file_info.file_type.value,
-            "content_items": result.content_items,
+            "text_content": result.text_content,
             "processing_strategy": result.file_info.processing_strategy.value
         }
         
         # Store in conversation history for reference
-        self.conversation_history.append(attachment_marker)
+        self.conversation_history.append(attachment_entry)

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 from oumi.core.attachments.context_manager import ContextWindowManager
-from oumi.core.types.conversation import ContentItem, Type
+# Simplified attachment system uses plain text instead of ContentItems
 
 
 class FileType(Enum):
@@ -63,7 +63,7 @@ class FileInfo:
 class AttachmentResult:
     """Result of file attachment processing."""
     file_info: FileInfo
-    content_items: List[ContentItem]
+    text_content: str  # Simplified to just text content
     success: bool
     warning_message: Optional[str] = None
     context_info: Optional[str] = None
@@ -208,7 +208,7 @@ class FileHandler:
             file_info.processing_strategy = ProcessingStrategy.FAILED
             return AttachmentResult(
                 file_info=file_info,
-                content_items=[],
+                text_content="",
                 success=False,
                 warning_message=f"Failed to process {file_info.name}: {str(e)}"
             )
@@ -216,27 +216,21 @@ class FileHandler:
     def _process_image(self, file_info: FileInfo, budget) -> AttachmentResult:
         """Process image file."""
         try:
-            # For Phase 2, we'll focus on showing image info
-            # Full image processing will be enhanced in later versions
-            
-            with open(file_info.path, 'rb') as f:
-                image_bytes = f.read()
-            
-            # Create image content item
-            image_item = ContentItem(type=Type.IMAGE_BINARY, binary=image_bytes)
-            
-            # Create descriptive text
+            # Create descriptive text for the image
             size_mb = file_info.size_bytes / (1024 * 1024)
-            text_content = f"📷 **Attached Image: {file_info.name}**\n"
-            text_content += f"Size: {size_mb:.1f} MB\n"
-            text_content += f"Type: {file_info.mime_type or 'Unknown'}\n\n"
-            text_content += "Image content is attached for analysis."
             
-            text_item = ContentItem(type=Type.TEXT, content=text_content)
+            # Create a text description of the image
+            image_description = f"""[ATTACHED IMAGE: {file_info.name}]
+File type: {file_info.file_type.value}
+Size: {size_mb:.2f} MB
+Path: {file_info.path}
+
+Note: This is an image file that has been attached to the conversation. The actual image content is not displayed as text, but you can reference it in your response.
+"""
             
             return AttachmentResult(
                 file_info=file_info,
-                content_items=[image_item, text_item],
+                text_content=image_description,
                 success=True,
                 context_info=f"Image attached ({size_mb:.1f} MB)"
             )
@@ -260,15 +254,13 @@ class FileHandler:
             text_content += "📝 PDF processing will be enhanced in a future update.\n"
             text_content += "For now, please extract the text you'd like to discuss and paste it directly."
         
-        text_item = ContentItem(type=Type.TEXT, content=text_content)
-        
         warning_message = None
         if file_info.processing_strategy == ProcessingStrategy.PREVIEW_ONLY:
             warning_message = f"PDF too large ({size_mb:.1f} MB) for full processing"
         
         return AttachmentResult(
             file_info=file_info,
-            content_items=[text_item],
+            text_content=text_content,
             success=True,
             warning_message=warning_message,
             context_info=f"PDF metadata attached ({size_mb:.1f} MB)"
@@ -308,8 +300,6 @@ class FileHandler:
             processed_content = self._format_text_content(file_info, preview, is_preview=True)
             context_info = f"Preview only - file too large ({token_estimate.estimated_tokens:,} tokens)"
         
-        text_item = ContentItem(type=Type.TEXT, content=processed_content)
-        
         # Prepare warning message if needed
         warning_message = None
         if not token_estimate.fits_in_budget:
@@ -323,7 +313,7 @@ class FileHandler:
         
         return AttachmentResult(
             file_info=file_info,
-            content_items=[text_item],
+            text_content=processed_content,
             success=True,
             warning_message=warning_message,
             context_info=context_info
@@ -359,15 +349,13 @@ class FileHandler:
                 text_content += "⚠️ CSV is large. Showing preview only.\n"
                 text_content += "**Tip**: Ask specific questions about the data structure or request analysis of particular columns."
             
-            text_item = ContentItem(type=Type.TEXT, content=text_content)
-            
             warning_message = None
             if file_info.processing_strategy == ProcessingStrategy.PREVIEW_ONLY:
                 warning_message = f"Large CSV file ({size_mb:.1f} MB) - showing preview only"
             
             return AttachmentResult(
                 file_info=file_info,
-                content_items=[text_item],
+                text_content=text_content,
                 success=True,
                 warning_message=warning_message,
                 context_info=f"CSV preview attached ({size_mb:.2f} MB)"
@@ -403,11 +391,9 @@ class FileHandler:
                 context_info = f"JSON structure summary ({token_estimate.estimated_tokens:,} tokens total)"
                 warning_message = f"Large JSON file truncated - use specific queries for detailed data"
             
-            text_item = ContentItem(type=Type.TEXT, content=processed_content)
-            
             return AttachmentResult(
                 file_info=file_info,
-                content_items=[text_item],
+                text_content=processed_content,
                 success=True,
                 warning_message=warning_message,
                 context_info=context_info
@@ -429,11 +415,9 @@ class FileHandler:
         text_content += "**Supported formats**: Images (JPG, PNG, etc.), PDF, Text files, CSV, JSON, Markdown, Code files\n\n"
         text_content += "**Suggestion**: If this is a text file, try renaming with a `.txt` extension."
         
-        text_item = ContentItem(type=Type.TEXT, content=text_content)
-        
         return AttachmentResult(
             file_info=file_info,
-            content_items=[text_item],
+            text_content=text_content,
             success=True,
             warning_message=f"Unsupported file type: {file_info.name}",
             context_info=f"File metadata only ({size_mb:.2f} MB)"
