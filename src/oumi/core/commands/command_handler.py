@@ -80,8 +80,30 @@ class CommandHandler:
         self._style = config.style
         
         # Initialize file attachment system
-        max_context = getattr(config.model, 'model_max_length', 4096)
+        # Try multiple possible attribute names for max context length
+        max_context = None
+        possible_context_attrs = [
+            'model_max_length',     # Standard transformers
+            'max_model_len',        # VLLM
+            'max_tokens',           # Some configs
+            'context_length',       # Alternative name
+            'max_context_len',      # Another alternative
+            'max_seq_len'          # Sequence length
+        ]
+        
+        for attr in possible_context_attrs:
+            max_context = getattr(config.model, attr, None)
+            if max_context is not None:
+                # Debug info - this will help us see which attribute was found
+                print(f"[DEBUG] Found context length via '{attr}': {max_context}")
+                break
+        
+        # Final fallback to 4096 if nothing found
+        if max_context is None:
+            max_context = 4096
+            
         model_name = getattr(config.model, 'model_name', 'default')
+            
         context_manager = ContextWindowManager(max_context_length=max_context, model_name=model_name)
         self.file_handler = FileHandler(context_manager)
     
