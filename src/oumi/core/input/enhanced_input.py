@@ -91,10 +91,9 @@ class EnhancedInput:
             """Handle Ctrl+C to exit."""
             event.app.exit(exception=KeyboardInterrupt)
         
-        @kb.add('c-d')  # Ctrl+D
-        def _(event):
-            """Handle Ctrl+D to exit."""
-            event.app.exit(exception=EOFError)
+        # Don't bind Ctrl+D globally - let prompt_toolkit handle it naturally
+        # In single-line mode, Ctrl+D will exit
+        # In multi-line mode, Ctrl+D will submit (handled by prompt_toolkit)
         
         return kb
     
@@ -152,7 +151,7 @@ class EnhancedInput:
     def _get_multiline_input(self, prompt_text: str) -> InputResult:
         """Get multi-line input with enhanced editing."""
         try:
-            self.console.print(f"[dim]📝 Multi-line mode: Ctrl+D to submit, /sl to switch to single-line[/dim]")
+            self.console.print(f"[dim]📝 Multi-line mode: Enter for new line, Ctrl+D to submit, /sl to switch[/dim]")
             
             # Create styled prompt for multi-line
             formatted_prompt = HTML(f'<ansiblue><b>{prompt_text}</b></ansiblue> (multi-line): ')
@@ -194,11 +193,11 @@ class EnhancedInput:
 **Enhanced Input Features:**
 • **Arrow Keys**: ↑↓ for command history, ←→ for cursor movement
 • **Tab Completion**: Tab to complete commands and file paths
-• **Multi-line**: Ctrl+D to submit in multi-line mode
+• **Exit**: Ctrl+C or Ctrl+D to exit chat
 
 **Input Modes:**
-• **Single-line** (default): Press Enter to send message
-• **Multi-line**: Press Ctrl+D to send, allows multiple lines
+• **Single-line** (default): Press Enter to send message, Ctrl+D to exit
+• **Multi-line**: Press Enter for new line, Ctrl+D to submit message
 
 **Mode Switching:**
 • Type `/ml` to switch to multi-line mode
@@ -224,9 +223,9 @@ class EnhancedInput:
         self.console.print(f"[green]{emoji} Switched to {new_mode} input mode[/green]")
         
         if new_mode == "multi-line":
-            self.console.print("[dim]Use Ctrl+D to submit, arrow keys for navigation[/dim]")
+            self.console.print("[dim]Press Enter for new line, Ctrl+D to submit[/dim]")
         else:
-            self.console.print("[dim]Press Enter to send, use arrow keys for history[/dim]")
+            self.console.print("[dim]Press Enter to send, Ctrl+D to exit[/dim]")
         
         self.console.print()
     
