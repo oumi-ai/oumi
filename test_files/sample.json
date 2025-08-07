@@ -19,7 +19,7 @@
     "max_context_length": 4096,
     "file_size_thresholds": {
       "small": "10KB",
-      "medium": "100KB", 
+      "medium": "100KB",
       "large": "1MB"
     },
     "processing_strategies": [

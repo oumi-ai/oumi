@@ -1,13 +1,19 @@
 # vLLM Inference config for DeepSeek-R1-Distill-Qwen-32B GGUF quantized model.
 #
 # Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF \
+#     DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf --local-dir .
+#
+#   # 2. Run inference:
 #   oumi infer -i -c configs/recipes/deepseek_r1/inference/distill_qwen_32b_gguf_infer.yaml
 #
 # Model Info:
-#   - Model: unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF
+#   - Repository: unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF
 #   - Size: ~32B parameters (quantized)
-#   - Format: GGUF Q4_K_M quantization
-#   - Requirements: ~20-24GB VRAM for Q4 quantization
+#   - Available quantizations: Q2_K (12.3GB), Q3_K_M (15.9GB), Q4_K_M (19.9GB),
+#     Q5_K_M (23.3GB), Q6_K (26.9GB), Q8_0 (34.8GB), F16 (65.5GB)
+#   - Requirements: Linux/Windows with GPU (macOS has Triton compatibility issues)
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -16,8 +22,9 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  # GGUF quantized model path - download specific GGUF file as needed
-  model_name: "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF"
+  # GGUF filename (must be in current working directory)
+  # Change filename based on desired quantization level
+  model_name: "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"
   # Original model tokenizer for proper text processing
   tokenizer_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
   model_max_length: 4096
@@ -37,3 +44,11 @@ engine: VLLM
 #   tensor_parallel_size: 2  # Adjust based on available GPUs
 #   gpu_memory_utilization: 0.90
 #   max_num_seqs: 16
+
+# Available quantization files (update model_name accordingly):
+# "DeepSeek-R1-Distill-Qwen-32B-Q2_K.gguf"    # 12.3GB - Lower quality, less VRAM
+# "DeepSeek-R1-Distill-Qwen-32B-Q3_K_M.gguf"  # 15.9GB - Good quality
+# "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf"  # 19.9GB - Balanced (recommended)
+# "DeepSeek-R1-Distill-Qwen-32B-Q5_K_M.gguf"  # 23.3GB - Better quality
+# "DeepSeek-R1-Distill-Qwen-32B-Q6_K.gguf"    # 26.9GB - High quality
+# "DeepSeek-R1-Distill-Qwen-32B-Q8_0.gguf"    # 34.8GB - Very high quality

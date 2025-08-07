@@ -14,7 +14,7 @@
 
 """Interactive command system for Oumi inference."""
 
-from oumi.core.commands.command_parser import CommandParser, ParsedCommand
 from oumi.core.commands.command_handler import CommandHandler
+from oumi.core.commands.command_parser import CommandParser, ParsedCommand
 
 __all__ = ["CommandParser", "ParsedCommand", "CommandHandler"]

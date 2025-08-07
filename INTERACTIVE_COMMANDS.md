@@ -29,11 +29,11 @@ You: This is my first line
    │: (empty line submits)
 
 You: /sl                    # Switch back to single-line
-✏️ Switched to single-line input mode  
+✏️ Switched to single-line input mode
 ```
 
 ### Visual Indicators
-- **Single-line**: `You: (single-line)` 
+- **Single-line**: `You: (single-line)`
 - **Multi-line**: First line shows `You:`, continuation lines show `│:`
 - Help messages guide you through mode switching
 - Clear feedback when modes change
@@ -49,7 +49,7 @@ You: /sl                    # Switch back to single-line
 ### Command Syntax
 
 Commands must:
-- Start with `/` 
+- Start with `/`
 - Be the first thing in your input message
 - Use parentheses for arguments: `/command(arg1, arg2)`
 - Use `key=value` format for parameters: `/set(temperature=0.8)`
@@ -126,7 +126,7 @@ Try these commands:
 ### Examples
 ```
 /set(temperature=0.8)       # More creative
-/set(temperature=0.1)       # More focused  
+/set(temperature=0.1)       # More focused
 /set(top_p=0.9)            # Nucleus sampling
 /set(max_tokens=2048)      # Longer responses
 /set(sampling=true)        # Enable sampling
@@ -170,7 +170,7 @@ Try these commands:
 
 The system provides comprehensive error handling:
 - Invalid command syntax detection
-- Unknown command validation  
+- Unknown command validation
 - Parameter type validation
 - File access error handling
 - Graceful fallbacks with user feedback
@@ -207,6 +207,6 @@ Commands work with all existing inference configs and styling themes. No additio
 For custom styling, commands respect these style parameters:
 - `assistant_title_style` - Help panel titles
 - `error_style` - Error message text
-- `error_border_style` - Error panel borders  
+- `error_border_style` - Error panel borders
 - `use_emoji` - Emoji in command feedback
 - `expand_panels` - Panel width behavior

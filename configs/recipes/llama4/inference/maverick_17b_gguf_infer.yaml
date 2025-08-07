@@ -1,13 +1,18 @@
 # vLLM Inference config for Llama-4-Maverick-17B-128E-Instruct GGUF quantized model.
 #
 # Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF \
+#     Llama-4-Maverick-17B-128E-Instruct-Q4_K_M.gguf --local-dir .
+#
+#   # 2. Run inference:
 #   oumi infer -i -c configs/recipes/llama4/inference/maverick_17b_gguf_infer.yaml
 #
 # Model Info:
-#   - Model: unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF
+#   - Repository: unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF
 #   - Size: ~17B parameters (quantized)
-#   - Format: GGUF Q4_K_M quantization
-#   - Requirements: ~10-12GB VRAM for Q4 quantization
+#   - Available quantizations: Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, F16
+#   - Requirements: ~10-12GB VRAM for Q4 quantization, Linux/Windows with GPU (macOS has Triton issues)
 #   - Special: Mixture of Experts (128 experts) architecture
 #
 # See Also:
@@ -17,8 +22,9 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  # GGUF quantized model path - download specific GGUF file as needed
-  model_name: "unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF"
+  # GGUF filename (must be in current working directory)
+  # Change filename based on desired quantization level
+  model_name: "Llama-4-Maverick-17B-128E-Instruct-Q4_K_M.gguf"
   # Original model tokenizer for proper text processing
   tokenizer_name: "meta-llama/Llama-4-Maverick-17B-128E-Instruct"
   model_max_length: 4096
@@ -38,3 +44,11 @@ engine: VLLM
 #   tensor_parallel_size: 1  # Single GPU should be sufficient
 #   gpu_memory_utilization: 0.90
 #   max_num_seqs: 32
+
+# Available quantization files (update model_name accordingly):
+# "Llama-4-Maverick-17B-128E-Instruct-Q2_K.gguf"    # Lower quality, less VRAM
+# "Llama-4-Maverick-17B-128E-Instruct-Q3_K_M.gguf"  # Good quality
+# "Llama-4-Maverick-17B-128E-Instruct-Q4_K_M.gguf"  # Balanced (recommended)
+# "Llama-4-Maverick-17B-128E-Instruct-Q5_K_M.gguf"  # Better quality
+# "Llama-4-Maverick-17B-128E-Instruct-Q6_K.gguf"    # High quality
+# "Llama-4-Maverick-17B-128E-Instruct-Q8_0.gguf"    # Very high quality

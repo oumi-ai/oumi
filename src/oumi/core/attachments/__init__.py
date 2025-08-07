@@ -14,7 +14,7 @@
 
 """File attachment system for Oumi interactive inference."""
 
-from oumi.core.attachments.file_handler import FileHandler, AttachmentResult, FileInfo
 from oumi.core.attachments.context_manager import ContextWindowManager
+from oumi.core.attachments.file_handler import AttachmentResult, FileHandler, FileInfo
 
 __all__ = ["FileHandler", "AttachmentResult", "FileInfo", "ContextWindowManager"]
