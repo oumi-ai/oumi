@@ -177,13 +177,21 @@ class SGLangInferenceEngine(RemoteInferenceEngine):
 
     def _apply_chat_template_impl(self, conversation: Conversation) -> str:
         if self._processor is None:
-            return self._tokenizer.apply_chat_template(
-                conversation,  # type: ignore
+            prompt = self._tokenizer.apply_chat_template(
+                conversation.to_dict()["messages"],
                 tokenize=False,
                 add_generation_prompt=True,
             )
+
+            if not isinstance(prompt, str):
+                raise RuntimeError(
+                    "`apply_chat_template` returned an object that is not a string. "
+                    f"Actual type: {type(prompt)}"
+                )
+            return prompt
+
         return self._processor.apply_chat_template(
-            conversation,  # type: ignore
+            conversation.messages,
             add_generation_prompt=True,
         )
 

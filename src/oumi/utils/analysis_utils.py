@@ -46,12 +46,18 @@ def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
                 "dataset_path": None,
                 "split": split,
                 "subset": subset,
-                "trust_remote_code": False,
+                "trust_remote_code": config.trust_remote_code,
             }
 
             # Add tokenizer if provided
             if tokenizer is not None:
                 dataset_kwargs["tokenizer"] = tokenizer
+
+            # Add processor parameters for vision-language datasets
+            if config.processor_name:
+                dataset_kwargs["processor_name"] = config.processor_name
+                dataset_kwargs["processor_kwargs"] = config.processor_kwargs
+                dataset_kwargs["trust_remote_code"] = config.trust_remote_code
 
             # Load registered dataset with parameters
             dataset = dataset_class(**dataset_kwargs)

@@ -81,6 +81,10 @@ def _mock_engine(engine_class):
     mock_tokenizer.eos_token = "<eos>"
     mock_tokenizer.batch_decode = mock.MagicMock()
     mock_tokenizer.batch_decode.return_value = ["I'm fine, how are you?"]
+    mock_tokenizer.apply_chat_template = mock.MagicMock()
+    mock_tokenizer.apply_chat_template.return_value = (
+        "<|startoftext|>I'm fine, how are you? <|endoftext|>"
+    )
     mock_model = mock.MagicMock()
     mock_model.generate = mock.MagicMock()  # Add generate attribute
 
