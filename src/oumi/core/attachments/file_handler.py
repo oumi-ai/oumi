@@ -496,7 +496,7 @@ Note: This is an image file that has been attached to the conversation. The actu
         
         return AttachmentResult(
             file_info=file_info,
-            content_items=[],
+            text_content="",
             success=False,
             warning_message=error_message
         )
