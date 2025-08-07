@@ -36,6 +36,7 @@ class CommandResult:
         message: Optional message to display to the user.
         should_exit: Whether the chat session should exit.
         should_continue: Whether to continue processing (vs. skip inference).
+        user_input_override: Override input text for inference (used by /regen).
     """
     
     def __init__(
@@ -44,11 +45,13 @@ class CommandResult:
         message: Optional[str] = None,
         should_exit: bool = False,
         should_continue: bool = True,
+        user_input_override: Optional[str] = None,
     ):
         self.success = success
         self.message = message
         self.should_exit = should_exit
         self.should_continue = should_continue
+        self.user_input_override = user_input_override
 
 
 class CommandHandler:
@@ -125,9 +128,9 @@ class CommandHandler:
             elif command.command == "attach":
                 return self._handle_attach(command)
             elif command.command == "delete":
-                return self._handle_delete_placeholder(command)
+                return self._handle_delete_placeholder(command)  # Updated method name kept for consistency
             elif command.command == "regen":
-                return self._handle_regen_placeholder(command)
+                return self._handle_regen_placeholder(command)   # Updated method name kept for consistency
             elif command.command == "save":
                 return self._handle_save_placeholder(command)
             elif command.command == "set":
@@ -241,14 +244,84 @@ class CommandHandler:
             )
     
     def _handle_delete_placeholder(self, command: ParsedCommand) -> CommandResult:
-        """Placeholder handler for /delete() command - Phase 3 implementation."""
-        self._show_not_implemented_message("delete", "Phase 3")
-        return CommandResult(success=False, should_continue=False)
+        """Handle the /delete() command to remove the last conversation turn."""
+        try:
+            if not self.conversation_history:
+                return CommandResult(
+                    success=False,
+                    message="No conversation history to delete",
+                    should_continue=False
+                )
+            
+            # Find and remove the last complete turn (user + assistant pair)
+            deleted_count = self._delete_last_turn()
+            
+            if deleted_count == 0:
+                return CommandResult(
+                    success=False,
+                    message="No complete conversation turn found to delete",
+                    should_continue=False
+                )
+            
+            # Show success message
+            turn_word = "turn" if deleted_count == 2 else "message"
+            success_message = f"Deleted last conversation {turn_word} ({deleted_count} messages)"
+            
+            self._display_delete_success(success_message)
+            
+            return CommandResult(
+                success=True,
+                message=success_message,
+                should_continue=False
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error deleting conversation turn: {str(e)}",
+                should_continue=False
+            )
     
     def _handle_regen_placeholder(self, command: ParsedCommand) -> CommandResult:
-        """Placeholder handler for /regen() command - Phase 3 implementation."""
-        self._show_not_implemented_message("regen", "Phase 3")
-        return CommandResult(success=False, should_continue=False)
+        """Handle the /regen() command to regenerate the last assistant response."""
+        try:
+            if not self.conversation_history:
+                return CommandResult(
+                    success=False,
+                    message="No conversation history to regenerate from",
+                    should_continue=False
+                )
+            
+            # Get the last user message for regeneration
+            last_user_input = self._get_last_user_input()
+            
+            if not last_user_input:
+                return CommandResult(
+                    success=False,
+                    message="No user message found to regenerate response for",
+                    should_continue=False
+                )
+            
+            # Remove the last assistant response if it exists
+            self._remove_last_assistant_response()
+            
+            # Show regeneration message
+            self._display_regen_status()
+            
+            # Store the user input for inference and signal continuation
+            return CommandResult(
+                success=True,
+                message=f"Regenerating response for: {last_user_input[:50]}...",
+                should_continue=True,
+                user_input_override=last_user_input  # This will be used by the main loop
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error regenerating response: {str(e)}",
+                should_continue=False
+            )
     
     def _handle_save_placeholder(self, command: ParsedCommand) -> CommandResult:
         """Placeholder handler for /save() command - Phase 5 implementation."""
@@ -444,3 +517,92 @@ class CommandHandler:
         
         # Store in conversation history for reference
         self.conversation_history.append(attachment_entry)
+    
+    # Conversation management helper methods
+    
+    def _delete_last_turn(self) -> int:
+        """Delete the last complete conversation turn.
+        
+        Returns:
+            int: Number of messages deleted (0, 1, or 2).
+        """
+        if not self.conversation_history:
+            return 0
+        
+        deleted_count = 0
+        
+        # Remove the last assistant message if it exists
+        if (self.conversation_history and 
+            self.conversation_history[-1].get("role") == "assistant"):
+            self.conversation_history.pop()
+            deleted_count += 1
+        
+        # Remove the last user message if it exists
+        if (self.conversation_history and 
+            self.conversation_history[-1].get("role") == "user"):
+            self.conversation_history.pop()
+            deleted_count += 1
+        
+        return deleted_count
+    
+    def _get_last_user_input(self) -> Optional[str]:
+        """Get the last user input from conversation history.
+        
+        Returns:
+            The last user message content, or None if not found.
+        """
+        # Go through history backwards to find the last user message
+        for entry in reversed(self.conversation_history):
+            if entry.get("role") == "user":
+                return entry.get("content", "")
+        return None
+    
+    def _remove_last_assistant_response(self) -> bool:
+        """Remove the last assistant response from conversation history.
+        
+        Returns:
+            True if a response was removed, False otherwise.
+        """
+        if (self.conversation_history and 
+            self.conversation_history[-1].get("role") == "assistant"):
+            self.conversation_history.pop()
+            return True
+        return False
+    
+    def _display_delete_success(self, message: str):
+        """Display success message for delete operation."""
+        # Get style attributes with fallbacks
+        success_style = getattr(self._style, 'success_style', 'bold green')
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'assistant_border_style', 'green')
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🗑️ " if use_emoji else ""
+        
+        self.console.print(Panel(
+            Text(message, style=success_style),
+            title=f"[{title_style}]{emoji}Conversation Updated[/{title_style}]",
+            border_style=border_style,
+            padding=(0, 1),
+            expand=expand
+        ))
+    
+    def _display_regen_status(self):
+        """Display status message for regeneration operation."""
+        # Get style attributes with fallbacks
+        status_style = getattr(self._style, 'status_style', 'yellow')
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'status_border_style', 'yellow')
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🔄 " if use_emoji else ""
+        
+        self.console.print(Panel(
+            Text("Regenerating last response...", style=status_style),
+            title=f"[{title_style}]{emoji}Regenerating[/{title_style}]",
+            border_style=border_style,
+            padding=(0, 1),
+            expand=expand
+        ))

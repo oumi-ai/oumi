@@ -461,6 +461,14 @@ def infer_interactive(
                 if not command_result.should_continue:
                     console.print()  # Add spacing
                     continue
+                
+                # If command provided input override (e.g., from /regen), use that
+                if hasattr(command_result, 'user_input_override') and command_result.user_input_override:
+                    input_text = command_result.user_input_override
+                else:
+                    # Skip inference since we don't have regular user input
+                    console.print()  # Add spacing
+                    continue
 
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             emoji = "👋 " if config.style.use_emoji else ""
