@@ -131,7 +131,7 @@ class MultiLineInput:
                 
                 line = Prompt.ask(line_prompt, console=self.console, default="")
                 
-                # Handle special commands
+                # Handle special commands (mode switching first)
                 if line.strip().lower() == "/sl":
                     self.multiline_mode = False
                     self._show_mode_change("single-line")
@@ -149,6 +149,11 @@ class MultiLineInput:
                 elif line.strip() == "" and not lines:
                     # First line is empty, cancel
                     return InputResult(action=InputAction.CANCEL, cancelled=True)
+                
+                # Check if this is the first line and looks like a command
+                if line_number == 1 and line.strip().startswith('/') and '(' in line and line.strip().endswith(')'):
+                    # This looks like a command on the first line - submit it immediately
+                    return InputResult(action=InputAction.SUBMIT, text=line.strip())
                 
                 lines.append(line)
             
@@ -171,6 +176,7 @@ class MultiLineInput:
 • Type `/exit` to exit chat
 
 **Commands work in both modes** (e.g., `/help()`, `/attach()`)
+• In multi-line mode, commands on the first line are submitted immediately
         """
         
         self.console.print(Panel(
