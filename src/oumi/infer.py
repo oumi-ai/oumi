@@ -435,20 +435,41 @@ def _format_conversation_response(
         # Check for link patterns or emphasis patterns
         has_markdown = has_markdown or bool(re.search(r'\[.*?\]\(.*?\)', content))  # Links
         has_markdown = has_markdown or bool(re.search(r'\*\*.*?\*\*', content))      # Bold
-        has_markdown = has_markdown or bool(re.search(r'\*.*?\*', content))         # Italic
+        has_markdown = has_markdown or bool(re.search(r'(?<!\*)\*(?!\*).*?(?<!\*)\*(?!\*)', content))  # Italic (not bold)
         
+        # Additional check for tables (more specific)
+        has_markdown = has_markdown or bool(re.search(r'^\s*\|.*\|\s*$', content, re.MULTILINE))  # Table rows
+        has_markdown = has_markdown or bool(re.search(r'^\s*\|.*\|.*\|\s*$', content, re.MULTILINE))  # Multi-column tables
+        
+        # Debug logging for markdown detection
         if has_markdown:
+            logger.debug(f"Markdown detected in content: {content[:100]}...")
             try:
+                # Normalize content for better markdown compatibility
+                # Replace non-standard dash characters that might interfere with table parsing
+                normalized_content = content.replace('‑', '-').replace('–', '-').replace('—', '-')
+                
+                # Create markdown with explicit settings for better compatibility
+                markdown_obj = Markdown(
+                    normalized_content,
+                    code_theme="monokai",  # Better code block rendering
+                    justify="left",        # Left justify for tables
+                    hyperlinks=True        # Enable hyperlinks
+                )
                 console.print(
                     Panel(
-                        Markdown(content),
+                        markdown_obj,
                         title=f"[{assistant_title_style}]{display_name}[/{assistant_title_style}]",
                         border_style=assistant_border_style,
                         padding=assistant_padding,
                         expand=expand_panels,
                     )
                 )
-            except Exception:
+            except Exception as e:
+                # Log the exception for debugging
+                logger.warning(f"Markdown rendering failed, falling back to plain text: {e}")
+                # Show original content in the fallback to help debug
+                logger.debug(f"Content that failed markdown rendering: {content[:200]}...")
                 # Fallback to plain text if markdown parsing fails
                 console.print(
                     Panel(
