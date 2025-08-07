@@ -487,22 +487,33 @@ def infer_interactive(
                     
                     for msg in conversation_history:
                         if msg["role"] == "user":
-                            history_messages.append(
-                                Message(role=Role.USER, content=msg["content"])
-                            )
+                            if msg.get("content_type") == "multimodal":
+                                # This is a message with attachments - content is already ContentItems
+                                history_messages.append(
+                                    Message(role=Role.USER, content=msg["content"])
+                                )
+                            else:
+                                # Regular text message
+                                history_messages.append(
+                                    Message(role=Role.USER, content=msg["content"])
+                                )
                         elif msg["role"] == "assistant":
                             history_messages.append(
                                 Message(role=Role.ASSISTANT, content=msg["content"])
                             )
                         elif msg["role"] == "attachment":
                             # Collect attachment content items for the current message
+                            # Only use this for backward compatibility or pending attachments
                             current_user_content.extend(msg["content_items"])
                     
-                    # Add text input to content
-                    current_user_content.append(ContentItem(type=Type.TEXT, content=input_text))
-
-                    # Add the current user input with any attachments
-                    current_user_message = Message(role=Role.USER, content=current_user_content)
+                    # Create the current user message
+                    if current_user_content:
+                        # We have pending attachments, add text input to the content items
+                        current_user_content.append(ContentItem(type=Type.TEXT, content=input_text))
+                        current_user_message = Message(role=Role.USER, content=current_user_content)
+                    else:
+                        # No pending attachments, create a simple text message
+                        current_user_message = Message(role=Role.USER, content=input_text)
 
                     # Create conversation with full history
                     full_conversation = Conversation(
@@ -535,7 +546,20 @@ def infer_interactive(
             # Store conversation history (only for NATIVE engine which supports it)
             if config.engine == InferenceEngineType.NATIVE:
                 # For NATIVE engine, store both user and assistant messages in history after successful inference
-                conversation_history.append({"role": "user", "content": input_text})
+                # Remove any pending attachment markers since they're now incorporated into the message
+                conversation_history = [msg for msg in conversation_history if msg.get("role") != "attachment"]
+                
+                # Store the user message that was sent to the model
+                if isinstance(current_user_message.content, list):
+                    # Multimodal message with attachments
+                    conversation_history.append({
+                        "role": "user", 
+                        "content": current_user_message.content,
+                        "content_type": "multimodal"
+                    })
+                else:
+                    # Simple text message
+                    conversation_history.append({"role": "user", "content": current_user_message.content})
 
                 # Store assistant response in history
                 for conversation in model_response:
