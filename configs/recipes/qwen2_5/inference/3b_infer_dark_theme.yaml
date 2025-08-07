@@ -1,0 +1,55 @@
+# Inference config for Qwen2.5 3B Instruct with dark theme styling.
+# This config uses bright colors optimized for dark terminal backgrounds.
+#
+# Requirements:
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_infer_dark_theme.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "Qwen/Qwen2.5-3B-Instruct"
+  model_max_length: 16384
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+  min_p: 0.0
+  use_sampling: True
+  presence_penalty: 0.0
+
+engine: NATIVE
+
+# Dark theme styling optimized for dark terminal backgrounds
+style:
+  theme_name: "dark"
+  welcome_style: "bold bright_magenta"
+  welcome_border_style: "bright_magenta"
+  user_prompt_style: "bold bright_blue"
+  assistant_title_style: "bold bright_cyan"
+  assistant_border_style: "bright_cyan"
+  assistant_text_style: "bright_white"
+  assistant_padding: [1, 2]
+  status_style: "bold bright_green"
+  error_style: "bright_red"
+  error_title_style: "bold bright_red"
+  error_border_style: "bright_red"
+  analysis_text_style: "bright_cyan"
+  analysis_title_style: "bold bright_yellow"
+  analysis_border_style: "bright_yellow"
+  response_text_style: "bright_white"
+  response_title_style: "bold bright_green"
+  response_border_style: "bright_green"
+  use_emoji: true
+  expand_panels: false
+  panel_box_style: "rounded"

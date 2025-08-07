@@ -24,11 +24,11 @@ model:
   torch_dtype_str: "bfloat16"  # BF16 for optimal training performance
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
-  
+
   # Use vLLM Flash Attention 3 kernel for optimal performance
   attn_implementation: "kernels-community/vllm-flash-attn3"
   enable_hf_kernels: true  # Enable HF kernels for FA3 optimization
-  
+
   # Disable quantization for training (dequantize MXFP4 models)
   model_kwargs:
     quantization_config:
@@ -47,23 +47,23 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: false  # Full fine-tuning
-  
+
   # Sequence packing configuration (replaces accelerate launch --packing true)
   packing: true
   packing_strategy: "wrapped"  # Pack sequences end-to-end with attention masking
-  
+
   # Training schedule
   save_steps: 100
   num_train_epochs: 1
   per_device_train_batch_size: 1  # Reduced for 20B model
   gradient_accumulation_steps: 4   # Effective batch size: 4 per GPU
-  
+
   # Memory optimization
   enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false
-  
-  # Optimizer settings optimized for reasoning models  
+
+  # Optimizer settings optimized for reasoning models
   optimizer: "adamw_torch_fused"
   learning_rate: 1.0e-05  # Lower LR for stability with large models
   warmup_ratio: 0.03
@@ -71,11 +71,11 @@ training:
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
-  
+
   # Performance settings
   dataloader_num_workers: 8
   logging_steps: 10
   output_dir: "./outputs/gpt_oss_20b_packed"
   seed: 42
-  
+
   # Mixed precision is handled by the model's bfloat16 dtype

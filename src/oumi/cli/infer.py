@@ -40,7 +40,9 @@ def infer(
     ] = False,
     server_mode: Annotated[
         bool,
-        typer.Option("--server-mode", help="Run as HTTP server compatible with OpenAI API."),
+        typer.Option(
+            "--server-mode", help="Run as HTTP server compatible with OpenAI API."
+        ),
     ] = False,
     host: Annotated[
         str,
@@ -161,7 +163,7 @@ def infer(
     # Handle server mode
     if server_mode:
         from oumi.server import run_server
-        
+
         logger.info(f"Starting Oumi inference server on {host}:{port}")
         return run_server(
             config=parsed_config,
@@ -169,7 +171,7 @@ def infer(
             port=port,
             system_prompt=system_prompt,
         )
-    
+
     if not interactive:
         logger.warning(
             "No input path provided, running in interactive mode. "

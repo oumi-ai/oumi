@@ -71,7 +71,7 @@ EXAMPLES:
 INSTALLATION:
     # To use AIChat TUI client, install it with:
     cargo install aichat
-    
+
     # Or via package managers:
     brew install aichat       # macOS
     pacman -S aichat         # Arch Linux
@@ -97,24 +97,24 @@ start_oumi_server() {
     local host="$2"
     local port="$3"
     local system_prompt="$4"
-    
+
     print_info "Starting Oumi inference server..."
-    
+
     # Build the command
     local cmd="oumi infer --server-mode --host $host --port $port -c \"$config\""
     if [[ -n "$system_prompt" ]]; then
         cmd="$cmd --system-prompt \"$system_prompt\""
     fi
-    
+
     # Start server in background
     eval "$cmd" &
     local server_pid=$!
-    
+
     # Wait for server to be ready
     print_info "Waiting for server to start..."
     local attempts=0
     local max_attempts=30
-    
+
     while ! curl -s "http://$host:$port/health" > /dev/null 2>&1; do
         sleep 1
         attempts=$((attempts + 1))
@@ -124,7 +124,7 @@ start_oumi_server() {
             exit 1
         fi
     done
-    
+
     print_success "Server is ready at http://$host:$port"
     echo "$server_pid"
 }
@@ -134,19 +134,19 @@ configure_aichat() {
     local host="$1"
     local port="$2"
     local model="$3"
-    
+
     # Create AIChat config if it doesn't exist
     local config_dir="$HOME/.config/aichat"
     local config_file="$config_dir/config.yaml"
-    
+
     mkdir -p "$config_dir"
-    
+
     # Backup existing config if it exists
     if [[ -f "$config_file" ]]; then
         cp "$config_file" "$config_file.backup.$(date +%s)"
         print_info "Backed up existing AIChat config"
     fi
-    
+
     # Create new config for Oumi
     cat > "$config_file" << EOF
 model: openai:${model:-oumi-model}
@@ -176,14 +176,14 @@ EOF
 # Function to run AIChat
 run_aichat() {
     local model="$1"
-    
+
     print_info "Starting AIChat TUI..."
     print_info "🔧 Use .model to switch models"
     print_info "🔧 Use .info to see current settings"
     print_info "🔧 Use .help for all commands"
     print_info "🛑 Use .exit or Ctrl+C to quit"
     echo
-    
+
     if [[ -n "$model" ]]; then
         aichat --model "openai:$model"
     else
@@ -257,31 +257,31 @@ fi
 main() {
     print_success "🤖 Oumi Chat - Beautiful Terminal Frontend"
     echo
-    
+
     # Set up signal handling for cleanup
     trap cleanup EXIT INT TERM
-    
+
     if [[ "$USE_AICHAT" == "true" ]]; then
         # Use AIChat mode
         check_aichat
-        
+
         # Start Oumi server
         SERVER_PID=$(start_oumi_server "$CONFIG" "$HOST" "$PORT" "$SYSTEM_PROMPT")
-        
+
         # Configure AIChat
         configure_aichat "$HOST" "$PORT" "$AICHAT_MODEL"
-        
+
         # Run AIChat
         run_aichat "$AICHAT_MODEL"
     else
         # Use enhanced interactive mode
         print_info "Using enhanced interactive mode with Rich formatting"
-        
+
         local cmd="oumi infer --interactive -c \"$CONFIG\""
         if [[ -n "$SYSTEM_PROMPT" ]]; then
             cmd="$cmd --system-prompt \"$SYSTEM_PROMPT\""
         fi
-        
+
         eval "$cmd"
     fi
 }
