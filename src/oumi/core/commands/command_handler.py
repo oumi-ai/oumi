@@ -324,15 +324,323 @@ class CommandHandler:
             )
     
     def _handle_save_placeholder(self, command: ParsedCommand) -> CommandResult:
-        """Placeholder handler for /save() command - Phase 5 implementation."""
-        self._show_not_implemented_message("save", "Phase 5")
-        return CommandResult(success=False, should_continue=False)
+        """Handle the /save(path) command to export conversation to PDF."""
+        if not command.args:
+            return CommandResult(
+                success=False,
+                message="save command requires a file path argument",
+                should_continue=False
+            )
+        
+        file_path = command.args[0].strip()
+        
+        # Ensure .pdf extension
+        if not file_path.lower().endswith('.pdf'):
+            file_path += '.pdf'
+        
+        try:
+            success, message = self._export_conversation_to_pdf(file_path)
+            return CommandResult(
+                success=success,
+                message=message,
+                should_continue=False
+            )
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            return CommandResult(
+                success=False,
+                message=f"Error saving conversation: {str(e)}\n\nTraceback:\n{error_details}",
+                should_continue=False
+            )
     
     def _handle_set_placeholder(self, command: ParsedCommand) -> CommandResult:
-        """Placeholder handler for /set() command - Phase 4 implementation."""
-        self._show_not_implemented_message("set", "Phase 4")
-        return CommandResult(success=False, should_continue=False)
+        """Handle the /set(param=value) command to adjust generation parameters."""
+        if not command.kwargs and not command.args:
+            return CommandResult(
+                success=False,
+                message="set command requires parameter=value arguments (e.g., /set(temperature=0.8, top_p=0.9))",
+                should_continue=False
+            )
+        
+        # Track successful parameter changes
+        changes_made = []
+        errors = []
+        
+        # Process keyword arguments (preferred method)
+        for param, value in command.kwargs.items():
+            success, message = self._update_parameter(param, value)
+            if success:
+                changes_made.append(message)
+            else:
+                errors.append(message)
+        
+        # Process positional arguments in param=value format (fallback)
+        for arg in command.args:
+            if '=' not in arg:
+                errors.append(f"Invalid format: '{arg}' (expected param=value)")
+                continue
+                
+            param, value = arg.split('=', 1)
+            param = param.strip()
+            value = value.strip()
+            
+            success, message = self._update_parameter(param, value)
+            if success:
+                changes_made.append(message)
+            else:
+                errors.append(message)
+        
+        # Prepare result message
+        if changes_made and not errors:
+            # All changes successful
+            message = "✅ " + "\n".join(changes_made)
+            return CommandResult(success=True, message=message, should_continue=False)
+        elif changes_made and errors:
+            # Partial success
+            message = "⚠️ Partial success:\n✅ " + "\n".join(changes_made) + "\n❌ " + "\n".join(errors)
+            return CommandResult(success=True, message=message, should_continue=False)
+        else:
+            # All failed
+            message = "❌ " + "\n".join(errors)
+            return CommandResult(success=False, message=message, should_continue=False)
     
+    def _update_parameter(self, param: str, value: str) -> tuple[bool, str]:
+        """Update a generation parameter.
+        
+        Returns:
+            Tuple of (success, message)
+        """
+        try:
+            # Map common parameter names to config paths
+            param_map = {
+                "temperature": ("generation", "temperature", float),
+                "top_p": ("generation", "top_p", float), 
+                "top_k": ("generation", "top_k", int),
+                "max_tokens": ("generation", "max_new_tokens", int),
+                "max_new_tokens": ("generation", "max_new_tokens", int),
+                "sampling": ("generation", "use_sampling", lambda x: x.lower() in ['true', '1', 'yes', 'on']),
+                "seed": ("generation", "seed", lambda x: int(x) if x.lower() != 'none' else None),
+                "frequency_penalty": ("generation", "frequency_penalty", float),
+                "presence_penalty": ("generation", "presence_penalty", float),
+                "min_p": ("generation", "min_p", float),
+                "num_beams": ("generation", "num_beams", int),
+            }
+            
+            if param not in param_map:
+                available_params = ", ".join(sorted(param_map.keys()))
+                return False, f"Unknown parameter '{param}'. Available: {available_params}"
+            
+            section, attr_name, converter = param_map[param]
+            
+            # Convert value
+            try:
+                converted_value = converter(value)
+            except (ValueError, AttributeError) as e:
+                return False, f"Invalid value for '{param}': '{value}' (expected {converter.__name__})"
+            
+            # Validate ranges for certain parameters
+            validation_errors = self._validate_parameter_value(param, converted_value)
+            if validation_errors:
+                return False, validation_errors
+            
+            # Update the config
+            config_section = getattr(self.config, section)
+            old_value = getattr(config_section, attr_name)
+            setattr(config_section, attr_name, converted_value)
+            
+            return True, f"Set {param}: {old_value} → {converted_value}"
+            
+        except Exception as e:
+            return False, f"Error updating {param}: {str(e)}"
+    
+    def _validate_parameter_value(self, param: str, value) -> Optional[str]:
+        """Validate parameter values are within acceptable ranges."""
+        if param == "temperature" and (value < 0 or value > 2.0):
+            return f"temperature must be between 0.0 and 2.0, got {value}"
+        elif param == "top_p" and (value <= 0 or value > 1.0):
+            return f"top_p must be between 0.0 and 1.0, got {value}"
+        elif param == "top_k" and value < 0:
+            return f"top_k must be >= 0, got {value}"
+        elif param in ["max_tokens", "max_new_tokens"] and value <= 0:
+            return f"{param} must be > 0, got {value}"
+        elif param in ["frequency_penalty", "presence_penalty"] and (value < -2.0 or value > 2.0):
+            return f"{param} must be between -2.0 and 2.0, got {value}"
+        elif param == "min_p" and (value < 0 or value > 1.0):
+            return f"min_p must be between 0.0 and 1.0, got {value}"
+        elif param == "num_beams" and value < 1:
+            return f"num_beams must be >= 1, got {value}"
+        
+        return None
+
+    def _export_conversation_to_pdf(self, file_path: str) -> tuple[bool, str]:
+        """Export conversation to PDF.
+        
+        Returns:
+            Tuple of (success, message)
+        """
+        try:
+            # Try to import reportlab for PDF generation
+            try:
+                from reportlab.lib.pagesizes import letter
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.colors import black, blue, green
+                from reportlab.lib.units import inch
+                have_reportlab = True
+            except ImportError:
+                have_reportlab = False
+            
+            if not have_reportlab:
+                # Fallback to plain text export
+                return self._export_conversation_to_text(file_path.replace('.pdf', '.txt'))
+            
+            if not self.conversation_history:
+                return False, "No conversation history to export"
+            
+            # Create PDF document
+            doc = SimpleDocTemplate(file_path, pagesize=letter, 
+                                  rightMargin=72, leftMargin=72, 
+                                  topMargin=72, bottomMargin=18)
+            
+            # Get styles
+            styles = getSampleStyleSheet()
+            
+            # Create custom styles
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=18,
+                textColor=blue,
+                spaceAfter=30,
+            )
+            
+            user_header_style = ParagraphStyle(
+                'UserHeader',
+                parent=styles['Heading2'],
+                fontSize=14,
+                textColor=green,
+                spaceBefore=12,
+                spaceAfter=6,
+            )
+            
+            assistant_header_style = ParagraphStyle(
+                'AssistantHeader', 
+                parent=styles['Heading2'],
+                fontSize=14,
+                textColor=blue,
+                spaceBefore=12,
+                spaceAfter=6,
+            )
+            
+            content_style = ParagraphStyle(
+                'Content',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=12,
+                leftIndent=20,
+            )
+            
+            # Build story
+            story = []
+            
+            # Title
+            from datetime import datetime
+            model_name = getattr(self.config.model, 'model_name', 'Unknown Model')
+            title_text = f"Oumi Chat Export - {model_name}"
+            story.append(Paragraph(title_text, title_style))
+            
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            story.append(Paragraph(f"Generated: {timestamp}", styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Add conversation turns
+            for i, msg in enumerate(self.conversation_history):
+                role = msg.get("role", "unknown")
+                content = msg.get("content", "")
+                
+                # Skip attachment markers
+                if role == "attachment":
+                    continue
+                
+                # Format content for PDF (escape HTML)
+                content = content.replace('<', '&lt;').replace('>', '&gt;')
+                
+                if role == "user":
+                    emoji = "🧑 " if self._style.use_emoji else ""
+                    story.append(Paragraph(f"{emoji}User:", user_header_style))
+                elif role == "assistant":
+                    emoji = "🤖 " if self._style.use_emoji else ""
+                    story.append(Paragraph(f"{emoji}Assistant:", assistant_header_style))
+                else:
+                    story.append(Paragraph(f"{role.title()}:", styles['Heading2']))
+                
+                # Split long content into paragraphs
+                paragraphs = content.split('\n\n')
+                for para in paragraphs:
+                    if para.strip():
+                        story.append(Paragraph(para.strip(), content_style))
+                
+                # Add spacing between turns
+                if i < len(self.conversation_history) - 1:
+                    story.append(Spacer(1, 12))
+            
+            # Build PDF
+            doc.build(story)
+            
+            # Count messages
+            user_msgs = len([m for m in self.conversation_history if m.get("role") == "user"])
+            assistant_msgs = len([m for m in self.conversation_history if m.get("role") == "assistant"])
+            
+            return True, f"✅ Exported conversation to {file_path} ({user_msgs} user messages, {assistant_msgs} assistant responses)"
+            
+        except Exception as e:
+            return False, f"Failed to export PDF: {str(e)}"
+    
+    def _export_conversation_to_text(self, file_path: str) -> tuple[bool, str]:
+        """Fallback: Export conversation to plain text when reportlab is not available."""
+        try:
+            if not self.conversation_history:
+                return False, "No conversation history to export"
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                # Header
+                from datetime import datetime
+                model_name = getattr(self.config.model, 'model_name', 'Unknown Model')
+                f.write(f"Oumi Chat Export - {model_name}\n")
+                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("=" * 50 + "\n\n")
+                
+                # Conversation turns
+                for i, msg in enumerate(self.conversation_history):
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    
+                    # Skip attachment markers
+                    if role == "attachment":
+                        continue
+                    
+                    if role == "user":
+                        f.write("👤 USER:\n")
+                    elif role == "assistant":
+                        f.write("🤖 ASSISTANT:\n")
+                    else:
+                        f.write(f"{role.upper()}:\n")
+                    
+                    f.write(f"{content}\n\n")
+                    
+                    if i < len(self.conversation_history) - 1:
+                        f.write("-" * 30 + "\n\n")
+            
+            # Count messages
+            user_msgs = len([m for m in self.conversation_history if m.get("role") == "user"])
+            assistant_msgs = len([m for m in self.conversation_history if m.get("role") == "assistant"])
+            
+            return True, f"✅ Exported conversation to {file_path} (text format - install reportlab for PDF) ({user_msgs} user messages, {assistant_msgs} assistant responses)"
+            
+        except Exception as e:
+            return False, f"Failed to export text file: {str(e)}"
+
     def _show_not_implemented_message(self, command_name: str, phase: str):
         """Show a styled message for not-yet-implemented commands."""
         message = f"Command '/{command_name}()' is planned for {phase} implementation."
@@ -357,26 +665,28 @@ class CommandHandler:
 - **`/ml`** - Switch to multi-line input mode
 - **`/sl`** - Switch to single-line input mode
 
-### File Operations *(Coming in Phase 2)*
+### File Operations
 - **`/attach(path)`** - Attach files to conversation
   - Supports: images (JPG, PNG, etc.), PDFs, text files, CSV, JSON, Markdown
   - Example: `/attach(document.pdf)` or `/attach(image.jpg)`
 
-### Conversation Management *(Coming in Phase 3)*
+### Conversation Management
 - **`/delete()`** - Delete the previous conversation turn
 - **`/regen()`** - Regenerate the last assistant response
 
-### Export *(Coming in Phase 5)*  
-- **`/save(path)`** - Save conversation to PDF
-  - Example: `/save(chat_history.pdf)`
-
-### Parameter Adjustment *(Coming in Phase 4)*
+### Parameter Adjustment
 - **`/set(param=value)`** - Adjust generation parameters
   - Examples:
     - `/set(temperature=0.8)` - More creative responses
     - `/set(top_p=0.9)` - Nucleus sampling
     - `/set(max_tokens=2048)` - Longer responses
     - `/set(sampling=true)` - Enable sampling
+  - Available parameters: temperature, top_p, top_k, max_tokens, sampling, seed, frequency_penalty, presence_penalty, min_p, num_beams
+
+### Export  
+- **`/save(path)`** - Save conversation to PDF (or text if reportlab not available)
+  - Example: `/save(chat_history.pdf)` or `/save(my_chat)`
+  - Exports formatted conversation with timestamps and role indicators
 
 ## Input Modes
 

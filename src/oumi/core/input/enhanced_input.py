@@ -60,7 +60,8 @@ class EnhancedInput:
         # Command completion - all available Oumi commands
         self.command_completer = WordCompleter([
             '/help()', '/exit()', '/attach()', '/delete()', '/regen()', 
-            '/save()', '/set()', '/ml', '/sl'
+            '/save()', '/set(temperature=)', '/set(top_p=)', '/set(max_tokens=)', 
+            '/set(sampling=)', '/ml', '/sl'
         ], match_middle=True)
         
         # Key bindings for custom behavior
