@@ -277,7 +277,14 @@ def _format_conversation_response(
             content = ""
             for item in message.content:
                 if hasattr(item, "content") and item.content:
-                    content += str(item.content)
+                    # Handle both string and list content in ContentItems
+                    if isinstance(item.content, str):
+                        content += item.content
+                    elif isinstance(item.content, list):
+                        # If content is a list, join it as strings
+                        content += " ".join(str(c) for c in item.content)
+                    else:
+                        content += str(item.content)
         else:
             content = str(message.content)
 
@@ -473,6 +480,10 @@ def infer_interactive(
                 # Check if this is a NATIVE engine that supports conversation history
                 from oumi.core.configs import InferenceEngineType
 
+                # Initialize variables that will be used later regardless of engine type
+                current_user_message = None
+                current_user_content = []
+
                 if config.engine == InferenceEngineType.NATIVE:
                     # Build the full conversation including history for NATIVE engine
                     system_messages = (
@@ -483,7 +494,6 @@ def infer_interactive(
 
                     # Convert conversation history to Message objects
                     history_messages = []
-                    current_user_content = []
                     
                     for msg in conversation_history:
                         if msg["role"] == "user":
@@ -528,6 +538,18 @@ def infer_interactive(
                         inference_config=config,
                     )
                 else:
+                    # For VLLM and other engines, process attachments but use single-input approach
+                    for msg in conversation_history:
+                        if msg["role"] == "attachment":
+                            current_user_content.extend(msg["content_items"])
+                    
+                    # Create current user message for history storage
+                    if current_user_content:
+                        current_user_content.append(ContentItem(type=Type.TEXT, content=input_text))
+                        current_user_message = Message(role=Role.USER, content=current_user_content)
+                    else:
+                        current_user_message = Message(role=Role.USER, content=input_text)
+                    
                     # For VLLM and other engines, use the original single-input approach
                     model_response = infer(
                         config=config,
@@ -550,16 +572,19 @@ def infer_interactive(
                 conversation_history = [msg for msg in conversation_history if msg.get("role") != "attachment"]
                 
                 # Store the user message that was sent to the model
-                if isinstance(current_user_message.content, list):
+                if current_user_message and isinstance(current_user_message.content, list):
                     # Multimodal message with attachments
                     conversation_history.append({
                         "role": "user", 
                         "content": current_user_message.content,
                         "content_type": "multimodal"
                     })
-                else:
+                elif current_user_message:
                     # Simple text message
                     conversation_history.append({"role": "user", "content": current_user_message.content})
+                else:
+                    # Fallback - shouldn't happen but just in case
+                    conversation_history.append({"role": "user", "content": input_text})
 
                 # Store assistant response in history
                 for conversation in model_response:
