@@ -36,7 +36,54 @@ from oumi.core.types.conversation import (
 from oumi.utils.logging import logger
 
 
-def _process_gpt_oss_tags(content: str, console: Console, style_params=None) -> None:
+def _convert_to_harmony_format(content: str) -> dict:
+    """Convert content with <|channel|> tags to proper Harmony format structure.
+    
+    Args:
+        content: Content that may contain <|channel|> tags
+        
+    Returns:
+        Dict with thinking and/or content fields structured for Harmony format
+    """
+    # Pattern to match GPT-OSS reasoning blocks
+    # <|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>...
+    # Also handle simpler patterns where tags might be embedded in content
+    pattern = r"<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)"
+    
+    matches = list(re.finditer(pattern, content, re.DOTALL))
+    
+    result = {}
+    
+    if matches:
+        for match in matches:
+            channel = match.group(1)  # e.g., "analysis", "commentary", or "final"
+            content_text = match.group(2).strip()  # channel content
+            
+            if channel in ["analysis", "commentary"]:
+                result["thinking"] = content_text
+            elif channel == "final":
+                result["content"] = content_text
+    
+    # If no channels found, treat as regular content
+    if not result:
+        # Check if content has any channel tags at all
+        if "<|channel|>" in content:
+            # Malformed channel tags - extract what we can
+            # Look for any content after final channel
+            final_pattern = r"<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)"
+            final_match = re.search(final_pattern, content, re.DOTALL)
+            if final_match:
+                result["content"] = final_match.group(1).strip()
+            else:
+                # Fallback: use original content but warn about malformed tags
+                result["content"] = content
+        else:
+            result["content"] = content
+    
+    return result
+
+
+def _process_gpt_oss_tags(content: str, console: Console, style_params=None) -> bool:
     """Process and render GPT-OSS reasoning tags with nice formatting."""
     # Pattern to match GPT-OSS reasoning blocks
     # <|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>...
@@ -244,6 +291,74 @@ def _process_latex_expressions(content: str) -> str:
     content = re.sub(r"\\\((.*?)\\\)", latex_to_ascii, content, flags=re.DOTALL)
 
     return content
+
+
+def _is_gpt_oss_model(model_name: str) -> bool:
+    """Check if the model is a GPT-OSS model that requires Harmony format.
+    
+    Args:
+        model_name: The model name to check
+        
+    Returns:
+        True if this is a GPT-OSS model
+    """
+    # GPT-OSS models typically have "gpt-oss" in the name or path
+    model_name_lower = model_name.lower()
+    return "gpt-oss" in model_name_lower or "gptoss" in model_name_lower or "openai/gpt-oss" in model_name_lower
+
+
+def _convert_conversation_for_harmony(conversation: Conversation, is_gpt_oss: bool) -> Conversation:
+    """Convert conversation messages to proper Harmony format if using GPT-OSS.
+    
+    Args:
+        conversation: The conversation to convert
+        is_gpt_oss: Whether this is a GPT-OSS model
+        
+    Returns:
+        Converted conversation with proper Harmony format
+    """
+    if not is_gpt_oss:
+        return conversation
+    
+    # Convert messages that might contain channel tags
+    converted_messages = []
+    
+    for message in conversation.messages:
+        if message.role == Role.ASSISTANT and isinstance(message.content, str):
+            # Check if the content has channel tags
+            if "<|channel|>" in message.content:
+                # Convert to proper Harmony format
+                harmony_fields = _convert_to_harmony_format(message.content)
+                
+                # Create new message with proper structure
+                # For now, we'll use the content field and store thinking separately
+                # The actual implementation might need to use a different approach
+                # depending on how the inference engine expects the format
+                
+                if "content" in harmony_fields:
+                    # Use the final content as the main message content
+                    converted_message = Message(
+                        role=message.role,
+                        content=harmony_fields["content"]
+                    )
+                    
+                    # If there's thinking content, we could store it as metadata
+                    # or handle it according to the specific inference engine requirements
+                    if "thinking" in harmony_fields:
+                        # For display purposes, we might want to show both thinking and content
+                        # but for the inference engine, we follow the Harmony format
+                        pass
+                    
+                    converted_messages.append(converted_message)
+                else:
+                    # Fallback to original message
+                    converted_messages.append(message)
+            else:
+                converted_messages.append(message)
+        else:
+            converted_messages.append(message)
+    
+    return Conversation(messages=converted_messages)
 
 
 def get_engine(config: InferenceConfig) -> BaseInferenceEngine:
@@ -512,6 +627,10 @@ def infer_interactive(
                         else []
                     )
 
+                    # Check if this is a GPT-OSS model
+                    model_name = getattr(config.model, 'model_name', '')
+                    is_gpt_oss = _is_gpt_oss_model(model_name)
+
                     # Convert conversation history to Message objects
                     history_messages = []
                     
@@ -528,8 +647,15 @@ def infer_interactive(
                                     Message(role=Role.USER, content=msg["content"])
                                 )
                         elif msg["role"] == "assistant":
+                            # For GPT-OSS models, clean up any channel tags from previous responses
+                            content = msg["content"]
+                            if is_gpt_oss and "<|channel|>" in content:
+                                # Extract only the final content for conversation history
+                                harmony_fields = _convert_to_harmony_format(content)
+                                content = harmony_fields.get("content", content)
+                            
                             history_messages.append(
-                                Message(role=Role.ASSISTANT, content=msg["content"])
+                                Message(role=Role.ASSISTANT, content=content)
                             )
                         elif msg["role"] == "attachment":
                             # Collect attachment text content for the current message
@@ -571,6 +697,10 @@ def infer_interactive(
                         else []
                     )
 
+                    # Check if this is a GPT-OSS model
+                    model_name = getattr(config.model, 'model_name', '')
+                    is_gpt_oss = _is_gpt_oss_model(model_name)
+
                     # Convert conversation history to Message objects (same as NATIVE)
                     history_messages = []
                     
@@ -587,8 +717,15 @@ def infer_interactive(
                                     Message(role=Role.USER, content=msg["content"])
                                 )
                         elif msg["role"] == "assistant":
+                            # For GPT-OSS models, clean up any channel tags from previous responses
+                            content = msg["content"]
+                            if is_gpt_oss and "<|channel|>" in content:
+                                # Extract only the final content for conversation history
+                                harmony_fields = _convert_to_harmony_format(content)
+                                content = harmony_fields.get("content", content)
+                            
                             history_messages.append(
-                                Message(role=Role.ASSISTANT, content=msg["content"])
+                                Message(role=Role.ASSISTANT, content=content)
                             )
                         elif msg["role"] == "attachment":
                             # Collect attachment text content for the current message
@@ -642,14 +779,33 @@ def infer_interactive(
                 conversation_history.append({"role": "user", "content": input_text})
 
             # Store assistant response in history
+            # Check if this is a GPT-OSS model for response cleaning
+            model_name = getattr(config.model, 'model_name', '')
+            is_gpt_oss = _is_gpt_oss_model(model_name)
+            
             for conversation in model_response:
                 for message in conversation.messages:
                     if message.role == Role.ASSISTANT and isinstance(
                         message.content, str
                     ):
-                        conversation_history.append(
-                            {"role": "assistant", "content": message.content}
-                        )
+                        content = message.content
+                        
+                        # For GPT-OSS models, clean up channel tags when storing in history
+                        # This prevents the raw tags from being sent back to the model
+                        if is_gpt_oss and "<|channel|>" in content:
+                            # Extract only the final content for conversation history
+                            harmony_fields = _convert_to_harmony_format(content)
+                            stored_content = harmony_fields.get("content", content)
+                            
+                            # Store the cleaned content for conversation history
+                            conversation_history.append(
+                                {"role": "assistant", "content": stored_content}
+                            )
+                        else:
+                            # Store original content for non-GPT-OSS models
+                            conversation_history.append(
+                                {"role": "assistant", "content": content}
+                            )
             
             # Note: Input already added to history earlier in the main loop
 
