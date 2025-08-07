@@ -124,8 +124,10 @@ class FileHandler:
             return self._process_file(file_info, budget)
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             return self._create_error_result(
-                file_path, f"Error processing file: {str(e)}"
+                file_path, f"Error processing file: {str(e)}\n\nTraceback:\n{error_details}"
             )
     
     def _analyze_file(self, path: Path) -> FileInfo:
@@ -217,7 +219,7 @@ class FileHandler:
         """Process image file."""
         try:
             # Create descriptive text for the image
-            size_mb = file_info.size_bytes / (1024 * 1024)
+            size_mb = (file_info.size_bytes or 0) / (1024 * 1024)
             
             # Create a text description of the image
             image_description = f"""[ATTACHED IMAGE: {file_info.name}]
@@ -243,7 +245,7 @@ Note: This is an image file that has been attached to the conversation. The actu
         # For Phase 2, provide basic PDF info
         # Full PDF processing requires additional dependencies
         
-        size_mb = file_info.size_bytes / (1024 * 1024)
+        size_mb = (file_info.size_bytes or 0) / (1024 * 1024)
         text_content = f"📄 **Attached PDF: {file_info.name}**\n"
         text_content += f"Size: {size_mb:.1f} MB\n\n"
         
@@ -325,7 +327,7 @@ Note: This is an image file that has been attached to the conversation. The actu
             # For Phase 2, we'll provide basic CSV processing
             # Enhanced data analysis will come in later phases
             
-            size_mb = file_info.size_bytes / (1024 * 1024)
+            size_mb = (file_info.size_bytes or 0) / (1024 * 1024)
             
             # Read a preview of the CSV
             with open(file_info.path, 'r', encoding='utf-8') as f:
@@ -337,7 +339,7 @@ Note: This is an image file that has been attached to the conversation. The actu
             
             preview_content = '\n'.join(lines)
             if len(lines) > 10:
-                preview_content += f"\n... ({file_info.size_bytes // 1024} KB total)"
+                preview_content += f"\n... ({(file_info.size_bytes or 0) // 1024} KB total)"
             
             text_content = f"📊 **Attached CSV: {file_info.name}**\n"
             text_content += f"Size: {size_mb:.2f} MB\n\n"
@@ -406,7 +408,7 @@ Note: This is an image file that has been attached to the conversation. The actu
     
     def _process_unknown_file(self, file_info: FileInfo, budget) -> AttachmentResult:
         """Process unknown file type."""
-        size_mb = file_info.size_bytes / (1024 * 1024)
+        size_mb = (file_info.size_bytes or 0) / (1024 * 1024)
         
         text_content = f"❓ **Attached File: {file_info.name}**\n"
         text_content += f"Size: {size_mb:.2f} MB\n"
