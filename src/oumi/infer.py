@@ -314,7 +314,15 @@ def _format_conversation_response(
         display_name = model_name.split("/")[-1] if "/" in model_name else model_name
 
         # Try to render as markdown if it looks like markdown, otherwise as plain text
-        if any(marker in content for marker in ["```", "**", "*", "#", "`"]):
+        markdown_markers = ["```", "**", "*", "# ", "## ", "### ", "#### ", "`", "|", "- ", "1. ", "2. ", "3.", "---", "___", "[", "]("]
+        # Also check for patterns that indicate markdown structure
+        has_markdown = any(marker in content for marker in markdown_markers)
+        # Check for link patterns or emphasis patterns
+        has_markdown = has_markdown or bool(re.search(r'\[.*?\]\(.*?\)', content))  # Links
+        has_markdown = has_markdown or bool(re.search(r'\*\*.*?\*\*', content))      # Bold
+        has_markdown = has_markdown or bool(re.search(r'\*.*?\*', content))         # Italic
+        
+        if has_markdown:
             try:
                 console.print(
                     Panel(
@@ -556,32 +564,63 @@ def infer_interactive(
                         inference_config=config,
                     )
                 else:
-                    # For VLLM and other engines, process attachments but use single-input approach
+                    # For VLLM and other engines, build full conversation including history
+                    system_messages = (
+                        [Message(role=Role.SYSTEM, content=system_prompt)]
+                        if system_prompt
+                        else []
+                    )
+
+                    # Convert conversation history to Message objects (same as NATIVE)
+                    history_messages = []
+                    
                     for msg in conversation_history:
-                        if msg["role"] == "attachment":
+                        if msg["role"] == "user":
+                            if msg.get("content_type") == "multimodal":
+                                # This is a message with attachments - content is already ContentItems
+                                history_messages.append(
+                                    Message(role=Role.USER, content=msg["content"])
+                                )
+                            else:
+                                # Regular text message
+                                history_messages.append(
+                                    Message(role=Role.USER, content=msg["content"])
+                                )
+                        elif msg["role"] == "assistant":
+                            history_messages.append(
+                                Message(role=Role.ASSISTANT, content=msg["content"])
+                            )
+                        elif msg["role"] == "attachment":
+                            # Collect attachment text content for the current message
                             if "text_content" in msg:
+                                # New simplified text format
                                 current_user_content.append(msg["text_content"])
                             elif "content_items" in msg:
+                                # Backward compatibility with old ContentItem format
                                 for item in msg["content_items"]:
                                     if hasattr(item, "content") and item.content:
                                         current_user_content.append(str(item.content))
                     
-                    # Create current user message for history storage
+                    # Create the current user message  
                     if current_user_content:
+                        # We have pending attachments, combine them with the user input as text
                         full_content = "\n\n".join(current_user_content) + "\n\n" + input_text
                         current_user_message = Message(role=Role.USER, content=full_content)
                     else:
+                        # No pending attachments, create a simple text message
                         current_user_message = Message(role=Role.USER, content=input_text)
-                    
-                    # For VLLM and other engines, use the original single-input approach
-                    # If we have attachments, use the combined content, otherwise just the input text
-                    input_for_inference = current_user_message.content if current_user_content else input_text
-                    model_response = infer(
-                        config=config,
-                        inputs=[input_for_inference],
-                        system_prompt=system_prompt,
-                        input_image_bytes=input_image_bytes,
-                        inference_engine=inference_engine,
+
+                    # Create conversation with full history for VLLM
+                    full_conversation = Conversation(
+                        messages=system_messages
+                        + history_messages
+                        + [current_user_message]
+                    )
+
+                    # Call inference engine directly with the full conversation
+                    model_response = inference_engine.infer(
+                        input=[full_conversation],
+                        inference_config=config,
                     )
 
             # Format and display the response
@@ -590,37 +629,29 @@ def infer_interactive(
                     conversation, console, model_name, config.style
                 )
 
-            # Store conversation history (only for NATIVE engine which supports it)
-            if config.engine == InferenceEngineType.NATIVE:
-                # For NATIVE engine, store both user and assistant messages in history after successful inference
-                # Remove any pending attachment markers since they're now incorporated into the message
-                # Use slice assignment to modify list in-place, preserving the reference
-                conversation_history[:] = [msg for msg in conversation_history if msg.get("role") != "attachment"]
-                
-                # Store the user message that was sent to the model (always string now)
-                if current_user_message:
-                    conversation_history.append({"role": "user", "content": current_user_message.content})
-                else:
-                    # Fallback - shouldn't happen but just in case
-                    conversation_history.append({"role": "user", "content": input_text})
-
-                # Store assistant response in history
-                for conversation in model_response:
-                    for message in conversation.messages:
-                        if message.role == Role.ASSISTANT and isinstance(
-                            message.content, str
-                        ):
-                            conversation_history.append(
-                                {"role": "assistant", "content": message.content}
-                            )
-                
-                # Note: Input already added to history earlier in the main loop
-                pass
+            # Store conversation history for all engines
+            # Remove any pending attachment markers since they're now incorporated into the message
+            # Use slice assignment to modify list in-place, preserving the reference
+            conversation_history[:] = [msg for msg in conversation_history if msg.get("role") != "attachment"]
+            
+            # Store the user message that was sent to the model (always string now)
+            if current_user_message:
+                conversation_history.append({"role": "user", "content": current_user_message.content})
             else:
-                # For other engines like VLLM, conversation history is handled by the engine itself
-                # so we don't manually track it here
-                # Note: Input already added to history earlier in the main loop
-                pass
+                # Fallback - shouldn't happen but just in case
+                conversation_history.append({"role": "user", "content": input_text})
+
+            # Store assistant response in history
+            for conversation in model_response:
+                for message in conversation.messages:
+                    if message.role == Role.ASSISTANT and isinstance(
+                        message.content, str
+                    ):
+                        conversation_history.append(
+                            {"role": "assistant", "content": message.content}
+                        )
+            
+            # Note: Input already added to history earlier in the main loop
 
         except Exception as e:
             console.print(
