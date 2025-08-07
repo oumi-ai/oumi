@@ -12,6 +12,9 @@ on:
       - 'scripts/**'
       - 'README.md'
 
+env:
+  NCCL_DEBUG: INFO
+
 jobs:
   gpu-tests:
     permissions:
