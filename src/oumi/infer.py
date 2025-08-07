@@ -590,7 +590,8 @@ def infer_interactive(
             if config.engine == InferenceEngineType.NATIVE:
                 # For NATIVE engine, store both user and assistant messages in history after successful inference
                 # Remove any pending attachment markers since they're now incorporated into the message
-                conversation_history = [msg for msg in conversation_history if msg.get("role") != "attachment"]
+                # Use slice assignment to modify list in-place, preserving the reference
+                conversation_history[:] = [msg for msg in conversation_history if msg.get("role") != "attachment"]
                 
                 # Store the user message that was sent to the model (always string now)
                 if current_user_message:
