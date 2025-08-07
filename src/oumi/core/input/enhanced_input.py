@@ -14,18 +14,13 @@
 
 """Enhanced input handler with prompt_toolkit integration for arrow keys and history."""
 
-from dataclasses import dataclass
-from typing import Optional
-
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.shortcuts import print_formatted_text
-from prompt_toolkit.formatted_text import HTML
 from rich.console import Console
 from rich.panel import Panel
-from rich.text import Text
 
 # Import shared types from multiline_input to avoid duplication
 from oumi.core.input.multiline_input import InputAction, InputResult
@@ -33,7 +28,7 @@ from oumi.core.input.multiline_input import InputAction, InputResult
 
 class EnhancedInput:
     """Enhanced input handler with prompt_toolkit for arrow keys, history, and completion.
-    
+
     Features:
     - Arrow key navigation (up/down for history, left/right for cursor)
     - Command history persistence
@@ -41,10 +36,10 @@ class EnhancedInput:
     - Multi-line support with enhanced editing
     - Integration with Rich styling
     """
-    
+
     def __init__(self, console: Console, prompt_style: str = "bold blue"):
         """Initialize the enhanced input handler.
-        
+
         Args:
             console: Rich console for output.
             prompt_style: Style for the prompt text (used for Rich fallback).
@@ -53,41 +48,53 @@ class EnhancedInput:
         self.prompt_style = prompt_style
         self.multiline_mode = False
         self._first_run = True
-        
+
         # Command history
         self.history = InMemoryHistory()
-        
+
         # Command completion - all available Oumi commands
-        self.command_completer = WordCompleter([
-            '/help()', '/exit()', '/attach()', '/delete()', '/regen()', 
-            '/save()', '/set(temperature=)', '/set(top_p=)', '/set(max_tokens=)', 
-            '/set(sampling=)', '/ml', '/sl'
-        ], match_middle=True)
-        
+        self.command_completer = WordCompleter(
+            [
+                "/help()",
+                "/exit()",
+                "/attach()",
+                "/delete()",
+                "/regen()",
+                "/save()",
+                "/set(temperature=)",
+                "/set(top_p=)",
+                "/set(max_tokens=)",
+                "/set(sampling=)",
+                "/ml",
+                "/sl",
+            ],
+            match_middle=True,
+        )
+
         # Key bindings for custom behavior
         self.bindings = self._create_key_bindings()
-    
+
     def _create_key_bindings(self) -> KeyBindings:
         """Create custom key bindings."""
         kb = KeyBindings()
-        
-        @kb.add('c-c')  # Ctrl+C
+
+        @kb.add("c-c")  # Ctrl+C
         def _(event):
             """Handle Ctrl+C to exit."""
             event.app.exit(exception=KeyboardInterrupt)
-        
+
         # Don't bind Ctrl+D globally - let prompt_toolkit handle it naturally
         # In single-line mode, Ctrl+D will exit
         # In multi-line mode, Ctrl+D will submit (handled by prompt_toolkit)
-        
+
         return kb
-    
+
     def get_input(self, prompt_text: str = "You") -> InputResult:
         """Get input from the user with enhanced features.
-        
+
         Args:
             prompt_text: The prompt text to display.
-            
+
         Returns:
             InputResult with the user's input and action taken.
         """
@@ -95,19 +102,21 @@ class EnhancedInput:
         if self._first_run:
             self._show_input_help()
             self._first_run = False
-        
+
         if self.multiline_mode:
             return self._get_multiline_input(prompt_text)
         else:
             return self._get_singleline_input(prompt_text)
-    
+
     def _get_singleline_input(self, prompt_text: str) -> InputResult:
         """Get single-line input with enhanced features."""
         try:
             # Create styled prompt
             mode_indicator = " (single-line)" if self.multiline_mode is False else ""
-            formatted_prompt = HTML(f'<ansiblue><b>{prompt_text}</b></ansiblue>{mode_indicator}: ')
-            
+            formatted_prompt = HTML(
+                f"<ansiblue><b>{prompt_text}</b></ansiblue>{mode_indicator}: "
+            )
+
             text = prompt(
                 formatted_prompt,
                 history=self.history,
@@ -115,32 +124,38 @@ class EnhancedInput:
                 complete_while_typing=True,
                 key_bindings=self.bindings,
                 mouse_support=True,
-                wrap_lines=True
+                wrap_lines=True,
             )
-            
+
             # Handle special commands
             if text.strip().lower() == "/ml":
                 self.multiline_mode = True
                 self._show_mode_change("multi-line")
-                return InputResult(action=InputAction.TOGGLE_MULTILINE, multiline_toggled=True)
+                return InputResult(
+                    action=InputAction.TOGGLE_MULTILINE, multiline_toggled=True
+                )
             elif text.strip().lower() == "/exit":
                 return InputResult(action=InputAction.EXIT, should_exit=True)
             elif not text.strip():
                 return InputResult(action=InputAction.CANCEL, cancelled=True)
-            
+
             return InputResult(action=InputAction.SUBMIT, text=text)
-            
+
         except (EOFError, KeyboardInterrupt):
             return InputResult(action=InputAction.EXIT, should_exit=True)
-    
+
     def _get_multiline_input(self, prompt_text: str) -> InputResult:
         """Get multi-line input with enhanced editing."""
         try:
-            self.console.print(f"[dim]📝 Multi-line mode: Enter for new line, Ctrl+D to submit, /sl to switch[/dim]")
-            
+            self.console.print(
+                "[dim]📝 Multi-line mode: Enter for new line, Ctrl+D to submit, /sl to switch[/dim]"
+            )
+
             # Create styled prompt for multi-line
-            formatted_prompt = HTML(f'<ansiblue><b>{prompt_text}</b></ansiblue> (multi-line): ')
-            
+            formatted_prompt = HTML(
+                f"<ansiblue><b>{prompt_text}</b></ansiblue> (multi-line): "
+            )
+
             text = prompt(
                 formatted_prompt,
                 history=self.history,
@@ -149,29 +164,35 @@ class EnhancedInput:
                 complete_while_typing=True,
                 key_bindings=self.bindings,
                 mouse_support=True,
-                wrap_lines=True
+                wrap_lines=True,
             )
-            
+
             # Handle special commands
             if text.strip().lower() == "/sl":
                 self.multiline_mode = False
                 self._show_mode_change("single-line")
-                return InputResult(action=InputAction.TOGGLE_MULTILINE, multiline_toggled=True)
+                return InputResult(
+                    action=InputAction.TOGGLE_MULTILINE, multiline_toggled=True
+                )
             elif text.strip().lower() == "/exit":
                 return InputResult(action=InputAction.EXIT, should_exit=True)
             elif not text.strip():
                 return InputResult(action=InputAction.CANCEL, cancelled=True)
-            
+
             # Check if this is a command on the first line (for backward compatibility)
-            first_line = text.split('\n')[0].strip()
-            if first_line.startswith('/') and '(' in first_line and first_line.endswith(')'):
+            first_line = text.split("\n")[0].strip()
+            if (
+                first_line.startswith("/")
+                and "(" in first_line
+                and first_line.endswith(")")
+            ):
                 return InputResult(action=InputAction.SUBMIT, text=first_line)
-            
+
             return InputResult(action=InputAction.SUBMIT, text=text.strip())
-            
+
         except (EOFError, KeyboardInterrupt):
             return InputResult(action=InputAction.EXIT, should_exit=True)
-    
+
     def _show_input_help(self):
         """Show help information about enhanced input features."""
         help_text = """
@@ -186,45 +207,47 @@ class EnhancedInput:
 
 **Mode Switching:**
 • Type `/ml` to switch to multi-line mode
-• Type `/sl` to switch to single-line mode  
+• Type `/sl` to switch to single-line mode
 • Type `/exit` to exit chat
 
 **Commands work in both modes** (e.g., `/help()`, `/attach()`)
 • Tab completion available for all commands
 • Command history persists across sessions
         """
-        
-        self.console.print(Panel(
-            help_text.strip(),
-            title="[bold cyan]💬 Enhanced Input Help[/bold cyan]",
-            border_style="cyan",
-            padding=(0, 1)
-        ))
+
+        self.console.print(
+            Panel(
+                help_text.strip(),
+                title="[bold cyan]💬 Enhanced Input Help[/bold cyan]",
+                border_style="cyan",
+                padding=(0, 1),
+            )
+        )
         self.console.print()
-    
+
     def _show_mode_change(self, new_mode: str):
         """Show feedback when input mode changes."""
         emoji = "📝" if new_mode == "multi-line" else "✏️"
         self.console.print(f"[green]{emoji} Switched to {new_mode} input mode[/green]")
-        
+
         if new_mode == "multi-line":
             self.console.print("[dim]Press Enter for new line, Ctrl+D to submit[/dim]")
         else:
             self.console.print("[dim]Press Enter to send, Ctrl+D to exit[/dim]")
-        
+
         self.console.print()
-    
+
     def get_current_mode(self) -> str:
         """Get the current input mode as a string."""
         return "multi-line" if self.multiline_mode else "single-line"
-    
+
     def set_mode(self, multiline: bool):
         """Programmatically set the input mode."""
         if self.multiline_mode != multiline:
             self.multiline_mode = multiline
             mode_name = "multi-line" if multiline else "single-line"
             self._show_mode_change(mode_name)
-    
+
     def add_to_history(self, text: str):
         """Add a command to the input history."""
         self.history.append_string(text)

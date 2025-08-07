@@ -14,7 +14,7 @@
 
 """Enhanced input system for Oumi interactive inference."""
 
-from oumi.core.input.multiline_input import MultiLineInput, InputResult, InputAction
 from oumi.core.input.enhanced_input import EnhancedInput
+from oumi.core.input.multiline_input import InputAction, InputResult, MultiLineInput
 
 __all__ = ["MultiLineInput", "EnhancedInput", "InputResult", "InputAction"]

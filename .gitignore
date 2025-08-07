@@ -9,6 +9,8 @@ coverage_html/
 notebooks/*tutorial*
 # Evaluation results
 results/
+# Locally stored model weights
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

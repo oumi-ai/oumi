@@ -15,25 +15,48 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
 #   - Other inference configs: configs/**/inference/
 
+# ⚠️  COMPLEX: vLLM Inference config for DeepSeek-R1-0528 GGUF (MULTI-PART FILES)
+#
+# ⚠️  WARNING: This model uses MULTI-PART GGUF files that require special handling
+# The DeepSeek R1 0528 GGUF files are sharded into multiple parts (e.g., 9 parts for Q4_K_M)
+#
+# Usage (ADVANCED - Multi-part download required):
+#   # 1. Download ALL parts of a quantization level to a directory:
+#   mkdir -p models/deepseek_r1_0528_q4km
+#   huggingface-cli download unsloth/DeepSeek-R1-0528-GGUF \
+#     --include "Q4_K_M/*" --local-dir models/deepseek_r1_0528_q4km/
+#
+#   # 2. vLLM should automatically detect and load all parts
+#   # 3. Update model_name below to point to the directory or first file
+#
+# Model Info:
+#   - Repository: unsloth/DeepSeek-R1-0528-GGUF
+#   - Size: ~671B parameters (quantized)
+#   - Files: Multi-part sharded GGUF (directories: Q2_K, Q3_K_M, Q4_K_M, etc.)
+#   - Requirements: Extremely high VRAM (16+ A100-80GB recommended)
+#   - Complexity: HIGH - Multi-part file handling required
+#
+# Available quantization directories:
+#   Q2_K/ (5 parts), Q3_K_M/ (7 parts), Q4_K_M/ (9 parts), Q5_K_M/ (10 parts)
+#   Q6_K/ (12 parts), Q8_0/ (15 parts), BF16/ (30 parts)
+
 model:
-  # GGUF quantized model path - download specific GGUF file as needed
-  model_name: "unsloth/DeepSeek-R1-0528-GGUF"
-  # Original model tokenizer for proper text processing
+  # REQUIRES MULTI-PART HANDLING - Update path based on your download approach
+  # Option 1: Directory path (if vLLM supports): "models/deepseek_r1_0528_q4km/Q4_K_M/"
+  # Option 2: First file: "models/deepseek_r1_0528_q4km/Q4_K_M/DeepSeek-R1-0528-Q4_K_M-00001-of-00009.gguf"
+  model_name: "models/deepseek_r1_0528_q4km/Q4_K_M/"
   tokenizer_name: "deepseek-ai/DeepSeek-R1"
-  model_max_length: 4096
-  torch_dtype_str: "float16"  # GGUF models require float16
+  model_max_length: 8192
+  torch_dtype_str: "float16"
   trust_remote_code: True
   attn_implementation: "sdpa"
 
 generation:
-  max_new_tokens: 2048
+  max_new_tokens: 4096
   temperature: 0.7
   top_p: 0.9
 
 engine: VLLM
 
-# Optional: vLLM specific parameters
-# vllm_args:
-#   tensor_parallel_size: 8  # Adjust based on available GPUs
-#   gpu_memory_utilization: 0.90
-#   max_num_seqs: 10
+# NOTE: This config is UNTESTED due to multi-part complexity
+# Recommend using regular HuggingFace model instead for DeepSeek R1 0528

@@ -1,13 +1,18 @@
 # vLLM Inference config for Qwen3-30B-A3B-Instruct GGUF quantized model.
 #
 # Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF \
+#     Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf --local-dir .
+#
+#   # 2. Run inference:
 #   oumi infer -i -c configs/recipes/qwen3/inference/30b_a3b_instruct_gguf_infer.yaml
 #
 # Model Info:
-#   - Model: unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF
+#   - Repository: unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF
 #   - Size: ~30B parameters (quantized)
-#   - Format: GGUF Q4_K_M quantization
-#   - Requirements: ~18-22GB VRAM for Q4 quantization
+#   - Available quantizations: Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, F16
+#   - Requirements: ~18-22GB VRAM for Q4 quantization, Linux/Windows with GPU (macOS has Triton issues)
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -16,8 +21,9 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  # GGUF quantized model path - download specific GGUF file as needed
-  model_name: "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF"
+  # GGUF filename (must be in current working directory)
+  # Change filename based on desired quantization level
+  model_name: "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"
   # Original model tokenizer for proper text processing
   tokenizer_name: "Qwen/Qwen3-30B-A3B-Instruct"
   model_max_length: 8192
@@ -37,3 +43,11 @@ engine: VLLM
 #   tensor_parallel_size: 2  # Adjust based on available GPUs
 #   gpu_memory_utilization: 0.90
 #   max_num_seqs: 16
+
+# Available quantization files (update model_name accordingly):
+# "Qwen3-30B-A3B-Instruct-2507-Q2_K.gguf"    # Lower quality, less VRAM
+# "Qwen3-30B-A3B-Instruct-2507-Q3_K_M.gguf"  # Good quality
+# "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"  # Balanced (recommended)
+# "Qwen3-30B-A3B-Instruct-2507-Q5_K_M.gguf"  # Better quality
+# "Qwen3-30B-A3B-Instruct-2507-Q6_K.gguf"    # High quality
+# "Qwen3-30B-A3B-Instruct-2507-Q8_0.gguf"    # Very high quality

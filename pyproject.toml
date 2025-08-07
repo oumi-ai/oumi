@@ -129,6 +129,7 @@ gpu = [
 ]
 
 gpu_mac = [
+    "llama-cpp-python>=0.3.15,<0.4",   # GGUF model support via LlamaCPP with Metal acceleration on Apple Silicon
     "verl==0.4.0",      # Used for the VERL_GRPO trainer.
 ]
 

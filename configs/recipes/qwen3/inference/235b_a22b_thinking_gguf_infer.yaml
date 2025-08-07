@@ -1,14 +1,31 @@
-# vLLM Inference config for Qwen3-235B-A22B-Thinking GGUF quantized model.
+# ⚠️  COMPLEX: vLLM Inference config for Qwen3-235B-A22B-Thinking GGUF (LIKELY MULTI-PART)
 #
-# Usage:
+# ⚠️  WARNING: This model likely uses MULTI-PART GGUF files due to its size (235B parameters)
+# Large models often require sharded GGUF files that need special handling
+#
+# Usage (ADVANCED - May require multi-part download):
+#   # 1. Check if model has single files or multiple parts:
+#   huggingface-cli scan-cache unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF
+#
+#   # 2. For single files:
+#   huggingface-cli download unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF \
+#     Qwen3-235B-A22B-Thinking-2507-Q4_K_M.gguf --local-dir .
+#
+#   # 3. For multi-part files (if needed):
+#   mkdir -p models/qwen3_235b_thinking_q4km
+#   huggingface-cli download unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF \
+#     --include "Q4_K_M/*" --local-dir models/qwen3_235b_thinking_q4km/
+#
+#   # 4. Run inference:
 #   oumi infer -i -c configs/recipes/qwen3/inference/235b_a22b_thinking_gguf_infer.yaml
 #
 # Model Info:
-#   - Model: unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF
+#   - Repository: unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF
 #   - Size: ~235B parameters (quantized)
-#   - Format: GGUF Q4_K_M quantization
-#   - Requirements: Very high VRAM (recommend 8x A100-80GB or equivalent)
+#   - Available quantizations: Q2_K, Q3_K_M, Q4_K_M, Q5_K_M, Q6_K, Q8_0, F16
+#   - Requirements: Very high VRAM (recommend 8x A100-80GB or equivalent), Linux/Windows with GPU (macOS has Triton issues)
 #   - Special: Thinking/reasoning model with chain-of-thought capabilities
+#   - Complexity: HIGH - May require multi-part file handling
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -17,8 +34,11 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  # GGUF quantized model path - download specific GGUF file as needed
-  model_name: "unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF"
+  # GGUF filename (must be in current working directory)
+  # May require multi-part handling for this large model
+  # Single file: "Qwen3-235B-A22B-Thinking-2507-Q4_K_M.gguf"
+  # Multi-part: "models/qwen3_235b_thinking_q4km/Q4_K_M/" (if sharded)
+  model_name: "Qwen3-235B-A22B-Thinking-2507-Q4_K_M.gguf"
   # Original model tokenizer for proper text processing
   tokenizer_name: "Qwen/Qwen3-235B-A22B-Thinking"
   model_max_length: 8192
@@ -38,3 +58,13 @@ engine: VLLM
 #   tensor_parallel_size: 8  # Adjust based on available GPUs
 #   gpu_memory_utilization: 0.90
 #   max_num_seqs: 8  # Lower for large model
+
+# Available quantization files (update model_name accordingly):
+# "Qwen3-235B-A22B-Thinking-2507-Q2_K.gguf"    # Lower quality, less VRAM
+# "Qwen3-235B-A22B-Thinking-2507-Q3_K_M.gguf"  # Good quality
+# "Qwen3-235B-A22B-Thinking-2507-Q4_K_M.gguf"  # Balanced (recommended)
+# "Qwen3-235B-A22B-Thinking-2507-Q5_K_M.gguf"  # Better quality
+# "Qwen3-235B-A22B-Thinking-2507-Q6_K.gguf"    # High quality
+# "Qwen3-235B-A22B-Thinking-2507-Q8_0.gguf"    # Very high quality
+#
+# NOTE: Due to model size (235B), files may be sharded into multiple parts
