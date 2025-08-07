@@ -64,6 +64,23 @@ def sample_alpaca_data():
     ]
 
 
+@pytest.fixture
+def sample_conversations_data():
+    """Sample data for conversations format - conversation key with conversation json"""
+    return [
+        {
+            "conversation": {
+                "conversation_id": "123",
+                "messages": [
+                    {"role": "user", "content": "What is the capital of France?"},
+                    {"role": "assistant", "content": "The capital of France is Paris."},
+                ],
+                "metadata": {"key": "value"},
+            }
+        }
+    ]
+
+
 def test_text_jsonlines_init_with_data(sample_jsonlines_data):
     dataset = TextSftJsonLinesDataset(data=sample_jsonlines_data)
     assert len(dataset._data) == 1
@@ -229,6 +246,24 @@ def test_auto_detect_format(sample_oumi_data, sample_alpaca_data):
 
     alpaca_dataset = TextSftJsonLinesDataset(data=sample_alpaca_data)
     assert alpaca_dataset._format == "alpaca"
+
+
+def test_conversations_format(sample_conversations_data):
+    """Test loading and processing conversations format data."""
+    dataset = TextSftJsonLinesDataset(data=sample_conversations_data)
+    assert dataset._format == "conversations"
+    assert len(dataset) == 1
+
+    conversation = dataset.conversation(0)
+    assert isinstance(conversation, Conversation)
+    assert len(conversation.messages) == 2
+    assert conversation.messages[0].role == "user"
+    assert conversation.messages[0].content == "What is the capital of France?"
+    assert conversation.messages[1].role == "assistant"
+    assert conversation.messages[1].content == "The capital of France is Paris."
+
+    assert conversation.conversation_id == "123"
+    assert conversation.metadata == {"key": "value"}
 
 
 def test_invalid_format():

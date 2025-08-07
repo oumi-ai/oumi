@@ -28,8 +28,8 @@ class SampleAnalyzerParams(BaseParams):
     id: str = MISSING
     """Unique identifier for the analyzer."""
 
-    config: dict[str, Any] = field(default_factory=dict)
-    """Analyzer-specific configuration parameters."""
+    params: dict[str, Any] = field(default_factory=dict)
+    """Analyzer-specific parameters passed to the analyzer constructor."""
 
 
 @dataclass
@@ -61,6 +61,11 @@ class AnalyzeConfig(BaseConfig):
 
     analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
+
+    # Add tokenizer parameter
+    tokenizer: Optional[Any] = None
+    """Tokenizer to use for dataset loading. If None, dataset will be loaded
+    without tokenizer."""
 
     def __post_init__(self):
         """Validates the configuration parameters."""

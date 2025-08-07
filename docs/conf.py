@@ -3,7 +3,24 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import logging
 import os
+
+
+# Configure logging to suppress specific warnings
+class DuplicateObjectFilter(logging.Filter):
+    def filter(self, record):
+        """Filter out duplicate object description warnings."""
+        if hasattr(record, "msg") and record.msg:
+            msg = str(record.msg)
+            if "duplicate object description" in msg:
+                return False
+        return True
+
+
+# Apply the filter to sphinx logger
+sphinx_logger = logging.getLogger("sphinx")
+sphinx_logger.addFilter(DuplicateObjectFilter())
 
 # -- Path setup --------------------------------------------------------------
 

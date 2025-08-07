@@ -14,6 +14,7 @@
 
 """AWQ (Activation-aware Weight Quantization) quantizer implementation."""
 
+import importlib
 import importlib.util
 
 import torch
@@ -44,11 +45,14 @@ class AwqQuantization(BaseQuantization):
     """
 
     supported_methods = ["awq_q4_0", "awq_q4_1", "awq_q8_0", "awq_f16"]
-    supported_formats = ["pytorch"]
+    supported_formats = ["safetensors"]
 
     def __init__(self):
         """Initialize AWQ quantizer."""
-        self._awq = importlib.util.find_spec("autoawq")
+        if importlib.util.find_spec("awq") is not None:
+            self._awq = importlib.import_module("awq")
+        else:
+            self._awq = None
 
     @override
     def raise_if_requirements_not_met(self):
@@ -56,7 +60,7 @@ class AwqQuantization(BaseQuantization):
         if self._awq is None:
             raise RuntimeError(
                 "AWQ quantization requires autoawq library.\n"
-                "Install with: `pip install autoawq`\n"
+                "Install with: `pip install oumi[quantization]`\n"
             )
 
         if not torch.cuda.is_available():
@@ -76,9 +80,6 @@ class AwqQuantization(BaseQuantization):
             Dictionary containing quantization results
         """
         self.validate_config(config)
-        if config.output_format != "pytorch":
-            raise ValueError("AWQ quantization only supports PyTorch format.")
-
         logger.info("Starting AWQ quantization pipeline...")
 
         # Step 1: AWQ quantization

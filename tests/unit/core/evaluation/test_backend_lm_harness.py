@@ -2,7 +2,6 @@ import copy
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 from lm_eval.api.task import ConfigurableTask
 
 from oumi.core.configs import (
@@ -78,7 +77,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": None,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -98,7 +97,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "vision_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -123,7 +122,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "text_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 1,
                 "max_batch_size": None,
@@ -143,7 +142,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": True,
                 "pretrained": "vision_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": 128,
                 "batch_size": 8,
                 "max_batch_size": None,
@@ -168,7 +167,7 @@ def mock_patches_for_evaluate():
             {
                 "trust_remote_code": False,
                 "pretrained": "some_model",
-                "dtype": torch.float32,
+                "dtype": "auto",
                 "max_length": None,
                 "batch_size": 1,
                 "max_batch_size": None,

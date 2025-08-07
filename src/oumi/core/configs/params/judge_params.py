@@ -116,7 +116,8 @@ class JudgeParams(BaseParams):
     Each dictionary should contain values for all template placeholders and
     expected output fields. Used to provide examples of how the judge should respond.
 
-    Example:
+    Example::
+
         [
             {
                 "question": "What is 2+2?",                      # placeholder value

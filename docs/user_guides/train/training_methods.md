@@ -235,7 +235,7 @@ Direct Preference Optimization (DPO) is a technique for training language models
 
 ### Data Format
 
-DPO uses the {class}`~oumi.core.datasets.BaseExperimentalDpoDataset` format, which includes the prompt, the chosen output, and the rejected output.
+DPO uses the {class}`~oumi.core.datasets.BaseDpoDataset` format, which includes the prompt, the chosen output, and the rejected output.
 
 ```python
 {

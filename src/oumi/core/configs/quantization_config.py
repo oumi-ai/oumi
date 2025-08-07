@@ -43,11 +43,11 @@ class QuantizationConfig(BaseConfig):
     """Quantization method. AWQ methods (awq_q4_0, awq_q8_0) provide best quality.
     Direct GGUF methods (q4_0, q8_0) for llama.cpp. Precision methods (f16, f32)."""
 
-    output_path: str = "quantized_model.gguf"
-    """Output file path. Extension should match format (.gguf, .safetensors, .pt)."""
+    output_path: str = "quantized_model"
+    """Output file path for the quantized model."""
 
-    output_format: str = "gguf"
-    """Output format: 'gguf' (llama.cpp), 'safetensors' (HF), 'pytorch'."""
+    output_format: str = "safetensors"
+    """Output format: 'safetensors'."""
 
     batch_size: Optional[int] = None
     """Batch size for calibration. Auto-sized if None. Typical: 32, 8-32, 1-8."""

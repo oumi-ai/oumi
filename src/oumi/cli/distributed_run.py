@@ -393,6 +393,8 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
 
 
 def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
+    import torch  # Importing torch takes time so only load it in this scenario.
+
     nodes_str = env.get("SLURM_NODELIST", None)
     if nodes_str is None:
         return None
@@ -407,7 +409,7 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
         raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
-    gpus_per_node = 8  # Per Frontier spec.
+    gpus_per_node = torch.cuda.device_count()
     node_rank = _get_optional_int_env_var("PMI_RANK", env)
     if node_rank is None:
         node_rank = 0

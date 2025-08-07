@@ -17,6 +17,10 @@ import sys
 
 import typer
 
+from oumi.cli.cache import card as cache_card
+from oumi.cli.cache import get as cache_get
+from oumi.cli.cache import ls as cache_ls
+from oumi.cli.cache import rm as cache_rm
 from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
@@ -27,6 +31,7 @@ from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
+from oumi.cli.synth import synth
 from oumi.cli.train import train
 
 _ASCII_LOGO = r"""
@@ -77,14 +82,22 @@ def get_app() -> typer.Typer:
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Synthesize a dataset.",
+    )(synth)
+    app.command(  # Alias for synth
+        name="synthesize",
+        hidden=True,
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="🚧 [Experimental] Synthesize a dataset.",
+    )(synth)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Train a model.",
     )(train)
-    if experimental_features_enabled():
-        app.command(
-            context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-            help="🚧 [Experimental] Quantize a model.",
-        )(quantize)
-
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Quantize a model.",
+    )(quantize)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_dataset_file
@@ -123,6 +136,19 @@ def get_app() -> typer.Typer:
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
+
+    cache_app = typer.Typer(pretty_exceptions_enable=False)
+    cache_app.command(name="ls", help="List locally cached items.")(cache_ls)
+    cache_app.command(name="get", help="Download a repository from Hugging Face.")(
+        cache_get
+    )
+    cache_app.command(name="card", help="Show information for a repository.")(
+        cache_card
+    )
+    cache_app.command(name="rm", help="Remove a repository from the local cache.")(
+        cache_rm
+    )
+    app.add_typer(cache_app, name="cache", help="Manage local Hugging Face cache.")
 
     return app
 

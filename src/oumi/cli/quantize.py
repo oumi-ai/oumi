@@ -42,10 +42,9 @@ def quantize(
             "--method",
             help=(
                 "Quantization method to use. "
-                "AWQ methods (recommended): awq_q4_0 (default), awq_q4_1, "
-                "awq_q8_0, awq_f16. "
-                "Direct GGUF: q4_0, q4_1, q5_0, q5_1, q8_0, f16, f32. "
-                "AWQ provides better quality through activation-aware quantization."
+                "AWQ methods: awq_q4_0 (default), "
+                "awq_q4_1, awq_q8_0, awq_f16. "
+                "BitsAndBytes methods: bnb_4bit, bnb_8bit. "
             ),
         ),
     ] = "awq_q4_0",
@@ -66,14 +65,9 @@ def quantize(
         str,
         typer.Option(
             "--output",
-            help=(
-                "Output path for the quantized model. "
-                "For GGUF format, use .gguf extension. "
-                "For other formats, can be a directory or file path. "
-                "Default creates 'quantized_model.gguf' in current directory."
-            ),
+            help="Output path for the quantized model.",
         ),
-    ] = "quantized_model.gguf",
+    ] = "quantized_model",
 ):
     r"""🚧 DEVELOPMENT: Quantize a model to reduce its size and memory requirements.
 
@@ -91,6 +85,7 @@ def quantize(
     # Delayed imports
     from oumi import quantize as oumi_quantize
     from oumi.core.configs import ModelParams, QuantizationConfig
+    from oumi.quantize.constants import SUPPORTED_METHODS
     from oumi.utils.torch_utils import device_cleanup
 
     if config is not None:
@@ -112,18 +107,8 @@ def quantize(
         if output != "quantized_model.gguf":  # Only override if not default
             parsed_config.output_path = output
 
-        # Auto-set appropriate output format based on method
-        #  if not already set appropriately
-        if (
-            parsed_config.method.startswith("awq_")
-            and parsed_config.output_format == "gguf"
-        ):
-            parsed_config.output_format = "pytorch"
-        elif (
-            parsed_config.method.startswith("bnb_")
-            and parsed_config.output_format == "gguf"
-        ):
-            parsed_config.output_format = "pytorch"
+        # Only safetensors is supported for now
+        parsed_config.output_format = "safetensors"
     else:
         # Create config from CLI arguments
         if not model:  # Empty string or Nones
@@ -137,7 +122,10 @@ def quantize(
         elif method.startswith("bnb_"):
             output_format = "pytorch"  # or "safetensors" depending on preference
         else:
-            output_format = "gguf"  # For q4_0, q8_0, etc.
+            raise ValueError(
+                f"Unsupported quantization method: {method}. "
+                f"Must be one of: {SUPPORTED_METHODS}."
+            )
 
         parsed_config = QuantizationConfig(
             model=ModelParams(model_name=model),

@@ -44,11 +44,11 @@ for batch in dataset:
 ## Creating Custom Preference Dataset
 
 ```python
-from oumi.core.datasets import BaseExperimentalDpoDataset
+from oumi.core.datasets import BaseDpoDataset
 from oumi.core.registry import register_dataset
 
 @register_dataset("custom_dpo_dataset")
-class CustomDpoDataset(BaseExperimentalDpoDataset):
+class CustomDpoDataset(BaseDpoDataset):
     """A custom DPO dataset."""
 
     default_dataset = "custom_dpo_name"

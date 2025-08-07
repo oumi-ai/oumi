@@ -30,7 +30,8 @@ from oumi.core.types.conversation import Conversation, Message, Role
 class HuggingFaceDataset(BaseSftDataset):
     """Converts HuggingFace Datasets with messages to Oumi Message format.
 
-    Example:
+    Example::
+
         dataset = HuggingFaceDataset(
             hf_dataset_path="oumi-ai/oumi-synthetic-document-claims",
             message_column="messages"

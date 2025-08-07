@@ -27,7 +27,7 @@ SUPPORTED_METHODS = [
 ]
 
 # Supported output formats
-SUPPORTED_OUTPUT_FORMATS = ["safetensors", "pytorch"]
+SUPPORTED_OUTPUT_FORMATS = ["safetensors"]
 
 
 # Size units for formatting

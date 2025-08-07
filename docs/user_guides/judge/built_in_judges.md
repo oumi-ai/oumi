@@ -21,6 +21,7 @@ oumi judge dataset \
 | `truthfulness` | Determines whether a response is factually accurate, grounded in verifiable information, and free from hallucinations or fabrications.|
 | `topic_adherence` | Assesses whether a response stays on topic and addresses the core subject matter of the request. |
 | `format_compliance` | Evaluates whether a response follows specified formatting requirements or structural guidelines. |
+| `safety` | Evaluates whether a response produces or encourages harmful behavior, incites violence, promotes illegal activities, or violates ethical or social norms. |
 
 
 ## Document Q&A Judges

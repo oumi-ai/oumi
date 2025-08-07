@@ -32,19 +32,23 @@ def test_sample_analyzer_param_validation_missing_id():
         )
 
 
-def test_sample_analyzer_param_with_complex_config():
-    """Test SampleAnalyzerParams with complex configuration."""
-    complex_config = {
-        "nested": {"key": "value"},
-        "list": [1, 2, 3],
-        "boolean": True,
-        "number": 3.14,
+def test_sample_analyzer_param_with_language_detection_params():
+    """Test SampleAnalyzerParams with language detection analyzer configuration."""
+    language_detection_params = {
+        "confidence_threshold": 0.2,
+        "top_k": 3,
+        "multilingual_flag": {
+            "enabled": True,
+            "min_num_languages": 2,
+        },
     }
 
-    analyzer = SampleAnalyzerParams(id="complex_analyzer", config=complex_config)
+    analyzer = SampleAnalyzerParams(
+        id="language_detection", params=language_detection_params
+    )
 
-    assert analyzer.id == "complex_analyzer"
-    assert analyzer.config == complex_config
+    assert analyzer.id == "language_detection"
+    assert analyzer.params == language_detection_params
 
 
 def test_analyze_config_validation_missing_dataset_name():
@@ -95,8 +99,8 @@ def test_analyze_config_default_values():
 def test_analyze_config_with_custom_values():
     """Test AnalyzeConfig with custom parameter values."""
     analyzers = [
-        SampleAnalyzerParams(id="analyzer1", config={"param1": "value1"}),
-        SampleAnalyzerParams(id="analyzer2", config={"param2": "value2"}),
+        SampleAnalyzerParams(id="analyzer1", params={"param1": "value1"}),
+        SampleAnalyzerParams(id="analyzer2", params={"param2": "value2"}),
     ]
 
     config = AnalyzeConfig(

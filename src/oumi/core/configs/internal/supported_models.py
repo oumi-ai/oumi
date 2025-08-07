@@ -29,35 +29,33 @@ Key Components:
     - _ModelTypeInfo: Metadata for each supported model type
 
 How to Add a New Model:
-    1. Create a configuration function:
-       ```python
-       def _create_my_model_config() -> InternalModelConfig:
-           config = InternalModelConfig()
-           # Configure the model's specific settings
-           config.chat_template = "my_template"
-           # Add any special features or parameters
-           return config
-       ```
 
-    2. Add the model to get_all_models_map():
-       ```python
-       _ModelTypeInfo(
-           model_type="my_model",  # Must match HF config.model_type
-           model_class=transformers.AutoModelForCausalLM,  # Or appropriate class
-           tested=False,  # Set to True once tests are added
-           config=_create_my_model_config(),
-       )
-       ```
+    1. Create a configuration function::
 
-    3. For VLMs, configure visual features:
-       ```python
-       vlm_config = _create_default_vlm_config(
-           supports_multiple_images=True,  # If model supports multiple images
-           pixel_values_variable_shape=True,  # If images can have different sizes
-       )
-       # Add any model-specific image features
-       vlm_config.model_input_features.update({...})
-       ```
+        def _create_my_model_config() -> InternalModelConfig:
+            config = InternalModelConfig()
+            # Configure the model's specific settings
+            config.chat_template = "my_template"
+            # Add any special features or parameters
+            return config
+
+    2. Add the model to get_all_models_map()::
+
+        _ModelTypeInfo(
+            model_type="my_model",  # Must match HF config.model_type
+            model_class=transformers.AutoModelForCausalLM,  # Or appropriate class
+            tested=False,  # Set to True once tests are added
+            config=_create_my_model_config(),
+        )
+
+    3. For VLMs, configure visual features::
+
+        vlm_config = _create_default_vlm_config(
+            supports_multiple_images=True,  # If model supports multiple images
+            pixel_values_variable_shape=True,  # If images can have different sizes
+        )
+        # Add any model-specific image features
+        vlm_config.model_input_features.update({...})
 """
 
 import copy

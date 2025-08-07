@@ -1,0 +1,19 @@
+# BitsAndBytes quantization config for TinyLlama.
+#
+# Usage:
+#   oumi quantize -c configs/examples/quantization/bnb_quantization_config.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/quantization.html
+#   - Config class: oumi.core.configs.QuantizationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/quantization_config.py
+#   - Other quantization configs: configs/examples/quantization/*quantization_config.yaml
+
+# Model configuration
+model:
+  model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+  tokenizer_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+# Quantization settings
+method: "bnb_4bit" # BitsAndBytes 4-bit quantization
+output_path: "tinyllama-1.1b-bnb4" # Output file path
