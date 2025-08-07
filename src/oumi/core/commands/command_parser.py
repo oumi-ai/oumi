@@ -67,9 +67,22 @@ class CommandParser:
     ARG_PATTERN = re.compile(
         r"""
         (?:
-            (\w+)\s*=\s*([^,\)]+)  # keyword argument: key=value
+            (\w+)\s*=\s*           # keyword argument start: key=
+            (?:
+                "([^"]*)"          # quoted value
+                |
+                '([^']*)'          # single quoted value
+                |
+                ([^,\)]+)          # unquoted value
+            )
             |
-            ([^,=\)]+?)            # positional argument
+            (?:
+                "([^"]*)"          # quoted positional argument
+                |
+                '([^']*)'          # single quoted positional argument
+                |
+                ([^,=\)]+?)        # unquoted positional argument
+            )
         )
         (?:\s*,\s*|$)              # comma separator or end
         """,
@@ -141,16 +154,23 @@ class CommandParser:
         if args_str.strip():
             # Find all argument matches
             for arg_match in self.ARG_PATTERN.finditer(args_str):
-                key = arg_match.group(1)  # keyword argument key
-                value = arg_match.group(2)  # keyword argument value
-                pos_arg = arg_match.group(3)  # positional argument
+                # Groups: 1=key, 2=quoted_value, 3=single_quoted_value, 4=unquoted_value,
+                #         5=quoted_pos, 6=single_quoted_pos, 7=unquoted_pos
+                key = arg_match.group(1)
                 
-                if key and value:
-                    # Keyword argument
+                if key:
+                    # Keyword argument - extract value from appropriate group
+                    value = (arg_match.group(2) or       # double quoted
+                            arg_match.group(3) or        # single quoted
+                            arg_match.group(4) or "")    # unquoted
                     kwargs[key.strip()] = value.strip()
-                elif pos_arg:
-                    # Positional argument
-                    args.append(pos_arg.strip())
+                else:
+                    # Positional argument - extract from appropriate group
+                    pos_arg = (arg_match.group(5) or     # double quoted
+                              arg_match.group(6) or      # single quoted  
+                              arg_match.group(7) or "")  # unquoted
+                    if pos_arg:
+                        args.append(pos_arg.strip())
         
         return ParsedCommand(
             command=command_name,
