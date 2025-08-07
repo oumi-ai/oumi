@@ -15,7 +15,6 @@
 """Enhanced input handler with prompt_toolkit integration for arrow keys and history."""
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Optional
 
 from prompt_toolkit import prompt
@@ -28,23 +27,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-
-class InputAction(Enum):
-    """Actions that can result from user input."""
-    SUBMIT = "submit"           # Submit the input
-    CANCEL = "cancel"           # Cancel current input
-    EXIT = "exit"               # Exit the chat
-    TOGGLE_MULTILINE = "toggle" # Toggle multi-line mode
-
-
-@dataclass
-class InputResult:
-    """Result of input operation."""
-    action: InputAction
-    text: str = ""
-    cancelled: bool = False
-    should_exit: bool = False
-    multiline_toggled: bool = False
+# Import shared types from multiline_input to avoid duplication
+from oumi.core.input.multiline_input import InputAction, InputResult
 
 
 class EnhancedInput:

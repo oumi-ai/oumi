@@ -411,7 +411,7 @@ def infer_interactive(
 
     while True:
         try:
-            # Get input using multi-line input handler
+            # Get input using enhanced input handler
             input_result = input_handler.get_input("You")
             
             # Handle input result actions
