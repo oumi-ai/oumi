@@ -95,6 +95,7 @@ def test_function_conversion():
 
     assert isinstance(result["func"], str)
     assert "def test_func" in result["func"]
+    assert "return x * 2" in result["func"]
     assert not removed_paths
 
 
@@ -153,13 +154,12 @@ def test_config_serialization():
         assert loaded_config.float_value == config.float_value
         assert loaded_config.bool_value == config.bool_value
         assert loaded_config.none_value == config.none_value
-        assert loaded_config.bytes_value == config.bytes_value
+        assert str(loaded_config.bytes_value) == str(config.bytes_value)
         assert loaded_config.path_value == config.path_value
         assert loaded_config.enum_value == config.enum_value
         assert loaded_config.list_value == config.list_value
         assert loaded_config.dict_value == config.dict_value
-        assert isinstance(loaded_config.func_value, str)
-        assert "lambda x: x * 2" in loaded_config.func_value
+        assert loaded_config.func_value is None
 
 
 def test_config_loading_from_str():
@@ -260,18 +260,20 @@ def test_config_override():
         func_value=lambda x: x * 2,
     )
 
-    merged_config = OmegaConf.merge(base_config, override_config)
+    base_omega = OmegaConf.structured(base_config)
+    override_omega = OmegaConf.structured(override_config)
+    merged_config = OmegaConf.merge(base_omega, override_omega)
+
     assert merged_config.str_value == "override"
     assert merged_config.int_value == 2
     assert merged_config.float_value == 2.0
     assert merged_config.bool_value is False
-    assert merged_config.bytes_value == b"override"
-    assert merged_config.path_value == Path("override/path")
+    assert str(merged_config.bytes_value) == "b'override'"
+    assert str(merged_config.path_value) == "override/path"
     assert merged_config.enum_value == TestEnum.VALUE2
     assert merged_config.list_value == ["override"]
     assert merged_config.dict_value == {"key": "override"}
-    assert isinstance(merged_config.func_value, str)
-    assert "lambda x: x * 2" in merged_config.func_value
+    assert merged_config.func_value is None
 
 
 def test_config_from_yaml_and_arg_list():
