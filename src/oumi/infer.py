@@ -25,7 +25,7 @@ from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.commands import CommandHandler, CommandParser
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
-from oumi.core.input import MultiLineInput, InputAction
+from oumi.core.input import MultiLineInput, EnhancedInput, InputAction
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -404,10 +404,10 @@ def infer_interactive(
 
     conversation_history = []
     
-    # Initialize command system and input handler
+    # Initialize command system and enhanced input handler
     command_parser = CommandParser()
     command_handler = CommandHandler(console, config, conversation_history, inference_engine)
-    input_handler = MultiLineInput(console, config.style.user_prompt_style)
+    input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
     while True:
         try:
@@ -456,6 +456,10 @@ def infer_interactive(
                 # Check if we should exit
                 if command_result.should_exit:
                     return
+                
+                # Add successful commands to input history for easy recall
+                if command_result.success and input_result.text.strip():
+                    input_handler.add_to_history(input_result.text.strip())
                 
                 # Check if we should continue to next iteration (skip inference)
                 if not command_result.should_continue:
@@ -609,10 +613,14 @@ def infer_interactive(
                             conversation_history.append(
                                 {"role": "assistant", "content": message.content}
                             )
+                
+                # Add user input to history for arrow key recall
+                input_handler.add_to_history(input_text)
             else:
                 # For other engines like VLLM, conversation history is handled by the engine itself
                 # so we don't manually track it here
-                pass
+                # But still add to input history for arrow key recall
+                input_handler.add_to_history(input_text)
 
         except Exception as e:
             console.print(
