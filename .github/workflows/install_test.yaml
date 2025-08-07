@@ -52,6 +52,7 @@ jobs:
     - name: Install pytest
       run: |
         uv pip install --system pytest-asyncio>=1.1.0 pytest-cov pytest-timeout pytest responses
+        uv pip install --system pdftext  # temporary fix to unblock the tests
 
     - name: Run tests
       run: |
