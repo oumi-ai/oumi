@@ -102,6 +102,8 @@ class CommandParser:
             "switch": "Switch to a different conversation branch",
             "branches": "List all conversation branches",
             "branch_delete": "Delete a conversation branch",
+            "full_thoughts": "Toggle between compressed and full thinking display modes",
+            "clear_thoughts": "Remove thinking content from conversation history while preserving responses",
             # Note: /ml and /sl are handled by the input system, not as regular commands
         }
 
@@ -252,6 +254,8 @@ class CommandParser:
             "compact",
             "branch",
             "branches",
+            "full_thoughts",
+            "clear_thoughts",
         ]:
             # These commands don't require arguments
             pass

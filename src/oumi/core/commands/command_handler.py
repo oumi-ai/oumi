@@ -27,6 +27,7 @@ from oumi.core.commands.compaction_engine import CompactionEngine
 from oumi.core.commands.conversation_branches import ConversationBranchManager
 from oumi.core.configs import InferenceConfig
 from oumi.core.inference import BaseInferenceEngine
+from oumi.core.thinking import ThinkingProcessor
 
 
 class CommandResult:
@@ -121,6 +122,10 @@ class CommandHandler:
         # Set the main branch's conversation history to use our reference
         self.branch_manager.branches["main"].conversation_history = conversation_history
 
+        # Initialize thinking processor and display settings
+        self.thinking_processor = ThinkingProcessor()
+        self.show_full_thoughts = False  # Default to compressed thinking view
+
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a parsed command and return the result.
 
@@ -156,6 +161,10 @@ class CommandHandler:
                 return self._handle_branches(command)
             elif command.command == "branch_delete":
                 return self._handle_branch_delete(command)
+            elif command.command == "full_thoughts":
+                return self._handle_full_thoughts(command)
+            elif command.command == "clear_thoughts":
+                return self._handle_clear_thoughts(command)
             else:
                 return CommandResult(
                     success=False,
@@ -773,6 +782,16 @@ class CommandHandler:
   - Example: `/branch_delete(branch_2)`
   - Cannot delete the main branch
 
+### Thinking Display
+- **`/full_thoughts()`** - Toggle between compressed and full thinking view
+  - Compressed (default): Shows brief summaries of thinking content
+  - Full mode: Shows complete thinking chains and reasoning
+  - Works with multiple thinking formats: GPT-OSS, <think>, <reasoning>, etc.
+- **`/clear_thoughts()`** - Remove thinking content from conversation history
+  - Preserves the final responses while removing all thinking/reasoning sections
+  - Useful for cleaning up conversation history while keeping the actual answers
+  - Works across all supported thinking formats
+
 ## Input Modes
 
 ### Single-line Mode (Default)
@@ -799,6 +818,10 @@ class CommandHandler:
 /attach(my_document.pdf)
 /set(temperature=0.7, top_p=0.9)
 /save(conversation.pdf)
+/full_thoughts()           # Toggle thinking display mode
+/clear_thoughts()          # Remove thinking content from history
+/compact()                 # Compress conversation history
+/branch()                  # Create a new conversation branch
 ```
 
 {"🎨 **Tip**: You can customize the appearance with different style themes in your config!" if getattr(self._style, "use_emoji", True) else "Tip: You can customize the appearance with different style themes in your config!"}
@@ -1297,6 +1320,114 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             return CommandResult(
                 success=False,
                 message=f"Error deleting branch: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_full_thoughts(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /full_thoughts() command to toggle thinking display mode."""
+        try:
+            # Toggle the thinking display mode
+            self.show_full_thoughts = not self.show_full_thoughts
+            
+            # Get style attributes
+            use_emoji = getattr(self._style, "use_emoji", True)
+            title_style = getattr(self._style, "assistant_title_style", "bold cyan")
+            border_style = getattr(self._style, "assistant_border_style", "cyan")
+            expand = getattr(self._style, "expand_panels", False)
+            
+            # Create status message
+            mode = "full" if self.show_full_thoughts else "compressed"
+            emoji = "🧠 " if use_emoji else ""
+            
+            status_message = f"Thinking display mode: **{mode}**"
+            if self.show_full_thoughts:
+                status_message += "\nShowing complete thinking chains with full details"
+            else:
+                status_message += "\nShowing compressed thinking summaries (default)"
+            
+            # Display the toggle result
+            self.console.print(
+                Panel(
+                    Markdown(status_message),
+                    title=f"[{title_style}]{emoji}Thinking Display Mode[/{title_style}]",
+                    border_style=border_style,
+                    padding=(0, 1),
+                    expand=expand,
+                )
+            )
+            
+            return CommandResult(
+                success=True,
+                message=f"Thinking display set to {mode} mode",
+                should_continue=False,
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error toggling thinking display: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_clear_thoughts(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /clear_thoughts() command to remove thinking content from conversation history."""
+        try:
+            # Track how many messages we process and clean
+            processed_count = 0
+            cleaned_count = 0
+            
+            for msg in self.conversation_history:
+                if msg.get("role") == "assistant":
+                    processed_count += 1
+                    original_content = msg.get("content", "")
+                    
+                    # Use thinking processor to extract and separate content
+                    thinking_result = self.thinking_processor.extract_thinking(original_content)
+                    
+                    if thinking_result.has_thinking:
+                        # Replace the message content with just the final content (no thinking)
+                        msg["content"] = thinking_result.final_content
+                        cleaned_count += 1
+            
+            # Get style attributes
+            use_emoji = getattr(self._style, "use_emoji", True)
+            title_style = getattr(self._style, "assistant_title_style", "bold cyan")
+            border_style = getattr(self._style, "assistant_border_style", "cyan")
+            expand = getattr(self._style, "expand_panels", False)
+            
+            # Create status message
+            emoji = "🧹 " if use_emoji else ""
+            
+            if cleaned_count > 0:
+                status_message = f"Cleaned thinking content from **{cleaned_count}** assistant messages"
+                if processed_count > cleaned_count:
+                    status_message += f" (out of {processed_count} total messages)"
+                status_message += "\nConversation responses preserved, only thinking content removed"
+            else:
+                status_message = f"No thinking content found in **{processed_count}** assistant messages"
+                status_message += "\nConversation history unchanged"
+            
+            # Display the result
+            self.console.print(
+                Panel(
+                    Markdown(status_message),
+                    title=f"[{title_style}]{emoji}Thoughts Cleared[/{title_style}]",
+                    border_style=border_style,
+                    padding=(0, 1),
+                    expand=expand,
+                )
+            )
+            
+            return CommandResult(
+                success=True,
+                message=f"Cleared thinking content from {cleaned_count} messages",
+                should_continue=False,
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error clearing thinking content: {str(e)}",
                 should_continue=False,
             )
 

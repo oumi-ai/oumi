@@ -27,6 +27,7 @@ from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.input import EnhancedInput, InputAction
 from oumi.core.monitoring import SystemMonitor
+from oumi.core.thinking import ThinkingProcessor
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -38,141 +39,43 @@ from oumi.utils.logging import logger
 
 
 def _convert_to_harmony_format(content: str) -> dict:
-    """Convert content with <|channel|> tags to proper Harmony format structure.
+    """Convert content with thinking tags to proper Harmony format structure.
 
     Args:
-        content: Content that may contain <|channel|> tags
+        content: Content that may contain thinking tags
 
     Returns:
         Dict with thinking and/or content fields structured for Harmony format
     """
-    # Pattern to match GPT-OSS reasoning blocks
-    # <|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>...
-    # Also handle simpler patterns where tags might be embedded in content
-    pattern = (
-        r"<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)"
-    )
-
-    matches = list(re.finditer(pattern, content, re.DOTALL))
-
-    result = {}
-
-    if matches:
-        for match in matches:
-            channel = match.group(1)  # e.g., "analysis", "commentary", or "final"
-            content_text = match.group(2).strip()  # channel content
-
-            if channel in ["analysis", "commentary"]:
-                result["thinking"] = content_text
-            elif channel == "final":
-                result["content"] = content_text
-
-    # If no channels found, treat as regular content
-    if not result:
-        # Check if content has any channel tags at all
-        if "<|channel|>" in content:
-            # Malformed channel tags - extract what we can
-            # Look for any content after final channel
-            final_pattern = r"<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)"
-            final_match = re.search(final_pattern, content, re.DOTALL)
-            if final_match:
-                result["content"] = final_match.group(1).strip()
-            else:
-                # Fallback: use original content but warn about malformed tags
-                result["content"] = content
-        else:
-            result["content"] = content
-
-    return result
+    # Use the unified thinking processor for all formats
+    processor = ThinkingProcessor()
+    return processor.convert_to_harmony_format(content)
 
 
-def _process_gpt_oss_tags(content: str, console: Console, style_params=None) -> bool:
-    """Process and render GPT-OSS reasoning tags with nice formatting."""
-    # Pattern to match GPT-OSS reasoning blocks
-    # <|channel|>analysis<|message|>...<|end|><|start|>assistant<|channel|>final<|message|>...
-    pattern = r"<\|channel\|>(\w+)<\|message\|>(.*?)(?:<\|end\|><\|start\|>assistant<\|channel\|>(\w+)<\|message\|>(.*?))?(?:<\|end\|>|$)"
-
-    matches = list(re.finditer(pattern, content, re.DOTALL))
-
-    if matches:
-        for match in matches:
-            channel1 = match.group(1)  # e.g., "analysis"
-            content1 = match.group(2).strip()  # analysis content
-            channel2 = match.group(3)  # e.g., "final"
-            content2 = match.group(4).strip() if match.group(4) else ""  # final content
-
-            # Get styles from params or use defaults
-            if style_params:
-                analysis_text_style = style_params.analysis_text_style
-                analysis_title_style = style_params.analysis_title_style
-                analysis_border_style = style_params.analysis_border_style
-                use_emoji = style_params.use_emoji
-                expand_panels = style_params.expand_panels
-            else:
-                analysis_text_style = "dim cyan"
-                analysis_title_style = "bold yellow"
-                analysis_border_style = "yellow"
-                use_emoji = True
-                expand_panels = False
-
-            # Render analysis section
-            if channel1 == "analysis":
-                emoji = "🧠 " if use_emoji else ""
-                console.print(
-                    Panel(
-                        Text(content1, style=analysis_text_style),
-                        title=f"[{analysis_title_style}]{emoji}Analysis[/{analysis_title_style}]",
-                        border_style=analysis_border_style,
-                        padding=(0, 1),
-                        expand=expand_panels,
-                    )
-                )
-            else:
-                console.print(
-                    Panel(
-                        Text(content1, style="white"),
-                        title=f"[bold magenta]{channel1.title()}[/bold magenta]",
-                        border_style="magenta",
-                        padding=(0, 1),
-                        expand=expand_panels,
-                    )
-                )
-
-            # Render final response section
-            if channel2 and content2:
-                if channel2 == "final":
-                    if style_params:
-                        response_text_style = style_params.response_text_style
-                        response_title_style = style_params.response_title_style
-                        response_border_style = style_params.response_border_style
-                    else:
-                        response_text_style = "bright_white"
-                        response_title_style = "bold green"
-                        response_border_style = "green"
-
-                    emoji = "💬 " if use_emoji else ""
-                    console.print(
-                        Panel(
-                            Text(content2, style=response_text_style),
-                            title=f"[{response_title_style}]{emoji}Response[/{response_title_style}]",
-                            border_style=response_border_style,
-                            padding=(0, 1),
-                            expand=expand_panels,
-                        )
-                    )
-                else:
-                    console.print(
-                        Panel(
-                            Text(content2, style="white"),
-                            title=f"[bold blue]{channel2.title()}[/bold blue]",
-                            border_style="blue",
-                            padding=(0, 1),
-                            expand=expand_panels,
-                        )
-                    )
-        return True  # Indicates we processed special tags
-
-    return False  # No special tags found
+def _process_thinking_tags(
+    content: str, console: Console, style_params=None, command_handler=None
+) -> bool:
+    """Process and render thinking content using the unified ThinkingProcessor."""
+    # Use the unified thinking processor
+    processor = ThinkingProcessor()
+    thinking_result = processor.extract_thinking(content)
+    
+    if thinking_result.has_thinking:
+        # Determine display mode from command handler if available
+        compressed = True  # Default to compressed
+        if command_handler and hasattr(command_handler, 'show_full_thoughts'):
+            compressed = not command_handler.show_full_thoughts
+        
+        # Render thinking content
+        processor.render_thinking(
+            thinking_result, 
+            console, 
+            style_params, 
+            compressed=compressed
+        )
+        return True
+    
+    return False  # No thinking content found
 
 
 def _process_latex_expressions(content: str) -> str:
@@ -388,6 +291,7 @@ def _format_conversation_response(
     model_name: str = "Assistant",
     style_params=None,
     timing_info: Optional[dict] = None,
+    command_handler=None,
 ) -> None:
     """Format and display a conversation response with Rich formatting.
 
@@ -420,9 +324,9 @@ def _format_conversation_response(
         else:
             content = str(message.content)
 
-        # Check for GPT-OSS reasoning tags first
-        if _process_gpt_oss_tags(content, console, style_params):
-            # Special tags were processed, we're done
+        # Check for thinking content first (all formats)
+        if _process_thinking_tags(content, console, style_params, command_handler):
+            # Thinking content was processed, we're done
             return
 
         # Process LaTeX expressions if no special tags
@@ -924,7 +828,7 @@ def infer_interactive(
             # Format and display the response with timing
             for conversation in model_response:
                 _format_conversation_response(
-                    conversation, console, model_name, config.style, timing_info
+                    conversation, console, model_name, config.style, timing_info, command_handler
                 )
 
             # Store conversation history for all engines
