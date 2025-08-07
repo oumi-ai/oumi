@@ -430,8 +430,12 @@ def infer_interactive(
             if not input_text.strip():
                 continue
             
+            # Add all input to history for arrow key recall (commands and regular input)
+            input_handler.add_to_history(input_text.strip())
+            
             # Check for commands first
             if command_parser.is_command(input_text):
+                
                 parsed_command = command_parser.parse_command(input_text)
                 
                 if parsed_command is None:
@@ -456,10 +460,6 @@ def infer_interactive(
                 # Check if we should exit
                 if command_result.should_exit:
                     return
-                
-                # Add successful commands to input history for easy recall
-                if command_result.success and input_result.text.strip():
-                    input_handler.add_to_history(input_result.text.strip())
                 
                 # Check if we should continue to next iteration (skip inference)
                 if not command_result.should_continue:
@@ -614,13 +614,13 @@ def infer_interactive(
                                 {"role": "assistant", "content": message.content}
                             )
                 
-                # Add user input to history for arrow key recall
-                input_handler.add_to_history(input_text)
+                # Note: Input already added to history earlier in the main loop
+                pass
             else:
                 # For other engines like VLLM, conversation history is handled by the engine itself
                 # so we don't manually track it here
-                # But still add to input history for arrow key recall
-                input_handler.add_to_history(input_text)
+                # Note: Input already added to history earlier in the main loop
+                pass
 
         except Exception as e:
             console.print(
