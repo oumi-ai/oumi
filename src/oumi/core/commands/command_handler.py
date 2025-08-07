@@ -210,9 +210,11 @@ class CommandHandler:
                 )
                 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             return CommandResult(
                 success=False,
-                message=f"Error attaching file: {str(e)}",
+                message=f"Error attaching file: {str(e)}\n\nTraceback:\n{error_details}",
                 should_continue=False
             )
     
