@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import re
+import time
 from typing import Optional
 
 from rich.console import Console
@@ -26,6 +27,7 @@ from oumi.core.commands import CommandHandler, CommandParser
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.input import MultiLineInput, EnhancedInput, InputAction
+from oumi.core.monitoring import SystemMonitor
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -379,8 +381,17 @@ def _format_conversation_response(
     console: Console,
     model_name: str = "Assistant",
     style_params=None,
+    timing_info: Optional[dict] = None,
 ) -> None:
-    """Format and display a conversation response with Rich formatting."""
+    """Format and display a conversation response with Rich formatting.
+    
+    Args:
+        conversation: The conversation to format.
+        console: Rich console for output.
+        model_name: Name of the model.
+        style_params: Style parameters.
+        timing_info: Optional timing information (time_to_first_token, total_time).
+    """
     for message in conversation.messages:
         if message.role == Role.USER:
             continue
@@ -490,6 +501,30 @@ def _format_conversation_response(
                     expand=expand_panels,
                 )
             )
+        
+        # Display timing information if available
+        if timing_info:
+            timing_text = ""
+            if "time_to_first_token" in timing_info:
+                timing_text += f"First token: {timing_info['time_to_first_token']:.2f}s"
+            if "total_time" in timing_info:
+                if timing_text:
+                    timing_text += " | "
+                timing_text += f"Total: {timing_info['total_time']:.2f}s"
+            if "tokens_per_second" in timing_info:
+                if timing_text:
+                    timing_text += " | "
+                timing_text += f"Speed: {timing_info['tokens_per_second']:.1f} tokens/s"
+            
+            if timing_text:
+                # Get style settings
+                use_emoji = getattr(style_params, 'use_emoji', True) if style_params else True
+                emoji = "⏱️ " if use_emoji else ""
+                
+                console.print(
+                    Text(f"{emoji}{timing_text}", style="dim cyan"),
+                    justify="right"
+                )
 
 
 def infer_interactive(
@@ -552,8 +587,15 @@ def infer_interactive(
     command_parser = CommandParser()
     command_handler = CommandHandler(console, config, conversation_history, inference_engine)
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
+    
+    # Initialize system monitor for HUD
+    max_context_tokens = getattr(config.model, 'model_max_length', 4096)
+    system_monitor = SystemMonitor(max_context_tokens=max_context_tokens)
 
     while True:
+        # Display HUD if interval has passed
+        system_monitor.display_hud(console, config.style)
+        
         try:
             # Get input using enhanced input handler
             input_result = input_handler.get_input("You")
@@ -629,6 +671,10 @@ def infer_interactive(
             return
 
         try:
+            # Track timing
+            inference_start_time = time.time()
+            first_token_time = None
+            
             with console.status(
                 f"[{config.style.status_style}]Thinking...[/{config.style.status_style}]",
                 spinner="dots",
@@ -710,6 +756,10 @@ def infer_interactive(
                         input=[full_conversation],
                         inference_config=config,
                     )
+                    
+                    # Record time to first token (approximation - when inference returns)
+                    if first_token_time is None:
+                        first_token_time = time.time()
                 else:
                     # For VLLM and other engines, build full conversation including history
                     system_messages = (
@@ -780,11 +830,36 @@ def infer_interactive(
                         input=[full_conversation],
                         inference_config=config,
                     )
+                    
+                    # Record time to first token (approximation - when inference returns)
+                    if first_token_time is None:
+                        first_token_time = time.time()
 
-            # Format and display the response
+            # Calculate timing metrics
+            total_inference_time = time.time() - inference_start_time
+            time_to_first_token = first_token_time - inference_start_time if first_token_time else total_inference_time
+            
+            # Estimate tokens generated (rough approximation)
+            response_text = ""
+            for conversation in model_response:
+                for message in conversation.messages:
+                    if message.role == Role.ASSISTANT and isinstance(message.content, str):
+                        response_text += message.content
+            
+            # Rough token estimation (4 chars per token average)
+            estimated_tokens = len(response_text) / 4
+            tokens_per_second = estimated_tokens / total_inference_time if total_inference_time > 0 else 0
+            
+            timing_info = {
+                "time_to_first_token": time_to_first_token,
+                "total_time": total_inference_time,
+                "tokens_per_second": tokens_per_second
+            }
+            
+            # Format and display the response with timing
             for conversation in model_response:
                 _format_conversation_response(
-                    conversation, console, model_name, config.style
+                    conversation, console, model_name, config.style, timing_info
                 )
 
             # Store conversation history for all engines
@@ -827,6 +902,17 @@ def infer_interactive(
                             conversation_history.append(
                                 {"role": "assistant", "content": content}
                             )
+            
+            # Update context usage for HUD
+            # Estimate total conversation tokens
+            total_text = ""
+            for msg in conversation_history:
+                if isinstance(msg.get("content"), str):
+                    total_text += msg["content"] + "\n"
+            
+            # Rough token estimation (4 chars per token average)
+            estimated_context_tokens = len(total_text) / 4
+            system_monitor.update_context_usage(int(estimated_context_tokens))
             
             # Note: Input already added to history earlier in the main loop
 

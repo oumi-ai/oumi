@@ -128,13 +128,13 @@ class CommandHandler:
             elif command.command == "attach":
                 return self._handle_attach(command)
             elif command.command == "delete":
-                return self._handle_delete_placeholder(command)  # Updated method name kept for consistency
+                return self._handle_delete(command)
             elif command.command == "regen":
-                return self._handle_regen_placeholder(command)   # Updated method name kept for consistency
+                return self._handle_regen(command)
             elif command.command == "save":
-                return self._handle_save_placeholder(command)
+                return self._handle_save(command)
             elif command.command == "set":
-                return self._handle_set_placeholder(command)
+                return self._handle_set(command)
             else:
                 return CommandResult(
                     success=False,
@@ -243,7 +243,7 @@ class CommandHandler:
                 should_continue=False
             )
     
-    def _handle_delete_placeholder(self, command: ParsedCommand) -> CommandResult:
+    def _handle_delete(self, command: ParsedCommand) -> CommandResult:
         """Handle the /delete() command to remove the last conversation turn."""
         try:
             if not self.conversation_history:
@@ -282,7 +282,7 @@ class CommandHandler:
                 should_continue=False
             )
     
-    def _handle_regen_placeholder(self, command: ParsedCommand) -> CommandResult:
+    def _handle_regen(self, command: ParsedCommand) -> CommandResult:
         """Handle the /regen() command to regenerate the last assistant response."""
         try:
             if not self.conversation_history:
@@ -323,7 +323,7 @@ class CommandHandler:
                 should_continue=False
             )
     
-    def _handle_save_placeholder(self, command: ParsedCommand) -> CommandResult:
+    def _handle_save(self, command: ParsedCommand) -> CommandResult:
         """Handle the /save(path) command to export conversation to PDF."""
         if not command.args:
             return CommandResult(
@@ -354,7 +354,7 @@ class CommandHandler:
                 should_continue=False
             )
     
-    def _handle_set_placeholder(self, command: ParsedCommand) -> CommandResult:
+    def _handle_set(self, command: ParsedCommand) -> CommandResult:
         """Handle the /set(param=value) command to adjust generation parameters."""
         if not command.kwargs and not command.args:
             return CommandResult(
