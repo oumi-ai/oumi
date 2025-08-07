@@ -21,7 +21,10 @@ from transformers.data.data_collator import DataCollatorForLanguageModeling
 
 
 class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
-    """Data collator used for completion tasks."""
+    """Data collator used for completion tasks.
+
+    Copied from `trl`'s `DataCollatorForCompletionOnlyLM` class.
+    """
 
     def __init__(
         self,
@@ -35,12 +38,6 @@ class DataCollatorForCompletionOnlyLM(DataCollatorForLanguageModeling):
     ):
         """Initializes the DataCollatorForCompletionOnlyLM."""
         super().__init__(*args, mlm=mlm, **kwargs)
-        warnings.warn(
-            "This class is deprecated and will be removed in version 0.20.0. "
-            "To train on completion only, please use "
-            "the parameter `completion_only_loss` of `SFTConfig` instead.",
-            DeprecationWarning,
-        )
 
         self.instruction_template = instruction_template
         if isinstance(instruction_template, str):
