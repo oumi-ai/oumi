@@ -512,15 +512,21 @@ def infer_interactive(
                                 Message(role=Role.ASSISTANT, content=msg["content"])
                             )
                         elif msg["role"] == "attachment":
-                            # Collect attachment content items for the current message
-                            # Only use this for backward compatibility or pending attachments
-                            current_user_content.extend(msg["content_items"])
+                            # Collect attachment text content for the current message
+                            if "text_content" in msg:
+                                # New simplified text format
+                                current_user_content.append(msg["text_content"])
+                            elif "content_items" in msg:
+                                # Backward compatibility with old ContentItem format
+                                for item in msg["content_items"]:
+                                    if hasattr(item, "content") and item.content:
+                                        current_user_content.append(str(item.content))
                     
-                    # Create the current user message
+                    # Create the current user message  
                     if current_user_content:
-                        # We have pending attachments, add text input to the content items
-                        current_user_content.append(ContentItem(type=Type.TEXT, content=input_text))
-                        current_user_message = Message(role=Role.USER, content=current_user_content)
+                        # We have pending attachments, combine them with the user input as text
+                        full_content = "\n\n".join(current_user_content) + "\n\n" + input_text
+                        current_user_message = Message(role=Role.USER, content=full_content)
                     else:
                         # No pending attachments, create a simple text message
                         current_user_message = Message(role=Role.USER, content=input_text)
@@ -541,19 +547,26 @@ def infer_interactive(
                     # For VLLM and other engines, process attachments but use single-input approach
                     for msg in conversation_history:
                         if msg["role"] == "attachment":
-                            current_user_content.extend(msg["content_items"])
+                            if "text_content" in msg:
+                                current_user_content.append(msg["text_content"])
+                            elif "content_items" in msg:
+                                for item in msg["content_items"]:
+                                    if hasattr(item, "content") and item.content:
+                                        current_user_content.append(str(item.content))
                     
                     # Create current user message for history storage
                     if current_user_content:
-                        current_user_content.append(ContentItem(type=Type.TEXT, content=input_text))
-                        current_user_message = Message(role=Role.USER, content=current_user_content)
+                        full_content = "\n\n".join(current_user_content) + "\n\n" + input_text
+                        current_user_message = Message(role=Role.USER, content=full_content)
                     else:
                         current_user_message = Message(role=Role.USER, content=input_text)
                     
                     # For VLLM and other engines, use the original single-input approach
+                    # If we have attachments, use the combined content, otherwise just the input text
+                    input_for_inference = current_user_message.content if current_user_content else input_text
                     model_response = infer(
                         config=config,
-                        inputs=[input_text],
+                        inputs=[input_for_inference],
                         system_prompt=system_prompt,
                         input_image_bytes=input_image_bytes,
                         inference_engine=inference_engine,
@@ -571,16 +584,8 @@ def infer_interactive(
                 # Remove any pending attachment markers since they're now incorporated into the message
                 conversation_history = [msg for msg in conversation_history if msg.get("role") != "attachment"]
                 
-                # Store the user message that was sent to the model
-                if current_user_message and isinstance(current_user_message.content, list):
-                    # Multimodal message with attachments
-                    conversation_history.append({
-                        "role": "user", 
-                        "content": current_user_message.content,
-                        "content_type": "multimodal"
-                    })
-                elif current_user_message:
-                    # Simple text message
+                # Store the user message that was sent to the model (always string now)
+                if current_user_message:
                     conversation_history.append({"role": "user", "content": current_user_message.content})
                 else:
                     # Fallback - shouldn't happen but just in case
