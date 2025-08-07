@@ -54,8 +54,14 @@ def _convert_to_harmony_format(content: str) -> dict:
 
 def _process_thinking_tags(
     content: str, console: Console, style_params=None, command_handler=None
-) -> bool:
-    """Process and render thinking content using the unified ThinkingProcessor."""
+) -> tuple[bool, str]:
+    """Process and render thinking content using the unified ThinkingProcessor.
+    
+    Returns:
+        Tuple of (has_thinking, final_content) where:
+        - has_thinking: True if thinking content was found and processed
+        - final_content: The content with thinking sections removed
+    """
     # Use the unified thinking processor
     processor = ThinkingProcessor()
     thinking_result = processor.extract_thinking(content)
@@ -73,9 +79,9 @@ def _process_thinking_tags(
             style_params, 
             compressed=compressed
         )
-        return True
+        return True, thinking_result.final_content
     
-    return False  # No thinking content found
+    return False, content  # No thinking content found, return original
 
 
 def _process_latex_expressions(content: str) -> str:
@@ -325,9 +331,10 @@ def _format_conversation_response(
             content = str(message.content)
 
         # Check for thinking content first (all formats)
-        if _process_thinking_tags(content, console, style_params, command_handler):
-            # Thinking content was processed, we're done
-            return
+        has_thinking, final_content = _process_thinking_tags(content, console, style_params, command_handler)
+        if has_thinking:
+            # Thinking content was processed and rendered, now use the cleaned final content
+            content = final_content
 
         # Process LaTeX expressions if no special tags
         content = _process_latex_expressions(content)
