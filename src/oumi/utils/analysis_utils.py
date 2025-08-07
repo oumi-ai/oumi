@@ -46,7 +46,7 @@ def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
                 "dataset_path": None,
                 "split": split,
                 "subset": subset,
-                "trust_remote_code": getattr(config, "trust_remote_code", False),
+                "trust_remote_code": config.trust_remote_code,
             }
 
             # Add tokenizer if provided
