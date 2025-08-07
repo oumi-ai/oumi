@@ -33,7 +33,7 @@ setup: |
     --index-strategy unsafe-best-match \
     --force-reinstall --no-cache
 
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download openai/gpt-oss-120b --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download openai/gpt-oss-120b --exclude original/*
 
 run: |
   set -e  # Exit if any command failed.

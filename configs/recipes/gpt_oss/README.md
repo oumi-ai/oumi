@@ -18,7 +18,13 @@ Configs for OpenAI's gpt-oss model family. See the [blog post](https://huggingfa
    uv pip install -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
    ```
 
-3. Run your desired oumi command (examples below)!
+3. (optional) If you want to run gpt-oss on vLLM, run the following:
+
+   ```bash
+   uv pip install -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
+   ```
+
+4. Run your desired oumi command (examples below)!
    - Note that installing the Oumi repository is **not required** to run the commands. We fetch the latest Oumi config remotely from GitHub thanks to the `oumi://` prefix.
 
 ## Example Commands
@@ -29,6 +35,18 @@ To run interactive inference on gpt-oss-120b locally:
 
 ```shell
 oumi infer -i -c oumi://configs/recipes/gpt_oss/inference/120b_infer.yaml
+```
+
+To run interactive inference on gpt-oss-120b locally using the vLLM inference engine:
+
+```shell
+oumi infer -i -c oumi://configs/recipes/gpt_oss/inference/120b_infer.yaml --engine VLLM
+```
+
+To run inference on gpt-oss-120b on a Lambda cluster using the vLLM inference engine:
+
+```shell
+oumi launch up -c oumi://configs/recipes/gpt_oss/inference/120b_vllm_lambda_job.yaml --cluster gpt-oss-120b-vllm-infer
 ```
 
 To run interactive remote inference on gpt-oss-120b on Together AI:

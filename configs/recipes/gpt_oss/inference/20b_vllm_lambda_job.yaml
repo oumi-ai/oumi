@@ -24,10 +24,9 @@ working_dir: .
 setup: |
   set -e
 
-  pip install uv
-  uv venv --python 3.12 --seed
-  source .venv/bin/activate
-  uv pip install --pre oumi[gpu] hf_transfer
+  conda create -n oumi python=3.12 -y
+  conda activate oumi
+  pip install uv && uv pip install --pre oumi[gpu] hf_transfer
   uv pip install --pre vllm==0.10.1+gptoss \
     --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
     --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
@@ -39,7 +38,8 @@ setup: |
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh
-  source .venv/bin/activate
+  conda activate oumi
+
   set -x
   oumi infer -i \
     -c oumi://configs/recipes/gpt_oss/inference/20b_infer.yaml \
