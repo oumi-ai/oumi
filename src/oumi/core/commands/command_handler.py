@@ -69,6 +69,7 @@ class CommandHandler:
         config: InferenceConfig,
         conversation_history: list,
         inference_engine: BaseInferenceEngine,
+        system_monitor=None,
     ):
         """Initialize the command handler.
 
@@ -83,6 +84,7 @@ class CommandHandler:
         self.conversation_history = conversation_history
         self.inference_engine = inference_engine
         self._style = config.style
+        self.system_monitor = system_monitor
 
         # Initialize file attachment system
         # Try multiple possible attribute names for max context length
@@ -290,6 +292,9 @@ class CommandHandler:
                     message="No complete conversation turn found to delete",
                     should_continue=False,
                 )
+
+            # Update context usage in system monitor
+            self._update_context_in_monitor()
 
             # Show success message
             turn_word = "turn" if deleted_count == 2 else "message"
@@ -882,6 +887,12 @@ class CommandHandler:
         context_manager = ContextWindowManager(max_context, model_name)
 
         return context_manager.estimate_tokens(text_content)
+    
+    def _update_context_in_monitor(self):
+        """Update the context usage in system monitor if available."""
+        if self.system_monitor:
+            estimated_tokens = self._estimate_conversation_tokens()
+            self.system_monitor.update_context_usage(estimated_tokens)
 
     def _display_attachment_result(self, result):
         """Display the attachment result with rich formatting."""
@@ -1070,6 +1081,9 @@ class CommandHandler:
             self.conversation_history.clear()
             self.conversation_history.extend(compacted_history)
 
+            # Update context usage in system monitor
+            self._update_context_in_monitor()
+
             # Display results
             self._display_compact_results(original_stats, compacted_stats, summary)
 
@@ -1215,6 +1229,9 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 # Update our conversation history reference
                 self.conversation_history.clear()
                 self.conversation_history.extend(branch.conversation_history)
+
+                # Update context usage in system monitor
+                self._update_context_in_monitor()
 
                 # Display switch notification
                 self._display_branch_switched(branch)
@@ -1388,6 +1405,9 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                         # Replace the message content with just the final content (no thinking)
                         msg["content"] = thinking_result.final_content
                         cleaned_count += 1
+            
+            # Update context usage in system monitor
+            self._update_context_in_monitor()
             
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
