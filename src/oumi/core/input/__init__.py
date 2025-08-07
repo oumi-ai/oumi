@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Multi-line input system for Oumi interactive inference."""
+"""Enhanced input system for Oumi interactive inference."""
 
 from oumi.core.input.multiline_input import MultiLineInput, InputResult, InputAction
+from oumi.core.input.enhanced_input import EnhancedInput
 
-__all__ = ["MultiLineInput", "InputResult", "InputAction"]
+__all__ = ["MultiLineInput", "EnhancedInput", "InputResult", "InputAction"]
