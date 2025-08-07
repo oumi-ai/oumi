@@ -536,7 +536,7 @@ def infer_interactive(
     # Initialize command system and enhanced input handler
     command_parser = CommandParser()
     command_handler = CommandHandler(
-        console, config, conversation_history, inference_engine
+        console, config, conversation_history, inference_engine, system_monitor
     )
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
