@@ -66,12 +66,15 @@ class ThinkingResult:
     thinking_parts: List[ThinkingContent] = field(default_factory=list)
     final_content: str = ""
     original_content: str = ""
-    has_thinking: bool = False
     total_thinking_words: int = 0
+    
+    @property
+    def has_thinking(self) -> bool:
+        """Whether thinking content was found."""
+        return len(self.thinking_parts) > 0
     
     def __post_init__(self):
         """Initialize computed fields."""
-        self.has_thinking = len(self.thinking_parts) > 0
         self.total_thinking_words = sum(part.word_count for part in self.thinking_parts)
 
 
