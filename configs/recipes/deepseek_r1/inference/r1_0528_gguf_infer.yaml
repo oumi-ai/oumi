@@ -1,0 +1,39 @@
+# vLLM Inference config for DeepSeek-R1-0528 GGUF quantized model.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/deepseek_r1/inference/r1_0528_gguf_infer.yaml
+#
+# Model Info:
+#   - Model: unsloth/DeepSeek-R1-0528-GGUF
+#   - Size: ~671B parameters (quantized)
+#   - Format: GGUF Q4_K_M quantization
+#   - Requirements: High VRAM (recommend 8x A100 or equivalent)
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  # GGUF quantized model path - download specific GGUF file as needed
+  model_name: "unsloth/DeepSeek-R1-0528-GGUF"
+  # Original model tokenizer for proper text processing
+  tokenizer_name: "deepseek-ai/DeepSeek-R1"
+  model_max_length: 4096
+  torch_dtype_str: "float16"  # GGUF models require float16
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: VLLM
+
+# Optional: vLLM specific parameters
+# vllm_args:
+#   tensor_parallel_size: 8  # Adjust based on available GPUs
+#   gpu_memory_utilization: 0.90
+#   max_num_seqs: 10

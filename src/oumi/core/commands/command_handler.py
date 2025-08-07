@@ -23,6 +23,8 @@ from rich.text import Text
 
 from oumi.core.attachments import FileHandler, ContextWindowManager
 from oumi.core.commands.command_parser import ParsedCommand
+from oumi.core.commands.compaction_engine import CompactionEngine
+from oumi.core.commands.conversation_branches import ConversationBranchManager
 from oumi.core.configs import InferenceConfig
 from oumi.core.configs.params.style_params import StyleParams
 from oumi.core.inference import BaseInferenceEngine
@@ -109,6 +111,14 @@ class CommandHandler:
             
         context_manager = ContextWindowManager(max_context_length=max_context, model_name=model_name)
         self.file_handler = FileHandler(context_manager)
+        
+        # Initialize compaction engine
+        self.compaction_engine = CompactionEngine(inference_engine, config.model)
+        
+        # Initialize branch manager
+        self.branch_manager = ConversationBranchManager()
+        # Set the main branch's conversation history to use our reference
+        self.branch_manager.branches["main"].conversation_history = conversation_history
     
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a parsed command and return the result.
@@ -135,6 +145,16 @@ class CommandHandler:
                 return self._handle_save(command)
             elif command.command == "set":
                 return self._handle_set(command)
+            elif command.command == "compact":
+                return self._handle_compact(command)
+            elif command.command == "branch":
+                return self._handle_branch(command)
+            elif command.command == "switch":
+                return self._handle_switch(command)
+            elif command.command == "branches":
+                return self._handle_branches(command)
+            elif command.command == "branch_delete":
+                return self._handle_branch_delete(command)
             else:
                 return CommandResult(
                     success=False,
@@ -688,6 +708,24 @@ class CommandHandler:
   - Example: `/save(chat_history.pdf)` or `/save(my_chat)`
   - Exports formatted conversation with timestamps and role indicators
 
+### Context Management
+- **`/compact()`** - Compress conversation history to save context window space
+  - Summarizes older messages while preserving recent exchanges
+  - Helps when approaching context window limits
+  - Shows token savings after compaction
+
+### Conversation Branching (TMux-style)
+- **`/branch()`** - Create a new conversation branch from current point
+  - Fork the conversation to explore different paths
+  - Maximum of 5 branches allowed
+- **`/switch(name)`** - Switch to a different conversation branch
+  - Example: `/switch(main)` or `/switch(branch_1)`
+- **`/branches()`** - List all conversation branches
+  - Shows branch names, creation time, and message preview
+- **`/branch_delete(name)`** - Delete a conversation branch
+  - Example: `/branch_delete(branch_2)`
+  - Cannot delete the main branch
+
 ## Input Modes
 
 ### Single-line Mode (Default)
@@ -914,5 +952,365 @@ class CommandHandler:
             title=f"[{title_style}]{emoji}Regenerating[/{title_style}]",
             border_style=border_style,
             padding=(0, 1),
+            expand=expand
+        ))
+    
+    def _handle_compact(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /compact() command to compress conversation history."""
+        try:
+            
+            # Show compaction status
+            self._display_compact_status("Analyzing conversation history...")
+            
+            # Get original token count
+            original_stats = self.compaction_engine.estimate_token_reduction(
+                self.conversation_history, self.conversation_history
+            )
+            
+            # Perform compaction
+            compacted_history, summary = self.compaction_engine.compact_conversation(
+                self.conversation_history,
+                preserve_recent=2  # Keep last 2 turns
+            )
+            
+            if not summary:
+                return CommandResult(
+                    success=False,
+                    message="Failed to generate conversation summary",
+                    should_continue=False
+                )
+            
+            # Get compacted stats
+            compacted_stats = self.compaction_engine.estimate_token_reduction(
+                self.conversation_history, compacted_history
+            )
+            
+            # Replace conversation history with compacted version
+            self.conversation_history.clear()
+            self.conversation_history.extend(compacted_history)
+            
+            # Display results
+            self._display_compact_results(original_stats, compacted_stats, summary)
+            
+            return CommandResult(
+                success=True,
+                message=f"Compacted conversation: {compacted_stats['tokens_saved']} tokens saved ({compacted_stats['reduction_percent']:.1f}% reduction)",
+                should_continue=False
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error compacting conversation: {str(e)}",
+                should_continue=False
+            )
+    
+    def _display_compact_status(self, message: str):
+        """Display status message for compaction operation."""
+        # Get style attributes with fallbacks
+        status_style = getattr(self._style, 'status_style', 'yellow')
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'status_border_style', 'yellow')
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🗜️ " if use_emoji else ""
+        
+        self.console.print(Panel(
+            Text(message, style=status_style),
+            title=f"[{title_style}]{emoji}Compacting Context[/{title_style}]",
+            border_style=border_style,
+            padding=(0, 1),
+            expand=expand
+        ))
+    
+    def _display_compact_results(self, original_stats: dict, compacted_stats: dict, summary: str):
+        """Display the results of conversation compaction."""
+        # Get style attributes
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'assistant_border_style', 'cyan')
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "📊 " if use_emoji else ""
+        
+        # Create results text
+        results_text = f"""**Compaction Results:**
+
+Original: {original_stats['original_tokens']} tokens
+Compacted: {compacted_stats['compacted_tokens']} tokens
+Saved: {compacted_stats['tokens_saved']} tokens ({compacted_stats['reduction_percent']:.1f}% reduction)
+
+**Summary of compressed content:**
+{summary[:500]}{'...' if len(summary) > 500 else ''}"""
+        
+        self.console.print(Panel(
+            Markdown(results_text),
+            title=f"[{title_style}]{emoji}Context Compacted[/{title_style}]",
+            border_style=border_style,
+            padding=(1, 2),
+            expand=expand
+        ))
+    
+    def _handle_branch(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /branch() command to create a new conversation branch."""
+        try:
+            # Get optional name from args
+            name = command.args[0] if command.args else None
+            
+            # Create branch from current branch
+            success, message, new_branch = self.branch_manager.create_branch(
+                from_branch_id=self.branch_manager.current_branch_id,
+                name=name
+            )
+            
+            if success and new_branch:
+                # Display success message with branch info
+                self._display_branch_created(new_branch)
+                return CommandResult(
+                    success=True,
+                    message=f"Created branch '{new_branch.name}' (ID: {new_branch.id})",
+                    should_continue=False
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=message,
+                    should_continue=False
+                )
+                
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error creating branch: {str(e)}",
+                should_continue=False
+            )
+    
+    def _handle_switch(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /switch(branch_name) command to switch branches."""
+        try:
+            if not command.args:
+                return CommandResult(
+                    success=False,
+                    message="switch command requires a branch name or ID",
+                    should_continue=False
+                )
+            
+            branch_identifier = command.args[0]
+            
+            # Try to find branch by ID first, then by name
+            target_branch = None
+            if branch_identifier in self.branch_manager.branches:
+                target_branch_id = branch_identifier
+                target_branch = self.branch_manager.branches[branch_identifier]
+            else:
+                # Try to find by name
+                target_branch = self.branch_manager.get_branch_by_name(branch_identifier)
+                target_branch_id = target_branch.id if target_branch else None
+            
+            if not target_branch:
+                # Show available branches in error message
+                available = [f"'{b.name}' ({b.id})" for b in self.branch_manager.branches.values()]
+                return CommandResult(
+                    success=False,
+                    message=f"Branch '{branch_identifier}' not found. Available: {', '.join(available)}",
+                    should_continue=False
+                )
+            
+            # Switch to the branch
+            success, message, branch = self.branch_manager.switch_branch(target_branch_id)
+            
+            if success:
+                # Update our conversation history reference
+                self.conversation_history.clear()
+                self.conversation_history.extend(branch.conversation_history)
+                
+                # Display switch notification
+                self._display_branch_switched(branch)
+                
+                return CommandResult(
+                    success=True,
+                    message=f"Switched to branch '{branch.name}'",
+                    should_continue=False
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=message,
+                    should_continue=False
+                )
+                
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error switching branch: {str(e)}",
+                should_continue=False
+            )
+    
+    def _handle_branches(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /branches() command to list all branches."""
+        try:
+            branches_info = self.branch_manager.list_branches()
+            self._display_branches_list(branches_info)
+            
+            current_branch = self.branch_manager.get_current_branch()
+            return CommandResult(
+                success=True,
+                message=f"Showing {len(branches_info)} branches (current: {current_branch.name})",
+                should_continue=False
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error listing branches: {str(e)}",
+                should_continue=False
+            )
+    
+    def _handle_branch_delete(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /branch_delete(name) command to delete a branch."""
+        try:
+            if not command.args:
+                return CommandResult(
+                    success=False,
+                    message="branch_delete command requires a branch name or ID",
+                    should_continue=False
+                )
+            
+            branch_identifier = command.args[0]
+            
+            # Find the branch to delete
+            target_branch = None
+            target_branch_id = None
+            
+            if branch_identifier in self.branch_manager.branches:
+                target_branch_id = branch_identifier
+                target_branch = self.branch_manager.branches[branch_identifier]
+            else:
+                # Try to find by name
+                target_branch = self.branch_manager.get_branch_by_name(branch_identifier)
+                target_branch_id = target_branch.id if target_branch else None
+            
+            if not target_branch:
+                available = [f"'{b.name}' ({b.id})" for b in self.branch_manager.branches.values() if b.id != "main"]
+                return CommandResult(
+                    success=False,
+                    message=f"Branch '{branch_identifier}' not found. Available: {', '.join(available)}",
+                    should_continue=False
+                )
+            
+            # Delete the branch
+            success, message = self.branch_manager.delete_branch(target_branch_id)
+            
+            if success:
+                # If we switched to main, update conversation history
+                if self.branch_manager.current_branch_id == "main":
+                    current_branch = self.branch_manager.get_current_branch()
+                    self.conversation_history.clear()
+                    self.conversation_history.extend(current_branch.conversation_history)
+                
+                self._display_branch_deleted(target_branch.name)
+                
+                return CommandResult(
+                    success=True,
+                    message=message,
+                    should_continue=False
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=message,
+                    should_continue=False
+                )
+                
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error deleting branch: {str(e)}",
+                should_continue=False
+            )
+    
+    def _display_branch_created(self, branch):
+        """Display notification that a branch was created."""
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'assistant_border_style', 'green')
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🌿 " if use_emoji else ""
+        
+        content = f"**Branch '{branch.name}'** created from current conversation point\nBranch ID: {branch.id}"
+        
+        self.console.print(Panel(
+            Markdown(content),
+            title=f"[{title_style}]{emoji}New Branch Created[/{title_style}]",
+            border_style=border_style,
+            padding=(0, 1),
+            expand=expand
+        ))
+    
+    def _display_branch_switched(self, branch):
+        """Display notification that branch was switched."""
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'assistant_border_style', 'blue')
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🔀 " if use_emoji else ""
+        
+        preview = branch.get_preview(60)
+        content = f"**Switched to '{branch.name}'**\nLast activity: {branch.last_active.strftime('%H:%M:%S')}\nPreview: {preview}"
+        
+        self.console.print(Panel(
+            Markdown(content),
+            title=f"[{title_style}]{emoji}Branch Switched[/{title_style}]",
+            border_style=border_style,
+            padding=(0, 1),
+            expand=expand
+        ))
+    
+    def _display_branch_deleted(self, branch_name: str):
+        """Display notification that branch was deleted."""
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'assistant_border_style', 'red')
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🗑️ " if use_emoji else ""
+        
+        self.console.print(Panel(
+            Text(f"Branch '{branch_name}' has been deleted", style="white"),
+            title=f"[{title_style}]{emoji}Branch Deleted[/{title_style}]",
+            border_style=border_style,
+            padding=(0, 1),
+            expand=expand
+        ))
+    
+    def _display_branches_list(self, branches_info):
+        """Display a list of all branches."""
+        use_emoji = getattr(self._style, 'use_emoji', True)
+        title_style = getattr(self._style, 'assistant_title_style', 'bold cyan')
+        border_style = getattr(self._style, 'assistant_border_style', 'cyan')
+        expand = getattr(self._style, 'expand_panels', False)
+        
+        emoji = "🌳 " if use_emoji else ""
+        
+        # Create markdown table
+        content_lines = ["| Branch | Status | Messages | Preview |", "|--------|--------|----------|---------|"]
+        
+        for info in branches_info:
+            status = "**Current**" if info["is_current"] else "Active"
+            name_display = f"**{info['name']}**" if info["is_current"] else info['name']
+            preview = info['preview'][:50] + "..." if len(info['preview']) > 50 else info['preview']
+            
+            content_lines.append(f"| {name_display} | {status} | {info['message_count']} | {preview} |")
+        
+        content = "\n".join(content_lines)
+        
+        self.console.print(Panel(
+            Markdown(content),
+            title=f"[{title_style}]{emoji}Conversation Branches[/{title_style}]",
+            border_style=border_style,
+            padding=(1, 2),
             expand=expand
         ))

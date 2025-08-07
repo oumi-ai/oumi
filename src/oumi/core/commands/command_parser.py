@@ -99,6 +99,11 @@ class CommandParser:
             "regen": "Regenerate the last assistant response",
             "save": "Save the current conversation to a PDF file",
             "set": "Adjust generation parameters (temperature, top_p, max_tokens, etc.)",
+            "compact": "Compress conversation history to save context window space",
+            "branch": "Create a new conversation branch from current point",
+            "switch": "Switch to a different conversation branch",
+            "branches": "List all conversation branches",
+            "branch_delete": "Delete a conversation branch",
             # Note: /ml and /sl are handled by the input system, not as regular commands
         }
     
@@ -232,7 +237,13 @@ class CommandParser:
         elif parsed_command.command == "set":
             if not parsed_command.kwargs:
                 return False, "set command requires parameter=value arguments"
-        elif parsed_command.command in ["help", "exit", "delete", "regen"]:
+        elif parsed_command.command == "switch":
+            if not parsed_command.args:
+                return False, "switch command requires a branch name or ID"
+        elif parsed_command.command == "branch_delete":
+            if not parsed_command.args:
+                return False, "branch_delete command requires a branch name or ID"
+        elif parsed_command.command in ["help", "exit", "delete", "regen", "compact", "branch", "branches"]:
             # These commands don't require arguments
             pass
         
