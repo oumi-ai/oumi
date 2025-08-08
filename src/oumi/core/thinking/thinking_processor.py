@@ -84,8 +84,16 @@ class ThinkingProcessor:
     # Pattern definitions for different thinking formats
     PATTERNS = {
         "gpt_oss": {
-            # Updated pattern to handle full OpenAI Harmony format
-            "pattern": r"<\|(?:start\|)?channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
+            # Updated pattern to handle OpenAI Harmony format
+            "pattern": r"<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
+            "flags": re.DOTALL,
+            "groups": {"type": 1, "content": 2},
+            "thinking_types": ["analysis", "commentary"],
+            "final_types": ["final"],
+        },
+        "gpt_oss_with_assistant": {
+            # Pattern for assistant role harmony format
+            "pattern": r"<\|start\|>assistant<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
             "flags": re.DOTALL,
             "groups": {"type": 1, "content": 2},
             "thinking_types": ["analysis", "commentary"],
@@ -379,8 +387,9 @@ class ThinkingProcessor:
         """
         # Remove complete harmony tag patterns first (more specific)
         harmony_patterns = [
-            r"<\|channel\|>(analysis|commentary|final)<\|message\|>",
+            r"<\|start\|>assistant<\|channel\|>(analysis|commentary|final)<\|message\|>",
             r"<\|start\|><\|channel\|>(analysis|commentary|final)<\|message\|>",
+            r"<\|channel\|>(analysis|commentary|final)<\|message\|>",
             r"<\|(call|constrain|return)\|>.*?<\|end\|>",
         ]
 
