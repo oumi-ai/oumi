@@ -117,3 +117,28 @@ def test_load_dataset_from_config_registry_exception(mock_registry):
 
     with pytest.raises(Exception, match="Registry error"):
         load_dataset_from_config(config)
+
+
+def test_load_dataset_from_config_with_processor_parameters(
+    mock_dataset_class_and_instance, mock_registry
+):
+    """Test dataset loading with processor parameters."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        processor_name="Salesforce/blip2-opt-2.7b",
+        processor_kwargs={"image_size": 224},
+        trust_remote_code=True,
+    )
+
+    mock_dataset_class, mock_dataset_instance = mock_dataset_class_and_instance
+    mock_registry.get_dataset.return_value = mock_dataset_class
+
+    result = load_dataset_from_config(config)
+
+    # Verify the dataset was called with processor parameters
+    mock_dataset_class.assert_called_once()
+    call_kwargs = mock_dataset_class.call_args[1]
+    assert call_kwargs["processor_name"] == "Salesforce/blip2-opt-2.7b"
+    assert call_kwargs["processor_kwargs"] == {"image_size": 224}
+    assert call_kwargs["trust_remote_code"] is True
+    assert result == mock_dataset_instance
