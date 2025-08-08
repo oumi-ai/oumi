@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 
 from oumi.core.configs.params.base_params import BaseParams
 

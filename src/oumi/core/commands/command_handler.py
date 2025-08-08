@@ -16,6 +16,8 @@
 
 import copy
 import os
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from rich.console import Console
@@ -125,23 +127,32 @@ class CommandHandler:
         self.branch_manager = ConversationBranchManager()
         # Set the main branch's conversation history to use our reference
         self.branch_manager.branches["main"].conversation_history = conversation_history
-        
+
         # Initialize main branch with current model state
         main_branch = self.branch_manager.branches["main"]
         main_branch.model_name = getattr(config.model, "model_name", None)
-        main_branch.engine_type = str(config.engine) if hasattr(config, 'engine') else None
+        main_branch.engine_type = (
+            str(config.engine) if hasattr(config, "engine") else None
+        )
         main_branch.model_config = self._serialize_model_config(config.model)
-        main_branch.generation_config = self._serialize_generation_config(getattr(config, 'generation', None))
+        main_branch.generation_config = self._serialize_generation_config(
+            getattr(config, "generation", None)
+        )
 
         # Initialize thinking processor and display settings
         self.thinking_processor = ThinkingProcessor()
         self.show_full_thoughts = False  # Default to compressed thinking view
-    
+        
+        # Initialize chat caching
+        self._setup_chat_cache()
+        self._current_chat_id = None
+        self._auto_save = True  # Auto-save chats by default
+
     def _serialize_model_config(self, model_config) -> dict:
         """Serialize model config to a dictionary."""
         if not model_config:
             return {}
-        
+
         # Extract key attributes from model config
         return {
             "model_name": getattr(model_config, "model_name", None),
@@ -150,12 +161,12 @@ class CommandHandler:
             "attn_implementation": getattr(model_config, "attn_implementation", None),
             "trust_remote_code": getattr(model_config, "trust_remote_code", None),
         }
-    
+
     def _serialize_generation_config(self, generation_config) -> dict:
         """Serialize generation config to a dictionary."""
         if not generation_config:
             return {}
-        
+
         # Extract key attributes from generation config
         return {
             "max_new_tokens": getattr(generation_config, "max_new_tokens", None),
@@ -164,16 +175,105 @@ class CommandHandler:
             "top_k": getattr(generation_config, "top_k", None),
             "sampling": getattr(generation_config, "use_sampling", None),
         }
-    
+
+    def _setup_chat_cache(self):
+        """Set up the chat cache directory."""
+        # Use ~/.oumi/chats for chat cache
+        home = os.path.expanduser("~")
+        self.cache_dir = Path(home) / ".oumi" / "chats"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Set up metadata file
+        self.cache_metadata_file = self.cache_dir / "chat_metadata.json"
+        if not self.cache_metadata_file.exists():
+            import json
+            with open(self.cache_metadata_file, "w") as f:
+                json.dump({"chats": []}, f)
+
+    def _generate_chat_id(self) -> str:
+        """Generate a unique chat ID based on timestamp and model."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        model_name = getattr(self.config.model, "model_name", "unknown")
+        # Clean model name for filename
+        clean_model_name = "".join(c for c in model_name if c.isalnum() or c in "_-")
+        return f"{timestamp}_{clean_model_name}"
+
+    def _auto_save_chat(self):
+        """Automatically save the current chat to cache."""
+        if not self._auto_save or not self.conversation_history:
+            return
+            
+        if self._current_chat_id is None:
+            self._current_chat_id = self._generate_chat_id()
+        
+        # Save chat to cache
+        chat_file = self.cache_dir / f"{self._current_chat_id}.json"
+        
+        # Create chat metadata
+        chat_metadata = {
+            "id": self._current_chat_id,
+            "created_at": datetime.now().isoformat(),
+            "model": getattr(self.config.model, "model_name", "unknown"),
+            "engine": str(getattr(self.config, "engine", "unknown")),
+            "message_count": len(self.conversation_history),
+            "file": str(chat_file.name)
+        }
+        
+        # Save the conversation
+        success, _ = self._export_conversation_to_json(str(chat_file))
+        if success:
+            # Update metadata file
+            self._update_chat_metadata(chat_metadata)
+
+    def _update_chat_metadata(self, new_chat_metadata):
+        """Update the chat metadata file with new or updated chat info."""
+        import json
+        
+        try:
+            with open(self.cache_metadata_file, "r") as f:
+                metadata = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            metadata = {"chats": []}
+        
+        # Update or add chat metadata
+        chats = metadata.get("chats", [])
+        existing_chat_index = None
+        
+        for i, chat in enumerate(chats):
+            if chat.get("id") == new_chat_metadata["id"]:
+                existing_chat_index = i
+                break
+        
+        if existing_chat_index is not None:
+            chats[existing_chat_index] = new_chat_metadata
+        else:
+            chats.append(new_chat_metadata)
+        
+        # Keep only the most recent 50 chats
+        chats = sorted(chats, key=lambda x: x.get("created_at", ""), reverse=True)[:50]
+        metadata["chats"] = chats
+        
+        with open(self.cache_metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+    def _trigger_auto_save(self):
+        """Trigger auto-save after conversation updates."""
+        if self._auto_save:
+            self._auto_save_chat()
+
     def _save_current_model_state_to_branch(self, branch_id: str):
         """Save current model state to the specified branch."""
         branch = self.branch_manager.branches.get(branch_id)
         if branch:
             branch.model_name = getattr(self.config.model, "model_name", None)
-            branch.engine_type = str(self.config.engine) if hasattr(self.config, 'engine') else None
+            branch.engine_type = (
+                str(self.config.engine) if hasattr(self.config, "engine") else None
+            )
             branch.model_config = self._serialize_model_config(self.config.model)
-            branch.generation_config = self._serialize_generation_config(getattr(self.config, 'generation', None))
-    
+            branch.generation_config = self._serialize_generation_config(
+                getattr(self.config, "generation", None)
+            )
+
     def _restore_model_state_from_branch(self, branch):
         """Restore model state from a branch and rebuild inference engine if needed."""
         try:
@@ -181,8 +281,10 @@ class CommandHandler:
             branch_model = branch.model_name
             branch_engine = branch.engine_type
             current_model = getattr(self.config.model, "model_name", None)
-            current_engine = str(self.config.engine) if hasattr(self.config, 'engine') else None
-            
+            current_engine = (
+                str(self.config.engine) if hasattr(self.config, "engine") else None
+            )
+
             # Only restore if the model/engine is different
             if branch_model != current_model or branch_engine != current_engine:
                 # Restore model configuration
@@ -190,33 +292,35 @@ class CommandHandler:
                     for key, value in branch.model_config.items():
                         if hasattr(self.config.model, key) and value is not None:
                             setattr(self.config.model, key, value)
-                
-                # Restore generation configuration  
-                if branch.generation_config and hasattr(self.config, 'generation'):
+
+                # Restore generation configuration
+                if branch.generation_config and hasattr(self.config, "generation"):
                     for key, value in branch.generation_config.items():
                         if hasattr(self.config.generation, key) and value is not None:
                             setattr(self.config.generation, key, value)
-                
+
                 # Restore engine type
                 if branch_engine:
                     from oumi.core.configs import InferenceEngineType
+
                     try:
                         self.config.engine = InferenceEngineType(branch_engine)
                     except ValueError:
                         # If enum conversion fails, keep current engine
                         pass
-                
+
                 # Rebuild inference engine with restored config
                 from oumi.builders.inference_engines import build_inference_engine
+
                 self.inference_engine = build_inference_engine(
                     engine_type=self.config.engine,
                     model_params=self.config.model,
-                    remote_params=getattr(self.config, 'remote_params', None),
+                    remote_params=getattr(self.config, "remote_params", None),
                 )
-                
+
                 # Update context usage in system monitor since restored model may have different max_length
                 self._update_context_in_monitor()
-                
+
         except Exception as e:
             # If restoration fails, log but don't crash - just keep current model
             print(f"Warning: Could not restore model state from branch: {e}")
@@ -264,6 +368,8 @@ class CommandHandler:
                 return self._handle_clear(command)
             elif command.command == "import":
                 return self._handle_import(command)
+            elif command.command == "load":
+                return self._handle_load(command)
             elif command.command == "swap":
                 return self._handle_swap(command)
             elif command.command == "list_engines":
@@ -467,38 +573,38 @@ class CommandHandler:
             )
 
         file_path = command.args[0].strip()
-        
+
         # Detect format from extension or use optional format parameter
-        format_type = command.kwargs.get('format', None)
-        
+        format_type = command.kwargs.get("format", None)
+
         if format_type is None:
             # Detect from extension
-            ext = file_path.lower().split('.')[-1] if '.' in file_path else None
+            ext = file_path.lower().split(".")[-1] if "." in file_path else None
             format_map = {
-                'pdf': 'pdf',
-                'txt': 'text',
-                'md': 'markdown',
-                'json': 'json',
-                'csv': 'csv',
-                'html': 'html'
+                "pdf": "pdf",
+                "txt": "text",
+                "md": "markdown",
+                "json": "json",
+                "csv": "csv",
+                "html": "html",
             }
-            format_type = format_map.get(ext, 'pdf')  # Default to PDF
-            
+            format_type = format_map.get(ext, "json")  # Default to JSON
+
             # Add extension if missing
             if ext not in format_map:
                 file_path += f".{format_type}"
-        
+
         try:
             # Route to appropriate export method based on format
             export_methods = {
-                'pdf': self._export_conversation_to_pdf,
-                'text': self._export_conversation_to_text,
-                'markdown': self._export_conversation_to_markdown,
-                'json': self._export_conversation_to_json,
-                'csv': self._export_conversation_to_csv,
-                'html': self._export_conversation_to_html
+                "pdf": self._export_conversation_to_pdf,
+                "text": self._export_conversation_to_text,
+                "markdown": self._export_conversation_to_markdown,
+                "json": self._export_conversation_to_json,
+                "csv": self._export_conversation_to_csv,
+                "html": self._export_conversation_to_html,
             }
-            
+
             export_method = export_methods.get(format_type)
             if not export_method:
                 return CommandResult(
@@ -506,7 +612,7 @@ class CommandHandler:
                     message=f"Unsupported format: {format_type}. Supported: {', '.join(export_methods.keys())}",
                     should_continue=False,
                 )
-            
+
             success, message = export_method(file_path)
             return CommandResult(
                 success=success, message=message, should_continue=False
@@ -854,7 +960,7 @@ class CommandHandler:
 
         except Exception as e:
             return False, f"Failed to export text file: {str(e)}"
-    
+
     def _export_conversation_to_markdown(self, file_path: str) -> tuple[bool, str]:
         """Export conversation to Markdown format."""
         try:
@@ -864,134 +970,161 @@ class CommandHandler:
             with open(file_path, "w", encoding="utf-8") as f:
                 # Header
                 from datetime import datetime
-                
+
                 model_name = getattr(self.config.model, "model_name", "Unknown Model")
-                f.write(f"# Oumi Chat Export\n\n")
+                f.write("# Oumi Chat Export\n\n")
                 f.write(f"**Model:** {model_name}  \n")
-                f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n\n")
+                f.write(
+                    f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n\n"
+                )
                 f.write("---\n\n")
-                
+
                 # Conversation turns
                 for i, msg in enumerate(self.conversation_history):
                     role = msg.get("role", "unknown")
                     content = msg.get("content", "")
-                    
+
                     # Skip attachment markers
                     if role == "attachment":
                         continue
-                    
+
                     if role == "user":
                         f.write("## 👤 User\n\n")
                     elif role == "assistant":
                         f.write("## 🤖 Assistant\n\n")
                     else:
                         f.write(f"## {role.title()}\n\n")
-                    
+
                     # Escape any existing markdown formatting
                     # Keep code blocks intact
-                    lines = content.split('\n')
+                    lines = content.split("\n")
                     in_code_block = False
                     for line in lines:
-                        if line.strip().startswith('```'):
+                        if line.strip().startswith("```"):
                             in_code_block = not in_code_block
-                        f.write(line + '\n')
-                    
+                        f.write(line + "\n")
+
                     f.write("\n---\n\n")
-            
+
             # Count messages
-            user_msgs = len([m for m in self.conversation_history if m.get("role") == "user"])
-            assistant_msgs = len([m for m in self.conversation_history if m.get("role") == "assistant"])
-            
-            return True, f"✅ Exported conversation to {file_path} (Markdown format) ({user_msgs} user messages, {assistant_msgs} assistant responses)"
-            
+            user_msgs = len(
+                [m for m in self.conversation_history if m.get("role") == "user"]
+            )
+            assistant_msgs = len(
+                [m for m in self.conversation_history if m.get("role") == "assistant"]
+            )
+
+            return (
+                True,
+                f"✅ Exported conversation to {file_path} (Markdown format) ({user_msgs} user messages, {assistant_msgs} assistant responses)",
+            )
+
         except Exception as e:
             return False, f"Failed to export Markdown file: {str(e)}"
-    
+
     def _export_conversation_to_json(self, file_path: str) -> tuple[bool, str]:
         """Export conversation to JSON format."""
         try:
             import json
             from datetime import datetime
-            
+
             if not self.conversation_history:
                 return False, "No conversation history to export"
-            
+
             # Prepare export data
             export_data = {
                 "metadata": {
                     "model": getattr(self.config.model, "model_name", "Unknown Model"),
                     "exported_at": datetime.now().isoformat(),
-                    "message_count": len(self.conversation_history)
+                    "message_count": len(self.conversation_history),
                 },
-                "messages": []
+                "messages": [],
             }
-            
+
             # Add messages
             for msg in self.conversation_history:
                 if msg.get("role") != "attachment":  # Skip attachment markers
-                    export_data["messages"].append({
-                        "role": msg.get("role", "unknown"),
-                        "content": msg.get("content", ""),
-                        "timestamp": datetime.now().isoformat()  # Approximate
-                    })
-            
+                    export_data["messages"].append(
+                        {
+                            "role": msg.get("role", "unknown"),
+                            "content": msg.get("content", ""),
+                            "timestamp": datetime.now().isoformat(),  # Approximate
+                        }
+                    )
+
             # Write JSON
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
-            
+
             # Count messages
             user_msgs = len([m for m in export_data["messages"] if m["role"] == "user"])
-            assistant_msgs = len([m for m in export_data["messages"] if m["role"] == "assistant"])
-            
-            return True, f"✅ Exported conversation to {file_path} (JSON format) ({user_msgs} user messages, {assistant_msgs} assistant responses)"
-            
+            assistant_msgs = len(
+                [m for m in export_data["messages"] if m["role"] == "assistant"]
+            )
+
+            return (
+                True,
+                f"✅ Exported conversation to {file_path} (JSON format) ({user_msgs} user messages, {assistant_msgs} assistant responses)",
+            )
+
         except Exception as e:
             return False, f"Failed to export JSON file: {str(e)}"
-    
+
     def _export_conversation_to_csv(self, file_path: str) -> tuple[bool, str]:
         """Export conversation to CSV format."""
         try:
             import csv
             from datetime import datetime
-            
+
             if not self.conversation_history:
                 return False, "No conversation history to export"
-            
-            with open(file_path, "w", newline='', encoding="utf-8") as f:
+
+            with open(file_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                
+
                 # Header
                 writer.writerow(["timestamp", "role", "content"])
-                
+
                 # Messages
                 for msg in self.conversation_history:
                     if msg.get("role") != "attachment":  # Skip attachment markers
-                        writer.writerow([
-                            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),  # Approximate
-                            msg.get("role", "unknown"),
-                            msg.get("content", "")
-                        ])
-            
+                        writer.writerow(
+                            [
+                                datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),  # Approximate
+                                msg.get("role", "unknown"),
+                                msg.get("content", ""),
+                            ]
+                        )
+
             # Count messages
-            user_msgs = len([m for m in self.conversation_history if m.get("role") == "user"])
-            assistant_msgs = len([m for m in self.conversation_history if m.get("role") == "assistant"])
-            
-            return True, f"✅ Exported conversation to {file_path} (CSV format) ({user_msgs} user messages, {assistant_msgs} assistant responses)"
-            
+            user_msgs = len(
+                [m for m in self.conversation_history if m.get("role") == "user"]
+            )
+            assistant_msgs = len(
+                [m for m in self.conversation_history if m.get("role") == "assistant"]
+            )
+
+            return (
+                True,
+                f"✅ Exported conversation to {file_path} (CSV format) ({user_msgs} user messages, {assistant_msgs} assistant responses)",
+            )
+
         except Exception as e:
             return False, f"Failed to export CSV file: {str(e)}"
-    
+
     def _export_conversation_to_html(self, file_path: str) -> tuple[bool, str]:
         """Export conversation to HTML format."""
         try:
-            from datetime import datetime
             import html
-            
+            from datetime import datetime
+
             if not self.conversation_history:
                 return False, "No conversation history to export"
-            
+
             model_name = getattr(self.config.model, "model_name", "Unknown Model")
-            
+
             # HTML template
             html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1052,43 +1185,52 @@ class CommandHandler:
     <div class="header">
         <h1>Oumi Chat Export</h1>
         <p><strong>Model:</strong> {html.escape(model_name)}</p>
-        <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <p><strong>Generated:</strong> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
     </div>
 """
-            
+
             # Add messages
             for msg in self.conversation_history:
                 role = msg.get("role", "unknown")
                 content = msg.get("content", "")
-                
+
                 # Skip attachment markers
                 if role == "attachment":
                     continue
-                
+
                 role_class = role if role in ["user", "assistant"] else "other"
-                role_emoji = "👤" if role == "user" else "🤖" if role == "assistant" else "💬"
-                
+                role_emoji = (
+                    "👤" if role == "user" else "🤖" if role == "assistant" else "💬"
+                )
+
                 html_content += f"""
     <div class="message {role_class}">
         <div class="role">{role_emoji} {html.escape(role.title())}</div>
         <div class="content">{html.escape(content)}</div>
     </div>
 """
-            
+
             html_content += """
 </body>
 </html>"""
-            
+
             # Write HTML
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
-            
+
             # Count messages
-            user_msgs = len([m for m in self.conversation_history if m.get("role") == "user"])
-            assistant_msgs = len([m for m in self.conversation_history if m.get("role") == "assistant"])
-            
-            return True, f"✅ Exported conversation to {file_path} (HTML format) ({user_msgs} user messages, {assistant_msgs} assistant responses)"
-            
+            user_msgs = len(
+                [m for m in self.conversation_history if m.get("role") == "user"]
+            )
+            assistant_msgs = len(
+                [m for m in self.conversation_history if m.get("role") == "assistant"]
+            )
+
+            return (
+                True,
+                f"✅ Exported conversation to {file_path} (HTML format) ({user_msgs} user messages, {assistant_msgs} assistant responses)",
+            )
+
         except Exception as e:
             return False, f"Failed to export HTML file: {str(e)}"
 
@@ -1285,14 +1427,14 @@ class CommandHandler:
         context_manager = ContextWindowManager(max_context, model_name)
 
         return context_manager.estimate_tokens(text_content)
-    
+
     def _update_context_in_monitor(self):
         """Update the context usage in system monitor if available."""
         if self.system_monitor:
             # Update max context length in case model has changed
             max_context = getattr(self.config.model, "model_max_length", 4096)
             self.system_monitor.update_max_context_tokens(max_context)
-            
+
             # Update current usage
             estimated_tokens = self._estimate_conversation_tokens()
             self.system_monitor.update_context_usage(estimated_tokens)
@@ -1351,6 +1493,9 @@ class CommandHandler:
 
         # Store in conversation history for reference
         self.conversation_history.append(attachment_entry)
+        
+        # Trigger auto-save after adding attachment
+        self._trigger_auto_save()
 
     # Conversation management helper methods
 
@@ -1567,8 +1712,10 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             if current_branch:
                 # Save current conversation history (especially important for main branch with shared reference)
                 if current_branch.id == "main":
-                    current_branch.conversation_history = copy.deepcopy(self.conversation_history)
-                
+                    current_branch.conversation_history = copy.deepcopy(
+                        self.conversation_history
+                    )
+
                 # Always save current model state to current branch before branching
                 self._save_current_model_state_to_branch(current_branch.id)
 
@@ -1579,16 +1726,18 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
 
             if success and new_branch:
                 # Automatically switch to the newly created branch
-                switch_success, switch_message, _ = self.branch_manager.switch_branch(new_branch.id)
-                
+                switch_success, switch_message, _ = self.branch_manager.switch_branch(
+                    new_branch.id
+                )
+
                 if switch_success:
                     # Update our conversation history reference to point to the new branch
                     self.conversation_history.clear()
                     self.conversation_history.extend(new_branch.conversation_history)
-                    
+
                     # Update context usage in system monitor
                     self._update_context_in_monitor()
-                
+
                 # Display success message with branch info
                 self._display_branch_created(new_branch)
                 return CommandResult(
@@ -1651,14 +1800,14 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
 
             if success:
                 # Save current model state to outgoing branch before switching
-                current_branch = self.branch_manager.get_current_branch() 
+                current_branch = self.branch_manager.get_current_branch()
                 if current_branch and current_branch.id != target_branch_id:
                     self._save_current_model_state_to_branch(current_branch.id)
-                
+
                 # Update our conversation history reference
                 self.conversation_history.clear()
                 self.conversation_history.extend(branch.conversation_history)
-                
+
                 # Restore model state from target branch
                 self._restore_model_state_from_branch(branch)
 
@@ -1777,23 +1926,23 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
         try:
             # Toggle the thinking display mode
             self.show_full_thoughts = not self.show_full_thoughts
-            
+
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
             border_style = getattr(self._style, "assistant_border_style", "cyan")
             expand = getattr(self._style, "expand_panels", False)
-            
+
             # Create status message
             mode = "full" if self.show_full_thoughts else "compressed"
             emoji = "🧠 " if use_emoji else ""
-            
+
             status_message = f"Thinking display mode: **{mode}**"
             if self.show_full_thoughts:
                 status_message += "\nShowing complete thinking chains with full details"
             else:
                 status_message += "\nShowing compressed thinking summaries (default)"
-            
+
             # Display the toggle result
             self.console.print(
                 Panel(
@@ -1804,13 +1953,13 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     expand=expand,
                 )
             )
-            
+
             return CommandResult(
                 success=True,
                 message=f"Thinking display set to {mode} mode",
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
@@ -1824,41 +1973,45 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             # Track how many messages we process and clean
             processed_count = 0
             cleaned_count = 0
-            
+
             for msg in self.conversation_history:
                 if msg.get("role") == "assistant":
                     processed_count += 1
                     original_content = msg.get("content", "")
-                    
+
                     # Use thinking processor to extract and separate content
-                    thinking_result = self.thinking_processor.extract_thinking(original_content)
-                    
+                    thinking_result = self.thinking_processor.extract_thinking(
+                        original_content
+                    )
+
                     if thinking_result.has_thinking:
                         # Replace the message content with just the final content (no thinking)
                         msg["content"] = thinking_result.final_content
                         cleaned_count += 1
-            
+
             # Update context usage in system monitor
             self._update_context_in_monitor()
-            
+
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
             border_style = getattr(self._style, "assistant_border_style", "cyan")
             expand = getattr(self._style, "expand_panels", False)
-            
+
             # Create status message
             emoji = "🧹 " if use_emoji else ""
-            
+
             if cleaned_count > 0:
                 status_message = f"Cleaned thinking content from **{cleaned_count}** assistant messages"
                 if processed_count > cleaned_count:
                     status_message += f" (out of {processed_count} total messages)"
-                status_message += "\nConversation responses preserved, only thinking content removed"
+                status_message += (
+                    "\nConversation responses preserved, only thinking content removed"
+                )
             else:
                 status_message = f"No thinking content found in **{processed_count}** assistant messages"
                 status_message += "\nConversation history unchanged"
-            
+
             # Display the result
             self.console.print(
                 Panel(
@@ -1869,13 +2022,13 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     expand=expand,
                 )
             )
-            
+
             return CommandResult(
                 success=True,
                 message=f"Cleared thinking content from {cleaned_count} messages",
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
@@ -1888,26 +2041,28 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
         try:
             # Count messages before clearing
             message_count = len(self.conversation_history)
-            
+
             # Clear the conversation history
             self.conversation_history.clear()
-            
+
             # Reset context usage in system monitor
             self._update_context_in_monitor()
-            
+
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
             border_style = getattr(self._style, "assistant_border_style", "cyan")
             expand = getattr(self._style, "expand_panels", False)
             warning_style = getattr(self._style, "error_style", "yellow")
-            
+
             # Create status message
             emoji = "🧹 " if use_emoji else ""
-            
-            status_message = f"Cleared **{message_count}** messages from conversation history"
+
+            status_message = (
+                f"Cleared **{message_count}** messages from conversation history"
+            )
             status_message += "\n[dim]Starting fresh conversation...[/dim]"
-            
+
             # Display the result
             self.console.print(
                 Panel(
@@ -1918,25 +2073,25 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     expand=expand,
                 )
             )
-            
+
             # Also update current branch if using branch manager
             if self.branch_manager:
                 current_branch = self.branch_manager.get_current_branch()
                 current_branch.conversation_history.clear()
-            
+
             return CommandResult(
                 success=True,
                 message=f"Cleared {message_count} messages from conversation history",
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error clearing conversation: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_import(self, command: ParsedCommand) -> CommandResult:
         """Handle the /import() command to import conversation data from supported formats."""
         try:
@@ -1946,36 +2101,38 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message="Import command requires a file path",
                     should_continue=False,
                 )
-            
+
             file_path = command.args[0].strip()
-            
+
             # Expand user path
             file_path = os.path.expanduser(file_path)
-            
+
             if not os.path.exists(file_path):
                 return CommandResult(
                     success=False,
                     message=f"File not found: {file_path}",
                     should_continue=False,
                 )
-            
+
             # Detect file format from extension
             _, ext = os.path.splitext(file_path.lower())
-            
+
             # Import based on file format
             success = False
             message = ""
             imported_messages = []
-            
-            if ext == '.json':
+
+            if ext == ".json":
                 success, message, imported_messages = self._import_from_json(file_path)
-            elif ext == '.csv':
+            elif ext == ".csv":
                 success, message, imported_messages = self._import_from_csv(file_path)
-            elif ext in ['.xlsx', '.xls']:
+            elif ext in [".xlsx", ".xls"]:
                 success, message, imported_messages = self._import_from_excel(file_path)
-            elif ext == '.md':
-                success, message, imported_messages = self._import_from_markdown(file_path)
-            elif ext == '.txt':
+            elif ext == ".md":
+                success, message, imported_messages = self._import_from_markdown(
+                    file_path
+                )
+            elif ext == ".txt":
                 success, message, imported_messages = self._import_from_text(file_path)
             else:
                 return CommandResult(
@@ -1983,23 +2140,23 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=f"Unsupported file format: {ext}. Supported: JSON, CSV, Excel (.xlsx/.xls), Markdown (.md), Text (.txt)",
                     should_continue=False,
                 )
-            
+
             if success and imported_messages:
                 # Add imported messages to conversation history
                 self.conversation_history.extend(imported_messages)
-                
+
                 # Update context usage in system monitor
                 self._update_context_in_monitor()
-                
+
                 # Get style attributes
                 use_emoji = getattr(self._style, "use_emoji", True)
                 title_style = getattr(self._style, "assistant_title_style", "bold cyan")
                 border_style = getattr(self._style, "assistant_border_style", "cyan")
                 expand = getattr(self._style, "expand_panels", False)
-                
+
                 # Create status message
                 emoji = "📁 " if use_emoji else ""
-                
+
                 # Display the result
                 self.console.print(
                     Panel(
@@ -2009,20 +2166,252 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                         expand=expand,
                     )
                 )
-            
+
             return CommandResult(
                 success=success,
-                message=message if not success else f"Imported {len(imported_messages)} messages from {os.path.basename(file_path)}",
+                message=message
+                if not success
+                else f"Imported {len(imported_messages)} messages from {os.path.basename(file_path)}",
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error importing conversation: {str(e)}",
                 should_continue=False,
             )
-    
+
+    def _handle_load(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /load() command to load a chat from cache or browse recent chats."""
+        try:
+            # If no arguments, show recent chats for browsing
+            if not command.args:
+                return self._browse_recent_chats()
+            
+            chat_id = command.args[0].strip()
+            
+            # Try to load by chat ID
+            return self._load_chat_by_id(chat_id)
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            return CommandResult(
+                success=False,
+                message=f"Error loading chat: {str(e)}\n\nTraceback:\n{error_details}",
+                should_continue=False,
+            )
+
+    def _browse_recent_chats(self) -> CommandResult:
+        """Display recent chats for browsing."""
+        import json
+        
+        try:
+            with open(self.cache_metadata_file, "r") as f:
+                metadata = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return CommandResult(
+                success=False,
+                message="No cached chats found. Start a conversation to automatically cache chats.",
+                should_continue=False,
+            )
+        
+        chats = metadata.get("chats", [])
+        if not chats:
+            return CommandResult(
+                success=False,
+                message="No cached chats found. Start a conversation to automatically cache chats.",
+                should_continue=False,
+            )
+        
+        # Display recent chats
+        from rich.table import Table
+        
+        table = Table(title="Recent Chats", show_header=True, header_style="bold cyan")
+        table.add_column("ID", style="dim", width=20)
+        table.add_column("Date", style="blue")
+        table.add_column("Model", style="green") 
+        table.add_column("Messages", justify="right")
+        table.add_column("Preview", max_width=50)
+        
+        for chat in chats[:20]:  # Show most recent 20
+            chat_id = chat.get("id", "unknown")
+            created_at = chat.get("created_at", "")
+            if created_at:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    formatted_date = dt.strftime("%m/%d %H:%M")
+                except:
+                    formatted_date = created_at[:16]  # fallback
+            else:
+                formatted_date = "unknown"
+            
+            model = chat.get("model", "unknown")
+            message_count = str(chat.get("message_count", 0))
+            
+            # Get a preview of the chat
+            preview = self._get_chat_preview(chat.get("file", ""))
+            
+            table.add_row(chat_id, formatted_date, model, message_count, preview)
+        
+        use_emoji = getattr(self._style, "use_emoji", True)
+        title_style = getattr(self._style, "assistant_title_style", "bold cyan")
+        border_style = getattr(self._style, "assistant_border_style", "yellow")
+        expand = getattr(self._style, "expand_panels", False)
+        
+        emoji = "💾 " if use_emoji else ""
+        self.console.print(
+            Panel(
+                table,
+                title=f"[{title_style}]{emoji}Recent Chats[/{title_style}]",
+                border_style=border_style,
+                expand=expand,
+            )
+        )
+        
+        message = "Use `/load(chat_id)` to load a specific chat, or browse with the new `oumi infer -b` command."
+        
+        return CommandResult(
+            success=True,
+            message=message,
+            should_continue=False,
+        )
+
+    def _get_chat_preview(self, chat_file: str) -> str:
+        """Get a preview of the first user message from a chat file."""
+        if not chat_file:
+            return ""
+            
+        chat_path = self.cache_dir / chat_file
+        if not chat_path.exists():
+            return "(file not found)"
+        
+        try:
+            import json
+            with open(chat_path, "r") as f:
+                chat_data = json.load(f)
+            
+            messages = chat_data.get("conversation", [])
+            for msg in messages:
+                if msg.get("role") == "user":
+                    content = msg.get("content", "")
+                    # Return first 45 chars with ellipsis if longer
+                    if len(content) > 45:
+                        return content[:45] + "..."
+                    return content
+            return "(no user messages)"
+        except Exception:
+            return "(preview error)"
+
+    def _load_chat_by_id(self, chat_id: str) -> CommandResult:
+        """Load a specific chat by ID."""
+        import json
+        
+        # Find the chat file
+        chat_file = self.cache_dir / f"{chat_id}.json"
+        if not chat_file.exists():
+            # Try to find by partial ID match
+            try:
+                with open(self.cache_metadata_file, "r") as f:
+                    metadata = json.load(f)
+                    
+                matching_chats = [
+                    chat for chat in metadata.get("chats", [])
+                    if chat.get("id", "").startswith(chat_id)
+                ]
+                
+                if len(matching_chats) == 1:
+                    chat_file = self.cache_dir / matching_chats[0]["file"]
+                elif len(matching_chats) > 1:
+                    return CommandResult(
+                        success=False,
+                        message=f"Multiple chats match '{chat_id}'. Please use a more specific ID.",
+                        should_continue=False,
+                    )
+                else:
+                    return CommandResult(
+                        success=False,
+                        message=f"Chat '{chat_id}' not found. Use `/load()` to browse available chats.",
+                        should_continue=False,
+                    )
+            except Exception:
+                return CommandResult(
+                    success=False,
+                    message=f"Chat '{chat_id}' not found. Use `/load()` to browse available chats.",
+                    should_continue=False,
+                )
+        
+        if not chat_file.exists():
+            return CommandResult(
+                success=False,
+                message=f"Chat file not found for '{chat_id}'.",
+                should_continue=False,
+            )
+        
+        try:
+            with open(chat_file, "r") as f:
+                chat_data = json.load(f)
+            
+            # Load conversation history
+            new_conversation = chat_data.get("conversation", [])
+            if not new_conversation:
+                return CommandResult(
+                    success=False,
+                    message=f"Chat '{chat_id}' appears to be empty.",
+                    should_continue=False,
+                )
+            
+            # Clear current conversation and load the cached one
+            self.conversation_history.clear()
+            self.conversation_history.extend(new_conversation)
+            
+            # Update current chat ID to the loaded one
+            self._current_chat_id = chat_id
+            
+            # Update context usage in system monitor
+            self._update_context_in_monitor()
+            
+            # Display success message
+            chat_info = chat_data.get("metadata", {})
+            model_name = chat_info.get("model", "unknown")
+            message_count = len(new_conversation)
+            created_at = chat_info.get("created_at", "")
+            
+            use_emoji = getattr(self._style, "use_emoji", True)
+            emoji = "✅ " if use_emoji else ""
+            
+            success_message = f"{emoji}**Chat loaded successfully!**\n\n"
+            success_message += f"**Chat ID:** `{chat_id}`\n"
+            success_message += f"**Model:** `{model_name}`\n"
+            success_message += f"**Messages:** {message_count}\n"
+            if created_at:
+                success_message += f"**Created:** {created_at[:16]}\n"
+            success_message += f"\nContinue the conversation or use `/clear()` to start fresh."
+            
+            self.console.print(
+                Panel(
+                    Markdown(success_message),
+                    title=f"Chat Loaded",
+                    border_style="green",
+                    expand=getattr(self._style, "expand_panels", False),
+                )
+            )
+            
+            return CommandResult(
+                success=True,
+                message=f"Loaded chat '{chat_id}' with {message_count} messages",
+                should_continue=False,
+            )
+            
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error loading chat '{chat_id}': {str(e)}",
+                should_continue=False,
+            )
+
     def _handle_swap(self, command: ParsedCommand) -> CommandResult:
         """Handle the /swap(model_name) or /swap(config:path) command to switch models while preserving conversation."""
         try:
@@ -2032,14 +2421,14 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message="Swap command requires a model name or config path (e.g., model_name, engine:model_name, or config:path/to/config.yaml)",
                     should_continue=False,
                 )
-            
+
             model_input = command.args[0].strip()
-            
+
             # Check if this is a config file reference
             if model_input.startswith("config:"):
                 config_path = model_input[7:]  # Remove "config:" prefix
                 return self._handle_config_swap(config_path)
-            
+
             # Parse engine:model_name syntax
             if ":" in model_input:
                 engine_name, model_name = model_input.split(":", 1)
@@ -2048,27 +2437,33 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 # Default to current engine or infer from model name
                 engine_name = None
                 model_name = model_input
-            
+
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
             border_style = getattr(self._style, "assistant_border_style", "yellow")
             expand = getattr(self._style, "expand_panels", False)
-            
+
             # Check if this is the current model
             current_model = getattr(self.config.model, "model_name", "unknown")
             current_engine = getattr(self.config, "engine", "unknown")
-            
+
             display_name = f"{engine_name}:{model_name}" if engine_name else model_name
-            current_display = f"{current_engine}:{current_model}" if hasattr(self.config, 'engine') else current_model
-            
-            if model_name == current_model and (not engine_name or engine_name == str(current_engine)):
+            current_display = (
+                f"{current_engine}:{current_model}"
+                if hasattr(self.config, "engine")
+                else current_model
+            )
+
+            if model_name == current_model and (
+                not engine_name or engine_name == str(current_engine)
+            ):
                 return CommandResult(
                     success=False,
                     message=f"Already using model: {current_display}",
                     should_continue=False,
                 )
-            
+
             # Show swap status message
             emoji = "🔄 " if use_emoji else ""
             status_message = f"Requesting model swap to: **{display_name}**"
@@ -2076,7 +2471,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             if engine_name:
                 status_message += f"\nNew engine: {engine_name}"
             status_message += "\n[dim]Attempting to swap models...[/dim]"
-            
+
             self.console.print(
                 Panel(
                     Markdown(status_message),
@@ -2085,16 +2480,17 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     expand=expand,
                 )
             )
-            
+
             # Actually perform the model swap
             try:
                 # Import the inference engine builder
                 from oumi.builders.inference_engines import build_inference_engine
-                
+
                 # Update current config with new model/engine
                 if engine_name:
                     # Map string engine names to enum values
                     from oumi.core.configs import InferenceEngineType
+
                     try:
                         new_engine_type = InferenceEngineType(engine_name)
                         self.config.engine = new_engine_type
@@ -2104,38 +2500,38 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                             message=f"Unknown engine type: {engine_name}. Use /list_engines() to see available engines.",
                             should_continue=False,
                         )
-                
+
                 # Update model name
                 self.config.model.model_name = model_name
-                
+
                 # Create new inference engine
                 new_inference_engine = build_inference_engine(
                     engine_type=self.config.engine,
                     model_params=self.config.model,
-                    remote_params=getattr(self.config, 'remote_params', None),
+                    remote_params=getattr(self.config, "remote_params", None),
                 )
-                
+
                 # Update the command handler's inference engine reference
                 self.inference_engine = new_inference_engine
-                
+
                 # Save the new model state to current branch
                 current_branch = self.branch_manager.get_current_branch()
                 if current_branch:
                     self._save_current_model_state_to_branch(current_branch.id)
-                
+
                 # Update context usage in system monitor since model may have different max_length
                 self._update_context_in_monitor()
-                
+
                 # Show success message
-                success_message = f"✅ **Model swap completed successfully!**\n\n"
-                success_message += f"**Switched from:**\n"
+                success_message = "✅ **Model swap completed successfully!**\n\n"
+                success_message += "**Switched from:**\n"
                 success_message += f"• Engine: `{current_engine}`\n"
                 success_message += f"• Model: `{current_model}`\n\n"
-                success_message += f"**Switched to:**\n"
+                success_message += "**Switched to:**\n"
                 success_message += f"• Engine: `{self.config.engine}`\n"
                 success_message += f"• Model: `{model_name}`\n\n"
-                success_message += f"Conversation history preserved. You can now continue chatting with the new model."
-                
+                success_message += "Conversation history preserved. You can now continue chatting with the new model."
+
                 emoji = "✅ " if use_emoji else ""
                 self.console.print(
                     Panel(
@@ -2145,13 +2541,13 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                         expand=expand,
                     )
                 )
-                
+
                 return CommandResult(
                     success=True,
                     message=f"Successfully swapped to {display_name}",
                     should_continue=False,
                 )
-                
+
             except Exception as e:
                 error_message = f"Failed to swap models: {str(e)}"
                 return CommandResult(
@@ -2159,25 +2555,25 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=error_message,
                     should_continue=False,
                 )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error processing model swap request: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_config_swap(self, config_path: str) -> CommandResult:
         """Handle config-based model swapping by loading an Oumi YAML config."""
         try:
             import os
             from pathlib import Path
-            
+
             # Convert to absolute path and validate
-            if not config_path.startswith('/'):
+            if not config_path.startswith("/"):
                 # Make relative to current working directory
                 config_path = os.path.abspath(config_path)
-            
+
             config_file = Path(config_path)
             if not config_file.exists():
                 return CommandResult(
@@ -2185,14 +2581,14 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=f"Config file not found: {config_path}",
                     should_continue=False,
                 )
-            
-            if not config_file.suffix.lower() in ['.yaml', '.yml']:
+
+            if config_file.suffix.lower() not in [".yaml", ".yml"]:
                 return CommandResult(
                     success=False,
                     message=f"Config file must be YAML format (.yaml or .yml): {config_path}",
                     should_continue=False,
                 )
-            
+
             # Load the inference config
             try:
                 new_config = InferenceConfig.from_yaml(str(config_file))
@@ -2202,15 +2598,15 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=f"Failed to load config from {config_path}: {str(e)}",
                     should_continue=False,
                 )
-            
+
             # Extract key information from the config
             new_model = getattr(new_config.model, "model_name", "Unknown")
             new_engine = getattr(new_config, "engine", "Unknown")
-            
+
             # Get current info for comparison
             current_model = getattr(self.config.model, "model_name", "Unknown")
             current_engine = getattr(self.config, "engine", "Unknown")
-            
+
             # Check if this would be the same configuration
             if new_model == current_model and str(new_engine) == str(current_engine):
                 return CommandResult(
@@ -2218,51 +2614,62 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=f"Config would load the same model/engine: {current_engine}:{current_model}",
                     should_continue=False,
                 )
-            
+
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
             border_style = getattr(self._style, "assistant_border_style", "yellow")
             expand = getattr(self._style, "expand_panels", False)
-            
+
             # Show detailed config swap information
             emoji = "📄 " if use_emoji else ""
-            
+
             # Extract additional config details for display
             generation_params = []
-            if hasattr(new_config, 'generation') and new_config.generation:
+            if hasattr(new_config, "generation") and new_config.generation:
                 gen_config = new_config.generation
-                if hasattr(gen_config, 'max_new_tokens') and gen_config.max_new_tokens:
-                    generation_params.append(f"max_new_tokens={gen_config.max_new_tokens}")
-                if hasattr(gen_config, 'temperature') and gen_config.temperature is not None:
+                if hasattr(gen_config, "max_new_tokens") and gen_config.max_new_tokens:
+                    generation_params.append(
+                        f"max_new_tokens={gen_config.max_new_tokens}"
+                    )
+                if (
+                    hasattr(gen_config, "temperature")
+                    and gen_config.temperature is not None
+                ):
                     generation_params.append(f"temperature={gen_config.temperature}")
-                if hasattr(gen_config, 'top_p') and gen_config.top_p is not None:
+                if hasattr(gen_config, "top_p") and gen_config.top_p is not None:
                     generation_params.append(f"top_p={gen_config.top_p}")
-            
+
             model_params = []
-            if hasattr(new_config.model, 'torch_dtype_str') and new_config.model.torch_dtype_str:
+            if (
+                hasattr(new_config.model, "torch_dtype_str")
+                and new_config.model.torch_dtype_str
+            ):
                 model_params.append(f"dtype={new_config.model.torch_dtype_str}")
-            if hasattr(new_config.model, 'model_max_length') and new_config.model.model_max_length:
+            if (
+                hasattr(new_config.model, "model_max_length")
+                and new_config.model.model_max_length
+            ):
                 model_params.append(f"max_length={new_config.model.model_max_length}")
-                
+
             # Create detailed status message
-            status_message = f"**Config Swap Requested**\n"
+            status_message = "**Config Swap Requested**\n"
             status_message += f"Config: `{config_file.name}`\n"
             status_message += f"Path: `{config_path}`\n\n"
-            status_message += f"**Target Configuration:**\n"
+            status_message += "**Target Configuration:**\n"
             status_message += f"• Engine: `{new_engine}`\n"
             status_message += f"• Model: `{new_model}`\n"
-            
+
             if generation_params:
                 status_message += f"• Generation: {', '.join(generation_params)}\n"
             if model_params:
                 status_message += f"• Model Settings: {', '.join(model_params)}\n"
-            
-            status_message += f"\n**Current Configuration:**\n"
-            status_message += f"• Engine: `{current_engine}`\n"  
+
+            status_message += "\n**Current Configuration:**\n"
+            status_message += f"• Engine: `{current_engine}`\n"
             status_message += f"• Model: `{current_model}`\n\n"
             status_message += "[dim]Attempting to swap models...[/dim]"
-            
+
             self.console.print(
                 Panel(
                     Markdown(status_message),
@@ -2271,52 +2678,52 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     expand=expand,
                 )
             )
-            
+
             # Actually perform the config-based swap
             try:
                 # Import the inference engine builder
                 from oumi.builders.inference_engines import build_inference_engine
-                
+
                 # Update current config with new settings
                 self.config.engine = new_config.engine
                 self.config.model = new_config.model
-                if hasattr(new_config, 'generation') and new_config.generation:
+                if hasattr(new_config, "generation") and new_config.generation:
                     self.config.generation = new_config.generation
-                if hasattr(new_config, 'remote_params') and new_config.remote_params:
+                if hasattr(new_config, "remote_params") and new_config.remote_params:
                     self.config.remote_params = new_config.remote_params
-                
+
                 # Create new inference engine
                 new_inference_engine = build_inference_engine(
                     engine_type=new_config.engine,
                     model_params=new_config.model,
-                    remote_params=getattr(new_config, 'remote_params', None),
+                    remote_params=getattr(new_config, "remote_params", None),
                 )
-                
+
                 # Update the command handler's inference engine reference
                 self.inference_engine = new_inference_engine
-                
+
                 # Save the new model state to current branch
                 current_branch = self.branch_manager.get_current_branch()
                 if current_branch:
                     self._save_current_model_state_to_branch(current_branch.id)
-                
+
                 # Update context usage in system monitor since model may have different max_length
                 self._update_context_in_monitor()
-                
+
                 # Show success message
-                success_message = f"✅ **Model swap completed successfully!**\n\n"
-                success_message += f"**Switched from:**\n"
+                success_message = "✅ **Model swap completed successfully!**\n\n"
+                success_message += "**Switched from:**\n"
                 success_message += f"• Engine: `{current_engine}`\n"
                 success_message += f"• Model: `{current_model}`\n\n"
-                success_message += f"**Switched to:**\n"
+                success_message += "**Switched to:**\n"
                 success_message += f"• Engine: `{new_engine}`\n"
                 success_message += f"• Model: `{new_model}`\n"
                 if generation_params:
                     success_message += f"• Generation: {', '.join(generation_params)}\n"
                 if model_params:
                     success_message += f"• Model Settings: {', '.join(model_params)}\n"
-                success_message += f"\nConversation history preserved. You can now continue chatting with the new model."
-                
+                success_message += "\nConversation history preserved. You can now continue chatting with the new model."
+
                 emoji = "✅ " if use_emoji else ""
                 self.console.print(
                     Panel(
@@ -2326,13 +2733,13 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                         expand=expand,
                     )
                 )
-                
+
                 return CommandResult(
                     success=True,
                     message=f"Successfully swapped to {new_engine}:{new_model}",
                     should_continue=False,
                 )
-                
+
             except Exception as e:
                 error_message = f"Failed to swap models: {str(e)}"
                 return CommandResult(
@@ -2340,14 +2747,14 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=error_message,
                     should_continue=False,
                 )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error processing config swap request: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_list_engines(self, command: ParsedCommand) -> CommandResult:
         """Handle the /list_engines() command to list available inference engines and sample models."""
         try:
@@ -2356,58 +2763,64 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
             border_style = getattr(self._style, "assistant_border_style", "cyan")
             expand = getattr(self._style, "expand_panels", False)
-            
+
             # Create engines info
             engines_info = self._get_engines_info()
-            
+
             # Create markdown content
             emoji = "🔧 " if use_emoji else ""
             content_lines = [
                 "Available inference engines in Oumi:",
                 "",
                 "| Engine | Type | Sample Models | API Key Required |",
-                "|--------|------|---------------|------------------|"
+                "|--------|------|---------------|------------------|",
             ]
-            
+
             for engine_info in engines_info:
                 # Format sample models (limit to avoid overly wide table)
                 sample_models = ", ".join(engine_info["sample_models"][:3])
                 if len(engine_info["sample_models"]) > 3:
-                    sample_models += f", +{len(engine_info['sample_models'])-3} more"
-                
-                api_key = "✅" if use_emoji and engine_info["requires_api_key"] else ("Yes" if engine_info["requires_api_key"] else "No")
+                    sample_models += f", +{len(engine_info['sample_models']) - 3} more"
+
+                api_key = (
+                    "✅"
+                    if use_emoji and engine_info["requires_api_key"]
+                    else ("Yes" if engine_info["requires_api_key"] else "No")
+                )
                 if not use_emoji:
                     api_key = "Yes" if engine_info["requires_api_key"] else "No"
-                
+
                 content_lines.append(
                     f"| **{engine_info['name']}** | {engine_info['type']} | {sample_models} | {api_key} |"
                 )
-            
+
             # Add usage instructions
-            content_lines.extend([
-                "",
-                "### Usage for /swap() Command:",
-                "",
-                "**Local Engines** (NATIVE, VLLM, LLAMACPP):",
-                "- `/swap(model_name)` - Uses HuggingFace model name",
-                "- Example: `/swap(meta-llama/Llama-3.1-8B-Instruct)`",
-                "",
-                "**API Engines** (ANTHROPIC, OPENAI, TOGETHER, etc.):",
-                "- `/swap(engine:model_name)` - Specifies both engine and model",
-                "- Examples:",
-                "  - `/swap(anthropic:claude-3-5-sonnet-20241022)`",
-                "  - `/swap(openai:gpt-4o)`",
-                "  - `/swap(together:meta-llama/Llama-3.1-70B-Instruct-Turbo)`",
-                "",
-                "**Setting up API Keys:**",
-                "- Set environment variables in `~/.zshrc` or `~/.bashrc`",
-                "- Example: `export ANTHROPIC_API_KEY=your_key_here`",
-                "",
-                "**Note:** Model swapping requires infrastructure support and is currently in development."
-            ])
-            
+            content_lines.extend(
+                [
+                    "",
+                    "### Usage for /swap() Command:",
+                    "",
+                    "**Local Engines** (NATIVE, VLLM, LLAMACPP):",
+                    "- `/swap(model_name)` - Uses HuggingFace model name",
+                    "- Example: `/swap(meta-llama/Llama-3.1-8B-Instruct)`",
+                    "",
+                    "**API Engines** (ANTHROPIC, OPENAI, TOGETHER, etc.):",
+                    "- `/swap(engine:model_name)` - Specifies both engine and model",
+                    "- Examples:",
+                    "  - `/swap(anthropic:claude-3-5-sonnet-20241022)`",
+                    "  - `/swap(openai:gpt-4o)`",
+                    "  - `/swap(together:meta-llama/Llama-3.1-70B-Instruct-Turbo)`",
+                    "",
+                    "**Setting up API Keys:**",
+                    "- Set environment variables in `~/.zshrc` or `~/.bashrc`",
+                    "- Example: `export ANTHROPIC_API_KEY=your_key_here`",
+                    "",
+                    "**Note:** Model swapping requires infrastructure support and is currently in development.",
+                ]
+            )
+
             content = "\n".join(content_lines)
-            
+
             # Display the engines list
             self.console.print(
                 Panel(
@@ -2418,20 +2831,20 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     expand=expand,
                 )
             )
-            
+
             return CommandResult(
                 success=True,
                 message=f"Listed {len(engines_info)} available inference engines",
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error listing engines: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _get_engines_info(self) -> list[dict]:
         """Get information about available inference engines and their sample models."""
         return [
@@ -2442,11 +2855,11 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": False,
                 "sample_models": [
                     "meta-llama/Llama-3.1-8B-Instruct",
-                    "Qwen/Qwen2.5-3B-Instruct", 
+                    "Qwen/Qwen2.5-3B-Instruct",
                     "microsoft/Phi-3.5-mini-instruct",
                     "HuggingFaceTB/SmolLM2-1.7B-Instruct",
-                    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-                ]
+                    "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+                ],
             },
             {
                 "name": "VLLM",
@@ -2458,8 +2871,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     "Qwen/Qwen2.5-32B-Instruct",
                     "meta-llama/Llama-4-Scout-17B-16E-Instruct",
                     "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-                    "Qwen/QwQ-32B-Preview"
-                ]
+                    "Qwen/QwQ-32B-Preview",
+                ],
             },
             {
                 "name": "LLAMACPP",
@@ -2471,8 +2884,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     "Qwen/Qwen2.5-3B-Instruct (GGUF)",
                     "meta-llama/Llama-4-Scout-17B-16E-Instruct (GGUF)",
                     "deepseek-ai/DeepSeek-R1-0528-GGUF",
-                    "Qwen/Qwen3-30B-A3B-Instruct-GGUF"
-                ]
+                    "Qwen/Qwen3-30B-A3B-Instruct-GGUF",
+                ],
             },
             {
                 "name": "SGLANG",
@@ -2482,8 +2895,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "sample_models": [
                     "meta-llama/Llama-3.2-3B-Instruct",
                     "Qwen/Qwen2-VL-2B-Instruct",
-                    "meta-llama/Llama-3.2-11B-Vision-Instruct"
-                ]
+                    "meta-llama/Llama-3.2-11B-Vision-Instruct",
+                ],
             },
             {
                 "name": "REMOTE_VLLM",
@@ -2492,8 +2905,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": False,
                 "sample_models": [
                     "Custom models hosted on remote vLLM server",
-                    "Configure via base_url in config"
-                ]
+                    "Configure via base_url in config",
+                ],
             },
             {
                 "name": "ANTHROPIC",
@@ -2502,11 +2915,11 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": True,
                 "sample_models": [
                     "claude-3-5-sonnet-20241022",
-                    "claude-3-5-haiku-20241022", 
+                    "claude-3-5-haiku-20241022",
                     "claude-3-opus-20240229",
                     "claude-3-sonnet-20240229",
-                    "claude-3-haiku-20240307"
-                ]
+                    "claude-3-haiku-20240307",
+                ],
             },
             {
                 "name": "OPENAI",
@@ -2519,12 +2932,12 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     "gpt-4-turbo",
                     "gpt-3.5-turbo",
                     "o1-preview",
-                    "o1-mini"
-                ]
+                    "o1-mini",
+                ],
             },
             {
                 "name": "TOGETHER",
-                "type": "API", 
+                "type": "API",
                 "description": "Together AI's hosted models",
                 "requires_api_key": True,
                 "sample_models": [
@@ -2532,8 +2945,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     "meta-llama/Llama-4-Maverick-17B-Instruct",
                     "deepseek-ai/DeepSeek-R1",
                     "meta-llama/Llama-3.1-70B-Instruct-Turbo",
-                    "Qwen/Qwen3-235B-A22B-Thinking"
-                ]
+                    "Qwen/Qwen3-235B-A22B-Thinking",
+                ],
             },
             {
                 "name": "DEEPSEEK",
@@ -2544,8 +2957,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     "deepseek-chat",
                     "deepseek-reasoner",
                     "deepseek-coder",
-                    "deepseek-math"
-                ]
+                    "deepseek-math",
+                ],
             },
             {
                 "name": "GOOGLE_VERTEX",
@@ -2557,19 +2970,19 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     "gemini-1.5-flash",
                     "gemini-1.0-pro",
                     "text-bison",
-                    "chat-bison"
-                ]
+                    "chat-bison",
+                ],
             },
             {
-                "name": "GEMINI", 
+                "name": "GEMINI",
                 "type": "API",
                 "description": "Google's Gemini models via API",
                 "requires_api_key": True,
                 "sample_models": [
                     "gemini-1.5-pro-latest",
-                    "gemini-1.5-flash-latest", 
-                    "gemini-1.0-pro-latest"
-                ]
+                    "gemini-1.5-flash-latest",
+                    "gemini-1.0-pro-latest",
+                ],
             },
             {
                 "name": "LAMBDA",
@@ -2578,8 +2991,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": True,
                 "sample_models": [
                     "Custom models hosted on Lambda",
-                    "Check Lambda Labs documentation"
-                ]
+                    "Check Lambda Labs documentation",
+                ],
             },
             {
                 "name": "PARASAIL",
@@ -2588,8 +3001,8 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": True,
                 "sample_models": [
                     "Custom models on Parasail platform",
-                    "Check Parasail documentation"
-                ]
+                    "Check Parasail documentation",
+                ],
             },
             {
                 "name": "SAMBANOVA",
@@ -2598,9 +3011,9 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": True,
                 "sample_models": [
                     "Meta-Llama-3.1-8B-Instruct",
-                    "Meta-Llama-3.1-70B-Instruct", 
-                    "Check SambaNova catalog"
-                ]
+                    "Meta-Llama-3.1-70B-Instruct",
+                    "Check SambaNova catalog",
+                ],
             },
             {
                 "name": "REMOTE",
@@ -2609,9 +3022,9 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 "requires_api_key": True,
                 "sample_models": [
                     "Custom endpoints with OpenAI format",
-                    "Configure via base_url in config"
-                ]
-            }
+                    "Configure via base_url in config",
+                ],
+            },
         ]
 
     def _display_branch_created(self, branch):
@@ -2715,19 +3128,20 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 expand=expand,
             )
         )
-# Import format helpers to append to command_handler.py
-    
+
+    # Import format helpers to append to command_handler.py
+
     # Import format helpers
     def _import_from_json(self, file_path: str) -> tuple[bool, str, list]:
         """Import conversation from JSON format."""
         try:
             import json
-            
-            with open(file_path, 'r', encoding='utf-8') as f:
+
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             messages = []
-            
+
             # Handle both direct message arrays and wrapped formats
             if isinstance(data, list):
                 # Direct message array
@@ -2736,298 +3150,375 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 # Wrapped format with metadata
                 raw_messages = data["messages"]
             else:
-                return False, "Invalid JSON format: expected message array or object with 'messages' field", []
-            
+                return (
+                    False,
+                    "Invalid JSON format: expected message array or object with 'messages' field",
+                    [],
+                )
+
             # Convert to our message format
             for msg in raw_messages:
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
                     # Filter to supported roles
                     role = msg["role"].lower()
                     if role in ["user", "assistant", "system"]:
-                        messages.append({
-                            "role": role,
-                            "content": msg["content"]
-                        })
-            
+                        messages.append({"role": role, "content": msg["content"]})
+
             if not messages:
                 return False, "No valid messages found in JSON file", []
-            
+
             user_count = len([m for m in messages if m["role"] == "user"])
             assistant_count = len([m for m in messages if m["role"] == "assistant"])
-            
-            return True, f"Imported **{len(messages)}** messages from JSON ({user_count} user, {assistant_count} assistant)", messages
-            
+
+            return (
+                True,
+                f"Imported **{len(messages)}** messages from JSON ({user_count} user, {assistant_count} assistant)",
+                messages,
+            )
+
         except Exception as e:
             return False, f"Failed to parse JSON: {str(e)}", []
-    
+
     def _import_from_csv(self, file_path: str) -> tuple[bool, str, list]:
         """Import conversation from CSV format."""
         try:
             import csv
-            
+
             messages = []
-            
-            with open(file_path, 'r', encoding='utf-8', newline='') as f:
+
+            with open(file_path, encoding="utf-8", newline="") as f:
                 # Try to detect CSV format
                 sample = f.read(1024)
                 f.seek(0)
                 sniffer = csv.Sniffer()
                 delimiter = sniffer.sniff(sample).delimiter
-                
+
                 reader = csv.DictReader(f, delimiter=delimiter)
-                
+
                 # Look for required columns
                 fieldnames = reader.fieldnames or []
-                
+
                 # Find role and content columns (case-insensitive)
                 role_col = None
                 content_col = None
-                
+
                 for field in fieldnames:
                     field_lower = field.lower()
-                    if field_lower in ['role', 'type', 'speaker']:
+                    if field_lower in ["role", "type", "speaker"]:
                         role_col = field
-                    elif field_lower in ['content', 'message', 'text']:
+                    elif field_lower in ["content", "message", "text"]:
                         content_col = field
-                
+
                 if not role_col or not content_col:
-                    return False, f"CSV must have role column ({['role', 'type', 'speaker']}) and content column ({['content', 'message', 'text']})", []
-                
+                    return (
+                        False,
+                        f"CSV must have role column ({['role', 'type', 'speaker']}) and content column ({['content', 'message', 'text']})",
+                        [],
+                    )
+
                 for row in reader:
                     role = row.get(role_col, "").lower().strip()
                     content = row.get(content_col, "").strip()
-                    
+
                     if role in ["user", "assistant", "system"] and content:
-                        messages.append({
-                            "role": role,
-                            "content": content
-                        })
-            
+                        messages.append({"role": role, "content": content})
+
             if not messages:
                 return False, "No valid messages found in CSV file", []
-            
+
             user_count = len([m for m in messages if m["role"] == "user"])
             assistant_count = len([m for m in messages if m["role"] == "assistant"])
-            
-            return True, f"Imported **{len(messages)}** messages from CSV ({user_count} user, {assistant_count} assistant)", messages
-            
+
+            return (
+                True,
+                f"Imported **{len(messages)}** messages from CSV ({user_count} user, {assistant_count} assistant)",
+                messages,
+            )
+
         except Exception as e:
             return False, f"Failed to parse CSV: {str(e)}", []
-    
+
     def _import_from_excel(self, file_path: str) -> tuple[bool, str, list]:
         """Import conversation from Excel format."""
         try:
             # Try pandas first
             try:
                 import pandas as pd
+
                 df = pd.read_excel(file_path)
             except ImportError:
-                return False, "pandas is required to import Excel files. Install with: pip install pandas openpyxl", []
-            
+                return (
+                    False,
+                    "pandas is required to import Excel files. Install with: pip install pandas openpyxl",
+                    [],
+                )
+
             messages = []
-            
+
             # Find role and content columns (case-insensitive)
             columns = {col.lower(): col for col in df.columns}
-            
+
             role_col = None
             content_col = None
-            
-            for role_key in ['role', 'type', 'speaker']:
+
+            for role_key in ["role", "type", "speaker"]:
                 if role_key in columns:
                     role_col = columns[role_key]
                     break
-            
-            for content_key in ['content', 'message', 'text']:
+
+            for content_key in ["content", "message", "text"]:
                 if content_key in columns:
                     content_col = columns[content_key]
                     break
-            
+
             if not role_col or not content_col:
-                return False, f"Excel file must have role column ({['role', 'type', 'speaker']}) and content column ({['content', 'message', 'text']})", []
-            
+                return (
+                    False,
+                    f"Excel file must have role column ({['role', 'type', 'speaker']}) and content column ({['content', 'message', 'text']})",
+                    [],
+                )
+
             for _, row in df.iterrows():
                 role = str(row[role_col]).lower().strip()
                 content = str(row[content_col]).strip()
-                
+
                 # Skip NaN and empty values
-                if role in ["user", "assistant", "system"] and content and content != "nan":
-                    messages.append({
-                        "role": role,
-                        "content": content
-                    })
-            
+                if (
+                    role in ["user", "assistant", "system"]
+                    and content
+                    and content != "nan"
+                ):
+                    messages.append({"role": role, "content": content})
+
             if not messages:
                 return False, "No valid messages found in Excel file", []
-            
+
             user_count = len([m for m in messages if m["role"] == "user"])
             assistant_count = len([m for m in messages if m["role"] == "assistant"])
-            
-            return True, f"Imported **{len(messages)}** messages from Excel ({user_count} user, {assistant_count} assistant)", messages
-            
+
+            return (
+                True,
+                f"Imported **{len(messages)}** messages from Excel ({user_count} user, {assistant_count} assistant)",
+                messages,
+            )
+
         except Exception as e:
             return False, f"Failed to parse Excel: {str(e)}", []
-    
+
     def _import_from_markdown(self, file_path: str) -> tuple[bool, str, list]:
         """Import conversation from Markdown format."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
-            
+
             messages = []
             current_role = None
             current_content = []
-            
-            lines = content.split('\n')
-            
+
+            lines = content.split("\n")
+
             for line in lines:
                 line = line.strip()
-                
+
                 # Look for role markers
-                if line.startswith('## User') or line.startswith('**User') or line.startswith('# User'):
+                if (
+                    line.startswith("## User")
+                    or line.startswith("**User")
+                    or line.startswith("# User")
+                ):
                     # Save previous message
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                     current_role = "user"
                     current_content = []
-                    
-                elif line.startswith('## Assistant') or line.startswith('**Assistant') or line.startswith('# Assistant'):
+
+                elif (
+                    line.startswith("## Assistant")
+                    or line.startswith("**Assistant")
+                    or line.startswith("# Assistant")
+                ):
                     # Save previous message
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                     current_role = "assistant"
                     current_content = []
-                    
-                elif line.startswith('## System') or line.startswith('**System') or line.startswith('# System'):
+
+                elif (
+                    line.startswith("## System")
+                    or line.startswith("**System")
+                    or line.startswith("# System")
+                ):
                     # Save previous message
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                     current_role = "system"
                     current_content = []
-                    
-                elif line.startswith('---') and len(line) >= 3 and all(c == '-' for c in line):
+
+                elif (
+                    line.startswith("---")
+                    and len(line) >= 3
+                    and all(c == "-" for c in line)
+                ):
                     # Message separator - save current and reset
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                         current_role = None
                         current_content = []
-                    
+
                 else:
                     # Content line
                     if current_role:
                         current_content.append(line)
-            
+
             # Save final message
             if current_role and current_content:
-                messages.append({
-                    "role": current_role,
-                    "content": '\n'.join(current_content).strip()
-                })
-            
+                messages.append(
+                    {
+                        "role": current_role,
+                        "content": "\n".join(current_content).strip(),
+                    }
+                )
+
             if not messages:
-                return False, "No messages found. Expected format with '## User', '## Assistant' headers or '---' separators", []
-            
+                return (
+                    False,
+                    "No messages found. Expected format with '## User', '## Assistant' headers or '---' separators",
+                    [],
+                )
+
             user_count = len([m for m in messages if m["role"] == "user"])
             assistant_count = len([m for m in messages if m["role"] == "assistant"])
-            
-            return True, f"Imported **{len(messages)}** messages from Markdown ({user_count} user, {assistant_count} assistant)", messages
-            
+
+            return (
+                True,
+                f"Imported **{len(messages)}** messages from Markdown ({user_count} user, {assistant_count} assistant)",
+                messages,
+            )
+
         except Exception as e:
             return False, f"Failed to parse Markdown: {str(e)}", []
-    
+
     def _import_from_text(self, file_path: str) -> tuple[bool, str, list]:
         """Import conversation from plain text format."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
-            
+
             messages = []
             current_role = None
             current_content = []
-            
-            lines = content.split('\n')
-            
+
+            lines = content.split("\n")
+
             for line in lines:
                 line_stripped = line.strip()
-                
+
                 # Look for role indicators at start of lines
                 line_lower = line_stripped.lower()
-                
-                if (line_lower.startswith('user:') or line_lower.startswith('human:') or 
-                    line_lower.startswith('me:') or line_lower.startswith('q:')):
+
+                if (
+                    line_lower.startswith("user:")
+                    or line_lower.startswith("human:")
+                    or line_lower.startswith("me:")
+                    or line_lower.startswith("q:")
+                ):
                     # Save previous message
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                     current_role = "user"
                     # Extract content after colon
-                    content_part = line_stripped[line_stripped.find(':') + 1:].strip()
+                    content_part = line_stripped[line_stripped.find(":") + 1 :].strip()
                     current_content = [content_part] if content_part else []
-                    
-                elif (line_lower.startswith('assistant:') or line_lower.startswith('ai:') or 
-                      line_lower.startswith('bot:') or line_lower.startswith('a:')):
+
+                elif (
+                    line_lower.startswith("assistant:")
+                    or line_lower.startswith("ai:")
+                    or line_lower.startswith("bot:")
+                    or line_lower.startswith("a:")
+                ):
                     # Save previous message
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                     current_role = "assistant"
                     # Extract content after colon
-                    content_part = line_stripped[line_stripped.find(':') + 1:].strip()
+                    content_part = line_stripped[line_stripped.find(":") + 1 :].strip()
                     current_content = [content_part] if content_part else []
-                    
-                elif line_lower.startswith('system:'):
+
+                elif line_lower.startswith("system:"):
                     # Save previous message
                     if current_role and current_content:
-                        messages.append({
-                            "role": current_role,
-                            "content": '\n'.join(current_content).strip()
-                        })
+                        messages.append(
+                            {
+                                "role": current_role,
+                                "content": "\n".join(current_content).strip(),
+                            }
+                        )
                     current_role = "system"
                     # Extract content after colon
-                    content_part = line_stripped[line_stripped.find(':') + 1:].strip()
+                    content_part = line_stripped[line_stripped.find(":") + 1 :].strip()
                     current_content = [content_part] if content_part else []
-                    
-                elif line_stripped == '' and current_role and current_content:
+
+                elif line_stripped == "" and current_role and current_content:
                     # Empty line might indicate message boundary
                     # But continue with current role unless we find a new one
-                    current_content.append('')
-                    
+                    current_content.append("")
+
                 else:
                     # Content line
                     if current_role:
                         current_content.append(line)
-            
+
             # Save final message
             if current_role and current_content:
-                content_text = '\n'.join(current_content).strip()
+                content_text = "\n".join(current_content).strip()
                 if content_text:
-                    messages.append({
-                        "role": current_role,
-                        "content": content_text
-                    })
-            
+                    messages.append({"role": current_role, "content": content_text})
+
             if not messages:
-                return False, "No messages found. Expected format with 'User:', 'Assistant:' prefixes or similar", []
-            
+                return (
+                    False,
+                    "No messages found. Expected format with 'User:', 'Assistant:' prefixes or similar",
+                    [],
+                )
+
             user_count = len([m for m in messages if m["role"] == "user"])
             assistant_count = len([m for m in messages if m["role"] == "assistant"])
-            
-            return True, f"Imported **{len(messages)}** messages from text ({user_count} user, {assistant_count} assistant)", messages
-            
+
+            return (
+                True,
+                f"Imported **{len(messages)}** messages from text ({user_count} user, {assistant_count} assistant)",
+                messages,
+            )
+
         except Exception as e:
             return False, f"Failed to parse text: {str(e)}", []

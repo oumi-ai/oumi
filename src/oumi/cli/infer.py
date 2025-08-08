@@ -38,6 +38,10 @@ def infer(
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
+    browse: Annotated[
+        bool,
+        typer.Option("-b", "--browse", help="Browse and play back recent chat conversations."),
+    ] = False,
     server_mode: Annotated[
         bool,
         typer.Option(
@@ -86,6 +90,7 @@ def infer(
         output_dir: Directory to save configs
         (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
+        browse: Whether to browse and play back recent chat conversations.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
@@ -171,6 +176,12 @@ def infer(
             port=port,
             system_prompt=system_prompt,
         )
+
+    # Handle browse mode
+    if browse:
+        from oumi.core.commands.chat_browser import ChatBrowser
+        browser = ChatBrowser(parsed_config)
+        return browser.run()
 
     if not interactive:
         logger.warning(

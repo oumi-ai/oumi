@@ -106,6 +106,7 @@ class CommandParser:
             "clear_thoughts": "Remove thinking content from conversation history while preserving responses",
             "clear": "Clear entire conversation history",
             "import": "Import conversation data from supported file formats (CSV, Excel, JSON, etc.)",
+            "load": "Load a previously saved chat from cache by ID or browse recent chats",
             "swap": "Switch to a different model or config for inference while preserving conversation history",
             "list_engines": "List available inference engines and their supported model examples",
             # Note: /ml and /sl are handled by the input system, not as regular commands
@@ -244,9 +245,15 @@ class CommandParser:
         elif parsed_command.command == "import":
             if not parsed_command.args:
                 return False, "import command requires an input file path"
+        elif parsed_command.command == "load":
+            # load command can be used without arguments to browse recent chats
+            pass
         elif parsed_command.command == "swap":
             if not parsed_command.args:
-                return False, "swap command requires a model name or config path (e.g., model_name, engine:model_name, or config:path/to/config.yaml)"
+                return (
+                    False,
+                    "swap command requires a model name or config path (e.g., model_name, engine:model_name, or config:path/to/config.yaml)",
+                )
         elif parsed_command.command == "set":
             if not parsed_command.kwargs:
                 return False, "set command requires parameter=value arguments"
@@ -267,6 +274,7 @@ class CommandParser:
             "full_thoughts",
             "clear_thoughts",
             "clear",
+            "load",
             "list_engines",
         ]:
             # These commands don't require arguments
