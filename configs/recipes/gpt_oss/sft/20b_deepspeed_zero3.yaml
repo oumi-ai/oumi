@@ -26,7 +26,7 @@ model:
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
-  attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
+  attn_implementation: "kernels-community/flash-attn3"
   enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
 
   # Enable MXFP4 dequantization for training with pre-quantized models
@@ -87,7 +87,6 @@ deepspeed:
   stage3_param_persistence_threshold: "auto"
   stage3_max_live_parameters: 1000000000  # 1e9
   stage3_max_reuse_distance: 1000000000   # 1e9
-  stage3_gather_16bit_weights_on_model_save: true
   memory_efficient_linear: false
   stage3_gather_fp16_weights_on_model_save: false
 
