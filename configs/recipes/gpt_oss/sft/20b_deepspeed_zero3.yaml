@@ -26,7 +26,7 @@ model:
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
-  attn_implementation: "kernels-community/flash-attn3"
+  attn_implementation: "kernels-community/vllm-flash-attn3"
 
   # Enable MXFP4 dequantization for training with pre-quantized models
   model_kwargs:
@@ -93,10 +93,10 @@ deepspeed:
   gather_16bit_weights_on_model_save: False
 
   # CPU offloading for maximum memory efficiency
-  offload_optimizer:
-    device: "CPU"
-    pin_memory: True
-    buffer_count: 4
+  # offload_optimizer:
+  #   device: "CPU"
+  #   pin_memory: True
+  #   buffer_count: 4
 
   # offload_param:
   #   device: "CPU"
@@ -104,8 +104,8 @@ deepspeed:
   #   buffer_count: 4
 
   # Memory optimization
-  zero_allow_untested_optimizer: True
-  zero_force_ds_cpu_optimizer: True  # Use DeepSpeed CPU optimizer when offloading
+  # zero_allow_untested_optimizer: True
+  # zero_force_ds_cpu_optimizer: True  # Use DeepSpeed CPU optimizer when offloading
 
   # Logging
   steps_per_print: 10
