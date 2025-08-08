@@ -1422,7 +1422,7 @@ class CommandHandler:
                 text_content += str(message["content"]) + "\n"
 
         # Use context manager to estimate tokens
-        max_context = getattr(self.config.model, "model_max_length", 4096)
+        max_context = getattr(self.config.model, "model_max_length", None) or 4096
         model_name = getattr(self.config.model, "model_name", "default")
         context_manager = ContextWindowManager(max_context, model_name)
 
@@ -1432,7 +1432,7 @@ class CommandHandler:
         """Update the context usage in system monitor if available."""
         if self.system_monitor:
             # Update max context length in case model has changed
-            max_context = getattr(self.config.model, "model_max_length", 4096)
+            max_context = getattr(self.config.model, "model_max_length", None) or 4096
             self.system_monitor.update_max_context_tokens(max_context)
 
             # Update current usage
