@@ -21,7 +21,7 @@
 
 model:
   model_name: "openai/gpt-oss-20b"
-  model_max_length: 32768
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
