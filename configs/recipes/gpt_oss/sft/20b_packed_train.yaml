@@ -72,7 +72,6 @@ training:
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
-    eta_min_ratio: 0.1
 
   # Performance settings
   dataloader_num_workers: 8
