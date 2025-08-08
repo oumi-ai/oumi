@@ -429,21 +429,23 @@ class DSParams(BaseParams):
                     ),
                     "stage3_max_live_parameters": self.stage3_max_live_parameters,
                     "stage3_max_reuse_distance": self.stage3_max_reuse_distance,
-                    "stage3_gather_fp16_weights_on_model_save": (
-                        self.stage3_gather_fp16_weights_on_model_save
-                    ),
                     "memory_efficient_linear": self.memory_efficient_linear,
                 }
             )
 
             # Use appropriate parameter name based on DeepSpeed version
             if use_new_param_names:
+                # For newer DeepSpeed versions, use the new parameter name
                 zero_config["gather_16bit_weights_on_model_save"] = (
                     self.gather_16bit_weights_on_model_save
                 )
             else:
+                # For older DeepSpeed versions, use the deprecated parameter names
                 zero_config["stage3_gather_16bit_weights_on_model_save"] = (
                     self.stage3_gather_16bit_weights_on_model_save
+                )
+                zero_config["stage3_gather_fp16_weights_on_model_save"] = (
+                    self.stage3_gather_fp16_weights_on_model_save
                 )
 
         # Add offloading configurations
