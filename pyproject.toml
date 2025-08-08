@@ -65,7 +65,7 @@ dependencies = [
     "safetensors>=0.6.1,<0.7",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.6",
+    "torch>=2.6,<2.9.0",
     "torchao>=0.11.0,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
@@ -178,11 +178,9 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 # GPT OSS support - requires special installation procedure
 gpt_oss = [
     # Note: vLLM GPT OSS build must be installed separately via:
-    # pip install vllm==0.10.2+gptoss --extra-index-url https://wheels.vllm.ai/gpt-oss/
-    "gpt-oss>=0.0.1",       # GPT OSS package with MXFP4 quantization support
+    "gpt-oss>=0.0.1",       # GPT OSS package
     "kernels",              # HuggingFace kernels for Flash Attention 3
     "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
-    # Flash Attention 3 via kernels-community/vllm-flash-attn3 (no compilation needed)
 ]
 
 # CI targets
