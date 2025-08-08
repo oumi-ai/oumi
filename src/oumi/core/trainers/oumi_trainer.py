@@ -30,6 +30,7 @@ import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
 
 import mlflow  # isort: skip
+
 import wandb  # isort: skip
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
@@ -62,6 +63,7 @@ from oumi.models.layers.ring_attention import (
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
+from oumi.utils.serialization_utils import flatten_config
 
 torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
 torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
@@ -113,6 +115,12 @@ class Trainer(BaseTrainer):
         # 2. CUDA and distributed multi-GPU training (otherwise, pointless).
         # 3. Supported model type.
         self.is_using_ring_attention = False
+        self._mlflow_oumi_managed_run = (
+            # If the user has manually started an mlflow run, we don't need to start
+            # a new one and can let the user manage it themselves.
+            # Otherwise, we start a new run and end it when training is done.
+            self.params.enable_mlflow and not mlflow.active_run()
+        )
 
         self.params.finalize_and_validate()
 
@@ -159,7 +167,12 @@ class Trainer(BaseTrainer):
         # Prepare model for training
         # ----------------------------------
         if args.enable_gradient_checkpointing:
-            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)
+            if not hasattr(model, "gradient_checkpointing_enable"):
+                raise ValueError(
+                    "Gradient checkpointing is only supported for Hugging Face models."
+                )
+            model.gradient_checkpointing_enable(args.gradient_checkpointing_kwargs)  # type: ignore
+        model = cast(torch.nn.Module, model)
         model.to(self.device)
         if is_distributed():
             # Wrap model for distributed training
@@ -202,6 +215,9 @@ class Trainer(BaseTrainer):
         if resume_from_checkpoint:
             with torch.profiler.record_function("load_from_checkpoint"):
                 self._load_from_checkpoint(resume_from_checkpoint)
+        else:
+            # Log training config and parameters to all enabled platforms
+            self._log_training_config()
 
         total_steps = self._estimate_total_training_steps()
 
@@ -259,7 +275,7 @@ class Trainer(BaseTrainer):
             f"Training runtime: {time.perf_counter() - self.start_time}s"
         )
 
-        if self.params.enable_mlflow:
+        if self.params.enable_mlflow and not self._mlflow_oumi_managed_run:
             mlflow.end_run()
 
     @contextmanager
@@ -633,6 +649,10 @@ class Trainer(BaseTrainer):
             for key, value in metrics.items():
                 self.tensorboard_writer.add_scalar(key, value, self.state.global_step)
 
+        # Log to mlflow
+        if self.params.enable_mlflow:
+            mlflow.log_metrics(metrics, step=self.state.global_step)
+
     def _init_logging(
         self,
     ) -> None:
@@ -660,8 +680,45 @@ class Trainer(BaseTrainer):
         else:
             self.tensorboard_writer = None
 
+        if self.params.enable_mlflow and self._mlflow_oumi_managed_run:
+            self.mlflow_run = mlflow.start_run(run_name=self.params.run_name)
+
+    def _log_training_config(self) -> None:
+        """Logs training configuration and parameters to all enabled platforms."""
+        if not is_world_process_zero() or not self.config:
+            return
+
+        # Get flattened config from both training config and parameters
+        config_dict = flatten_config(self.config)
+
+        # Log to MLflow
         if self.params.enable_mlflow:
-            self.mlflow_run = mlflow.start_run()
+            try:
+                mlflow.log_params(config_dict)
+            except Exception as e:
+                self.log(f"Failed to log config to MLflow: {e}")
+
+        # Log to Weights & Biases
+        if self.params.enable_wandb:
+            try:
+                # wandb.config can handle nested dictionaries, but we'll use
+                # flattened for consistency
+                wandb.config.update(config_dict)
+            except Exception as e:
+                self.log(f"Failed to log config to wandb: {e}")
+
+        # Log to TensorBoard
+        if self.params.enable_tensorboard and self.tensorboard_writer:
+            try:
+                # Log config as a formatted text to tensorboard
+                config_text = "\n".join([f"{k}: {v}" for k, v in config_dict.items()])
+                self.tensorboard_writer.add_text(
+                    tag="config/training_config",
+                    text_string=config_text,
+                    global_step=self.state.global_step,
+                )
+            except Exception as e:
+                self.log(f"Failed to log config to TensorBoard: {e}")
 
     #
     # Data loading

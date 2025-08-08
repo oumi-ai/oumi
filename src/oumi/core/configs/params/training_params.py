@@ -641,12 +641,15 @@ class TrainingParams(BaseParams):
     `{"actor_rollout_ref": {"actor": {"use_kl_loss": True}}}`.
 
     The priority of setting verl config params, from highest to lowest, is:
-    1. Values specified by this field.
-    2. Values automatically set by Oumi in
-        `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()` for verl params
-        which have corresponding Oumi params. For example,
-        Oumi's `training.output_dir` -> verl's `trainer.default_local_dir`
-    3. Default verl config values in `src/oumi/core/trainers/verl_trainer_config.yaml`.
+
+        1. Values specified by this field.
+        2. Values automatically set by Oumi in
+           `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()`
+           for verl params
+           which have corresponding Oumi params. For example,
+           Oumi's `training.output_dir` -> verl's `trainer.default_local_dir`
+        3. Default verl config values in
+           `src/oumi/core/trainers/verl_trainer_config.yaml`.
     """
 
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
@@ -787,7 +790,6 @@ class TrainingParams(BaseParams):
             save_strategy=save_strategy,
             logging_first_step=self.logging_first_step,
             torch_empty_cache_steps=self.empty_device_cache_steps,
-            resume_from_checkpoint=self.resume_from_checkpoint,
             eval_strategy=self.eval_strategy,
             eval_steps=self.eval_steps,
             dataloader_num_workers=dataloader_num_workers,

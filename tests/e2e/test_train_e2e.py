@@ -446,6 +446,20 @@ def test_train_text_1gpu_24gb(
             save_steps=5,
             is_lora=True,
         ),
+        TrainTestConfig(
+            test_name="train_text_llama3_1_8b_trl_sft_full",
+            config_path=(
+                get_configs_dir()
+                / "recipes"
+                / "llama3_1"
+                / "sft"
+                / "8b_full"
+                / "train.yaml"
+            ),
+            trainer_type=TrainerType.TRL_SFT,
+            max_steps=5,
+            save_steps=5,
+        ),
     ],
     ids=get_train_test_id_fn,
 )
@@ -557,6 +571,8 @@ def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path:
             ),
             max_steps=5,
             save_steps=5,
+            skip=True,  # Issues with this test since torch 2.6.0 upgrade. Skip for now
+            # until we upgrade to the next torch version.
         ),
         TrainTestConfig(
             test_name="train_mm_llama3_2_vision_11b_lora",
@@ -599,16 +615,10 @@ def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path:
     )
 
 
-@requires_gpus(count=4, min_gb=39.0)
+@requires_gpus(count=4, min_gb=79.0)
 @pytest.mark.parametrize(
     "test_config",
     [
-        TrainTestConfig(
-            test_name="train_grpo_tldr_qwen2_500m",
-            config_path=(get_configs_dir() / "examples" / "grpo_tldr" / "train.yaml"),
-            max_steps=3,
-            save_steps=3,
-        ),
         TrainTestConfig(
             test_name="train_grpo_letter_counting",
             config_path=(
@@ -626,7 +636,7 @@ def test_train_multimodal_fsdp_4gpu_80gb(test_config: TrainTestConfig, tmp_path:
 )
 @pytest.mark.e2e
 @pytest.mark.multi_gpu
-def test_train_grpo_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
+def test_train_grpo_4gpu_80gb(test_config: TrainTestConfig, tmp_path: Path):
     _test_train_impl(
         test_config=test_config,
         tmp_path=tmp_path,

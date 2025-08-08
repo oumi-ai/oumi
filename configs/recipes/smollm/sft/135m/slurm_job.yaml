@@ -1,0 +1,45 @@
+# Job config to tune SmolLM 135M on Slurm.
+#
+# Requirements:
+#   - Set OUMI_SLURM_CONNECTIONS to your Slurm user@host
+#
+# Usage:
+#   oumi launch up -c configs/recipes/smollm/sft/135m/slurm_job.yaml --cluster $OUMI_SLURM_CONNECTIONS --user <slurm_user>
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
+#   - Config class: oumi.core.configs.JobConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
+#   - Other job configs: configs/**/*job.yaml
+
+name: smollm-135m-sft
+
+resources:
+  cloud: slurm
+
+working_dir: .
+
+envs:
+  # https://github.com/huggingface/tokenizers/issues/899#issuecomment-1027739758
+  TOKENIZERS_PARALLELISM: false
+
+setup: |
+  #SBATCH --ntasks-per-node=1
+  #SBATCH --cpus-per-task=4
+  #SBATCH --gpus-per-task=1
+  #SBATCH --mem-per-gpu=32G
+  #SBATCH --time=00:30:00
+
+  set -e
+  source ./configs/examples/misc/slurm_init.sh
+
+  source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
+  conda activate oumi
+  pip install uv && uv pip install 'oumi[gpu]'
+
+run: |
+  oumi train \
+      -c configs/recipes/smollm/sft/135m/train.yaml \
+      --training.enable_wandb=False
+
+  echo "Training complete!"

@@ -248,10 +248,8 @@ training:
 
     # vLLM settings for generation
     use_vllm: false                           # Use vLLM for generation
-    vllm_device: null                         # Device for vLLM (e.g., "cuda:1")
+    vllm_mode: null                           # Use server or colocate mode for vLLM
     vllm_gpu_memory_utilization: 0.9          # VRAM fraction for vLLM (0-1)
-    vllm_dtype: null                          # Data type for vLLM
-    vllm_max_model_len: null                  # Maximum model length for vLLM
 ```
 
 ### PEFT Configuration

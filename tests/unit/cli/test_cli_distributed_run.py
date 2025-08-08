@@ -81,13 +81,6 @@ def test_torchrun_skypilot_single_gpu(
 
     mock_popen.assert_called_once_with(
         [
-            "torchrun",
-            "--nnodes=1",
-            "--node-rank=0",
-            "--nproc-per-node=1",
-            "--master-addr=mymachine",
-            "--master-port=8007",
-            "-m",
             "oumi",
             "train",
             "--training.max_steps",
@@ -234,6 +227,7 @@ def test_torchrun_frontier_multi_gpu(
     app,
     mock_os,
     mock_popen,
+    mock_torch,
     monkeypatch,
 ):
     test_env_vars = {
@@ -246,6 +240,7 @@ def test_torchrun_frontier_multi_gpu(
         "OUMI_MASTER_ADDR": "z111",
     }
     mock_os.environ.copy.return_value = copy.deepcopy(test_env_vars)
+    mock_torch.cuda.device_count.return_value = 8
 
     mock_process = Mock()
     mock_popen.return_value = mock_process

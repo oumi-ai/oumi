@@ -20,10 +20,10 @@ import torch
 from torch.utils.data import Dataset
 from typing_extensions import override
 
-from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
-from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtooDataset
+from oumi.core.datasets.base_dpo_dataset import BaseDpoDataset
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
+from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtooDataset
 from oumi.core.registry import register_dataset
 from oumi.core.types.conversation import Conversation, Message, Role
 
@@ -154,7 +154,7 @@ class DebugSftDataset(BaseSftDataset):
 
 
 @register_dataset("debug_dpo")
-class DebugDpoDataset(BaseExperimentalDpoDataset):
+class DebugDpoDataset(BaseDpoDataset):
     default_dataset = "debug_dpo"
 
     def __init__(

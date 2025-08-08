@@ -92,6 +92,9 @@ from oumi.datasets.vision_language.pixmo_ask_model_anything import (
 from oumi.datasets.vision_language.pixmo_cap import PixmoCapDataset
 from oumi.datasets.vision_language.pixmo_cap_qa import PixmoCapQADataset
 from oumi.datasets.vision_language.the_cauldron import TheCauldronDataset
+from oumi.datasets.vision_language.vision_dpo_jsonlines import (
+    VisionDpoJsonlinesDataset,
+)
 from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 from oumi.datasets.vision_language.vqav2_small import Vqav2SmallDataset
 
@@ -143,6 +146,7 @@ __all__ = [
     "TldrGrpoDataset",
     "Tulu3MixtureDataset",
     "UltrachatH4Dataset",
+    "VisionDpoJsonlinesDataset",
     "VLJsonlinesDataset",
     "Vqav2SmallDataset",
     "WikipediaDataset",

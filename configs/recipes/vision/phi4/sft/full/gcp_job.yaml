@@ -44,7 +44,6 @@ setup: |
   # The model requires flash_attention_2! Install it here.
   pip install -U flash-attn --no-build-isolation
 
-
 run: |
   set -e  # Exit if any command failed.
   source ./configs/examples/misc/sky_init.sh

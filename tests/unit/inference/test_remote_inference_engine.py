@@ -1,10 +1,12 @@
+import asyncio
 import json
+import math
 import os
 import tempfile
 import time
 from pathlib import Path
 from typing import Any, Final
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import aiohttp
 import jsonlines
@@ -49,6 +51,15 @@ _TEST_IMAGE_DIR: Final[Path] = get_testdata_dir() / "images"
 def mock_aioresponse():
     with aioresponses() as m:
         yield m
+
+
+@pytest.fixture(autouse=False)
+def mock_polite_adaptive_semaphore():
+    with patch(
+        "oumi.inference.remote_inference_engine.PoliteAdaptiveSemaphore",
+        return_value=AsyncMock(),
+    ) as mock_polite_adaptive_semaphore:
+        yield mock_polite_adaptive_semaphore
 
 
 @pytest.fixture
@@ -152,6 +163,10 @@ def create_test_multimodal_text_image_conversation():
 class AsyncContextManagerMock:
     """Mock for async context manager."""
 
+    def __init__(self):
+        self.record_success = AsyncMock()
+        self.record_error = AsyncMock()
+
     async def __aenter__(self):
         return self
 
@@ -227,7 +242,7 @@ def test_infer_online():
                 conversation_id="123",
             )
         ]
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             _get_default_inference_config(),
         )
@@ -295,7 +310,7 @@ def test_infer_online_no_base_api():
                 conversation_id="123",
             )
         ]
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             _get_default_inference_config(),
         )
@@ -366,7 +381,7 @@ def test_infer_online_falls_back_to_default_url():
         ]
         inference_config = _get_default_inference_config()
         inference_config.remote_params = None
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -442,7 +457,7 @@ def test_infer_online_falls_back_to_default_api_key():
         ]
         inference_config = _get_default_inference_config()
         inference_config.remote_params = None
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -521,7 +536,7 @@ def test_infer_online_falls_back_to_default_api_key_env_varname(monkeypatch):
         ]
         inference_config = _get_default_inference_config()
         inference_config.remote_params = None
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -564,7 +579,7 @@ def test_infer_online_empty():
         _get_default_model_params(), remote_params=RemoteParams(api_url=_TARGET_SERVER)
     )
     expected_result = []
-    result = engine.infer_online(
+    result = engine.infer(
         [],
         _get_default_inference_config(),
     )
@@ -600,7 +615,7 @@ def test_infer_online_fast_fail_nonretriable(mock_asyncio_sleep):
             conversation_id="123",
         )
         with pytest.raises(RuntimeError, match="Non-retriable error: Unauthorized"):
-            _ = engine.infer_online(
+            _ = engine.infer(
                 [conversation],
                 _get_default_inference_config(),
             )
@@ -657,7 +672,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Gateway timeout",
         ):
-            _ = engine.infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -665,7 +680,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Too many requests",
         ):
-            _ = engine.infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -673,7 +688,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Service unavailable",
         ):
-            _ = engine.infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -681,7 +696,7 @@ def test_infer_online_fails_with_message(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 1 attempts. Reason: Internal server error",
         ):
-            _ = engine.infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
@@ -736,12 +751,12 @@ def test_infer_online_fails_with_message_and_retries(mock_asyncio_sleep):
             RuntimeError,
             match="Failed to query API after 4 attempts. Reason: Internal server error",
         ):
-            _ = engine.infer_online(
+            _ = engine.infer(
                 [conversation],
                 config,
             )
-        # 3 retries + 3 backoffs
-        assert mock_asyncio_sleep.call_count == 6
+        # 3 retries
+        assert mock_asyncio_sleep.call_count == 3
 
 
 def test_infer_online_recovers_from_retries():
@@ -793,7 +808,7 @@ def test_infer_online_recovers_from_retries():
                 conversation_id="123",
             )
         ]
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             _get_default_inference_config(),
         )
@@ -913,7 +928,7 @@ def test_infer_online_multiple_requests():
                 conversation_id="321",
             ),
         ]
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation1, conversation2],
             _get_default_inference_config(),
         )
@@ -1040,15 +1055,16 @@ def test_infer_online_multiple_requests_politeness():
             ),
             remote_params=remote_params,
         )
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation1, conversation2],
             inference_config,
         )
         total_time = time.time() - start
-        assert 1.0 < total_time < 1.5
+        assert 0.5 < total_time < 1.0
         assert expected_result == result
 
 
+@pytest.mark.asyncio
 def test_infer_online_multiple_requests_politeness_multiple_workers():
     # Note: We use the first message's content as the key to avoid
     # stringifying the message object.
@@ -1074,6 +1090,19 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
                         "message": {
                             "role": "assistant",
                             "content": "The second time I saw",
+                        }
+                    }
+                ]
+            },
+        },
+        "Goodbye twice!": {
+            "status": 200,
+            "payload": {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "The third time I saw",
                         }
                     }
                 ]
@@ -1110,6 +1139,7 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             api_url=_TARGET_SERVER,
             politeness_policy=0.5,
             num_workers=2,
+            use_adaptive_concurrency=False,
         )
         engine = RemoteInferenceEngine(
             _get_default_model_params(), remote_params=remote_params
@@ -1143,6 +1173,20 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             metadata={"bar": "foo"},
             conversation_id="321",
         )
+        conversation3 = Conversation(
+            messages=[
+                Message(
+                    content="Goodbye twice!",
+                    role=Role.USER,
+                ),
+                Message(
+                    content="Goodbye again!",
+                    role=Role.USER,
+                ),
+            ],
+            metadata={"bar": "foo"},
+            conversation_id="3210",
+        )
         expected_result = [
             Conversation(
                 messages=[
@@ -1166,6 +1210,17 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
                 metadata={"bar": "foo"},
                 conversation_id="321",
             ),
+            Conversation(
+                messages=[
+                    *conversation3.messages,
+                    Message(
+                        content="The third time I saw",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"bar": "foo"},
+                conversation_id="3210",
+            ),
         ]
         start = time.time()
         inference_config = InferenceConfig(
@@ -1174,13 +1229,13 @@ def test_infer_online_multiple_requests_politeness_multiple_workers():
             ),
             remote_params=remote_params,
         )
-        result = engine.infer_online(
-            [conversation1, conversation2],
+        result = engine.infer(
+            [conversation1, conversation2, conversation3],
             inference_config,
         )
+        assert expected_result == result
         total_time = time.time() - start
         assert 0.5 < total_time < 1.0
-        assert expected_result == result
 
 
 def test_infer_from_file_empty():
@@ -1200,11 +1255,6 @@ def test_infer_from_file_empty():
             ),
             remote_params=remote_params,
         )
-        result = engine.infer_online(
-            [],
-            inference_config,
-        )
-        assert [] == result
         infer_result = engine.infer(inference_config=inference_config)
         assert [] == infer_result
 
@@ -1333,7 +1383,7 @@ def test_infer_from_file_to_file():
                 ),
                 remote_params=remote_params,
             )
-            result = engine.infer_online(
+            result = engine.infer(
                 [conversation1, conversation2],
                 inference_config,
             )
@@ -1455,7 +1505,7 @@ def test_infer_from_file_to_file_failure_midway():
             )
 
             with pytest.raises(RuntimeError, match="Internal server error"):
-                _ = engine.infer_online(
+                _ = engine.infer(
                     [conversation1, conversation2],
                     inference_config,
                 )
@@ -2324,7 +2374,7 @@ def test_infer_online_handles_content_type_text_plain():
         )
         inference_config = _get_default_inference_config()
         inference_config.remote_params = engine._remote_params
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation],
             inference_config,
         )
@@ -2389,13 +2439,14 @@ def test_infer_online_handles_invalid_content():
             with pytest.raises(
                 RuntimeError, match="Failed to process successful response"
             ):
-                engine.infer_online(
+                engine.infer(
                     [conversation],
                     inference_config,
                 )
 
 
-def test_infer_online_exponential_backoff():
+@pytest.mark.asyncio
+async def test_infer_online_exponential_backoff(mock_polite_adaptive_semaphore):
     """Test that the engine implements exponential backoff correctly."""
     sleep_calls = []
 
@@ -2435,7 +2486,7 @@ def test_infer_online_exponential_backoff():
                 model_params=_get_default_model_params(),
                 remote_params=RemoteParams(
                     api_url=_TARGET_SERVER,
-                    max_retries=2,
+                    max_retries=3,
                     retry_backoff_base=0.2,  # Small values for testing
                     retry_backoff_max=1.0,
                 ),
@@ -2446,14 +2497,14 @@ def test_infer_online_exponential_backoff():
 
             remote_params = RemoteParams(
                 api_url=_TARGET_SERVER,
-                max_retries=2,
+                max_retries=3,
                 retry_backoff_base=0.2,
                 retry_backoff_max=1.0,
             )
             inference_config = _get_default_inference_config()
             inference_config.remote_params = remote_params
 
-            result = engine.infer_online([conversation], inference_config)
+            result = engine.infer([conversation], inference_config)
 
             # Verify the result
             assert len(result) == 1
@@ -2496,7 +2547,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             conversation = create_test_text_only_conversation()
 
             with pytest.raises(RuntimeError) as exc_info:
-                engine.infer_online([conversation])
+                engine.infer([conversation])
 
             assert f"Non-retriable error: {error_messages[status_code]}" in str(
                 exc_info.value
@@ -2506,7 +2557,7 @@ def test_non_retriable_errors(mock_asyncio_sleep):
             mock_asyncio_sleep.reset_mock()
 
 
-def test_response_processing_error(mock_asyncio_sleep):
+def test_response_processing_error(mock_polite_adaptive_semaphore, mock_asyncio_sleep):
     """Test handling of errors during response processing."""
     with aioresponses() as m:
         m.post(
@@ -2540,14 +2591,17 @@ def test_response_processing_error(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine.infer_online([conversation])
+            engine.infer([conversation])
 
         assert "Failed to process successful response" in str(exc_info.value)
-        # Verify retries were attempted
-        assert mock_asyncio_sleep.call_count == 4
+        # Verify 2 retries were attempted
+        assert mock_asyncio_sleep.call_count == 2
 
 
-def test_malformed_json_response(mock_asyncio_sleep):
+@pytest.mark.asyncio
+async def test_malformed_json_response(
+    mock_polite_adaptive_semaphore, mock_asyncio_sleep
+):
     """Test handling of malformed JSON responses."""
     with aioresponses() as m:
         m.post(
@@ -2579,15 +2633,18 @@ def test_malformed_json_response(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine.infer_online([conversation])
+            engine.infer([conversation])
 
         assert "Failed to parse response" in str(exc_info.value)
         assert "Content type: application/json" in str(exc_info.value)
-        # Verify retries were attempted
-        assert mock_asyncio_sleep.call_count == 4
+        # Verify 2 retries were attempted
+        assert mock_asyncio_sleep.call_count == 2
 
 
-def test_unexpected_error_handling(mock_asyncio_sleep):
+@pytest.mark.asyncio
+async def test_unexpected_error_handling(
+    mock_polite_adaptive_semaphore, mock_asyncio_sleep
+):
     """Test handling of unexpected errors during API calls."""
 
     def raise_unexpected(*args, **kwargs):
@@ -2606,14 +2663,14 @@ def test_unexpected_error_handling(mock_asyncio_sleep):
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine.infer_online([conversation])
+            engine.infer([conversation])
 
         assert (
             "Failed to query API after 3 attempts due to unexpected error: Unexpected "
             "internal error" in str(exc_info.value)
         )
-        # Verify retries were attempted
-        assert mock_asyncio_sleep.call_count == 4
+        # Verify 2 retries were attempted
+        assert mock_asyncio_sleep.call_count == 2
 
 
 def test_list_response_error_handling():
@@ -2635,7 +2692,7 @@ def test_list_response_error_handling():
         conversation = create_test_text_only_conversation()
 
         with pytest.raises(RuntimeError) as exc_info:
-            engine.infer_online([conversation])
+            engine.infer([conversation])
 
         assert "Internal server error" in str(exc_info.value)
 
@@ -2686,8 +2743,428 @@ def test_retry_with_different_errors():
         )
         conversation = create_test_text_only_conversation()
 
-        result = engine.infer_online([conversation])
+        result = engine.infer([conversation])
 
         assert len(result) == 1
         assert result[0].messages[-1].content == "Success after retries"
         assert attempt == 4  # Verify all attempts were made
+
+
+def test_adaptive_concurrency_initialization_enabled():
+    """Test that adaptive concurrency controller is initialized when enabled."""
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=True,
+        num_workers=20,
+        politeness_policy=30.0,
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    # Should have adaptive concurrency controller
+    assert hasattr(engine, "_adaptive_concurrency_controller")
+    assert engine._adaptive_concurrency_controller is not None
+
+    # Verify controller parameters are calculated correctly
+    controller = engine._adaptive_concurrency_controller
+    expected_min_concurrency = 1
+    expected_max_concurrency = 20
+    expected_initial_concurrency = 10
+    expected_step = 2
+    expected_min_update_time = 29.0
+
+    assert controller._config.min_concurrency == expected_min_concurrency
+    assert controller._config.max_concurrency == expected_max_concurrency
+    assert controller._current_concurrency == expected_initial_concurrency
+    assert controller._config.concurrency_step == expected_step
+    assert controller._config.min_update_time == expected_min_update_time
+
+
+def test_adaptive_concurrency_initialization_disabled():
+    """Test that adaptive concurrency controller is not initialized when disabled."""
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=False,
+        num_workers=20,
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    # Should not have adaptive concurrency controller
+    assert not hasattr(engine, "_adaptive_concurrency_controller")
+
+
+def test_adaptive_concurrency_parameter_edge_cases():
+    """Test adaptive concurrency parameter calculations with edge cases."""
+    # Test with very small num_workers
+    remote_params = RemoteParams(
+        api_url=_TARGET_SERVER,
+        use_adaptive_concurrency=True,
+        num_workers=2,
+        politeness_policy=1.0,
+    )
+
+    engine = RemoteInferenceEngine(
+        model_params=_get_default_model_params(),
+        remote_params=remote_params,
+    )
+
+    controller = engine._adaptive_concurrency_controller
+    assert controller._config.min_concurrency == 1
+    assert controller._current_concurrency == 1
+    assert controller._config.max_concurrency == 2
+    assert controller._config.concurrency_step == 1
+    assert controller._config.min_update_time == 1
+
+
+def test_adaptive_concurrency_used_in_query_api():
+    """Test that adaptive concurrency controller is used instead of semaphore."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Test response",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=10,
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+
+        conversation = create_test_text_only_conversation()
+
+        # Mock the adaptive concurrency controller
+        mock_controller = AsyncContextManagerMock()
+        mock_controller.record_success = AsyncMock()
+
+        with patch.object(engine, "_adaptive_concurrency_controller", mock_controller):
+            # This should use the adaptive concurrency controller instead of semaphore
+            result = engine._infer_online([conversation])
+
+            # Verify the conversation was processed
+            assert len(result) == 1
+            assert len(result[0].messages) == 5  # Original 4 + 1 response
+            mock_controller.record_success.assert_called_once()
+            mock_controller.record_error.assert_not_called()
+
+
+def test_semaphore_used_when_adaptive_concurrency_disabled():
+    """Test that semaphore is used when adaptive concurrency is disabled."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Test response",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=False,
+            num_workers=10,
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+
+        conversation = create_test_text_only_conversation()
+
+        # Should not have adaptive concurrency controller
+        assert not hasattr(engine, "_adaptive_concurrency_controller")
+
+        # This should use the regular semaphore
+        result = engine._infer_online([conversation])
+
+        # Verify the conversation was processed
+        assert len(result) == 1
+        assert len(result[0].messages) == 5  # Original 4 + 1 response
+
+
+def test_adaptive_concurrency_success_recorded_on_successful_response():
+    """Test that success is recorded when request succeeds with adaptive concurrency."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            payload=dict(
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": "Test response",
+                        }
+                    }
+                ]
+            ),
+        )
+
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=10,
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+
+        conversation = create_test_text_only_conversation()
+
+        with patch.object(engine, "_try_record_success") as mock_record_success:
+            engine._infer_online([conversation])
+            mock_record_success.assert_called_once()
+
+
+def test_adaptive_concurrency_error_recorded_on_http_error():
+    """Test that error is recorded when a request fails with HTTP error."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=500,
+            payload={"error": {"message": "Internal server error"}},
+        )
+
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=10,
+            max_retries=0,  # Don't retry so we fail quickly
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+
+        conversation = create_test_text_only_conversation()
+
+        with patch.object(engine, "_try_record_error") as mock_record_error:
+            with pytest.raises(RuntimeError):
+                engine._infer_online([conversation])
+            # Should record error for each retry attempt
+            assert mock_record_error.call_count >= 1
+
+
+def test_adaptive_concurrency_error_recorded_on_json_parse_error():
+    """Test that error is recorded when response JSON parsing fails."""
+    with aioresponses() as m:
+        m.post(
+            _TARGET_SERVER,
+            status=200,
+            body="Invalid JSON response",
+            content_type="application/json",
+        )
+
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=10,
+            max_retries=0,  # Don't retry so we fail quickly
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+
+        conversation = create_test_text_only_conversation()
+
+        with patch.object(engine, "_try_record_error") as mock_record_error:
+            with pytest.raises(RuntimeError):
+                engine._infer_online([conversation])
+            mock_record_error.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_adaptive_concurrency_full_adjustment_cycle():
+    """Test the complete adaptive concurrency cycle: warmup, backoff, and recovery."""
+    attempt_count = 0
+    time_progression = 0.0
+    asserts_passed = True
+    async_lock = asyncio.Lock()
+
+    async def get_response(*args, **kwargs):
+        async with async_lock:
+            nonlocal attempt_count
+            nonlocal time_progression
+            nonlocal mock_time
+            time_progression += 1.0
+            mock_time.return_value = time_progression
+            attempt_count += 1
+            nonlocal controller
+            nonlocal initial_concurrency
+            nonlocal min_concurrency
+            nonlocal max_concurrency
+            nonlocal warmup_concurrency
+            nonlocal backoff_concurrency
+            nonlocal asserts_passed
+
+            window_size = controller._config.min_window_size  # 10
+            backoff_step = window_size * 2 + 1  # 21
+            recovery_step = backoff_step + window_size * 2  # 41
+
+            current_concurrency = controller._current_concurrency
+            step_size = controller._config.concurrency_step
+
+            # Steps 1-10: Concurrency should be 10
+            # Step 11: Concurrency should be 12, window size 1
+            # Step 12-20: Concurrency should be 12, window size 10
+            # Step 21: Backoff to 10, window size 1
+            # Step 22-30: Concurrency should be 10, window size 10
+            # Step 31: Concurrency should stay 10, first good window
+            # Step 32-40: Concurrency should stay 10, window size 10
+            # Step 41: 2nd good window, exit backoff, warmup to 12, window size 1
+            # Step 42-50: Concurrency should be 12, window size 10, finish before warmup
+
+            try:
+                # Phase 1: First window_size requests succeed with no warmup
+                if attempt_count <= window_size:
+                    assert current_concurrency == initial_concurrency
+                    return CallbackResult(
+                        status=200,
+                        payload={
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": f"Success response {attempt_count}",
+                                    }
+                                }
+                            ]
+                        },
+                    )
+                elif attempt_count <= window_size * 2:
+                    # Warmup happens once per window_size
+                    assert current_concurrency == initial_concurrency + step_size
+                    warmup_concurrency = current_concurrency
+                    if attempt_count == window_size * 2:
+                        warmup_concurrency = current_concurrency
+                        backoff_concurrency = max(
+                            math.floor(current_concurrency * 0.8), min_concurrency
+                        )
+                        return CallbackResult(
+                            status=500,
+                            payload={"error": {"message": "Server error"}},
+                        )
+
+                    return CallbackResult(
+                        status=200,
+                        payload={
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": f"Success response {attempt_count}",
+                                    }
+                                }
+                            ]
+                        },
+                    )
+                elif attempt_count < recovery_step:
+                    # Concurrency should not change as we're waiting for 2 good windows
+                    assert current_concurrency == backoff_concurrency
+                    return CallbackResult(
+                        status=200,
+                        payload={
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": f"Good window {attempt_count}",
+                                    }
+                                }
+                            ]
+                        },
+                    )
+                elif attempt_count >= recovery_step:
+                    # Two good windows have passed, so we should warmup again
+                    assert current_concurrency == backoff_concurrency + step_size
+                    return CallbackResult(
+                        status=200,
+                        payload={
+                            "choices": [
+                                {
+                                    "message": {
+                                        "role": "assistant",
+                                        "content": f"Recovery response {attempt_count}",
+                                    }
+                                }
+                            ]
+                        },
+                    )
+
+            except AssertionError as e:
+                print(f"AssertionError: {e}")
+                asserts_passed = False
+                raise
+
+    with aioresponses() as m:
+        m.post(_TARGET_SERVER, callback=get_response, repeat=True)
+
+        remote_params = RemoteParams(
+            api_url=_TARGET_SERVER,
+            use_adaptive_concurrency=True,
+            num_workers=20,
+            max_retries=1,  # 1 retry to avoid complexity
+        )
+
+        engine = RemoteInferenceEngine(
+            model_params=_get_default_model_params(),
+            remote_params=remote_params,
+        )
+
+        controller = engine._adaptive_concurrency_controller
+        assert controller._current_concurrency == 10
+        min_concurrency = controller._config.min_concurrency
+        max_concurrency = controller._config.max_concurrency
+        initial_concurrency = controller._current_concurrency
+        warmup_concurrency = -1
+        backoff_concurrency = -1
+
+        conversations = [
+            Conversation(
+                messages=[Message(content=f"Test message {i}", role=Role.USER)],
+                conversation_id=f"conv-{i}",
+            )
+            for i in range(50)
+        ]
+
+        with patch(
+            "oumi.inference.adaptive_concurrency_controller.time.time",
+        ) as mock_time:
+            result = engine.infer(conversations)
+            assert len(result) == 50
+
+        assert asserts_passed

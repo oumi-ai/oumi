@@ -21,6 +21,8 @@ Running models in production environments presents several challenges that Oumi 
 - **Production-Ready**: Support for batching, retries, error-handling, structured outputs, and high-performance inference via multi-threading to hit a target throughput.
 - **Scalable Architecture**: Deploy anywhere from a single GPU to distributed systems without code changes
 - **Unified Configuration**: Control all aspects of model execution through a single config file
+- **Reliability**: Improved error handling, automatic saving of results during inference, and resume from failed inference run automatically
+- **Adaptive Throughput**: Automatically adjust requests per minute with remote inference based on error rate
 
 ## Quick Start
 
@@ -51,7 +53,7 @@ conversation = Conversation(
 )
 
 # Get response
-result = engine.infer_online([conversation], InferenceConfig())
+result = engine.infer([conversation], InferenceConfig())
 print(result[0].messages[-1].content)
 ```
 
@@ -78,7 +80,7 @@ conversation = Conversation(messages=[...])
 config = InferenceConfig(...)
 
 # 4. Run inference
-result = engine.infer_online([conversation], config)
+result = engine.infer([conversation], config)
 
 # 5. Process output
 response = result[0].messages[-1].content
@@ -125,7 +127,7 @@ conversation = Conversation(
 )
 
 inference_config = InferenceConfig()
-output_conversations = engine.infer_online(
+output_conversations = engine.infer(
     input=[conversation], inference_config=inference_config
 )
 print(output_conversations)
@@ -208,7 +210,7 @@ inference_config = InferenceConfig(
     generation=GenerationParams(max_new_tokens=64),
     engine=InferenceEngineType.VLLM,
 )
-output_conversations = engine.infer_online(
+output_conversations = engine.infer(
     input=[input_conversation], inference_config=inference_config
 )
 print(output_conversations)
@@ -223,7 +225,72 @@ oumi infer -c infer_config.yaml -i --image="https://oumi.ai/the_great_wave_off_k
 ### Distributed Inference
 
 For large-scale inference across multiple GPUs or machines, see the following tutorial
-for inference with Llama 3.3 70B on {gh}`<GitHub> notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
+for inference with Llama 3.3 70B on {gh}`notebooks/Oumi - Using vLLM Engine for Inference.ipynb`.
+
+### Save and Resume
+
+Oumi's inference system provides robust failure recovery through automatic saving and resuming of inference results. This ensures that long-running inference jobs can recover gracefully from interruptions without losing progress.
+
+#### How It Works
+
+The inference system automatically saves completed results to **scratch directories** as inference progresses:
+
+1. **Incremental Saving**: Each completed conversation is immediately saved to a scratch file
+2. **Automatic Resume**: On restart, the system loads any existing results and only processes remaining conversations
+3. **Smart Cleanup**: Scratch files are automatically cleaned up after successful completion
+
+#### Scratch Directory Locations
+
+Scratch files are stored in different locations depending on your configuration:
+
+**With Output Path Specified:**
+```
+<output_directory>/scratch/<output_filename>
+```
+
+For example, if your output path is `/home/user/results/inference_results.jsonl`, the scratch file will be:
+```
+/home/user/results/scratch/inference_results.jsonl
+```
+
+**Without Output Path (Temporary Mode):**
+```
+~/.cache/oumi/tmp/temp_inference_output_<hash>.jsonl
+```
+
+The hash is generated from your model parameters, generation parameters, and dataset content to ensure uniqueness across different inference runs.
+
+### Adaptive Inference
+
+Oumi now includes **adaptive concurrency control** for remote inference engines, which automatically adjusts the number of concurrent requests based on error rate. This feature helps optimize throughput while preventing rate limit violations and API overload.
+
+#### How It Works
+
+The adaptive inference system monitors the success and failure rates of API requests in real-time and dynamically adjusts concurrency:
+
+- **Warmup Phase**: When error rates are low, concurrency gradually increases to maximize throughput
+- **Backoff Phase**: When error rates exceed a threshold (default 1%), concurrency is reduced to prevent further errors. To avoid catastrophic backoff, the system waits for multiple consecutive bad windows to backoff further.
+- **Recovery Phase**: After multiple consecutive good windows, the system exits backoff and resumes warmup
+
+#### Configuration
+
+Adaptive concurrency is **enabled by default** for all remote inference engines. You can configure it through the `remote_params` section:
+
+```yaml
+remote_params:
+  use_adaptive_concurrency: true
+  num_workers: 50  # Maximum concurrency (acts as RPM/QPM limit)
+  politeness_policy: 60.0  # Time between adjustmests, keep to 60s for "per-minute" updates/request tracking
+```
+
+#### Benefits
+
+- **Rate Limit Protection**: Automatically reduces load when hitting API limits
+- **Optimal Throughput**: Dynamically finds the sweet spot for maximum performance
+- **Resilient Operation**: Recovers gracefully from temporary API issues
+- **No Manual Tuning**: Works out-of-the-box with sensible defaults
+
+The system starts at 50% of maximum concurrency and adjusts based on observed error rates, ensuring reliable operation across different API providers and conditions.
 
 ## Next Steps
 

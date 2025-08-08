@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+import warnings
+from typing import Optional, cast
 
 import PIL.Image
 import torch
@@ -56,7 +57,16 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         """
         super().__init__(model_params=model_params, generation_params=generation_params)
 
-        self._model = build_model(self._model_params)
+        self._model = cast(
+            transformers.PreTrainedModel, build_model(self._model_params)
+        )
+        if (
+            not hasattr(self._model, "generation_config")
+            or self._model.generation_config is None
+        ):
+            raise ValueError(
+                f"Model {self._model_params.model_name} requires a generation config."
+            )
         self._tokenizer = build_tokenizer(self._model_params)
         self._processor: Optional[BaseProcessor] = None
 
@@ -161,13 +171,20 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def _apply_chat_template_impl(self, conversation: Conversation) -> str:
         if self._processor is None:
-            return self._tokenizer.apply_chat_template(
-                conversation,  # type: ignore
+            prompt = self._tokenizer.apply_chat_template(
+                conversation.to_dict()["messages"],
                 tokenize=False,
                 add_generation_prompt=True,
             )
+            if not isinstance(prompt, str):
+                raise RuntimeError(
+                    "`apply_chat_template` returned an object that is not a string. "
+                    f"Actual type: {type(prompt)}"
+                )
+            return prompt
+
         return self._processor.apply_chat_template(
-            conversation,  # type: ignore
+            conversation.messages,
             add_generation_prompt=True,
         )
 
@@ -309,8 +326,12 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             disable=disable_tgdm,
         ):
             batch = input_batches[batch_index]
-            output_batch = self._model.generate(
-                **batch, generation_config=generation_config, tokenizer=self._tokenizer
+            output_batch: torch.LongTensor = self._model.generate(
+                # TODO: OPE-1328 - Fix type.
+                # type(batch) == BatchEncoding, but function expects a tensor.
+                **batch,  # type: ignore
+                generation_config=generation_config,
+                tokenizer=self._tokenizer,
             )
 
             # For each batch, remove the prepended prompts from all model responses.
@@ -333,7 +354,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
             output_batch_decoded = self._tokenizer.batch_decode(
                 output_batch.data,
-                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
             )
             for conversation, response in zip(
@@ -354,17 +374,10 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
                 )
                 output_conversations.append(new_conversation)
 
-        self._cleanup_scratch_file(
-            inference_config.output_path if inference_config else None
-        )
-
-        if inference_config and inference_config.output_path:
-            self._save_conversations(output_conversations, inference_config.output_path)
-
         return output_conversations
 
     @override
-    def infer_online(
+    def _infer_online(
         self,
         input: list[Conversation],
         inference_config: Optional[InferenceConfig] = None,
@@ -378,27 +391,6 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
         Returns:
             List[Conversation]: Inference output.
         """
-        return self._infer(input, inference_config)
-
-    @override
-    def infer_from_file(
-        self,
-        input_filepath: str,
-        inference_config: Optional[InferenceConfig] = None,
-    ) -> list[Conversation]:
-        """Runs model inference on inputs in the provided file.
-
-        This is a convenience method to prevent boilerplate from asserting the existence
-        of input_filepath in the generation_params.
-
-        Args:
-            input_filepath: Path to the input file containing prompts for generation.
-            inference_config: Parameters for inference.
-
-        Returns:
-            List[Conversation]: Inference output.
-        """
-        input = self._read_conversations(input_filepath)
         return self._infer(input, inference_config)
 
     @override
@@ -420,3 +412,55 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "use_cache",
             "num_beams",
         }
+
+    def infer_online(
+        self,
+        input: list[Conversation],
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference online.
+
+        Args:
+            input: A list of conversations to run inference on.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_online() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        results = self._infer_online(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results
+
+    def infer_from_file(
+        self,
+        input_filepath: str,
+        inference_config: Optional[InferenceConfig] = None,
+    ) -> list[Conversation]:
+        """Runs model inference on inputs in the provided file.
+
+        This is a convenience method to prevent boilerplate from asserting the existence
+        of input_filepath in the generation_params.
+
+        Args:
+            input_filepath: Path to the input file containing prompts for generation.
+            inference_config: Parameters for inference.
+
+        Returns:
+            List[Conversation]: Inference output.
+        """
+        warnings.warn(
+            "infer_from_file() will be private in the future. Use infer() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        input = self._read_conversations(input_filepath)
+        results = self._infer(input, inference_config)
+        if inference_config and inference_config.output_path:
+            self._save_conversations(results, inference_config.output_path)
+        return results

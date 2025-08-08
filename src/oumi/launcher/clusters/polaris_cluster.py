@@ -122,8 +122,6 @@ def _validate_job_config(job: JobConfig) -> None:
     """
     if not job.user:
         raise ValueError("User must be provided for Polaris jobs.")
-    if not job.working_dir:
-        raise ValueError("Working directory must be provided for Polaris jobs.")
     if not job.run:
         raise ValueError("Run script must be provided for Polaris jobs.")
     if job.num_nodes < 1:
@@ -134,6 +132,8 @@ def _validate_job_config(job: JobConfig) -> None:
             f"Unsupported cloud: {job.resources.cloud}"
         )
     # Warn that other resource parameters are unused for Polaris.
+    if not job.working_dir:
+        logger.warning("Working directory is not set. This is not recommended.")
     if job.resources.region:
         logger.warning("Region is unused for Polaris jobs.")
     if job.resources.zone:
@@ -222,7 +222,7 @@ class PolarisCluster(BaseCluster):
 
         For Polaris this method consists of 5 parts:
 
-        1. Copy the working directory to /home/$USER/oumi_launcher/$JOB_NAME.
+        1. Copy the working directory to /home/$USER/oumi_launcher/<submission_time>.
         2. Check if there is a conda installation at /home/$USER/miniconda3/envs/oumi.
            If not, install it.
         3. Copy all file mounts.
@@ -241,7 +241,10 @@ class PolarisCluster(BaseCluster):
         submission_time = _format_date(datetime.now())
         remote_working_dir = Path(f"/home/{user}/oumi_launcher/{submission_time}")
         # Copy the working directory to Polaris /home/ system.
-        self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        if job.working_dir:
+            self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        else:
+            self._client.run_commands([f"mkdir -p {remote_working_dir}"])
         # Check if Oumi is installed in a conda env. If not, install it.
         oumi_env_path = Path("/home/$USER/miniconda3/envs/oumi")
         install_cmds = [

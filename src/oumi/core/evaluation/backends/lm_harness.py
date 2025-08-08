@@ -110,6 +110,9 @@ def _generate_lm_harness_model_args(
     inference_remote_params: Optional[RemoteParams],
 ) -> dict[str, Any]:
     """Converts Oumi's ModelParams to LM Harness model arguments."""
+    # List of all LM Harness model arguments:
+    # https://github.com/EleutherAI/lm-evaluation-harness/blob/365fcda9b85bbb6e0572d91976b8daf409164500/lm_eval/models/huggingface.py#L66
+
     # If batch size isn't specified, we set it to "auto", which will let LM Harness
     # automatically select the largest batch size that will fit in memory.
     # https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md
@@ -119,7 +122,7 @@ def _generate_lm_harness_model_args(
     model_args_dict = {
         "trust_remote_code": model_params.trust_remote_code,
         "pretrained": model_params.model_name,
-        "dtype": model_params.torch_dtype,
+        "dtype": model_params.torch_dtype or model_params.torch_dtype_str,
         "max_length": model_params.model_max_length,
         "batch_size": batch_size,
         "max_batch_size": None,

@@ -1,4 +1,3 @@
-import itertools
 import tempfile
 from pathlib import Path
 
@@ -91,13 +90,13 @@ def test_infer_online():
             conversation_id="123",
         )
     ]
-    result = engine.infer_online([conversation], _get_default_inference_config())
+    result = engine.infer([conversation], _get_default_inference_config())
     assert expected_result == result
 
 
 def test_infer_online_empty():
     engine = NativeTextInferenceEngine(_get_default_text_model_params())
-    result = engine.infer_online([], _get_default_inference_config())
+    result = engine.infer([], _get_default_inference_config())
     assert [] == result
 
 
@@ -156,7 +155,7 @@ def test_infer_online_to_file():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
@@ -200,15 +199,10 @@ def test_infer_from_file():
                 conversation_id="123",
             )
         ]
-        result = engine.infer_from_file(
-            str(input_path),
-            _get_default_inference_config(),
-        )
+        config = _get_default_inference_config()
+        config.input_path = str(input_path)
+        result = engine.infer(inference_config=config)
         assert expected_result == result
-        inference_config = _get_default_inference_config()
-        inference_config.input_path = str(input_path)
-        infer_result = engine.infer(inference_config=inference_config)
-        assert expected_result == infer_result
 
 
 def test_infer_from_file_empty():
@@ -217,11 +211,9 @@ def test_infer_from_file_empty():
         _setup_input_conversations(str(input_path), [])
         engine = NativeTextInferenceEngine(_get_default_text_model_params())
         inference_config = _get_default_inference_config()
-        result = engine.infer_from_file(str(input_path), inference_config)
-        assert [] == result
         inference_config.input_path = str(input_path)
-        infer_result = engine.infer(inference_config=inference_config)
-        assert [] == infer_result
+        result = engine.infer(inference_config=inference_config)
+        assert [] == result
 
 
 def test_infer_from_file_to_file():
@@ -281,7 +273,7 @@ def test_infer_from_file_to_file():
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
@@ -348,57 +340,53 @@ def test_infer_from_file_to_file_with_images(root_testdata_dir: Path):
         input_path = Path(output_temp_dir) / "foo" / "input.jsonl"
         _setup_input_conversations(str(input_path), [conversation_1, conversation_2])
 
-        expected_results = []
-        for response1, response2 in itertools.product(
-            [
-                "A traditional Japanese painting of",
-                "A detailed Japanese print depicting",
-                "A Japanese print depicting a",
-            ],
-            ["The image features a black"],
-        ):
-            expected_results.append(
-                [
-                    Conversation(
-                        messages=[
-                            *conversation_1.messages,
-                            Message(
-                                content=response1,
-                                role=Role.ASSISTANT,
-                            ),
-                        ],
-                        metadata={"foo": "bar"},
-                        conversation_id="123",
-                    ),
-                    Conversation(
-                        messages=[
-                            *conversation_2.messages,
-                            Message(
-                                content=response2,
-                                role=Role.ASSISTANT,
-                            ),
-                        ],
-                        metadata={"umi": "bar"},
-                        conversation_id="133",
-                    ),
-                ]
-            )
-
         output_path = Path(output_temp_dir) / "b" / "output.jsonl"
         inference_config = _get_default_inference_config()
         inference_config.output_path = str(output_path)
 
-        result = engine.infer_online(
+        result = engine.infer(
             [conversation_1, conversation_2],
             inference_config,
         )
-        assert result in expected_results
-        idx = expected_results.index(result)
         with open(output_path) as f:
             parsed_conversations = []
             for line in f:
                 parsed_conversations.append(Conversation.from_json(line))
-            assert expected_results[idx] == parsed_conversations
+            assert result == parsed_conversations
+
+        expected_results = [
+            Conversation(
+                messages=[
+                    *conversation_1.messages,
+                    Message(
+                        content="",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"foo": "bar"},
+                conversation_id="123",
+            ),
+            Conversation(
+                messages=[
+                    *conversation_2.messages,
+                    Message(
+                        content="",
+                        role=Role.ASSISTANT,
+                    ),
+                ],
+                metadata={"umi": "bar"},
+                conversation_id="133",
+            ),
+        ]
+        # Verify that the model response isn't empty, and verify that the results
+        # are as expected except for the response content.
+        assert len(result) == len(expected_results)
+        for expected, actual in zip(expected_results, result):
+            assert actual.messages[-1].content
+            actual_dict = actual.to_dict()
+            actual_dict["messages"][-1]["content"] = ""
+            actual = Conversation.from_dict(actual_dict)
+            assert actual == expected
 
 
 def test_unsupported_model_raises_error():
@@ -408,5 +396,5 @@ def test_unsupported_model_raises_error():
         tokenizer_pad_token="<|endoftext|>",
         load_pretrained_weights=False,
     )
-    with pytest.raises(ValueError, match="does not support generation"):
+    with pytest.raises(ValueError, match="requires a generation config"):
         NativeTextInferenceEngine(model_params)

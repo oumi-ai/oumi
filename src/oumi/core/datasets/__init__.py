@@ -25,7 +25,10 @@ For more detailed information on each class, please refer to their respective
 documentation.
 """
 
-from oumi.core.datasets.base_dpo_dataset import BaseExperimentalDpoDataset
+from oumi.core.datasets.base_dpo_dataset import (
+    BaseDpoDataset,
+    BaseExperimentalDpoDataset,
+)
 from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
 from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtooDataset
@@ -37,8 +40,10 @@ from oumi.core.datasets.pretraining_async_text_dataset import (
     PretrainingAsyncTextDataset,
 )
 from oumi.core.datasets.vision_language_dataset import VisionLanguageSftDataset
+from oumi.core.datasets.vision_language_dpo_dataset import VisionLanguageDpoDataset
 
 __all__ = [
+    "BaseDpoDataset",
     "BaseExperimentalDpoDataset",
     "BaseExperimentalGrpoDataset",
     "BaseIterableDataset",
@@ -49,4 +54,5 @@ __all__ = [
     "PackedSftDataset",
     "PretrainingAsyncTextDataset",
     "VisionLanguageSftDataset",
+    "VisionLanguageDpoDataset",
 ]

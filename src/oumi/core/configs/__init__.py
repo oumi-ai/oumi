@@ -57,8 +57,8 @@ The configurations are organized into different categories:
     - :class:`~oumi.core.configs.params.telemetry_params.TelemetryParams`
 - Judge:
     - :class:`~oumi.core.configs.judge_config.JudgeConfig`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttribute`
-    - :class:`~oumi.core.configs.judge_config.JudgeAttributeValueType`
+    - :class:`~oumi.core.configs.params.judge_params.JudgeOutputType`
+    - :class:`~oumi.core.configs.params.judge_params.JudgeResponseFormat`
 
 Example:
     >>> from oumi.core.configs import ModelParams, TrainingConfig, TrainingParams
@@ -76,17 +76,17 @@ Note:
         which provides common functionality such as serialization and validation.
 """
 
+from oumi.core.configs.analyze_config import (
+    AnalyzeConfig,
+    SampleAnalyzerParams,
+)
 from oumi.core.configs.async_evaluation_config import AsyncEvaluationConfig
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.evaluation_config import EvaluationConfig
 from oumi.core.configs.inference_config import InferenceConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.job_config import JobConfig, JobResources, StorageMount
-from oumi.core.configs.judge_config import (
-    JudgeAttribute,
-    JudgeAttributeValueType,
-    JudgeConfig,
-)
+from oumi.core.configs.judge_config import JudgeConfig
 from oumi.core.configs.params.data_params import (
     DataParams,
     DatasetParams,
@@ -110,6 +110,10 @@ from oumi.core.configs.params.fsdp_params import (
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.guided_decoding_params import GuidedDecodingParams
+from oumi.core.configs.params.judge_params import (
+    JudgeOutputType,
+    JudgeResponseFormat,
+)
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import (
     LoraWeightInitialization,
@@ -125,6 +129,8 @@ from oumi.core.configs.params.training_params import (
     TrainerType,
     TrainingParams,
 )
+from oumi.core.configs.quantization_config import QuantizationConfig
+from oumi.core.configs.synthesis_config import SynthesisConfig
 from oumi.core.configs.training_config import TrainingConfig
 
 __all__ = [
@@ -137,9 +143,13 @@ __all__ = [
     "DatasetParams",
     "DatasetSplit",
     "DatasetSplitParams",
+    "AnalyzeConfig",
+    "SampleAnalyzerParams",
     "EvaluationTaskParams",
     "EvaluationConfig",
     "EvaluationBackend",
+    "EvaluationConfig",
+    "EvaluationTaskParams",
     "FSDPParams",
     "GenerationParams",
     "GrpoParams",
@@ -148,9 +158,9 @@ __all__ = [
     "InferenceEngineType",
     "JobConfig",
     "JobResources",
-    "JudgeAttribute",
-    "JudgeAttributeValueType",
     "JudgeConfig",
+    "JudgeOutputType",
+    "JudgeResponseFormat",
     "LMHarnessTaskParams",
     "LoraWeightInitialization",
     "MixedPrecisionDtype",
@@ -159,11 +169,13 @@ __all__ = [
     "PeftParams",
     "PeftSaveMode",
     "ProfilerParams",
+    "QuantizationConfig",
     "RemoteParams",
     "SchedulerType",
     "ShardingStrategy",
     "StateDictType",
     "StorageMount",
+    "SynthesisConfig",
     "TelemetryParams",
     "TrainerType",
     "TrainingConfig",

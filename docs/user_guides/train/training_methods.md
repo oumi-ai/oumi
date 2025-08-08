@@ -235,7 +235,7 @@ Direct Preference Optimization (DPO) is a technique for training language models
 
 ### Data Format
 
-DPO uses the {class}`~oumi.core.datasets.BaseExperimentalDpoDataset` format, which includes the prompt, the chosen output, and the rejected output.
+DPO uses the {class}`~oumi.core.datasets.BaseDpoDataset` format, which includes the prompt, the chosen output, and the rejected output.
 
 ```python
 {
@@ -395,6 +395,8 @@ verl is an RL training framework created by Alibaba. Many Oumi config fields, wh
 | training.max_steps                              | trainer.total_training_steps                          |
 | training.eval_steps/training.eval_strategy      | trainer.test_freq                                     |
 | training.save_steps/training.save_epoch         | trainer.save_freq                                     |
+| training.resume_from_checkpoint                 | trainer.resume_mode/trainer.resume_from_path          |
+| training.try_resume_from_last_checkpoint        | trainer.resume_mode                                   |
 | training.logging_strategy/training.enable_wandb | trainer.logger                                        |
 | training.run_name                               | trainer.experiment_name                               |
 | training.output_dir                             | trainer.default_local_dir                             |

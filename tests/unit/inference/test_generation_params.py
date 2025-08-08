@@ -79,6 +79,12 @@ def _mock_engine(engine_class):
     mock_tokenizer.pad_token_id = 0
     mock_tokenizer.eos_token_id = 0
     mock_tokenizer.eos_token = "<eos>"
+    mock_tokenizer.batch_decode = mock.MagicMock()
+    mock_tokenizer.batch_decode.return_value = ["I'm fine, how are you?"]
+    mock_tokenizer.apply_chat_template = mock.MagicMock()
+    mock_tokenizer.apply_chat_template.return_value = (
+        "<|startoftext|>I'm fine, how are you? <|endoftext|>"
+    )
     mock_model = mock.MagicMock()
     mock_model.generate = mock.MagicMock()  # Add generate attribute
 
@@ -173,7 +179,7 @@ def test_generation_params_used_in_inference(
             remote_params=remote_params,
         )
 
-        result = engine.infer_online([sample_conversation], inference_config)
+        result = engine.infer([sample_conversation], inference_config)
 
         # Check that the result is as expected
         assert result == [sample_conversation]
@@ -225,7 +231,7 @@ def test_generation_params_defaults_used_in_inference(
             remote_params=remote_params,
         )
 
-        result = engine.infer_online([sample_conversation], inference_config)
+        result = engine.infer([sample_conversation], inference_config)
 
         assert result == [sample_conversation]
 
@@ -395,17 +401,22 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         """A version of GenerationParams that tracks which parameters are accessed."""
 
         _accessed_params: set[str]
+        _track_access: bool
 
         def __init__(self, **kwargs):
             self._accessed_params: set[str] = set()
+            self._track_access = False  # Don't track during initialization
             super().__init__(**kwargs)
+            self._track_access = True  # Start tracking after initialization
 
         def __getattribute__(self, name):
             # No need to track access to private attributes or methods
             if not name.startswith("_"):
                 # Use object.__getattribute__ to avoid infinite recursion
-                accessed_params = object.__getattribute__(self, "_accessed_params")
-                accessed_params.add(name)
+                track_access = object.__getattribute__(self, "_track_access")
+                if track_access:
+                    accessed_params = object.__getattribute__(self, "_accessed_params")
+                    accessed_params.add(name)
             return object.__getattribute__(self, name)
 
         @property
@@ -451,6 +462,12 @@ def test_supported_params_are_accessed(engine_class, model_params, sample_conver
         elif engine_class == NativeTextInferenceEngine:
             inference_config.generation.exclude_prompt_from_response = False
             engine.infer([sample_conversation], inference_config)
+        elif engine_class == VLLMInferenceEngine:
+            with patch.object(engine, "_llm") as mock_vllm:
+                mock_vllm.chat.return_value = [
+                    mock.MagicMock(outputs=[mock.MagicMock(text="Some output")])
+                ]
+                engine.infer([sample_conversation], inference_config)
         else:
             engine.infer([sample_conversation], inference_config)
 

@@ -1,4 +1,4 @@
-# VERL GRPO job config for Countdown.
+# verl GRPO job config for Countdown.
 #
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
@@ -18,13 +18,13 @@ name: grpo-verl-countdown
 
 resources:
   cloud: gcp
-  accelerators: "H100:8"
+  accelerators: "A100-80GB:2"
   use_spot: false
 
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
   ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:

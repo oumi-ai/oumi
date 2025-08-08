@@ -105,12 +105,10 @@ class TrainingConfig(BaseConfig):
         if self.model.model_max_length and self.model.model_max_length > 0:
             max_seq_length_value = int(self.model.model_max_length)
             max_seq_length_key = None
-            if trainer_type == TrainerType.TRL_SFT:
-                max_seq_length_key = "max_seq_length"
-            elif trainer_type == TrainerType.TRL_DPO:
-                max_seq_length_key = "max_length"
+            if trainer_type in (TrainerType.TRL_SFT, TrainerType.TRL_DPO):
                 # TODO: DPOTrainer also defines "max_prompt_length" and
                 # "max_target_length". How to handle them?
+                max_seq_length_key = "max_length"
             else:
                 logger.warning(
                     f"Ignored model.model_max_length={max_seq_length_value} "
@@ -132,13 +130,13 @@ class TrainingConfig(BaseConfig):
 
         # Set Liger kernel flags if using a HF trainer, and if so, don't do Liger
         # patch ourselves.
-        # TODO(OPE-1117): Clean up this logic after upgrading to trl 0.16.
         if self.model.enable_liger_kernel:
-            if trainer_type == TrainerType.TRL_SFT:
-                self.training.trainer_kwargs["use_liger"] = True
-                self.training.trainer_kwargs["use_liger_kernel"] = True
-                self.model.enable_liger_kernel = False
-            elif trainer_type in (TrainerType.TRL_DPO, TrainerType.HF):
+            if trainer_type in (
+                TrainerType.TRL_SFT,
+                TrainerType.TRL_DPO,
+                TrainerType.TRL_GRPO,
+                TrainerType.HF,
+            ):
                 self.training.trainer_kwargs["use_liger_kernel"] = True
                 self.model.enable_liger_kernel = False
             elif trainer_type == TrainerType.OUMI:

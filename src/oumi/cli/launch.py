@@ -34,12 +34,12 @@ if TYPE_CHECKING:
     from oumi.core.launcher import BaseCluster, JobStatus
 
 
-def _get_working_dir(current: str) -> str:
+def _get_working_dir(current: Optional[str]) -> Optional[str]:
     """Prompts the user to select the working directory, if relevant."""
     if not is_dev_build():
         return current
     oumi_root = get_git_root_dir()
-    if not oumi_root or oumi_root == Path(current).resolve():
+    if current and (not oumi_root or oumi_root == Path(current).resolve()):
         return current
     use_root = typer.confirm(
         "You are using a dev build of oumi. "
@@ -192,6 +192,7 @@ def _poll_job(
     If the job is running in detached mode and the job is not on the local cloud,
     the function returns immediately.
     """
+    import oumi.launcher.clients.sky_client as sky_client
     from oumi import launcher
 
     is_local = cloud == "local"
@@ -209,14 +210,27 @@ def _poll_job(
 
     assert running_cluster
 
-    _print_and_wait(
-        f"Running job [yellow]{job_status.id}[/yellow]",
-        _is_job_done,
-        asynchronous=not is_local,
-        id=job_status.id,
-        cloud=cloud,
-        cluster=job_status.cluster,
-    )
+    # Check if this is a Skypilot job and tail logs automatically
+    if cloud in [cloud.value for cloud in sky_client.SkyClient.SupportedClouds]:
+        cli_utils.CONSOLE.print(
+            f"Tailing logs for job [yellow]{job_status.id}[/yellow]..."
+        )
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky
+
+        sky.tail_logs(
+            cluster_name=job_status.cluster,
+            job_id=job_status.id,
+        )
+    else:
+        _print_and_wait(
+            f"Running job [yellow]{job_status.id}[/yellow]",
+            _is_job_done,
+            asynchronous=not is_local,
+            id=job_status.id,
+            cloud=cloud,
+            cluster=job_status.cluster,
+        )
 
     final_status = running_cluster.get_job(job_status.id)
     if final_status:
@@ -224,9 +238,8 @@ def _poll_job(
             f"Job [yellow]{final_status.id}[/yellow] finished with "
             f"status [yellow]{final_status.status}[/yellow]"
         )
-        cli_utils.CONSOLE.print(
-            f"Job metadata: [yellow]{final_status.metadata}[/yellow]"
-        )
+        cli_utils.CONSOLE.print("Job metadata:")
+        cli_utils.CONSOLE.print(f"[yellow]{final_status.metadata}[/yellow]")
 
 
 # ----------------------------

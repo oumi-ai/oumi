@@ -178,18 +178,30 @@ def torchrun(
     torchrun_available = shutil.which("torchrun") is not None
 
     try:
-        cmds: list[str] = (
-            ["torchrun"]
-            if torchrun_available
-            else ["python", "-m", "torch.distributed.run"]
-        ) + [
-            f"--nnodes={run_info.num_nodes}",
-            f"--node-rank={run_info.node_rank}",
-            f"--nproc-per-node={run_info.gpus_per_node}",
-            f"--master-addr={run_info.master_address}",
-            f"--master-port={run_info.master_port}",
-        ]
-        cmds.extend(ctx.args)
+        cmds: list[str] = []
+        args = copy.deepcopy(ctx.args)
+        if (  # Fallback to `oumi train -c ...` for single-node with 1 GPU (OPE-1315).
+            (run_info.num_nodes == 1 and run_info.gpus_per_node == 1)
+            and len(args) >= 3
+            and args[0] == "-m"
+            and args[1] == "oumi"
+            and args[2] == "train"
+        ):
+            args.pop(0)  # Remove leading "-m".
+            cmds = []
+        else:
+            cmds = (
+                ["torchrun"]
+                if torchrun_available
+                else ["python", "-m", "torch.distributed.run"]
+            ) + [
+                f"--nnodes={run_info.num_nodes}",
+                f"--node-rank={run_info.node_rank}",
+                f"--nproc-per-node={run_info.gpus_per_node}",
+                f"--master-addr={run_info.master_address}",
+                f"--master-port={run_info.master_port}",
+            ]
+        cmds.extend(args)
 
         _run_subprocess(cmds, rank=run_info.node_rank)
     except Exception:
@@ -381,6 +393,8 @@ def _detect_polaris_process_run_info(env: dict[str, str]) -> Optional[_ProcessRu
 
 
 def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunInfo]:
+    import torch  # Importing torch takes time so only load it in this scenario.
+
     nodes_str = env.get("SLURM_NODELIST", None)
     if nodes_str is None:
         return None
@@ -395,7 +409,7 @@ def _detect_slurm_process_run_info(env: dict[str, str]) -> Optional[_ProcessRunI
     node_ips = _parse_nodes_str(nodes_str)
     if len(node_ips) == 0:
         raise RuntimeError("Empty list of nodes in 'PBS_NODEFILE'!")
-    gpus_per_node = 8  # Per Frontier spec.
+    gpus_per_node = torch.cuda.device_count()
     node_rank = _get_optional_int_env_var("PMI_RANK", env)
     if node_rank is None:
         node_rank = 0

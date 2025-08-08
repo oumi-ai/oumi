@@ -18,7 +18,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
@@ -261,16 +261,21 @@ class SlurmClient:
                 timeout=180,  # time in seconds
             )
             duration_str = _compute_duration_debug_str(start_time)
-            if child.returncode == 0:
+            return_code = int(child.returncode)
+            stdout_str = child.stdout.decode("utf-8")
+            stderr_str = child.stderr.decode("utf-8")
+            if return_code == 0:
                 logger.debug(f"Commands successfully finished! {duration_str}")
             else:
                 logger.error(
-                    f"Commands failed with code: {child.returncode}! {duration_str}"
+                    f"Commands failed with code: {return_code}! {duration_str}"
+                    f"\n\nSTDERR: {stderr_str}"
+                    f"\n\nSTDOUT: {stdout_str}"
                 )
             return SlurmResponse(
-                stdout=child.stdout.decode("utf-8"),
-                stderr=child.stderr.decode("utf-8"),
-                exit_code=child.returncode,
+                stdout=stdout_str,
+                stderr=stderr_str,
+                exit_code=return_code,
             )
         except subprocess.TimeoutExpired:
             duration_str = _compute_duration_debug_str(start_time)
@@ -291,6 +296,15 @@ class SlurmClient:
         working_dir: str,
         node_count: int,
         name: Optional[str],
+        *,
+        export: Optional[Union[str, list[str]]] = None,
+        account: Optional[str] = None,
+        ntasks: Optional[int] = None,
+        threads_per_core: Optional[int] = None,
+        distribution: Optional[str] = None,
+        partition: Optional[str] = None,
+        stdout_file: Optional[str] = None,
+        stderr_file: Optional[str] = None,
     ) -> str:
         """Submits the specified job script to Slurm.
 
@@ -299,16 +313,51 @@ class SlurmClient:
             working_dir: The working directory to submit the job from.
             node_count: The number of nodes to use for the job.
             name: The name of the job (optional).
+            export: Environment variables to export.
+                Special values: "NONE" nothing to export, "ALL" export all env vars.
+            account: Charge job to specified account/project.
+            ntasks: Total number of tasks to run.
+            threads_per_core: Number of threads per core to allocate
+                e.g., 1 to allow only one thread per core,
+                or 2 to make use of hyper-threading.
+            distribution: Distribution method for processes to nodes
+                (type = block|cyclic|arbitrary)
+            partition: Partition (aka queue) requested.
+            stdout_file: File for batch script's standard output.
+            stderr_file: File for batch script's standard error.
 
         Returns:
             The ID of the submitted job.
         """
-        optional_name_args = ""
+        cmd_parts = ["sbatch", f"--nodes={node_count}"]
         if name:
-            optional_name_args = f"--job-name={name}"
-        sbatch_cmd = (
-            f"sbatch --nodes={node_count} {optional_name_args} --parsable {job_path}"
-        )
+            cmd_parts.append(f"--job-name={name}")
+        if export is not None:
+            export_str = "NONE"
+            if isinstance(export, list):
+                if len(export) > 0:
+                    export_str = ",".join(export)
+            else:
+                export_str = str(export)
+            cmd_parts.append(f"--export={export_str}")
+        if account:
+            cmd_parts.append(f"--account={account}")
+        if ntasks is not None:
+            cmd_parts.append(f"--ntasks={ntasks}")
+        if threads_per_core is not None:
+            cmd_parts.append(f"--threads-per-core={threads_per_core}")
+        if distribution:
+            cmd_parts.append(f"--distribution={distribution}")
+        if partition:
+            cmd_parts.append(f"--partition={partition}")
+        if stdout_file:
+            cmd_parts.append(f"--output={stdout_file}")
+        if stderr_file:
+            cmd_parts.append(f"--error={stderr_file}")
+        cmd_parts.append("--parsable")
+        cmd_parts.append(job_path)
+        sbatch_cmd = " ".join(cmd_parts)
+        logger.debug(f"Executing SBATCH command: {sbatch_cmd}")
         result = self.run_commands([f"cd {working_dir}", sbatch_cmd])
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to submit job. stderr: {result.stderr}")
@@ -400,6 +449,7 @@ class SlurmClient:
         """
         if Path(source).is_dir():
             self.run_commands([f"mkdir -p {destination}"])
+        docs_dir = Path(source) / "docs"
         tests_dir = Path(source) / "tests"
         git_ignore = Path(source) / ".gitignore"
         rsync_cmd_list = [f'rsync -e "ssh {_CTRL_PATH}" -avz --delete ']
@@ -407,6 +457,8 @@ class SlurmClient:
             rsync_cmd_list.append(f"--exclude-from {str(git_ignore)} ")
         if tests_dir.is_dir():
             rsync_cmd_list.append(f"--exclude {str(tests_dir)} ")
+        if docs_dir.is_dir():
+            rsync_cmd_list.append(f"--exclude {str(docs_dir)} ")
         rsync_cmd_list.append(f"{source} ")
         rsync_cmd_list.append(f"{self._user}@{self._slurm_host}:{destination}")
         rsync_cmd = "".join(rsync_cmd_list)
