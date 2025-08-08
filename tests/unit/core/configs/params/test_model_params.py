@@ -1,6 +1,6 @@
 import dataclasses
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -107,7 +107,9 @@ def _get_test_name_for_invalid_field_name_list(x):
 
 
 @pytest.mark.parametrize(
-    "field_names", _get_invalid_field_name_lists(), ids=_get_test_name_for_invalid_field_name_list
+    "field_names",
+    _get_invalid_field_name_lists(),
+    ids=_get_test_name_for_invalid_field_name_list,
 )
 def test_model_params_reserved_processor_kwargs(field_names: list[str], tmp_path: Path):
     # Get all the fields from ModelParams and only return those that are not

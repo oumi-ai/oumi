@@ -25,7 +25,6 @@ from oumi.utils.logging import logger
 from oumi.utils.torch_utils import get_torch_dtype
 
 
-
 @dataclass
 class ModelParams(BaseParams):
     model_name: str = MISSING
@@ -222,7 +221,6 @@ class ModelParams(BaseParams):
 
     This is used to specify the version of the model to use.
     """
-
 
     def __post_init__(self):
         """Populate additional params."""

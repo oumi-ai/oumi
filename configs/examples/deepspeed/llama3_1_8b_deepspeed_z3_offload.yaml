@@ -65,7 +65,7 @@ deepspeed:
   stage3_param_persistence_threshold: "auto"
   stage3_max_live_parameters: 1000000000     # 1e9
   stage3_max_reuse_distance: 1000000000      # 1e9
-  stage3_gather_16bit_weights_on_model_save: False
+  gather_16bit_weights_on_model_save: False
 
   # CPU offloading for maximum memory efficiency
   offload_optimizer:

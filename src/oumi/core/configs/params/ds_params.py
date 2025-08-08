@@ -244,7 +244,17 @@ class DSParams(BaseParams):
     """Maximum reuse distance for parameters in ZeRO-3."""
 
     stage3_gather_16bit_weights_on_model_save: bool = True
-    """Whether to gather 16-bit weights during model saving in ZeRO-3."""
+    """Whether to gather 16-bit weights during model saving in ZeRO-3.
+
+    Deprecated in DeepSpeed 0.17+. Use gather_16bit_weights_on_model_save instead.
+    """
+
+    gather_16bit_weights_on_model_save: bool = True
+    """Whether to gather 16-bit weights during model saving in ZeRO-3.
+
+    This is the new parameter name for DeepSpeed 0.17+. Replaces the deprecated
+    stage3_gather_16bit_weights_on_model_save.
+    """
 
     stage3_gather_fp16_weights_on_model_save: bool = False
     """Whether to gather FP16 weights during model saving in ZeRO-3."""
@@ -337,6 +347,17 @@ class DSParams(BaseParams):
         Returns:
             Dictionary containing DeepSpeed configuration parameters.
         """
+        # Check DeepSpeed version to use appropriate parameter names
+        use_new_param_names = True
+        try:
+            import deepspeed
+            from packaging import version
+
+            ds_version = version.parse(deepspeed.__version__)
+            use_new_param_names = ds_version > version.parse("0.15.0")
+        except Exception:
+            # If we can't determine version, assume newer version
+            use_new_param_names = True
         config = {
             "train_batch_size": self.train_batch_size,
             "train_micro_batch_size_per_gpu": self.train_micro_batch_size_per_gpu,
@@ -408,15 +429,22 @@ class DSParams(BaseParams):
                     ),
                     "stage3_max_live_parameters": self.stage3_max_live_parameters,
                     "stage3_max_reuse_distance": self.stage3_max_reuse_distance,
-                    "stage3_gather_16bit_weights_on_model_save": (
-                        self.stage3_gather_16bit_weights_on_model_save
-                    ),
                     "stage3_gather_fp16_weights_on_model_save": (
                         self.stage3_gather_fp16_weights_on_model_save
                     ),
                     "memory_efficient_linear": self.memory_efficient_linear,
                 }
             )
+
+            # Use appropriate parameter name based on DeepSpeed version
+            if use_new_param_names:
+                zero_config["gather_16bit_weights_on_model_save"] = (
+                    self.gather_16bit_weights_on_model_save
+                )
+            else:
+                zero_config["stage3_gather_16bit_weights_on_model_save"] = (
+                    self.stage3_gather_16bit_weights_on_model_save
+                )
 
         # Add offloading configurations
         if self.offload_optimizer is not None:
