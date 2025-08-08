@@ -21,7 +21,7 @@
 
 model:
   model_name: "openai/gpt-oss-20b"
-  model_max_length: 4096
+  model_max_length: 8192
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
@@ -50,7 +50,7 @@ training:
   # Small batch size for memory efficiency
   per_device_train_batch_size: 1
   # High gradient accumulation to maintain effective batch size
-  gradient_accumulation_steps: 16  # Effective batch size = 16
+  gradient_accumulation_steps: 4
   enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false
