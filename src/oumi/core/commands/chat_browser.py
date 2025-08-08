@@ -19,7 +19,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -63,7 +63,7 @@ class ChatBrowser:
         while True:
             # Display recent chats
             self._display_chat_list(recent_chats)
-            
+
             # Get user selection
             choice = self._get_user_choice(recent_chats)
             if choice is None:
@@ -79,23 +79,23 @@ class ChatBrowser:
                 chat_metadata = recent_chats[choice]
                 self._play_chat(chat_metadata)
 
-    def _load_recent_chats(self) -> List[Dict[str, Any]]:
+    def _load_recent_chats(self) -> list[dict[str, Any]]:
         """Load recent chat metadata from cache."""
         if not self.metadata_file.exists():
             return []
 
         try:
-            with open(self.metadata_file, "r", encoding="utf-8") as f:
+            with open(self.metadata_file, encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             # Sort by timestamp, most recent first
             chats = data.get("chats", [])
             return sorted(chats, key=lambda x: x.get("timestamp", 0), reverse=True)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load chat metadata: {e}")
             return []
 
-    def _display_chat_list(self, chats: List[Dict[str, Any]]) -> None:
+    def _display_chat_list(self, chats: list[dict[str, Any]]) -> None:
         """Display a list of recent chats."""
         table = Table(
             title="Recent Chat Conversations",
@@ -103,38 +103,34 @@ class ChatBrowser:
             show_edge=False,
             show_lines=True,
         )
-        
+
         table.add_column("#", style="cyan", width=3)
         table.add_column("Date", style="green", width=12)
         table.add_column("Model", style="yellow", width=20)
         table.add_column("Messages", style="blue", width=8)
         table.add_column("Preview", style="white", width=50)
-        
+
         for i, chat in enumerate(chats[:20]):  # Show up to 20 recent chats
             timestamp = chat.get("timestamp", 0)
-            date_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
-            
+            date_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime(
+                "%Y-%m-%d"
+            )
+
             model_name = chat.get("model_name", "Unknown")
             if "/" in model_name:
                 model_name = model_name.split("/")[-1]
-            
+
             message_count = chat.get("message_count", 0)
             preview = chat.get("preview", "No preview available")
-            
+
             # Truncate preview if too long
             if len(preview) > 47:
                 preview = preview[:47] + "..."
-            
-            table.add_row(
-                str(i + 1),
-                date_str,
-                model_name,
-                str(message_count),
-                preview
-            )
-        
+
+            table.add_row(str(i + 1), date_str, model_name, str(message_count), preview)
+
         self.console.print(table)
-        
+
         # Show TTS status
         tts_status = "🔊 ON" if self.tts_enabled else "🔇 OFF"
         if self.config.style.use_emoji:
@@ -143,17 +139,17 @@ class ChatBrowser:
             status_text = "ON" if self.tts_enabled else "OFF"
             self.console.print(f"TTS: {status_text}")
 
-    def _get_user_choice(self, chats: List[Dict[str, Any]]) -> Optional[Any]:
+    def _get_user_choice(self, chats: list[dict[str, Any]]) -> Optional[Any]:
         """Get user's menu choice."""
         self.console.print()
         self.console.print("[dim]Commands:[/dim]")
-        self.console.print("[dim]  1-{}: Select chat to play back[/dim]".format(len(chats)))
+        self.console.print(f"[dim]  1-{len(chats)}: Select chat to play back[/dim]")
         self.console.print("[dim]  r: Refresh chat list[/dim]")
         self.console.print("[dim]  t: Toggle text-to-speech[/dim]")
         self.console.print("[dim]  q: Quit browser[/dim]")
-        
+
         choice = Prompt.ask("Select option", default="q").strip().lower()
-        
+
         if choice in ["q", "quit", "exit"]:
             return None
         elif choice in ["r", "refresh"]:
@@ -197,35 +193,37 @@ class ChatBrowser:
         try:
             # Try to import and initialize KittenTTS
             import torch
-            from transformers import AutoTokenizer, AutoModelForCausalLM
-            
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+
             # Load KittenTTS nano model (small enough for CPU)
             model_name = "KittenML/kitten-tts-nano-0.1"
-            
+
             self.console.print(f"[dim]Loading {model_name}...[/dim]")
-            
+
             # Use CPU for TTS to avoid GPU memory conflicts
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 torch_dtype=torch.float32,  # Use float32 for CPU
                 device_map="cpu",
-                trust_remote_code=True
+                trust_remote_code=True,
             )
-            
+
             self.tts_engine = {
                 "tokenizer": tokenizer,
                 "model": model,
             }
-            
+
         except ImportError:
-            self.console.print("[red]TTS dependencies not available. Install transformers and torch.[/red]")
+            self.console.print(
+                "[red]TTS dependencies not available. Install transformers and torch.[/red]"
+            )
             self.tts_engine = None
         except Exception as e:
             self.console.print(f"[red]Failed to load TTS model: {e}[/red]")
             self.tts_engine = None
 
-    def _play_chat(self, chat_metadata: Dict[str, Any]) -> None:
+    def _play_chat(self, chat_metadata: dict[str, Any]) -> None:
         """Play back a selected chat conversation."""
         chat_id = chat_metadata.get("id")
         if not chat_id:
@@ -239,17 +237,19 @@ class ChatBrowser:
             return
 
         try:
-            with open(chat_file, "r", encoding="utf-8") as f:
+            with open(chat_file, encoding="utf-8") as f:
                 chat_data = json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             self.console.print(f"[red]Failed to load chat: {e}[/red]")
             return
 
         # Display chat header
         model_name = chat_metadata.get("model_name", "Unknown Model")
         timestamp = chat_metadata.get("timestamp", 0)
-        date_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        
+        date_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S UTC"
+        )
+
         emoji = "🎬 " if self.config.style.use_emoji else ""
         self.console.print()
         self.console.print(
@@ -283,9 +283,9 @@ class ChatBrowser:
         self.console.print("[dim]  a: Auto-play (continuous)[/dim]")
         self.console.print("[dim]  s: Step-through (manual)[/dim]")
         self.console.print("[dim]  b: Back to browser[/dim]")
-        
+
         choice = Prompt.ask("Select playback mode", default="a").strip().lower()
-        
+
         if choice in ["a", "auto"]:
             return "auto"
         elif choice in ["s", "step"]:
@@ -296,67 +296,83 @@ class ChatBrowser:
             self.console.print("[red]Invalid choice, using auto-play.[/red]")
             return "auto"
 
-    def _auto_playback(self, conversation: List[Dict[str, Any]], model_name: str) -> None:
+    def _auto_playback(
+        self, conversation: list[dict[str, Any]], model_name: str
+    ) -> None:
         """Auto-play the conversation with timing delays."""
         self.console.print()
-        self.console.print("[dim]Starting auto-playback... (Press Ctrl+C to stop)[/dim]")
-        
+        self.console.print(
+            "[dim]Starting auto-playback... (Press Ctrl+C to stop)[/dim]"
+        )
+
         try:
             for i, message in enumerate(conversation):
                 role = message.get("role", "unknown")
                 content = message.get("content", "")
-                
+
                 if role == "user":
                     self._display_message("You", content, "blue")
                 elif role == "assistant":
-                    display_name = model_name.split("/")[-1] if "/" in model_name else model_name
+                    display_name = (
+                        model_name.split("/")[-1] if "/" in model_name else model_name
+                    )
                     self._display_message(display_name, content, "cyan")
-                    
+
                     # Use TTS for assistant messages if enabled
                     if self.tts_enabled and self.tts_engine:
                         self._speak_text(content)
-                
+
                 # Add delay between messages (except for last message)
                 if i < len(conversation) - 1:
                     time.sleep(2.0)  # 2 second delay between messages
-                    
+
         except KeyboardInterrupt:
             self.console.print("\n[yellow]Playback stopped.[/yellow]")
 
-    def _step_playback(self, conversation: List[Dict[str, Any]], model_name: str) -> None:
+    def _step_playback(
+        self, conversation: list[dict[str, Any]], model_name: str
+    ) -> None:
         """Step-through playback with manual control."""
         self.console.print()
         self.console.print("[dim]Starting step-through playback...[/dim]")
-        self.console.print("[dim]Commands: Enter/Space = next, q = quit, a = auto mode[/dim]")
-        
+        self.console.print(
+            "[dim]Commands: Enter/Space = next, q = quit, a = auto mode[/dim]"
+        )
+
         for i, message in enumerate(conversation):
             role = message.get("role", "unknown")
             content = message.get("content", "")
-            
+
             if role == "user":
                 self._display_message("You", content, "blue")
             elif role == "assistant":
-                display_name = model_name.split("/")[-1] if "/" in model_name else model_name
+                display_name = (
+                    model_name.split("/")[-1] if "/" in model_name else model_name
+                )
                 self._display_message(display_name, content, "cyan")
-                
+
                 # Use TTS for assistant messages if enabled
                 if self.tts_enabled and self.tts_engine:
                     self._speak_text(content)
-            
+
             # Wait for user input (except for last message)
             if i < len(conversation) - 1:
-                choice = Prompt.ask(
-                    f"[dim]Message {i+1}/{len(conversation)}[/dim]",
-                    default="",
-                    show_default=False
-                ).strip().lower()
-                
+                choice = (
+                    Prompt.ask(
+                        f"[dim]Message {i + 1}/{len(conversation)}[/dim]",
+                        default="",
+                        show_default=False,
+                    )
+                    .strip()
+                    .lower()
+                )
+
                 if choice in ["q", "quit"]:
                     break
                 elif choice in ["a", "auto"]:
                     # Switch to auto mode for remaining messages
                     self.console.print("[yellow]Switching to auto-playback...[/yellow]")
-                    remaining = conversation[i+1:]
+                    remaining = conversation[i + 1 :]
                     if remaining:
                         self._auto_playback(remaining, model_name)
                     break
@@ -365,22 +381,19 @@ class ChatBrowser:
         """Display a message with consistent formatting."""
         # Process content to remove any thinking tags for cleaner playback
         from oumi.core.thinking import ThinkingProcessor
-        
+
         processor = ThinkingProcessor()
         thinking_result = processor.extract_thinking(content)
-        
+
         if thinking_result.has_thinking:
             # Show thinking in compressed form during playback
             processor.render_thinking(
-                thinking_result, 
-                self.console, 
-                self.config.style, 
-                compressed=True
+                thinking_result, self.console, self.config.style, compressed=True
             )
             display_content = thinking_result.final_content
         else:
             display_content = content
-        
+
         self.console.print(
             Panel(
                 Text(display_content, style="white"),
@@ -395,45 +408,45 @@ class ChatBrowser:
         """Convert text to speech using TTS engine."""
         if not self.tts_engine:
             return
-            
+
         try:
             # Simple TTS implementation
             # Note: KittenTTS might have specific API requirements
             # This is a placeholder implementation
-            
+
             # Clean text for TTS (remove markdown, thinking tags, etc.)
             clean_text = self._clean_text_for_tts(text)
-            
+
             # Limit text length for TTS
             if len(clean_text) > 200:
                 clean_text = clean_text[:197] + "..."
-            
+
             if clean_text.strip():
                 # Basic TTS placeholder - actual implementation would depend on KittenTTS API
                 self.console.print(f"[dim]🔊 Speaking: {clean_text[:50]}...[/dim]")
-                
+
                 # Here you would implement actual TTS generation and playback
                 # For now, just add a small delay to simulate speech time
                 time.sleep(min(len(clean_text) * 0.05, 3.0))  # Max 3 seconds
-                
+
         except Exception as e:
             logger.debug(f"TTS error: {e}")
 
     def _clean_text_for_tts(self, text: str) -> str:
         """Clean text for text-to-speech processing."""
         import re
-        
+
         # Remove markdown formatting
-        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # Bold
-        text = re.sub(r'\*([^*]+)\*', r'\1', text)      # Italic
-        text = re.sub(r'`([^`]+)`', r'\1', text)        # Code
-        text = re.sub(r'```[^`]*```', '', text)         # Code blocks
-        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)  # Links
-        
+        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)  # Bold
+        text = re.sub(r"\*([^*]+)\*", r"\1", text)  # Italic
+        text = re.sub(r"`([^`]+)`", r"\1", text)  # Code
+        text = re.sub(r"```[^`]*```", "", text)  # Code blocks
+        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)  # Links
+
         # Remove special characters that don't read well
-        text = re.sub(r'[#|>]', '', text)
-        
+        text = re.sub(r"[#|>]", "", text)
+
         # Clean up whitespace
-        text = re.sub(r'\s+', ' ', text)
-        
+        text = re.sub(r"\s+", " ", text)
+
         return text.strip()
