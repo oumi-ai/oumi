@@ -146,9 +146,15 @@ class ModelParams(BaseParams):
 
     - None: Use the default attention implementation (spda for torch>=2.1.1, else eager)
     - "sdpa": Use PyTorch's scaled dot-product attention
-    - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
-      Requires "flash-attn" package to be installed
+    - "flash_attention": Automatically detect and use the best available Flash
+      Attention version (Flash Attention 3 from source, Flash Attention 2 from pip,
+      or SDPA fallback)
+    - "flash_attention_2": [DEPRECATED] Use Flash Attention 2. Use "flash_attention"
+      instead.
     - "eager": Manual implementation of attention
+    - "kernels-community/vllm-flash-attn3": Use vLLM Flash Attention 3 kernel from
+      HF Hub
+    - Custom kernel paths: Any HuggingFace Hub path to attention kernels
     """
 
     device_map: Optional[str] = "auto"
