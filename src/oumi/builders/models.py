@@ -20,6 +20,14 @@ import torch.nn as nn
 import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
+try:
+    from transformers import Mxfp4Config
+
+    MXFP4_AVAILABLE = True
+except ImportError:
+    MXFP4_AVAILABLE = False
+    Mxfp4Config = None
+
 from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
@@ -197,6 +205,44 @@ def build_oumi_model(
     return model
 
 
+def _get_quantization_config_for_training(model_params: ModelParams):
+    """Get the appropriate quantization config for training.
+
+    For MXFP4 quantized models that need dequantization during training,
+    this creates the appropriate Mxfp4Config(dequantize=True) configuration.
+
+    Args:
+        model_params: Model parameters that may contain quantization config.
+
+    Returns:
+        Quantization config object or None if no quantization needed.
+    """
+    # Check if model_kwargs contains quantization_config
+    if not model_params.model_kwargs:
+        return None
+
+    quant_config = model_params.model_kwargs.get("quantization_config")
+    if not quant_config:
+        return None
+
+    # Handle MXFP4 quantization for training (requires dequantization)
+    if isinstance(quant_config, dict) and quant_config.get("quant_method") == "mxfp4":
+        if not MXFP4_AVAILABLE:
+            raise ImportError(
+                "MXFP4 quantization requires transformers>=4.55.0 with "
+                "Mxfp4Config support. Please upgrade transformers: "
+                "pip install 'transformers>=4.55.0'"
+            )
+
+        logger.info(
+            "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
+            "for training."
+        )
+        return Mxfp4Config(dequantize=True)
+
+    return None
+
+
 def _disable_cache_in_model_config(model: transformers.PreTrainedModel) -> None:
     # Required for FSDP.
     # Context: https://github.com/huggingface/transformers/issues/28499
@@ -254,10 +300,11 @@ def build_huggingface_model(
         disable_dropout(hf_config)
         del model_params.model_kwargs["disable_dropout"]
 
+    # Handle different quantization configurations
     if peft_params and peft_params.q_lora:
         quantization_config = peft_params.to_bits_and_bytes()
     else:
-        quantization_config = None
+        quantization_config = _get_quantization_config_for_training(model_params)
 
     # Both functions instantiate a model from the config, but the main difference is
     # `load_pretrained_weights` also loads the weights, and `from_config` initializes
@@ -494,7 +541,8 @@ def build_tokenizer(
     if model_params.chat_template == "auto":
         # "auto" means use model's built-in template, don't override
         logger.info(
-            f"Chat template set to 'auto' - using model's built-in template for {tokenizer_id_str}."
+            f"Chat template set to 'auto' - using model's built-in template "
+            f"for {tokenizer_id_str}."
         )
         template_name = ""  # Don't set any template name to avoid override
     elif model_params.chat_template is not None:

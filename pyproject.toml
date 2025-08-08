@@ -179,7 +179,7 @@ file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 gpt_oss = [
     # Note: vLLM GPT OSS build must be installed separately via:
     # pip install vllm==0.10.2+gptoss --extra-index-url https://wheels.vllm.ai/gpt-oss/
-    "gpt-oss>=0.1.0",       # GPT OSS package with MXFP4 quantization support
+    "gpt-oss>=0.0.1",       # GPT OSS package with MXFP4 quantization support
     "kernels",              # HuggingFace kernels for Flash Attention 3
     "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
     # Flash Attention 3 via kernels-community/vllm-flash-attn3 (no compilation needed)

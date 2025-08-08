@@ -16,7 +16,7 @@ model:
   chat_template: "auto"  # Use model's built-in chat template
   attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
   enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
-  
+
   # Enable MXFP4 dequantization for training with pre-quantized models
   model_kwargs:
     quantization_config:
