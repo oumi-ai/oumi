@@ -89,6 +89,14 @@ class SystemMonitor:
         """
         self._context_used_tokens = tokens_used
 
+    def update_max_context_tokens(self, max_context_tokens: int):
+        """Update the maximum context window size.
+
+        Args:
+            max_context_tokens: New maximum context window size in tokens.
+        """
+        self.max_context_tokens = max_context_tokens
+
     def get_stats(self) -> SystemStats:
         """Collect current system statistics.
 

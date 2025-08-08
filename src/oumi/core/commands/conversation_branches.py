@@ -31,6 +31,12 @@ class ConversationBranch:
     parent_branch_id: Optional[str] = None
     branch_point_index: int = 0  # Index in parent where branch was created
     conversation_history: list[dict] = field(default_factory=list)
+    
+    # Model configuration state for this branch
+    model_name: Optional[str] = None
+    engine_type: Optional[str] = None
+    model_config: Optional[dict] = None  # Serialized model config
+    generation_config: Optional[dict] = None  # Serialized generation config
 
     def get_preview(self, max_length: int = 50) -> str:
         """Get a preview of the last messages in this branch.
@@ -131,7 +137,7 @@ class ConversationBranchManager:
         self._branch_counter += 1
         new_id = f"branch_{self._branch_counter}"
 
-        # Create new branch with copied history up to branch point
+        # Create new branch with copied history and model state up to branch point
         new_branch = ConversationBranch(
             id=new_id,
             name=name or f"Branch {self._branch_counter}",
@@ -140,6 +146,11 @@ class ConversationBranchManager:
             conversation_history=copy.deepcopy(
                 source_branch.conversation_history[:branch_point]
             ),
+            # Copy model state from source branch
+            model_name=source_branch.model_name,
+            engine_type=source_branch.engine_type,
+            model_config=copy.deepcopy(source_branch.model_config) if source_branch.model_config else None,
+            generation_config=copy.deepcopy(source_branch.generation_config) if source_branch.generation_config else None,
         )
 
         self.branches[new_id] = new_branch
