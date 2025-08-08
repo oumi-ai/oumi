@@ -141,9 +141,6 @@ class DatasetAnalyzer:
                 if self.tokenizer is not None:
                     analyzer_kwargs["tokenizer"] = self.tokenizer
 
-                # Pass the dataset to analyzers that need it (e.g., for tokenization)
-                analyzer_kwargs["dataset"] = self.dataset
-
                 # Create analyzer instance with keyword arguments
                 sample_analyzer = analyzer_class(**analyzer_kwargs)
                 sample_analyzers[analyzer_params.id] = sample_analyzer
