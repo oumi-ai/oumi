@@ -45,8 +45,7 @@ setup: |
   # downloading the model during training.
   HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
 
-  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
-  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.

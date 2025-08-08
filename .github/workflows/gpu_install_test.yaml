@@ -12,6 +12,7 @@ on:
 
 env:
   SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
+  NCCL_DEBUG: INFO
 
 jobs:
   gpu-install-test:
@@ -62,7 +63,7 @@ jobs:
 
     - name: Install oumi with GPU dependencies
       run: |
-        uv pip install --system -e '.[gpu,dev]'
+        uv pip install --system -e '.[gpu,dev,synthesis]'
 
     - name: Verify GPU installation
       run: |

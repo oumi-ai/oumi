@@ -113,6 +113,9 @@ class HuggingFaceTrainer(BaseTrainer):
             elif config.peft.peft_save_mode == PeftSaveMode.ADAPTER_AND_BASE_MODEL:
                 self._hf_trainer.save_model(output_dir)
                 # Saving the base model requires a separate call.
+                assert self._hf_trainer.model is not None, (
+                    "Model should not be None when using PEFT"
+                )
                 model = cast(
                     transformers.PreTrainedModel, self._hf_trainer.model.base_model
                 )

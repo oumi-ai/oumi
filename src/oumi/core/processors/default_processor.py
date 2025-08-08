@@ -252,12 +252,15 @@ class DefaultProcessor(BaseProcessor):
             )
         else:
             result = self._worker_processor.apply_chat_template(
-                conversation, add_generation_prompt=add_generation_prompt
+                [conversation], add_generation_prompt=add_generation_prompt
             )
 
         if result is None:
             raise RuntimeError("`apply_chat_template` returned `None`.")
-        elif not isinstance(result, str):
+        elif isinstance(result, list) and len(result) == 1:
+            result = result[0]
+
+        if not isinstance(result, str):
             raise RuntimeError(
                 "`apply_chat_template` returned an object that is not a string. "
                 f"Actual type: {type(result)}"

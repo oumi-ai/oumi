@@ -75,6 +75,7 @@ def _get_all_source_file_paths(exclude_prefixes: list[str] = []) -> list[str]:
             "src/oumi/models/experimental/cambrian",
             "src/oumi/core/types/proto/generated/",
             "src/oumi/utils/verl_model_merger.py",
+            "src/oumi/core/collators/trl_data_collator_for_completion_only_lm.py",
         ]
     ),
 )

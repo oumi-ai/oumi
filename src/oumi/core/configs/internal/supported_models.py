@@ -62,7 +62,7 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, cast
 
 import transformers
 
@@ -85,7 +85,7 @@ def find_model_hf_config(
     trust_remote_code: bool,
     revision: Optional[str] = None,
     **kwargs: dict[str, Any],
-):
+) -> transformers.PretrainedConfig:
     """Finds HF model config by model name."""
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
         model_name,
@@ -98,7 +98,7 @@ def find_model_hf_config(
         logger.warning(
             f"Unused kwargs found in '{model_name}' config: {unused_kwargs}."
         )
-    return hf_config
+    return cast(transformers.PretrainedConfig, hf_config)
 
 
 class _ModelTypeInfo(NamedTuple):
