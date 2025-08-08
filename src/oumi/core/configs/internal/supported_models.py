@@ -62,7 +62,7 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, cast
 
 import transformers
 
@@ -99,7 +99,7 @@ def find_model_hf_config(
         logger.warning(
             f"Unused kwargs found in '{model_name}' config: {unused_kwargs}."
         )
-    return hf_config
+    return cast(transformers.PretrainedConfig, hf_config)
 
 
 class _ModelTypeInfo(NamedTuple):
@@ -210,8 +210,8 @@ def _create_gpt_oss_config() -> InternalModelConfig:
     They support tool use, multi-turn conversations, and reasoning traces.
     """
     config = InternalModelConfig()
-    # GPT OSS can use a custom chat template, but allow override to None
-    config.chat_template = "gpt_oss"
+    # GPT OSS uses openai-harmony for complex prompting - let transformers handle it
+    config.chat_template = "auto"
     # Support for MXFP4 quantization
     config.quantization_support = ["mxfp4"]
     # Enable MoE architecture support

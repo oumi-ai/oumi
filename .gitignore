@@ -9,7 +9,7 @@ coverage_html/
 notebooks/*tutorial*
 # Evaluation results
 results/
-# Locally stored model weights
+# Local model checkpoints
 models/
 
 # Byte-compiled / optimized / DLL files
