@@ -340,6 +340,12 @@ def _format_conversation_response(
         if has_thinking:
             # Thinking content was processed and rendered, now use the cleaned final content
             content = final_content
+        
+        # Additional safety cleanup: remove any remaining harmony tags from display content
+        if "<|" in content and "|>" in content:
+            from oumi.core.thinking.thinking_processor import ThinkingProcessor
+            processor = ThinkingProcessor()
+            content = processor.clean_harmony_tags(content)
 
         # Process LaTeX expressions if no special tags
         content = _process_latex_expressions(content)
