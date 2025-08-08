@@ -36,10 +36,11 @@ data:
         # This dataset contains multilingual reasoning examples
         # Format: conversations with step-by-step reasoning
     collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
     target_col: "messages"
-    # GPT-OSS Harmony format templates
-    instruction_template: "<|start|>user<|message|>"
-    response_template: "<|start|>assistant<|channel|>final<|message|>"
 
 training:
   trainer_type: "TRL_SFT"

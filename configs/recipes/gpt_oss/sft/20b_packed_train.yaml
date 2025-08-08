@@ -43,10 +43,11 @@ data:
         # This dataset contains reasoning chains in multiple languages,
         # perfect for GPT OSS's reasoning capabilities
     # No collator needed - TRL handles packing internally
+    collator_kwargs:
+      # GPT-OSS Harmony format templates for packed training
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
     target_col: "messages"
-    # GPT-OSS Harmony format templates for packed training
-    instruction_template: "<|start|>user<|message|>"
-    response_template: "<|start|>assistant<|channel|>final<|message|>"
 
 training:
   trainer_type: "TRL_SFT"
