@@ -65,7 +65,7 @@ dependencies = [
     "safetensors>=0.6.1,<0.7",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.18.0,<2.19", # Optional, for monitoring training
-    "torch>=2.6,<2.9.0",
+    "torch>=2.6",
     "torchao>=0.11.0,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
@@ -145,6 +145,13 @@ synthesis = [
     "pdftext>=0.6.3", # Document ingestion for synthesis
 ]
 
+# Flash Attention - separate group due to special installation requirements
+flash_attn = [
+    # Note: May require manual installation with: pip install flash-attn --no-build-isolation
+    # This is kept separate to avoid breaking existing environments
+    "flash-attn>=2.0.0",
+]
+
 evaluation = [
     "alpaca-eval>=0.6.6,<0.7",
     "langdetect",                   # leaderboard_ifeval
@@ -155,7 +162,7 @@ evaluation = [
     "sentencepiece>=0.1.98",
 ]
 
-quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46"]
+quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46", "mxfp4>=0.1.0"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
@@ -167,6 +174,16 @@ cambrian = [
 ]
 
 file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
+
+# GPT OSS support - requires special installation procedure
+gpt_oss = [
+    # Note: vLLM GPT OSS build must be installed separately via:
+    # pip install vllm==0.10.2+gptoss --extra-index-url https://wheels.vllm.ai/gpt-oss/
+    "gpt-oss>=0.0.1",       # GPT OSS package with MXFP4 quantization support
+    "kernels",              # HuggingFace kernels for Flash Attention 3
+    "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
+    # Flash Attention 3 via kernels-community/vllm-flash-attn3 (no compilation needed)
+]
 
 # CI targets
 ci_cpu = [
@@ -261,6 +278,7 @@ pythonVersion = "3.9"
 pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
+reportMissingImports = "none"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
