@@ -131,18 +131,7 @@ deepspeed:
     single_submit: false
     overlap_events: true
 
-  # Gradient clipping
-  gradient_clipping: "auto"
-
-  # Mixed precision BF16 configuration
-  bf16:
-    enabled: "auto"
-    auto_cast: false
-    loss_scale: 0
-    initial_scale_power: 16
-    loss_scale_window: 1000
-    hysteresis: 2
-    min_loss_scale: 1
+  # Mixed precision and gradient clipping handled automatically by DeepSpeed
 
   # Training batch configuration
   train_batch_size: "auto"
