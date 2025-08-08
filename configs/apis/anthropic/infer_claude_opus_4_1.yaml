@@ -1,0 +1,21 @@
+# Inference config for Claude Opus 4.1
+#
+# Requirements:
+#   - Set the `ANTHROPIC_API_KEY` env var to your Anthropic API key.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/anthropic/infer_claude_opus_4_1.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Anthropic API: https://docs.anthropic.com/claude/docs/models-overview
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "claude-opus-4-1-20250805"
+
+engine: ANTHROPIC
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0

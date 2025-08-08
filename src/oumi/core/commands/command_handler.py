@@ -1968,7 +1968,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             status_message += f"\nCurrent: {current_display}"
             if engine_name:
                 status_message += f"\nNew engine: {engine_name}"
-            status_message += "\n[dim]Note: Model swapping requires infrastructure support[/dim]"
+            status_message += "\n[dim]Attempting to swap models...[/dim]"
             
             self.console.print(
                 Panel(
@@ -1979,26 +1979,71 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 )
             )
             
-            # For now, model swapping is not implemented as it requires infrastructure changes
-            # This would typically involve:
-            # 1. Validating the model exists and is available
-            # 2. Gracefully shutting down the current inference engine
-            # 3. Loading the new model
-            # 4. Reinitializing inference with the new model
-            # 5. Updating the config to reflect the new model
-            
-            warning_message = (
-                f"Model swap to '{display_name}' requested but not yet implemented. "
-                "This feature requires infrastructure support to dynamically load models. "
-                "Current conversation history will be preserved when this feature is available. "
-                f"Use /list_engines() to see available engines and models."
-            )
-            
-            return CommandResult(
-                success=False,  # Set to False since it's not implemented
-                message=warning_message,
-                should_continue=False,
-            )
+            # Actually perform the model swap
+            try:
+                # Import the inference engine builder
+                from oumi.builders.inference_engines import build_inference_engine
+                
+                # Update current config with new model/engine
+                if engine_name:
+                    # Map string engine names to enum values
+                    from oumi.core.configs import InferenceEngineType
+                    try:
+                        new_engine_type = InferenceEngineType(engine_name)
+                        self.config.engine = new_engine_type
+                    except ValueError:
+                        return CommandResult(
+                            success=False,
+                            message=f"Unknown engine type: {engine_name}. Use /list_engines() to see available engines.",
+                            should_continue=False,
+                        )
+                
+                # Update model name
+                self.config.model.model_name = model_name
+                
+                # Create new inference engine
+                new_inference_engine = build_inference_engine(
+                    engine_type=self.config.engine,
+                    model_params=self.config.model,
+                    remote_params=getattr(self.config, 'remote_params', None),
+                )
+                
+                # Update the command handler's inference engine reference
+                self.inference_engine = new_inference_engine
+                
+                # Show success message
+                success_message = f"✅ **Model swap completed successfully!**\n\n"
+                success_message += f"**Switched from:**\n"
+                success_message += f"• Engine: `{current_engine}`\n"
+                success_message += f"• Model: `{current_model}`\n\n"
+                success_message += f"**Switched to:**\n"
+                success_message += f"• Engine: `{self.config.engine}`\n"
+                success_message += f"• Model: `{model_name}`\n\n"
+                success_message += f"Conversation history preserved. You can now continue chatting with the new model."
+                
+                emoji = "✅ " if use_emoji else ""
+                self.console.print(
+                    Panel(
+                        Markdown(success_message),
+                        title=f"[{title_style}]{emoji}Model Swap Successful[/{title_style}]",
+                        border_style="green",
+                        expand=expand,
+                    )
+                )
+                
+                return CommandResult(
+                    success=True,
+                    message=f"Successfully swapped to {display_name}",
+                    should_continue=False,
+                )
+                
+            except Exception as e:
+                error_message = f"Failed to swap models: {str(e)}"
+                return CommandResult(
+                    success=False,
+                    message=error_message,
+                    should_continue=False,
+                )
             
         except Exception as e:
             return CommandResult(
@@ -2101,7 +2146,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             status_message += f"\n**Current Configuration:**\n"
             status_message += f"• Engine: `{current_engine}`\n"  
             status_message += f"• Model: `{current_model}`\n\n"
-            status_message += "[dim]Note: Config-based model swapping requires infrastructure support[/dim]"
+            status_message += "[dim]Attempting to swap models...[/dim]"
             
             self.console.print(
                 Panel(
@@ -2112,19 +2157,66 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 )
             )
             
-            # For now, config-based swapping is not implemented as it requires infrastructure changes
-            warning_message = (
-                f"Config-based swap requested (to {new_engine}:{new_model} from {config_file.name}) "
-                f"but not yet implemented. This feature requires infrastructure support to "
-                f"dynamically reload models with full configuration. Current conversation history "
-                f"will be preserved when this feature is available."
-            )
-            
-            return CommandResult(
-                success=False,  # Set to False since it's not implemented
-                message=warning_message,
-                should_continue=False,
-            )
+            # Actually perform the config-based swap
+            try:
+                # Import the inference engine builder
+                from oumi.builders.inference_engines import build_inference_engine
+                
+                # Update current config with new settings
+                self.config.engine = new_config.engine
+                self.config.model = new_config.model
+                if hasattr(new_config, 'generation') and new_config.generation:
+                    self.config.generation = new_config.generation
+                if hasattr(new_config, 'remote_params') and new_config.remote_params:
+                    self.config.remote_params = new_config.remote_params
+                
+                # Create new inference engine
+                new_inference_engine = build_inference_engine(
+                    engine_type=new_config.engine,
+                    model_params=new_config.model,
+                    remote_params=getattr(new_config, 'remote_params', None),
+                )
+                
+                # Update the command handler's inference engine reference
+                self.inference_engine = new_inference_engine
+                
+                # Show success message
+                success_message = f"✅ **Model swap completed successfully!**\n\n"
+                success_message += f"**Switched from:**\n"
+                success_message += f"• Engine: `{current_engine}`\n"
+                success_message += f"• Model: `{current_model}`\n\n"
+                success_message += f"**Switched to:**\n"
+                success_message += f"• Engine: `{new_engine}`\n"
+                success_message += f"• Model: `{new_model}`\n"
+                if generation_params:
+                    success_message += f"• Generation: {', '.join(generation_params)}\n"
+                if model_params:
+                    success_message += f"• Model Settings: {', '.join(model_params)}\n"
+                success_message += f"\nConversation history preserved. You can now continue chatting with the new model."
+                
+                emoji = "✅ " if use_emoji else ""
+                self.console.print(
+                    Panel(
+                        Markdown(success_message),
+                        title=f"[{title_style}]{emoji}Model Swap Successful[/{title_style}]",
+                        border_style="green",
+                        expand=expand,
+                    )
+                )
+                
+                return CommandResult(
+                    success=True,
+                    message=f"Successfully swapped to {new_engine}:{new_model}",
+                    should_continue=False,
+                )
+                
+            except Exception as e:
+                error_message = f"Failed to swap models: {str(e)}"
+                return CommandResult(
+                    success=False,
+                    message=error_message,
+                    should_continue=False,
+                )
             
         except Exception as e:
             return CommandResult(
