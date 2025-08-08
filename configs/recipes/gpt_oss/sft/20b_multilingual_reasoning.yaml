@@ -54,7 +54,6 @@ training:
   lr_scheduler_type: "cosine"
   lr_scheduler_kwargs:
     num_cycles: 0.5
-    eta_min_ratio: 0.1  # Min LR = 10% of initial (HF style)
   logging_steps: 10
   output_dir: "./outputs/gpt_oss_20b_multilingual_reasoning"
   run_name: "gpt-oss-20b-multilingual-reasoner"  # HF style naming
