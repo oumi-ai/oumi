@@ -40,7 +40,9 @@ def infer(
     ] = False,
     browse: Annotated[
         bool,
-        typer.Option("-b", "--browse", help="Browse and play back recent chat conversations."),
+        typer.Option(
+            "-b", "--browse", help="Browse and play back recent chat conversations."
+        ),
     ] = False,
     server_mode: Annotated[
         bool,
@@ -180,6 +182,7 @@ def infer(
     # Handle browse mode
     if browse:
         from oumi.core.commands.chat_browser import ChatBrowser
+
         browser = ChatBrowser(parsed_config)
         return browser.run()
 

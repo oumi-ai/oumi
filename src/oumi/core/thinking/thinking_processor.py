@@ -84,11 +84,20 @@ class ThinkingProcessor:
     # Pattern definitions for different thinking formats
     PATTERNS = {
         "gpt_oss": {
-            "pattern": r"<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
+            # Updated pattern to handle full OpenAI Harmony format
+            "pattern": r"<\|(?:start\|)?channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
             "flags": re.DOTALL,
             "groups": {"type": 1, "content": 2},
             "thinking_types": ["analysis", "commentary"],
             "final_types": ["final"],
+        },
+        "harmony_comprehensive": {
+            # Comprehensive pattern for all OpenAI Harmony tags
+            "pattern": r"<\|(?:start\|)?(?:channel\|)?(analysis|commentary|final|call|constrain|return)<\|(?:message\|)?(.*?)(?:<\|end\|>|$)",
+            "flags": re.DOTALL,
+            "groups": {"type": 1, "content": 2},
+            "thinking_types": ["analysis", "commentary"],
+            "final_types": ["final", "call", "constrain", "return"],
         },
         "simple_think": {
             "pattern": r"<think>(.*?)</think>",
@@ -355,3 +364,53 @@ class ThinkingProcessor:
         )
 
         return harmony_result
+
+    def clean_harmony_tags(self, content: str) -> str:
+        """Remove any remaining OpenAI Harmony format tags from content.
+
+        This is a safety net to catch any malformed or incomplete harmony tags
+        that weren't processed by the main extraction patterns.
+
+        Args:
+            content: Content that may contain harmony tags
+
+        Returns:
+            Content with harmony tags removed
+        """
+        # Remove complete harmony tag patterns first (more specific)
+        harmony_patterns = [
+            r"<\|channel\|>(analysis|commentary|final)<\|message\|>",
+            r"<\|start\|><\|channel\|>(analysis|commentary|final)<\|message\|>",
+            r"<\|(call|constrain|return)\|>.*?<\|end\|>",
+        ]
+
+        cleaned_content = content
+        for pattern in harmony_patterns:
+            cleaned_content = re.sub(pattern, "", cleaned_content, flags=re.DOTALL)
+
+        # Remove individual OpenAI Harmony special tokens
+        harmony_tags = [
+            r"<\|start\|>",
+            r"<\|end\|>",
+            r"<\|message\|>",
+            r"<\|channel\|>",
+            r"<\|constrain\|>",
+            r"<\|return\|>",
+            r"<\|call\|>",
+        ]
+
+        for tag_pattern in harmony_tags:
+            cleaned_content = re.sub(tag_pattern, "", cleaned_content)
+
+        # Clean up any leftover channel type markers that might be orphaned
+        # Only remove if they appear at the very start of content after tag removal
+        cleaned_content = re.sub(
+            r"^(analysis|commentary|final)(?=\s)", "", cleaned_content
+        )
+
+        # Clean up multiple whitespaces and newlines left by tag removal
+        cleaned_content = re.sub(r"\s+", " ", cleaned_content)
+        cleaned_content = re.sub(r"\n\s*\n", "\n\n", cleaned_content)
+        cleaned_content = re.sub(r"^\s+|\s+$", "", cleaned_content)
+
+        return cleaned_content

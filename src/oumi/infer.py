@@ -49,7 +49,13 @@ def _convert_to_harmony_format(content: str) -> dict:
     """
     # Use the unified thinking processor for all formats
     processor = ThinkingProcessor()
-    return processor.convert_to_harmony_format(content)
+    result = processor.convert_to_harmony_format(content)
+
+    # Safety cleanup: remove any remaining harmony tags from final content
+    if "content" in result:
+        result["content"] = processor.clean_harmony_tags(result["content"])
+
+    return result
 
 
 def _process_thinking_tags(

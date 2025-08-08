@@ -142,7 +142,7 @@ class CommandHandler:
         # Initialize thinking processor and display settings
         self.thinking_processor = ThinkingProcessor()
         self.show_full_thoughts = False  # Default to compressed thinking view
-        
+
         # Initialize chat caching
         self._setup_chat_cache()
         self._current_chat_id = None
@@ -182,11 +182,12 @@ class CommandHandler:
         home = os.path.expanduser("~")
         self.cache_dir = Path(home) / ".oumi" / "chats"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Set up metadata file
         self.cache_metadata_file = self.cache_dir / "chat_metadata.json"
         if not self.cache_metadata_file.exists():
             import json
+
             with open(self.cache_metadata_file, "w") as f:
                 json.dump({"chats": []}, f)
 
@@ -202,13 +203,13 @@ class CommandHandler:
         """Automatically save the current chat to cache."""
         if not self._auto_save or not self.conversation_history:
             return
-            
+
         if self._current_chat_id is None:
             self._current_chat_id = self._generate_chat_id()
-        
+
         # Save chat to cache
         chat_file = self.cache_dir / f"{self._current_chat_id}.json"
-        
+
         # Create chat metadata
         chat_metadata = {
             "id": self._current_chat_id,
@@ -216,9 +217,9 @@ class CommandHandler:
             "model": getattr(self.config.model, "model_name", "unknown"),
             "engine": str(getattr(self.config, "engine", "unknown")),
             "message_count": len(self.conversation_history),
-            "file": str(chat_file.name)
+            "file": str(chat_file.name),
         }
-        
+
         # Save the conversation
         success, _ = self._export_conversation_to_json(str(chat_file))
         if success:
@@ -228,31 +229,31 @@ class CommandHandler:
     def _update_chat_metadata(self, new_chat_metadata):
         """Update the chat metadata file with new or updated chat info."""
         import json
-        
+
         try:
-            with open(self.cache_metadata_file, "r") as f:
+            with open(self.cache_metadata_file) as f:
                 metadata = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             metadata = {"chats": []}
-        
+
         # Update or add chat metadata
         chats = metadata.get("chats", [])
         existing_chat_index = None
-        
+
         for i, chat in enumerate(chats):
             if chat.get("id") == new_chat_metadata["id"]:
                 existing_chat_index = i
                 break
-        
+
         if existing_chat_index is not None:
             chats[existing_chat_index] = new_chat_metadata
         else:
             chats.append(new_chat_metadata)
-        
+
         # Keep only the most recent 50 chats
         chats = sorted(chats, key=lambda x: x.get("created_at", ""), reverse=True)[:50]
         metadata["chats"] = chats
-        
+
         with open(self.cache_metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)
 
@@ -1493,7 +1494,7 @@ class CommandHandler:
 
         # Store in conversation history for reference
         self.conversation_history.append(attachment_entry)
-        
+
         # Trigger auto-save after adding attachment
         self._trigger_auto_save()
 
@@ -2188,14 +2189,15 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             # If no arguments, show recent chats for browsing
             if not command.args:
                 return self._browse_recent_chats()
-            
+
             chat_id = command.args[0].strip()
-            
+
             # Try to load by chat ID
             return self._load_chat_by_id(chat_id)
-            
+
         except Exception as e:
             import traceback
+
             error_details = traceback.format_exc()
             return CommandResult(
                 success=False,
@@ -2206,9 +2208,9 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
     def _browse_recent_chats(self) -> CommandResult:
         """Display recent chats for browsing."""
         import json
-        
+
         try:
-            with open(self.cache_metadata_file, "r") as f:
+            with open(self.cache_metadata_file) as f:
                 metadata = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return CommandResult(
@@ -2216,7 +2218,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 message="No cached chats found. Start a conversation to automatically cache chats.",
                 should_continue=False,
             )
-        
+
         chats = metadata.get("chats", [])
         if not chats:
             return CommandResult(
@@ -2224,43 +2226,44 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 message="No cached chats found. Start a conversation to automatically cache chats.",
                 should_continue=False,
             )
-        
+
         # Display recent chats
         from rich.table import Table
-        
+
         table = Table(title="Recent Chats", show_header=True, header_style="bold cyan")
         table.add_column("ID", style="dim", width=20)
         table.add_column("Date", style="blue")
-        table.add_column("Model", style="green") 
+        table.add_column("Model", style="green")
         table.add_column("Messages", justify="right")
         table.add_column("Preview", max_width=50)
-        
+
         for chat in chats[:20]:  # Show most recent 20
             chat_id = chat.get("id", "unknown")
             created_at = chat.get("created_at", "")
             if created_at:
                 try:
                     from datetime import datetime
+
                     dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                     formatted_date = dt.strftime("%m/%d %H:%M")
                 except:
                     formatted_date = created_at[:16]  # fallback
             else:
                 formatted_date = "unknown"
-            
+
             model = chat.get("model", "unknown")
             message_count = str(chat.get("message_count", 0))
-            
+
             # Get a preview of the chat
             preview = self._get_chat_preview(chat.get("file", ""))
-            
+
             table.add_row(chat_id, formatted_date, model, message_count, preview)
-        
+
         use_emoji = getattr(self._style, "use_emoji", True)
         title_style = getattr(self._style, "assistant_title_style", "bold cyan")
         border_style = getattr(self._style, "assistant_border_style", "yellow")
         expand = getattr(self._style, "expand_panels", False)
-        
+
         emoji = "💾 " if use_emoji else ""
         self.console.print(
             Panel(
@@ -2270,9 +2273,9 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 expand=expand,
             )
         )
-        
+
         message = "Use `/load(chat_id)` to load a specific chat, or browse with the new `oumi infer -b` command."
-        
+
         return CommandResult(
             success=True,
             message=message,
@@ -2283,16 +2286,17 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
         """Get a preview of the first user message from a chat file."""
         if not chat_file:
             return ""
-            
+
         chat_path = self.cache_dir / chat_file
         if not chat_path.exists():
             return "(file not found)"
-        
+
         try:
             import json
-            with open(chat_path, "r") as f:
+
+            with open(chat_path) as f:
                 chat_data = json.load(f)
-            
+
             messages = chat_data.get("conversation", [])
             for msg in messages:
                 if msg.get("role") == "user":
@@ -2308,20 +2312,21 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
     def _load_chat_by_id(self, chat_id: str) -> CommandResult:
         """Load a specific chat by ID."""
         import json
-        
+
         # Find the chat file
         chat_file = self.cache_dir / f"{chat_id}.json"
         if not chat_file.exists():
             # Try to find by partial ID match
             try:
-                with open(self.cache_metadata_file, "r") as f:
+                with open(self.cache_metadata_file) as f:
                     metadata = json.load(f)
-                    
+
                 matching_chats = [
-                    chat for chat in metadata.get("chats", [])
+                    chat
+                    for chat in metadata.get("chats", [])
                     if chat.get("id", "").startswith(chat_id)
                 ]
-                
+
                 if len(matching_chats) == 1:
                     chat_file = self.cache_dir / matching_chats[0]["file"]
                 elif len(matching_chats) > 1:
@@ -2342,18 +2347,18 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=f"Chat '{chat_id}' not found. Use `/load()` to browse available chats.",
                     should_continue=False,
                 )
-        
+
         if not chat_file.exists():
             return CommandResult(
                 success=False,
                 message=f"Chat file not found for '{chat_id}'.",
                 should_continue=False,
             )
-        
+
         try:
-            with open(chat_file, "r") as f:
+            with open(chat_file) as f:
                 chat_data = json.load(f)
-            
+
             # Load conversation history
             new_conversation = chat_data.get("conversation", [])
             if not new_conversation:
@@ -2362,49 +2367,51 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                     message=f"Chat '{chat_id}' appears to be empty.",
                     should_continue=False,
                 )
-            
+
             # Clear current conversation and load the cached one
             self.conversation_history.clear()
             self.conversation_history.extend(new_conversation)
-            
+
             # Update current chat ID to the loaded one
             self._current_chat_id = chat_id
-            
+
             # Update context usage in system monitor
             self._update_context_in_monitor()
-            
+
             # Display success message
             chat_info = chat_data.get("metadata", {})
             model_name = chat_info.get("model", "unknown")
             message_count = len(new_conversation)
             created_at = chat_info.get("created_at", "")
-            
+
             use_emoji = getattr(self._style, "use_emoji", True)
             emoji = "✅ " if use_emoji else ""
-            
+
             success_message = f"{emoji}**Chat loaded successfully!**\n\n"
             success_message += f"**Chat ID:** `{chat_id}`\n"
             success_message += f"**Model:** `{model_name}`\n"
             success_message += f"**Messages:** {message_count}\n"
             if created_at:
                 success_message += f"**Created:** {created_at[:16]}\n"
-            success_message += f"\nContinue the conversation or use `/clear()` to start fresh."
-            
+            success_message += (
+                "\nContinue the conversation or use `/clear()` to start fresh."
+            )
+
             self.console.print(
                 Panel(
                     Markdown(success_message),
-                    title=f"Chat Loaded",
+                    title="Chat Loaded",
                     border_style="green",
                     expand=getattr(self._style, "expand_panels", False),
                 )
             )
-            
+
             return CommandResult(
                 success=True,
                 message=f"Loaded chat '{chat_id}' with {message_count} messages",
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
