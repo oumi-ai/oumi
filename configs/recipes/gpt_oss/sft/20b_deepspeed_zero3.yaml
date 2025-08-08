@@ -70,63 +70,44 @@ training:
   seed: 42
   dataloader_num_workers: 12
 
-# DeepSpeed ZeRO-3 configuration with full parameter set
+# DeepSpeed configuration for ZeRO-3 with CPU offloading
 deepspeed:
-  enable_deepspeed: true
+  enable_deepspeed: True
   zero_stage: "ZERO_3"
   precision: "BF16"
 
-  # ZeRO-3 optimization parameters
-  overlap_comm: true
-  contiguous_gradients: true
-  sub_group_size: 1000000000  # 1e9
-  reduce_bucket_size: "auto"
+  # ZeRO-3 specific parameters
+  allgather_partitions: True
+  allgather_bucket_size: 200000000  # 2e8
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 200000000     # 2e8
+  contiguous_gradients: True
+  round_robin_gradients: False
 
   # ZeRO-3 specific stage3 parameters
+  sub_group_size: 1000000000        # 1e9
   stage3_prefetch_bucket_size: "auto"
   stage3_param_persistence_threshold: "auto"
-  stage3_max_live_parameters: 1000000000  # 1e9
-  stage3_max_reuse_distance: 1000000000   # 1e9
-  memory_efficient_linear: false
-  stage3_gather_fp16_weights_on_model_save: false
+  stage3_max_live_parameters: 1000000000     # 1e9
+  stage3_max_reuse_distance: 1000000000      # 1e9
+  stage3_gather_16bit_weights_on_model_save: False
 
-  # Offload configuration - keep on GPU for performance
+  # CPU offloading for maximum memory efficiency
   offload_optimizer:
-    device: "NONE"
-  offload_param:
-    device: "NONE"
+    device: "CPU"
+    pin_memory: True
+    buffer_count: 4
 
-  # Activation checkpointing settings
-  activation_checkpointing:
-    partition_activations: false
-    cpu_checkpointing: false
-    contiguous_memory_optimization: false
-    number_checkpoints: null
-    synchronize_checkpoint_boundary: false
-    profile: false
+  # offload_param:
+  #   device: "CPU"
+  #   pin_memory: True
+  #   buffer_count: 4
 
-  # Async I/O settings
-  aio:
-    block_size: 1048576
-    queue_depth: 8
-    thread_count: 1
-    single_submit: false
-    overlap_events: true
+  # Memory optimization
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: True  # Use DeepSpeed CPU optimizer when offloading
 
-  # Mixed precision and gradient clipping handled automatically by DeepSpeed
-
-  # Training batch configuration
-  train_batch_size: "auto"
-  train_micro_batch_size_per_gpu: "auto"
-  gradient_accumulation_steps: "auto"
-
-  # Communication logging
-  comms_logger:
-    enabled: false
-    verbose: false
-    prof_all: false
-    debug: false
-
-  # Monitoring
+  # Logging
   steps_per_print: 10
-  wall_clock_breakdown: false
+  wall_clock_breakdown: False
