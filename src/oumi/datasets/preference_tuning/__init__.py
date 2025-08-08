@@ -15,7 +15,9 @@
 """Preference tuning datasets module."""
 
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
+from oumi.datasets.preference_tuning.rlaif_v import OpenbmbRlaifVDataset
 
 __all__ = [
     "OrpoDpoMix40kDataset",
+    "OpenbmbRlaifVDataset",
 ]
