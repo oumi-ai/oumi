@@ -26,7 +26,7 @@ from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
-from oumi.cli.infer import infer
+from oumi.cli.infer import chat, infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
@@ -80,6 +80,10 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Run inference on a model.",
     )(infer)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Start an interactive chat session with a model.",
+    )(chat)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Synthesize a dataset.",

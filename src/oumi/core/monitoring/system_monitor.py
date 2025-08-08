@@ -38,6 +38,7 @@ class SystemStats:
     context_used_tokens: int = 0
     context_max_tokens: int = 0
     context_percent: float = 0.0
+    conversation_turns: int = 0
 
 
 class SystemMonitor:
@@ -54,6 +55,7 @@ class SystemMonitor:
         self.update_interval = update_interval
         self.last_update_time = 0.0
         self._context_used_tokens = 0
+        self._conversation_turns = 0
 
         # Try to import optional monitoring libraries
         self._psutil = None
@@ -97,6 +99,14 @@ class SystemMonitor:
         """
         self.max_context_tokens = max_context_tokens
 
+    def update_conversation_turns(self, turns: int):
+        """Update the number of conversation turns.
+
+        Args:
+            turns: Current number of conversation turns (user+assistant exchanges).
+        """
+        self._conversation_turns = turns
+
     def get_stats(self) -> SystemStats:
         """Collect current system statistics.
 
@@ -113,6 +123,7 @@ class SystemMonitor:
             context_percent=(self._context_used_tokens / self.max_context_tokens * 100)
             if self.max_context_tokens > 0
             else 0.0,
+            conversation_turns=self._conversation_turns,
         )
 
         # CPU and RAM stats using psutil
@@ -190,7 +201,10 @@ class SystemMonitor:
         ram_color = self._get_usage_color(stats.ram_percent)
         table.add_row(
             "RAM:",
-            f"[{ram_color}]{stats.ram_used_gb:.1f}/{stats.ram_total_gb:.1f} GB ({stats.ram_percent:.1f}%)[/{ram_color}]",
+            (
+                f"[{ram_color}]{stats.ram_used_gb:.1f}/{stats.ram_total_gb:.1f} GB"
+                f" ({stats.ram_percent:.1f}%)[/{ram_color}]"
+            ),
         )
 
         # GPU rows (if available)
@@ -198,7 +212,11 @@ class SystemMonitor:
             gpu_mem_color = self._get_usage_color(stats.gpu_vram_percent)
             table.add_row(
                 "GPU VRAM:",
-                f"[{gpu_mem_color}]{stats.gpu_vram_used_gb:.1f}/{stats.gpu_vram_total_gb:.1f} GB ({stats.gpu_vram_percent:.1f}%)[/{gpu_mem_color}]",
+                (
+                    f"[{gpu_mem_color}]{stats.gpu_vram_used_gb:.1f}/"
+                    f"{stats.gpu_vram_total_gb:.1f} GB "
+                    f"({stats.gpu_vram_percent:.1f}%)[/{gpu_mem_color}]"
+                ),
             )
 
         if stats.gpu_compute_percent is not None:
@@ -213,7 +231,17 @@ class SystemMonitor:
         remaining_tokens = stats.context_max_tokens - stats.context_used_tokens
         table.add_row(
             "Context:",
-            f"[{context_color}]{stats.context_used_tokens}/{stats.context_max_tokens} tokens ({remaining_tokens} free)[/{context_color}]",
+            (
+                f"[{context_color}]{stats.context_used_tokens}/"
+                f"{stats.context_max_tokens} tokens "
+                f"({remaining_tokens} free)[/{context_color}]"
+            ),
+        )
+
+        # Conversation turns row
+        table.add_row(
+            "Turns:",
+            f"[cyan]{stats.conversation_turns} exchanges[/cyan]",
         )
 
         # Get style settings

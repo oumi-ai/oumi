@@ -13,12 +13,17 @@
 # limitations under the License.
 
 import re
+import threading
 import time
+from contextlib import contextmanager
 from typing import Optional
 
 from rich.console import Console
+from rich.layout import Layout
+from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
+from rich.spinner import Spinner
 from rich.text import Text
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -36,6 +41,87 @@ from oumi.core.types.conversation import (
     Type,
 )
 from oumi.utils.logging import logger
+
+
+def _get_chars_per_token_ratio(model_name: str) -> float:
+    """Get model-specific character-to-token ratio for estimation.
+    
+    Args:
+        model_name: Name of the model.
+        
+    Returns:
+        Estimated characters per token for the model.
+    """
+    model_name_lower = model_name.lower() if model_name else ""
+    
+    if "gpt" in model_name_lower or "claude" in model_name_lower:
+        return 3.7  # GPT/Claude models typically have ~3.5-4 chars per token
+    elif "llama" in model_name_lower or "mistral" in model_name_lower:
+        return 4.0  # Llama/Mistral models typically have ~3.8-4.2 chars per token
+    elif "qwen" in model_name_lower:
+        return 3.5  # Qwen models are more efficient with multilingual text
+    else:
+        return 4.0  # Default conservative estimate
+
+
+@contextmanager
+def thinking_with_monitor(
+    console: Console,
+    system_monitor: SystemMonitor,
+    status_message: str = "Thinking...",
+    style: str = "cyan",
+    update_interval: float = 2.0,
+):
+    """Context manager that shows thinking animation with live system monitor updates.
+
+    Args:
+        console: Rich console for output.
+        system_monitor: System monitor to update during thinking.
+        status_message: Message to display with spinner.
+        style: Style for the status message.
+        update_interval: Seconds between system monitor updates.
+    """
+    # Create layout with spinner and system monitor
+    layout = Layout()
+    layout.split_column(Layout(name="status", size=3), Layout(name="monitor", size=8))
+
+    # Initialize spinner and system stats
+    spinner = Spinner("dots", text=f"[{style}]{status_message}[/{style}]")
+
+    # Flag to stop the update thread
+    stop_updating = threading.Event()
+
+    def update_display():
+        """Update the system monitor display in a separate thread."""
+        while not stop_updating.is_set():
+            try:
+                # Force update of system stats
+                system_monitor.last_update_time = 0  # Force update
+                stats = system_monitor.get_stats()
+                monitor_panel = system_monitor.format_hud(stats)
+
+                # Update layout
+                layout["status"].update(spinner)
+                layout["monitor"].update(monitor_panel)
+
+                time.sleep(update_interval)
+            except Exception:
+                # If there's an error, just continue silently
+                pass
+
+    # Start the update thread
+    update_thread = threading.Thread(target=update_display, daemon=True)
+    update_thread.start()
+
+    # Use Live to display the animated layout
+    with Live(layout, console=console, refresh_per_second=4):
+        try:
+            yield
+        finally:
+            # Stop the update thread
+            stop_updating.set()
+            # Wait briefly for thread to finish
+            update_thread.join(timeout=0.5)
 
 
 def _convert_to_harmony_format(content: str) -> dict:
@@ -340,10 +426,11 @@ def _format_conversation_response(
         if has_thinking:
             # Thinking content was processed and rendered, now use the cleaned final content
             content = final_content
-        
+
         # Additional safety cleanup: remove any remaining harmony tags from display content
         if "<|" in content and "|>" in content:
             from oumi.core.thinking.thinking_processor import ThinkingProcessor
+
             processor = ThinkingProcessor()
             content = processor.clean_harmony_tags(content)
 
@@ -405,7 +492,7 @@ def _format_conversation_response(
         has_markdown = has_markdown or bool(
             re.search(r"^\s*\|.*\|.*\|\s*$", content, re.MULTILINE)
         )  # Multi-column tables
-        
+
         # Check for inline tables (single-line tables from GPT-OSS)
         has_markdown = has_markdown or bool(
             re.search(r"\|[^|]*\|[^|]*\|[^|]*\|", content)
@@ -420,30 +507,32 @@ def _format_conversation_response(
                 normalized_content = (
                     content.replace("‑", "-").replace("–", "-").replace("—", "-")
                 )
-                
+
                 # Simple table formatting improvement for better readability
                 def improve_table_readability(text):
                     """Add line breaks around table-like content for better markdown parsing."""
                     # Only add line breaks around obvious table patterns, don't try to parse them
-                    lines = text.split('\n')
+                    lines = text.split("\n")
                     improved_lines = []
-                    
+
                     for line in lines:
                         # If line has lots of pipes and looks like a table row, add line breaks
-                        if '|' in line and line.count('|') >= 4:
+                        if "|" in line and line.count("|") >= 4:
                             # Add the line as-is but with some spacing
-                            improved_lines.append('')  # Empty line before
+                            improved_lines.append("")  # Empty line before
                             improved_lines.append(line.strip())  # The table line
-                            improved_lines.append('')  # Empty line after
+                            improved_lines.append("")  # Empty line after
                         else:
                             improved_lines.append(line)
-                    
+
                     # Clean up excessive empty lines
-                    result = '\n'.join(improved_lines)
-                    result = re.sub(r'\n\n\n+', '\n\n', result)  # Max 2 consecutive newlines
-                    
+                    result = "\n".join(improved_lines)
+                    result = re.sub(
+                        r"\n\n\n+", "\n\n", result
+                    )  # Max 2 consecutive newlines
+
                     return result
-                
+
                 normalized_content = improve_table_readability(normalized_content)
 
                 # Create markdown with explicit settings for better compatibility
@@ -670,9 +759,12 @@ def infer_interactive(
             inference_start_time = time.time()
             first_token_time = None
 
-            with console.status(
-                f"[{config.style.status_style}]Thinking...[/{config.style.status_style}]",
-                spinner="dots",
+            with thinking_with_monitor(
+                console=console,
+                system_monitor=system_monitor,
+                status_message="Thinking...",
+                style=config.style.status_style,
+                update_interval=2.0,
             ):
                 # Check if this is a NATIVE engine that supports conversation history
                 from oumi.core.configs import InferenceEngineType
@@ -850,7 +942,7 @@ def infer_interactive(
                 else total_inference_time
             )
 
-            # Estimate tokens generated (rough approximation)
+            # Estimate tokens generated using model-aware ratios
             response_text = ""
             for conversation in model_response:
                 for message in conversation.messages:
@@ -859,8 +951,9 @@ def infer_interactive(
                     ):
                         response_text += message.content
 
-            # Rough token estimation (4 chars per token average)
-            estimated_tokens = len(response_text) / 4
+            # Use model-specific character-to-token ratios
+            chars_per_token = _get_chars_per_token_ratio(model_name)
+            estimated_tokens = len(response_text) / chars_per_token
             tokens_per_second = (
                 estimated_tokens / total_inference_time
                 if total_inference_time > 0
@@ -936,9 +1029,16 @@ def infer_interactive(
                 if isinstance(msg.get("content"), str):
                     total_text += msg["content"] + "\n"
 
-            # Rough token estimation (4 chars per token average)
-            estimated_context_tokens = len(total_text) / 4
+            # Better token estimation based on model type
+            chars_per_token = _get_chars_per_token_ratio(model_name)
+            estimated_context_tokens = len(total_text) / chars_per_token
             system_monitor.update_context_usage(int(estimated_context_tokens))
+
+            # Count conversation turns (each complete user+assistant exchange is one turn)
+            assistant_messages = [
+                msg for msg in conversation_history if msg.get("role") == "assistant"
+            ]
+            system_monitor.update_conversation_turns(len(assistant_messages))
 
             # Note: Input already added to history earlier in the main loop
 
