@@ -14,7 +14,7 @@
 
 """Context compaction engine for reducing conversation history size."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role

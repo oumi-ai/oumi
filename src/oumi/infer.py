@@ -56,7 +56,7 @@ def _process_thinking_tags(
     content: str, console: Console, style_params=None, command_handler=None
 ) -> tuple[bool, str]:
     """Process and render thinking content using the unified ThinkingProcessor.
-    
+
     Returns:
         Tuple of (has_thinking, final_content) where:
         - has_thinking: True if thinking content was found and processed
@@ -65,22 +65,19 @@ def _process_thinking_tags(
     # Use the unified thinking processor
     processor = ThinkingProcessor()
     thinking_result = processor.extract_thinking(content)
-    
+
     if thinking_result.has_thinking:
         # Determine display mode from command handler if available
         compressed = True  # Default to compressed
-        if command_handler and hasattr(command_handler, 'show_full_thoughts'):
+        if command_handler and hasattr(command_handler, "show_full_thoughts"):
             compressed = not command_handler.show_full_thoughts
-        
+
         # Render thinking content
         processor.render_thinking(
-            thinking_result, 
-            console, 
-            style_params, 
-            compressed=compressed
+            thinking_result, console, style_params, compressed=compressed
         )
         return True, thinking_result.final_content
-    
+
     return False, content  # No thinking content found, return original
 
 
@@ -331,7 +328,9 @@ def _format_conversation_response(
             content = str(message.content)
 
         # Check for thinking content first (all formats)
-        has_thinking, final_content = _process_thinking_tags(content, console, style_params, command_handler)
+        has_thinking, final_content = _process_thinking_tags(
+            content, console, style_params, command_handler
+        )
         if has_thinking:
             # Thinking content was processed and rendered, now use the cleaned final content
             content = final_content
@@ -835,7 +834,12 @@ def infer_interactive(
             # Format and display the response with timing
             for conversation in model_response:
                 _format_conversation_response(
-                    conversation, console, model_name, config.style, timing_info, command_handler
+                    conversation,
+                    console,
+                    model_name,
+                    config.style,
+                    timing_info,
+                    command_handler,
                 )
 
             # Store conversation history for all engines

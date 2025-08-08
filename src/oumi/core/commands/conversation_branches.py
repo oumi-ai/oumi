@@ -17,7 +17,7 @@
 import copy
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 
 @dataclass
@@ -31,7 +31,7 @@ class ConversationBranch:
     parent_branch_id: Optional[str] = None
     branch_point_index: int = 0  # Index in parent where branch was created
     conversation_history: list[dict] = field(default_factory=list)
-    
+
     # Model configuration state for this branch
     model_name: Optional[str] = None
     engine_type: Optional[str] = None
@@ -149,8 +149,12 @@ class ConversationBranchManager:
             # Copy model state from source branch
             model_name=source_branch.model_name,
             engine_type=source_branch.engine_type,
-            model_config=copy.deepcopy(source_branch.model_config) if source_branch.model_config else None,
-            generation_config=copy.deepcopy(source_branch.generation_config) if source_branch.generation_config else None,
+            model_config=copy.deepcopy(source_branch.model_config)
+            if source_branch.model_config
+            else None,
+            generation_config=copy.deepcopy(source_branch.generation_config)
+            if source_branch.generation_config
+            else None,
         )
 
         self.branches[new_id] = new_branch
