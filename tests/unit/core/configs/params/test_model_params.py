@@ -123,16 +123,3 @@ def test_model_params_reserved_processor_kwargs(field_names: list[str], tmp_path
         )
 
 
-def test_new_hf_kernels_field_default(tmp_path):
-    """Test that enable_hf_kernels field has correct default."""
-    params = ModelParams(model_name=str(tmp_path))
-
-    assert hasattr(params, "enable_hf_kernels")
-    assert params.enable_hf_kernels is False
-
-
-def test_hf_kernels_field_can_be_set(tmp_path):
-    """Test that enable_hf_kernels field can be set."""
-    params = ModelParams(model_name=str(tmp_path), enable_hf_kernels=True)
-
-    assert params.enable_hf_kernels is True

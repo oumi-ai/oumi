@@ -187,19 +187,6 @@ class ModelParams(BaseParams):
         model and hardware before use in production.
     """
 
-    enable_hf_kernels: bool = False
-    """Whether to enable HuggingFace kernels for optimized attention computation.
-
-    When enabled and Flash Attention 3 is detected, this will apply optimized
-    kernels from kernels-community/flash-attn3 for better performance on
-    supported hardware (H100/H800 GPUs).
-
-    Requires:
-        - kernels package: pip install kernels
-        - Flash Attention 3 source installation
-        - Compatible hardware (H100/H800)
-    """
-
     shard_for_eval: bool = False
     """Whether to shard the model for evaluation.
 

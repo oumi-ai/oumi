@@ -100,19 +100,6 @@ def build_model(
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model)
 
-    # Apply HuggingFace kernels optimization if enabled
-    if hasattr(model_params, "enable_hf_kernels") and model_params.enable_hf_kernels:
-        try:
-            from oumi.core.kernels import enhance_model_with_kernels
-
-            model = enhance_model_with_kernels(model, model_params)
-        except ImportError as e:
-            logger.warning(
-                f"HF kernels enhancement requested but kernels not available: {e}"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to apply HF kernels enhancement: {e}")
-
     if model_params.model_name in (
         "tiiuae/Falcon-E-1B-Base",
         "tiiuae/Falcon-E-1B-Instruct",

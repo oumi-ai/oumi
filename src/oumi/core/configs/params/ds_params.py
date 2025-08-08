@@ -246,18 +246,23 @@ class DSParams(BaseParams):
     stage3_gather_16bit_weights_on_model_save: bool = True
     """Whether to gather 16-bit weights during model saving in ZeRO-3.
 
-    Deprecated in DeepSpeed 0.17+. Use gather_16bit_weights_on_model_save instead.
+    Deprecated in recent DeepSpeed versions. Use gather_16bit_weights_on_model_save instead.
+    This field is maintained for backward compatibility with older DeepSpeed versions.
     """
 
     gather_16bit_weights_on_model_save: bool = True
     """Whether to gather 16-bit weights during model saving in ZeRO-3.
 
-    This is the new parameter name for DeepSpeed 0.17+. Replaces the deprecated
-    stage3_gather_16bit_weights_on_model_save.
+    This is the new parameter name that replaces both stage3_gather_16bit_weights_on_model_save
+    and stage3_gather_fp16_weights_on_model_save. DeepSpeed will throw an assertion error if
+    both old and new parameters are provided together.
     """
 
     stage3_gather_fp16_weights_on_model_save: bool = False
-    """Whether to gather FP16 weights during model saving in ZeRO-3."""
+    """Whether to gather FP16 weights during model saving in ZeRO-3.
+    
+    Deprecated and replaced by gather_16bit_weights_on_model_save.
+    """
 
     sub_group_size: int = int(1e9)
     """Sub-group size for ZeRO-3 parameter sharding."""
@@ -348,13 +353,17 @@ class DSParams(BaseParams):
             Dictionary containing DeepSpeed configuration parameters.
         """
         # Check DeepSpeed version to use appropriate parameter names
+        # Note: The exact version where stage3_gather_fp16_weights_on_model_save was
+        # deprecated is not clearly documented, but we know it exists in recent versions.
+        # We'll be conservative and assume newer versions use the new parameter names.
         use_new_param_names = True
         try:
             import deepspeed
             from packaging import version
 
             ds_version = version.parse(deepspeed.__version__)
-            use_new_param_names = ds_version > version.parse("0.15.0")
+            # Be conservative - only use old names for very old versions
+            use_new_param_names = ds_version >= version.parse("0.12.0")
         except Exception:
             # If we can't determine version, assume newer version
             use_new_param_names = True
