@@ -29,6 +29,10 @@ data:
     datasets:
       - dataset_name: "oumi/ultrachat"
     collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
     target_col: "messages"
 
 training:

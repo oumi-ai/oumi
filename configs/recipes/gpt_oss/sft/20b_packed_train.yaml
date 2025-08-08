@@ -44,6 +44,9 @@ data:
         # perfect for GPT OSS's reasoning capabilities
     # No collator needed - TRL handles packing internally
     target_col: "messages"
+    # GPT-OSS Harmony format templates for packed training
+    instruction_template: "<|start|>user<|message|>"
+    response_template: "<|start|>assistant<|channel|>final<|message|>"
 
 training:
   trainer_type: "TRL_SFT"

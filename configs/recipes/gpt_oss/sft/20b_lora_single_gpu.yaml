@@ -21,7 +21,7 @@
 
 model:
   model_name: "openai/gpt-oss-20b"
-  model_max_length: 8192
+  model_max_length: 32768
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
@@ -40,6 +40,10 @@ data:
     datasets:
       - dataset_name: "HuggingFaceH4/Multilingual-Thinking"
     collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
     target_col: "messages"
 
 training:
