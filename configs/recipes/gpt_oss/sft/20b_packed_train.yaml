@@ -28,6 +28,13 @@ model:
   # Use vLLM Flash Attention 3 kernel for optimal performance
   attn_implementation: "kernels-community/vllm-flash-attn3"
   enable_hf_kernels: true  # Enable HF kernels for FA3 optimization
+  
+  # Enable MXFP4 dequantization for training with pre-quantized models
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+      bits: 4
+      group_size: 128
 
 data:
   train:
