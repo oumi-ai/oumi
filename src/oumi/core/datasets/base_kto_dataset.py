@@ -19,7 +19,8 @@ Unlike DPO which requires preference pairs, KTO works with simple binary feedbac
 indicating whether an output is desirable or undesirable.
 """
 
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any, Optional
 
 import datasets
 from typing_extensions import override
@@ -44,10 +45,10 @@ class BaseExperimentalKtooDataset(BaseMapDataset):
     whether outputs are desirable or undesirable, making it simpler than preference-
     based methods like DPO which require paired comparisons.
 
-    The class handles the standardization of diverse dataset formats into the consistent
-    KTO format required by training frameworks. It supports both string-based completions
-    and chat-formatted conversations, automatically extracting assistant responses when
-    needed.
+    The class handles the standardization of diverse dataset formats into the
+    consistent KTO format required by training frameworks. It supports both
+    string-based completions and chat-formatted conversations, automatically
+    extracting assistant responses when needed.
 
     Key Features:
         - Standardized KTO format with prompt, completion, and binary label
@@ -86,9 +87,10 @@ class BaseExperimentalKtooDataset(BaseMapDataset):
     ) -> None:
         """Initialize a new KTO dataset instance.
 
-        Creates a new KTO dataset that will load and transform data into the standardized
-        KTO format required for training. The constructor handles dataset discovery,
-        loading, and initial setup but defers actual data loading until needed.
+        Creates a new KTO dataset that will load and transform data into the
+        standardized KTO format required for training. The constructor handles
+        dataset discovery, loading, and initial setup but defers actual data
+        loading until needed.
 
         Args:
             dataset_name (Optional[str]): Name of the dataset to load from Hugging Face
@@ -96,8 +98,9 @@ class BaseExperimentalKtooDataset(BaseMapDataset):
             dataset_path (Optional[str]): Local path to dataset files. Takes precedence
                 over dataset_name if provided. Supports .jsonl, .parquet, and cached
                 HF dataset formats.
-            split (Optional[str]): Dataset split to use (e.g., 'train', 'test', 'validation').
-                If None and multiple splits exist, an error will be raised.
+            split (Optional[str]): Dataset split to use (e.g., 'train', 'test',
+                'validation'). If None and multiple splits exist, an error will be
+                raised.
             **kwargs: Additional keyword arguments passed to the parent BaseMapDataset
                 constructor for extended configuration options.
 
@@ -119,16 +122,16 @@ class BaseExperimentalKtooDataset(BaseMapDataset):
         self._data = self._load_data()
 
     def _transform_kto_example(self, sample: dict) -> dict:
-        """Validate and transform a sample to the KTO (Kahneman-Tversky Optimization) format.
+        """Validate and transform a sample to the KTO format.
 
-        This method processes raw dataset samples and converts them into the standardized
-        format required for KTO training. Unlike DPO which requires preference pairs,
-        KTO works with simple binary feedback indicating whether an output is desirable
-        or undesirable.
+        This method processes raw dataset samples and converts them into the
+        standardized format required for KTO training. Unlike DPO which requires
+        preference pairs, KTO works with simple binary feedback indicating whether
+        an output is desirable or undesirable.
 
-        The method extracts the prompt, completion, and binary label from the input sample,
-        handling both string and chat format completions. Chat format completions are
-        processed to extract the assistant's response.
+        The method extracts the prompt, completion, and binary label from the
+        input sample, handling both string and chat format completions. Chat format
+        completions are processed to extract the assistant's response.
 
         Args:
             sample (dict): A dictionary containing the raw sample data with keys:
@@ -230,13 +233,13 @@ class BaseExperimentalKtooDataset(BaseMapDataset):
 
         The KTO format requires exactly three fields:
         - prompt: The input text that was given to the model
-        - completion: The model's generated response to be evaluated  
+        - completion: The model's generated response to be evaluated
         - label: Binary feedback indicating if the completion is desirable
 
         Returns:
             datasets.Features: A Features object defining the schema with:
                 - prompt (string): Input prompt text
-                - completion (string): Model response text  
+                - completion (string): Model response text
                 - label (bool): True for desirable responses, False for undesirable
         """
         return datasets.Features(
