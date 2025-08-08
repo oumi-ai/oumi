@@ -533,7 +533,7 @@ def infer_interactive(
     conversation_history = []
 
     # Initialize system monitor for HUD
-    max_context_tokens = getattr(config.model, "model_max_length", 4096)
+    max_context_tokens = getattr(config.model, "model_max_length", None) or 4096
     system_monitor = SystemMonitor(max_context_tokens=max_context_tokens)
 
     # Initialize command system and enhanced input handler
