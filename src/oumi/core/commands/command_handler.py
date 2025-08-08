@@ -125,10 +125,101 @@ class CommandHandler:
         self.branch_manager = ConversationBranchManager()
         # Set the main branch's conversation history to use our reference
         self.branch_manager.branches["main"].conversation_history = conversation_history
+        
+        # Initialize main branch with current model state
+        main_branch = self.branch_manager.branches["main"]
+        main_branch.model_name = getattr(config.model, "model_name", None)
+        main_branch.engine_type = str(config.engine) if hasattr(config, 'engine') else None
+        main_branch.model_config = self._serialize_model_config(config.model)
+        main_branch.generation_config = self._serialize_generation_config(getattr(config, 'generation', None))
 
         # Initialize thinking processor and display settings
         self.thinking_processor = ThinkingProcessor()
         self.show_full_thoughts = False  # Default to compressed thinking view
+    
+    def _serialize_model_config(self, model_config) -> dict:
+        """Serialize model config to a dictionary."""
+        if not model_config:
+            return {}
+        
+        # Extract key attributes from model config
+        return {
+            "model_name": getattr(model_config, "model_name", None),
+            "torch_dtype_str": getattr(model_config, "torch_dtype_str", None),
+            "model_max_length": getattr(model_config, "model_max_length", None),
+            "attn_implementation": getattr(model_config, "attn_implementation", None),
+            "trust_remote_code": getattr(model_config, "trust_remote_code", None),
+        }
+    
+    def _serialize_generation_config(self, generation_config) -> dict:
+        """Serialize generation config to a dictionary."""
+        if not generation_config:
+            return {}
+        
+        # Extract key attributes from generation config
+        return {
+            "max_new_tokens": getattr(generation_config, "max_new_tokens", None),
+            "temperature": getattr(generation_config, "temperature", None),
+            "top_p": getattr(generation_config, "top_p", None),
+            "top_k": getattr(generation_config, "top_k", None),
+            "sampling": getattr(generation_config, "use_sampling", None),
+        }
+    
+    def _save_current_model_state_to_branch(self, branch_id: str):
+        """Save current model state to the specified branch."""
+        branch = self.branch_manager.branches.get(branch_id)
+        if branch:
+            branch.model_name = getattr(self.config.model, "model_name", None)
+            branch.engine_type = str(self.config.engine) if hasattr(self.config, 'engine') else None
+            branch.model_config = self._serialize_model_config(self.config.model)
+            branch.generation_config = self._serialize_generation_config(getattr(self.config, 'generation', None))
+    
+    def _restore_model_state_from_branch(self, branch):
+        """Restore model state from a branch and rebuild inference engine if needed."""
+        try:
+            # Check if we need to restore model state
+            branch_model = branch.model_name
+            branch_engine = branch.engine_type
+            current_model = getattr(self.config.model, "model_name", None)
+            current_engine = str(self.config.engine) if hasattr(self.config, 'engine') else None
+            
+            # Only restore if the model/engine is different
+            if branch_model != current_model or branch_engine != current_engine:
+                # Restore model configuration
+                if branch.model_config:
+                    for key, value in branch.model_config.items():
+                        if hasattr(self.config.model, key) and value is not None:
+                            setattr(self.config.model, key, value)
+                
+                # Restore generation configuration  
+                if branch.generation_config and hasattr(self.config, 'generation'):
+                    for key, value in branch.generation_config.items():
+                        if hasattr(self.config.generation, key) and value is not None:
+                            setattr(self.config.generation, key, value)
+                
+                # Restore engine type
+                if branch_engine:
+                    from oumi.core.configs import InferenceEngineType
+                    try:
+                        self.config.engine = InferenceEngineType(branch_engine)
+                    except ValueError:
+                        # If enum conversion fails, keep current engine
+                        pass
+                
+                # Rebuild inference engine with restored config
+                from oumi.builders.inference_engines import build_inference_engine
+                self.inference_engine = build_inference_engine(
+                    engine_type=self.config.engine,
+                    model_params=self.config.model,
+                    remote_params=getattr(self.config, 'remote_params', None),
+                )
+                
+                # Update context usage in system monitor since restored model may have different max_length
+                self._update_context_in_monitor()
+                
+        except Exception as e:
+            # If restoration fails, log but don't crash - just keep current model
+            print(f"Warning: Could not restore model state from branch: {e}")
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a parsed command and return the result.
@@ -1198,6 +1289,11 @@ class CommandHandler:
     def _update_context_in_monitor(self):
         """Update the context usage in system monitor if available."""
         if self.system_monitor:
+            # Update max context length in case model has changed
+            max_context = getattr(self.config.model, "model_max_length", 4096)
+            self.system_monitor.update_max_context_tokens(max_context)
+            
+            # Update current usage
             estimated_tokens = self._estimate_conversation_tokens()
             self.system_monitor.update_context_usage(estimated_tokens)
 
@@ -1466,12 +1562,15 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             # Get optional name from args
             name = command.args[0] if command.args else None
 
-            # Before creating branch, ensure current branch has a proper copy of the conversation
-            # This is important because the main branch shares a reference with the working conversation_history
+            # Before creating branch, ensure current branch has proper copies of conversation AND model state
             current_branch = self.branch_manager.get_current_branch()
-            if current_branch and current_branch.id == "main":
-                # Make a deep copy of the current conversation for the main branch
-                current_branch.conversation_history = copy.deepcopy(self.conversation_history)
+            if current_branch:
+                # Save current conversation history (especially important for main branch with shared reference)
+                if current_branch.id == "main":
+                    current_branch.conversation_history = copy.deepcopy(self.conversation_history)
+                
+                # Always save current model state to current branch before branching
+                self._save_current_model_state_to_branch(current_branch.id)
 
             # Create branch from current branch
             success, message, new_branch = self.branch_manager.create_branch(
@@ -1551,9 +1650,17 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             )
 
             if success:
+                # Save current model state to outgoing branch before switching
+                current_branch = self.branch_manager.get_current_branch() 
+                if current_branch and current_branch.id != target_branch_id:
+                    self._save_current_model_state_to_branch(current_branch.id)
+                
                 # Update our conversation history reference
                 self.conversation_history.clear()
                 self.conversation_history.extend(branch.conversation_history)
+                
+                # Restore model state from target branch
+                self._restore_model_state_from_branch(branch)
 
                 # Update context usage in system monitor
                 self._update_context_in_monitor()
@@ -2011,6 +2118,14 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 # Update the command handler's inference engine reference
                 self.inference_engine = new_inference_engine
                 
+                # Save the new model state to current branch
+                current_branch = self.branch_manager.get_current_branch()
+                if current_branch:
+                    self._save_current_model_state_to_branch(current_branch.id)
+                
+                # Update context usage in system monitor since model may have different max_length
+                self._update_context_in_monitor()
+                
                 # Show success message
                 success_message = f"✅ **Model swap completed successfully!**\n\n"
                 success_message += f"**Switched from:**\n"
@@ -2179,6 +2294,14 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 
                 # Update the command handler's inference engine reference
                 self.inference_engine = new_inference_engine
+                
+                # Save the new model state to current branch
+                current_branch = self.branch_manager.get_current_branch()
+                if current_branch:
+                    self._save_current_model_state_to_branch(current_branch.id)
+                
+                # Update context usage in system monitor since model may have different max_length
+                self._update_context_in_monitor()
                 
                 # Show success message
                 success_message = f"✅ **Model swap completed successfully!**\n\n"
