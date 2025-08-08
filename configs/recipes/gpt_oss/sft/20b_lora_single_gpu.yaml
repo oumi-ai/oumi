@@ -26,7 +26,6 @@ model:
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
   attn_implementation: "kernels-community/vllm-flash-attn3"  # Auto-detects best available Flash Attention
-  enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
 
   # Enable MXFP4 dequantization for training with pre-quantized models
   model_kwargs:
