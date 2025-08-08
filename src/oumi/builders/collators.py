@@ -128,17 +128,19 @@ def build_data_collator(
         # Extract instruction and response templates from kwargs if provided
         instruction_template = kwargs.pop("instruction_template", None)
         response_template = kwargs.pop("response_template", None)
-        
+
         # Default to Llama-style templates if not provided
         instruction_prefix = (
-            instruction_template if instruction_template 
+            instruction_template
+            if instruction_template
             else "<|start_header_id|>user<|end_header_id|>\n\n"
         )
         response_prefix = (
-            response_template if response_template
+            response_template
+            if response_template
             else "<|start_header_id|>assistant<|end_header_id|>\n\n"
         )
-        
+
         return TextCompletionsCollatorWithPadding(
             tokenizer=tokenizer,
             instruction_prefix=instruction_prefix,
