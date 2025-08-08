@@ -132,11 +132,11 @@ deepspeed:
     overlap_events: true
 
   # Gradient clipping
-  gradient_clipping: 1.0
+  gradient_clipping: "auto"
 
   # Mixed precision BF16 configuration
   bf16:
-    enabled: true
+    enabled: "auto"
     auto_cast: false
     loss_scale: 0
     initial_scale_power: 16
