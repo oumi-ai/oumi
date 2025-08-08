@@ -533,16 +533,16 @@ def infer_interactive(
 
     conversation_history = []
 
+    # Initialize system monitor for HUD
+    max_context_tokens = getattr(config.model, "model_max_length", 4096)
+    system_monitor = SystemMonitor(max_context_tokens=max_context_tokens)
+
     # Initialize command system and enhanced input handler
     command_parser = CommandParser()
     command_handler = CommandHandler(
         console, config, conversation_history, inference_engine, system_monitor
     )
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
-
-    # Initialize system monitor for HUD
-    max_context_tokens = getattr(config.model, "model_max_length", 4096)
-    system_monitor = SystemMonitor(max_context_tokens=max_context_tokens)
 
     while True:
         # Display HUD if interval has passed
