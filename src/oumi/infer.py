@@ -45,15 +45,15 @@ from oumi.utils.logging import logger
 
 def _get_chars_per_token_ratio(model_name: str) -> float:
     """Get model-specific character-to-token ratio for estimation.
-    
+
     Args:
         model_name: Name of the model.
-        
+
     Returns:
         Estimated characters per token for the model.
     """
     model_name_lower = model_name.lower() if model_name else ""
-    
+
     if "gpt" in model_name_lower or "claude" in model_name_lower:
         return 3.7  # GPT/Claude models typically have ~3.5-4 chars per token
     elif "llama" in model_name_lower or "mistral" in model_name_lower:
@@ -396,6 +396,7 @@ def _format_conversation_response(
         model_name: Name of the model.
         style_params: Style parameters.
         timing_info: Optional timing information (time_to_first_token, total_time).
+        command_handler: Optional command handler for processing special commands.
     """
     for message in conversation.messages:
         if message.role == Role.USER:
