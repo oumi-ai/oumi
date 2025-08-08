@@ -1,0 +1,21 @@
+# Inference config for o1-mini
+#
+# Requirements:
+#   - Set the `OPENAI_API_KEY` env var to your OpenAI API key.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/openai/infer_o1_mini.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - OpenAI API: https://platform.openai.com/docs/models
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "o1-mini"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 65536
+  temperature: 1.0

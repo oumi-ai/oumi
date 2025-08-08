@@ -1,0 +1,22 @@
+# Inference config for Gemini 2.5 Pro
+#
+# Requirements:
+#   - Set the `GOOGLE_API_KEY` env var to your Google API key.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/gemini/infer_gemini_2_5_pro.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Google AI Studio: https://aistudio.google.com/
+#   - Gemini API: https://ai.google.dev/gemini-api/docs/models/gemini
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "gemini-2.5-pro"
+
+engine: GOOGLE_GEMINI
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0

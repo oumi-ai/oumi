@@ -1,0 +1,21 @@
+# Inference config for GPT-5-nano
+#
+# Requirements:
+#   - Set the `OPENAI_API_KEY` env var to your OpenAI API key.
+#
+# Usage:
+#   oumi infer -i -c configs/apis/openai/infer_gpt_5_nano.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - OpenAI API: https://platform.openai.com/docs/models
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  model_name: "gpt-5-nano"
+
+engine: OPENAI
+
+generation:
+  max_new_tokens: 8192
+  temperature: 1.0
