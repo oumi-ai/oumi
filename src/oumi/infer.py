@@ -405,6 +405,11 @@ def _format_conversation_response(
         has_markdown = has_markdown or bool(
             re.search(r"^\s*\|.*\|.*\|\s*$", content, re.MULTILINE)
         )  # Multi-column tables
+        
+        # Check for inline tables (single-line tables from GPT-OSS)
+        has_markdown = has_markdown or bool(
+            re.search(r"\|[^|]*\|[^|]*\|[^|]*\|", content)
+        )  # At least 3 columns inline
 
         # Debug logging for markdown detection
         if has_markdown:
@@ -415,6 +420,131 @@ def _format_conversation_response(
                 normalized_content = (
                     content.replace("‑", "-").replace("–", "-").replace("—", "-")
                 )
+                
+                # Extract and render tables with Rich Table for better formatting
+                def extract_and_render_tables(text, console):
+                    """Extract inline tables and render them with Rich Table."""
+                    from rich.table import Table
+                    
+                    # Look for complete table sections (header + separator + rows pattern)
+                    table_section_pattern = r'(\|[^|]*\|[^|]*\|[^|]*\|[^|]*(?:\s*\|[^|]*)*)\s*(\|[-\s|]+\|)\s*((?:\|[^|]*\|[^|]*\|[^|]*\|[^|]*(?:\s*\|[^|]*)*\s*)+)'
+                    
+                    matches = list(re.finditer(table_section_pattern, text, re.MULTILINE))
+                    
+                    if not matches:
+                        return text, False  # No tables found, return original
+                    
+                    # Process each table found
+                    result_parts = []
+                    last_end = 0
+                    tables_rendered = []
+                    
+                    for match in matches:
+                        # Add text before this table
+                        if match.start() > last_end:
+                            result_parts.append(text[last_end:match.start()])
+                        
+                        header_text = match.group(1)
+                        separator = match.group(2) 
+                        rows_text = match.group(3)
+                        
+                        try:
+                            # Parse header
+                            header_cells = [cell.strip() for cell in header_text.split('|') if cell.strip()]
+                            
+                            # Parse data rows
+                            row_lines = rows_text.strip().split('|')
+                            data_rows = []
+                            current_row = []
+                            
+                            for cell in row_lines:
+                                cell = cell.strip()
+                                if cell:
+                                    current_row.append(cell)
+                                elif current_row:  # Empty cell but we have data, start new row
+                                    if len(current_row) >= len(header_cells):
+                                        data_rows.append(current_row[:len(header_cells)])
+                                        current_row = []
+                            
+                            # Add final row if exists
+                            if current_row and len(current_row) >= len(header_cells):
+                                data_rows.append(current_row[:len(header_cells)])
+                            
+                            # Create Rich table
+                            if header_cells and data_rows:
+                                rich_table = Table()
+                                
+                                # Add columns
+                                for header in header_cells:
+                                    rich_table.add_column(header, style='cyan')
+                                
+                                # Add rows
+                                for row in data_rows:
+                                    rich_table.add_row(*row)
+                                
+                                tables_rendered.append(rich_table)
+                                result_parts.append(f"__TABLE_{len(tables_rendered)-1}__")
+                        
+                        except Exception as e:
+                            logger.debug(f"Failed to parse table: {e}")
+                            # Keep original text if parsing fails
+                            result_parts.append(match.group(0))
+                        
+                        last_end = match.end()
+                    
+                    # Add remaining text
+                    if last_end < len(text):
+                        result_parts.append(text[last_end:])
+                    
+                    if tables_rendered:
+                        return ''.join(result_parts), tables_rendered
+                    else:
+                        return text, False
+                
+                # Try to extract tables
+                table_result, rich_tables = extract_and_render_tables(normalized_content, console)
+                
+                if rich_tables:
+                    # If we found tables, render them separately and return
+                    parts = table_result.split('__TABLE_')
+                    for i, part in enumerate(parts):
+                        if i == 0:
+                            # Render text before first table
+                            if part.strip():
+                                console.print(
+                                    Panel(
+                                        Text(part, style=assistant_text_style),
+                                        title=f"[{assistant_title_style}]{display_name}[/{assistant_title_style}]",
+                                        border_style=assistant_border_style,
+                                        padding=assistant_padding,
+                                        expand=expand_panels,
+                                    )
+                                )
+                        else:
+                            # Extract table index and remaining text
+                            if '__' in part:
+                                table_idx_str, remaining_text = part.split('__', 1)
+                                table_idx = int(table_idx_str)
+                                
+                                # Render the table
+                                console.print(rich_tables[table_idx])
+                                
+                                # Render remaining text if any
+                                if remaining_text.strip():
+                                    console.print(
+                                        Panel(
+                                            Text(remaining_text, style=assistant_text_style),
+                                            title=f"[{assistant_title_style}]{display_name}[/{assistant_title_style}]",
+                                            border_style=assistant_border_style,
+                                            padding=assistant_padding,
+                                            expand=expand_panels,
+                                        )
+                                    )
+                    
+                    # We've handled rendering, so return early
+                    return
+                
+                normalized_content = table_result
 
                 # Create markdown with explicit settings for better compatibility
                 markdown_obj = Markdown(
