@@ -2,7 +2,6 @@ from typing import Union
 
 import pytest
 from datasets import Dataset, IterableDataset
-from trl.trainer import ConstantLengthDataset
 
 from oumi.builders import (
     build_dataset,
@@ -63,9 +62,7 @@ def _get_default_config(
 
 
 def _get_dataset_size(
-    dataset: Union[
-        Dataset, IterableDataset, ConstantLengthDataset, PretrainingAsyncTextDataset
-    ],
+    dataset: Union[Dataset, IterableDataset, PretrainingAsyncTextDataset],
     stream: bool,
     pack: bool = False,
 ) -> int:
@@ -74,7 +71,6 @@ def _get_dataset_size(
             assert isinstance(
                 dataset,
                 (
-                    ConstantLengthDataset,
                     BasePretrainingDataset,
                     PretrainingAsyncTextDataset,
                 ),

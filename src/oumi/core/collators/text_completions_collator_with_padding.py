@@ -14,8 +14,9 @@
 
 from typing import Any
 
-import trl
-
+from oumi.core.collators.trl_data_collator_for_completion_only_lm import (
+    DataCollatorForCompletionOnlyLM,
+)
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.utils.debug_utils import log_example_for_debugging
 
@@ -38,7 +39,7 @@ class TextCompletionsCollatorWithPadding:
         response_prefix: The prefix marking the beginning of the assistant response.
         debug: If True, enables debug mode for logging.
         """
-        self._default_collator = trl.DataCollatorForCompletionOnlyLM(
+        self._default_collator = DataCollatorForCompletionOnlyLM(
             tokenizer=tokenizer,
             instruction_template=instruction_prefix,
             response_template=response_prefix,

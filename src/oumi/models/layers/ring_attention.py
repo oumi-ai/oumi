@@ -109,14 +109,11 @@ def new_decoder_forward(
     attention_mask: Optional[torch.Tensor] = None,
     position_ids: Optional[torch.LongTensor] = None,
     past_key_value: Optional[transformers_cache_utils.Cache] = None,
-    output_attentions: Optional[bool] = False,
     use_cache: Optional[bool] = False,
     cache_position: Optional[torch.LongTensor] = None,
-    position_embeddings: Optional[
-        tuple[torch.Tensor, torch.Tensor]
-    ] = None,  # will become mandatory in v4.46
+    position_embeddings: Optional[tuple[torch.Tensor, torch.Tensor]] = None,
     **kwargs,
-) -> tuple[torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]]:
+) -> tuple[torch.Tensor]:
     """New decoder forward."""
     # Was originally LlamaFlashAttention2, but this was deleted in transformers 4.48.0.
     assert isinstance(
@@ -131,6 +128,8 @@ def new_decoder_forward(
         "when using zigzag ring attention monkey patch."
     )
 
+    # output_attentions = kwargs.get("output_attentions", False)
+
     residual = hidden_states
 
     hidden_states = self.input_layernorm(hidden_states)
@@ -141,9 +140,9 @@ def new_decoder_forward(
         attention_mask=attention_mask,
         position_ids=position_ids,
         past_key_value=past_key_value,
-        output_attentions=output_attentions,
         use_cache=use_cache,
         cache_position=cache_position,
+        position_embeddings=position_embeddings,
         **kwargs,
     )
     hidden_states = residual + hidden_states
@@ -157,7 +156,7 @@ def new_decoder_forward(
 
     outputs = (hidden_states,)
 
-    if output_attentions:
+    if kwargs.get("output_attentions", False):
         outputs += (self_attn_weights,)
 
     if use_cache:

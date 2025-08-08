@@ -62,7 +62,7 @@ import copy
 import functools
 import types
 from collections.abc import Mapping
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, cast
 
 import transformers
 
@@ -99,7 +99,7 @@ def find_model_hf_config(
         logger.warning(
             f"Unused kwargs found in '{model_name}' config: {unused_kwargs}."
         )
-    return hf_config
+    return cast(transformers.PretrainedConfig, hf_config)
 
 
 class _ModelTypeInfo(NamedTuple):
