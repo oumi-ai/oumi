@@ -82,6 +82,10 @@ class AnalyzeConfig(BaseConfig):
         if not self.dataset_name:
             raise ValueError("'dataset_name' must be provided")
 
+        # Validate sample_count
+        if self.sample_count is not None and self.sample_count <= 0:
+            raise ValueError("`sample_count` must be greater than 0.")
+
         # Validate analyzer configurations
         analyzer_ids = set()
         for analyzer in self.analyzers:
