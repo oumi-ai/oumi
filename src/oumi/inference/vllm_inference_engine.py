@@ -33,7 +33,11 @@ from oumi.utils.peft_utils import get_lora_rank
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
-    from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+    try:
+        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        # For compatibility with newer vLLM versions
+        ModelDType = str  # type: ignore
     from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
         ChatCompletionMessageParam,
     )
