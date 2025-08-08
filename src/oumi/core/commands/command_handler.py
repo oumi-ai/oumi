@@ -14,6 +14,7 @@
 
 """Command handler for interactive Oumi inference commands."""
 
+import copy
 import os
 from typing import Optional
 
@@ -1465,17 +1466,35 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             # Get optional name from args
             name = command.args[0] if command.args else None
 
+            # Before creating branch, ensure current branch has a proper copy of the conversation
+            # This is important because the main branch shares a reference with the working conversation_history
+            current_branch = self.branch_manager.get_current_branch()
+            if current_branch and current_branch.id == "main":
+                # Make a deep copy of the current conversation for the main branch
+                current_branch.conversation_history = copy.deepcopy(self.conversation_history)
+
             # Create branch from current branch
             success, message, new_branch = self.branch_manager.create_branch(
                 from_branch_id=self.branch_manager.current_branch_id, name=name
             )
 
             if success and new_branch:
+                # Automatically switch to the newly created branch
+                switch_success, switch_message, _ = self.branch_manager.switch_branch(new_branch.id)
+                
+                if switch_success:
+                    # Update our conversation history reference to point to the new branch
+                    self.conversation_history.clear()
+                    self.conversation_history.extend(new_branch.conversation_history)
+                    
+                    # Update context usage in system monitor
+                    self._update_context_in_monitor()
+                
                 # Display success message with branch info
                 self._display_branch_created(new_branch)
                 return CommandResult(
                     success=True,
-                    message=f"Created branch '{new_branch.name}' (ID: {new_branch.id})",
+                    message=f"Created and switched to branch '{new_branch.name}' (ID: {new_branch.id})",
                     should_continue=False,
                 )
             else:

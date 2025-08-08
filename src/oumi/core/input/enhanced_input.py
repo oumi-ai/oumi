@@ -14,16 +14,101 @@
 
 """Enhanced input handler with prompt_toolkit integration for arrow keys and history."""
 
+import os
+from pathlib import Path
+
 from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.completion import Completer, Completion, WordCompleter
+from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import HTML
-from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.panel import Panel
 
 # Import shared types from multiline_input to avoid duplication
 from oumi.core.input.multiline_input import InputAction, InputResult
+
+
+class CommandCompleter(Completer):
+    """Custom completer for Oumi interactive commands."""
+    
+    def __init__(self):
+        """Initialize the command completer."""
+        # All available commands with their syntax
+        self.commands = {
+            # Basic commands
+            "help": ["/help()"],
+            "exit": ["/exit()"],
+            
+            # File operations
+            "attach": ["/attach(file_path)"],
+            "save": ["/save(output_path)", "/save(output.pdf)", "/save(output.json)", "/save(output.csv)", "/save(output.md)", "/save(output.html)"],
+            "import": ["/import(input_file)", "/import(data.csv)", "/import(chat.json)", "/import(conversation.xlsx)"],
+            
+            # Conversation management
+            "delete": ["/delete()"],
+            "regen": ["/regen()"],
+            "clear": ["/clear()"],
+            "clear_thoughts": ["/clear_thoughts()"],
+            "compact": ["/compact()"],
+            
+            # Generation parameters
+            "set": ["/set(temperature=0.7)", "/set(top_p=0.9)", "/set(max_tokens=2048)", "/set(sampling=true)", "/set(seed=42)"],
+            
+            # Branching
+            "branch": ["/branch()", "/branch(branch_name)"],
+            "switch": ["/switch(branch_name)", "/switch(main)", "/switch(branch_1)"],
+            "branches": ["/branches()"],
+            "branch_delete": ["/branch_delete(branch_name)"],
+            
+            # Thinking modes
+            "full_thoughts": ["/full_thoughts()"],
+            
+            # Model management  
+            "swap": ["/swap(model_name)", "/swap(engine:model_name)", "/swap(config:path/to/config.yaml)"],
+            "list_engines": ["/list_engines()"],
+            
+            # Mode switching (handled by input system)
+            "ml": ["/ml"],
+            "sl": ["/sl"],
+        }
+        
+        # Flatten all completions
+        self.all_completions = []
+        for cmd_list in self.commands.values():
+            self.all_completions.extend(cmd_list)
+    
+    def get_completions(self, document: Document, complete_event):
+        """Get completions for the current input."""
+        text = document.text_before_cursor
+        
+        # Only complete if we're typing a command (starts with /)
+        if not text.startswith('/'):
+            return
+            
+        # Find matching completions
+        matches = []
+        for completion in self.all_completions:
+            if completion.lower().startswith(text.lower()):
+                # Exact prefix match - this is what we want
+                matches.append((completion, 0))  # Priority 0 (highest)
+            elif text.lower() in completion.lower() and len(text) > 2:
+                # Partial match - lower priority
+                matches.append((completion, 1))  # Priority 1 (lower)
+        
+        # Sort by priority, then alphabetically
+        matches.sort(key=lambda x: (x[1], x[0]))
+        
+        # Yield completions
+        for completion, priority in matches:
+            if completion.lower().startswith(text.lower()):
+                # For prefix matches, add only the remaining part
+                completion_text = completion[len(text):]
+                yield Completion(completion_text, start_position=0)
+            else:
+                # For partial matches, replace the entire current text
+                yield Completion(completion, start_position=-len(text))
 
 
 class EnhancedInput:
@@ -49,30 +134,27 @@ class EnhancedInput:
         self.multiline_mode = False
         self._first_run = True
 
-        # Command history
-        self.history = InMemoryHistory()
+        # Set up persistent command history
+        self.history = self._setup_history()
 
-        # Command completion - all available Oumi commands
-        self.command_completer = WordCompleter(
-            [
-                "/help()",
-                "/exit()",
-                "/attach()",
-                "/delete()",
-                "/regen()",
-                "/save()",
-                "/set(temperature=)",
-                "/set(top_p=)",
-                "/set(max_tokens=)",
-                "/set(sampling=)",
-                "/ml",
-                "/sl",
-            ],
-            match_middle=True,
-        )
+        # Use custom command completer
+        self.command_completer = CommandCompleter()
 
         # Key bindings for custom behavior
         self.bindings = self._create_key_bindings()
+    
+    def _setup_history(self):
+        """Set up persistent command history."""
+        try:
+            # Create history directory in user's home
+            history_dir = Path.home() / ".oumi"
+            history_dir.mkdir(exist_ok=True)
+            
+            history_file = history_dir / "command_history"
+            return FileHistory(str(history_file))
+        except Exception:
+            # Fallback to in-memory history if file system issues
+            return InMemoryHistory()
 
     def _create_key_bindings(self) -> KeyBindings:
         """Create custom key bindings."""
@@ -198,7 +280,7 @@ class EnhancedInput:
         help_text = """
 **Enhanced Input Features:**
 • **Arrow Keys**: ↑↓ for command history, ←→ for cursor movement
-• **Tab Completion**: Tab to complete commands and file paths
+• **Tab Completion**: Tab to complete all 17 interactive commands with proper syntax
 • **Exit**: Ctrl+C or Ctrl+D to exit chat
 
 **Input Modes:**
@@ -210,9 +292,9 @@ class EnhancedInput:
 • Type `/sl` to switch to single-line mode
 • Type `/exit` to exit chat
 
-**Commands work in both modes** (e.g., `/help()`, `/attach()`)
-• Tab completion available for all commands
-• Command history persists across sessions
+**Commands work in both modes** (e.g., `/help()`, `/attach()`, `/save()`)
+• Tab completion shows command syntax and examples (try typing `/s` + Tab)
+• Command history saved to ~/.oumi/command_history and persists across sessions
         """
 
         self.console.print(
