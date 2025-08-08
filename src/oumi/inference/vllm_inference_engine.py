@@ -140,7 +140,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["load_format"] = "bitsandbytes"
             logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
         elif quantization and quantization == "mxfp4":
-            # For MXFP4, set quantization in vllm_kwargs and clear the quantization variable
+            # For MXFP4, set quantization in vllm_kwargs and clear variable
             # to avoid passing it twice
             vllm_kwargs["quantization"] = "mxfp4"
             quantization = None  # Avoid double setting
@@ -187,14 +187,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"Supported methods are: {supported_quantization_methods}."
             )
 
-        self._llm = vllm.LLM(
+        final_vllm_kwargs = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
             dtype=cast(ModelDType, model_params.torch_dtype_str),
             # TODO: these params should be settable via config,
             # but they don't belong to model_params
-            quantization=cast(QuantizationMethods, quantization),
             tensor_parallel_size=tensor_parallel_size,
             enable_prefix_caching=enable_prefix_caching,
             enable_lora=self._lora_request is not None,
