@@ -42,12 +42,30 @@ pip install flash-attn>=3.0.0 --no-build-isolation
 
 - **gpt-oss-20b**: 16GB+ GPU memory (e.g., V100, A100, RTX 4090)
 - **gpt-oss-120b**: 80GB GPU memory (e.g., H100, A100-80GB)
+> **Note**: It is recommended to run these models on Hopper-family GPUs. We have tested on H100s with CUDA 12.8. The models can still run on other hardware, but you may need to deviate from our instructions below. See the blog above for more details.
+
+1. Follow our [quickstart](https://oumi.ai/docs/en/latest/get_started/quickstart.html) for installation.
+2. As mentioned in the blog above, gpt-oss models require some of the latest versions of packages to run. Run the following command:
+
+   ```bash
+   uv pip install -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
+   ```
+
+3. Run your desired oumi command (examples below)!
+   - Note that installing the Oumi repository is **not required** to run the commands. We fetch the latest Oumi config remotely from GitHub thanks to the `oumi://` prefix.
 
 ## Example Commands
 
 ### Inference
 
 #### Remote Inference (Together AI)
+To run interactive inference on gpt-oss-120b locally:
+
+```shell
+oumi infer -i -c oumi://configs/recipes/gpt_oss/inference/120b_infer.yaml
+```
+
+To run interactive remote inference on gpt-oss-120b on Together AI:
 
 ```shell
 # Interactive inference on gpt-oss-120b

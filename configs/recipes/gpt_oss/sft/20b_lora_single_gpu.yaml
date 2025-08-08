@@ -21,35 +21,41 @@
 
 model:
   model_name: "openai/gpt-oss-20b"
-  model_max_length: 4096
+  model_max_length: 32768
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
   attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
   enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
 
-  # Disable quantization for training (dequantize MXFP4 models)
+  # Enable MXFP4 dequantization for training with pre-quantized models
   model_kwargs:
     quantization_config:
       quant_method: "mxfp4"
-      dequantize: true
+      bits: 4
+      group_size: 128
 
 data:
   train:
     datasets:
       - dataset_name: "HuggingFaceH4/Multilingual-Thinking"
     collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
     target_col: "messages"
 
 training:
   trainer_type: "TRL_SFT"
   use_peft: true
+  ddp_find_unused_parameters: false
   save_steps: 500
   num_train_epochs: 1
   # Small batch size for memory efficiency
   per_device_train_batch_size: 1
   # High gradient accumulation to maintain effective batch size
-  gradient_accumulation_steps: 16  # Effective batch size = 16
+  gradient_accumulation_steps: 4
   enable_gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false

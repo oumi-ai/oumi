@@ -17,6 +17,7 @@ from __future__ import annotations
 import copy
 import math
 import warnings
+from typing import cast, get_args
 
 import torch
 from typing_extensions import override
@@ -32,10 +33,14 @@ from oumi.utils.peft_utils import get_lora_rank
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
+    from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
     from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
         ChatCompletionMessageParam,
     )
     from vllm.lora.request import LoRARequest  # pyright: ignore[reportMissingImports]
+    from vllm.model_executor.layers.quantization import (  # pyright: ignore[reportMissingImports]
+        QuantizationMethods,
+    )
     from vllm.sampling_params import (  # pyright: ignore[reportMissingImports]
         GuidedDecodingParams as VLLMGuidedDecodingParams,
     )
@@ -174,20 +179,30 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["max_num_seqs"] = max_num_seqs
 
         self._tokenizer = build_tokenizer(model_params)
-        # Build vLLM arguments, avoiding conflicts
-        final_vllm_kwargs = {
-            "model": model_params.model_name,
-            "tokenizer": model_params.tokenizer_name,
-            "trust_remote_code": model_params.trust_remote_code,
-            "dtype": model_params.torch_dtype_str,
-            "tensor_parallel_size": tensor_parallel_size,
-            "enable_prefix_caching": enable_prefix_caching,
-            "enable_lora": self._lora_request is not None,
-            "max_model_len": model_params.model_max_length,
-            "gpu_memory_utilization": gpu_memory_utilization,
-            "enforce_eager": enforce_eager,
+
+        supported_quantization_methods = list(get_args(QuantizationMethods))
+        if quantization and quantization not in supported_quantization_methods:
+            raise ValueError(
+                f"Unsupported quantization method: {quantization}. "
+                f"Supported methods are: {supported_quantization_methods}."
+            )
+
+        self._llm = vllm.LLM(
+            model=model_params.model_name,
+            tokenizer=model_params.tokenizer_name,
+            trust_remote_code=model_params.trust_remote_code,
+            dtype=cast(ModelDType, model_params.torch_dtype_str),
+            # TODO: these params should be settable via config,
+            # but they don't belong to model_params
+            quantization=cast(QuantizationMethods, quantization),
+            tensor_parallel_size=tensor_parallel_size,
+            enable_prefix_caching=enable_prefix_caching,
+            enable_lora=self._lora_request is not None,
+            max_model_len=model_params.model_max_length,
+            gpu_memory_utilization=gpu_memory_utilization,
+            enforce_eager=enforce_eager,
             **vllm_kwargs,
-        }
+        )
 
         # Only add quantization if not already in vllm_kwargs and not None
         if quantization is not None and "quantization" not in vllm_kwargs:

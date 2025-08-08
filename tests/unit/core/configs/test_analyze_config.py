@@ -109,6 +109,9 @@ def test_analyze_config_with_custom_values():
         sample_count=100,
         output_path="/tmp/output",
         analyzers=analyzers,
+        processor_name="Salesforce/blip2-opt-2.7b",
+        processor_kwargs={"image_size": 224, "do_resize": True},
+        trust_remote_code=True,
     )
 
     assert config.dataset_name == "test_dataset"
@@ -118,3 +121,20 @@ def test_analyze_config_with_custom_values():
     assert len(config.analyzers) == 2
     assert config.analyzers[0].id == "analyzer1"
     assert config.analyzers[1].id == "analyzer2"
+    assert config.processor_name == "Salesforce/blip2-opt-2.7b"
+    assert config.processor_kwargs == {"image_size": 224, "do_resize": True}
+    assert config.trust_remote_code is True
+
+
+def test_analyze_config_processor_fields_custom_values():
+    """Test AnalyzeConfig with custom processor parameter values."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        processor_name="Salesforce/blip2-opt-2.7b",
+        processor_kwargs={"image_size": 224, "do_resize": True},
+        trust_remote_code=True,
+    )
+
+    assert config.processor_name == "Salesforce/blip2-opt-2.7b"
+    assert config.processor_kwargs == {"image_size": 224, "do_resize": True}
+    assert config.trust_remote_code is True

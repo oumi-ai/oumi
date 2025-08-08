@@ -179,17 +179,19 @@ class ModelParams(BaseParams):
     Defaults to False for safety.
     """
 
-    torch_dtype_str: str = "float32"
-    """The data type to use for the model's parameters as a string.
+    torch_dtype_str: str = "auto"
+    """The data type to use for the model's parameters, as a string.
 
     Valid options are:
+    - "auto": Use the default dtype of the model, which is usually specified in the
+      config.json file for HF models.
     - "float32" or "f32" or "float" for 32-bit floating point
     - "float16" or "f16" or "half" for 16-bit floating point
     - "bfloat16" or "bf16" for brain floating point
     - "float64" or "f64" or "double" for 64-bit floating point
 
-    This string will be converted to the corresponding torch.dtype.
-    Defaults to "float32" for full precision.
+    If not "auto", the string will be converted to the corresponding torch.dtype.
+    Defaults to "auto".
     """
 
     compile: bool = False
@@ -216,11 +218,14 @@ class ModelParams(BaseParams):
 
     - None: Use the default attention implementation (spda for torch>=2.1.1, else eager)
     - "sdpa": Use PyTorch's scaled dot-product attention
-    - "flash_attention": Automatically detect and use the best available Flash Attention
-      version (Flash Attention 3 from source, Flash Attention 2 from pip, or SDPA fallback)
-    - "flash_attention_2": [DEPRECATED] Use Flash Attention 2. Use "flash_attention" instead.
+    - "flash_attention": Automatically detect and use the best available Flash
+      Attention version (Flash Attention 3 from source, Flash Attention 2 from pip,
+      or SDPA fallback)
+    - "flash_attention_2": [DEPRECATED] Use Flash Attention 2. Use "flash_attention"
+      instead.
     - "eager": Manual implementation of attention
-    - "kernels-community/vllm-flash-attn3": Use vLLM Flash Attention 3 kernel from HF Hub
+    - "kernels-community/vllm-flash-attn3": Use vLLM Flash Attention 3 kernel from
+      HF Hub
     - Custom kernel paths: Any HuggingFace Hub path to attention kernels
     """
 
@@ -311,8 +316,9 @@ class ModelParams(BaseParams):
             device_capability = torch.cuda.get_device_capability()
             if device_capability[0] < 9:  # H100/H800 are compute capability 9.0
                 logger.warning(
-                    f"Flash Attention 3 is optimized for H100/H800 GPUs (compute capability 9.0+). "
-                    f"Current device has compute capability {device_capability[0]}.{device_capability[1]}. "
+                    f"Flash Attention 3 is optimized for H100/H800 GPUs "
+                    f"(compute capability 9.0+). Current device has compute "
+                    f"capability {device_capability[0]}.{device_capability[1]}. "
                     "Performance may be suboptimal."
                 )
         except Exception as e:
@@ -320,7 +326,9 @@ class ModelParams(BaseParams):
 
     def __post_init__(self):
         """Populate additional params."""
-        self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
+        self.torch_dtype = None
+        if self.torch_dtype_str != "auto":
+            self.torch_dtype = get_torch_dtype(self.torch_dtype_str)
 
         if len(self.processor_kwargs) > 0:
             conflicting_keys = {f.name for f in fields(self)}.intersection(
@@ -389,8 +397,9 @@ class ModelParams(BaseParams):
             )
             if resolved_attn is None:
                 raise HardwareException(
-                    f"Attention implementation '{self.attn_implementation}' is not available. "
-                    "Check hardware compatibility and installation requirements."
+                    f"Attention implementation '{self.attn_implementation}' is not "
+                    "available. Check hardware compatibility and installation "
+                    "requirements."
                 )
             self.attn_implementation = resolved_attn
 

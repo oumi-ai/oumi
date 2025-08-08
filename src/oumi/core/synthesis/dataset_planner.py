@@ -28,6 +28,17 @@ from oumi.core.synthesis.document_ingestion import DocumentReader, DocumentSegme
 
 
 class DatasetPlanner:
+    """Planner for the dataset's attributes for inference."""
+
+    def __init__(
+        self,
+        document_reader: Optional[DocumentReader] = None,
+        dataset_reader: Optional[DatasetReader] = None,
+    ):
+        """Initialize the dataset planner."""
+        self._document_reader = document_reader or DocumentReader()
+        self._dataset_reader = dataset_reader or DatasetReader()
+
     def plan(
         self,
         synthesis_params: GeneralSynthesisParams,
@@ -142,8 +153,10 @@ class DatasetPlanner:
         if dataset_sources is None or len(dataset_sources) == 0:
             return []
 
-        data_reader = DatasetReader()
-        return [data_reader.read(dataset_source) for dataset_source in dataset_sources]
+        return [
+            self._dataset_reader.read(dataset_source)
+            for dataset_source in dataset_sources
+        ]
 
     def _ingest_document_sources(
         self,
@@ -153,12 +166,11 @@ class DatasetPlanner:
         if not document_sources:
             return []
 
-        document_reader = DocumentReader()
         per_source_records = []
         for document_source in document_sources:
             records = []
             path = document_source.path
-            documents = document_reader.read(path)
+            documents = self._document_reader.read(path)
             if document_source.segmentation_params is None:
                 for document in documents:
                     records.append({document_source.id: document})

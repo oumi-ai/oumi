@@ -20,6 +20,7 @@ from oumi.core.configs.params.synthesis_params import (
     DocumentSegmentationParams,
     SegmentationStrategy,
 )
+from oumi.utils.logging import logger
 
 try:
     from pdftext.extraction import (  # pyright: ignore[reportMissingImports]
@@ -72,6 +73,8 @@ class DocumentSegmenter:
 class DocumentReader:
     """Reader for documents."""
 
+    _SUPPORTED_FILE_TYPES = {"pdf", "txt", "md", "html"}
+
     def __init__(self):
         """Initialize the document reader."""
         if plain_text_output is None:
@@ -87,7 +90,17 @@ class DocumentReader:
         if "*" in str(path):
             return self._read_from_glob(path)
         else:
-            return [self._read_from_document_format(path)]
+            file_type = self._get_file_type(path)
+            if file_type in self._SUPPORTED_FILE_TYPES:
+                with open(path, "rb") as file:
+                    file_bytes = file.read()
+                return [self._read_from_document_format(file_bytes, file_type)]
+            else:
+                raise NotImplementedError(f"Unsupported document format: {file_type}")
+
+    def _get_file_type(self, path: Path) -> str:
+        """Get the file type of the document."""
+        return path.suffix.lstrip(".").lower()
 
     def _read_from_glob(self, path: Path) -> list[str]:
         """Read the document from the glob path."""
@@ -120,30 +133,38 @@ class DocumentReader:
         # Use glob to find matching files
         for file in base_dir.glob(pattern):
             if file.is_file():
-                documents.append(self._read_from_document_format(file))
+                file_type = self._get_file_type(file)
+                if file_type in self._SUPPORTED_FILE_TYPES:
+                    with open(file, "rb") as file:
+                        file_bytes = file.read()
+                        documents.append(
+                            self._read_from_document_format(file_bytes, file_type)
+                        )
+                else:
+                    logger.warning(
+                        f"Unsupported document format, skipping file: {file}"
+                    )
 
         return documents
 
     def _read_from_document_format(
         self,
-        document_path: Path,
+        file_bytes: bytes,
+        file_type: str,
     ) -> str:
         """Read the document from the document format."""
-        path = str(document_path)
-        suffix = document_path.suffix
-        if suffix == ".pdf":
-            return self._read_from_pdf(path)
-        elif suffix == ".txt" or suffix == ".md" or suffix == ".html":
-            return self._read_from_text_file(path)
+        if file_type == "pdf":
+            return self._read_from_pdf(file_bytes)
+        elif file_type == "txt" or file_type == "md" or file_type == "html":
+            return self._read_from_text_file(file_bytes)
         else:
-            raise NotImplementedError(f"Unsupported document format: {suffix}")
+            raise NotImplementedError(f"Unsupported document format: {file_type}")
 
-    def _read_from_pdf(self, document_path: str) -> str:
+    def _read_from_pdf(self, file_bytes: bytes) -> str:
         """Read the document from the PDF format."""
-        plain_text = self._extractor_method(document_path, sort=True, hyphens=True)
+        plain_text = self._extractor_method(file_bytes, sort=True, hyphens=True)
         return plain_text
 
-    def _read_from_text_file(self, document_path: str) -> str:
+    def _read_from_text_file(self, file_bytes: bytes) -> str:
         """Read the document from the file."""
-        with open(document_path) as file:
-            return file.read()
+        return file_bytes.decode("utf-8")
