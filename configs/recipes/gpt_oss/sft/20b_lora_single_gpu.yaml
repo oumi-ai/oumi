@@ -49,6 +49,7 @@ data:
 training:
   trainer_type: "TRL_SFT"
   use_peft: true
+  ddp_find_unused_parameters: false
   save_steps: 500
   num_train_epochs: 1
   # Small batch size for memory efficiency
