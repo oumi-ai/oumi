@@ -109,6 +109,16 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                     if model_params.model_kwargs.get(key):
                         quantization = "bitsandbytes"
                         break
+                # Check if quantization is MXFP4.
+                if not quantization and model_params.model_kwargs.get(
+                    "quantization_config"
+                ):
+                    quant_config = model_params.model_kwargs.get("quantization_config")
+                    if (
+                        isinstance(quant_config, dict)
+                        and quant_config.get("quant_method") == "mxfp4"
+                    ):
+                        quantization = "mxfp4"
             if not quantization and model_params.model_kwargs.get("filename"):
                 # Check if quantization is GGUF.
                 gguf_filename = str(model_params.model_kwargs.get("filename"))
@@ -129,6 +139,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization and quantization == "bitsandbytes":
             vllm_kwargs["load_format"] = "bitsandbytes"
             logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
+        elif quantization and quantization == "mxfp4":
+            # For MXFP4, set quantization in vllm_kwargs and clear the quantization variable
+            # to avoid passing it twice
+            vllm_kwargs["quantization"] = "mxfp4"
+            quantization = None  # Avoid double setting
+            logger.info("VLLM engine loading a `MXFP4` quantized model.")
         elif quantization and quantization == "gguf":
             # Download the GGUF file from HuggingFace to a local cache.
             gguf_local_path = get_local_filepath_for_gguf(
@@ -187,6 +203,12 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             enforce_eager=enforce_eager,
             **vllm_kwargs,
         )
+
+        # Only add quantization if not already in vllm_kwargs and not None
+        if quantization is not None and "quantization" not in vllm_kwargs:
+            final_vllm_kwargs["quantization"] = quantization
+
+        self._llm = vllm.LLM(**final_vllm_kwargs)
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 
@@ -258,6 +280,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             stop_token_ids=generation_params.stop_token_ids,
             min_p=generation_params.min_p,
             guided_decoding=guided_decoding,
+            skip_special_tokens=generation_params.skip_special_tokens,
         )
 
         output_conversations = []
@@ -391,6 +414,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             "max_new_tokens",
             "min_p",
             "presence_penalty",
+            "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",
             "temperature",

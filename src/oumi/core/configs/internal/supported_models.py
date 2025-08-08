@@ -75,17 +75,18 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalVisualModelConfig,
 )
 from oumi.core.registry import REGISTRY, RegistryType
+from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
 
 
-@functools.cache
+@dict_cache
 def find_model_hf_config(
     model_name: str,
     *,
     trust_remote_code: bool,
     revision: Optional[str] = None,
-    **kwargs: dict[str, Any],
-) -> transformers.PretrainedConfig:
+    **kwargs: Any,
+):
     """Finds HF model config by model name."""
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
         model_name,
@@ -200,6 +201,25 @@ def _create_gpt2_config() -> InternalModelConfig:
     return InternalModelConfig(
         chat_template="gpt2", tokenizer_pad_token="<|endoftext|>"
     )
+
+
+def _create_gpt_oss_config() -> InternalModelConfig:
+    """Creates configuration for OpenAI GPT OSS models.
+
+    GPT OSS models are MoE architectures with reasoning capabilities.
+    They support tool use, multi-turn conversations, and reasoning traces.
+    """
+    config = InternalModelConfig()
+    # GPT OSS uses openai-harmony for complex prompting - let transformers handle it
+    config.chat_template = "auto"
+    # Support for MXFP4 quantization
+    config.quantization_support = ["mxfp4"]
+    # Enable MoE architecture support
+    config.is_moe = True
+    # Support reasoning traces and effort levels
+    config.supports_reasoning = True
+    config.supports_tool_use = True
+    return config
 
 
 @functools.cache
@@ -464,6 +484,12 @@ def get_all_models_map() -> Mapping[
             model_class=default_llm_class,
             tested=True,
             config=_create_gpt2_config(),
+        ),
+        _ModelTypeInfo(
+            model_type="gpt_oss",
+            model_class=default_llm_class,
+            tested=False,
+            config=_create_gpt_oss_config(),
         ),
         _ModelTypeInfo(
             model_type="blip-2",
