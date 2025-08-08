@@ -75,18 +75,17 @@ from oumi.core.configs.internal.internal_model_config import (
     InternalVisualModelConfig,
 )
 from oumi.core.registry import REGISTRY, RegistryType
-from oumi.utils.cache_utils import dict_cache
 from oumi.utils.logging import logger
 
 
-@dict_cache
+@functools.cache
 def find_model_hf_config(
     model_name: str,
     *,
     trust_remote_code: bool,
     revision: Optional[str] = None,
-    **kwargs: Any,
-):
+    **kwargs: dict[str, Any],
+) -> transformers.PretrainedConfig:
     """Finds HF model config by model name."""
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(
         model_name,
