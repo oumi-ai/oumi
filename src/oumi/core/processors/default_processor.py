@@ -177,7 +177,6 @@ class DefaultProcessor(BaseProcessor):
         self,
         *,
         text: list[str],
-        # padding: bool,
         images: Optional[list[PIL.Image.Image]] = None,
         return_tensors: Optional[str] = "pt",
         **kwargs,
@@ -186,7 +185,6 @@ class DefaultProcessor(BaseProcessor):
 
         Args:
             text: A list of text prompts.
-            padding: Whether to pad sequences to common length.
             images: A list of input images.
             return_tensors: The format of returned tensors.
             **kwargs: Additional keyword arguments to pass to the processor.
@@ -194,14 +192,9 @@ class DefaultProcessor(BaseProcessor):
         Returns:
             transformers.BatchEncoding: The model-specific input features.
         """
-        if self._worker_processor.image_processor_class == "Phi3VImageProcessor":
-            if "add_special_tokens" in kwargs:
-                del kwargs["add_special_tokens"]
-
         if images is None or len(images) == 0:
             result = self._worker_processor(
                 text=text,
-                # padding=padding,
                 return_tensors=return_tensors,
                 **kwargs,
             )
@@ -209,7 +202,6 @@ class DefaultProcessor(BaseProcessor):
             result = self._worker_processor(
                 text=(text[0] if len(text) == 1 else text),
                 images=images,
-                # padding=padding,
                 return_tensors=return_tensors,
                 **kwargs,
             )
