@@ -25,12 +25,12 @@ from oumi.quantize.utils import get_directory_size
 from oumi.utils.logging import logger
 
 try:
-    import mxfp4
+    import mxfp4  # pyright: ignore[reportMissingImports]
 
     MXFP4_AVAILABLE = True
 except ImportError:
     MXFP4_AVAILABLE = False
-    mxfp4 = None
+    mxfp4 = None  # type: ignore
 
 
 class MXFP4Quantizer(BaseQuantization):
@@ -60,34 +60,34 @@ class MXFP4Quantizer(BaseQuantization):
         """
         self.raise_if_requirements_not_met()
 
-        if config.quantization_method not in self.supported_methods:
+        if config.method not in self.supported_methods:
             raise ValueError(
-                f"Invalid quantization method for MXFP4: {config.quantization_method}. "
+                f"Invalid quantization method for MXFP4: {config.method}. "
                 f"Supported methods: {self.supported_methods}"
             )
 
         # Create output directory
-        output_path = Path(config.output_dir)
+        output_path = Path(config.output_path)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Loading model from {config.model_id}")
+        logger.info(f"Loading model from {config.model.model_name}")
 
         # Load model and tokenizer
         model = AutoModelForCausalLM.from_pretrained(
-            config.model_id,
+            config.model.model_name,
             torch_dtype=torch.float16,
-            trust_remote_code=config.trust_remote_code,
+            trust_remote_code=config.model.trust_remote_code,
         )
 
         tokenizer = AutoTokenizer.from_pretrained(
-            config.model_id,
-            trust_remote_code=config.trust_remote_code,
+            config.model.model_name,
+            trust_remote_code=config.model.trust_remote_code,
         )
 
         logger.info("Starting MXFP4 quantization...")
 
         # Apply MXFP4 quantization
-        quantized_model = mxfp4.quantize_model(
+        quantized_model = mxfp4.quantize_model(  # pyright: ignore[reportOptionalMemberAccess]
             model,
             bits=4,
             group_size=128,  # Default group size for MXFP4
@@ -125,7 +125,7 @@ class MXFP4Quantizer(BaseQuantization):
                 "bits": 4,
                 "group_size": 128,
                 "compression_ratio": self._calculate_compression_ratio(
-                    config.model_id, quantized_size
+                    config.model.model_name, quantized_size
                 ),
             },
         )

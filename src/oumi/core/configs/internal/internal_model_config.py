@@ -144,3 +144,15 @@ class InternalModelConfig(BaseConfig):
 
     visual_config: Optional[InternalVisualModelConfig] = None
     """Configuration specific to visual models."""
+
+    quantization_support: list[str] = field(default_factory=list)
+    """List of supported quantization methods for this model."""
+
+    is_moe: bool = False
+    """Whether the model uses Mixture of Experts (MoE) architecture."""
+
+    supports_reasoning: bool = False
+    """Whether the model supports reasoning traces and effort levels."""
+
+    supports_tool_use: bool = False
+    """Whether the model supports tool use."""

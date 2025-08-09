@@ -33,6 +33,7 @@ from oumi.utils.peft_utils import get_lora_rank
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
+
     try:
         from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
     except ImportError:
@@ -195,7 +196,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
-            dtype=cast(ModelDType, model_params.torch_dtype_str),
+            dtype=cast(ModelDType, model_params.torch_dtype_str),  # pyright: ignore[reportInvalidTypeForm]
             # TODO: these params should be settable via config,
             # but they don't belong to model_params
             tensor_parallel_size=tensor_parallel_size,
@@ -211,7 +212,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)
+        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 

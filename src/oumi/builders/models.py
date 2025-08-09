@@ -21,12 +21,12 @@ import transformers
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 
 try:
-    from transformers import Mxfp4Config
+    from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
 
     MXFP4_AVAILABLE = True
 except ImportError:
     MXFP4_AVAILABLE = False
-    Mxfp4Config = None
+    Mxfp4Config = None  # type: ignore
 
 from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
@@ -225,7 +225,7 @@ def _get_quantization_config_for_training(model_params: ModelParams):
             "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
             "for training."
         )
-        return Mxfp4Config(dequantize=True)
+        return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]
 
     return None
 
