@@ -178,14 +178,12 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
                     }
                 )
 
-        return self._process_sample(
-            {
-                _PROMPT_KEY: prompt_chat,
-                _CHOSEN_KEY: chosen_chat,
-                _REJECTED_KEY: rejected_chat,
-                _IMAGES_KEY: images,
-            }
-        )
+        return {
+            _PROMPT_KEY: prompt_chat,
+            _CHOSEN_KEY: chosen_chat,
+            _REJECTED_KEY: rejected_chat,
+            _IMAGES_KEY: images,
+        }
 
     def _load_image(self, image_path: Union[str, ContentItem, dict]) -> Image.Image:
         """Load images from the given paths."""
@@ -230,6 +228,7 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
                 return value
         return value
 
+    @override
     def _process_sample(
         self,
         features,
@@ -300,3 +299,8 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
             )
 
         return output
+
+    @override
+    def transform(self, sample: dict) -> dict:
+        """Transform the sample to the Oumi format."""
+        return self._process_sample(self.transform_preference(sample))

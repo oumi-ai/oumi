@@ -71,17 +71,13 @@ class BaseDpoDataset(BaseMapDataset):
         chosen_chat = samples[_CHOSEN_KEY]
         rejected_chat = samples[_REJECTED_KEY]
 
-        return self.tokenize_row(
-            {
-                _PROMPT_KEY: self._to_conversation_dict(prompt, Role.USER),
-                _CHOSEN_KEY: self._to_conversation_dict(chosen_chat, Role.ASSISTANT),
-                _REJECTED_KEY: self._to_conversation_dict(
-                    rejected_chat, Role.ASSISTANT
-                ),
-            }
-        )
+        return {
+            _PROMPT_KEY: self._to_conversation_dict(prompt, Role.USER),
+            _CHOSEN_KEY: self._to_conversation_dict(chosen_chat, Role.ASSISTANT),
+            _REJECTED_KEY: self._to_conversation_dict(rejected_chat, Role.ASSISTANT),
+        }
 
-    def tokenize_row(
+    def _process_sample(
         self,
         features,
     ):
@@ -146,7 +142,7 @@ class BaseDpoDataset(BaseMapDataset):
     @override
     def transform(self, sample: dict) -> dict:
         """Transform the samples to the Oumi format."""
-        return self.transform_preference(sample)
+        return self._process_sample(self.transform_preference(sample))
 
     def _to_conversation_dict(
         self, turn: Union[str, dict, list[dict]], role: Role
