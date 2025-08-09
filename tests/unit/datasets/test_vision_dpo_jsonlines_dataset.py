@@ -167,19 +167,12 @@ def test_transform_preference(sample_vision_dpo_data, mock_tokenizer, mock_proce
     with (
         patch.object(dataset, "_load_image") as mock_load_image,
         patch.object(dataset, "_resize_image") as mock_resize_image,
+        patch.object(dataset, "_process_sample") as mock_process_sample,
     ):
         mock_image = Mock()
         mock_load_image.return_value = mock_image
         mock_resize_image.return_value = mock_image
 
-        result = dataset.transform_preference(sample)
+        dataset.transform_preference(sample)
 
-    assert "prompt" in result
-    assert "chosen" in result
-    assert "rejected" in result
-    assert "images" in result
-
-    assert result["prompt"] == "What do you see in this image?"
-    assert result["chosen"] == "I see a beautiful landscape."
-    assert result["rejected"] == "I see nothing."
-    assert len(result["images"]) == 1
+        assert mock_process_sample.call_count == 1

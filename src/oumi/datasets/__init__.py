@@ -45,7 +45,6 @@ from oumi.datasets.evaluation import AlpacaEvalDataset
 from oumi.datasets.grpo.letter_count import LetterCountGrpoDataset
 from oumi.datasets.grpo.tldr import TldrGrpoDataset
 from oumi.datasets.preference_tuning.orpo_dpo_mix import OrpoDpoMix40kDataset
-from oumi.datasets.preference_tuning.rlaif_v import OpenbmbRlaifVDataset
 from oumi.datasets.pretraining.c4 import C4Dataset
 from oumi.datasets.pretraining.dolma import DolmaDataset
 from oumi.datasets.pretraining.falcon_refinedweb import FalconRefinedWebDataset
@@ -92,6 +91,7 @@ from oumi.datasets.vision_language.pixmo_ask_model_anything import (
 )
 from oumi.datasets.vision_language.pixmo_cap import PixmoCapDataset
 from oumi.datasets.vision_language.pixmo_cap_qa import PixmoCapQADataset
+from oumi.datasets.vision_language.rlaif_v import OpenbmbRlaifVDataset
 from oumi.datasets.vision_language.the_cauldron import TheCauldronDataset
 from oumi.datasets.vision_language.vision_dpo_jsonlines import (
     VisionDpoJsonlinesDataset,
