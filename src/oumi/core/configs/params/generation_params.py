@@ -120,6 +120,15 @@ class GenerationParams(BaseParams):
     guided_decoding: Optional[GuidedDecodingParams] = None
     """Parameters for guided decoding."""
 
+    skip_special_tokens: bool = True
+    """Whether to skip special tokens when decoding the generated text.
+
+    When True (default), special tokens like <eos>, <pad>, etc. are removed from
+    the output text. When False, these tokens are included in the decoded text.
+    This can be useful for models that use special tokens as part of their output
+    format (e.g., reasoning tokens, tool call markers).
+    """
+
     def __post_init__(self):
         """Validates generation-specific parameters."""
         if self.batch_size is not None and self.batch_size < 1:

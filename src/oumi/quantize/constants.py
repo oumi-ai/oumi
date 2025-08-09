@@ -24,6 +24,8 @@ SUPPORTED_METHODS = [
     # BitsAndBytes methods
     "bnb_4bit",
     "bnb_8bit",
+    # MXFP4 methods
+    "mxfp4",
 ]
 
 # Supported output formats

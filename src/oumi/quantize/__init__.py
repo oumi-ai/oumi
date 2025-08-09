@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 from oumi.quantize.awq_quantizer import AwqQuantization
 from oumi.quantize.base import BaseQuantization, QuantizationResult
 from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
+from oumi.quantize.mxfp4_quantizer import MXFP4Quantizer
 
 if TYPE_CHECKING:
     from oumi.core.configs import QuantizationConfig
@@ -62,5 +63,6 @@ __all__ = [
     "QuantizationResult",
     "AwqQuantization",
     "BitsAndBytesQuantization",
+    "MXFP4Quantizer",
     "quantize",
 ]
