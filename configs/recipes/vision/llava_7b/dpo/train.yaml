@@ -11,24 +11,55 @@
 
 model:
   model_name: "llava-hf/llava-1.5-7b-hf"
+  torch_dtype_str: "bfloat16"
+  model_max_length: 2048
   trust_remote_code: True
+  attn_implementation: "sdpa"
+  chat_template: "llava"
+  freeze_layers:
+    - "vision_tower"
 
 data:
   train:
     datasets:
       - dataset_name: "vision_dpo_jsonl"
         dataset_path: "data/dataset_examples/vision_language_dpo_format.jsonl"
+        dataset_kwargs:
+          processor_name: "llava-hf/llava-1.5-7b-hf"
+          return_tensors: True
 
 training:
-  optimizer: "adamw_torch"
-  use_peft: false
-  output_dir: "output/llava_7b.vision_dpo"
+  output_dir: "output/vlm_finetuned"
   trainer_type: "TRL_DPO"
-  per_device_train_batch_size: 1
-  gradient_accumulation_steps: 16
-  learning_rate: 5e-6
-  warmup_steps: 100
-  max_steps: 1000
-  logging_steps: 10
-  save_steps: 500
-  eval_steps: 500
+  enable_gradient_checkpointing: True
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 2
+  max_steps: 20
+
+  gradient_checkpointing_kwargs:
+    # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
+    use_reentrant: False
+  ddp_find_unused_parameters: False
+  empty_device_cache_steps: 2
+  compile: False
+
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2e-5
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  lr_scheduler_type: "cosine"
+
+  logging_steps: 5
+  save_steps: 0
+  dataloader_num_workers: "auto"
+  dataloader_prefetch_factor: 32
+  include_performance_metrics: True
+  log_model_summary: False
+  enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "FULL_SHARD" # Similar to DeepSpeed ZeRO-3
+  forward_prefetch: True
+  use_orig_params: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"

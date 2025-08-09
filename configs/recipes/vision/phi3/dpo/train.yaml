@@ -11,29 +11,28 @@
 
 model:
   model_name: "microsoft/Phi-3-vision-128k-instruct"
+  tokenizer_name: "microsoft/Phi-3-vision-128k-instruct"
   trust_remote_code: True
   attn_implementation: "eager"
+  chat_template: "phi3-instruct"
+  model_max_length: 3072
 
 data:
   train:
     datasets:
       - dataset_name: "vision_dpo_jsonl"
         dataset_path: "data/dataset_examples/vision_language_dpo_format.jsonl"
-        # Example format:
-        # {
-        #   "prompt": "What is shown in this image?",
-        #   "images": ["path/to/image.jpg"],
-        #   "chosen": [{"role": "assistant", "content": "This image shows a well-described accurate response."}],
-        #   "rejected": [{"role": "assistant", "content": "This image shows an inaccurate or poor response."}]
-        # }
+        dataset_kwargs:
+          processor_name: "microsoft/Phi-3-vision-128k-instruct"
+          return_tensors: True
 
 training:
   optimizer: "adamw_torch"
-  use_peft: false
+  use_peft: true
   output_dir: "output/phi3_vision.vision_dpo"
   trainer_type: "TRL_DPO"
   per_device_train_batch_size: 1
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: 1
   learning_rate: 5e-6
   warmup_steps: 100
   max_steps: 1000
