@@ -1,0 +1,65 @@
+# ✅ MACOS COMPATIBLE: LlamaCPP Inference config for Llama-4-Scout-17B-16E-Instruct GGUF.
+#
+# This config uses the LlamaCPP engine which is optimized for CPU inference on macOS.
+# LlamaCPP works excellently with GGUF files and doesn't have Triton dependency issues.
+#
+# Prerequisites:
+#   # Install macOS-specific dependencies:
+#   pip install oumi[gpu_mac]  # Includes llama-cpp-python with Metal acceleration
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF \
+#     Llama-4-Scout-17B-16E-Instruct-Q4_K_M.gguf --local-dir .
+#
+#   # 2. Run inference (CPU optimized):
+#   oumi infer -i -c configs/examples/gguf/llama4_scout_17b_gguf_macos.yaml
+#
+# Model Info:
+#   - Repository: unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF
+#   - Size: ~17B parameters (Q4_K_M quantized)
+#   - File size: ~10.7GB
+#   - Requirements: macOS with sufficient RAM (recommend 24GB+ for Q4_K_M)
+#   - Performance: CPU-optimized with Metal GPU acceleration if available
+#   - Special: Mixture of Experts (16 experts) architecture for efficient inference
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - vLLM GPU version: configs/recipes/llama4/inference/scout_17b_gguf_infer.yaml
+
+model:
+  # GGUF file path - LlamaCPP uses filename in model_kwargs
+  model_name: "unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF"
+  # Original model tokenizer for proper text processing
+  tokenizer_name: "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+  model_max_length: 8192
+  torch_dtype_str: "float16"  # GGUF models require float16
+  trust_remote_code: True
+  # Specify GGUF filename in model_kwargs for LlamaCPP
+  model_kwargs:
+    filename: "Llama-4-Scout-17B-16E-Instruct-UD-Q2_K_XL.gguf"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: LLAMACPP
+
+# Available quantization files for macOS (lighter quantizations recommended):
+# "Llama-4-Scout-17B-16E-Instruct-Q2_K.gguf"    # 6.8GB - Fastest on CPU
+# "Llama-4-Scout-17B-16E-Instruct-Q3_K_M.gguf"  # 8.9GB - Good speed/quality balance
+# "Llama-4-Scout-17B-16E-Instruct-Q4_K_M.gguf"  # 10.7GB - Balanced (recommended)
+# "Llama-4-Scout-17B-16E-Instruct-Q5_K_M.gguf"  # 12.4GB - Better quality
+#
+# For macOS CPU inference, Q3_K_M or Q4_K_M provide best balance
+# Scout's MoE architecture provides good efficiency even on CPU
+
+# Performance expectations on macOS:
+# - Token generation: 10-20 tokens/second (with Metal GPU acceleration)
+# - CPU only: 3-8 tokens/second (depending on CPU and RAM)
+# - Initial loading: 5-15 seconds
+# - Memory usage: ~1.5x the GGUF file size in RAM
+# - Metal GPU: Can use Mac GPU memory for acceleration
+# - MoE benefit: Faster than dense models of similar size
