@@ -129,7 +129,7 @@ class PeftParams(BaseParams):
         default=None,
         metadata={"help": "LoRA target modules."},
     )
-    """List of module names to apply LoRA to.
+    """List of module names/regexes to apply LoRA to.
 
     If None, LoRA will be applied to all linear layers in the model.
     Specify module names to selectively apply LoRA to certain parts of the model.
@@ -139,7 +139,12 @@ class PeftParams(BaseParams):
         default=None,
         metadata={"help": "LoRA target parameters."},
     )
-    """List of parameter names to apply LoRA to."""
+    """List of parameter names/regexes to apply LoRA to.
+
+    This is similar to `lora_target_modules` (which you should prefer using if possible)
+    but for parameters instead of modules. This is generally only useful for models like
+    MoEs that sometimes use nn.Parameter instead of nn.Module.
+    """
 
     lora_modules_to_save: Optional[list[str]] = field(
         default=None,
