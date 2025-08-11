@@ -31,7 +31,7 @@ training:
   save_steps: 200
   num_train_epochs: 1
   per_device_train_batch_size: 2
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 8
   max_grad_norm: null
 
   enable_gradient_checkpointing: True
@@ -55,10 +55,13 @@ training:
   enable_wandb: True
 
 peft:
-  lora_r: 14
-  lora_alpha: 8
+  lora_r: 16
+  lora_alpha: 32
   lora_dropout: 0.0
-  lora_target_modules: "all-linear"
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
 
 fsdp:
   enable_fsdp: True
