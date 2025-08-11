@@ -351,8 +351,8 @@ def evaluate(
     logger.info("Starting evaluation...")
 
     lm_eval_output = lm_harness_evaluate(
-        lm,
-        task_dict,
+        lm=lm,
+        task_dict=task_dict,
         log_samples=task_params.log_samples or False,
         limit=task_params.num_samples,
         apply_chat_template=is_multimodal,
@@ -372,11 +372,7 @@ def evaluate(
         project_name = os.environ.get("WANDB_PROJECT", "oumi")
         logger.info(f"Logging to Weights and Biases project: '{project_name}'")
         wandb_logger = WandbLogger(
-            init_args={
-                "project": project_name,
-                "name": config.run_name,
-                "job_type": "eval",
-            }
+            project=project_name, name=config.run_name, job_type="eval"
         )
         wandb_logger.post_init(lm_eval_output)
         wandb_logger.log_eval_result()
