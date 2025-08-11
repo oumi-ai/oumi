@@ -1,0 +1,55 @@
+# ✅ MACOS COMPATIBLE: LlamaCPP Inference config for Qwen3-4B-Instruct GGUF.
+#
+# This config uses the LlamaCPP engine which is optimized for CPU inference on macOS.
+# LlamaCPP works excellently with GGUF files and doesn't have Triton dependency issues.
+#
+# Prerequisites:
+#   # Install macOS-specific dependencies:
+#   pip install oumi[gpu_mac]  # Includes llama-cpp-python with Metal acceleration
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/Qwen3-4B-Instruct-2507-GGUF \
+#     Qwen3-4B-Instruct-2507-UD-Q5_K_XL.gguf --local-dir .
+#
+#   # 2. Run inference (CPU optimized):
+#   oumi infer -i -c configs/examples/macos_gguf/qwen3_4b_instruct_q5_k_xl_gguf_macos.yaml
+#
+# Model Info:
+#   - Repository: unsloth/Qwen3-4B-Instruct-2507-GGUF
+#   - Size: ~4B parameters (Q5_K_XL quantized)
+#   - File size: ~3.2GB (estimated)
+#   - Requirements: macOS with sufficient RAM (recommend 8GB+ for Q5_K_XL)
+#   - Performance: CPU-optimized with Metal GPU acceleration if available
+#   - Special: Qwen3 instruction-tuned model with enhanced reasoning
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  # GGUF file path - LlamaCPP uses filename in model_kwargs
+  model_name: "unsloth/Qwen3-4B-Instruct-2507-GGUF"
+  # Original model tokenizer for proper text processing
+  tokenizer_name: "Qwen/Qwen3-4B-Instruct-2507"
+  model_max_length: 8192
+  torch_dtype_str: "float16"  # GGUF models require float16
+  trust_remote_code: True
+  # Specify GGUF filename in model_kwargs for LlamaCPP
+  model_kwargs:
+    filename: "Qwen3-4B-Instruct-2507-UD-Q5_K_XL.gguf"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: LLAMACPP
+
+# Performance expectations on macOS:
+# - Token generation: 8-20 tokens/second (with Metal GPU acceleration)
+# - CPU only: 2-8 tokens/second (depending on CPU and RAM)
+# - Initial loading: 5-15 seconds
+# - Memory usage: ~1.5x the GGUF file size in RAM
+# - Metal GPU: Can use Mac GPU memory for acceleration
+# - Note: 4B is well-suited for macOS CPU/GPU inference

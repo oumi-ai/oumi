@@ -1,0 +1,55 @@
+# ✅ MACOS COMPATIBLE: LlamaCPP Inference config for Phi-4-reasoning-plus GGUF.
+#
+# This config uses the LlamaCPP engine which is optimized for CPU inference on macOS.
+# LlamaCPP works excellently with GGUF files and doesn't have Triton dependency issues.
+#
+# Prerequisites:
+#   # Install macOS-specific dependencies:
+#   pip install oumi[gpu_mac]  # Includes llama-cpp-python with Metal acceleration
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/Phi-4-reasoning-plus-GGUF \
+#     Phi-4-reasoning-plus-UD-Q3_K_XL.gguf --local-dir .
+#
+#   # 2. Run inference (CPU optimized):
+#   oumi infer -i -c configs/examples/macos_gguf/phi_4_reasoning_plus_q3_k_xl_gguf_macos.yaml
+#
+# Model Info:
+#   - Repository: unsloth/Phi-4-reasoning-plus-GGUF
+#   - Size: ~14B parameters (Q3_K_XL quantized)
+#   - File size: ~6.5GB (estimated)
+#   - Requirements: macOS with sufficient RAM (recommend 16GB+ for Q3_K_XL)
+#   - Performance: CPU-optimized with Metal GPU acceleration if available
+#   - Special: Phi-4 with enhanced reasoning capabilities
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  # GGUF file path - LlamaCPP uses filename in model_kwargs
+  model_name: "unsloth/Phi-4-reasoning-plus-GGUF"
+  # Original model tokenizer for proper text processing
+  tokenizer_name: "microsoft/Phi-4-reasoning-plus"
+  model_max_length: 8192
+  torch_dtype_str: "float16"  # GGUF models require float16
+  trust_remote_code: True
+  # Specify GGUF filename in model_kwargs for LlamaCPP
+  model_kwargs:
+    filename: "Phi-4-reasoning-plus-UD-Q3_K_XL.gguf"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: LLAMACPP
+
+# Performance expectations on macOS:
+# - Token generation: 5-15 tokens/second (with Metal GPU acceleration)
+# - CPU only: 1-5 tokens/second (depending on CPU and RAM)
+# - Initial loading: 10-25 seconds
+# - Memory usage: ~1.5x the GGUF file size in RAM
+# - Metal GPU: Can use Mac GPU memory for acceleration
+# - Note: 14B model with Q3_K_XL quantization, moderate performance on macOS

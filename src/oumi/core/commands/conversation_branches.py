@@ -193,7 +193,7 @@ class ConversationBranchManager:
         Returns:
             Tuple of (success, message).
         """
-        if branch_id == "main":
+        if branch_id.lower() == "main":
             return False, "Cannot delete the main branch"
 
         if branch_id not in self.branches:

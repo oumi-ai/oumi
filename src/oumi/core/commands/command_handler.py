@@ -1712,7 +1712,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
             current_branch = self.branch_manager.get_current_branch()
             if current_branch:
                 # Save current conversation history (especially important for main branch with shared reference)
-                if current_branch.id == "main":
+                if current_branch.id.lower() == "main":
                     current_branch.conversation_history = copy.deepcopy(
                         self.conversation_history
                     )
@@ -1885,7 +1885,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 available = [
                     f"'{b.name}' ({b.id})"
                     for b in self.branch_manager.branches.values()
-                    if b.id != "main"
+                    if b.id.lower() != "main"
                 ]
                 return CommandResult(
                     success=False,
@@ -1898,7 +1898,7 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
 
             if success:
                 # If we switched to main, update conversation history
-                if self.branch_manager.current_branch_id == "main":
+                if self.branch_manager.current_branch_id.lower() == "main":
                     current_branch = self.branch_manager.get_current_branch()
                     self.conversation_history.clear()
                     self.conversation_history.extend(
