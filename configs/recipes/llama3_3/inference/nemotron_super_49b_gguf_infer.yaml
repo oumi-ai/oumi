@@ -1,0 +1,58 @@
+# vLLM Inference config for Llama-3.3-Nemotron-Super-49B GGUF quantized model.
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF \
+#     nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf --local-dir .
+#
+#   # 2. Run inference:
+#   oumi infer -i -c configs/recipes/llama3_3/inference/nemotron_super_49b_gguf_infer.yaml
+#
+# Model Info:
+#   - Repository: bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF
+#   - Size: ~49B parameters (quantized)
+#   - Available quantizations: Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_K_S, Q4_K_M, Q5_K_S, Q5_K_M, Q6_K, Q8_0
+#   - Requirements: ~28-32GB VRAM for Q4 quantization, Linux/Windows with GPU (macOS has Triton issues)
+#   - Special: NVIDIA enhanced Llama 3.3 with superior performance
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  # GGUF filename (must be in current working directory)
+  # Change filename based on desired quantization level
+  model_name: "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf"
+  # Original model tokenizer for proper text processing
+  tokenizer_name: "nvidia/Llama-3.3-Nemotron-Super-49B-v1"
+  model_max_length: 8192
+  torch_dtype_str: "float16"  # GGUF models require float16
+  trust_remote_code: True
+  attn_implementation: "sdpa"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: VLLM
+
+# Optional: vLLM specific parameters
+# vllm_args:
+#   tensor_parallel_size: 2  # Adjust based on available GPUs
+#   gpu_memory_utilization: 0.90
+#   max_num_seqs: 16
+
+# Available quantization files (update model_name accordingly):
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q2_K.gguf"    # 18.6GB - Lower quality, less VRAM
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q3_K_S.gguf"  # 20.0GB - Small size
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q3_K_M.gguf"  # 22.1GB - Good quality
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q3_K_L.gguf"  # 24.0GB - Large size
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_S.gguf"  # 26.2GB - Small 4-bit
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf"  # 27.6GB - Balanced (recommended)
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q5_K_S.gguf"  # 31.7GB - Small 5-bit
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q5_K_M.gguf"  # 32.6GB - Better quality
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q6_K.gguf"    # 37.9GB - High quality
+# "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q8_0.gguf"    # 49.1GB - Very high quality
