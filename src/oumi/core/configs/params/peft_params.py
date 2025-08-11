@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal, Optional
 
+from peft import LoraConfig
 from peft.utils.peft_types import TaskType
 from transformers import BitsAndBytesConfig
 
@@ -133,6 +134,12 @@ class PeftParams(BaseParams):
     If None, LoRA will be applied to all linear layers in the model.
     Specify module names to selectively apply LoRA to certain parts of the model.
     """
+
+    lora_target_parameters: Optional[list[str]] = field(
+        default=None,
+        metadata={"help": "LoRA target parameters."},
+    )
+    """List of parameter names to apply LoRA to."""
 
     lora_modules_to_save: Optional[list[str]] = field(
         default=None,
@@ -285,6 +292,27 @@ class PeftParams(BaseParams):
     - ADAPTER_AND_BASE_MODEL: Save the base model in addition to the adapter.
     - MERGED: Merge the adapter and base model's weights and save as a single model.
     """
+
+    def to_lora(self) -> LoraConfig:
+        """Creates a configuration for LoRA via HF's peft library."""
+        if self.lora_init_weights == LoraWeightInitialization.RANDOM:
+            init_lora_weights = False
+        elif self.lora_init_weights == LoraWeightInitialization.DEFAULT:
+            init_lora_weights = True
+        else:
+            init_lora_weights = self.lora_init_weights.value
+
+        return LoraConfig(
+            r=self.lora_r,
+            lora_alpha=self.lora_alpha,
+            lora_dropout=self.lora_dropout,
+            target_modules=self.lora_target_modules,
+            target_parameters=self.lora_target_parameters,
+            modules_to_save=self.lora_modules_to_save,
+            bias=self.lora_bias,  # type: ignore
+            task_type=self.lora_task_type,
+            init_lora_weights=init_lora_weights,
+        )
 
     def to_bits_and_bytes(self) -> BitsAndBytesConfig:
         """Creates a configuration for quantized models via BitsAndBytes.
