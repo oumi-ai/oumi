@@ -131,8 +131,11 @@ class PeftParams(BaseParams):
     )
     """List of module names/regexes to apply LoRA to.
 
-    If None, LoRA will be applied to all linear layers in the model.
-    Specify module names to selectively apply LoRA to certain parts of the model.
+    If None, modules that are LoRA-trained are chosen based on the model's architecture.
+    Specify "all-linear" to apply LoRA to all linear/Conv1D layers in the model.
+    Specify module names to only apply LoRA to those modules in the model.
+    Finally, specifying [] to avoid targeting any modules (ex. if you want to set
+    lora_target_parameters instead).
     """
 
     lora_target_parameters: Optional[list[str]] = field(
