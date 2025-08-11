@@ -138,3 +138,29 @@ def test_analyze_config_processor_fields_custom_values():
     assert config.processor_name == "Salesforce/blip2-opt-2.7b"
     assert config.processor_kwargs == {"image_size": 224, "do_resize": True}
     assert config.trust_remote_code is True
+
+
+def test_analyze_config_sample_count_zero():
+    """Test validation failure when sample_count is zero."""
+    with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
+        AnalyzeConfig(dataset_name="test_dataset", sample_count=0)
+
+
+def test_analyze_config_sample_count_negative():
+    """Test validation failure when sample_count is negative."""
+    with pytest.raises(ValueError, match="`sample_count` must be greater than 0."):
+        AnalyzeConfig(dataset_name="test_dataset", sample_count=-5)
+
+
+def test_analyze_config_sample_count_valid():
+    """Test that valid sample_count values are accepted."""
+    # Should not raise any exception
+    config = AnalyzeConfig(dataset_name="test_dataset", sample_count=1)
+    assert config.sample_count == 1
+
+    config = AnalyzeConfig(dataset_name="test_dataset", sample_count=100)
+    assert config.sample_count == 100
+
+    # None should also be valid
+    config = AnalyzeConfig(dataset_name="test_dataset", sample_count=None)
+    assert config.sample_count is None
