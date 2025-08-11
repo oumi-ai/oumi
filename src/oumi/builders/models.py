@@ -254,11 +254,20 @@ def build_huggingface_model(
     # currently can only be "auto").
     torch_dtype = model_params.torch_dtype or model_params.torch_dtype_str
 
+    quantization_config = transformers.Mxfp4Config(dequantize=True)
+    # model_kwargs = dict(
+    #     quantization_config=quantization_config,
+    #     use_cache=False,
+    #     device_map="auto",
+    # )
+
+
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
             torch_dtype=torch_dtype,
-            device_map=device_map,
+            device_map="auto",
+            # use_cache=True,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
@@ -550,17 +559,30 @@ def build_peft_model(
     Returns:
         The built PEFT model.
     """
+    # lora_config = LoraConfig(
+    #     r=peft_params.lora_r,
+    #     lora_alpha=peft_params.lora_alpha,
+    #     lora_dropout=peft_params.lora_dropout,
+    #     target_modules=peft_params.lora_target_modules,
+    #     modules_to_save=peft_params.lora_modules_to_save,
+    #     bias=peft_params.lora_bias,  # type: ignore
+    #     task_type=peft_params.lora_task_type,
+    #     init_lora_weights=(
+    #         _convert_lora_init_weights_to_lora_config(peft_params.lora_init_weights)
+    #     ),
+    # )
     lora_config = LoraConfig(
-        r=peft_params.lora_r,
-        lora_alpha=peft_params.lora_alpha,
-        lora_dropout=peft_params.lora_dropout,
-        target_modules=peft_params.lora_target_modules,
-        modules_to_save=peft_params.lora_modules_to_save,
-        bias=peft_params.lora_bias,  # type: ignore
-        task_type=peft_params.lora_task_type,
-        init_lora_weights=(
-            _convert_lora_init_weights_to_lora_config(peft_params.lora_init_weights)
-        ),
+        r=8,
+        lora_alpha=16,
+        target_modules="all-linear",
+        target_parameters=[
+            "7.mlp.experts.gate_up_proj",
+            "7.mlp.experts.down_proj",
+            "15.mlp.experts.gate_up_proj",
+            "15.mlp.experts.down_proj",
+            "23.mlp.experts.gate_up_proj",
+            "23.mlp.experts.down_proj",
+        ],
     )
 
     if peft_params.q_lora:
