@@ -132,8 +132,8 @@ class PeftParams(BaseParams):
     """List of module names/regexes to apply LoRA to.
 
     If None, modules that are LoRA-trained are chosen based on the model's architecture.
-    Specify "all-linear" to apply LoRA to all linear/Conv1D layers in the model.
-    Specify module names to only apply LoRA to those modules in the model.
+    Specify ["all-linear"] to apply LoRA to all linear/Conv1D layers in the model.
+    Specify a list of module names to only apply LoRA to those modules in the model.
     Finally, specifying [] to avoid targeting any modules (ex. if you want to set
     lora_target_parameters instead).
     """
@@ -310,11 +310,21 @@ class PeftParams(BaseParams):
         else:
             init_lora_weights = self.lora_init_weights.value
 
+        # LoraConfig's target_modules is type Optional[Union[list[str], str]], but
+        # since OmegaConf doesn't support a union between a list and a primitive type,
+        # our field's type is Optional[list[str]].
+        #
+        # This is special handling for the "all-linear" special case.
+        # See: https://huggingface.co/docs/peft/en/package_reference/lora#peft.LoraConfig.target_modules
+        target_modules = self.lora_target_modules
+        if target_modules == ["all-linear"]:
+            target_modules = "all-linear"
+
         return LoraConfig(
             r=self.lora_r,
             lora_alpha=self.lora_alpha,
             lora_dropout=self.lora_dropout,
-            target_modules=self.lora_target_modules,
+            target_modules=target_modules,
             target_parameters=self.lora_target_parameters,
             modules_to_save=self.lora_modules_to_save,
             bias=self.lora_bias,  # type: ignore
