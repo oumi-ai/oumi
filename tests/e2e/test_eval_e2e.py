@@ -186,14 +186,14 @@ def _test_eval_impl(
                 / "135m"
                 / "eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
         ),
         EvalTestConfig(
             test_name="eval_text_phi3_single_gpu",
             config_path=(
                 get_configs_dir() / "recipes" / "phi3" / "evaluation" / "eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
             use_simple_oumi_evaluate_command=True,
         ),
         EvalTestConfig(
@@ -205,7 +205,7 @@ def _test_eval_impl(
                 / "evaluation"
                 / "8b_eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
         ),
         EvalTestConfig(
             test_name="eval_text_llama31_8b_vllm_single_gpu",
@@ -216,7 +216,7 @@ def _test_eval_impl(
                 / "evaluation"
                 / "8b_eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
             enable_vllm=True,
         ),
     ],
@@ -246,7 +246,7 @@ def test_eval_text_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "evaluation"
                 / "11b_eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
             num_fewshot=2,
         ),
     ],
@@ -275,7 +275,7 @@ def test_eval_multimodal_1gpu_24gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "evaluation"
                 / "70b_eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
             num_fewshot=2,
             use_simple_oumi_evaluate_command=True,
         ),
@@ -305,7 +305,7 @@ def test_eval_text_4gpu_40gb(test_config: EvalTestConfig, tmp_path: Path):
                 / "evaluation"
                 / "11b_eval.yaml"
             ),
-            num_samples=3,
+            num_samples=4,
             num_fewshot=2,
         ),
     ],
