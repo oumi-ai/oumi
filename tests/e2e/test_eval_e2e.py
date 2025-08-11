@@ -155,7 +155,7 @@ def _test_eval_impl(
                 print(f"{test_tag} STDOUT:\n\n{result.stdout}\n\n")
                 print(f"{test_tag} STDERR:\n\n{result.stderr}\n\n")
             assert result.returncode == 0, (
-                f"{test_tag} Training failed with error code: {result.returncode}"
+                f"{test_tag} Evaluation failed with error code: {result.returncode}"
                 + ("" if interactive_logs else f"\nSTDERR:\n\n{result.stderr}\n")
             )
 
