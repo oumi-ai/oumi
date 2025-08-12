@@ -27,7 +27,9 @@ from rich.spinner import Spinner
 from rich.text import Text
 
 from oumi.builders.inference_engines import build_inference_engine
-from oumi.core.commands import CommandHandler, CommandParser
+from oumi.core.commands import CommandParser
+from oumi.core.commands.command_router import CommandRouter
+from oumi.core.commands.command_context import CommandContext
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.input import EnhancedInput, InputAction
@@ -145,7 +147,7 @@ def _convert_to_harmony_format(content: str) -> dict:
 
 
 def _process_thinking_tags(
-    content: str, console: Console, style_params=None, command_handler=None
+    content: str, console: Console, style_params=None, command_context=None
 ) -> tuple[bool, str]:
     """Process and render thinking content using the unified ThinkingProcessor.
 
@@ -159,10 +161,11 @@ def _process_thinking_tags(
     thinking_result = processor.extract_thinking(content)
 
     if thinking_result.has_thinking:
-        # Determine display mode from command handler if available
+        # Determine display mode from command context if available
         compressed = True  # Default to compressed
-        if command_handler and hasattr(command_handler, "show_full_thoughts"):
-            compressed = not command_handler.show_full_thoughts
+        if command_context and hasattr(command_context, 'thinking_processor'):
+            processor_instance = command_context.thinking_processor
+            compressed = processor_instance.get_display_mode() == "compressed"
 
         # Render thinking content
         processor.render_thinking(
@@ -386,7 +389,7 @@ def _format_conversation_response(
     model_name: str = "Assistant",
     style_params=None,
     timing_info: Optional[dict] = None,
-    command_handler=None,
+    command_context=None,
 ) -> None:
     """Format and display a conversation response with Rich formatting.
 
@@ -396,7 +399,7 @@ def _format_conversation_response(
         model_name: Name of the model.
         style_params: Style parameters.
         timing_info: Optional timing information (time_to_first_token, total_time).
-        command_handler: Optional command handler for processing special commands.
+        command_context: Optional command context for processing special commands.
     """
     for message in conversation.messages:
         if message.role == Role.USER:
@@ -422,7 +425,7 @@ def _format_conversation_response(
 
         # Check for thinking content first (all formats)
         has_thinking, final_content = _process_thinking_tags(
-            content, console, style_params, command_handler
+            content, console, style_params, command_context
         )
         if has_thinking:
             # Thinking content was processed and rendered, now use the cleaned final content
@@ -750,9 +753,10 @@ def infer_interactive(
 
     # Initialize command system and enhanced input handler
     command_parser = CommandParser()
-    command_handler = CommandHandler(
+    command_context = CommandContext(
         console, config, conversation_history, inference_engine, system_monitor
     )
+    command_router = CommandRouter(command_context)
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
     while True:
@@ -787,23 +791,23 @@ def infer_interactive(
                 parsed_command = command_parser.parse_command(input_text)
 
                 if parsed_command is None:
-                    command_handler.display_command_error("Invalid command syntax")
+                    command_router.display_command_error("Invalid command syntax")
                     continue
 
                 # Validate the command
                 is_valid, error_msg = command_parser.validate_command(parsed_command)
                 if not is_valid:
-                    command_handler.display_command_error(error_msg)
+                    command_router.display_command_error(error_msg)
                     continue
 
                 # Execute the command
-                command_result = command_handler.handle_command(parsed_command)
+                command_result = command_router.handle_command(parsed_command)
 
                 # Handle command result
                 if not command_result.success and command_result.message:
-                    command_handler.display_command_error(command_result.message)
+                    command_router.display_command_error(command_result.message)
                 elif command_result.success and command_result.message:
-                    command_handler.display_command_success(command_result.message)
+                    command_router.display_command_success(command_result.message)
 
                 # Check if we should exit
                 if command_result.should_exit:
@@ -840,7 +844,7 @@ def infer_interactive(
             input_text, conversation_history, config, system_monitor
         )
         if not is_valid:
-            command_handler.display_command_error(validation_error)
+            command_router.display_command_error(validation_error)
             console.print()  # Add spacing
             continue
 
@@ -1064,7 +1068,7 @@ def infer_interactive(
                     model_name,
                     config.style,
                     timing_info,
-                    command_handler,
+                    command_context,
                 )
 
             # Store conversation history for all engines
