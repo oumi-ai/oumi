@@ -79,10 +79,10 @@ class MacroOperationsHandler(BaseCommandHandler):
             field_values = {}
             if macro_info.fields:
                 self.console.print(
-                    "\\n📝 Please provide values for the following fields:\\n"
+                    "\n📝 Please provide values for the following fields:\n"
                 )
                 self.console.print(
-                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, or paste content directly.[/dim]\\n"
+                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, or paste content directly.[/dim]\n"
                 )
 
                 for field in macro_info.fields:
@@ -167,7 +167,8 @@ class MacroOperationsHandler(BaseCommandHandler):
         ]
 
         if macro_info.fields:
-            summary_lines.append("\\n**Field Details:**")
+            summary_lines.append("")  # Empty line for spacing
+            summary_lines.append("**Field Details:**")
             for field in macro_info.fields:
                 field_desc = field.description or "No description"
                 required_text = "Required" if field.required else "Optional"
@@ -177,7 +178,7 @@ class MacroOperationsHandler(BaseCommandHandler):
 
         # Display the macro summary
         title = "🎯 Macro Summary" if use_emoji else "Macro Summary"
-        content = "\\n".join(summary_lines)
+        content = "\n".join(summary_lines)
 
         panel = Panel(
             content,
@@ -194,7 +195,7 @@ class MacroOperationsHandler(BaseCommandHandler):
         """
         # Create enhanced input handler with consistent styling
         field_input = EnhancedInput(self.console, "bold cyan")
-        
+
         # Suppress the help dialog for field collection (not the main chat)
         field_input._first_run = False
 
