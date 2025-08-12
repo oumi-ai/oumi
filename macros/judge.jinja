@@ -1,0 +1,41 @@
+{# name: LLM Judge Template #}
+{# description: Evaluate content quality, accuracy, or performance using structured judging criteria #}
+{# METADATA: {
+  "name": "LLM Judge Template", 
+  "description": "Evaluate content quality, accuracy, or performance using structured judging criteria",
+  "fields": {
+    "content_to_judge": {
+      "description": "The content, response, or performance to be evaluated",
+      "required": true,
+      "placeholder": "Paste the text, code, or description you want judged..."
+    },
+    "evaluation_criteria": {
+      "description": "Specific criteria or rubric for evaluation",
+      "required": false,
+      "placeholder": "accuracy, helpfulness, clarity, completeness"
+    },
+    "scale": {
+      "description": "Scoring scale to use",
+      "required": false, 
+      "placeholder": "1-10, A-F, Poor/Fair/Good/Excellent"
+    }
+  }
+} #}
+
+User: You are an expert evaluator and judge. Please evaluate the following content according to the specified criteria and provide a detailed, objective assessment.
+
+**Content to Evaluate:**
+{{ content_to_judge }}
+
+**Evaluation Criteria:** {% if evaluation_criteria %}{{ evaluation_criteria }}{% else %}accuracy, helpfulness, clarity, completeness, and overall quality{% endif %}
+
+**Scoring Scale:** {% if scale %}{{ scale }}{% else %}1-10 (where 1 is poor and 10 is excellent){% endif %}
+
+Please provide:
+1. **Overall Score**: Your assessment on the specified scale
+2. **Detailed Analysis**: Break down your evaluation for each criterion
+3. **Strengths**: What the content does well
+4. **Areas for Improvement**: Specific suggestions for enhancement
+5. **Supporting Evidence**: Quote specific parts that support your assessment
+
+Be objective, constructive, and thorough in your evaluation.

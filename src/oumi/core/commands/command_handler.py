@@ -128,6 +128,13 @@ class CommandHandler:
         # Set the main branch's conversation history to use our reference
         self.branch_manager.branches["main"].conversation_history = conversation_history
 
+        # Initialize macro manager
+        try:
+            from .macro_manager import MacroManager
+            self.macro_manager = MacroManager()
+        except ImportError:
+            self.macro_manager = None
+
         # Initialize main branch with current model state
         main_branch = self.branch_manager.branches["main"]
         main_branch.model_name = getattr(config.model, "model_name", None)
@@ -375,6 +382,8 @@ class CommandHandler:
                 return self._handle_swap(command)
             elif command.command == "list_engines":
                 return self._handle_list_engines(command)
+            elif command.command == "macro":
+                return self._handle_macro(command)
             else:
                 return CommandResult(
                     success=False,
@@ -2852,6 +2861,90 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
                 should_continue=False,
             )
 
+    def _handle_macro(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /macro(path) command to execute Jinja template-based macros."""
+        try:
+            if not self.macro_manager:
+                return CommandResult(
+                    success=False,
+                    message="Macro system unavailable. Install with: pip install jinja2",
+                    should_continue=False,
+                )
+
+            macro_path = command.args[0].strip()
+
+            # Load and validate macro
+            success, error_msg, macro_info = self.macro_manager.load_macro(macro_path)
+            if not success:
+                return CommandResult(
+                    success=False,
+                    message=f"Failed to load macro: {error_msg}",
+                    should_continue=False,
+                )
+
+            # Display macro summary
+            self._display_macro_summary(macro_info)
+
+            # Collect field values interactively
+            if macro_info.fields:
+                field_values = {}
+                for field in macro_info.fields:
+                    value = self._collect_field_value(field)
+                    if value is None:  # User cancelled
+                        return CommandResult(
+                            success=False,
+                            message="Macro execution cancelled",
+                            should_continue=False,
+                        )
+                    field_values[field.name] = value
+
+                # Validate context usage before rendering
+                try:
+                    rendered_content = self.macro_manager.render_macro(macro_info, field_values)
+                    
+                    # Check if rendered content would exceed context window
+                    from ...infer import _validate_context_usage
+                    is_valid, validation_error = _validate_context_usage(
+                        rendered_content, self.conversation_history, self.config, self.system_monitor
+                    )
+                    
+                    if not is_valid:
+                        return CommandResult(
+                            success=False,
+                            message=f"Rendered macro exceeds context window:\n{validation_error}",
+                            should_continue=False,
+                        )
+
+                except Exception as e:
+                    return CommandResult(
+                        success=False,
+                        message=f"Error rendering macro: {e}",
+                        should_continue=False,
+                    )
+            else:
+                field_values = {}
+                rendered_content = self.macro_manager.render_macro(macro_info, field_values)
+
+            # Parse rendered content into conversation turns
+            conversation_turns = self._parse_macro_turns(rendered_content)
+
+            # Execute macro conversation
+            success_msg = self._execute_macro_conversation(conversation_turns, macro_info)
+
+            return CommandResult(
+                success=True,
+                message=success_msg,
+                should_continue=True,
+                user_input_override=conversation_turns[0] if conversation_turns else None
+            )
+
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error executing macro: {str(e)}",
+                should_continue=False,
+            )
+
     def _get_engines_info(self) -> list[dict]:
         """Get information about available inference engines and their sample models."""
         return [
@@ -3529,3 +3622,143 @@ Saved: {compacted_stats["tokens_saved"]} tokens ({compacted_stats["reduction_per
 
         except Exception as e:
             return False, f"Failed to parse text: {str(e)}", []
+
+    # Macro system helper methods
+
+    def _display_macro_summary(self, macro_info) -> None:
+        """Display a summary of the loaded macro."""
+        # Get style attributes
+        use_emoji = getattr(self._style, "use_emoji", True)
+        title_style = getattr(self._style, "assistant_title_style", "bold cyan")
+        border_style = getattr(self._style, "assistant_border_style", "cyan")
+
+        emoji = "📋 " if use_emoji else ""
+        
+        # Create summary content
+        content_lines = [
+            f"**Name:** {macro_info.name}",
+            f"**Description:** {macro_info.description}",
+            f"**Estimated turns:** {macro_info.turns}",
+            f"**Fields to fill:** {len(macro_info.fields)}",
+        ]
+
+        if macro_info.fields:
+            content_lines.append("")
+            content_lines.append("**Required fields:**")
+            for field in macro_info.fields:
+                desc = f" - {field.description}" if field.description else ""
+                required_text = " (required)" if field.required else " (optional)"
+                content_lines.append(f"  • **{field.name}**{required_text}{desc}")
+
+        content = "\n".join(content_lines)
+
+        # Display the macro summary
+        self.console.print(
+            Panel(
+                Markdown(content),
+                title=f"[{title_style}]{emoji}Macro Summary[/{title_style}]",
+                border_style=border_style,
+                padding=(1, 2),
+                expand=False,
+            )
+        )
+
+    def _collect_field_value(self, field) -> str:
+        """Interactively collect a value for a macro field."""
+        from rich.prompt import Prompt
+        
+        # Create prompt message
+        prompt_text = f"Enter value for '{field.name}'"
+        if field.description:
+            prompt_text += f" ({field.description})"
+
+        # Set default and placeholder
+        default_value = field.placeholder if field.placeholder else ""
+        
+        try:
+            if field.required:
+                value = Prompt.ask(
+                    f"[cyan]{prompt_text}[/cyan]",
+                    default=default_value if default_value else ...,
+                    console=self.console
+                )
+            else:
+                value = Prompt.ask(
+                    f"[cyan]{prompt_text} (optional)[/cyan]",
+                    default=default_value,
+                    console=self.console
+                )
+            
+            return value
+            
+        except KeyboardInterrupt:
+            return None  # User cancelled
+
+    def _parse_macro_turns(self, rendered_content: str) -> list[str]:
+        """Parse rendered macro content into conversation turns."""
+        import json
+        import re
+        
+        # Try to parse as JSON first (structured format)
+        try:
+            parsed = json.loads(rendered_content)
+            if isinstance(parsed, list):
+                # Extract user messages for sequential execution
+                turns = []
+                for item in parsed:
+                    if isinstance(item, dict) and item.get("role") == "user":
+                        turns.append(item.get("content", ""))
+                return [turn for turn in turns if turn.strip()]
+        except (json.JSONDecodeError, KeyError):
+            pass
+
+        # Parse as text with role markers
+        turns = []
+        current_turn = ""
+        lines = rendered_content.split('\n')
+        
+        in_user_section = False
+        
+        for line in lines:
+            line = line.strip()
+            
+            # Check for role markers
+            if re.match(r'^(user|human):\s*', line, re.IGNORECASE):
+                if current_turn and in_user_section:
+                    turns.append(current_turn.strip())
+                current_turn = re.sub(r'^(user|human):\s*', '', line, flags=re.IGNORECASE)
+                in_user_section = True
+            elif re.match(r'^(assistant|ai|system):\s*', line, re.IGNORECASE):
+                if current_turn and in_user_section:
+                    turns.append(current_turn.strip())
+                current_turn = ""
+                in_user_section = False
+            elif in_user_section:
+                current_turn += "\n" + line
+        
+        # Add final turn if we're in a user section
+        if current_turn and in_user_section:
+            turns.append(current_turn.strip())
+        
+        # If no structured turns found, treat entire content as single turn
+        if not turns and rendered_content.strip():
+            turns = [rendered_content.strip()]
+            
+        return turns
+
+    def _execute_macro_conversation(self, conversation_turns: list[str], macro_info) -> str:
+        """Execute a multi-turn macro conversation."""
+        if not conversation_turns:
+            return "No conversation turns found in macro"
+        
+        # For now, we'll execute just the first turn and let the normal flow handle it
+        # Multi-turn execution would require more complex state management
+        
+        turns_count = len(conversation_turns)
+        if turns_count == 1:
+            return f"Executed macro '{macro_info.name}' with 1 conversation turn"
+        else:
+            return (
+                f"Executing macro '{macro_info.name}' - starting with turn 1 of {turns_count}.\n"
+                f"Note: Multi-turn macros require manual continuation for subsequent turns."
+            )

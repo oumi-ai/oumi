@@ -1,0 +1,79 @@
+{# name: Code Repair Assistant #}
+{# description: Analyze and fix code issues with detailed explanations and best practices #}
+{# METADATA: {
+  "name": "Code Repair Assistant", 
+  "description": "Analyze and fix code issues with detailed explanations and best practices",
+  "fields": {
+    "problematic_code": {
+      "description": "The code that needs to be fixed or improved",
+      "required": true,
+      "placeholder": "Paste your code here..."
+    },
+    "programming_language": {
+      "description": "Programming language of the code",
+      "required": true,
+      "placeholder": "Python, JavaScript, Java, C++, Go, Rust, etc."
+    },
+    "issue_description": {
+      "description": "Description of the problem or error", 
+      "required": false,
+      "placeholder": "Error message, unexpected behavior, performance issues..."
+    },
+    "context": {
+      "description": "Additional context about the code's purpose",
+      "required": false,
+      "placeholder": "What the code is supposed to do, framework being used..."
+    },
+    "requirements": {
+      "description": "Specific requirements or constraints",
+      "required": false,
+      "placeholder": "Performance needs, compatibility requirements, coding standards..."
+    }
+  }
+} #}
+
+User: You are an expert software engineer with deep knowledge of {{ programming_language }} and software development best practices. Please analyze the following code and provide comprehensive repair assistance.
+
+**Code to Analyze:**
+```{{ programming_language.lower() }}
+{{ problematic_code }}
+```
+
+{% if issue_description %}**Issue Description:** {{ issue_description }}{% endif %}
+{% if context %}**Context:** {{ context }}{% endif %}
+{% if requirements %}**Requirements:** {{ requirements }}{% endif %}
+
+Please provide a thorough analysis with the following sections:
+
+## 1. Issue Identification
+- **Primary Problems:** What's wrong with the code?
+- **Secondary Issues:** Code quality, style, or efficiency concerns
+- **Root Cause Analysis:** Why these issues occurred
+
+## 2. Fixed Code
+```{{ programming_language.lower() }}
+[Provide the corrected, working code here]
+```
+
+## 3. Explanation of Changes
+- **Key Fixes:** Line-by-line explanation of critical repairs
+- **Logic Improvements:** How the flow or algorithm was enhanced
+- **Style & Standards:** Code quality improvements made
+
+## 4. Best Practices Applied
+- **{{ programming_language }} Conventions:** Language-specific best practices followed
+- **Design Patterns:** Any patterns implemented to improve the code
+- **Error Handling:** How errors are now properly managed
+- **Performance Optimizations:** Efficiency improvements made
+
+## 5. Testing Recommendations
+- **Unit Tests:** Suggest test cases to verify the fix
+- **Edge Cases:** Scenarios to test for robustness
+- **Integration Testing:** How to test in the broader system
+
+## 6. Future Prevention
+- **Code Review Checklist:** What to look for to avoid similar issues
+- **Tools & Resources:** Linters, formatters, or documentation to help
+- **Development Practices:** Process improvements to prevent recurrence
+
+Focus on producing clean, maintainable, and efficient {{ programming_language }} code.

@@ -109,6 +109,7 @@ class CommandParser:
             "load": "Load a previously saved chat from cache by ID or browse recent chats",
             "swap": "Switch to a different model or config for inference while preserving conversation history",
             "list_engines": "List available inference engines and their supported model examples",
+            "macro": "Execute a Jinja template-based conversation macro",
             # Note: /ml and /sl are handled by the input system, not as regular commands
         }
 
@@ -263,6 +264,9 @@ class CommandParser:
         elif parsed_command.command == "branch_delete":
             if not parsed_command.args:
                 return False, "branch_delete command requires a branch name or ID"
+        elif parsed_command.command == "macro":
+            if not parsed_command.args:
+                return False, "macro command requires a path to a macro template"
         elif parsed_command.command in [
             "help",
             "exit",

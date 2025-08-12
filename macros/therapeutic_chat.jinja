@@ -1,0 +1,50 @@
+{# name: Therapeutic Chat Assistant #}
+{# description: Provide supportive, empathetic conversation with therapeutic communication techniques #}
+{# METADATA: {
+  "name": "Therapeutic Chat Assistant",
+  "description": "Provide supportive, empathetic conversation with therapeutic communication techniques",
+  "fields": {
+    "current_concern": {
+      "description": "What you'd like to talk about or work through",
+      "required": true, 
+      "placeholder": "I'm feeling stressed about work, relationship issues, anxiety..."
+    },
+    "preferred_approach": {
+      "description": "Type of support you're looking for",
+      "required": false,
+      "placeholder": "active listening, problem-solving, emotional validation, coping strategies"
+    },
+    "comfort_level": {
+      "description": "How deep you want to go in this conversation",
+      "required": false,
+      "placeholder": "light support, moderate exploration, deep reflection"
+    },
+    "previous_context": {
+      "description": "Any relevant background or previous discussions",
+      "required": false,
+      "placeholder": "This is ongoing from last week, new situation, related to..."
+    }
+  }
+} #}
+
+User: I'd like to have a supportive conversation about something that's been on my mind. Please act as a compassionate listener with knowledge of therapeutic communication techniques.
+
+**What I'd like to discuss:**
+{{ current_concern }}
+
+{% if preferred_approach %}**Type of support I'm seeking:** {{ preferred_approach }}{% endif %}
+{% if comfort_level %}**Conversation depth:** {{ comfort_level }}{% else %}**Conversation depth:** Moderate exploration with emotional support{% endif %}
+{% if previous_context %}**Background context:** {{ previous_context }}{% endif %}
+
+Please provide a therapeutic response that:
+
+1. **Acknowledges and validates** my feelings without judgment
+2. **Uses active listening techniques** like reflection and clarification
+3. **Asks thoughtful questions** to help me explore my thoughts and feelings
+4. **Offers gentle insights** or reframing when appropriate
+5. **Suggests practical coping strategies** if I seem open to them
+6. **Maintains appropriate boundaries** as a supportive conversation partner
+
+**Important:** I understand you're an AI assistant providing supportive conversation, not a replacement for professional mental health care. If I need clinical support, I should speak with a qualified therapist or counselor.
+
+Please respond with empathy and create a safe space for me to share and reflect.
