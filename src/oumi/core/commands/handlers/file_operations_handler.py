@@ -14,16 +14,11 @@
 
 """File operations command handler."""
 
-import csv
-import html
 import json
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from rich.panel import Panel
-from rich.text import Text
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
@@ -33,20 +28,20 @@ from oumi.core.commands.utilities.import_utilities import ImportUtilities
 
 class FileOperationsHandler(BaseCommandHandler):
     """Handles file-related commands: attach, save, import, load."""
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.export_utilities = ExportUtilities(self.context)
         self.import_utilities = ImportUtilities(self.context)
-        
+
         # Auto-save functionality
         self._auto_save = True
         self._setup_chat_cache()
-    
+
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
         return ["attach", "save", "import", "load"]
-    
+
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a file operations command."""
         if command.command == "attach":
@@ -63,7 +58,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 message=f"Unsupported command: {command.command}",
                 should_continue=False,
             )
-    
+
     def _handle_attach(self, command: ParsedCommand) -> CommandResult:
         """Handle the /attach(path) command."""
         if not command.args:
@@ -115,7 +110,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 message=f"Error attaching file: {str(e)}\\n\\nTraceback:\\n{error_details}",
                 should_continue=False,
             )
-    
+
     def _handle_save(self, command: ParsedCommand) -> CommandResult:
         """Handle the /save(path) command to export conversation to various formats."""
         if not command.args:
@@ -124,9 +119,9 @@ class FileOperationsHandler(BaseCommandHandler):
                 message="save command requires a file path argument",
                 should_continue=False,
             )
-        
+
         file_path = command.args[0].strip()
-        
+
         # Check for explicit format specification
         format_override = None
         if len(command.args) > 1:
@@ -136,7 +131,7 @@ class FileOperationsHandler(BaseCommandHandler):
                     key, value = arg.split("=", 1)
                     if key.strip().lower() == "format":
                         format_override = value.strip().lower()
-        
+
         # Determine format from file extension or override
         if format_override:
             export_format = format_override
@@ -146,25 +141,25 @@ class FileOperationsHandler(BaseCommandHandler):
             format_map = {
                 ".pdf": "pdf",
                 ".txt": "text",
-                ".md": "markdown", 
+                ".md": "markdown",
                 ".json": "json",
                 ".csv": "csv",
                 ".html": "html",
                 ".htm": "html",
             }
             export_format = format_map.get(extension, "text")
-        
+
         # Call appropriate export method
         success, message = self.export_utilities.export_conversation(
             file_path, export_format, self.conversation_history
         )
-        
+
         return CommandResult(
             success=success,
             message=message,
             should_continue=False,
         )
-    
+
     def _handle_import(self, command: ParsedCommand) -> CommandResult:
         """Handle the /import() command to import conversation data from supported formats."""
         try:
@@ -174,19 +169,19 @@ class FileOperationsHandler(BaseCommandHandler):
                     message="import command requires a file path argument",
                     should_continue=False,
                 )
-            
+
             file_path = command.args[0].strip()
-            
+
             # Import the conversation
-            success, message, imported_messages = self.import_utilities.import_conversation(
-                file_path
+            success, message, imported_messages = (
+                self.import_utilities.import_conversation(file_path)
             )
-            
+
             if success and imported_messages:
                 # Add imported messages to conversation history
                 self.conversation_history.extend(imported_messages)
                 self._update_context_in_monitor()
-                
+
                 return CommandResult(
                     success=True,
                     message=f"Imported {len(imported_messages)} messages from {file_path}",
@@ -198,24 +193,24 @@ class FileOperationsHandler(BaseCommandHandler):
                     message=message or f"Failed to import from {file_path}",
                     should_continue=False,
                 )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error importing conversation: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_load(self, command: ParsedCommand) -> CommandResult:
         """Handle the /load() command to load a chat from cache or browse recent chats."""
         try:
             # If no arguments, show recent chats for browsing
             if not command.args:
                 from oumi.core.commands.chat_browser import ChatBrowser
-                
+
                 browser = ChatBrowser(self.console)
                 selected_chat_id = browser.browse_recent_chats()
-                
+
                 if selected_chat_id:
                     return self._load_chat_by_id(selected_chat_id)
                 else:
@@ -224,38 +219,38 @@ class FileOperationsHandler(BaseCommandHandler):
                         message="No chat selected",
                         should_continue=False,
                     )
-            
+
             # Load specific chat by ID
             chat_id = command.args[0].strip()
             return self._load_chat_by_id(chat_id)
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error loading chat: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _display_attachment_result(self, result):
         """Display the result of a file attachment."""
         file_info = result.file_info
-        
+
         # Create title with file name and basic info
         title = f"📎 Attached: {file_info.name}"
-        
+
         # Build content info
         content_parts = []
         content_parts.append(f"**Size:** {file_info.size_mb:.2f} MB")
         content_parts.append(f"**Type:** {file_info.file_type}")
-        
+
         if result.processing_info:
             content_parts.append(f"**Processing:** {result.processing_info}")
-        
+
         if result.context_info:
             content_parts.append(f"**Context:** {result.context_info}")
-        
+
         content = "\\n".join(content_parts)
-        
+
         # Display in a panel
         panel = Panel(
             content,
@@ -263,40 +258,40 @@ class FileOperationsHandler(BaseCommandHandler):
             border_style=getattr(self._style, "attachment_border_style", "cyan"),
         )
         self.console.print(panel)
-    
+
     def _add_attachment_to_conversation(self, result):
         """Add attachment content to conversation history."""
         # The attachment content will be automatically included in the next user message
         # by the file handler, so we don't need to manually add it here.
         pass
-    
+
     def _load_chat_by_id(self, chat_id: str) -> CommandResult:
         """Load a specific chat by ID."""
         try:
             cache_file = self.chat_cache_dir / f"{chat_id}.json"
-            
+
             if not cache_file.exists():
                 return CommandResult(
                     success=False,
                     message=f"Chat '{chat_id}' not found in cache",
                     should_continue=False,
                 )
-            
-            with open(cache_file, 'r', encoding='utf-8') as f:
+
+            with open(cache_file, encoding="utf-8") as f:
                 chat_data = json.load(f)
-            
+
             # Load conversation history
-            if 'conversation_history' in chat_data:
+            if "conversation_history" in chat_data:
                 self.conversation_history.clear()
-                self.conversation_history.extend(chat_data['conversation_history'])
-                
+                self.conversation_history.extend(chat_data["conversation_history"])
+
                 # Update context monitor
                 self._update_context_in_monitor()
-                
+
                 # Display success message with chat info
-                timestamp = chat_data.get('last_updated', 'Unknown time')
-                message_count = len(chat_data['conversation_history'])
-                
+                timestamp = chat_data.get("last_updated", "Unknown time")
+                message_count = len(chat_data["conversation_history"])
+
                 return CommandResult(
                     success=True,
                     message=f"Loaded chat '{chat_id}' ({message_count} messages, {timestamp})",
@@ -308,32 +303,32 @@ class FileOperationsHandler(BaseCommandHandler):
                     message=f"Invalid chat data in '{chat_id}'",
                     should_continue=False,
                 )
-                
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error loading chat '{chat_id}': {str(e)}",
                 should_continue=False,
             )
-    
+
     def _setup_chat_cache(self):
         """Set up the chat cache directory."""
         # Create cache directory
         cache_dir = Path.home() / ".oumi" / "chat_cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
         self.chat_cache_dir = cache_dir
-        
+
         # Generate chat ID for this session
         model_name = getattr(self.config.model, "model_name", "default")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.chat_id = f"{model_name}_{timestamp}"
         self.chat_file = self.chat_cache_dir / f"{self.chat_id}.json"
-    
+
     def auto_save_chat(self):
         """Auto-save the current chat if enabled."""
         if not self._auto_save:
             return
-        
+
         try:
             # Prepare chat data
             chat_data = {
@@ -343,41 +338,48 @@ class FileOperationsHandler(BaseCommandHandler):
                 "last_updated": datetime.now().isoformat(),
                 "conversation_history": self.conversation_history,
                 "model_config": self._serialize_model_config(self.config.model),
-                "generation_config": self._serialize_generation_config(self.config.generation),
+                "generation_config": self._serialize_generation_config(
+                    self.config.generation
+                ),
             }
-            
+
             # Save to cache
-            with open(self.chat_file, 'w', encoding='utf-8') as f:
+            with open(self.chat_file, "w", encoding="utf-8") as f:
                 json.dump(chat_data, f, indent=2, ensure_ascii=False)
-                
+
         except Exception:
             # Silently fail for auto-save to avoid interrupting user experience
             pass
-    
+
     def _serialize_model_config(self, model_config) -> dict:
         """Serialize model config to dictionary."""
         if model_config is None:
             return {}
-        
+
         config_dict = {}
-        for attr in ['model_name', 'model_max_length', 'torch_dtype_str', 'attn_implementation']:
+        for attr in [
+            "model_name",
+            "model_max_length",
+            "torch_dtype_str",
+            "attn_implementation",
+        ]:
             if hasattr(model_config, attr):
                 value = getattr(model_config, attr)
                 if value is not None:
                     config_dict[attr] = str(value)
-        
+
         return config_dict
-    
+
     def _serialize_generation_config(self, generation_config) -> dict:
         """Serialize generation config to dictionary."""
         if generation_config is None:
             return {}
-        
+
         config_dict = {}
-        for attr in ['max_new_tokens', 'temperature', 'top_p', 'top_k', 'sampling']:
+        for attr in ["max_new_tokens", "temperature", "top_p", "top_k", "sampling"]:
             if hasattr(generation_config, attr):
                 value = getattr(generation_config, attr)
                 if value is not None:
                     config_dict[attr] = value
-        
+
         return config_dict

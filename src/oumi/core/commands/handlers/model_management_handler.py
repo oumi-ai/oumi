@@ -14,13 +14,11 @@
 
 """Model management command handler."""
 
-import copy
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 from rich.panel import Panel
-from rich.text import Text
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
@@ -28,11 +26,11 @@ from oumi.core.commands.command_parser import ParsedCommand
 
 class ModelManagementHandler(BaseCommandHandler):
     """Handles model-related commands: swap, list_engines."""
-    
+
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
         return ["swap", "list_engines"]
-    
+
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a model management command."""
         if command.command == "swap":
@@ -45,7 +43,7 @@ class ModelManagementHandler(BaseCommandHandler):
                 message=f"Unsupported command: {command.command}",
                 should_continue=False,
             )
-    
+
     def _handle_swap(self, command: ParsedCommand) -> CommandResult:
         """Handle the /swap(model_name) or /swap(config:path) command to switch models while preserving conversation."""
         try:
@@ -55,21 +53,21 @@ class ModelManagementHandler(BaseCommandHandler):
                     message="swap command requires a model name or config path argument",
                     should_continue=False,
                 )
-            
+
             target = command.args[0].strip()
-            
+
             # Check if this is a config-based swap
             if target.startswith("config:"):
                 config_path = target[7:]  # Remove "config:" prefix
                 return self._handle_config_swap(config_path)
-            
+
             # Regular model swap
             # Save current model state to branch if branch manager available
-            if hasattr(self.context, 'branch_manager') and self.context.branch_manager:
+            if hasattr(self.context, "branch_manager") and self.context.branch_manager:
                 current_branch = self.context.branch_manager.get_current_branch()
                 if current_branch:
                     self._save_current_model_state_to_branch(current_branch["id"])
-            
+
             # For now, return a placeholder message since actual model swapping
             # requires infrastructure changes
             return CommandResult(
@@ -80,14 +78,14 @@ class ModelManagementHandler(BaseCommandHandler):
                 ),
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error swapping model: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_config_swap(self, config_path: str) -> CommandResult:
         """Handle config-based model swapping by loading an Oumi YAML config."""
         try:
@@ -97,7 +95,11 @@ class ModelManagementHandler(BaseCommandHandler):
                 full_path = Path.cwd() / config_path
                 if not full_path.exists():
                     # Try relative to config directory in project
-                    project_config_path = Path(__file__).parent.parent.parent.parent.parent / "configs" / config_path
+                    project_config_path = (
+                        Path(__file__).parent.parent.parent.parent.parent
+                        / "configs"
+                        / config_path
+                    )
                     if project_config_path.exists():
                         full_path = project_config_path
                     else:
@@ -108,14 +110,14 @@ class ModelManagementHandler(BaseCommandHandler):
                         )
             else:
                 full_path = Path(config_path)
-            
+
             if not full_path.exists():
                 return CommandResult(
                     success=False,
                     message=f"Config file not found: {config_path}",
                     should_continue=False,
                 )
-            
+
             # For now, return a placeholder since actual config swapping requires
             # infrastructure changes
             return CommandResult(
@@ -126,66 +128,78 @@ class ModelManagementHandler(BaseCommandHandler):
                 ),
                 should_continue=False,
             )
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error with config swap: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_list_engines(self, command: ParsedCommand) -> CommandResult:
         """Handle the /list_engines() command to list available inference engines and sample models."""
         try:
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
             title_style = getattr(self._style, "assistant_title_style", "bold cyan")
-            
+
             # Get engines information
             engines_info = self._get_engines_info()
-            
+
             # Build output
             output_lines = []
             if use_emoji:
                 output_lines.append("🔧 **Available Inference Engines**\\n")
             else:
                 output_lines.append("**Available Inference Engines**\\n")
-            
+
             for engine_info in engines_info:
                 engine_name = engine_info["name"]
                 engine_type = engine_info["type"]
                 description = engine_info["description"]
                 sample_models = engine_info["sample_models"]
                 api_key_required = engine_info.get("api_key_required", False)
-                
+
                 # Engine header
-                type_emoji = {"Local": "💻", "API": "🌐", "Remote": "🔗"}.get(engine_type, "⚙️")
-                output_lines.append(f"\\n### {type_emoji} {engine_name} ({engine_type})")
+                type_emoji = {"Local": "💻", "API": "🌐", "Remote": "🔗"}.get(
+                    engine_type, "⚙️"
+                )
+                output_lines.append(
+                    f"\\n### {type_emoji} {engine_name} ({engine_type})"
+                )
                 output_lines.append(f"{description}")
-                
+
                 if api_key_required:
                     output_lines.append("🔑 **Requires API Key**")
-                
+
                 if sample_models:
                     output_lines.append("\\n**Sample Models:**")
                     for model in sample_models[:3]:  # Show first 3 models
                         output_lines.append(f"  • `{model}`")
-                    
+
                     if len(sample_models) > 3:
-                        output_lines.append(f"  • ... and {len(sample_models) - 3} more")
-                
+                        output_lines.append(
+                            f"  • ... and {len(sample_models) - 3} more"
+                        )
+
                 output_lines.append("")  # Empty line between engines
-            
+
             # Usage examples
             output_lines.append("\\n**Usage Examples:**")
             output_lines.append("```")
-            output_lines.append("/swap(meta-llama/Llama-3.1-8B-Instruct)     # Local model")
-            output_lines.append("/swap(anthropic:claude-3-5-sonnet-20241022)  # API model")
-            output_lines.append("/swap(config:path/to/config.yaml)            # Config-based swap")
+            output_lines.append(
+                "/swap(meta-llama/Llama-3.1-8B-Instruct)     # Local model"
+            )
+            output_lines.append(
+                "/swap(anthropic:claude-3-5-sonnet-20241022)  # API model"
+            )
+            output_lines.append(
+                "/swap(config:path/to/config.yaml)            # Config-based swap"
+            )
             output_lines.append("```")
-            
+
             content = "\\n".join(output_lines)
-            
+
             # Display in a panel
             panel = Panel(
                 content,
@@ -193,16 +207,16 @@ class ModelManagementHandler(BaseCommandHandler):
                 border_style=getattr(self._style, "assistant_border_style", "cyan"),
             )
             self.console.print(panel)
-            
+
             return CommandResult(success=True, should_continue=False)
-            
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error listing engines: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _get_engines_info(self) -> list[dict]:
         """Get information about available inference engines."""
         engines = [
@@ -214,32 +228,32 @@ class ModelManagementHandler(BaseCommandHandler):
                     "meta-llama/Llama-3.1-8B-Instruct",
                     "microsoft/Phi-3.5-mini-instruct",
                     "Qwen/Qwen2.5-3B-Instruct",
-                    "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+                    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
                 ],
-                "api_key_required": False
+                "api_key_required": False,
             },
             {
-                "name": "VLLM", 
+                "name": "VLLM",
                 "type": "Local",
                 "description": "High-performance local inference for large models",
                 "sample_models": [
                     "meta-llama/Llama-3.1-70B-Instruct",
                     "meta-llama/Llama-3.1-405B-Instruct",
                     "Qwen/Qwen2.5-72B-Instruct",
-                    "microsoft/Phi-4-14B"
+                    "microsoft/Phi-4-14B",
                 ],
-                "api_key_required": False
+                "api_key_required": False,
             },
             {
                 "name": "LLAMACPP",
-                "type": "Local", 
+                "type": "Local",
                 "description": "CPU/GPU optimized inference with GGUF quantized models",
                 "sample_models": [
                     "microsoft/Phi-3.5-mini-instruct (GGUF)",
                     "meta-llama/Llama-3.1-8B-Instruct (GGUF)",
-                    "Qwen/Qwen2.5-7B-Instruct (GGUF)"
+                    "Qwen/Qwen2.5-7B-Instruct (GGUF)",
                 ],
-                "api_key_required": False
+                "api_key_required": False,
             },
             {
                 "name": "SGLANG",
@@ -248,9 +262,9 @@ class ModelManagementHandler(BaseCommandHandler):
                 "sample_models": [
                     "meta-llama/Llama-3.2-11B-Vision-Instruct",
                     "Qwen/Qwen2-VL-7B-Instruct",
-                    "microsoft/Phi-3.5-vision-instruct"
+                    "microsoft/Phi-3.5-vision-instruct",
                 ],
-                "api_key_required": False
+                "api_key_required": False,
             },
             {
                 "name": "ANTHROPIC",
@@ -258,46 +272,46 @@ class ModelManagementHandler(BaseCommandHandler):
                 "description": "Claude models via Anthropic API",
                 "sample_models": [
                     "claude-3-5-sonnet-20241022",
-                    "claude-3-5-haiku-20241022", 
-                    "claude-3-opus-20240229"
+                    "claude-3-5-haiku-20241022",
+                    "claude-3-opus-20240229",
                 ],
-                "api_key_required": True
+                "api_key_required": True,
             },
             {
-                "name": "OPENAI", 
+                "name": "OPENAI",
                 "type": "API",
                 "description": "GPT models via OpenAI API",
                 "sample_models": [
                     "gpt-4o",
                     "gpt-4o-mini",
                     "gpt-3.5-turbo",
-                    "o1-preview"
+                    "o1-preview",
                 ],
-                "api_key_required": True
+                "api_key_required": True,
             },
             {
                 "name": "TOGETHER",
                 "type": "API",
                 "description": "Large model catalog via Together AI",
                 "sample_models": [
-                    "meta-llama/Llama-4-Scout-17B-16E-Instruct", 
+                    "meta-llama/Llama-4-Scout-17B-16E-Instruct",
                     "meta-llama/Llama-4-Maverick-32B-16E-Instruct",
                     "deepseek-ai/DeepSeek-R1",
-                    "Qwen/QwQ-32B-Preview"
+                    "Qwen/QwQ-32B-Preview",
                 ],
-                "api_key_required": True
+                "api_key_required": True,
             },
             {
                 "name": "DEEPSEEK",
-                "type": "API", 
+                "type": "API",
                 "description": "DeepSeek models via DeepSeek API",
                 "sample_models": [
                     "deepseek-chat",
                     "deepseek-reasoner",
                     "deepseek-coder",
-                    "deepseek-math"
+                    "deepseek-math",
                 ],
-                "api_key_required": True
+                "api_key_required": True,
             },
             {
                 "name": "GOOGLE_VERTEX",
@@ -305,10 +319,10 @@ class ModelManagementHandler(BaseCommandHandler):
                 "description": "Google models via Vertex AI",
                 "sample_models": [
                     "gemini-1.5-pro",
-                    "gemini-1.5-flash", 
-                    "text-bison@002"
+                    "gemini-1.5-flash",
+                    "text-bison@002",
                 ],
-                "api_key_required": True
+                "api_key_required": True,
             },
             {
                 "name": "GEMINI",
@@ -317,46 +331,46 @@ class ModelManagementHandler(BaseCommandHandler):
                 "sample_models": [
                     "gemini-1.5-pro",
                     "gemini-1.5-flash",
-                    "gemini-1.0-pro"
+                    "gemini-1.0-pro",
                 ],
-                "api_key_required": True
+                "api_key_required": True,
             },
             {
                 "name": "REMOTE_VLLM",
                 "type": "Remote",
                 "description": "Connect to external vLLM server instances",
-                "sample_models": [
-                    "Custom models hosted on remote vLLM servers"
-                ],
-                "api_key_required": False
+                "sample_models": ["Custom models hosted on remote vLLM servers"],
+                "api_key_required": False,
             },
             {
                 "name": "REMOTE",
-                "type": "Remote", 
+                "type": "Remote",
                 "description": "Generic OpenAI-compatible API endpoints",
-                "sample_models": [
-                    "Models from OpenAI-compatible services"
-                ],
-                "api_key_required": False
-            }
+                "sample_models": ["Models from OpenAI-compatible services"],
+                "api_key_required": False,
+            },
         ]
-        
+
         return engines
-    
+
     def _save_current_model_state_to_branch(self, branch_id: str):
         """Save current model configuration to a branch."""
         try:
-            if hasattr(self.context, 'branch_manager') and self.context.branch_manager:
+            if hasattr(self.context, "branch_manager") and self.context.branch_manager:
                 branch = self.context.branch_manager.get_branch_by_id(branch_id)
                 if branch:
                     # Save model and generation configs
-                    branch["model_config"] = self._serialize_model_config(self.config.model)
-                    branch["generation_config"] = self._serialize_generation_config(self.config.generation)
+                    branch["model_config"] = self._serialize_model_config(
+                        self.config.model
+                    )
+                    branch["generation_config"] = self._serialize_generation_config(
+                        self.config.generation
+                    )
         except Exception:
             # Silently fail to avoid disrupting user experience
             pass
-    
-    def _restore_model_state_from_branch(self, branch: Dict[str, Any]):
+
+    def _restore_model_state_from_branch(self, branch: dict[str, Any]):
         """Restore model configuration from a branch."""
         try:
             # This would require infrastructure changes to actually swap models
@@ -366,31 +380,36 @@ class ModelManagementHandler(BaseCommandHandler):
         except Exception:
             # Silently fail to avoid disrupting user experience
             pass
-    
+
     def _serialize_model_config(self, model_config) -> dict:
         """Serialize model config to dictionary."""
         if model_config is None:
             return {}
-        
+
         config_dict = {}
-        for attr in ['model_name', 'model_max_length', 'torch_dtype_str', 'attn_implementation']:
+        for attr in [
+            "model_name",
+            "model_max_length",
+            "torch_dtype_str",
+            "attn_implementation",
+        ]:
             if hasattr(model_config, attr):
                 value = getattr(model_config, attr)
                 if value is not None:
                     config_dict[attr] = str(value)
-        
+
         return config_dict
-    
+
     def _serialize_generation_config(self, generation_config) -> dict:
         """Serialize generation config to dictionary."""
         if generation_config is None:
             return {}
-        
+
         config_dict = {}
-        for attr in ['max_new_tokens', 'temperature', 'top_p', 'top_k', 'sampling']:
+        for attr in ["max_new_tokens", "temperature", "top_p", "top_k", "sampling"]:
             if hasattr(generation_config, attr):
                 value = getattr(generation_config, attr)
                 if value is not None:
                     config_dict[attr] = value
-        
+
         return config_dict

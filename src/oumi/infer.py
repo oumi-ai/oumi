@@ -28,8 +28,8 @@ from rich.text import Text
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.commands import CommandParser
-from oumi.core.commands.command_router import CommandRouter
 from oumi.core.commands.command_context import CommandContext
+from oumi.core.commands.command_router import CommandRouter
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.input import EnhancedInput, InputAction
@@ -163,7 +163,7 @@ def _process_thinking_tags(
     if thinking_result.has_thinking:
         # Determine display mode from command context if available
         compressed = True  # Default to compressed
-        if command_context and hasattr(command_context, 'thinking_processor'):
+        if command_context and hasattr(command_context, "thinking_processor"):
             processor_instance = command_context.thinking_processor
             compressed = processor_instance.get_display_mode() == "compressed"
 
@@ -618,26 +618,26 @@ def _validate_context_usage(
     system_monitor: Optional["SystemMonitor"] = None,
 ) -> tuple[bool, str]:
     """Validate that user input won't exceed the context window.
-    
+
     Args:
         user_input: The user's input text to validate.
         conversation_history: Current conversation messages.
         config: Inference configuration.
         system_monitor: System monitor for current context tracking.
-        
+
     Returns:
         Tuple of (is_valid, error_message).
     """
     try:
         from oumi.core.attachments.context_manager import ContextWindowManager
-        
+
         # Get context window size
         max_context = getattr(config.model, "model_max_length", None) or 4096
         model_name = getattr(config.model, "model_name", "default")
-        
+
         # Initialize context manager
         context_manager = ContextWindowManager(max_context, model_name)
-        
+
         # Estimate current conversation tokens
         conversation_tokens = 0
         if conversation_history:
@@ -648,27 +648,30 @@ def _validate_context_usage(
                     if "content" in message:
                         text_content += str(message["content"]) + "\n"
                     # Handle attachment messages
-                    elif message.get("role") == "attachment" and "text_content" in message:
+                    elif (
+                        message.get("role") == "attachment"
+                        and "text_content" in message
+                    ):
                         text_content += str(message["text_content"]) + "\n"
             conversation_tokens = context_manager.estimate_tokens(text_content)
-        
+
         # Calculate context budget
         budget = context_manager.calculate_budget(conversation_tokens)
-        
+
         # Estimate tokens for user input
         user_input_tokens = context_manager.estimate_tokens(user_input)
-        
+
         # Check if input fits in available budget
         # Available budget = total - reserved_for_history - reserved_for_response - safety_margin
         available_for_input = budget.available_for_content
-        
+
         # If user input exceeds available space
         if user_input_tokens > available_for_input:
             # Calculate context usage for error message
             total_used = conversation_tokens + user_input_tokens
             total_reserved = budget.reserved_for_response + budget.safety_margin
             total_needed = total_used + total_reserved
-            
+
             error_msg = (
                 f"Input too large for context window!\n"
                 f"  Input tokens: {user_input_tokens:,}\n"
@@ -681,12 +684,13 @@ def _validate_context_usage(
                 f"  • Break your input into smaller parts"
             )
             return False, error_msg
-        
+
         return True, ""
-        
+
     except Exception as e:
         # If validation fails, log but allow input (fallback to existing behavior)
         import logging
+
         logging.warning(f"Context validation failed: {e}")
         return True, ""
 

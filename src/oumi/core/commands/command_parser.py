@@ -120,13 +120,29 @@ class CommandParser:
             input_text: The user input to check.
 
         Returns:
-            True if the input starts with '/' and looks like a command.
+            True if the input starts with '/' and looks like a valid command.
         """
         if not input_text or not isinstance(input_text, str):
             return False
 
         stripped = input_text.strip()
-        return stripped.startswith("/") and len(stripped) > 1
+
+        # Must start with '/' and have more content
+        if not stripped.startswith("/") or len(stripped) <= 1:
+            return False
+
+        # Special mode switching commands (handled by input system)
+        if stripped.lower() in ["/ml", "/sl"]:
+            return True
+
+        # Check if it matches the command pattern (e.g., /command() or /command(args))
+        command_match = self.COMMAND_PATTERN.match(stripped)
+        if not command_match:
+            return False
+
+        # Extract the command name and check if it's in our available commands
+        command_name = command_match.group(1).lower()
+        return command_name in self._available_commands
 
     def parse_command(self, input_text: str) -> Optional[ParsedCommand]:
         """Parse a command string into its components.
