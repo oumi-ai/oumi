@@ -16,19 +16,24 @@
 
 from typing import Optional
 
-from rich.panel import Panel
-
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
 
 
 class ConversationOperationsHandler(BaseCommandHandler):
     """Handles conversation manipulation commands: delete, regen, clear, compact, full_thoughts, clear_thoughts."""
-    
+
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
-        return ["delete", "regen", "clear", "compact", "full_thoughts", "clear_thoughts"]
-    
+        return [
+            "delete",
+            "regen",
+            "clear",
+            "compact",
+            "full_thoughts",
+            "clear_thoughts",
+        ]
+
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a conversation operations command."""
         if command.command == "delete":
@@ -49,7 +54,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 message=f"Unsupported command: {command.command}",
                 should_continue=False,
             )
-    
+
     def _handle_delete(self, command: ParsedCommand) -> CommandResult:
         """Handle the /delete() command to remove the last conversation turn."""
         try:
@@ -59,10 +64,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     message="No conversation history to delete",
                     should_continue=False,
                 )
-            
+
             # Delete the last turn (could be user+assistant or just user)
             deleted_count = self._delete_last_turn()
-            
+
             if deleted_count > 0:
                 self._update_context_in_monitor()
                 return CommandResult(
@@ -76,14 +81,14 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     message="No messages to delete",
                     should_continue=False,
                 )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error deleting messages: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_regen(self, command: ParsedCommand) -> CommandResult:
         """Handle the /regen() command to regenerate the last assistant response."""
         try:
@@ -93,25 +98,27 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     message="No conversation history to regenerate from",
                     should_continue=False,
                 )
-            
+
             # Find the last user message
             last_user_input = self._get_last_user_input()
-            
+
             if not last_user_input:
                 return CommandResult(
                     success=False,
                     message="No user message found to regenerate response for",
                     should_continue=False,
                 )
-            
+
             # Remove the last assistant response if it exists
-            if (self.conversation_history and 
-                self.conversation_history[-1].get("role") == "assistant"):
+            if (
+                self.conversation_history
+                and self.conversation_history[-1].get("role") == "assistant"
+            ):
                 self.conversation_history.pop()
-            
+
             # Update context monitor
             self._update_context_in_monitor()
-            
+
             # Return with user input override to regenerate
             return CommandResult(
                 success=True,
@@ -119,79 +126,79 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 should_continue=True,
                 user_input_override=last_user_input,
             )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error regenerating response: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_clear(self, command: ParsedCommand) -> CommandResult:
         """Handle the /clear() command to clear entire conversation history."""
         try:
             # Count messages before clearing
             message_count = len(self.conversation_history)
-            
+
             if message_count == 0:
                 return CommandResult(
                     success=True,
                     message="Conversation history is already empty",
                     should_continue=False,
                 )
-            
+
             # Clear conversation history
             self.conversation_history.clear()
-            
+
             # Update context monitor
             self._update_context_in_monitor()
-            
+
             return CommandResult(
                 success=True,
                 message=f"Cleared {message_count} message(s) from conversation history",
                 should_continue=False,
             )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error clearing conversation: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_compact(self, command: ParsedCommand) -> CommandResult:
         """Handle the /compact() command to compress conversation history."""
         try:
             # Show compaction status
             original_tokens = self._estimate_conversation_tokens()
             original_count = len(self.conversation_history)
-            
+
             if original_count <= 2:  # Keep at least user + assistant pair
                 return CommandResult(
                     success=True,
                     message="Conversation too short to compact",
                     should_continue=False,
                 )
-            
+
             # Use compaction engine
             result = self.context.compaction_engine.compact_conversation(
                 self.conversation_history
             )
-            
+
             if result.success:
                 # Update conversation history with compacted version
                 self.conversation_history.clear()
                 self.conversation_history.extend(result.compacted_conversation)
-                
+
                 # Update context monitor
                 self._update_context_in_monitor()
-                
+
                 new_tokens = self._estimate_conversation_tokens()
                 new_count = len(self.conversation_history)
-                
+
                 savings_tokens = original_tokens - new_tokens
                 savings_messages = original_count - new_count
-                
+
                 return CommandResult(
                     success=True,
                     message=(
@@ -206,21 +213,21 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     message=result.error_message or "Failed to compact conversation",
                     should_continue=False,
                 )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error compacting conversation: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_full_thoughts(self, command: ParsedCommand) -> CommandResult:
         """Handle the /full_thoughts() command to toggle thinking display mode."""
         try:
             # Toggle the thinking display mode
             processor = self.context.thinking_processor
             current_mode = processor.get_display_mode()
-            
+
             if current_mode == "compressed":
                 processor.set_display_mode("full")
                 new_mode = "full"
@@ -229,44 +236,44 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 processor.set_display_mode("compressed")
                 new_mode = "compressed"
                 description = "brief summaries of thinking content"
-            
+
             return CommandResult(
                 success=True,
                 message=f"Thinking display mode set to '{new_mode}' - showing {description}",
                 should_continue=False,
             )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error toggling thinking display: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _handle_clear_thoughts(self, command: ParsedCommand) -> CommandResult:
         """Handle the /clear_thoughts() command to remove thinking content from conversation history."""
         try:
             # Track how many messages we process and clean
             processed_count = 0
             cleaned_count = 0
-            
+
             processor = self.context.thinking_processor
-            
+
             for message in self.conversation_history:
                 if message.get("role") == "assistant":
                     processed_count += 1
                     original_content = message.get("content", "")
-                    
+
                     # Clean thinking content
                     cleaned_content = processor.clean_thinking_content(original_content)
-                    
+
                     if cleaned_content != original_content:
                         message["content"] = cleaned_content
                         cleaned_count += 1
-            
+
             # Update context monitor
             self._update_context_in_monitor()
-            
+
             if cleaned_count > 0:
                 return CommandResult(
                     success=True,
@@ -282,41 +289,43 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     message="No thinking content found to remove",
                     should_continue=False,
                 )
-        
+
         except Exception as e:
             return CommandResult(
                 success=False,
                 message=f"Error clearing thinking content: {str(e)}",
                 should_continue=False,
             )
-    
+
     def _delete_last_turn(self) -> int:
         """Delete the last conversation turn and return number of messages deleted.
-        
+
         Returns:
             Number of messages deleted.
         """
         if not self.conversation_history:
             return 0
-        
+
         deleted_count = 0
-        
+
         # If last message is assistant, delete it
         if self.conversation_history[-1].get("role") == "assistant":
             self.conversation_history.pop()
             deleted_count += 1
-        
+
         # If there's still a user message, delete it too (complete turn)
-        if (self.conversation_history and 
-            self.conversation_history[-1].get("role") == "user"):
+        if (
+            self.conversation_history
+            and self.conversation_history[-1].get("role") == "user"
+        ):
             self.conversation_history.pop()
             deleted_count += 1
-        
+
         return deleted_count
-    
+
     def _get_last_user_input(self) -> Optional[str]:
         """Get the content of the last user message.
-        
+
         Returns:
             The last user input, or None if not found.
         """
@@ -324,5 +333,5 @@ class ConversationOperationsHandler(BaseCommandHandler):
         for message in reversed(self.conversation_history):
             if message.get("role") == "user":
                 return message.get("content", "")
-        
+
         return None
