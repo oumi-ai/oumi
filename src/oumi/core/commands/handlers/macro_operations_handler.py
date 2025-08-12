@@ -194,23 +194,28 @@ class MacroOperationsHandler(BaseCommandHandler):
         """
         # Create enhanced input handler with consistent styling
         field_input = EnhancedInput(self.console, "bold cyan")
+        
+        # Suppress the help dialog for field collection (not the main chat)
+        field_input._first_run = False
 
-        # Build descriptive prompt text
-        prompt_parts = [f"[bold cyan]{field.name}[/bold cyan]"]
-        if field.description:
-            prompt_parts.append(f"({field.description})")
-        if field.placeholder:
-            prompt_parts.append(f"[dim]{field.placeholder}[/dim]")
+        # Build simple prompt text for field name
+        # EnhancedInput will handle the styling and display
+        prompt_text = field.name
 
-        prompt_text = " ".join(prompt_parts)
+        # Display field description and placeholder info above the prompt
+        if field.description or field.placeholder:
+            info_parts = []
+            if field.description:
+                info_parts.append(f"[dim]{field.description}[/dim]")
+            if field.placeholder:
+                info_parts.append(f"[dim]Example: {field.placeholder}[/dim]")
+            self.console.print(" - ".join(info_parts))
 
         while True:
             try:
-                # Display the field prompt
-                self.console.print(f"{prompt_text}: ", end="")
-
                 # Get input using the same system as main chat loop
-                input_result = field_input.get_input("")
+                # Pass the field name as the prompt text
+                input_result = field_input.get_input(prompt_text)
 
                 # Handle different input actions
                 if input_result.should_exit:
