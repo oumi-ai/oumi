@@ -285,11 +285,14 @@ class EnhancedInput:
 
             # Check if this is a command on the first line (for backward compatibility)
             first_line = text.split("\n")[0].strip()
-            if (
-                first_line.startswith("/")
-                and "(" in first_line
-                and first_line.endswith(")")
-            ):
+
+            # Use proper command parsing instead of naive pattern matching
+            # Import here to avoid circular imports
+            from oumi.core.commands.command_parser import CommandParser
+
+            parser = CommandParser()
+
+            if parser.is_command(first_line):
                 return InputResult(action=InputAction.SUBMIT, text=first_line)
 
             return InputResult(action=InputAction.SUBMIT, text=text.strip())
