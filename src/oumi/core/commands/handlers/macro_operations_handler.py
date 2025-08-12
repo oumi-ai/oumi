@@ -15,13 +15,13 @@
 """Macro operations command handler."""
 
 import re
-from typing import List
 
 from rich.panel import Panel
-from rich.prompt import Prompt
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
+from oumi.core.input.enhanced_input import EnhancedInput
+from oumi.core.input.multiline_input import InputAction
 
 
 class MacroOperationsHandler(BaseCommandHandler):
@@ -81,9 +81,23 @@ class MacroOperationsHandler(BaseCommandHandler):
                 self.console.print(
                     "\\n📝 Please provide values for the following fields:\\n"
                 )
+                self.console.print(
+                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, or paste content directly.[/dim]\\n"
+                )
+
                 for field in macro_info.fields:
                     field_value = self._collect_field_value(field)
+
+                    # Check if user cancelled (empty return from required field cancellation)
+                    if field.required and not field_value:
+                        return CommandResult(
+                            success=False,
+                            message="Macro execution cancelled by user",
+                            should_continue=False,
+                        )
+
                     field_values[field.name] = field_value
+                    self.console.print()  # Add spacing between fields
 
             # Render macro
             try:
@@ -173,34 +187,69 @@ class MacroOperationsHandler(BaseCommandHandler):
         self.console.print(panel)
 
     def _collect_field_value(self, field) -> str:
-        """Interactively collect a value for a macro field."""
-        prompt_text = f"[bold cyan]{field.name}[/bold cyan]"
+        """Interactively collect a value for a macro field using EnhancedInput.
+
+        This method uses the same input system as the main chat loop to ensure
+        consistent handling of complex multiline content and avoid terminal state conflicts.
+        """
+        # Create enhanced input handler with consistent styling
+        field_input = EnhancedInput(self.console, "bold cyan")
+
+        # Build descriptive prompt text
+        prompt_parts = [f"[bold cyan]{field.name}[/bold cyan]"]
         if field.description:
-            prompt_text += f" ({field.description})"
-
+            prompt_parts.append(f"({field.description})")
         if field.placeholder:
-            default_value = field.placeholder
-        else:
-            default_value = "" if field.required else None
+            prompt_parts.append(f"[dim]{field.placeholder}[/dim]")
 
-        try:
-            if default_value:
-                value = Prompt.ask(
-                    prompt_text, default=default_value, console=self.console
-                )
-            else:
-                value = Prompt.ask(prompt_text, console=self.console)
-        except KeyboardInterrupt:
-            # Handle Ctrl+C gracefully
-            self.console.print("\\n[red]Macro execution cancelled[/red]")
-            return ""
+        prompt_text = " ".join(prompt_parts)
 
-        # Validate required fields
-        if field.required and not value.strip():
-            self.console.print("[red]This field is required![/red]")
-            return self._collect_field_value(field)  # Retry
+        while True:
+            try:
+                # Display the field prompt
+                self.console.print(f"{prompt_text}: ", end="")
 
-        return value.strip()
+                # Get input using the same system as main chat loop
+                input_result = field_input.get_input("")
+
+                # Handle different input actions
+                if input_result.should_exit:
+                    self.console.print("\\n[yellow]Macro execution cancelled[/yellow]")
+                    return ""  # Signal cancellation
+
+                if input_result.cancelled:
+                    self.console.print("[yellow]Input cancelled[/yellow]")
+                    continue  # Retry input
+
+                if input_result.multiline_toggled:
+                    # Mode was toggled, get input again
+                    continue
+
+                if input_result.action != InputAction.SUBMIT:
+                    # Handle other actions that don't submit input
+                    continue
+
+                # Process the submitted input
+                value = input_result.text.strip() if input_result.text else ""
+
+                # Handle empty input for optional fields with placeholder
+                if not value and not field.required and field.placeholder:
+                    value = field.placeholder
+                    self.console.print(f"[dim]Using default: {value}[/dim]")
+
+                # Validate required fields
+                if field.required and not value:
+                    self.console.print(
+                        "[red]This field is required! Please enter a value.[/red]"
+                    )
+                    continue  # Retry input
+
+                return value
+
+            except KeyboardInterrupt:
+                # Handle Ctrl+C gracefully
+                self.console.print("\\n[red]Macro execution cancelled[/red]")
+                return ""  # Signal cancellation
 
     def _parse_macro_turns(self, rendered_content: str) -> list[str]:
         """Parse rendered macro content into conversation turns."""

@@ -16,7 +16,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from rich.panel import Panel
 
