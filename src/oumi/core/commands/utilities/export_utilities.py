@@ -18,7 +18,6 @@ import csv
 import html
 import json
 from datetime import datetime
-from typing import Tuple
 
 from oumi.core.commands.command_context import CommandContext
 

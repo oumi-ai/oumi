@@ -14,7 +14,7 @@
 
 """Parameter management command handler."""
 
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand

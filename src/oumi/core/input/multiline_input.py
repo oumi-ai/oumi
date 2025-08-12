@@ -19,7 +19,16 @@ from enum import Enum
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
+
+try:
+    from prompt_toolkit import prompt as pt_prompt
+    from prompt_toolkit.formatted_text import HTML
+    from prompt_toolkit.history import InMemoryHistory
+except ImportError as e:
+    raise ImportError(
+        "prompt_toolkit is required for Oumi input handling. "
+        "Please install it with: pip install prompt_toolkit"
+    ) from e
 
 
 class InputAction(Enum):
@@ -67,6 +76,7 @@ class MultiLineInput:
         self.prompt_style = prompt_style
         self.multiline_mode = False
         self._first_run = True
+        self.history = InMemoryHistory()
 
     def get_input(self, prompt: str = "You") -> InputResult:
         """Get input from the user with mode-aware handling.
@@ -90,14 +100,18 @@ class MultiLineInput:
     def _get_singleline_input(self, prompt: str) -> InputResult:
         """Get single-line input with mode switching support."""
         try:
-            mode_indicator = (
-                "[dim](single-line)[/dim]" if self.multiline_mode is False else ""
-            )
-            full_prompt = (
-                f"[{self.prompt_style}]{prompt}[/{self.prompt_style}] {mode_indicator}"
+            # Create styled prompt using prompt_toolkit
+            mode_indicator = " (single-line)" if self.multiline_mode is False else ""
+            formatted_prompt = HTML(
+                f"<ansiblue><b>{prompt}</b></ansiblue>{mode_indicator}: "
             )
 
-            text = Prompt.ask(full_prompt, console=self.console, default="")
+            text = pt_prompt(
+                formatted_prompt,
+                history=self.history,
+                mouse_support=False,
+                wrap_lines=True,
+            )
 
             # Handle special commands
             if text.strip().lower() == "/ml":
@@ -117,63 +131,49 @@ class MultiLineInput:
             return InputResult(action=InputAction.EXIT, should_exit=True)
 
     def _get_multiline_input(self, prompt: str) -> InputResult:
-        """Get multi-line input with line-by-line collection."""
-        lines = []
-        line_number = 0
-
+        """Get multi-line input using prompt_toolkit multiline support."""
         try:
             self.console.print(
-                "[dim]📝 Multi-line mode: Enter empty line to submit, /sl to switch to single-line[/dim]"
+                "[dim]📝 Multi-line mode: Ctrl+D to submit, "
+                "/sl to switch to single-line[/dim]"
             )
 
-            while True:
-                line_number += 1
+            # Create styled prompt for multi-line
+            formatted_prompt = HTML(
+                f"<ansiblue><b>{prompt}</b></ansiblue> (multi-line): "
+            )
 
-                if line_number == 1:
-                    # First line with main prompt
-                    line_prompt = f"[{self.prompt_style}]{prompt}[/{self.prompt_style}]"
-                else:
-                    # Continuation lines with visual indicator
-                    spaces = " " * len(prompt)
-                    line_prompt = f"[{self.prompt_style}]{spaces}[/{self.prompt_style}][dim]│[/dim]"
+            text = pt_prompt(
+                formatted_prompt,
+                history=self.history,
+                multiline=True,
+                mouse_support=False,
+                wrap_lines=True,
+            )
 
-                line = Prompt.ask(line_prompt, console=self.console, default="")
+            # Handle special commands
+            if text.strip().lower() == "/sl":
+                self.multiline_mode = False
+                self._show_mode_change("single-line")
+                return InputResult(
+                    action=InputAction.TOGGLE_MULTILINE, multiline_toggled=True
+                )
+            elif text.strip().lower() == "/exit":
+                return InputResult(action=InputAction.EXIT, should_exit=True)
+            elif not text.strip():
+                return InputResult(action=InputAction.CANCEL, cancelled=True)
 
-                # Handle special commands (mode switching first)
-                if line.strip().lower() == "/sl":
-                    self.multiline_mode = False
-                    self._show_mode_change("single-line")
-                    if lines:
-                        # If we have content, submit it
-                        text = "\n".join(lines).strip()
-                        return InputResult(action=InputAction.SUBMIT, text=text)
-                    else:
-                        return InputResult(
-                            action=InputAction.TOGGLE_MULTILINE, multiline_toggled=True
-                        )
-                elif line.strip().lower() == "/exit":
-                    return InputResult(action=InputAction.EXIT, should_exit=True)
-                elif line.strip() == "" and lines:
-                    # Empty line submits the input if we have content
-                    break
-                elif line.strip() == "" and not lines:
-                    # First line is empty, cancel
-                    return InputResult(action=InputAction.CANCEL, cancelled=True)
+            # Check if this is a command on the first line
+            first_line = text.split("\n")[0].strip()
+            if (
+                first_line.startswith("/")
+                and "(" in first_line
+                and first_line.endswith(")")
+            ):
+                # This looks like a command on the first line - submit it immediately
+                return InputResult(action=InputAction.SUBMIT, text=first_line)
 
-                # Check if this is the first line and looks like a command
-                if (
-                    line_number == 1
-                    and line.strip().startswith("/")
-                    and "(" in line
-                    and line.strip().endswith(")")
-                ):
-                    # This looks like a command on the first line - submit it immediately
-                    return InputResult(action=InputAction.SUBMIT, text=line.strip())
-
-                lines.append(line)
-
-            text = "\n".join(lines).strip()
-            return InputResult(action=InputAction.SUBMIT, text=text)
+            return InputResult(action=InputAction.SUBMIT, text=text.strip())
 
         except (EOFError, KeyboardInterrupt):
             return InputResult(action=InputAction.EXIT, should_exit=True)
