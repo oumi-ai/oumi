@@ -83,6 +83,14 @@ class CommandCompleter(Completer):
                 "/swap(config:path/to/config.yaml)",
             ],
             "list_engines": ["/list_engines()"],
+            # Macro system
+            "macro": [
+                "/macro(template_path)",
+                "/macro(judge.jinja)",
+                "/macro(code_repair.jinja)",
+                "/macro(creative_writing.jinja)",
+                "/macro(macros/template.jinja)",
+            ],
             # Mode switching (handled by input system)
             "ml": ["/ml"],
             "sl": ["/sl"],
@@ -219,7 +227,7 @@ class EnhancedInput:
                 completer=self.command_completer,
                 complete_while_typing=True,
                 key_bindings=self.bindings,
-                mouse_support=True,
+                mouse_support=False,
                 wrap_lines=True,
             )
 
@@ -259,7 +267,7 @@ class EnhancedInput:
                 multiline=True,
                 complete_while_typing=True,
                 key_bindings=self.bindings,
-                mouse_support=True,
+                mouse_support=False,
                 wrap_lines=True,
             )
 

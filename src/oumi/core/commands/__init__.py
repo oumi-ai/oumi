@@ -14,7 +14,18 @@
 
 """Interactive command system for Oumi inference."""
 
-from oumi.core.commands.command_handler import CommandHandler
 from oumi.core.commands.command_parser import CommandParser, ParsedCommand
+from oumi.core.commands.command_router import CommandRouter
+from oumi.core.commands.command_context import CommandContext
 
-__all__ = ["CommandParser", "ParsedCommand", "CommandHandler"]
+# Maintain backward compatibility by importing the legacy CommandHandler
+try:
+    from oumi.core.commands.command_handler import CommandHandler
+    _LEGACY_AVAILABLE = True
+except ImportError:
+    _LEGACY_AVAILABLE = False
+
+if _LEGACY_AVAILABLE:
+    __all__ = ["CommandParser", "ParsedCommand", "CommandRouter", "CommandContext", "CommandHandler"]
+else:
+    __all__ = ["CommandParser", "ParsedCommand", "CommandRouter", "CommandContext"]

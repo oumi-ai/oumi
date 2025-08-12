@@ -1344,6 +1344,17 @@ class CommandHandler:
   - Useful for cleaning up conversation history while keeping the actual answers
   - Works across all supported thinking formats
 
+### Macro System
+- **`/macro(path)`** - Execute Jinja template-based conversation macros
+  - Load and execute pre-defined conversation templates with customizable fields
+  - Examples:
+    - `/macro(judge.jinja)` - Load a judgment/evaluation macro
+    - `/macro(code_repair.jinja)` - Load a code debugging assistance macro
+    - `/macro(macros/creative_writing.jinja)` - Load with relative path
+  - Validates template syntax and context window usage
+  - Interactive field collection for template variables
+  - Supports multi-turn conversation macros
+
 ## Input Modes
 
 ### Single-line Mode (Default)
@@ -1377,6 +1388,7 @@ class CommandHandler:
 /branch()                  # Create a new conversation branch
 /list_engines()            # Show available inference engines
 /swap(llama-3.1-8b)        # Switch to different model
+/macro(judge.jinja)        # Execute a judgment/evaluation macro
 ```
 
 {"🎨 **Tip**: You can customize the appearance with different style themes in your config!" if getattr(self._style, "use_emoji", True) else "Tip: You can customize the appearance with different style themes in your config!"}
