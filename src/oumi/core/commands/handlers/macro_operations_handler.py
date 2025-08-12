@@ -16,6 +16,7 @@
 
 import re
 
+from rich.markdown import Markdown
 from rich.panel import Panel
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
@@ -82,7 +83,8 @@ class MacroOperationsHandler(BaseCommandHandler):
                     "\n📝 Please provide values for the following fields:\n"
                 )
                 self.console.print(
-                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, or paste content directly.[/dim]\n"
+                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, "
+                    "or paste content directly.[/dim]\n"
                 )
 
                 for field in macro_info.fields:
@@ -158,11 +160,14 @@ class MacroOperationsHandler(BaseCommandHandler):
         """Display a summary of the loaded macro."""
         use_emoji = getattr(self._style, "use_emoji", True)
 
-        # Create summary content
+        # Create summary content formatted for markdown
         summary_lines = [
             f"**Name:** {macro_info.name}",
+            "",
             f"**Description:** {macro_info.description}",
+            "",
             f"**Estimated turns:** {macro_info.turns}",
+            "",
             f"**Fields to fill:** {len(macro_info.fields)}",
         ]
 
@@ -173,15 +178,18 @@ class MacroOperationsHandler(BaseCommandHandler):
                 field_desc = field.description or "No description"
                 required_text = "Required" if field.required else "Optional"
                 summary_lines.append(
-                    f"  • `{field.name}`: {field_desc} ({required_text})"
+                    f"- `{field.name}`: {field_desc} ({required_text})"
                 )
 
-        # Display the macro summary
+        # Display the macro summary with markdown formatting
         title = "🎯 Macro Summary" if use_emoji else "Macro Summary"
         content = "\n".join(summary_lines)
+        
+        # Create markdown content for proper styling
+        markdown_content = Markdown(content)
 
         panel = Panel(
-            content,
+            markdown_content,
             title=title,
             border_style=getattr(self._style, "assistant_border_style", "cyan"),
         )
