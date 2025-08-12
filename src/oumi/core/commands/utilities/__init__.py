@@ -13,3 +13,7 @@
 # limitations under the License.
 
 """Command utilities package."""
+
+from .input_sanitization import make_safe
+
+__all__ = ["make_safe"]
