@@ -30,6 +30,7 @@ from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.commands import CommandParser
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.command_router import CommandRouter
+from oumi.core.commands.utilities import make_safe
 from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.input import EnhancedInput, InputAction
@@ -790,9 +791,11 @@ def infer_interactive(
             # Add all input to history for arrow key recall (commands and regular input)
             input_handler.add_to_history(input_text.strip())
 
-            # Check for commands first
-            if command_parser.is_command(input_text):
-                parsed_command = command_parser.parse_command(input_text)
+            # Check for commands first - sanitize input to prevent false positives
+            # from multi-line content or complex file paths
+            safe_input = make_safe(input_text)
+            if command_parser.is_command(safe_input):
+                parsed_command = command_parser.parse_command(safe_input)
 
                 if parsed_command is None:
                     command_router.display_command_error("Invalid command syntax")

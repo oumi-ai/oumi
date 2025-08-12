@@ -90,14 +90,20 @@ class MacroManager:
         if cwd_macros.exists() and cwd_macros not in directories:
             directories.append(cwd_macros)
 
+        # Try relative to oumi subdirectory from current working directory
+        # This handles cases where user runs from parent directory
+        oumi_macros = Path.cwd() / "oumi" / "macros"
+        if oumi_macros.exists() and oumi_macros not in directories:
+            directories.append(oumi_macros)
+
         # User macros directory
         user_macros = Path.home() / ".oumi" / "macros"
         if user_macros.exists():
             directories.append(user_macros)
 
-        # If no directories found, add expected path for better error messages
+        # If no directories found, add expected paths for better error messages
         if not directories:
-            directories.append(project_macros)
+            directories.extend([project_macros, oumi_macros])
 
         return directories
 
