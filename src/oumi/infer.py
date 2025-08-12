@@ -608,6 +608,86 @@ def _format_conversation_response(
                 )
 
 
+def _validate_context_usage(
+    user_input: str,
+    conversation_history: list,
+    config: "InferenceConfig",
+    system_monitor: Optional["SystemMonitor"] = None,
+) -> tuple[bool, str]:
+    """Validate that user input won't exceed the context window.
+    
+    Args:
+        user_input: The user's input text to validate.
+        conversation_history: Current conversation messages.
+        config: Inference configuration.
+        system_monitor: System monitor for current context tracking.
+        
+    Returns:
+        Tuple of (is_valid, error_message).
+    """
+    try:
+        from oumi.core.attachments.context_manager import ContextWindowManager
+        
+        # Get context window size
+        max_context = getattr(config.model, "model_max_length", None) or 4096
+        model_name = getattr(config.model, "model_name", "default")
+        
+        # Initialize context manager
+        context_manager = ContextWindowManager(max_context, model_name)
+        
+        # Estimate current conversation tokens
+        conversation_tokens = 0
+        if conversation_history:
+            text_content = ""
+            for message in conversation_history:
+                if isinstance(message, dict):
+                    # Handle regular messages
+                    if "content" in message:
+                        text_content += str(message["content"]) + "\n"
+                    # Handle attachment messages
+                    elif message.get("role") == "attachment" and "text_content" in message:
+                        text_content += str(message["text_content"]) + "\n"
+            conversation_tokens = context_manager.estimate_tokens(text_content)
+        
+        # Calculate context budget
+        budget = context_manager.calculate_budget(conversation_tokens)
+        
+        # Estimate tokens for user input
+        user_input_tokens = context_manager.estimate_tokens(user_input)
+        
+        # Check if input fits in available budget
+        # Available budget = total - reserved_for_history - reserved_for_response - safety_margin
+        available_for_input = budget.available_for_content
+        
+        # If user input exceeds available space
+        if user_input_tokens > available_for_input:
+            # Calculate context usage for error message
+            total_used = conversation_tokens + user_input_tokens
+            total_reserved = budget.reserved_for_response + budget.safety_margin
+            total_needed = total_used + total_reserved
+            
+            error_msg = (
+                f"Input too large for context window!\n"
+                f"  Input tokens: {user_input_tokens:,}\n"
+                f"  Available space: {available_for_input:,}\n"
+                f"  Current conversation: {conversation_tokens:,}\n"
+                f"  Total context limit: {max_context:,}\n\n"
+                f"Suggestions:\n"
+                f"  • Use /compact() to compress conversation history\n"
+                f"  • Use /clear() to start fresh\n"
+                f"  • Break your input into smaller parts"
+            )
+            return False, error_msg
+        
+        return True, ""
+        
+    except Exception as e:
+        # If validation fails, log but allow input (fallback to existing behavior)
+        import logging
+        logging.warning(f"Context validation failed: {e}")
+        return True, ""
+
+
 def infer_interactive(
     config: InferenceConfig,
     *,
@@ -754,6 +834,15 @@ def infer_interactive(
             )
             console.print(f"\n[{goodbye_style}]{emoji}Goodbye![/{goodbye_style}]")
             return
+
+        # Validate context usage before inference
+        is_valid, validation_error = _validate_context_usage(
+            input_text, conversation_history, config, system_monitor
+        )
+        if not is_valid:
+            command_handler.display_command_error(validation_error)
+            console.print()  # Add spacing
+            continue
 
         try:
             # Track timing

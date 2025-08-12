@@ -15,6 +15,7 @@
 """Conversation branching system for managing multiple conversation paths."""
 
 import copy
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -113,6 +114,15 @@ class ConversationBranchManager:
         Returns:
             Tuple of (success, message, new_branch).
         """
+        # Validate branch name
+        is_valid, error_msg = self._validate_branch_name(name)
+        if not is_valid:
+            return False, error_msg, None
+
+        # Normalize name to lowercase if provided
+        if name:
+            name = name.lower()
+
         # Check branch limit
         if len(self.branches) >= self.MAX_BRANCHES:
             return (
@@ -258,3 +268,43 @@ class ConversationBranchManager:
             if branch.name and branch.name.lower() == name_lower:
                 return branch
         return None
+
+    def _validate_branch_name(self, name: Optional[str]) -> tuple[bool, str]:
+        """Validate branch name according to safety rules.
+
+        Args:
+            name: Branch name to validate.
+
+        Returns:
+            Tuple of (is_valid, error_message).
+        """
+        if not name:
+            return True, ""  # None/empty names are OK, will use auto-generated names
+
+        # Convert to lowercase for consistent naming
+        name_lower = name.lower()
+
+        # Check length limit
+        if len(name_lower) > 32:
+            return False, "Branch name must be 32 characters or shorter"
+
+        # Check for reserved name (main)
+        if name_lower == "main":
+            return False, "Branch name 'main' is reserved"
+
+        # Check for spaces
+        if " " in name_lower:
+            return False, "Branch name cannot contain spaces"
+
+        # Check for invalid characters (only allow alphanumeric and underscores)
+        if not re.match(r"^[a-z0-9_]+$", name_lower):
+            return (
+                False,
+                "Branch name can only contain letters, numbers and underscores",
+            )
+
+        # Check if name already exists (case-insensitive)
+        if self.get_branch_by_name(name_lower):
+            return False, f"Branch name '{name_lower}' already exists"
+
+        return True, ""
