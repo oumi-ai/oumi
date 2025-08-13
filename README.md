@@ -26,7 +26,7 @@
 </p>
 
 ## 🔥 News
-- [2025/08] Oumi support inference for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
+- [2025/08] Inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
 - [2025/08] Aug 14 Webinar - [OpenAI's gpt-oss: Separating the Substance from the Hype](https://lu.ma/qd9fhau9?utm_source=oumi_readme). Places limited!
 - [2025/08] [Oumi v0.3.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.3.0) with model quantization (AWQ), an improved LLM-as-a-Judge API, and Adaptive Inference
 - [2025/07] Recipe for [Qwen3 235B](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml)
