@@ -28,7 +28,7 @@ except ImportError:
     MXFP4_AVAILABLE = False
     Mxfp4Config = None  # type: ignore
 
-from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
+from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
