@@ -767,6 +767,9 @@ def infer_interactive(
     while True:
         # Display HUD if interval has passed
         system_monitor.display_hud(console, config.style)
+        
+        # Track if input came from command override (like /regen)
+        is_from_override = False
 
         try:
             # Get input using enhanced input handler
@@ -831,6 +834,7 @@ def infer_interactive(
                     and command_result.user_input_override
                 ):
                     input_text = command_result.user_input_override
+                    is_from_override = True
                 else:
                     # Skip inference since we don't have regular user input
                     console.print()  # Add spacing
@@ -1086,13 +1090,16 @@ def infer_interactive(
             ]
 
             # Store the user message that was sent to the model (always string now)
-            if current_user_message:
-                conversation_history.append(
-                    {"role": "user", "content": current_user_message.content}
-                )
-            else:
-                # Fallback - shouldn't happen but just in case
-                conversation_history.append({"role": "user", "content": input_text})
+            # Skip adding to history if this came from user_input_override (e.g., /regen)
+            # because the message should already be in the conversation history
+            if not is_from_override:
+                if current_user_message:
+                    conversation_history.append(
+                        {"role": "user", "content": current_user_message.content}
+                    )
+                else:
+                    # Fallback - shouldn't happen but just in case
+                    conversation_history.append({"role": "user", "content": input_text})
 
             # Store assistant response in history
             # Check if this is a GPT-OSS model for response cleaning
