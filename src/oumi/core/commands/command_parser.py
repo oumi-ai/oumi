@@ -196,7 +196,11 @@ class CommandParser:
         Returns:
             Dict mapping command names to their descriptions.
         """
-        return self._available_commands.copy()
+        # Convert registry to old format for backward compatibility
+        commands_dict = {}
+        for name, command_info in COMMAND_REGISTRY.get_all_commands().items():
+            commands_dict[name] = command_info.description
+        return commands_dict
 
     def is_valid_command(self, command_name: str) -> bool:
         """Check if a command name is valid/supported.
@@ -207,7 +211,7 @@ class CommandParser:
         Returns:
             True if the command is supported.
         """
-        return command_name.lower() in self._available_commands
+        return COMMAND_REGISTRY.has_command(command_name)
 
     def get_command_help(self, command_name: str) -> Optional[str]:
         """Get help text for a specific command.
@@ -218,7 +222,10 @@ class CommandParser:
         Returns:
             Help text for the command, or None if not found.
         """
-        return self._available_commands.get(command_name.lower())
+        try:
+            return COMMAND_REGISTRY.get_command(command_name).description
+        except KeyError:
+            return None
 
     def validate_command(self, parsed_command: ParsedCommand) -> tuple[bool, str]:
         """Validate a parsed command for correctness.
