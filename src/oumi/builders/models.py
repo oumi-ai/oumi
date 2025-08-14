@@ -267,7 +267,7 @@ def build_huggingface_model(
             config=hf_config,
             torch_dtype=torch_dtype,
             device_map="auto",
-            # use_cache=True,
+            # use_cache=False,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,
