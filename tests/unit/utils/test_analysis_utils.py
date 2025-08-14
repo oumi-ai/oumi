@@ -404,3 +404,159 @@ def test_load_dataset_from_config_without_tokenizer(
     call_kwargs = mock_dataset_class.call_args[1]
     assert "tokenizer" not in call_kwargs
     assert result == mock_dataset_instance
+
+
+def test_load_dataset_from_config_huggingface_loading(mock_registry):
+    """Test HuggingFace dataset loading when dataset is not in registry."""
+    config = AnalyzeConfig(
+        dataset_name="test_hf_dataset",
+        split="train",
+        trust_remote_code=True,
+    )
+
+    mock_registry.get_dataset.return_value = None
+
+    # Mock the HuggingFace dataset loading
+    with patch(
+        "oumi.utils.analysis_utils._load_dataset_from_huggingface_hub"
+    ) as mock_hf_loader:
+        mock_dataset = Mock(spec=BaseMapDataset)
+        mock_hf_loader.return_value = mock_dataset
+
+        result = load_dataset_from_config(config)
+
+        # Verify that HuggingFace loading was attempted
+        mock_hf_loader.assert_called_once_with(config)
+        assert result == mock_dataset
+
+
+def test_load_dataset_from_huggingface_hub_success():
+    """Test successful HuggingFace Hub dataset loading."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        split="train",
+        trust_remote_code=True,
+    )
+
+    # Mock the datasets library and registry
+    with (
+        patch("datasets.load_dataset") as mock_load_dataset,
+        patch("oumi.utils.analysis_utils.REGISTRY") as mock_registry,
+    ):
+        # Mock the HuggingFace dataset as a proper Dataset type
+        class MockDataset(datasets.Dataset):
+            def __init__(self):
+                pass
+
+            def __getitem__(self, idx):
+                return {"messages": [{"role": "user", "content": "test"}]}
+
+        mock_hf_dataset = MockDataset()
+        mock_load_dataset.return_value = mock_hf_dataset
+
+        # Mock the registry to return a dataset class
+        mock_dataset_class = Mock()
+        mock_dataset = Mock(spec=BaseMapDataset)
+        mock_dataset_class.return_value = mock_dataset
+        mock_registry.get_dataset.return_value = mock_dataset_class
+
+        from oumi.utils.analysis_utils import _load_dataset_from_huggingface_hub
+
+        result = _load_dataset_from_huggingface_hub(config)
+
+        # Verify the dataset was loaded correctly
+        mock_load_dataset.assert_called_once_with(
+            path="test_dataset", split="train", trust_remote_code=True
+        )
+        assert result == mock_dataset
+
+
+def test_load_dataset_from_huggingface_hub_with_subset():
+    """Test HuggingFace Hub dataset loading with subset."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        subset="subset_name",
+        split="train",
+        trust_remote_code=True,
+    )
+
+    # Mock the datasets library and registry
+    with (
+        patch("datasets.load_dataset") as mock_load_dataset,
+        patch("oumi.utils.analysis_utils.REGISTRY") as mock_registry,
+    ):
+
+        class MockDataset(datasets.Dataset):
+            def __init__(self):
+                pass
+
+            def __getitem__(self, idx):
+                return {"messages": [{"role": "user", "content": "test"}]}
+
+        mock_hf_dataset = MockDataset()
+        mock_load_dataset.return_value = mock_hf_dataset
+
+        # Mock the registry to return a dataset class
+        mock_dataset_class = Mock()
+        mock_dataset = Mock(spec=BaseMapDataset)
+        mock_dataset_class.return_value = mock_dataset
+        mock_registry.get_dataset.return_value = mock_dataset_class
+
+        from oumi.utils.analysis_utils import _load_dataset_from_huggingface_hub
+
+        result = _load_dataset_from_huggingface_hub(config)
+
+        # Verify the dataset was loaded with subset
+        mock_load_dataset.assert_called_once_with(
+            path="test_dataset",
+            name="subset_name",
+            split="train",
+            trust_remote_code=True,
+        )
+        assert result == mock_dataset
+
+
+def test_load_dataset_from_huggingface_hub_import_error():
+    """Test error handling when datasets library is not available."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        split="train",
+    )
+
+    # Mock import error
+    with patch(
+        "datasets.load_dataset", side_effect=ImportError("No module named 'datasets'")
+    ):
+        from oumi.utils.analysis_utils import _load_dataset_from_huggingface_hub
+
+        with pytest.raises(ImportError, match="The 'datasets' library is required"):
+            _load_dataset_from_huggingface_hub(config)
+
+
+def test_detect_dataset_field_mapping():
+    """Test the dataset field mapping detection function."""
+    from oumi.utils.analysis_utils import _detect_dataset_field_mapping
+
+    # Test with standard vision-language fields
+    sample = {
+        "image": "path/to/image.jpg",
+        "question": "What is in this image?",
+        "answer": "A cat",
+    }
+
+    result = _detect_dataset_field_mapping(sample)
+    assert result["image_column"] == "image"
+    assert result["question_column"] == "question"
+    assert result["answer_column"] == "answer"
+
+    # Test with alternative field names
+    sample2 = {
+        "img": "path/to/image.jpg",
+        "prompt": "Describe this image",
+        "output": "A beautiful landscape",
+    }
+
+    result2 = _detect_dataset_field_mapping(sample2)
+    assert result2["image_column"] == "img"
+    assert result2["question_column"] == "prompt"
+    assert result2["answer_column"] == "output"
