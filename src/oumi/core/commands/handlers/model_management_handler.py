@@ -118,16 +118,49 @@ class ModelManagementHandler(BaseCommandHandler):
                     should_continue=False,
                 )
 
-            # For now, return a placeholder since actual config swapping requires
-            # infrastructure changes
-            return CommandResult(
-                success=False,
-                message=(
-                    f"Config-based swapping to '{full_path}' is not yet implemented. "
-                    "This feature requires infrastructure support for dynamic config loading."
-                ),
-                should_continue=False,
-            )
+            # Load and parse the new config
+            from oumi.core.configs import InferenceConfig
+            
+            try:
+                new_config = InferenceConfig.from_yaml(str(full_path))
+            except Exception as e:
+                return CommandResult(
+                    success=False,
+                    message=f"Error loading config: {str(e)}",
+                    should_continue=False,
+                )
+
+            # Create new inference engine with the loaded config
+            from oumi.core.inference.factory import create_inference_engine
+            
+            try:
+                new_engine = create_inference_engine(new_config)
+                
+                # Replace the current inference engine and config
+                self.context.inference_engine = new_engine
+                self.context.config = new_config
+                
+                # Update system monitor with new model info if available
+                if hasattr(self.context, 'system_monitor') and self.context.system_monitor:
+                    max_context = getattr(new_config.model, 'model_max_length', 4096)
+                    if hasattr(self.context.system_monitor, 'update_max_context_tokens'):
+                        self.context.system_monitor.update_max_context_tokens(max_context)
+                
+                model_name = getattr(new_config.model, 'model_name', 'Unknown model')
+                engine_type = getattr(new_config, 'engine', 'Unknown engine')
+                
+                return CommandResult(
+                    success=True,
+                    message=f"✅ Swapped to {model_name} using {engine_type} engine",
+                    should_continue=False,
+                )
+                
+            except Exception as e:
+                return CommandResult(
+                    success=False,
+                    message=f"Error creating inference engine: {str(e)}",
+                    should_continue=False,
+                )
 
         except Exception as e:
             return CommandResult(
