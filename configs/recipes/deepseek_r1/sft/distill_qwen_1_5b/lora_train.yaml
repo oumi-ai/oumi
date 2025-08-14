@@ -58,7 +58,6 @@ peft:
   q_lora: False
   lora_r: 64
   lora_alpha: 128
-  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "v_proj"

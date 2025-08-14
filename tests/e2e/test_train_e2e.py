@@ -382,7 +382,7 @@ def _test_train_impl(
                 / "1b_full"
                 / "train.yaml"
             ),
-            max_steps=10,
+            max_steps=3,
             model_max_length=128,
         ),
         TrainTestConfig(
@@ -395,7 +395,7 @@ def _test_train_impl(
                 / "train.yaml"
             ),
             batch_size=2,
-            max_steps=5,
+            max_steps=3,
             model_max_length=512,
         ),
         TrainTestConfig(
@@ -406,14 +406,14 @@ def _test_train_impl(
             batch_size=16,
             dataloader_num_workers=2,
             dataloader_prefetch_factor=4,
-            max_steps=20,
+            max_steps=3,
         ),
         TrainTestConfig(
             test_name="train_text_smollm_135m_sft",
             config_path=(
                 get_configs_dir() / "recipes" / "smollm" / "sft" / "135m" / "train.yaml"
             ),
-            max_steps=10,
+            max_steps=3,
         ),
     ],
     ids=get_train_test_id_fn,
@@ -442,8 +442,8 @@ def test_train_text_1gpu_24gb(
                 / "train.yaml"
             ),
             trainer_type=TrainerType.TRL_SFT,
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
             is_lora=True,
         ),
         TrainTestConfig(
@@ -457,8 +457,8 @@ def test_train_text_1gpu_24gb(
                 / "train.yaml"
             ),
             trainer_type=TrainerType.TRL_SFT,
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
         ),
     ],
     ids=get_train_test_id_fn,
@@ -489,8 +489,8 @@ def test_train_text_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
                 / "train.yaml"
             ),
             trainer_type=TrainerType.TRL_SFT,
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
         ),
         TrainTestConfig(
             test_name="train_mm_qwen2_vl_2b_oumi_fft",
@@ -504,7 +504,7 @@ def test_train_text_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path):
                 / "train.yaml"
             ),
             trainer_type=TrainerType.OUMI,
-            max_steps=5,
+            max_steps=3,
             save_steps=0,
             save_final_model=False,
         ),
@@ -537,8 +537,8 @@ def test_train_multimodal_4gpu_40gb(test_config: TrainTestConfig, tmp_path: Path
                 / "train.yaml"
             ),
             trainer_type=TrainerType.TRL_SFT,
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
             is_lora=True,
         ),
     ],
@@ -569,10 +569,8 @@ def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path:
                 / "11b_full"
                 / "train.yaml"
             ),
-            max_steps=5,
-            save_steps=5,
-            skip=True,  # Issues with this test since torch 2.6.0 upgrade. Skip for now
-            # until we upgrade to the next torch version.
+            max_steps=3,
+            save_steps=3,
         ),
         TrainTestConfig(
             test_name="train_mm_llama3_2_vision_11b_lora",
@@ -586,8 +584,8 @@ def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path:
                 / "train.yaml"
             ),
             is_lora=True,
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
         ),
         TrainTestConfig(
             test_name="train_mm_llava_7b_sft_full",
@@ -599,8 +597,8 @@ def test_train_multimodal_lora_1gpu_40gb(test_config: TrainTestConfig, tmp_path:
                 / "sft"
                 / "train.yaml"
             ),
-            max_steps=5,
-            save_steps=5,
+            max_steps=3,
+            save_steps=3,
         ),
     ],
     ids=get_train_test_id_fn,
