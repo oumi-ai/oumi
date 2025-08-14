@@ -56,10 +56,14 @@ class BranchOperationsHandler(BaseCommandHandler):
             if command.args:
                 branch_name = command.args[0].strip()
 
-            # Create the branch
-            result = branch_manager.create_branch(branch_name)
+            # Create the branch from current branch
+            current_branch_id = branch_manager.current_branch_id
+            success, message, new_branch = branch_manager.create_branch(
+                from_branch_id=current_branch_id,
+                name=branch_name
+            )
 
-            if result.success:
+            if success:
                 # Auto-save current state to new branch if file operations handler is available
                 try:
                     from oumi.core.commands.handlers.file_operations_handler import (
@@ -74,13 +78,13 @@ class BranchOperationsHandler(BaseCommandHandler):
 
                 return CommandResult(
                     success=True,
-                    message=result.message,
+                    message=message,
                     should_continue=False,
                 )
             else:
                 return CommandResult(
                     success=False,
-                    message=result.message,
+                    message=message,
                     should_continue=False,
                 )
 
@@ -105,28 +109,26 @@ class BranchOperationsHandler(BaseCommandHandler):
             branch_manager = self.context.branch_manager
 
             # Switch to the branch
-            result = branch_manager.switch_to_branch(branch_name)
+            success, message, branch = branch_manager.switch_branch(branch_name)
 
-            if result.success:
+            if success:
                 # Update conversation history with branch content
-                if hasattr(result, "branch_data") and result.branch_data:
-                    branch = result.branch_data
-                    if "conversation_history" in branch:
-                        self.conversation_history.clear()
-                        self.conversation_history.extend(branch["conversation_history"])
+                if branch and hasattr(branch, 'conversation_history'):
+                    self.conversation_history.clear()
+                    self.conversation_history.extend(branch.conversation_history)
 
                 # Update context monitor
                 self._update_context_in_monitor()
 
                 return CommandResult(
                     success=True,
-                    message=result.message,
+                    message=message,
                     should_continue=False,
                 )
             else:
                 return CommandResult(
                     success=False,
-                    message=result.message,
+                    message=message,
                     should_continue=False,
                 )
 

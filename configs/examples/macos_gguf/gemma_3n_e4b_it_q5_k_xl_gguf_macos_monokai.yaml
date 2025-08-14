@@ -1,0 +1,80 @@
+# ✅ MACOS COMPATIBLE: LlamaCPP Inference config for Gemma-3n-E4B-it GGUF with Monokai Theme.
+#
+# This config uses the LlamaCPP engine which is optimized for CPU inference on macOS,
+# with the popular Monokai color scheme familiar to developers.
+#
+# Prerequisites:
+#   # Install macOS-specific dependencies:
+#   pip install oumi[gpu_mac]  # Includes llama-cpp-python with Metal acceleration
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/gemma-3n-E4B-it-GGUF \
+#     gemma-3n-E4B-it-UD-Q5_K_XL.gguf --local-dir .
+#
+#   # 2. Run inference (CPU optimized):
+#   oumi infer -i -c configs/examples/macos_gguf/gemma_3n_e4b_it_q5_k_xl_gguf_macos_monokai.yaml
+#
+# Model Info:
+#   - Repository: unsloth/gemma-3n-E4B-it-GGUF
+#   - Size: ~4B parameters (Q5_K_XL quantized)
+#   - File size: ~3.2GB (estimated)
+#   - Requirements: macOS with sufficient RAM (recommend 8GB+ for Q5_K_XL)
+#   - Performance: CPU-optimized with Metal GPU acceleration if available
+#   - Special: Gemma 3n instruction-tuned model with enhanced capabilities
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+
+model:
+  # GGUF file path - LlamaCPP uses filename in model_kwargs
+  model_name: "unsloth/gemma-3n-E4B-it-GGUF"
+  # Original model tokenizer for proper text processing
+  tokenizer_name: "google/gemma-3n-E4B-it"
+  model_max_length: 16384
+  torch_dtype_str: "float16"  # GGUF models require float16
+  trust_remote_code: True
+  # Specify GGUF filename in model_kwargs for LlamaCPP
+  model_kwargs:
+    filename: "gemma-3n-E4B-it-UD-Q5_K_XL.gguf"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: LLAMACPP
+
+# Monokai theme with developer-familiar colors
+style:
+  theme_name: "monokai"
+  welcome_style: "bold #ae81ff"  # Monokai purple
+  welcome_border_style: "#ae81ff"
+  user_prompt_style: "bold #66d9ef"  # Monokai blue
+  assistant_title_style: "bold #a6e22e"  # Monokai green
+  assistant_border_style: "#a6e22e"
+  assistant_text_style: "#f8f8f2"  # Monokai foreground
+  assistant_padding: [1, 2]
+  status_style: "bold #a6e22e"  # Monokai green
+  error_style: "#f92672"  # Monokai red
+  error_title_style: "bold #f92672"
+  error_border_style: "#f92672"
+  analysis_text_style: "#66d9ef"  # Monokai blue
+  analysis_title_style: "bold #fd971f"  # Monokai orange
+  analysis_border_style: "#fd971f"
+  response_text_style: "#f8f8f2"  # Monokai foreground
+  response_title_style: "bold #a6e22e"  # Monokai green
+  response_border_style: "#a6e22e"
+  use_emoji: true
+  expand_panels: false
+  panel_box_style: "rounded"
+  code_theme: "monokai"  # Consistent code highlighting
+
+# Performance expectations on macOS:
+# - Token generation: 8-20 tokens/second (with Metal GPU acceleration)
+# - CPU only: 2-8 tokens/second (depending on CPU and RAM)
+# - Initial loading: 5-15 seconds
+# - Memory usage: ~1.5x the GGUF file size in RAM
+# - Metal GPU: Can use Mac GPU memory for acceleration
+# - Note: 4B is well-suited for macOS CPU/GPU inference
