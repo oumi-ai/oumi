@@ -1,0 +1,3 @@
+{"version": 2, "width": 149, "height": 33, "timestamp": 1755206958, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}, "title": "Oumi Conversation Playback"}
+[0.033346, "o", "Traceback (most recent call last):\r\n  File \"/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmp0s1onwq0.py\", line 4, in <module>\r\n"]
+[0.033647, "o", "    from rich.console import Console\r\nModuleNotFoundError: No module named 'rich'\r\n"]
