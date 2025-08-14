@@ -923,11 +923,13 @@ def infer_interactive(
                             if "text_content" in msg:
                                 # New simplified text format
                                 current_user_content.append(msg["text_content"])
+                                print(f"🔧 DEBUG: Processing attachment - {len(msg['text_content'])} chars")
                             elif "content_items" in msg:
                                 # Backward compatibility with old ContentItem format
                                 for item in msg["content_items"]:
                                     if hasattr(item, "content") and item.content:
                                         current_user_content.append(str(item.content))
+                                        print(f"🔧 DEBUG: Processing legacy attachment - {len(str(item.content))} chars")
 
                     # Create the current user message
                     if current_user_content:
@@ -935,6 +937,8 @@ def infer_interactive(
                         full_content = (
                             "\n\n".join(current_user_content) + "\n\n" + input_text
                         )
+                        print(f"🔧 DEBUG: Combining {len(current_user_content)} attachments with user input")
+                        print(f"🔧 DEBUG: Total combined content length: {len(full_content)} chars")
                         current_user_message = Message(
                             role=Role.USER, content=full_content
                         )
@@ -1010,11 +1014,13 @@ def infer_interactive(
                             if "text_content" in msg:
                                 # New simplified text format
                                 current_user_content.append(msg["text_content"])
+                                print(f"🔧 DEBUG: Processing attachment - {len(msg['text_content'])} chars")
                             elif "content_items" in msg:
                                 # Backward compatibility with old ContentItem format
                                 for item in msg["content_items"]:
                                     if hasattr(item, "content") and item.content:
                                         current_user_content.append(str(item.content))
+                                        print(f"🔧 DEBUG: Processing legacy attachment - {len(str(item.content))} chars")
 
                     # Create the current user message
                     if current_user_content:
@@ -1022,6 +1028,8 @@ def infer_interactive(
                         full_content = (
                             "\n\n".join(current_user_content) + "\n\n" + input_text
                         )
+                        print(f"🔧 DEBUG: Combining {len(current_user_content)} attachments with user input")
+                        print(f"🔧 DEBUG: Total combined content length: {len(full_content)} chars")
                         current_user_message = Message(
                             role=Role.USER, content=full_content
                         )

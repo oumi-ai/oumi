@@ -262,9 +262,21 @@ class FileOperationsHandler(BaseCommandHandler):
 
     def _add_attachment_to_conversation(self, result):
         """Add attachment content to conversation history."""
-        # The attachment content will be automatically included in the next user message
-        # by the file handler, so we don't need to manually add it here.
-        pass
+        # Add attachment message that will be processed by inference engine
+        attachment_message = {
+            "role": "attachment",
+            "text_content": result.text_content,
+            "file_info": {
+                "name": result.file_info.name,
+                "path": result.file_info.path,
+                "size_bytes": result.file_info.size_bytes,
+                "file_type": str(result.file_info.file_type)
+            }
+        }
+        self.conversation_history.append(attachment_message)
+        
+        print(f"🔧 DEBUG: Added attachment to conversation history: {result.file_info.name}")
+        print(f"🔧 DEBUG: Text content length: {len(result.text_content)} characters")
 
     def _load_chat_by_id(self, chat_id: str) -> CommandResult:
         """Load a specific chat by ID."""
