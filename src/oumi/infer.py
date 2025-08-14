@@ -110,9 +110,7 @@ def thinking_with_monitor(
                 time.sleep(update_interval)
             except Exception as e:
                 # Log the exception for debugging instead of silently passing
-                print(f"🔧 DEBUG: Display update error: {str(e)}")
                 import traceback
-                print(f"🔧 DEBUG: Full traceback: {traceback.format_exc()}")
                 logger.warning(f"Display update failed: {e}")
                 # Continue anyway to avoid crashing the display thread
                 pass
@@ -804,7 +802,6 @@ def infer_interactive(
             # from multi-line content or complex file paths
             safe_input = make_safe(input_text)
             if command_parser.is_command(safe_input):
-                print(f"🔧 DEBUG: Detected command: '{safe_input}'")
                 parsed_command = command_parser.parse_command(safe_input)
 
                 if parsed_command is None:
@@ -843,15 +840,13 @@ def infer_interactive(
                     input_text = command_result.user_input_override
                     # Only set is_from_override for actual regeneration operations
                     is_from_override = getattr(command_result, "is_regeneration", False)
-                    print(f"🔧 DEBUG: Command provided user_input_override: '{input_text[:50]}...'")
-                    print(f"🔧 DEBUG: Set is_from_override = {is_from_override}")
                 else:
                     # Skip inference since we don't have regular user input
                     console.print()  # Add spacing
                     continue
             else:
                 # Not a command, proceed to inference
-                print(f"🔧 DEBUG: Not a command, sending to model: '{input_text[:50]}...'")
+                pass
 
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             emoji = "👋 " if config.style.use_emoji else ""
@@ -934,13 +929,11 @@ def infer_interactive(
                             if "text_content" in msg:
                                 # New simplified text format
                                 current_user_content.append(msg["text_content"])
-                                print(f"🔧 DEBUG: Processing attachment - {len(msg['text_content'])} chars")
                             elif "content_items" in msg:
                                 # Backward compatibility with old ContentItem format
                                 for item in msg["content_items"]:
                                     if hasattr(item, "content") and item.content:
                                         current_user_content.append(str(item.content))
-                                        print(f"🔧 DEBUG: Processing legacy attachment - {len(str(item.content))} chars")
 
                     # Create the current user message
                     if current_user_content:
@@ -948,8 +941,6 @@ def infer_interactive(
                         full_content = (
                             "\n\n".join(current_user_content) + "\n\n" + input_text
                         )
-                        print(f"🔧 DEBUG: Combining {len(current_user_content)} attachments with user input")
-                        print(f"🔧 DEBUG: Total combined content length: {len(full_content)} chars")
                         current_user_message = Message(
                             role=Role.USER, content=full_content
                         )
@@ -962,7 +953,6 @@ def infer_interactive(
                     # Create conversation with full history
                     # For regen operations, don't add current_user_message since it's already in history
                     if is_from_override:
-                        print("🔧 DEBUG: NATIVE engine - skipping current_user_message for regeneration")
                         user_messages = []
                     else:
                         user_messages = [current_user_message]
@@ -980,7 +970,6 @@ def infer_interactive(
                             inference_config=config,
                         )
                     except Exception as e:
-                        print(f"🔧 DEBUG: NATIVE inference failed: {str(e)}")
                         console.print(f"[red]Inference error: {str(e)}[/red]")
                         raise
 
@@ -1030,13 +1019,11 @@ def infer_interactive(
                             if "text_content" in msg:
                                 # New simplified text format
                                 current_user_content.append(msg["text_content"])
-                                print(f"🔧 DEBUG: Processing attachment - {len(msg['text_content'])} chars")
                             elif "content_items" in msg:
                                 # Backward compatibility with old ContentItem format
                                 for item in msg["content_items"]:
                                     if hasattr(item, "content") and item.content:
                                         current_user_content.append(str(item.content))
-                                        print(f"🔧 DEBUG: Processing legacy attachment - {len(str(item.content))} chars")
 
                     # Create the current user message
                     if current_user_content:
@@ -1044,8 +1031,6 @@ def infer_interactive(
                         full_content = (
                             "\n\n".join(current_user_content) + "\n\n" + input_text
                         )
-                        print(f"🔧 DEBUG: Combining {len(current_user_content)} attachments with user input")
-                        print(f"🔧 DEBUG: Total combined content length: {len(full_content)} chars")
                         current_user_message = Message(
                             role=Role.USER, content=full_content
                         )
@@ -1058,7 +1043,6 @@ def infer_interactive(
                     # Create conversation with full history for VLLM
                     # For regen operations, don't add current_user_message since it's already in history
                     if is_from_override:
-                        print("🔧 DEBUG: VLLM engine - skipping current_user_message for regeneration")
                         user_messages = []
                     else:
                         user_messages = [current_user_message]
@@ -1076,7 +1060,6 @@ def infer_interactive(
                             inference_config=config,
                         )
                     except Exception as e:
-                        print(f"🔧 DEBUG: NATIVE inference failed: {str(e)}")
                         console.print(f"[red]Inference error: {str(e)}[/red]")
                         raise
 
@@ -1146,11 +1129,8 @@ def infer_interactive(
                     # Fallback - shouldn't happen but just in case
                     conversation_history.append({"role": "user", "content": input_text})
             else:
-                # DEBUG: This should be printed during regeneration operations
-                print(f"🔧 DEBUG: Skipping user message addition (is_from_override={is_from_override})")
-                print(f"🔧 DEBUG: Conversation history length: {len(conversation_history)}")
-                for i, msg in enumerate(conversation_history):
-                    print(f"🔧 DEBUG:   {i}: {msg['role']}: {msg['content'][:30]}...")
+                # Skip user message addition during regeneration operations
+                pass
 
             # Store assistant response in history
             # Check if this is a GPT-OSS model for response cleaning

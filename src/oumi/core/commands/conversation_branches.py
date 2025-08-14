@@ -176,10 +176,7 @@ class ConversationBranchManager:
         )
 
     def create_branch_from_position(
-        self,
-        name: str,
-        conversation_history: list,
-        branch_point_index: int
+        self, name: str, conversation_history: list, branch_point_index: int
     ) -> tuple[bool, str]:
         """Create a branch from a specific position in conversation history.
 
@@ -231,7 +228,10 @@ class ConversationBranchManager:
         )
 
         self.branches[new_id] = new_branch
-        return True, f"Created branch '{new_branch.name}' from position {branch_point_index}"
+        return (
+            True,
+            f"Created branch '{new_branch.name}' from position {branch_point_index}",
+        )
 
     def switch_branch(
         self, branch_id: str

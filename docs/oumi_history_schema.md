@@ -25,7 +25,7 @@ The Oumi conversation history format preserves the complete state of interactive
 ```json
 {
   "schema_version": "1.0.0",
-  "format": "oumi_conversation_history", 
+  "format": "oumi_conversation_history",
   "created_at": "2025-01-15T14:30:45.123456",
   "source": "oumi_interactive_chat",
   "session": { ... },
@@ -64,7 +64,7 @@ Complete model and inference configuration:
 ```json
 "configuration": {
   "model": {
-    "model_name": "microsoft/DialoGPT-medium", 
+    "model_name": "microsoft/DialoGPT-medium",
     "model_max_length": "2048",
     "torch_dtype_str": "float16",
     "attn_implementation": "sdpa"
@@ -78,7 +78,7 @@ Complete model and inference configuration:
   "engine": "VLLM",
   "style": {
     "user_prompt_style": "bold blue",
-    "assistant_title_style": "bold cyan", 
+    "assistant_title_style": "bold cyan",
     "use_emoji": true,
     "expand_panels": false
   },
@@ -110,7 +110,7 @@ Complete conversation tree with all branches and their relationships:
         "content": "Hello! How are you today?"
       },
       {
-        "role": "assistant", 
+        "role": "assistant",
         "content": "Hello! I'm doing well, thank you for asking..."
       }
     ],
@@ -160,7 +160,7 @@ Each message in `conversation_history` follows this structure:
   "role": "user" | "assistant" | "attachment" | "system",
   "content": "Message content...",
   "timestamp": "2025-01-15T14:30:45.123456",
-  "metadata": { 
+  "metadata": {
     "thinking_content": "...",
     "raw_thinking": "...",
     "word_count": 150
@@ -184,7 +184,7 @@ Record of commands executed during the session:
   {
     "command": "set",
     "args": ["temperature=0.8"],
-    "timestamp": "2025-01-15T14:33:15.789012", 
+    "timestamp": "2025-01-15T14:33:15.789012",
     "success": true,
     "result": "Updated temperature to 0.8"
   },
@@ -213,7 +213,7 @@ Metadata about files attached during the conversation:
   },
   {
     "filename": "data.csv",
-    "file_type": "csv", 
+    "file_type": "csv",
     "size_bytes": 50000,
     "timestamp": "2025-01-15T14:32:45.789012",
     "content_preview": "Name,Age,City\nJohn,25,New York\nJane,30,..."
@@ -256,7 +256,7 @@ Session-wide statistics and metrics:
 /import_history(my_project_complete.json)
 
 # Output example:
-# Restored conversation history from my_project_complete.json  
+# Restored conversation history from my_project_complete.json
 # 📊 Restored: 3 branches, 45 messages, 0 commands, config & metadata
 ```
 
@@ -272,7 +272,7 @@ Once imported, you can:
 
 The import process validates:
 - **Required fields**: `schema_version`, `format`, `branches`
-- **Format identifier**: Must be `"oumi_conversation_history"`  
+- **Format identifier**: Must be `"oumi_conversation_history"`
 - **Branch structure**: Each branch must have `id` and `conversation_history`
 - **Data types**: Conversation history must be arrays, etc.
 

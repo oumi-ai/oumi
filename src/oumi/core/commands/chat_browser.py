@@ -43,7 +43,7 @@ class ChatBrowser:
             # Legacy usage - config is the first parameter
             self.config = console if console is not None else config
             self.console = Console()
-        
+
         self.cache_dir = Path(os.path.expanduser("~")) / ".oumi" / "chat_cache"
         self.metadata_file = self.cache_dir / "metadata.json"
         self.tts_enabled = False
@@ -68,7 +68,7 @@ class ChatBrowser:
             # Return the chat ID for the selected chat
             chat_metadata = recent_chats[choice]
             return chat_metadata.get("id")
-        
+
         return None
 
     def run(self) -> None:
@@ -119,70 +119,83 @@ class ChatBrowser:
             for chat_file in self.cache_dir.glob("*.json"):
                 if chat_file.name == "metadata.json":
                     continue
-                    
+
                 try:
                     with open(chat_file, encoding="utf-8") as f:
                         chat_data = json.load(f)
-                    
+
                     # Handle both basic and comprehensive history formats
                     if chat_data.get("format") == "oumi_conversation_history":
                         # Comprehensive history format
                         session = chat_data.get("session", {})
                         chat_id = session.get("chat_id", chat_file.stem)
-                        
+
                         # Get model from configuration
                         config = chat_data.get("configuration", {})
                         model_config = config.get("model", {})
                         model_name = model_config.get("model_name", "Unknown")
-                        
+
                         # Get conversation history from current branch
                         branches = chat_data.get("branches", {})
                         current_branch_id = session.get("current_branch_id", "main")
-                        current_branch = branches.get(current_branch_id, branches.get("main", {}))
-                        conversation_history = current_branch.get("conversation_history", [])
-                        
+                        current_branch = branches.get(
+                            current_branch_id, branches.get("main", {})
+                        )
+                        conversation_history = current_branch.get(
+                            "conversation_history", []
+                        )
+
                         created_at = chat_data.get("created_at", "")
                     else:
                         # Basic format (legacy)
                         chat_id = chat_data.get("chat_id", chat_file.stem)
                         model_name = chat_data.get("model_name", "Unknown")
                         conversation_history = chat_data.get("conversation_history", [])
-                        created_at = chat_data.get("created_at", chat_data.get("last_updated", ""))
-                    
+                        created_at = chat_data.get(
+                            "created_at", chat_data.get("last_updated", "")
+                        )
+
                     # Get first user message as preview
                     preview = "No preview available"
                     for msg in conversation_history:
                         if msg.get("role") == "user":
                             content = msg.get("content", "")
-                            preview = content[:100] + ("..." if len(content) > 100 else "")
+                            preview = content[:100] + (
+                                "..." if len(content) > 100 else ""
+                            )
                             break
-                    
+
                     # Convert ISO timestamp to unix timestamp
                     timestamp = 0
                     if created_at:
                         try:
                             from datetime import datetime
-                            dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+
+                            dt = datetime.fromisoformat(
+                                created_at.replace("Z", "+00:00")
+                            )
                             timestamp = dt.timestamp()
                         except Exception:
                             timestamp = 0
-                    
-                    chats.append({
-                        "id": chat_id,
-                        "model_name": model_name,
-                        "message_count": len(conversation_history),
-                        "preview": preview,
-                        "timestamp": timestamp,
-                        "file_path": str(chat_file)
-                    })
-                    
+
+                    chats.append(
+                        {
+                            "id": chat_id,
+                            "model_name": model_name,
+                            "message_count": len(conversation_history),
+                            "preview": preview,
+                            "timestamp": timestamp,
+                            "file_path": str(chat_file),
+                        }
+                    )
+
                 except (OSError, json.JSONDecodeError) as e:
                     logger.debug(f"Failed to load chat file {chat_file}: {e}")
                     continue
 
             # Sort by timestamp, most recent first
             return sorted(chats, key=lambda x: x.get("timestamp", 0), reverse=True)
-            
+
         except Exception as e:
             logger.warning(f"Failed to load chat cache: {e}")
             return []

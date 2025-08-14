@@ -143,7 +143,7 @@ class MultiLineInput:
             # Create custom key bindings for multiline mode
             bindings = KeyBindings()
 
-            @bindings.add('c-d')
+            @bindings.add("c-d")
             def _(event):
                 """Handle Ctrl+D to submit in multiline mode."""
                 # Accept the input (submit)
@@ -203,7 +203,7 @@ class MultiLineInput:
 
 **Mode Switching:**
 • Type `/ml` to switch to multi-line mode
-• Type `/sl` to switch to single-line mode  
+• Type `/sl` to switch to single-line mode
 • Type `/exit` to exit chat
 
 **Commands work in both modes** (e.g., `/help()`, `/attach()`)

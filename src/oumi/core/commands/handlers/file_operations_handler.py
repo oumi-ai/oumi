@@ -41,7 +41,16 @@ class FileOperationsHandler(BaseCommandHandler):
 
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
-        return ["attach", "save", "import", "load", "save_history", "import_history", "fetch", "shell"]
+        return [
+            "attach",
+            "save",
+            "import",
+            "load",
+            "save_history",
+            "import_history",
+            "fetch",
+            "shell",
+        ]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a file operations command."""
@@ -282,13 +291,10 @@ class FileOperationsHandler(BaseCommandHandler):
                 "name": result.file_info.name,
                 "path": result.file_info.path,
                 "size_bytes": result.file_info.size_bytes,
-                "file_type": str(result.file_info.file_type)
-            }
+                "file_type": str(result.file_info.file_type),
+            },
         }
         self.conversation_history.append(attachment_message)
-
-        print(f"🔧 DEBUG: Added attachment to conversation history: {result.file_info.name}")
-        print(f"🔧 DEBUG: Text content length: {len(result.text_content)} characters")
 
     def _load_chat_by_id(self, chat_id: str) -> CommandResult:
         """Load a specific chat by ID."""
@@ -357,8 +363,12 @@ class FileOperationsHandler(BaseCommandHandler):
         try:
             # Check if we have branch manager for comprehensive format
             branch_manager = getattr(self.context, "branch_manager", None)
-            
-            if branch_manager and hasattr(branch_manager, 'branches') and len(branch_manager.branches) > 1:
+
+            if (
+                branch_manager
+                and hasattr(branch_manager, "branches")
+                and len(branch_manager.branches) > 1
+            ):
                 # Use comprehensive format when multiple branches exist
                 chat_data = self._build_comprehensive_history()
             else:
@@ -551,8 +561,12 @@ class FileOperationsHandler(BaseCommandHandler):
                 branches[branch_id] = {
                     "id": branch.id,
                     "name": branch.name,
-                    "created_at": branch.created_at.isoformat() if branch.created_at else current_time,
-                    "last_active": branch.last_active.isoformat() if branch.last_active else current_time,
+                    "created_at": branch.created_at.isoformat()
+                    if branch.created_at
+                    else current_time,
+                    "last_active": branch.last_active.isoformat()
+                    if branch.last_active
+                    else current_time,
                     "parent_branch_id": branch.parent_branch_id,
                     "branch_point_index": branch.branch_point_index,
                     "conversation_history": branch.conversation_history,
@@ -575,7 +589,9 @@ class FileOperationsHandler(BaseCommandHandler):
                 "model_name": getattr(self.config.model, "model_name", "default"),
                 "engine_type": getattr(self.config, "engine", "unknown"),
                 "model_config": self._serialize_model_config(self.config.model),
-                "generation_config": self._serialize_generation_config(getattr(self.config, "generation", None)),
+                "generation_config": self._serialize_generation_config(
+                    getattr(self.config, "generation", None)
+                ),
             }
             current_branch_id = "main"
 
@@ -585,48 +601,64 @@ class FileOperationsHandler(BaseCommandHandler):
             "format": "oumi_conversation_history",
             "created_at": current_time,
             "source": "oumi_interactive_chat",
-
             # Session information
             "session": {
-                "chat_id": getattr(self, "chat_id", f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+                "chat_id": getattr(
+                    self,
+                    "chat_id",
+                    f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                ),
                 "current_branch_id": current_branch_id,
                 "total_session_time": None,  # Could be calculated if we track start time
                 "oumi_version": "latest",  # Could get actual version
             },
-
             # Model and configuration
             "configuration": {
                 "model": self._serialize_model_config(self.config.model),
-                "generation": self._serialize_generation_config(getattr(self.config, "generation", None)),
+                "generation": self._serialize_generation_config(
+                    getattr(self.config, "generation", None)
+                ),
                 "engine": getattr(self.config, "engine", "unknown"),
-                "style": self._serialize_style_config(getattr(self.config, "style", None)),
+                "style": self._serialize_style_config(
+                    getattr(self.config, "style", None)
+                ),
                 "inference_params": self._get_current_inference_params(),
             },
-
             # All conversation branches
             "branches": branches,
-
             # Command history (placeholder - would need to be tracked)
             "command_history": self._get_command_history(),
-
             # Metadata about attachments and operations
             "attachments": self._get_attachment_metadata(),
-
             # Statistics
             "statistics": {
                 "total_branches": len(branches),
-                "total_messages": sum(len(branch["conversation_history"]) for branch in branches.values()),
+                "total_messages": sum(
+                    len(branch["conversation_history"]) for branch in branches.values()
+                ),
                 "total_user_messages": sum(
-                    len([msg for msg in branch["conversation_history"] if msg.get("role") == "user"])
+                    len(
+                        [
+                            msg
+                            for msg in branch["conversation_history"]
+                            if msg.get("role") == "user"
+                        ]
+                    )
                     for branch in branches.values()
                 ),
                 "total_assistant_messages": sum(
-                    len([msg for msg in branch["conversation_history"] if msg.get("role") == "assistant"])
+                    len(
+                        [
+                            msg
+                            for msg in branch["conversation_history"]
+                            if msg.get("role") == "assistant"
+                        ]
+                    )
                     for branch in branches.values()
                 ),
                 "estimated_tokens": self._estimate_conversation_tokens(),
                 "created_at": current_time,
-            }
+            },
         }
 
         return history_data
@@ -638,9 +670,16 @@ class FileOperationsHandler(BaseCommandHandler):
 
         style_dict = {}
         for attr in [
-            "user_prompt_style", "assistant_title_style", "assistant_border_style",
-            "analysis_text_style", "analysis_title_style", "analysis_border_style",
-            "error_style", "success_style", "use_emoji", "expand_panels"
+            "user_prompt_style",
+            "assistant_title_style",
+            "assistant_border_style",
+            "analysis_text_style",
+            "analysis_title_style",
+            "analysis_border_style",
+            "error_style",
+            "success_style",
+            "use_emoji",
+            "expand_panels",
         ]:
             if hasattr(style_config, attr):
                 value = getattr(style_config, attr)
@@ -653,10 +692,18 @@ class FileOperationsHandler(BaseCommandHandler):
         """Get current inference parameters."""
         # This would ideally get from the inference engine's current state
         return {
-            "temperature": getattr(self.config.generation, "temperature", None) if hasattr(self.config, "generation") else None,
-            "top_p": getattr(self.config.generation, "top_p", None) if hasattr(self.config, "generation") else None,
-            "max_tokens": getattr(self.config.generation, "max_new_tokens", None) if hasattr(self.config, "generation") else None,
-            "sampling": getattr(self.config.generation, "sampling", None) if hasattr(self.config, "generation") else None,
+            "temperature": getattr(self.config.generation, "temperature", None)
+            if hasattr(self.config, "generation")
+            else None,
+            "top_p": getattr(self.config.generation, "top_p", None)
+            if hasattr(self.config, "generation")
+            else None,
+            "max_tokens": getattr(self.config.generation, "max_new_tokens", None)
+            if hasattr(self.config, "generation")
+            else None,
+            "sampling": getattr(self.config.generation, "sampling", None)
+            if hasattr(self.config, "generation")
+            else None,
         }
 
     def _get_command_history(self) -> list:
@@ -667,7 +714,7 @@ class FileOperationsHandler(BaseCommandHandler):
             {
                 "note": "Command history tracking not yet implemented",
                 "timestamp": datetime.now().isoformat(),
-                "type": "system_note"
+                "type": "system_note",
             }
         ]
 
@@ -676,13 +723,17 @@ class FileOperationsHandler(BaseCommandHandler):
         attachments = []
         for msg in self.conversation_history:
             if msg.get("role") == "attachment":
-                attachments.append({
-                    "filename": msg.get("filename", "unknown"),
-                    "file_type": msg.get("file_type", "unknown"),
-                    "size_bytes": msg.get("size_bytes", 0),
-                    "timestamp": msg.get("timestamp", datetime.now().isoformat()),
-                    "content_preview": msg.get("text_content", "")[:200] + "..." if len(msg.get("text_content", "")) > 200 else msg.get("text_content", ""),
-                })
+                attachments.append(
+                    {
+                        "filename": msg.get("filename", "unknown"),
+                        "file_type": msg.get("file_type", "unknown"),
+                        "size_bytes": msg.get("size_bytes", 0),
+                        "timestamp": msg.get("timestamp", datetime.now().isoformat()),
+                        "content_preview": msg.get("text_content", "")[:200] + "..."
+                        if len(msg.get("text_content", "")) > 200
+                        else msg.get("text_content", ""),
+                    }
+                )
         return attachments
 
     def _validate_history_schema(self, history_data: dict) -> bool:
@@ -726,6 +777,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 from oumi.core.commands.conversation_branches import (
                     ConversationBranchManager,
                 )
+
                 branch_manager = ConversationBranchManager()
                 self.context._branch_manager = branch_manager
 
@@ -734,12 +786,17 @@ class FileOperationsHandler(BaseCommandHandler):
 
             # Restore branches
             from oumi.core.commands.conversation_branches import ConversationBranch
+
             for branch_id, branch_data in branches.items():
                 branch = ConversationBranch(
                     id=branch_data["id"],
                     name=branch_data.get("name"),
-                    created_at=datetime.fromisoformat(branch_data.get("created_at", datetime.now().isoformat())),
-                    last_active=datetime.fromisoformat(branch_data.get("last_active", datetime.now().isoformat())),
+                    created_at=datetime.fromisoformat(
+                        branch_data.get("created_at", datetime.now().isoformat())
+                    ),
+                    last_active=datetime.fromisoformat(
+                        branch_data.get("last_active", datetime.now().isoformat())
+                    ),
                     parent_branch_id=branch_data.get("parent_branch_id"),
                     branch_point_index=branch_data.get("branch_point_index", 0),
                     conversation_history=branch_data.get("conversation_history", []),
@@ -805,42 +862,47 @@ class FileOperationsHandler(BaseCommandHandler):
                 )
 
             # Add protocol if missing
-            if not url.startswith(('http://', 'https://')):
-                url = f'https://{url}'
+            if not url.startswith(("http://", "https://")):
+                url = f"https://{url}"
 
             # Estimate current conversation tokens for context management
             conversation_tokens = self._estimate_conversation_tokens()
             max_context = getattr(self.config.model, "model_max_length", 4096)
-            available_tokens = max_context - conversation_tokens - 1000  # Reserve 1000 tokens
+            available_tokens = (
+                max_context - conversation_tokens - 1000
+            )  # Reserve 1000 tokens
 
             # Make the web request with timeout and user agent
-            headers = {
-                'User-Agent': 'Oumi-AI-Assistant/1.0 (Interactive Chat Bot)'
-            }
-            
+            headers = {"User-Agent": "Oumi-AI-Assistant/1.0 (Interactive Chat Bot)"}
+
             self.console.print(f"🌐 Fetching content from {url}...")
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
 
-            # Parse HTML content 
-            if 'text/html' in response.headers.get('content-type', ''):
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
+            # Parse HTML content
+            if "text/html" in response.headers.get("content-type", ""):
+                soup = BeautifulSoup(response.text, "html.parser")
+
                 # Remove script, style, and other non-content elements
-                for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+                for element in soup(
+                    ["script", "style", "nav", "header", "footer", "aside"]
+                ):
                     element.decompose()
-                
+
                 # Extract text content
-                content = soup.get_text(separator=' ', strip=True)
+                content = soup.get_text(separator=" ", strip=True)
                 content_type = "HTML (parsed text)"
             else:
                 content = response.text
-                content_type = response.headers.get('content-type', 'text/plain')
+                content_type = response.headers.get("content-type", "text/plain")
 
             # Limit content size based on available context
             max_chars = available_tokens * 4  # Rough estimate: 4 chars per token
             if len(content) > max_chars:
-                content = content[:max_chars] + f"\n\n[Content truncated at {max_chars:,} characters due to context window limits]"
+                content = (
+                    content[:max_chars]
+                    + f"\n\n[Content truncated at {max_chars:,} characters due to context window limits]"
+                )
 
             # Create attachment-style message for the conversation
             fetch_message = {
@@ -852,19 +914,20 @@ class FileOperationsHandler(BaseCommandHandler):
                     "content_type": content_type,
                     "size_chars": len(content),
                     "timestamp": datetime.now().isoformat(),
-                }
+                },
             }
 
             # Add to conversation history
             self.conversation_history.append(fetch_message)
-            
+
             # Update context monitor
             self._update_context_in_monitor()
 
             # Display success with content info
             from rich.panel import Panel
+
             info_content = f"**URL:** {url}\n**Type:** {content_type}\n**Size:** {len(content):,} characters"
-            
+
             if len(content) > 500:
                 info_content += f"\n**Preview:** {content[:200]}..."
             else:
@@ -874,7 +937,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 info_content,
                 title="🌐 Web Content Fetched",
                 border_style="green",
-                padding=(1, 2)
+                padding=(1, 2),
             )
             self.console.print(panel)
 
@@ -916,15 +979,41 @@ class FileOperationsHandler(BaseCommandHandler):
 
         # Security restrictions - block dangerous commands
         dangerous_patterns = [
-            'rm ', 'del ', 'format ', 'fdisk',
-            'sudo ', 'su ', 'chmod +x', 'chown',
-            'wget ', 'curl ', 'ssh ', 'scp ',
-            'nc ', 'netcat', 'nmap', 'telnet',
-            'python -c', 'perl -e', 'ruby -e',
-            'bash -c', 'sh -c', 'eval',
-            '&', '&&', '||', ';', '`', '$(',
-            'mkfs', 'mount', 'umount', 'kill',
-            'killall', 'pkill', 'systemctl',
+            "rm ",
+            "del ",
+            "format ",
+            "fdisk",
+            "sudo ",
+            "su ",
+            "chmod +x",
+            "chown",
+            "wget ",
+            "curl ",
+            "ssh ",
+            "scp ",
+            "nc ",
+            "netcat",
+            "nmap",
+            "telnet",
+            "python -c",
+            "perl -e",
+            "ruby -e",
+            "bash -c",
+            "sh -c",
+            "eval",
+            "&",
+            "&&",
+            "||",
+            ";",
+            "`",
+            "$(",
+            "mkfs",
+            "mount",
+            "umount",
+            "kill",
+            "killall",
+            "pkill",
+            "systemctl",
         ]
 
         shell_lower = shell_command.lower()
@@ -946,14 +1035,14 @@ class FileOperationsHandler(BaseCommandHandler):
 
         try:
             import subprocess
-            
+
             # Estimate current conversation tokens
             conversation_tokens = self._estimate_conversation_tokens()
             max_context = getattr(self.config.model, "model_max_length", 4096)
             available_tokens = max_context - conversation_tokens - 1000
 
             self.console.print(f"🔧 Executing: {shell_command}")
-            
+
             # Execute with timeout and capture both stdout and stderr
             result = subprocess.run(
                 shell_command,
@@ -972,7 +1061,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 if output:
                     output += "\n\n"
                 output += f"STDERR:\n{result.stderr}"
-            
+
             if not output:
                 output = "[No output produced]"
 
@@ -982,11 +1071,14 @@ class FileOperationsHandler(BaseCommandHandler):
             # Limit output size based on available context
             max_chars = available_tokens * 4  # Rough estimate: 4 chars per token
             if len(output) > max_chars:
-                output = output[:max_chars] + f"\n\n[Output truncated at {max_chars:,} characters due to context window limits]"
+                output = (
+                    output[:max_chars]
+                    + f"\n\n[Output truncated at {max_chars:,} characters due to context window limits]"
+                )
 
             # Create attachment-style message for the conversation
             shell_message = {
-                "role": "attachment", 
+                "role": "attachment",
                 "content": output,
                 "attachment_info": {
                     "type": "shell_command",
@@ -994,24 +1086,27 @@ class FileOperationsHandler(BaseCommandHandler):
                     "return_code": result.returncode,
                     "size_chars": len(output),
                     "timestamp": datetime.now().isoformat(),
-                }
+                },
             }
 
             # Add to conversation history
             self.conversation_history.append(shell_message)
-            
+
             # Update context monitor
             self._update_context_in_monitor()
 
             # Display result
             from rich.panel import Panel
-            from rich.text import Text
 
             status_color = "green" if result.returncode == 0 else "red"
-            status_text = "✅ Success" if result.returncode == 0 else f"❌ Failed (code {result.returncode})"
-            
+            status_text = (
+                "✅ Success"
+                if result.returncode == 0
+                else f"❌ Failed (code {result.returncode})"
+            )
+
             info_content = f"**Command:** {shell_command}\n**Status:** {status_text}\n**Output Size:** {len(output):,} characters"
-            
+
             # Show preview of output
             preview_length = 300
             if len(output) > preview_length:
@@ -1023,7 +1118,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 info_content,
                 title="🔧 Shell Command Result",
                 border_style=status_color,
-                padding=(1, 2)
+                padding=(1, 2),
             )
             self.console.print(panel)
 
