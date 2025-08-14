@@ -32,6 +32,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
             "compact",
             "full_thoughts",
             "clear_thoughts",
+            "show",
         ]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
@@ -48,6 +49,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
             return self._handle_full_thoughts(command)
         elif command.command == "clear_thoughts":
             return self._handle_clear_thoughts(command)
+        elif command.command == "show":
+            return self._handle_show(command)
         else:
             return CommandResult(
                 success=False,
@@ -343,3 +346,111 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 return message.get("content", "")
 
         return None
+
+    def _handle_show(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /show(pos) command to view a specific conversation position."""
+        try:
+            # Default to showing the most recent assistant message if no position specified
+            position = None
+            if command.args:
+                try:
+                    position = int(command.args[0].strip())
+                except ValueError:
+                    return CommandResult(
+                        success=False,
+                        message="Position must be a valid integer",
+                        should_continue=False,
+                    )
+
+            # Collect all assistant messages with their positions and content
+            assistant_messages = []
+            for i, msg in enumerate(self.conversation_history):
+                if msg.get("role") == "assistant":
+                    assistant_messages.append((len(assistant_messages) + 1, i, msg))
+
+            if not assistant_messages:
+                return CommandResult(
+                    success=False,
+                    message="No assistant messages in conversation history",
+                    should_continue=False,
+                )
+
+            # Determine which message to show
+            if position is None:
+                # Show most recent (last) assistant message
+                display_position, msg_index, message = assistant_messages[-1]
+                position_text = f"most recent (#{display_position})"
+            else:
+                # Validate position
+                if position < 1 or position > len(assistant_messages):
+                    return CommandResult(
+                        success=False,
+                        message=f"Position {position} is out of range (1-{len(assistant_messages)})",
+                        should_continue=False,
+                    )
+                
+                # Show specified position
+                display_position, msg_index, message = assistant_messages[position - 1]
+                position_text = f"#{position}"
+
+            # Get the corresponding user message (if any)
+            user_message = None
+            if msg_index > 0 and self.conversation_history[msg_index - 1].get("role") == "user":
+                user_message = self.conversation_history[msg_index - 1]
+
+            # Display the conversation turn
+            from rich.panel import Panel
+            from rich.text import Text
+
+            self.console.print()
+
+            # Show user message if available
+            if user_message:
+                user_content = user_message.get("content", "")
+                user_panel = Panel(
+                    Text(user_content, style="white"),
+                    title="[bold blue]You[/bold blue]",
+                    border_style="blue",
+                    padding=(1, 2),
+                    expand=getattr(self.config.style, "expand_panels", False),
+                )
+                self.console.print(user_panel)
+
+            # Show assistant message with thinking processing
+            assistant_content = message.get("content", "")
+            
+            # Process thinking content if available
+            thinking_processor = self.context.thinking_processor
+            thinking_result = thinking_processor.extract_thinking(assistant_content)
+
+            if thinking_result.has_thinking:
+                # Show thinking content
+                thinking_processor.render_thinking(
+                    thinking_result, self.console, self.config.style, compressed=False
+                )
+                display_content = thinking_result.final_content
+            else:
+                display_content = assistant_content
+
+            # Show assistant response
+            assistant_panel = Panel(
+                Text(display_content, style="white"),
+                title=f"[bold cyan]Assistant ({position_text})[/bold cyan]",
+                border_style="cyan",
+                padding=(1, 2),
+                expand=getattr(self.config.style, "expand_panels", False),
+            )
+            self.console.print(assistant_panel)
+
+            return CommandResult(
+                success=True,
+                message=f"Displayed conversation position {position_text}",
+                should_continue=False,
+            )
+
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error showing conversation position: {str(e)}",
+                should_continue=False,
+            )

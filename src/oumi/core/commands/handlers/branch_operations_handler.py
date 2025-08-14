@@ -27,12 +27,14 @@ class BranchOperationsHandler(BaseCommandHandler):
 
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
-        return ["branch", "switch", "branches", "branch_delete"]
+        return ["branch", "branch_from", "switch", "branches", "branch_delete"]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a branch operations command."""
         if command.command == "branch":
             return self._handle_branch(command)
+        elif command.command == "branch_from":
+            return self._handle_branch_from(command)
         elif command.command == "switch":
             return self._handle_switch(command)
         elif command.command == "branches":
@@ -237,5 +239,86 @@ class BranchOperationsHandler(BaseCommandHandler):
             return CommandResult(
                 success=False,
                 message=f"Error deleting branch: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_branch_from(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /branch_from(name,pos) command to create a branch from specific position."""
+        try:
+            if len(command.args) < 2:
+                return CommandResult(
+                    success=False,
+                    message="branch_from command requires two arguments: branch_name and position",
+                    should_continue=False,
+                )
+
+            branch_name = command.args[0].strip()
+            try:
+                position = int(command.args[1].strip())
+            except ValueError:
+                return CommandResult(
+                    success=False,
+                    message="Position must be a valid integer",
+                    should_continue=False,
+                )
+
+            # Validate position is positive and refers to an assistant message
+            if position < 1:
+                return CommandResult(
+                    success=False,
+                    message="Position must be 1 or greater (1-indexed)",
+                    should_continue=False,
+                )
+
+            # Count assistant messages to validate position
+            assistant_messages = []
+            for i, msg in enumerate(self.conversation_history):
+                if msg.get("role") == "assistant":
+                    assistant_messages.append((i, msg))
+
+            if position > len(assistant_messages):
+                return CommandResult(
+                    success=False,
+                    message=f"Position {position} exceeds number of assistant messages ({len(assistant_messages)})",
+                    should_continue=False,
+                )
+
+            # Get the actual index in conversation history for the specified assistant message
+            branch_point_index = assistant_messages[position - 1][0] + 1  # +1 to branch after the assistant message
+
+            # Create conversation history up to the branch point
+            branched_history = self.conversation_history[:branch_point_index]
+
+            branch_manager = self.context.branch_manager
+
+            # Create the branch from specific position
+            success, message = branch_manager.create_branch_from_position(
+                branch_name, branched_history, branch_point_index
+            )
+
+            if success:
+                # Switch to the new branch
+                switch_success, switch_message, branch = branch_manager.switch_branch(branch_name.lower())
+                # Update conversation history to the new branch
+                self.conversation_history.clear()
+                self.conversation_history.extend(branched_history)
+                self._update_context_in_monitor()
+
+                return CommandResult(
+                    success=True,
+                    message=f"Created and switched to branch '{branch_name}' from assistant message {position}",
+                    should_continue=False,
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=message,
+                    should_continue=False,
+                )
+
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error creating branch from position: {str(e)}",
                 should_continue=False,
             )

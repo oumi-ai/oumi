@@ -141,6 +141,10 @@ class CommandRouter:
 - **`/delete()`** - Delete the previous conversation turn
 - **`/regen()`** - Regenerate the last assistant response
 - **`/clear()`** - Clear entire conversation history and start fresh
+- **`/show(pos)`** - View a specific conversation position
+  - `/show()` - Show most recent assistant message
+  - `/show(3)` - Show assistant message #3
+  - Shows both user and assistant messages for the specified turn
 
 ### Parameter Adjustment
 - **`/set(param=value)`** - Adjust generation parameters
@@ -200,6 +204,9 @@ class CommandRouter:
 - **`/branch()`** - Create a new conversation branch from current point
   - Fork the conversation to explore different paths
   - Maximum of 5 branches allowed
+- **`/branch_from(name,pos)`** - Create a branch from specific assistant message position
+  - Example: `/branch_from(experiment,2)` - Branch from assistant message #2
+  - Useful for exploring alternative paths from earlier in the conversation
 - **`/switch(name)`** - Switch to a different conversation branch
   - Example: `/switch(main)` or `/switch(branch_1)`
 - **`/branches()`** - List all conversation branches
@@ -261,7 +268,10 @@ class CommandRouter:
 /full_thoughts()           # Toggle thinking display mode
 /clear_thoughts()          # Remove thinking content from history
 /compact()                 # Compress conversation history
+/show()                    # Show most recent assistant message
+/show(2)                   # Show assistant message #2
 /branch()                  # Create a new conversation branch
+/branch_from(test,3)       # Create branch from assistant message #3
 /list_engines()            # Show available inference engines
 /swap(llama-3.1-8b)        # Switch to different model
 /macro(judge.jinja)        # Execute a judgment/evaluation macro
