@@ -97,7 +97,12 @@ class SystemMonitor:
         Args:
             max_context_tokens: New maximum context window size in tokens.
         """
-        self.max_context_tokens = max_context_tokens
+        # Ensure we never set None as max_context_tokens
+        if max_context_tokens is None:
+            print(f"🔧 DEBUG: Attempted to set max_context_tokens to None, defaulting to 4096")
+            self.max_context_tokens = 4096
+        else:
+            self.max_context_tokens = max_context_tokens
 
     def update_conversation_turns(self, turns: int):
         """Update the number of conversation turns.
@@ -120,9 +125,11 @@ class SystemMonitor:
             ram_percent=0.0,
             context_used_tokens=self._context_used_tokens,
             context_max_tokens=self.max_context_tokens,
-            context_percent=(self._context_used_tokens / self.max_context_tokens * 100)
-            if self.max_context_tokens > 0
-            else 0.0,
+            context_percent=(
+                (self._context_used_tokens / self.max_context_tokens * 100)
+                if self.max_context_tokens is not None and self.max_context_tokens > 0
+                else 0.0
+            ),
             conversation_turns=self._conversation_turns,
         )
 
