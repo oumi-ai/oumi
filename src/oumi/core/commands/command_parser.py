@@ -18,6 +18,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
+from oumi.core.commands.command_registry import COMMAND_REGISTRY
+
 
 @dataclass
 class ParsedCommand:
@@ -89,29 +91,8 @@ class CommandParser:
 
     def __init__(self):
         """Initialize the command parser."""
-        self._available_commands = {
-            "help": "Show available commands and usage information",
-            "exit": "Exit the interactive chat session",
-            "attach": "Attach a file to the conversation (images, PDFs, text, etc.)",
-            "delete": "Delete the previous conversation turn",
-            "regen": "Regenerate the last assistant response",
-            "save": "Save the current conversation to a PDF file",
-            "set": "Adjust generation parameters (temperature, top_p, max_tokens, etc.)",
-            "compact": "Compress conversation history to save context window space",
-            "branch": "Create a new conversation branch from current point",
-            "switch": "Switch to a different conversation branch",
-            "branches": "List all conversation branches",
-            "branch_delete": "Delete a conversation branch",
-            "full_thoughts": "Toggle between compressed and full thinking display modes",
-            "clear_thoughts": "Remove thinking content from conversation history while preserving responses",
-            "clear": "Clear entire conversation history",
-            "import": "Import conversation data from supported file formats (CSV, Excel, JSON, etc.)",
-            "load": "Load a previously saved chat from cache by ID or browse recent chats",
-            "swap": "Switch to a different model or config for inference while preserving conversation history",
-            "list_engines": "List available inference engines and their supported model examples",
-            "macro": "Execute a Jinja template-based conversation macro",
-            # Note: /ml and /sl are handled by the input system, not as regular commands
-        }
+        # Use centralized command registry
+        pass
 
     def is_command(self, input_text: str) -> bool:
         """Check if the input text is a command.
@@ -140,9 +121,9 @@ class CommandParser:
         if not command_match:
             return False
 
-        # Extract the command name and check if it's in our available commands
+        # Extract the command name and check if it's in the registry
         command_name = command_match.group(1).lower()
-        return command_name in self._available_commands
+        return COMMAND_REGISTRY.has_command(command_name)
 
     def parse_command(self, input_text: str) -> Optional[ParsedCommand]:
         """Parse a command string into its components.

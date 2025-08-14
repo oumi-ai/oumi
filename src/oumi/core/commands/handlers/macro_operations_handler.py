@@ -21,7 +21,6 @@ from rich.panel import Panel
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
-from oumi.core.input.enhanced_input import EnhancedInput
 from oumi.core.input.multiline_input import InputAction
 
 
@@ -201,6 +200,9 @@ class MacroOperationsHandler(BaseCommandHandler):
         This method uses the same input system as the main chat loop to ensure
         consistent handling of complex multiline content and avoid terminal state conflicts.
         """
+        # Use local import to avoid circular dependency
+        from oumi.core.input.enhanced_input import EnhancedInput
+
         # Create enhanced input handler with consistent styling
         field_input = EnhancedInput(self.console, "bold cyan")
 

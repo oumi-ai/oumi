@@ -27,6 +27,7 @@ from rich.panel import Panel
 
 # Import shared types from multiline_input to avoid duplication
 from oumi.core.input.multiline_input import InputAction, InputResult
+from oumi.core.commands.command_registry import COMMAND_REGISTRY
 
 
 class CommandCompleter(Completer):
@@ -34,114 +35,11 @@ class CommandCompleter(Completer):
 
     def __init__(self):
         """Initialize the command completer."""
-        # All available commands with their syntax
-        self.commands = {
-            # Basic commands
-            "help": ["/help()"],
-            "exit": ["/exit()"],
-            # File operations
-            "attach": ["/attach(file_path)"],
-            "fetch": [
-                "/fetch(url)",
-                "/fetch(https://example.com)",
-                "/fetch(docs.python.org)",
-            ],
-            "shell": [
-                "/shell(command)",
-                "/shell(ls -la)",
-                "/shell(python --version)",
-                "/shell(git status)",
-            ],
-            "save": [
-                "/save(output_path)",
-                "/save(output.pdf)",
-                "/save(output.json)",
-                "/save(output.csv)",
-                "/save(output.md)",
-                "/save(output.html)",
-            ],
-            "import": [
-                "/import(input_file)",
-                "/import(data.csv)",
-                "/import(chat.json)",
-                "/import(conversation.xlsx)",
-            ],
-            "save_history": [
-                "/save_history(output.json)",
-                "/save_history(complete.json)",
-                "/save_history(backup.json)",
-            ],
-            "import_history": [
-                "/import_history(input.json)",
-                "/import_history(complete.json)",
-                "/import_history(backup.json)",
-            ],
-            "load": [
-                "/load(chat_id)",
-                "/load(recent)",
-                "/load(session_20241201_143022)",
-            ],
-            # Conversation management
-            "delete": ["/delete()"],
-            "regen": ["/regen()"],
-            "clear": ["/clear()"],
-            "clear_thoughts": ["/clear_thoughts()"],
-            "compact": ["/compact()"],
-            "show": [
-                "/show()",
-                "/show(1)",
-                "/show(2)",
-                "/show(3)",
-            ],
-            "render": [
-                "/render(output.cast)",
-                "/render(conversation.cast)",
-                "/render(demo.cast)",
-            ],
-            # Generation parameters
-            "set": [
-                "/set(temperature=0.7)",
-                "/set(top_p=0.9)",
-                "/set(max_tokens=2048)",
-                "/set(sampling=true)",
-                "/set(seed=42)",
-            ],
-            # Branching
-            "branch": ["/branch()", "/branch(branch_name)"],
-            "branch_from": [
-                "/branch_from(name,pos)",
-                "/branch_from(experiment,2)",
-                "/branch_from(test,3)",
-            ],
-            "switch": ["/switch(branch_name)", "/switch(main)", "/switch(branch_1)"],
-            "branches": ["/branches()"],
-            "branch_delete": ["/branch_delete(branch_name)"],
-            # Thinking modes
-            "full_thoughts": ["/full_thoughts()"],
-            # Model management
-            "swap": [
-                "/swap(model_name)",
-                "/swap(engine:model_name)",
-                "/swap(config:path/to/config.yaml)",
-            ],
-            "list_engines": ["/list_engines()"],
-            # Macro system
-            "macro": [
-                "/macro(template_path)",
-                "/macro(judge.jinja)",
-                "/macro(code_repair.jinja)",
-                "/macro(creative_writing.jinja)",
-                "/macro(macros/template.jinja)",
-            ],
-            # Mode switching (handled by input system)
-            "ml": ["/ml"],
-            "sl": ["/sl"],
-        }
+        # Get all completions from the centralized registry
+        self.all_completions = COMMAND_REGISTRY.get_all_examples()
 
-        # Flatten all completions
-        self.all_completions = []
-        for cmd_list in self.commands.values():
-            self.all_completions.extend(cmd_list)
+        # Add mode switching commands (handled by input system)
+        self.all_completions.extend(["/ml", "/sl"])
 
     def get_completions(self, document: Document, complete_event):
         """Get completions for the current input."""
