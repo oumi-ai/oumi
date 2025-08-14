@@ -175,6 +175,64 @@ class ConversationBranchManager:
             new_branch,
         )
 
+    def create_branch_from_position(
+        self,
+        name: str,
+        conversation_history: list,
+        branch_point_index: int
+    ) -> tuple[bool, str]:
+        """Create a branch from a specific position in conversation history.
+
+        Args:
+            name: Name for the new branch.
+            conversation_history: The conversation history up to the branch point.
+            branch_point_index: Index in the original conversation where branch starts.
+
+        Returns:
+            Tuple of (success, message).
+        """
+        # Validate branch name
+        is_valid, error_msg = self._validate_branch_name(name)
+        if not is_valid:
+            return False, error_msg
+
+        # Normalize name to lowercase
+        name = name.lower()
+
+        # Check branch limit
+        if len(self.branches) >= self.MAX_BRANCHES:
+            return False, f"Maximum number of branches ({self.MAX_BRANCHES}) reached"
+
+        # Generate new branch ID
+        self._branch_counter += 1
+        new_id = f"branch_{self._branch_counter}"
+
+        # Use current branch as source for model configuration
+        source_branch = self.branches[self.current_branch_id]
+
+        # Create new branch
+        new_branch = ConversationBranch(
+            id=new_id,
+            name=name.title(),
+            created_at=datetime.now(),
+            last_active=datetime.now(),
+            parent_branch_id=self.current_branch_id,
+            branch_point_index=branch_point_index,
+            conversation_history=conversation_history.copy(),
+            # Copy model state from source branch
+            model_name=source_branch.model_name,
+            engine_type=source_branch.engine_type,
+            model_config=copy.deepcopy(source_branch.model_config)
+            if source_branch.model_config
+            else None,
+            generation_config=copy.deepcopy(source_branch.generation_config)
+            if source_branch.generation_config
+            else None,
+        )
+
+        self.branches[new_id] = new_branch
+        return True, f"Created branch '{new_branch.name}' from position {branch_point_index}"
+
     def switch_branch(
         self, branch_id: str
     ) -> tuple[bool, str, Optional[ConversationBranch]]:
