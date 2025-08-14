@@ -65,6 +65,7 @@ class CommandContext:
         self._branch_manager: Optional[ConversationBranchManager] = None
         self._thinking_processor: Optional[ThinkingProcessor] = None
         self._macro_manager = None
+        self._command_router = None
 
     @property
     def context_window_manager(self) -> "ContextWindowManager":
@@ -156,3 +157,7 @@ class CommandContext:
             except ImportError:
                 self._macro_manager = None
         return self._macro_manager
+
+    def set_command_router(self, command_router):
+        """Set the command router reference for auto-save functionality."""
+        self._command_router = command_router
