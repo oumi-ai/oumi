@@ -130,4 +130,6 @@ class BaseCommandHandler(ABC):
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
             estimated_tokens = self._estimate_conversation_tokens()
             max_context = getattr(self.config.model, "model_max_length", 4096)
-            self.system_monitor.update_context_usage(estimated_tokens, max_context)
+            self.system_monitor.update_context_usage(estimated_tokens)
+            if hasattr(self.system_monitor, "update_max_context_tokens"):
+                self.system_monitor.update_max_context_tokens(max_context)

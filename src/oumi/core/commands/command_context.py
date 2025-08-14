@@ -107,7 +107,6 @@ class CommandContext:
 
             self._file_handler = FileHandler(
                 context_manager=self.context_window_manager,
-                conversation_history=self.conversation_history,
             )
         return self._file_handler
 
