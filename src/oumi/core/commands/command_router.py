@@ -17,6 +17,7 @@
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.command_parser import ParsedCommand
+from oumi.core.commands.command_registry import COMMAND_REGISTRY
 from oumi.core.commands.handlers.branch_operations_handler import (
     BranchOperationsHandler,
 )
@@ -120,131 +121,114 @@ class CommandRouter:
         )
 
     def _generate_help_content(self) -> str:
-        """Generate comprehensive help content."""
+        """Generate comprehensive help content using the centralized command registry."""
+        # Get all commands from the registry
+        all_commands = COMMAND_REGISTRY.get_all_commands()
+        total_commands = len(all_commands)
+
+        # Build help sections dynamically from registry
         help_content = f"""
-## Available Commands
+## Available Commands ({total_commands} total)
 
 ### Basic Commands
-- **`/help()`** - Show this help message
-- **`/exit()`** - Exit the interactive chat session
+- **`/help()`** - {all_commands["help"].description}
+- **`/exit()`** - {all_commands["exit"].description}
 
 ### Input Modes
 - **`/ml`** - Switch to multi-line input mode
 - **`/sl`** - Switch to single-line input mode
 
 ### File Operations
-- **`/attach(path)`** - Attach files to conversation
+- **`/attach(path)`** - {all_commands["attach"].description}
   - Supports: images (JPG, PNG, etc.), PDFs, text files, CSV, JSON, Markdown
   - Example: `/attach(document.pdf)` or `/attach(image.jpg)`
-- **`/fetch(url)`** - Fetch web content and add to conversation context
+- **`/fetch(url)`** - {all_commands["fetch"].description}
   - Retrieves and parses HTML content from websites
   - Example: `/fetch(https://example.com)` or `/fetch(docs.python.org)`
   - Requires: `pip install 'oumi[interactive]'`
-- **`/shell(command)`** - Execute safe shell commands and capture output
+- **`/shell(command)`** - {all_commands["shell"].description}
   - Runs commands in local environment with security restrictions
   - Example: `/shell(ls -la)` or `/shell(python --version)`
   - Output (stdout/stderr) added to conversation context
   - Security: Blocks dangerous operations, 30s timeout, 200 char limit
+- **`/save(path)`** - {all_commands["save"].description}
+  - Formats: PDF, TXT, MD, JSON, CSV, HTML (auto-detected from extension)
+  - Examples: `/save(chat.pdf)`, `/save(chat.json)`, `/save(chat.md)`
+  - Force format: `/save(myfile, format=json)`
+- **`/import(path)`** - {all_commands["import"].description}
+  - Formats: JSON, CSV, Excel (.xlsx/.xls), Markdown (.md), Text (.txt)
+  - Examples: `/import(chat.json)`, `/import(data.csv)`, `/import(conversation.md)`
+- **`/save_history(path)`** - {all_commands["save_history"].description}
+  - Saves: All branches, model config, generation params, attachments, statistics
+  - Format: Comprehensive JSON with full conversation tree and metadata
+  - Perfect for: Collaboration, full session backup, complex branching scenarios
+- **`/import_history(path)`** - {all_commands["import_history"].description}
+  - Restores: All branches, model config, current branch, full session state
+  - Perfect for: Resuming complex sessions, sharing complete conversation trees
+- **`/load(chat_id)`** - {all_commands["load"].description}
+  - Example: `/load(recent)` or `/load(session_20241201_143022)`
 
 ### Conversation Management
-- **`/delete()`** - Delete the previous conversation turn
-- **`/regen()`** - Regenerate the last assistant response
-- **`/clear()`** - Clear entire conversation history and start fresh
-- **`/show(pos)`** - View a specific conversation position
+- **`/delete()`** - {all_commands["delete"].description}
+- **`/regen()`** - {all_commands["regen"].description}
+- **`/clear()`** - {all_commands["clear"].description}
+- **`/show(pos)`** - {all_commands["show"].description}
   - `/show()` - Show most recent assistant message
   - `/show(3)` - Show assistant message #3
   - Shows both user and assistant messages for the specified turn
-- **`/render(path)`** - Record conversation playback as asciinema recording
+- **`/render(path)`** - {all_commands["render"].description}
   - Example: `/render(conversation.cast)` - Creates animated terminal recording
   - Plays back entire conversation step-by-step with realistic timing
   - Requires asciinema: `pip install asciinema`
-
-### Parameter Adjustment
-- **`/set(param=value)`** - Adjust generation parameters
-  - Examples:
-    - `/set(temperature=0.8)` - More creative responses
-    - `/set(top_p=0.9)` - Nucleus sampling
-    - `/set(max_tokens=2048)` - Longer responses
-    - `/set(sampling=true)` - Enable sampling
-  - Available parameters: temperature, top_p, top_k, max_tokens, sampling, seed,
-    frequency_penalty, presence_penalty, min_p, num_beams
-- **`/swap(model_name)`** - Switch to a different model while preserving conversation
-  - Examples:
-    - `/swap(llama-3.1-8b)` - Switch to Llama 3.1 8B model
-    - `/swap(anthropic:claude-3-5-sonnet-20241022)` - Switch to Claude via API
-  - Note: Requires infrastructure support for dynamic model loading
-- **`/list_engines()`** - List available inference engines and their supported models
-  - Shows local engines (NATIVE, VLLM, LLAMACPP) and API engines
-    (ANTHROPIC, OPENAI, etc.)
-  - Includes sample models and API key requirements for each engine
-
-### Import/Export
-- **`/save(path)`** - Save current conversation branch to various formats
-  - Formats: PDF, TXT, MD, JSON, CSV, HTML (auto-detected from extension)
-  - Examples:
-    - `/save(chat.pdf)` - PDF with formatting
-    - `/save(chat.txt)` - Plain text
-    - `/save(chat.md)` - Markdown format
-    - `/save(chat.json)` - Structured JSON
-    - `/save(chat.csv)` - CSV for data analysis
-    - `/save(chat.html)` - HTML with styling
-  - Force format: `/save(myfile, format=json)`
-- **`/save_history(path)`** - Save complete conversation state (all branches + config)
-  - Saves: All branches, model config, generation params, attachments, statistics
-  - Format: Comprehensive JSON with full conversation tree and metadata
-  - Example: `/save_history(project_complete.json)`
-  - Perfect for: Collaboration, full session backup, complex branching scenarios
-- **`/import(path)`** - Import conversation data from supported formats
-  - Formats: JSON, CSV, Excel (.xlsx/.xls), Markdown (.md), Text (.txt)
-  - Examples:
-    - `/import(chat.json)` - Import from JSON format
-    - `/import(data.csv)` - Import from CSV with role/content columns
-    - `/import(conversation.md)` - Import from Markdown with ## User/Assistant headers
-  - Automatically detects format from file extension
-- **`/import_history(path)`** - Restore complete conversation state
-  - Restores: All branches, model config, current branch, full session state
-  - Format: Oumi comprehensive history JSON (from `/save_history()`)
-  - Example: `/import_history(project_complete.json)`
-  - Perfect for: Resuming complex sessions, sharing complete conversation trees
-
-### Context Management
-- **`/compact()`** - Compress conversation history to save context window space
+- **`/compact()`** - {all_commands["compact"].description}
   - Summarizes older messages while preserving recent exchanges
   - Helps when approaching context window limits
   - Shows token savings after compaction
 
+### Parameter Adjustment
+- **`/set(param=value)`** - {all_commands["set"].description}
+  - Examples: `/set(temperature=0.8)`, `/set(top_p=0.9)`, `/set(max_tokens=2048)`
+  - Available parameters: temperature, top_p, top_k, max_tokens, sampling, seed,
+    frequency_penalty, presence_penalty, min_p, num_beams
+
 ### Conversation Branching (TMux-style)
-- **`/branch()`** - Create a new conversation branch from current point
+- **`/branch()`** - {all_commands["branch"].description}
   - Fork the conversation to explore different paths
   - Maximum of 5 branches allowed
-- **`/branch_from(name,pos)`** - Create a branch from specific assistant message position
+- **`/branch_from(name,pos)`** - {all_commands["branch_from"].description}
   - Example: `/branch_from(experiment,2)` - Branch from assistant message #2
   - Useful for exploring alternative paths from earlier in the conversation
-- **`/switch(name)`** - Switch to a different conversation branch
+- **`/switch(name)`** - {all_commands["switch"].description}
   - Example: `/switch(main)` or `/switch(branch_1)`
-- **`/branches()`** - List all conversation branches
+- **`/branches()`** - {all_commands["branches"].description}
   - Shows branch names, creation time, and message preview
-- **`/branch_delete(name)`** - Delete a conversation branch
+- **`/branch_delete(name)`** - {all_commands["branch_delete"].description}
   - Example: `/branch_delete(branch_2)`
   - Cannot delete the main branch
 
 ### Thinking Display
-- **`/full_thoughts()`** - Toggle between compressed and full thinking view
+- **`/full_thoughts()`** - {all_commands["full_thoughts"].description}
   - Compressed (default): Shows brief summaries of thinking content
   - Full mode: Shows complete thinking chains and reasoning
   - Works with multiple thinking formats: GPT-OSS, <think>, <reasoning>, etc.
-- **`/clear_thoughts()`** - Remove thinking content from conversation history
+- **`/clear_thoughts()`** - {all_commands["clear_thoughts"].description}
   - Preserves the final responses while removing all thinking/reasoning sections
   - Useful for cleaning up conversation history while keeping the actual answers
   - Works across all supported thinking formats
 
+### Model Management
+- **`/swap(model_name)`** - {all_commands["swap"].description}
+  - Examples: `/swap(llama-3.1-8b)`, `/swap(anthropic:claude-3-5-sonnet-20241022)`
+  - `/swap(config:path/to/config.yaml)` - Switch using config file
+  - Note: Requires infrastructure support for dynamic model loading
+- **`/list_engines()`** - {all_commands["list_engines"].description}
+  - Shows local engines (NATIVE, VLLM, LLAMACPP) and API engines
+    (ANTHROPIC, OPENAI, etc.)
+  - Includes sample models and API key requirements for each engine
+
 ### Macro System
-- **`/macro(path)`** - Execute Jinja template-based conversation macros
-  - Load and execute pre-defined conversation templates with customizable fields
-  - Examples:
-    - `/macro(judge.jinja)` - Load a judgment/evaluation macro
-    - `/macro(code_repair.jinja)` - Load a code debugging assistance macro
-    - `/macro(macros/creative_writing.jinja)` - Load with relative path
+- **`/macro(path)`** - {all_commands["macro"].description}
+  - Examples: `/macro(judge.jinja)`, `/macro(code_repair.jinja)`
   - Validates template syntax and context window usage
   - Interactive field collection for template variables
   - Supports multi-turn conversation macros
