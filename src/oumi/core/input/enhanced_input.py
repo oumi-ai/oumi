@@ -41,6 +41,17 @@ class CommandCompleter(Completer):
             "exit": ["/exit()"],
             # File operations
             "attach": ["/attach(file_path)"],
+            "fetch": [
+                "/fetch(url)",
+                "/fetch(https://example.com)",
+                "/fetch(docs.python.org)",
+            ],
+            "shell": [
+                "/shell(command)",
+                "/shell(ls -la)",
+                "/shell(python --version)",
+                "/shell(git status)",
+            ],
             "save": [
                 "/save(output_path)",
                 "/save(output.pdf)",
@@ -55,12 +66,38 @@ class CommandCompleter(Completer):
                 "/import(chat.json)",
                 "/import(conversation.xlsx)",
             ],
+            "save_history": [
+                "/save_history(output.json)",
+                "/save_history(complete.json)",
+                "/save_history(backup.json)",
+            ],
+            "import_history": [
+                "/import_history(input.json)",
+                "/import_history(complete.json)",
+                "/import_history(backup.json)",
+            ],
+            "load": [
+                "/load(chat_id)",
+                "/load(recent)",
+                "/load(session_20241201_143022)",
+            ],
             # Conversation management
             "delete": ["/delete()"],
             "regen": ["/regen()"],
             "clear": ["/clear()"],
             "clear_thoughts": ["/clear_thoughts()"],
             "compact": ["/compact()"],
+            "show": [
+                "/show()",
+                "/show(1)",
+                "/show(2)",
+                "/show(3)",
+            ],
+            "render": [
+                "/render(output.cast)",
+                "/render(conversation.cast)",
+                "/render(demo.cast)",
+            ],
             # Generation parameters
             "set": [
                 "/set(temperature=0.7)",
@@ -71,6 +108,11 @@ class CommandCompleter(Completer):
             ],
             # Branching
             "branch": ["/branch()", "/branch(branch_name)"],
+            "branch_from": [
+                "/branch_from(name,pos)",
+                "/branch_from(experiment,2)",
+                "/branch_from(test,3)",
+            ],
             "switch": ["/switch(branch_name)", "/switch(main)", "/switch(branch_1)"],
             "branches": ["/branches()"],
             "branch_delete": ["/branch_delete(branch_name)"],
