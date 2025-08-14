@@ -58,5 +58,12 @@ peft:
   lora_r: 8
   lora_alpha: 16
   lora_target_modules:
-    - "q_proj"
-    # - "all-linear"
+    - "all-linear"
+  lora_target_parameters:
+    - "7.mlp.experts.gate_up_proj"
+    - "7.mlp.experts.down_proj"
+    - "15.mlp.experts.gate_up_proj"
+    - "15.mlp.experts.down_proj"
+    - "23.mlp.experts.gate_up_proj"
+    - "23.mlp.experts.down_proj"
+

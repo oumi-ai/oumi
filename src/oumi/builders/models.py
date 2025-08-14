@@ -538,35 +538,7 @@ def build_peft_model(
     Returns:
         The built PEFT model.
     """
-<<<<<<< HEAD
-    # lora_config = LoraConfig(
-    #     r=peft_params.lora_r,
-    #     lora_alpha=peft_params.lora_alpha,
-    #     lora_dropout=peft_params.lora_dropout,
-    #     target_modules=peft_params.lora_target_modules,
-    #     modules_to_save=peft_params.lora_modules_to_save,
-    #     bias=peft_params.lora_bias,  # type: ignore
-    #     task_type=peft_params.lora_task_type,
-    #     init_lora_weights=(
-    #         _convert_lora_init_weights_to_lora_config(peft_params.lora_init_weights)
-    #     ),
-    # )
-    lora_config = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        target_modules="all-linear",
-        target_parameters=[
-            "7.mlp.experts.gate_up_proj",
-            "7.mlp.experts.down_proj",
-            "15.mlp.experts.gate_up_proj",
-            "15.mlp.experts.down_proj",
-            "23.mlp.experts.gate_up_proj",
-            "23.mlp.experts.down_proj",
-        ],
-    )
-=======
     lora_config = peft_params.to_lora()
->>>>>>> main
 
     if peft_params.q_lora:
         model = prepare_model_for_kbit_training(
