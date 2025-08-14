@@ -288,6 +288,10 @@ class SystemMonitor:
         Returns:
             Color string for Rich formatting.
         """
+        # Handle None values that might occur during engine swaps
+        if percent is None:
+            return "dim"
+        
         if percent >= 90:
             return "red"
         elif percent >= 70:
