@@ -240,7 +240,8 @@ class FileOperationsHandler(BaseCommandHandler):
 
         # Build content info
         content_parts = []
-        content_parts.append(f"**Size:** {file_info.size_mb:.2f} MB")
+        size_mb = (file_info.size_bytes or 0) / (1024 * 1024)
+        content_parts.append(f"**Size:** {size_mb:.2f} MB")
         content_parts.append(f"**Type:** {file_info.file_type}")
 
         if result.processing_info:
