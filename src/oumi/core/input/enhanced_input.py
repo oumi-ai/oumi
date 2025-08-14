@@ -25,9 +25,10 @@ from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.panel import Panel
 
+from oumi.core.commands.command_registry import COMMAND_REGISTRY
+
 # Import shared types from multiline_input to avoid duplication
 from oumi.core.input.multiline_input import InputAction, InputResult
-from oumi.core.commands.command_registry import COMMAND_REGISTRY
 
 
 class CommandCompleter(Completer):

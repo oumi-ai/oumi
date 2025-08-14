@@ -110,7 +110,6 @@ def thinking_with_monitor(
                 time.sleep(update_interval)
             except Exception as e:
                 # Log the exception for debugging instead of silently passing
-                import traceback
                 logger.warning(f"Display update failed: {e}")
                 # Continue anyway to avoid crashing the display thread
                 pass
@@ -953,9 +952,7 @@ def infer_interactive(
                         user_messages = [current_user_message]
 
                     full_conversation = Conversation(
-                        messages=system_messages
-                        + history_messages
-                        + user_messages
+                        messages=system_messages + history_messages + user_messages
                     )
 
                     # Call inference engine directly with the full conversation
@@ -1043,9 +1040,7 @@ def infer_interactive(
                         user_messages = [current_user_message]
 
                     full_conversation = Conversation(
-                        messages=system_messages
-                        + history_messages
-                        + user_messages
+                        messages=system_messages + history_messages + user_messages
                     )
 
                     # Call inference engine directly with the full conversation
@@ -1158,8 +1153,12 @@ def infer_interactive(
 
             # Auto-save chat after each complete conversation turn
             try:
-                file_operations_handler = command_router._handlers.get("file_operations")
-                if file_operations_handler and hasattr(file_operations_handler, "auto_save_chat"):
+                file_operations_handler = command_router._handlers.get(
+                    "file_operations"
+                )
+                if file_operations_handler and hasattr(
+                    file_operations_handler, "auto_save_chat"
+                ):
                     file_operations_handler.auto_save_chat()
             except Exception:
                 # Silently fail auto-save to avoid interrupting user experience

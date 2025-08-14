@@ -123,7 +123,7 @@ class BaseCommandHandler(ABC):
         Returns:
             Accurate token count using tiktoken-based estimation.
         """
-        if hasattr(self.context, 'context_window_manager'):
+        if hasattr(self.context, "context_window_manager"):
             conversation_text = ""
             for msg in self.conversation_history:
                 if isinstance(msg, dict):
@@ -135,9 +135,11 @@ class BaseCommandHandler(ABC):
                         conversation_text += str(msg["text_content"]) + "\n"
                     elif msg.get("role") == "attachment" and "content" in msg:
                         conversation_text += str(msg["content"]) + "\n"
-            
-            return self.context.context_window_manager.estimate_tokens(conversation_text)
-        
+
+            return self.context.context_window_manager.estimate_tokens(
+                conversation_text
+            )
+
         # Fallback to character-based estimation if context manager not available
         total_chars = 0
         for msg in self.conversation_history:

@@ -146,15 +146,15 @@ def ensure_dependencies():
     """Ensure rich and other dependencies are installed."""
     required_packages = ["rich"]
     missing_packages = []
-    
+
     for package in required_packages:
         try:
             __import__(package)
         except ImportError:
             missing_packages.append(package)
-    
+
     if missing_packages:
-        print(f"Installing required dependencies: {', '.join(missing_packages)}")
+        print(f"Installing required dependencies: {", ".join(missing_packages)}")
         try:
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "--quiet"
@@ -164,7 +164,7 @@ def ensure_dependencies():
             print(f"Failed to install dependencies: {e}")
             print("Falling back to basic text rendering...")
             return False
-    
+
     return True
 
 # Ensure dependencies are available
@@ -257,7 +257,7 @@ def display_message(role, content, position=None):
                 print("-"*60)
                 print(thinking_content)
                 print("="*60 + "\\n")
-            
+
             time.sleep(THINKING_DELAY)
             content = final_content
 

@@ -32,7 +32,7 @@ class CommandInfo:
     description: str
     """Short description of what the command does."""
 
-    examples: List[str]
+    examples: list[str]
     """List of example usage patterns for autocomplete."""
 
 
@@ -278,7 +278,7 @@ class CommandRegistry:
         """
         return name.lower() in self._commands
 
-    def get_all_commands(self) -> Dict[str, CommandInfo]:
+    def get_all_commands(self) -> dict[str, CommandInfo]:
         """Get all registered commands.
 
         Returns:
@@ -286,7 +286,7 @@ class CommandRegistry:
         """
         return self._commands.copy()
 
-    def get_command_names(self) -> List[str]:
+    def get_command_names(self) -> list[str]:
         """Get a list of all command names.
 
         Returns:
@@ -294,7 +294,7 @@ class CommandRegistry:
         """
         return list(self._commands.keys())
 
-    def get_all_examples(self) -> List[str]:
+    def get_all_examples(self) -> list[str]:
         """Get all command examples for autocomplete.
 
         Returns:

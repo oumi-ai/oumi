@@ -187,6 +187,11 @@ interactive = [
     "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
 ]
 
+webchat = [
+    "gradio>=5.0.0,<6.0",    # Web-based UI framework for chat interface
+    "aiohttp-cors>=0.7.0",  # CORS support for WebSocket connections
+]
+
 # GPT OSS support - requires special installation procedure
 gpt_oss = [
     # Note: vLLM GPT OSS build must be installed separately via:
