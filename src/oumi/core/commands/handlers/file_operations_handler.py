@@ -937,7 +937,7 @@ class FileOperationsHandler(BaseCommandHandler):
             # Create attachment-style message for the conversation
             fetch_message = {
                 "role": "attachment",
-                "content": content,
+                "text_content": content,
                 "attachment_info": {
                     "type": "web_fetch",
                     "url": url,
@@ -1145,7 +1145,7 @@ class FileOperationsHandler(BaseCommandHandler):
             # Create attachment-style message for the conversation
             shell_message = {
                 "role": "attachment",
-                "content": output,
+                "text_content": output,
                 "attachment_info": {
                     "type": "shell_command",
                     "command": shell_command,
