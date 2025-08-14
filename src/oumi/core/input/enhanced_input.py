@@ -187,9 +187,22 @@ class EnhancedInput:
             """Handle Ctrl+C to exit."""
             event.app.exit(exception=KeyboardInterrupt)
 
-        # Don't bind Ctrl+D globally - let prompt_toolkit handle it naturally
-        # In single-line mode, Ctrl+D will exit
-        # In multi-line mode, Ctrl+D will submit (handled by prompt_toolkit)
+        return kb
+
+    def _create_multiline_key_bindings(self) -> KeyBindings:
+        """Create key bindings specifically for multi-line mode."""
+        kb = KeyBindings()
+
+        @kb.add("c-c")  # Ctrl+C
+        def _(event):
+            """Handle Ctrl+C to exit."""
+            event.app.exit(exception=KeyboardInterrupt)
+
+        @kb.add("c-d")  # Ctrl+D
+        def _(event):
+            """Handle Ctrl+D to submit in multiline mode."""
+            # Submit the current buffer content
+            event.app.exit(result=event.app.current_buffer.text)
 
         return kb
 
@@ -260,13 +273,16 @@ class EnhancedInput:
                 f"<ansiblue><b>{prompt_text}</b></ansiblue> (multi-line): "
             )
 
+            # Use multiline-specific key bindings
+            multiline_bindings = self._create_multiline_key_bindings()
+
             text = prompt(
                 formatted_prompt,
                 history=self.history,
                 completer=self.command_completer,
                 multiline=True,
                 complete_while_typing=True,
-                key_bindings=self.bindings,
+                key_bindings=multiline_bindings,
                 mouse_support=False,
                 wrap_lines=True,
             )

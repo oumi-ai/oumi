@@ -24,6 +24,8 @@ try:
     from prompt_toolkit import prompt as pt_prompt
     from prompt_toolkit.formatted_text import HTML
     from prompt_toolkit.history import InMemoryHistory
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.keys import Keys
 except ImportError as e:
     raise ImportError(
         "prompt_toolkit is required for Oumi input handling. "
@@ -56,13 +58,13 @@ class MultiLineInput:
 
     Supports two input modes:
     1. Single-line mode (default): Enter submits, type /ml to switch to multi-line
-    2. Multi-line mode: Enter adds new line, empty line submits, /sl to switch back
+    2. Multi-line mode: Enter adds new line, Ctrl+D submits, /sl to switch back
 
     Special inputs:
     - /ml - Switch to multi-line mode
     - /sl - Switch to single-line mode
     - /exit - Exit chat
-    - Empty input in multi-line mode - Submit
+    - Ctrl+D in multi-line mode - Submit
     """
 
     def __init__(self, console: Console, prompt_style: str = "bold blue"):
@@ -134,9 +136,18 @@ class MultiLineInput:
         """Get multi-line input using prompt_toolkit multiline support."""
         try:
             self.console.print(
-                "[dim]📝 Multi-line mode: Ctrl+D to submit, "
-                "/sl to switch to single-line[/dim]"
+                "[dim]📝 Multi-line mode: Enter for new line, Ctrl+D to submit, "
+                "/sl to switch[/dim]"
             )
+
+            # Create custom key bindings for multiline mode
+            bindings = KeyBindings()
+
+            @bindings.add('c-d')
+            def _(event):
+                """Handle Ctrl+D to submit in multiline mode."""
+                # Accept the input (submit)
+                event.app.exit(result=event.app.current_buffer.text)
 
             # Create styled prompt for multi-line
             formatted_prompt = HTML(
@@ -149,6 +160,7 @@ class MultiLineInput:
                 multiline=True,
                 mouse_support=False,
                 wrap_lines=True,
+                key_bindings=bindings,
             )
 
             # Handle special commands
@@ -175,19 +187,23 @@ class MultiLineInput:
 
             return InputResult(action=InputAction.SUBMIT, text=text.strip())
 
-        except (EOFError, KeyboardInterrupt):
+        except KeyboardInterrupt:
             return InputResult(action=InputAction.EXIT, should_exit=True)
+        except EOFError:
+            # In multiline mode, Ctrl+D is handled by key binding, so EOFError here
+            # means empty input was submitted
+            return InputResult(action=InputAction.CANCEL, cancelled=True)
 
     def _show_input_help(self):
         """Show help information about input modes."""
         help_text = """
 **Input Modes:**
 • **Single-line** (default): Press Enter to send message
-• **Multi-line**: Press Enter to add new line, empty line to send
+• **Multi-line**: Press Enter to add new line, Ctrl+D to send
 
 **Mode Switching:**
 • Type `/ml` to switch to multi-line mode
-• Type `/sl` to switch to single-line mode
+• Type `/sl` to switch to single-line mode  
 • Type `/exit` to exit chat
 
 **Commands work in both modes** (e.g., `/help()`, `/attach()`)
@@ -210,11 +226,9 @@ class MultiLineInput:
         self.console.print(f"[green]{emoji} Switched to {new_mode} input mode[/green]")
 
         if new_mode == "multi-line":
-            self.console.print(
-                "[dim]Press Enter to add new lines, empty line to submit[/dim]"
-            )
+            self.console.print("[dim]Press Enter for new line, Ctrl+D to submit[/dim]")
         else:
-            self.console.print("[dim]Press Enter to send message[/dim]")
+            self.console.print("[dim]Press Enter to send, Ctrl+D to exit[/dim]")
 
         self.console.print()
 

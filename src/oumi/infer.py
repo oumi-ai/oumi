@@ -772,7 +772,7 @@ def infer_interactive(
     while True:
         # Display HUD if interval has passed
         system_monitor.display_hud(console, config.style)
-        
+
         # Track if input came from command override (like /regen)
         is_from_override = False
 
@@ -834,13 +834,14 @@ def infer_interactive(
                     console.print()  # Add spacing
                     continue
 
-                # If command provided input override (e.g., from /regen), use that
+                # If command provided input override (e.g., from /regen or /macro), use that
                 if (
                     hasattr(command_result, "user_input_override")
                     and command_result.user_input_override
                 ):
                     input_text = command_result.user_input_override
-                    is_from_override = True
+                    # Only set is_from_override for actual regeneration operations
+                    is_from_override = getattr(command_result, "is_regeneration", False)
                     print(f"🔧 DEBUG: Command provided user_input_override: '{input_text[:50]}...'")
                     print(f"🔧 DEBUG: Set is_from_override = {is_from_override}")
                 else:
@@ -960,11 +961,11 @@ def infer_interactive(
                     # Create conversation with full history
                     # For regen operations, don't add current_user_message since it's already in history
                     if is_from_override:
-                        print(f"🔧 DEBUG: NATIVE engine - skipping current_user_message for regen")
+                        print("🔧 DEBUG: NATIVE engine - skipping current_user_message for regeneration")
                         user_messages = []
                     else:
                         user_messages = [current_user_message]
-                    
+
                     full_conversation = Conversation(
                         messages=system_messages
                         + history_messages
@@ -1056,11 +1057,11 @@ def infer_interactive(
                     # Create conversation with full history for VLLM
                     # For regen operations, don't add current_user_message since it's already in history
                     if is_from_override:
-                        print(f"🔧 DEBUG: VLLM engine - skipping current_user_message for regen")
+                        print("🔧 DEBUG: VLLM engine - skipping current_user_message for regeneration")
                         user_messages = []
                     else:
                         user_messages = [current_user_message]
-                    
+
                     full_conversation = Conversation(
                         messages=system_messages
                         + history_messages
@@ -1133,7 +1134,7 @@ def infer_interactive(
             ]
 
             # Store the user message that was sent to the model (always string now)
-            # Skip adding to history if this came from user_input_override (e.g., /regen)
+            # Skip adding to history if this is from a regeneration operation
             # because the message should already be in the conversation history
             if not is_from_override:
                 if current_user_message:
@@ -1144,7 +1145,7 @@ def infer_interactive(
                     # Fallback - shouldn't happen but just in case
                     conversation_history.append({"role": "user", "content": input_text})
             else:
-                # DEBUG: This should be printed during regen operations
+                # DEBUG: This should be printed during regeneration operations
                 print(f"🔧 DEBUG: Skipping user message addition (is_from_override={is_from_override})")
                 print(f"🔧 DEBUG: Conversation history length: {len(conversation_history)}")
                 for i, msg in enumerate(conversation_history):
