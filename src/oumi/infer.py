@@ -108,8 +108,11 @@ def thinking_with_monitor(
                 layout["monitor"].update(monitor_panel)
 
                 time.sleep(update_interval)
-            except Exception:
-                # If there's an error, just continue silently
+            except Exception as e:
+                # Log the exception for debugging instead of silently passing
+                print(f"🔧 DEBUG: Display update error: {str(e)}")
+                logger.warning(f"Display update failed: {e}")
+                # Continue anyway to avoid crashing the display thread
                 pass
 
     # Start the update thread
@@ -967,10 +970,15 @@ def infer_interactive(
                     )
 
                     # Call inference engine directly with the full conversation
-                    model_response = inference_engine.infer(
-                        input=[full_conversation],
-                        inference_config=config,
-                    )
+                    try:
+                        model_response = inference_engine.infer(
+                            input=[full_conversation],
+                            inference_config=config,
+                        )
+                    except Exception as e:
+                        print(f"🔧 DEBUG: NATIVE inference failed: {str(e)}")
+                        console.print(f"[red]Inference error: {str(e)}[/red]")
+                        raise
 
                     # Record time to first token (approximation - when inference returns)
                     if first_token_time is None:
@@ -1058,10 +1066,15 @@ def infer_interactive(
                     )
 
                     # Call inference engine directly with the full conversation
-                    model_response = inference_engine.infer(
-                        input=[full_conversation],
-                        inference_config=config,
-                    )
+                    try:
+                        model_response = inference_engine.infer(
+                            input=[full_conversation],
+                            inference_config=config,
+                        )
+                    except Exception as e:
+                        print(f"🔧 DEBUG: NATIVE inference failed: {str(e)}")
+                        console.print(f"[red]Inference error: {str(e)}[/red]")
+                        raise
 
                     # Record time to first token (approximation - when inference returns)
                     if first_token_time is None:
