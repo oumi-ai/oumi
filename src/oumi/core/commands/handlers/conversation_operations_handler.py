@@ -439,14 +439,38 @@ class ConversationOperationsHandler(BaseCommandHandler):
             else:
                 display_content = assistant_content
 
-            # Show assistant response
-            assistant_panel = Panel(
-                Text(display_content, style="white"),
-                title=f"[bold cyan]Assistant ({position_text})[/bold cyan]",
-                border_style="cyan",
-                padding=(1, 2),
-                expand=getattr(self.config.style, "expand_panels", False),
-            )
+            # Get model name for assistant title
+            model_name = getattr(self.config.model, "model_name", "Assistant")
+            
+            # Clean up model name for display
+            if "/" in model_name:
+                display_model_name = model_name.split("/")[-1]  # Get last part after /
+            else:
+                display_model_name = model_name
+            
+            # Show assistant response with markdown rendering
+            from rich.markdown import Markdown
+            
+            try:
+                # Try to render as markdown
+                markdown_content = Markdown(display_content)
+                assistant_panel = Panel(
+                    markdown_content,
+                    title=f"[bold cyan]{display_model_name} ({position_text})[/bold cyan]",
+                    border_style="cyan",
+                    padding=(1, 2),
+                    expand=getattr(self.config.style, "expand_panels", False),
+                )
+            except Exception:
+                # Fallback to plain text if markdown fails
+                assistant_panel = Panel(
+                    Text(display_content, style="white"),
+                    title=f"[bold cyan]{display_model_name} ({position_text})[/bold cyan]",
+                    border_style="cyan",
+                    padding=(1, 2),
+                    expand=getattr(self.config.style, "expand_panels", False),
+                )
+            
             self.console.print(assistant_panel)
 
             return CommandResult(

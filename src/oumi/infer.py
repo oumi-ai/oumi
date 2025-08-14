@@ -659,28 +659,23 @@ def _validate_context_usage(
                         text_content += str(message["text_content"]) + "\n"
             conversation_tokens = context_manager.estimate_tokens(text_content)
 
-        # Calculate context budget
-        budget = context_manager.calculate_budget(conversation_tokens)
-
         # Estimate tokens for user input
         user_input_tokens = context_manager.estimate_tokens(user_input)
 
-        # Check if input fits in available budget
-        # Available budget = total - reserved_for_history - reserved_for_response - safety_margin
-        available_for_input = budget.available_for_content
+        # Simple check: does current conversation + new input fit in total context?
+        total_tokens_needed = conversation_tokens + user_input_tokens
+        available_for_input = max_context - conversation_tokens
 
         # If user input exceeds available space
-        if user_input_tokens > available_for_input:
+        if total_tokens_needed > max_context:
             # Calculate context usage for error message
-            total_used = conversation_tokens + user_input_tokens
-            total_reserved = budget.reserved_for_response + budget.safety_margin
-            total_needed = total_used + total_reserved
 
             error_msg = (
                 f"Input too large for context window!\n"
                 f"  Input tokens: {user_input_tokens:,}\n"
                 f"  Available space: {available_for_input:,}\n"
                 f"  Current conversation: {conversation_tokens:,}\n"
+                f"  Total needed: {total_tokens_needed:,}\n"
                 f"  Total context limit: {max_context:,}\n\n"
                 f"Suggestions:\n"
                 f"  • Use /compact() to compress conversation history\n"
