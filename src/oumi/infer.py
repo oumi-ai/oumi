@@ -111,6 +111,8 @@ def thinking_with_monitor(
             except Exception as e:
                 # Log the exception for debugging instead of silently passing
                 print(f"🔧 DEBUG: Display update error: {str(e)}")
+                import traceback
+                print(f"🔧 DEBUG: Full traceback: {traceback.format_exc()}")
                 logger.warning(f"Display update failed: {e}")
                 # Continue anyway to avoid crashing the display thread
                 pass
