@@ -33,7 +33,7 @@ model:
   model_name: "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF"
   # Original model tokenizer for proper text processing
   tokenizer_name: "Qwen/Qwen3-30B-A3B-Instruct"
-  model_max_length: 8192
+  model_max_length: 4096
   torch_dtype_str: "float16"  # GGUF models require float16
   trust_remote_code: True
   # Specify GGUF filename in model_kwargs for LlamaCPP
