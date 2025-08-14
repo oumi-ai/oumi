@@ -798,6 +798,7 @@ def infer_interactive(
             # from multi-line content or complex file paths
             safe_input = make_safe(input_text)
             if command_parser.is_command(safe_input):
+                print(f"🔧 DEBUG: Detected command: '{safe_input}'")
                 parsed_command = command_parser.parse_command(safe_input)
 
                 if parsed_command is None:
@@ -841,6 +842,9 @@ def infer_interactive(
                     # Skip inference since we don't have regular user input
                     console.print()  # Add spacing
                     continue
+            else:
+                # Not a command, proceed to inference
+                print(f"🔧 DEBUG: Not a command, sending to model: '{input_text[:50]}...'")
 
         except (EOFError, KeyboardInterrupt):  # Triggered by Ctrl+D/Ctrl+C
             emoji = "👋 " if config.style.use_emoji else ""

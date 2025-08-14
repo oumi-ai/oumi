@@ -164,7 +164,7 @@ class BranchOperationsHandler(BaseCommandHandler):
             table.add_column("Preview", style="white")
 
             current_branch = branch_manager.get_current_branch()
-            current_branch_id = current_branch["id"] if current_branch else None
+            current_branch_id = current_branch.id if current_branch else None
 
             for branch in branches:
                 branch_name = branch.get("name", branch.get("id", "unknown"))
@@ -225,11 +225,11 @@ class BranchOperationsHandler(BaseCommandHandler):
             branch_manager = self.context.branch_manager
 
             # Delete the branch
-            result = branch_manager.delete_branch(branch_name)
+            success, message = branch_manager.delete_branch(branch_name)
 
             return CommandResult(
-                success=result.success,
-                message=result.message,
+                success=success,
+                message=message,
                 should_continue=False,
             )
 
