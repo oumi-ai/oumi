@@ -244,7 +244,7 @@ class FileOperationsHandler(BaseCommandHandler):
         content_parts.append(f"**Size:** {size_mb:.2f} MB")
         content_parts.append(f"**Type:** {file_info.file_type}")
 
-        if result.processing_info:
+        if hasattr(result, 'processing_info') and result.processing_info:
             content_parts.append(f"**Processing:** {result.processing_info}")
 
         if result.context_info:

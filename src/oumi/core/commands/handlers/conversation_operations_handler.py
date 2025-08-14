@@ -110,9 +110,21 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 )
 
             # Remove the last assistant response if it exists
+            removed_assistant = False
             if (
                 self.conversation_history
                 and self.conversation_history[-1].get("role") == "assistant"
+            ):
+                self.conversation_history.pop()
+                removed_assistant = True
+
+            # If we didn't remove an assistant response, and the last message is already
+            # a user message, we need to remove it too to avoid duplicate user messages
+            if (
+                not removed_assistant
+                and self.conversation_history
+                and self.conversation_history[-1].get("role") == "user"
+                and self.conversation_history[-1].get("content") == last_user_input
             ):
                 self.conversation_history.pop()
 
