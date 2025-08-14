@@ -85,6 +85,9 @@ class FileOperationsHandler(BaseCommandHandler):
 
                 # Add content to conversation (this will be used in the next inference)
                 self._add_attachment_to_conversation(attachment_result)
+                
+                # Update context monitor to reflect the added attachment content
+                self._update_context_in_monitor()
 
                 success_message = f"Attached {attachment_result.file_info.name}"
                 if attachment_result.context_info:

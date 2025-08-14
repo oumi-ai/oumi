@@ -119,9 +119,16 @@ class BaseCommandHandler(ABC):
         Returns:
             Estimated token count.
         """
-        total_chars = sum(
-            len(str(msg.get("content", ""))) for msg in self.conversation_history
-        )
+        total_chars = 0
+        for msg in self.conversation_history:
+            if msg.get("role") == "attachment":
+                # Attachment messages use "text_content" field
+                content = msg.get("text_content", "")
+            else:
+                # Regular messages use "content" field
+                content = msg.get("content", "")
+            total_chars += len(str(content))
+        
         # Rough estimation: ~4 chars per token
         return total_chars // 4
 
