@@ -185,12 +185,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
             original_tokens = self._estimate_conversation_tokens()
             original_count = len(self.conversation_history)
 
-            if original_count <= 2:  # Keep at least user + assistant pair
-                return CommandResult(
-                    success=True,
-                    message="Conversation too short to compact",
-                    should_continue=False,
-                )
+            # Allow compaction even for short conversations - let the user decide
 
             # Use compaction engine
             result = self.context.compaction_engine.compact_conversation(

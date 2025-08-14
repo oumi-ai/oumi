@@ -462,7 +462,10 @@ class ModelManagementHandler(BaseCommandHandler):
             if max_length is not None and max_length > 0:
                 return max_length
         
-        # For API engines, use known context limits based on model name
+        # FIXME: For API engines, we use hardcoded context limits which is hacky.
+        # We should use the provider packages (anthropic, openai, etc.) to get 
+        # accurate context limits for the specific model passed, rather than 
+        # hardcoding based on model name patterns.
         model_name = getattr(config.model, 'model_name', '').lower()
         
         # Anthropic context limits
