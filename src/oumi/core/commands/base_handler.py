@@ -117,14 +117,13 @@ class BaseCommandHandler(ABC):
         else:
             self.console.print(f"Success: {message}", style=success_style)
 
-    def _estimate_conversation_tokens(self) -> int:
-        """Estimate total tokens in conversation history.
+    def _get_conversation_tokens(self) -> int:
+        """Get accurate token count for current conversation using context manager.
 
         Returns:
-            Estimated token count.
+            Accurate token count using tiktoken-based estimation.
         """
-        # Use accurate tokenization from context manager if available
-        if hasattr(self.context, 'context_manager') and self.context.context_manager:
+        if hasattr(self.context, 'context_window_manager'):
             conversation_text = ""
             for msg in self.conversation_history:
                 if isinstance(msg, dict):
@@ -137,16 +136,14 @@ class BaseCommandHandler(ABC):
                     elif msg.get("role") == "attachment" and "content" in msg:
                         conversation_text += str(msg["content"]) + "\n"
             
-            return self.context.context_manager.estimate_tokens(conversation_text)
+            return self.context.context_window_manager.estimate_tokens(conversation_text)
         
-        # Fallback to old method if context manager not available
+        # Fallback to character-based estimation if context manager not available
         total_chars = 0
         for msg in self.conversation_history:
             if msg.get("role") == "attachment":
-                # Attachment messages use "text_content" field
-                content = msg.get("text_content", "")
+                content = msg.get("text_content", "") or msg.get("content", "")
             else:
-                # Regular messages use "content" field
                 content = msg.get("content", "")
             total_chars += len(str(content))
 
@@ -156,7 +153,7 @@ class BaseCommandHandler(ABC):
     def _update_context_in_monitor(self):
         """Update context usage in system monitor if available."""
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
-            estimated_tokens = self._estimate_conversation_tokens()
+            estimated_tokens = self._get_conversation_tokens()
             max_context = getattr(self.config.model, "model_max_length", 4096)
             self.system_monitor.update_context_usage(estimated_tokens)
             if hasattr(self.system_monitor, "update_max_context_tokens"):

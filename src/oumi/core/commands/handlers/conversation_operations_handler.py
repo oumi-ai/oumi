@@ -190,7 +190,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
         """Handle the /compact() command to compress conversation history."""
         try:
             # Show compaction status
-            original_tokens = self._estimate_conversation_tokens()
+            original_tokens = self._get_conversation_tokens()
             original_count = len(self.conversation_history)
 
             # Allow compaction even for short conversations - let the user decide
@@ -208,7 +208,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 # Update context monitor
                 self._update_context_in_monitor()
 
-                new_tokens = self._estimate_conversation_tokens()
+                new_tokens = self._get_conversation_tokens()
                 new_count = len(self.conversation_history)
 
                 savings_tokens = original_tokens - new_tokens
