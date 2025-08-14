@@ -15,6 +15,7 @@
 """File operations command handler."""
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -40,7 +41,7 @@ class FileOperationsHandler(BaseCommandHandler):
 
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
-        return ["attach", "save", "import", "load", "save_history", "import_history"]
+        return ["attach", "save", "import", "load", "save_history", "import_history", "fetch", "shell"]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a file operations command."""
@@ -56,6 +57,10 @@ class FileOperationsHandler(BaseCommandHandler):
             return self._handle_save_history(command)
         elif command.command == "import_history":
             return self._handle_import_history(command)
+        elif command.command == "fetch":
+            return self._handle_fetch(command)
+        elif command.command == "shell":
+            return self._handle_shell(command)
         else:
             return CommandResult(
                 success=False,
@@ -775,3 +780,274 @@ class FileOperationsHandler(BaseCommandHandler):
 
         except Exception as e:
             return False, f"Error restoring state: {str(e)}"
+
+    def _handle_fetch(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /fetch(url) command to retrieve web content."""
+        if not command.args:
+            return CommandResult(
+                success=False,
+                message="fetch command requires a URL argument",
+                should_continue=False,
+            )
+
+        url = command.args[0].strip()
+
+        try:
+            # Import requests and beautifulsoup4 with helpful error messages
+            try:
+                import requests
+                from bs4 import BeautifulSoup
+            except ImportError:
+                return CommandResult(
+                    success=False,
+                    message="Web fetching requires additional dependencies. Install with: pip install 'oumi[interactive]'",
+                    should_continue=False,
+                )
+
+            # Add protocol if missing
+            if not url.startswith(('http://', 'https://')):
+                url = f'https://{url}'
+
+            # Estimate current conversation tokens for context management
+            conversation_tokens = self._estimate_conversation_tokens()
+            max_context = getattr(self.config.model, "model_max_length", 4096)
+            available_tokens = max_context - conversation_tokens - 1000  # Reserve 1000 tokens
+
+            # Make the web request with timeout and user agent
+            headers = {
+                'User-Agent': 'Oumi-AI-Assistant/1.0 (Interactive Chat Bot)'
+            }
+            
+            self.console.print(f"🌐 Fetching content from {url}...")
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            # Parse HTML content 
+            if 'text/html' in response.headers.get('content-type', ''):
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Remove script, style, and other non-content elements
+                for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+                    element.decompose()
+                
+                # Extract text content
+                content = soup.get_text(separator=' ', strip=True)
+                content_type = "HTML (parsed text)"
+            else:
+                content = response.text
+                content_type = response.headers.get('content-type', 'text/plain')
+
+            # Limit content size based on available context
+            max_chars = available_tokens * 4  # Rough estimate: 4 chars per token
+            if len(content) > max_chars:
+                content = content[:max_chars] + f"\n\n[Content truncated at {max_chars:,} characters due to context window limits]"
+
+            # Create attachment-style message for the conversation
+            fetch_message = {
+                "role": "attachment",
+                "content": content,
+                "attachment_info": {
+                    "type": "web_fetch",
+                    "url": url,
+                    "content_type": content_type,
+                    "size_chars": len(content),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            }
+
+            # Add to conversation history
+            self.conversation_history.append(fetch_message)
+            
+            # Update context monitor
+            self._update_context_in_monitor()
+
+            # Display success with content info
+            from rich.panel import Panel
+            info_content = f"**URL:** {url}\n**Type:** {content_type}\n**Size:** {len(content):,} characters"
+            
+            if len(content) > 500:
+                info_content += f"\n**Preview:** {content[:200]}..."
+            else:
+                info_content += f"\n**Content:** {content}"
+
+            panel = Panel(
+                info_content,
+                title="🌐 Web Content Fetched",
+                border_style="green",
+                padding=(1, 2)
+            )
+            self.console.print(panel)
+
+            return CommandResult(
+                success=True,
+                message=f"Fetched {len(content):,} characters from {url}",
+                should_continue=False,
+            )
+
+        except requests.exceptions.Timeout:
+            return CommandResult(
+                success=False,
+                message=f"Request timeout: {url} took longer than 30 seconds",
+                should_continue=False,
+            )
+        except requests.exceptions.RequestException as e:
+            return CommandResult(
+                success=False,
+                message=f"Failed to fetch {url}: {str(e)}",
+                should_continue=False,
+            )
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error fetching web content: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_shell(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /shell(command) command to execute local shell commands."""
+        if not command.args:
+            return CommandResult(
+                success=False,
+                message="shell command requires a command argument",
+                should_continue=False,
+            )
+
+        shell_command = " ".join(command.args).strip()
+
+        # Security restrictions - block dangerous commands
+        dangerous_patterns = [
+            'rm ', 'del ', 'format ', 'fdisk',
+            'sudo ', 'su ', 'chmod +x', 'chown',
+            'wget ', 'curl ', 'ssh ', 'scp ',
+            'nc ', 'netcat', 'nmap', 'telnet',
+            'python -c', 'perl -e', 'ruby -e',
+            'bash -c', 'sh -c', 'eval',
+            '&', '&&', '||', ';', '`', '$(',
+            'mkfs', 'mount', 'umount', 'kill',
+            'killall', 'pkill', 'systemctl',
+        ]
+
+        shell_lower = shell_command.lower()
+        for pattern in dangerous_patterns:
+            if pattern in shell_lower:
+                return CommandResult(
+                    success=False,
+                    message=f"Command blocked for security: contains '{pattern}'. Shell commands are restricted to safe, read-only operations.",
+                    should_continue=False,
+                )
+
+        # Additional length restriction
+        if len(shell_command) > 200:
+            return CommandResult(
+                success=False,
+                message="Command too long. Maximum 200 characters allowed for security.",
+                should_continue=False,
+            )
+
+        try:
+            import subprocess
+            
+            # Estimate current conversation tokens
+            conversation_tokens = self._estimate_conversation_tokens()
+            max_context = getattr(self.config.model, "model_max_length", 4096)
+            available_tokens = max_context - conversation_tokens - 1000
+
+            self.console.print(f"🔧 Executing: {shell_command}")
+            
+            # Execute with timeout and capture both stdout and stderr
+            result = subprocess.run(
+                shell_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=os.getcwd(),  # Execute in current directory
+            )
+
+            # Combine stdout and stderr
+            output = ""
+            if result.stdout:
+                output += f"STDOUT:\n{result.stdout}"
+            if result.stderr:
+                if output:
+                    output += "\n\n"
+                output += f"STDERR:\n{result.stderr}"
+            
+            if not output:
+                output = "[No output produced]"
+
+            # Add return code info
+            output += f"\n\nReturn code: {result.returncode}"
+
+            # Limit output size based on available context
+            max_chars = available_tokens * 4  # Rough estimate: 4 chars per token
+            if len(output) > max_chars:
+                output = output[:max_chars] + f"\n\n[Output truncated at {max_chars:,} characters due to context window limits]"
+
+            # Create attachment-style message for the conversation
+            shell_message = {
+                "role": "attachment", 
+                "content": output,
+                "attachment_info": {
+                    "type": "shell_command",
+                    "command": shell_command,
+                    "return_code": result.returncode,
+                    "size_chars": len(output),
+                    "timestamp": datetime.now().isoformat(),
+                }
+            }
+
+            # Add to conversation history
+            self.conversation_history.append(shell_message)
+            
+            # Update context monitor
+            self._update_context_in_monitor()
+
+            # Display result
+            from rich.panel import Panel
+            from rich.text import Text
+
+            status_color = "green" if result.returncode == 0 else "red"
+            status_text = "✅ Success" if result.returncode == 0 else f"❌ Failed (code {result.returncode})"
+            
+            info_content = f"**Command:** {shell_command}\n**Status:** {status_text}\n**Output Size:** {len(output):,} characters"
+            
+            # Show preview of output
+            preview_length = 300
+            if len(output) > preview_length:
+                info_content += f"\n**Preview:**\n{output[:preview_length]}..."
+            else:
+                info_content += f"\n**Output:**\n{output}"
+
+            panel = Panel(
+                info_content,
+                title="🔧 Shell Command Result",
+                border_style=status_color,
+                padding=(1, 2)
+            )
+            self.console.print(panel)
+
+            return CommandResult(
+                success=True,
+                message=f"Executed command '{shell_command}' (exit code: {result.returncode})",
+                should_continue=False,
+            )
+
+        except subprocess.TimeoutExpired:
+            return CommandResult(
+                success=False,
+                message=f"Command timeout: '{shell_command}' took longer than 30 seconds",
+                should_continue=False,
+            )
+        except subprocess.SubprocessError as e:
+            return CommandResult(
+                success=False,
+                message=f"Shell command failed: {str(e)}",
+                should_continue=False,
+            )
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error executing shell command: {str(e)}",
+                should_continue=False,
+            )
