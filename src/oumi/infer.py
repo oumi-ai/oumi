@@ -767,6 +767,7 @@ def infer_interactive(
         console, config, conversation_history, inference_engine, system_monitor
     )
     command_router = CommandRouter(command_context)
+    command_context.set_command_router(command_router)
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
     while True:
@@ -1179,6 +1180,15 @@ def infer_interactive(
                             conversation_history.append(
                                 {"role": "assistant", "content": content}
                             )
+
+            # Auto-save chat after each complete conversation turn
+            try:
+                file_operations_handler = command_router._handlers.get("file_operations")
+                if file_operations_handler and hasattr(file_operations_handler, "auto_save_chat"):
+                    file_operations_handler.auto_save_chat()
+            except Exception:
+                # Silently fail auto-save to avoid interrupting user experience
+                pass
 
             # Update context usage for HUD
             # Estimate total conversation tokens

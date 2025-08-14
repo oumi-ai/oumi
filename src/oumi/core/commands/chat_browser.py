@@ -34,23 +34,52 @@ from oumi.utils.logging import logger
 class ChatBrowser:
     """Browser for recent chat conversations with playback support."""
 
-    def __init__(self, config: InferenceConfig):
-        self.config = config
-        self.console = Console()
-        self.cache_dir = Path(os.path.expanduser("~")) / ".oumi" / "chats"
+    def __init__(self, console: Console = None, config: InferenceConfig = None):
+        # Support both old signature (config) and new signature (console)
+        if console is not None:
+            self.console = console
+            self.config = config  # May be None for command usage
+        else:
+            # Legacy usage - config is the first parameter
+            self.config = console if console is not None else config
+            self.console = Console()
+        
+        self.cache_dir = Path(os.path.expanduser("~")) / ".oumi" / "chat_cache"
         self.metadata_file = self.cache_dir / "metadata.json"
         self.tts_enabled = False
         self.tts_engine = None
 
+    def browse_recent_chats(self) -> Optional[str]:
+        """Browse recent chats and return selected chat ID for command integration."""
+        # Load recent chats
+        recent_chats = self._load_recent_chats()
+        if not recent_chats:
+            self.console.print("[yellow]No recent chats found.[/yellow]")
+            return None
+
+        # Display recent chats
+        self._display_chat_list(recent_chats)
+
+        # Get user selection
+        choice = self._get_user_choice(recent_chats)
+        if choice is None or choice in ["refresh", "tts", "invalid"]:
+            return None
+        elif isinstance(choice, int):
+            # Return the chat ID for the selected chat
+            chat_metadata = recent_chats[choice]
+            return chat_metadata.get("id")
+        
+        return None
+
     def run(self) -> None:
         """Main entry point for chat browsing."""
-        emoji = "📚 " if self.config.style.use_emoji else ""
+        emoji = "📚 " if self.config and self.config.style.use_emoji else ""
         self.console.print(
             Panel(
                 Text(f"{emoji}Oumi Chat Browser", style="bold cyan"),
                 subtitle="[dim]Browse and play back your recent conversations[/dim]",
                 border_style="cyan",
-                expand=self.config.style.expand_panels,
+                expand=self.config.style.expand_panels if self.config else False,
             )
         )
 
@@ -80,19 +109,82 @@ class ChatBrowser:
                 self._play_chat(chat_metadata)
 
     def _load_recent_chats(self) -> list[dict[str, Any]]:
-        """Load recent chat metadata from cache."""
-        if not self.metadata_file.exists():
+        """Load recent chat metadata from cache directory."""
+        if not self.cache_dir.exists():
             return []
 
+        chats = []
         try:
-            with open(self.metadata_file, encoding="utf-8") as f:
-                data = json.load(f)
+            # Load individual chat files from cache directory
+            for chat_file in self.cache_dir.glob("*.json"):
+                if chat_file.name == "metadata.json":
+                    continue
+                    
+                try:
+                    with open(chat_file, encoding="utf-8") as f:
+                        chat_data = json.load(f)
+                    
+                    # Handle both basic and comprehensive history formats
+                    if chat_data.get("format") == "oumi_conversation_history":
+                        # Comprehensive history format
+                        session = chat_data.get("session", {})
+                        chat_id = session.get("chat_id", chat_file.stem)
+                        
+                        # Get model from configuration
+                        config = chat_data.get("configuration", {})
+                        model_config = config.get("model", {})
+                        model_name = model_config.get("model_name", "Unknown")
+                        
+                        # Get conversation history from current branch
+                        branches = chat_data.get("branches", {})
+                        current_branch_id = session.get("current_branch_id", "main")
+                        current_branch = branches.get(current_branch_id, branches.get("main", {}))
+                        conversation_history = current_branch.get("conversation_history", [])
+                        
+                        created_at = chat_data.get("created_at", "")
+                    else:
+                        # Basic format (legacy)
+                        chat_id = chat_data.get("chat_id", chat_file.stem)
+                        model_name = chat_data.get("model_name", "Unknown")
+                        conversation_history = chat_data.get("conversation_history", [])
+                        created_at = chat_data.get("created_at", chat_data.get("last_updated", ""))
+                    
+                    # Get first user message as preview
+                    preview = "No preview available"
+                    for msg in conversation_history:
+                        if msg.get("role") == "user":
+                            content = msg.get("content", "")
+                            preview = content[:100] + ("..." if len(content) > 100 else "")
+                            break
+                    
+                    # Convert ISO timestamp to unix timestamp
+                    timestamp = 0
+                    if created_at:
+                        try:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                            timestamp = dt.timestamp()
+                        except Exception:
+                            timestamp = 0
+                    
+                    chats.append({
+                        "id": chat_id,
+                        "model_name": model_name,
+                        "message_count": len(conversation_history),
+                        "preview": preview,
+                        "timestamp": timestamp,
+                        "file_path": str(chat_file)
+                    })
+                    
+                except (OSError, json.JSONDecodeError) as e:
+                    logger.debug(f"Failed to load chat file {chat_file}: {e}")
+                    continue
 
             # Sort by timestamp, most recent first
-            chats = data.get("chats", [])
             return sorted(chats, key=lambda x: x.get("timestamp", 0), reverse=True)
-        except (OSError, json.JSONDecodeError) as e:
-            logger.warning(f"Failed to load chat metadata: {e}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to load chat cache: {e}")
             return []
 
     def _display_chat_list(self, chats: list[dict[str, Any]]) -> None:

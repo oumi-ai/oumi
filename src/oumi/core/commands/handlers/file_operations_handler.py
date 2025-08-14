@@ -350,18 +350,25 @@ class FileOperationsHandler(BaseCommandHandler):
             return
 
         try:
-            # Prepare chat data
-            chat_data = {
-                "chat_id": self.chat_id,
-                "model_name": getattr(self.config.model, "model_name", "default"),
-                "created_at": datetime.now().isoformat(),
-                "last_updated": datetime.now().isoformat(),
-                "conversation_history": self.conversation_history,
-                "model_config": self._serialize_model_config(self.config.model),
-                "generation_config": self._serialize_generation_config(
-                    self.config.generation
-                ),
-            }
+            # Check if we have branch manager for comprehensive format
+            branch_manager = getattr(self.context, "branch_manager", None)
+            
+            if branch_manager and hasattr(branch_manager, 'branches') and len(branch_manager.branches) > 1:
+                # Use comprehensive format when multiple branches exist
+                chat_data = self._build_comprehensive_history()
+            else:
+                # Use basic format for simple conversations
+                chat_data = {
+                    "chat_id": self.chat_id,
+                    "model_name": getattr(self.config.model, "model_name", "default"),
+                    "created_at": datetime.now().isoformat(),
+                    "last_updated": datetime.now().isoformat(),
+                    "conversation_history": self.conversation_history,
+                    "model_config": self._serialize_model_config(self.config.model),
+                    "generation_config": self._serialize_generation_config(
+                        getattr(self.config, "generation", None)
+                    ),
+                }
 
             # Save to cache
             with open(self.chat_file, "w", encoding="utf-8") as f:

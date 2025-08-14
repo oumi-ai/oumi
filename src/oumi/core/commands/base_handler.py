@@ -144,3 +144,18 @@ class BaseCommandHandler(ABC):
             self.system_monitor.update_context_usage(estimated_tokens)
             if hasattr(self.system_monitor, "update_max_context_tokens"):
                 self.system_monitor.update_max_context_tokens(max_context)
+        
+        # Auto-save after context updates (conversation modifications)
+        self._auto_save_if_enabled()
+
+    def _auto_save_if_enabled(self):
+        """Auto-save chat if enabled and available."""
+        try:
+            # Access the file operations handler via context
+            if hasattr(self.context, '_command_router') and self.context._command_router:
+                file_operations_handler = self.context._command_router._handlers.get("file_operations")
+                if file_operations_handler and hasattr(file_operations_handler, "auto_save_chat"):
+                    file_operations_handler.auto_save_chat()
+        except Exception:
+            # Silently fail auto-save to avoid interrupting user experience
+            pass
