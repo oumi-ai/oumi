@@ -57,7 +57,6 @@ training:
 peft:
   lora_r: 8
   lora_alpha: 16
-  lora_dropout: 0.0
   lora_target_modules:
     - "qkv_proj"
     - "o_proj"
