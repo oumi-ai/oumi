@@ -85,7 +85,7 @@ class ConversationBranchManager:
 
     MAX_BRANCHES = 5
 
-    def __init__(self):
+    def __init__(self, conversation_history: list | None = None):
         """Initialize the branch manager."""
         # Create main branch
         self.branches: dict[str, ConversationBranch] = {}
@@ -93,8 +93,9 @@ class ConversationBranchManager:
         self._branch_counter = 0
 
         # Initialize with main branch
+        initial_history = conversation_history or []
         main_branch = ConversationBranch(
-            id="main", name="Main", conversation_history=[]
+            id="main", name="Main", conversation_history=initial_history
         )
         self.branches["main"] = main_branch
 
