@@ -29,7 +29,8 @@ class CommandResult:
         message: Optional message to display to the user.
         should_exit: Whether the chat session should exit.
         should_continue: Whether to continue processing (vs. skip inference).
-        user_input_override: Override input text for inference (used by /regen).
+        user_input_override: Override input text for inference.
+        is_regeneration: Whether this is a regen operation (skip history addition).
     """
 
     def __init__(
@@ -39,6 +40,7 @@ class CommandResult:
         should_exit: bool = False,
         should_continue: bool = True,
         user_input_override: Optional[str] = None,
+        is_regeneration: bool = False,
     ):
         """Initialize CommandResult.
 
@@ -47,13 +49,15 @@ class CommandResult:
             message: Optional message to display to the user.
             should_exit: Whether the chat session should exit.
             should_continue: Whether to continue processing (vs. skip inference).
-            user_input_override: Override input text for inference (used by /regen).
+            user_input_override: Override input text for inference.
+            is_regeneration: Whether this is a regen operation (skip history addition).
         """
         self.success = success
         self.message = message
         self.should_exit = should_exit
         self.should_continue = should_continue
         self.user_input_override = user_input_override
+        self.is_regeneration = is_regeneration
 
 
 class BaseCommandHandler(ABC):
@@ -128,7 +132,7 @@ class BaseCommandHandler(ABC):
                 # Regular messages use "content" field
                 content = msg.get("content", "")
             total_chars += len(str(content))
-        
+
         # Rough estimation: ~4 chars per token
         return total_chars // 4
 

@@ -162,7 +162,7 @@ class CommandRouter:
   - Includes sample models and API key requirements for each engine
 
 ### Import/Export
-- **`/save(path)`** - Save conversation to various formats
+- **`/save(path)`** - Save current conversation branch to various formats
   - Formats: PDF, TXT, MD, JSON, CSV, HTML (auto-detected from extension)
   - Examples:
     - `/save(chat.pdf)` - PDF with formatting
@@ -172,6 +172,11 @@ class CommandRouter:
     - `/save(chat.csv)` - CSV for data analysis
     - `/save(chat.html)` - HTML with styling
   - Force format: `/save(myfile, format=json)`
+- **`/save_history(path)`** - Save complete conversation state (all branches + config)
+  - Saves: All branches, model config, generation params, attachments, statistics
+  - Format: Comprehensive JSON with full conversation tree and metadata
+  - Example: `/save_history(project_complete.json)`
+  - Perfect for: Collaboration, full session backup, complex branching scenarios
 - **`/import(path)`** - Import conversation data from supported formats
   - Formats: JSON, CSV, Excel (.xlsx/.xls), Markdown (.md), Text (.txt)
   - Examples:
@@ -179,6 +184,11 @@ class CommandRouter:
     - `/import(data.csv)` - Import from CSV with role/content columns
     - `/import(conversation.md)` - Import from Markdown with ## User/Assistant headers
   - Automatically detects format from file extension
+- **`/import_history(path)`** - Restore complete conversation state
+  - Restores: All branches, model config, current branch, full session state
+  - Format: Oumi comprehensive history JSON (from `/save_history()`)
+  - Example: `/import_history(project_complete.json)`
+  - Perfect for: Resuming complex sessions, sharing complete conversation trees
 
 ### Context Management
 - **`/compact()`** - Compress conversation history to save context window space
@@ -245,7 +255,9 @@ class CommandRouter:
 /attach(my_document.pdf)
 /set(temperature=0.7, top_p=0.9)
 /save(conversation.pdf)
-/import(data.json)         # Import conversation from JSON file
+/save_history(complete.json)   # Save complete conversation state with all branches
+/import(data.json)             # Import conversation from JSON file
+/import_history(complete.json) # Restore complete conversation state
 /full_thoughts()           # Toggle thinking display mode
 /clear_thoughts()          # Remove thinking content from history
 /compact()                 # Compress conversation history

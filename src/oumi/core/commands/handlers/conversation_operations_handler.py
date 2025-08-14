@@ -137,6 +137,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 message="Regenerating last response...",
                 should_continue=True,
                 user_input_override=last_user_input,
+                is_regeneration=True,
             )
 
         except Exception as e:

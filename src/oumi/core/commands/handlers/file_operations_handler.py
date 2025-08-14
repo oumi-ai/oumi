@@ -40,7 +40,7 @@ class FileOperationsHandler(BaseCommandHandler):
 
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
-        return ["attach", "save", "import", "load"]
+        return ["attach", "save", "import", "load", "save_history", "import_history"]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a file operations command."""
@@ -52,6 +52,10 @@ class FileOperationsHandler(BaseCommandHandler):
             return self._handle_import(command)
         elif command.command == "load":
             return self._handle_load(command)
+        elif command.command == "save_history":
+            return self._handle_save_history(command)
+        elif command.command == "import_history":
+            return self._handle_import_history(command)
         else:
             return CommandResult(
                 success=False,
@@ -85,7 +89,7 @@ class FileOperationsHandler(BaseCommandHandler):
 
                 # Add content to conversation (this will be used in the next inference)
                 self._add_attachment_to_conversation(attachment_result)
-                
+
                 # Update context monitor to reflect the added attachment content
                 self._update_context_in_monitor()
 
@@ -247,7 +251,7 @@ class FileOperationsHandler(BaseCommandHandler):
         content_parts.append(f"**Size:** {size_mb:.2f} MB")
         content_parts.append(f"**Type:** {file_info.file_type}")
 
-        if hasattr(result, 'processing_info') and result.processing_info:
+        if hasattr(result, "processing_info") and result.processing_info:
             content_parts.append(f"**Processing:** {result.processing_info}")
 
         if result.context_info:
@@ -277,7 +281,7 @@ class FileOperationsHandler(BaseCommandHandler):
             }
         }
         self.conversation_history.append(attachment_message)
-        
+
         print(f"🔧 DEBUG: Added attachment to conversation history: {result.file_info.name}")
         print(f"🔧 DEBUG: Text content length: {len(result.text_content)} characters")
 
@@ -399,3 +403,368 @@ class FileOperationsHandler(BaseCommandHandler):
                     config_dict[attr] = value
 
         return config_dict
+
+    def _handle_save_history(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /save_history(path) command to save complete conversation state."""
+        if not command.args:
+            return CommandResult(
+                success=False,
+                message="save_history command requires a file path argument",
+                should_continue=False,
+            )
+
+        file_path = command.args[0].strip()
+
+        try:
+            # Build comprehensive history data
+            history_data = self._build_comprehensive_history()
+
+            # Ensure .json extension
+            path_obj = Path(file_path)
+            if path_obj.suffix.lower() != ".json":
+                file_path = str(path_obj.with_suffix(".json"))
+
+            # Write to file
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, indent=2, ensure_ascii=False)
+
+            # Count total elements saved
+            branch_count = len(history_data.get("branches", {}))
+            total_messages = sum(
+                len(branch.get("conversation_history", []))
+                for branch in history_data.get("branches", {}).values()
+            )
+            command_count = len(history_data.get("command_history", []))
+
+            return CommandResult(
+                success=True,
+                message=(
+                    f"Saved complete conversation history to {file_path}\n"
+                    f"📊 Saved: {branch_count} branches, {total_messages} messages, "
+                    f"{command_count} commands, full config & metadata"
+                ),
+                should_continue=False,
+            )
+
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error saving history: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_import_history(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /import_history(path) command to restore complete conversation state."""
+        if not command.args:
+            return CommandResult(
+                success=False,
+                message="import_history command requires a file path argument",
+                should_continue=False,
+            )
+
+        file_path = command.args[0].strip()
+
+        try:
+            # Load history data
+            with open(file_path, encoding="utf-8") as f:
+                history_data = json.load(f)
+
+            # Validate schema
+            if not self._validate_history_schema(history_data):
+                return CommandResult(
+                    success=False,
+                    message="Invalid history file format - see Oumi history schema documentation",
+                    should_continue=False,
+                )
+
+            # Restore conversation state
+            success, message = self._restore_conversation_state(history_data)
+
+            if success:
+                # Count what was restored
+                branch_count = len(history_data.get("branches", {}))
+                total_messages = sum(
+                    len(branch.get("conversation_history", []))
+                    for branch in history_data.get("branches", {}).values()
+                )
+                command_count = len(history_data.get("command_history", []))
+
+                return CommandResult(
+                    success=True,
+                    message=(
+                        f"Restored conversation history from {file_path}\n"
+                        f"📊 Restored: {branch_count} branches, {total_messages} messages, "
+                        f"{command_count} commands, config & metadata"
+                    ),
+                    should_continue=False,
+                )
+            else:
+                return CommandResult(
+                    success=False,
+                    message=f"Failed to restore history: {message}",
+                    should_continue=False,
+                )
+
+        except FileNotFoundError:
+            return CommandResult(
+                success=False,
+                message=f"History file not found: {file_path}",
+                should_continue=False,
+            )
+        except json.JSONDecodeError as e:
+            return CommandResult(
+                success=False,
+                message=f"Invalid JSON in history file: {str(e)}",
+                should_continue=False,
+            )
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error importing history: {str(e)}",
+                should_continue=False,
+            )
+
+    def _build_comprehensive_history(self) -> dict:
+        """Build comprehensive history data structure."""
+        # Get current timestamp
+        current_time = datetime.now().isoformat()
+
+        # Get branch manager if available
+        branch_manager = getattr(self.context, "branch_manager", None)
+
+        # Build branches data
+        branches = {}
+        if branch_manager:
+            for branch_id, branch in branch_manager.branches.items():
+                branches[branch_id] = {
+                    "id": branch.id,
+                    "name": branch.name,
+                    "created_at": branch.created_at.isoformat() if branch.created_at else current_time,
+                    "last_active": branch.last_active.isoformat() if branch.last_active else current_time,
+                    "parent_branch_id": branch.parent_branch_id,
+                    "branch_point_index": branch.branch_point_index,
+                    "conversation_history": branch.conversation_history,
+                    "model_name": branch.model_name,
+                    "engine_type": branch.engine_type,
+                    "model_config": branch.model_config,
+                    "generation_config": branch.generation_config,
+                }
+            current_branch_id = branch_manager.current_branch_id
+        else:
+            # No branch manager - create main branch from current conversation
+            branches["main"] = {
+                "id": "main",
+                "name": "Main",
+                "created_at": current_time,
+                "last_active": current_time,
+                "parent_branch_id": None,
+                "branch_point_index": 0,
+                "conversation_history": self.conversation_history,
+                "model_name": getattr(self.config.model, "model_name", "default"),
+                "engine_type": getattr(self.config, "engine", "unknown"),
+                "model_config": self._serialize_model_config(self.config.model),
+                "generation_config": self._serialize_generation_config(getattr(self.config, "generation", None)),
+            }
+            current_branch_id = "main"
+
+        # Build comprehensive history structure
+        history_data = {
+            "schema_version": "1.0.0",
+            "format": "oumi_conversation_history",
+            "created_at": current_time,
+            "source": "oumi_interactive_chat",
+
+            # Session information
+            "session": {
+                "chat_id": getattr(self, "chat_id", f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+                "current_branch_id": current_branch_id,
+                "total_session_time": None,  # Could be calculated if we track start time
+                "oumi_version": "latest",  # Could get actual version
+            },
+
+            # Model and configuration
+            "configuration": {
+                "model": self._serialize_model_config(self.config.model),
+                "generation": self._serialize_generation_config(getattr(self.config, "generation", None)),
+                "engine": getattr(self.config, "engine", "unknown"),
+                "style": self._serialize_style_config(getattr(self.config, "style", None)),
+                "inference_params": self._get_current_inference_params(),
+            },
+
+            # All conversation branches
+            "branches": branches,
+
+            # Command history (placeholder - would need to be tracked)
+            "command_history": self._get_command_history(),
+
+            # Metadata about attachments and operations
+            "attachments": self._get_attachment_metadata(),
+
+            # Statistics
+            "statistics": {
+                "total_branches": len(branches),
+                "total_messages": sum(len(branch["conversation_history"]) for branch in branches.values()),
+                "total_user_messages": sum(
+                    len([msg for msg in branch["conversation_history"] if msg.get("role") == "user"])
+                    for branch in branches.values()
+                ),
+                "total_assistant_messages": sum(
+                    len([msg for msg in branch["conversation_history"] if msg.get("role") == "assistant"])
+                    for branch in branches.values()
+                ),
+                "estimated_tokens": self._estimate_conversation_tokens(),
+                "created_at": current_time,
+            }
+        }
+
+        return history_data
+
+    def _serialize_style_config(self, style_config) -> dict:
+        """Serialize style configuration."""
+        if style_config is None:
+            return {}
+
+        style_dict = {}
+        for attr in [
+            "user_prompt_style", "assistant_title_style", "assistant_border_style",
+            "analysis_text_style", "analysis_title_style", "analysis_border_style",
+            "error_style", "success_style", "use_emoji", "expand_panels"
+        ]:
+            if hasattr(style_config, attr):
+                value = getattr(style_config, attr)
+                if value is not None:
+                    style_dict[attr] = value
+
+        return style_dict
+
+    def _get_current_inference_params(self) -> dict:
+        """Get current inference parameters."""
+        # This would ideally get from the inference engine's current state
+        return {
+            "temperature": getattr(self.config.generation, "temperature", None) if hasattr(self.config, "generation") else None,
+            "top_p": getattr(self.config.generation, "top_p", None) if hasattr(self.config, "generation") else None,
+            "max_tokens": getattr(self.config.generation, "max_new_tokens", None) if hasattr(self.config, "generation") else None,
+            "sampling": getattr(self.config.generation, "sampling", None) if hasattr(self.config, "generation") else None,
+        }
+
+    def _get_command_history(self) -> list:
+        """Get command history - placeholder for future implementation."""
+        # This would require tracking commands throughout the session
+        # For now, return empty list with note
+        return [
+            {
+                "note": "Command history tracking not yet implemented",
+                "timestamp": datetime.now().isoformat(),
+                "type": "system_note"
+            }
+        ]
+
+    def _get_attachment_metadata(self) -> list:
+        """Get attachment metadata from conversation history."""
+        attachments = []
+        for msg in self.conversation_history:
+            if msg.get("role") == "attachment":
+                attachments.append({
+                    "filename": msg.get("filename", "unknown"),
+                    "file_type": msg.get("file_type", "unknown"),
+                    "size_bytes": msg.get("size_bytes", 0),
+                    "timestamp": msg.get("timestamp", datetime.now().isoformat()),
+                    "content_preview": msg.get("text_content", "")[:200] + "..." if len(msg.get("text_content", "")) > 200 else msg.get("text_content", ""),
+                })
+        return attachments
+
+    def _validate_history_schema(self, history_data: dict) -> bool:
+        """Validate the history data schema."""
+        required_fields = ["schema_version", "format", "branches"]
+
+        for field in required_fields:
+            if field not in history_data:
+                return False
+
+        # Check format
+        if history_data.get("format") != "oumi_conversation_history":
+            return False
+
+        # Check branches structure
+        branches = history_data.get("branches", {})
+        if not isinstance(branches, dict):
+            return False
+
+        for branch_id, branch in branches.items():
+            required_branch_fields = ["id", "conversation_history"]
+            for field in required_branch_fields:
+                if field not in branch:
+                    return False
+
+            # Check conversation history is a list
+            if not isinstance(branch.get("conversation_history"), list):
+                return False
+
+        return True
+
+    def _restore_conversation_state(self, history_data: dict) -> tuple[bool, str]:
+        """Restore conversation state from history data."""
+        try:
+            branches = history_data.get("branches", {})
+            session = history_data.get("session", {})
+
+            # Get or create branch manager
+            branch_manager = getattr(self.context, "branch_manager", None)
+            if not branch_manager:
+                from oumi.core.commands.conversation_branches import (
+                    ConversationBranchManager,
+                )
+                branch_manager = ConversationBranchManager()
+                self.context._branch_manager = branch_manager
+
+            # Clear existing branches
+            branch_manager.branches.clear()
+
+            # Restore branches
+            from oumi.core.commands.conversation_branches import ConversationBranch
+            for branch_id, branch_data in branches.items():
+                branch = ConversationBranch(
+                    id=branch_data["id"],
+                    name=branch_data.get("name"),
+                    created_at=datetime.fromisoformat(branch_data.get("created_at", datetime.now().isoformat())),
+                    last_active=datetime.fromisoformat(branch_data.get("last_active", datetime.now().isoformat())),
+                    parent_branch_id=branch_data.get("parent_branch_id"),
+                    branch_point_index=branch_data.get("branch_point_index", 0),
+                    conversation_history=branch_data.get("conversation_history", []),
+                    model_name=branch_data.get("model_name"),
+                    engine_type=branch_data.get("engine_type"),
+                    model_config=branch_data.get("model_config"),
+                    generation_config=branch_data.get("generation_config"),
+                )
+                branch_manager.branches[branch_id] = branch
+
+            # Set current branch
+            current_branch_id = session.get("current_branch_id", "main")
+            if current_branch_id in branch_manager.branches:
+                branch_manager.current_branch_id = current_branch_id
+                # Update conversation history to match current branch
+                current_branch = branch_manager.branches[current_branch_id]
+                self.conversation_history.clear()
+                self.conversation_history.extend(current_branch.conversation_history)
+            else:
+                # Default to main branch if available
+                if "main" in branch_manager.branches:
+                    branch_manager.current_branch_id = "main"
+                    main_branch = branch_manager.branches["main"]
+                    self.conversation_history.clear()
+                    self.conversation_history.extend(main_branch.conversation_history)
+                elif branches:
+                    # Use first available branch
+                    first_branch_id = list(branches.keys())[0]
+                    branch_manager.current_branch_id = first_branch_id
+                    first_branch = branch_manager.branches[first_branch_id]
+                    self.conversation_history.clear()
+                    self.conversation_history.extend(first_branch.conversation_history)
+
+            # Update context monitor
+            self._update_context_in_monitor()
+
+            return True, "Successfully restored conversation state"
+
+        except Exception as e:
+            return False, f"Error restoring state: {str(e)}"
