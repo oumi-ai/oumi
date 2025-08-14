@@ -85,7 +85,10 @@ class ThinkingProcessor:
     PATTERNS = {
         "gpt_oss": {
             # Updated pattern to handle OpenAI Harmony format
-            "pattern": r"<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
+            "pattern": (
+                r"<\|channel\|>(analysis|commentary|final)<\|message\|>"
+                r"(.*?)(?:<\|end\|>|$)"
+            ),
             "flags": re.DOTALL,
             "groups": {"type": 1, "content": 2},
             "thinking_types": ["analysis", "commentary"],
@@ -93,7 +96,10 @@ class ThinkingProcessor:
         },
         "gpt_oss_with_assistant": {
             # Pattern for assistant role harmony format
-            "pattern": r"<\|start\|>assistant<\|channel\|>(analysis|commentary|final)<\|message\|>(.*?)(?:<\|end\|>|$)",
+            "pattern": (
+                r"<\|start\|>assistant<\|channel\|>(analysis|commentary|final)"
+                r"<\|message\|>(.*?)(?:<\|end\|>|$)"
+            ),
             "flags": re.DOTALL,
             "groups": {"type": 1, "content": 2},
             "thinking_types": ["analysis", "commentary"],
@@ -101,7 +107,10 @@ class ThinkingProcessor:
         },
         "harmony_comprehensive": {
             # Comprehensive pattern for all OpenAI Harmony tags
-            "pattern": r"<\|(?:start\|)?(?:channel\|)?(analysis|commentary|final|call|constrain|return)<\|(?:message\|)?(.*?)(?:<\|end\|>|$)",
+            "pattern": (
+                r"<\|(?:start\|)?(?:channel\|)?(analysis|commentary|final|call|"
+                r"constrain|return)<\|(?:message\|)?(.*?)(?:<\|end\|>|$)"
+            ),
             "flags": re.DOTALL,
             "groups": {"type": 1, "content": 2},
             "thinking_types": ["analysis", "commentary"],
@@ -155,6 +164,7 @@ class ThinkingProcessor:
         """Initialize the thinking processor."""
         self._compiled_patterns = {}
         self._compile_patterns()
+        self._display_mode = "compressed"
 
     def _compile_patterns(self):
         """Pre-compile regex patterns for better performance."""
@@ -173,7 +183,6 @@ class ThinkingProcessor:
             ThinkingResult with extracted thinking parts and final content
         """
         result = ThinkingResult(original_content=content)
-        processed_content = content
         all_matches = []
 
         # Find matches for all patterns
@@ -423,3 +432,47 @@ class ThinkingProcessor:
         cleaned_content = re.sub(r"^\s+|\s+$", "", cleaned_content)
 
         return cleaned_content
+
+    def get_display_mode(self) -> str:
+        """Get the current display mode for thinking content.
+
+        Returns:
+            Current display mode: "compressed" or "full"
+        """
+        return self._display_mode
+
+    def set_display_mode(self, mode: str) -> None:
+        """Set the display mode for thinking content.
+
+        Args:
+            mode: Display mode to set ("compressed" or "full")
+        """
+        if mode not in ("compressed", "full"):
+            raise ValueError(
+                f"Invalid display mode: {mode}. Must be 'compressed' or 'full'"
+            )
+        self._display_mode = mode
+
+    def clean_thinking_content(self, content: str) -> str:
+        """Remove thinking content from text while preserving final responses.
+
+        This method extracts thinking content and returns only the final content,
+        effectively cleaning the conversation history of thinking sections while
+        preserving the actual responses.
+
+        Args:
+            content: Text content that may contain thinking sections
+
+        Returns:
+            Content with thinking sections removed
+        """
+        result = self.extract_thinking(content)
+        if result.has_thinking:
+            # Return the final content with thinking removed
+            cleaned = result.final_content
+            # Also clean any remaining harmony tags
+            cleaned = self.clean_harmony_tags(cleaned)
+            return cleaned.strip()
+        else:
+            # No thinking found, return original content
+            return content
