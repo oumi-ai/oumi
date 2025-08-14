@@ -89,8 +89,8 @@ class FileOperationsHandler(BaseCommandHandler):
         file_path = command.args[0].strip()
 
         try:
-            # Estimate current conversation tokens
-            conversation_tokens = self._estimate_conversation_tokens()
+            # Get accurate conversation token count
+            conversation_tokens = self._get_conversation_tokens()
 
             # Process the file
             attachment_result = self.context.file_handler.attach_file(
@@ -656,7 +656,7 @@ class FileOperationsHandler(BaseCommandHandler):
                     )
                     for branch in branches.values()
                 ),
-                "estimated_tokens": self._estimate_conversation_tokens(),
+                "estimated_tokens": self._get_conversation_tokens(),
                 "created_at": current_time,
             },
         }
@@ -866,7 +866,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 url = f"https://{url}"
 
             # Use context manager for accurate token estimation and budget calculation
-            context_manager = self.context.context_manager
+            context_manager = self.context.context_window_manager
             
             # Build current conversation text for accurate token counting
             conversation_text = ""
@@ -1067,7 +1067,7 @@ class FileOperationsHandler(BaseCommandHandler):
             import subprocess
 
             # Use accurate context management like attach and fetch commands
-            context_manager = self.context.context_manager
+            context_manager = self.context.context_window_manager
             
             # Build current conversation text for accurate token counting
             conversation_text = ""

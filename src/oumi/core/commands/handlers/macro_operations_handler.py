@@ -107,9 +107,12 @@ class MacroOperationsHandler(BaseCommandHandler):
                 )
 
                 # Validate rendered content doesn't exceed context window
-                estimated_tokens = len(rendered_content) // 4  # Rough estimation
+                if hasattr(self.context, 'context_window_manager'):
+                    estimated_tokens = self.context.context_window_manager.estimate_tokens(rendered_content)
+                else:
+                    estimated_tokens = len(rendered_content) // 4  # Rough estimation fallback
                 max_context = getattr(self.config.model, "model_max_length", 4096)
-                current_tokens = self._estimate_conversation_tokens()
+                current_tokens = self._get_conversation_tokens()
 
                 if (
                     current_tokens + estimated_tokens > max_context * 0.9
