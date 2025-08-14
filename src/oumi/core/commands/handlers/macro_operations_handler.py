@@ -184,7 +184,7 @@ class MacroOperationsHandler(BaseCommandHandler):
         # Display the macro summary with markdown formatting
         title = "🎯 Macro Summary" if use_emoji else "Macro Summary"
         content = "\n".join(summary_lines)
-        
+
         # Create markdown content for proper styling
         markdown_content = Markdown(content)
 

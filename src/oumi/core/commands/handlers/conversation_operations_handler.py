@@ -392,14 +392,17 @@ class ConversationOperationsHandler(BaseCommandHandler):
                         message=f"Position {position} is out of range (1-{len(assistant_messages)})",
                         should_continue=False,
                     )
-                
+
                 # Show specified position
                 display_position, msg_index, message = assistant_messages[position - 1]
                 position_text = f"#{position}"
 
             # Get the corresponding user message (if any)
             user_message = None
-            if msg_index > 0 and self.conversation_history[msg_index - 1].get("role") == "user":
+            if (
+                msg_index > 0
+                and self.conversation_history[msg_index - 1].get("role") == "user"
+            ):
                 user_message = self.conversation_history[msg_index - 1]
 
             # Display the conversation turn
@@ -422,7 +425,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             # Show assistant message with thinking processing
             assistant_content = message.get("content", "")
-            
+
             # Process thinking content if available
             thinking_processor = self.context.thinking_processor
             thinking_result = thinking_processor.extract_thinking(assistant_content)
@@ -470,17 +473,17 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 )
 
             output_path = command.args[0].strip()
-            
+
             # Ensure .cast extension
             from pathlib import Path
+
             path_obj = Path(output_path)
             if path_obj.suffix.lower() != ".cast":
                 output_path = str(path_obj.with_suffix(".cast"))
 
             # Check if asciinema is available
-            import subprocess
             import shutil
-            
+
             if not shutil.which("asciinema"):
                 return CommandResult(
                     success=False,
@@ -493,7 +496,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 conversation_history=self.conversation_history,
                 console=self.console,
                 config=self.config,
-                thinking_processor=self.context.thinking_processor
+                thinking_processor=self.context.thinking_processor,
             )
 
             # Start asciinema recording and play back conversation

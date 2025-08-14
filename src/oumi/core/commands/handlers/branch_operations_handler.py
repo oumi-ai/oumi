@@ -61,8 +61,7 @@ class BranchOperationsHandler(BaseCommandHandler):
             # Create the branch from current branch
             current_branch_id = branch_manager.current_branch_id
             success, message, new_branch = branch_manager.create_branch(
-                from_branch_id=current_branch_id,
-                name=branch_name
+                from_branch_id=current_branch_id, name=branch_name
             )
 
             if success:
@@ -115,7 +114,7 @@ class BranchOperationsHandler(BaseCommandHandler):
 
             if success:
                 # Update conversation history with branch content
-                if branch and hasattr(branch, 'conversation_history'):
+                if branch and hasattr(branch, "conversation_history"):
                     self.conversation_history.clear()
                     self.conversation_history.extend(branch.conversation_history)
 
@@ -284,7 +283,9 @@ class BranchOperationsHandler(BaseCommandHandler):
                 )
 
             # Get the actual index in conversation history for the specified assistant message
-            branch_point_index = assistant_messages[position - 1][0] + 1  # +1 to branch after the assistant message
+            branch_point_index = (
+                assistant_messages[position - 1][0] + 1
+            )  # +1 to branch after the assistant message
 
             # Create conversation history up to the branch point
             branched_history = self.conversation_history[:branch_point_index]
@@ -298,7 +299,9 @@ class BranchOperationsHandler(BaseCommandHandler):
 
             if success:
                 # Switch to the new branch
-                switch_success, switch_message, branch = branch_manager.switch_branch(branch_name.lower())
+                switch_success, switch_message, branch = branch_manager.switch_branch(
+                    branch_name.lower()
+                )
                 # Update conversation history to the new branch
                 self.conversation_history.clear()
                 self.conversation_history.extend(branched_history)
