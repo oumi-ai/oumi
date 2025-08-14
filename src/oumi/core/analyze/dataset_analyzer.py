@@ -16,7 +16,6 @@ import copy
 from dataclasses import asdict, dataclass
 from typing import Any, Optional, Union
 
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -119,6 +118,7 @@ class DatasetAnalyzer:
         self._merged_df: Optional[pd.DataFrame] = None
         self._message_df: Optional[pd.DataFrame] = None
         self._conversation_df: Optional[pd.DataFrame] = None
+        self._analysis_summary: Optional[dict[str, Any]] = None
 
         # Decimal precision for rounding metrics
         self.decimal_precision = 2
@@ -199,6 +199,9 @@ class DatasetAnalyzer:
         logger.info(f"Analyzing {conversations_to_analyze} conversations")
 
         self._compute_conversation_metrics()
+
+        # Generate and store the analysis summary after metrics are computed
+        self._analysis_summary = self._generate_analysis_summary()
 
     @property
     def analysis_results(self) -> Optional[DatasetAnalysisResult]:
@@ -387,13 +390,16 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame containing rows that match the query expression
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
-        # Run analysis if not already done
+        # Check if analysis has been run
         if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            # After analysis, _merged_df should be populated
-            assert self._merged_df is not None
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to query the analysis results."
+            )
 
         # Apply the query filter
         try:
@@ -412,10 +418,15 @@ class DatasetAnalyzer:
         Returns:
             DataFrame with columns prefixed by message_ and conversation_ for each
             analyzer
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the analysis DataFrame."
+            )
         return self._merged_df
 
     @property
@@ -424,10 +435,15 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame with message-level metrics prefixed by message_
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._message_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the message DataFrame."
+            )
         return self._message_df
 
     @property
@@ -436,10 +452,15 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame with conversation-level metrics prefixed by conversation_
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._conversation_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the conversation DataFrame."
+            )
         return self._conversation_df
 
     def query_conversations(
@@ -455,18 +476,21 @@ class DatasetAnalyzer:
         Returns:
             DataFrame with filtered conversation analysis results
 
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+
         Examples:
             # Filter for short conversations
             long_conversations = analyzer.query_conversations(
                 "length_token_count > 1000"
             )
         """
-        # Run analysis if not already done
+        # Check if analysis has been run
         if self._conversation_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            # After analysis, _conversation_df should be populated
-            assert self._conversation_df is not None
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to query conversation results."
+            )
 
         # Apply the query filter
         try:
@@ -492,6 +516,9 @@ class DatasetAnalyzer:
 
         Returns:
             A new dataset object containing only the filtered conversations
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
 
         Examples:
             # Filter for conversations with short messages
@@ -544,7 +571,7 @@ class DatasetAnalyzer:
 
         return filtered_dataset
 
-    def get_analysis_summary(self) -> dict[str, Any]:
+    def _generate_analysis_summary(self) -> dict[str, Any]:
         """Generate a comprehensive summary of dataset analysis results.
 
         This method aggregates metrics from all analyzers to provide insights useful
@@ -556,28 +583,35 @@ class DatasetAnalyzer:
             - Dataset overview statistics
             - Message-level aggregated metrics
             - Conversation-level aggregated metrics
-            - Tokenization efficiency metrics
-            - Quality indicators and recommendations
         """
-        # Ensure analysis has been run
-        if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            assert self._merged_df is not None
-
-        if self._merged_df.empty:
+        # Check if we have data to analyze
+        if self._merged_df is None or self._merged_df.empty:
             return {"error": "No analysis data available"}
 
         summary = {
             "dataset_overview": self._get_dataset_overview(),
             "message_level_summary": self._get_message_level_summary(),
             "conversation_level_summary": self._get_conversation_level_summary(),
-            "tokenization_efficiency": self._get_tokenization_efficiency(),
-            "quality_indicators": self._get_quality_indicators(),
-            "recommendations": self._get_recommendations(),
         }
 
         return summary
+
+    @property
+    def analysis_summary(self) -> dict[str, Any]:
+        """Get the comprehensive analysis summary.
+
+        Returns:
+            Dictionary containing comprehensive dataset analysis summary
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._analysis_summary is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to generate the analysis summary."
+            )
+        return self._analysis_summary
 
     def _get_dataset_overview(self) -> dict[str, Any]:
         """Get basic dataset overview statistics."""
@@ -648,12 +682,6 @@ class DatasetAnalyzer:
                             "median": round(
                                 float(values.median()), self.decimal_precision
                             ),
-                            "q25": round(
-                                float(values.quantile(0.25)), self.decimal_precision
-                            ),
-                            "q75": round(
-                                float(values.quantile(0.75)), self.decimal_precision
-                            ),
                         }
 
         return summary
@@ -699,12 +727,6 @@ class DatasetAnalyzer:
                             "median": round(
                                 float(values.median()), self.decimal_precision
                             ),
-                            "q25": round(
-                                float(values.quantile(0.25)), self.decimal_precision
-                            ),
-                            "q75": round(
-                                float(values.quantile(0.75)), self.decimal_precision
-                            ),
                         }
 
         # Add conversation turn statistics if available
@@ -716,348 +738,20 @@ class DatasetAnalyzer:
             min_val = turns_per_conversation.min()
             max_val = turns_per_conversation.max()
             median_val = turns_per_conversation.median()
-            q25_val = turns_per_conversation.quantile(0.25)
-            q75_val = turns_per_conversation.quantile(0.75)
 
             summary["conversation_turns"] = {
                 "count": len(turns_per_conversation),
-                "mean": round(float(mean_val), self.decimal_precision)
+                "mean": round(float(mean_val), self.decimal_precision)  # type: ignore
                 if mean_val is not None
                 else 0.0,
-                "std": round(float(std_val), self.decimal_precision)
+                "std": round(float(std_val), self.decimal_precision)  # type: ignore
                 if std_val is not None
                 else 0.0,
-                "min": int(min_val) if min_val is not None else 0,
-                "max": int(max_val) if max_val is not None else 0,
-                "median": round(float(median_val), self.decimal_precision)
+                "min": int(min_val) if min_val is not None else 0,  # type: ignore
+                "max": int(max_val) if max_val is not None else 0,  # type: ignore
+                "median": round(float(median_val), self.decimal_precision)  # type: ignore
                 if median_val is not None
-                else 0.0,
-                "q25": round(float(q25_val), self.decimal_precision)
-                if q25_val is not None
-                else 0.0,
-                "q75": round(float(q75_val), self.decimal_precision)
-                if q75_val is not None
                 else 0.0,
             }
 
         return summary
-
-    def _get_tokenization_efficiency(self) -> dict[str, Any]:
-        """Get tokenization efficiency metrics."""
-        efficiency = {}
-
-        # Check if we have token count data
-        if self._merged_df is None:
-            return {"note": "No merged data available"}
-
-        token_columns = [
-            col
-            for col in self._merged_df.columns
-            if "token_count" in col
-            and pd.api.types.is_numeric_dtype(self._merged_df[col])
-        ]
-
-        if not token_columns:
-            return {"note": "No token count data available"}
-
-        for col in token_columns:
-            if col in [
-                "conversation_id",
-                "conversation_index",
-                "message_index",
-                "role",
-                "message_id",
-                "text_content",
-            ]:
-                continue
-
-            # Extract analyzer name from column
-            parts = col.split("_")
-            if len(parts) >= 3:
-                analyzer_name = parts[1]
-
-                if analyzer_name not in efficiency:
-                    efficiency[analyzer_name] = {}
-
-                # Get corresponding count columns for efficiency calculations
-                word_col = col.replace("token_count", "word_count")
-                sentence_col = col.replace("token_count", "sentence_count")
-                char_col = col.replace("token_count", "char_count")
-
-                if word_col in self._merged_df.columns:
-                    # Calculate tokens per word
-                    token_word_df = self._merged_df[[col, word_col]].dropna()
-                    if len(token_word_df) > 0:
-                        tokens_per_word = token_word_df[col] / token_word_df[word_col]
-                        # Handle pandas Series operations with proper type conversion
-                        # Convert to numpy arrays and use numpy methods for type safety
-                        # Type ignore for pandas Series methods that Pyright doesn't
-                        # recognize
-                        tokens_array = tokens_per_word.to_numpy()  # type: ignore
-                        mean_val = float(np.mean(tokens_array))
-                        std_val = float(np.std(tokens_array))
-                        min_val = float(np.min(tokens_array))
-                        max_val = float(np.max(tokens_array))
-                        median_val = float(np.median(tokens_array))
-
-                        efficiency[analyzer_name]["tokens_per_word"] = {
-                            "mean": round(float(mean_val), self.decimal_precision)
-                            if mean_val is not None
-                            else 0.0,
-                            "std": round(float(std_val), self.decimal_precision)
-                            if std_val is not None
-                            else 0.0,
-                            "min": round(float(min_val), self.decimal_precision)
-                            if min_val is not None
-                            else 0.0,
-                            "max": round(float(max_val), self.decimal_precision)
-                            if max_val is not None
-                            else 0.0,
-                            "median": round(float(median_val), self.decimal_precision)
-                            if median_val is not None
-                            else 0.0,
-                        }
-
-                if char_col in self._merged_df.columns:
-                    # Calculate tokens per character
-                    token_char_df = self._merged_df[[col, char_col]].dropna()
-                    if len(token_char_df) > 0:
-                        tokens_per_char = token_char_df[col] / token_char_df[char_col]
-                        # Handle pandas Series operations with proper type conversion
-                        # Convert to numpy arrays and use numpy methods for type safety
-                        # Type ignore for pandas Series methods that Pyright doesn't
-                        # recognize
-                        tokens_array = tokens_per_char.to_numpy()  # type: ignore
-                        mean_val = float(np.mean(tokens_array))
-                        std_val = float(np.std(tokens_array))
-                        min_val = float(np.min(tokens_array))
-                        max_val = float(np.max(tokens_array))
-                        median_val = float(np.median(tokens_array))
-
-                        efficiency[analyzer_name]["tokens_per_char"] = {
-                            "mean": round(float(mean_val), self.decimal_precision)
-                            if mean_val is not None
-                            else 0.0,
-                            "std": round(float(std_val), self.decimal_precision)
-                            if std_val is not None
-                            else 0.0,
-                            "min": round(float(min_val), self.decimal_precision)
-                            if min_val is not None
-                            else 0.0,
-                            "max": round(float(max_val), self.decimal_precision)
-                            if max_val is not None
-                            else 0.0,
-                            "median": round(float(median_val), self.decimal_precision)
-                            if median_val is not None
-                            else 0.0,
-                        }
-
-                if sentence_col in self._merged_df.columns:
-                    # Calculate tokens per sentence
-                    token_sentence_df = self._merged_df[[col, sentence_col]].dropna()
-                    if len(token_sentence_df) > 0:
-                        tokens_per_sentence = (
-                            token_sentence_df[col] / token_sentence_df[sentence_col]
-                        )
-                        # Handle pandas Series operations with proper type conversion
-                        # Convert to numpy arrays and use numpy methods for type safety
-                        # Type ignore for pandas Series methods that Pyright doesn't
-                        # recognize
-                        tokens_array = tokens_per_sentence.to_numpy()  # type: ignore
-                        mean_val = float(np.mean(tokens_array))
-                        std_val = float(np.std(tokens_array))
-                        min_val = float(np.min(tokens_array))
-                        max_val = float(np.max(tokens_array))
-                        median_val = float(np.median(tokens_array))
-
-                        efficiency[analyzer_name]["tokens_per_sentence"] = {
-                            "mean": round(float(mean_val), self.decimal_precision)
-                            if mean_val is not None
-                            else 0.0,
-                            "std": round(float(std_val), self.decimal_precision)
-                            if std_val is not None
-                            else 0.0,
-                            "min": round(float(min_val), self.decimal_precision)
-                            if min_val is not None
-                            else 0.0,
-                            "max": round(float(max_val), self.decimal_precision)
-                            if max_val is not None
-                            else 0.0,
-                            "median": round(float(median_val), self.decimal_precision)
-                            if median_val is not None
-                            else 0.0,
-                        }
-
-                # Calculate compression ratio and efficiency score if we have
-                # multiple metrics
-                efficiency_metrics = []
-                if "tokens_per_word" in efficiency[analyzer_name]:
-                    efficiency_metrics.append(
-                        efficiency[analyzer_name]["tokens_per_word"]["mean"]
-                    )
-                if "tokens_per_char" in efficiency[analyzer_name]:
-                    efficiency_metrics.append(
-                        efficiency[analyzer_name]["tokens_per_char"]["mean"]
-                    )
-                if "tokens_per_sentence" in efficiency[analyzer_name]:
-                    efficiency_metrics.append(
-                        efficiency[analyzer_name]["tokens_per_sentence"]["mean"]
-                    )
-
-        return efficiency
-
-    def _get_quality_indicators(self) -> dict[str, Any]:
-        """Get quality indicators for the dataset."""
-        indicators = {}
-
-        if self._merged_df is None or self._merged_df.empty:
-            return {"note": "No data available for quality assessment"}
-
-        # Message length distribution analysis
-        length_columns = [
-            col
-            for col in self._merged_df.columns
-            if any(
-                metric in col
-                for metric in ["char_count", "word_count", "sentence_count"]
-            )
-        ]
-
-        if length_columns:
-            indicators["message_length_distribution"] = {}
-            for col in length_columns:
-                if pd.api.types.is_numeric_dtype(self._merged_df[col]):
-                    values = self._merged_df[col].dropna()
-                    if len(values) > 0:
-                        # Identify potential outliers (beyond 3 standard deviations)
-                        mean_val = values.mean()
-                        std_val = values.std()
-                        outliers = values[
-                            (values < mean_val - 3 * std_val)
-                            | (values > mean_val + 3 * std_val)
-                        ]
-
-                        indicators["message_length_distribution"][col] = {
-                            "outlier_count": len(outliers),
-                            "outlier_percentage": round(
-                                len(outliers) / len(values) * 100,
-                                self.decimal_precision,
-                            ),
-                            "outlier_threshold_low": round(
-                                mean_val - 3 * std_val, self.decimal_precision
-                            ),
-                            "outlier_threshold_high": round(
-                                mean_val + 3 * std_val, self.decimal_precision
-                            ),
-                        }
-
-        # Role distribution analysis
-        if "role" in self._merged_df.columns:
-            role_counts = self._merged_df["role"].value_counts()
-            indicators["role_distribution"] = {
-                "total_messages": len(self._merged_df),
-                "role_counts": role_counts.to_dict(),
-                "role_percentages": (
-                    role_counts / len(self._merged_df) * 100
-                ).to_dict(),
-            }
-
-        # Conversation length consistency
-        if self._message_df is not None and not self._message_df.empty:
-            turns_per_conv = self._message_df.groupby("conversation_id").size()
-            indicators["conversation_length_consistency"] = {
-                "single_turn_conversations": int((turns_per_conv == 1).sum()),
-                "single_turn_percentage": round(
-                    float((turns_per_conv == 1).sum() / len(turns_per_conv) * 100),
-                    self.decimal_precision,
-                ),
-                "very_long_conversations": int((turns_per_conv > 10).sum()),
-                "very_long_percentage": round(
-                    float((turns_per_conv > 10).sum() / len(turns_per_conv) * 100),
-                    self.decimal_precision,
-                ),
-            }
-
-        return indicators
-
-    def _get_recommendations(self) -> dict[str, Any]:
-        """Generate recommendations based on the analysis."""
-        recommendations = []
-
-        if self._merged_df is None or self._merged_df.empty:
-            return {"note": "No data available for recommendations"}
-
-        # Check for potential issues and provide recommendations
-        indicators = self._get_quality_indicators()
-
-        # Message length recommendations
-        if "message_length_distribution" in indicators:
-            for metric, stats in indicators["message_length_distribution"].items():
-                if stats["outlier_percentage"] > 10:
-                    recommendations.append(
-                        {
-                            "type": "message_length_outliers",
-                            "metric": metric,
-                            "issue": f"High percentage of outliers "
-                            f"({stats['outlier_percentage']:.1f}%)",
-                            "recommendation": "Consider filtering or normalizing "
-                            "extremely long/short messages",
-                        }
-                    )
-
-        # Role distribution recommendations
-        if "role_distribution" in indicators:
-            role_dist = indicators["role_distribution"]
-            if (
-                "user" in role_dist["role_percentages"]
-                and "assistant" in role_dist["role_percentages"]
-            ):
-                user_pct = role_dist["role_percentages"]["user"]
-                assistant_pct = role_dist["role_percentages"]["assistant"]
-
-                if abs(user_pct - assistant_pct) > 20:
-                    recommendations.append(
-                        {
-                            "type": "role_imbalance",
-                            "issue": f"Significant role imbalance "
-                            f"(User: {user_pct:.1f}%, "
-                            f"Assistant: {assistant_pct:.1f}%)",
-                            "recommendation": "Consider balancing the dataset or "
-                            "adjusting training weights",
-                        }
-                    )
-
-        # Conversation length recommendations
-        if "conversation_length_consistency" in indicators:
-            conv_stats = indicators["conversation_length_consistency"]
-            if conv_stats["single_turn_percentage"] > 50:
-                recommendations.append(
-                    {
-                        "type": "conversation_diversity",
-                        "issue": f"High percentage of single-turn conversations "
-                        f"({conv_stats['single_turn_percentage']:.1f}%)",
-                        "recommendation": "Consider including more multi-turn "
-                        "conversations for better training",
-                    }
-                )
-
-        # Tokenization efficiency recommendations
-        efficiency = self._get_tokenization_efficiency()
-        for analyzer, metrics in efficiency.items():
-            if "tokens_per_word" in metrics:
-                tpw_mean = metrics["tokens_per_word"]["mean"]
-                if tpw_mean > 2.0:
-                    recommendations.append(
-                        {
-                            "type": "tokenization_efficiency",
-                            "analyzer": analyzer,
-                            "issue": f"High tokens per word ratio ({tpw_mean:.2f})",
-                            "recommendation": "Consider using a more efficient "
-                            "tokenizer or preprocessing text",
-                        }
-                    )
-
-        return {
-            "total_recommendations": len(recommendations),
-            "recommendations": recommendations,
-        }
