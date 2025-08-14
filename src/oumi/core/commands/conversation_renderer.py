@@ -136,15 +136,54 @@ class ConversationRenderer:
         messages_json = json.dumps(messages, indent=2)
 
         script_content = f'''
-import time
+import subprocess
 import sys
+import time
 import json
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
-# Initialize console
-console = Console()
+# Install required dependencies if not available
+def ensure_dependencies():
+    """Ensure rich and other dependencies are installed."""
+    required_packages = ["rich"]
+    missing_packages = []
+    
+    for package in required_packages:
+        try:
+            __import__(package)
+        except ImportError:
+            missing_packages.append(package)
+    
+    if missing_packages:
+        print(f"Installing required dependencies: {', '.join(missing_packages)}")
+        try:
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "--quiet"
+            ] + missing_packages)
+            print("Dependencies installed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to install dependencies: {e}")
+            print("Falling back to basic text rendering...")
+            return False
+    
+    return True
+
+# Ensure dependencies are available
+deps_available = ensure_dependencies()
+
+# Import dependencies (should work now if installation succeeded)
+if deps_available:
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+        console = Console()
+        HAS_RICH = True
+    except ImportError:
+        HAS_RICH = False
+        console = None
+else:
+    HAS_RICH = False
+    console = None
 
 # Conversation data
 messages = {messages_json}
@@ -186,39 +225,58 @@ def process_thinking_content(content):
     return thinking_content, final_content
 
 def display_message(role, content, position=None):
-    """Display a message with rich formatting."""
+    """Display a message with rich formatting or fallback to plain text."""
     if role == "user":
-        title = "[bold blue]You[/bold blue]"
+        title = "You"
+        title_rich = "[bold blue]You[/bold blue]"
         border_style = "blue"
     else:
-        pos_text = f" (#{{position}})" if position else ""
-        title = f"[bold cyan]Assistant{{pos_text}}[/bold cyan]"
+        pos_text = f" (#{position})" if position else ""
+        title = f"Assistant{pos_text}"
+        title_rich = f"[bold cyan]Assistant{pos_text}[/bold cyan]"
         border_style = "cyan"
 
         # Process thinking content for assistant messages
         thinking_content, final_content = process_thinking_content(content)
 
         if thinking_content:
-            # Show thinking section
-            thinking_panel = Panel(
-                Text(thinking_content, style="dim white"),
-                title="[dim yellow]🤔 Thinking[/dim yellow]",
-                border_style="yellow",
-                padding=(1, 2)
-            )
-            console.print(thinking_panel)
-            console.print()
+            if HAS_RICH:
+                # Show thinking section with Rich
+                thinking_panel = Panel(
+                    Text(thinking_content, style="dim white"),
+                    title="[dim yellow]🤔 Thinking[/dim yellow]",
+                    border_style="yellow",
+                    padding=(1, 2)
+                )
+                console.print(thinking_panel)
+                console.print()
+            else:
+                # Fallback thinking display
+                print("\\n" + "="*60)
+                print("🤔 Thinking:")
+                print("-"*60)
+                print(thinking_content)
+                print("="*60 + "\\n")
+            
             time.sleep(THINKING_DELAY)
             content = final_content
 
     # Show main content
-    panel = Panel(
-        Text(content, style="white"),
-        title=title,
-        border_style=border_style,
-        padding=(1, 2)
-    )
-    console.print(panel)
+    if HAS_RICH:
+        panel = Panel(
+            Text(content, style="white"),
+            title=title_rich,
+            border_style=border_style,
+            padding=(1, 2)
+        )
+        console.print(panel)
+    else:
+        # Fallback display
+        print("\\n" + "="*60)
+        print(f"{title}:")
+        print("-"*60)
+        print(content)
+        print("="*60 + "\\n")
 
 def main():
     """Main playback function."""
