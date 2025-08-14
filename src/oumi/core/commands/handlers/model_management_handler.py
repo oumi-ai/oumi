@@ -150,7 +150,8 @@ class ModelManagementHandler(BaseCommandHandler):
                 
                 # Update system monitor with new model info if available
                 if hasattr(self.context, 'system_monitor') and self.context.system_monitor:
-                    max_context = getattr(new_config.model, 'model_max_length', 4096)
+                    max_context = self._get_context_length_for_engine(new_config)
+                    print(f"🔧 DEBUG: Setting max_context_tokens to: {max_context}")
                     if hasattr(self.context.system_monitor, 'update_max_context_tokens'):
                         self.context.system_monitor.update_max_context_tokens(max_context)
                     # Reset context usage to 0 for new model
@@ -443,6 +444,65 @@ class ModelManagementHandler(BaseCommandHandler):
                     config_dict[attr] = str(value)
 
         return config_dict
+
+    def _get_context_length_for_engine(self, config) -> int:
+        """Get the appropriate context length for the given engine configuration.
+        
+        Args:
+            config: The inference configuration.
+            
+        Returns:
+            Context length in tokens.
+        """
+        engine_type = str(config.engine) if config.engine else "NATIVE"
+        
+        # For local engines, check model_max_length
+        if "NATIVE" in engine_type or "VLLM" in engine_type or "LLAMACPP" in engine_type:
+            max_length = getattr(config.model, 'model_max_length', None)
+            if max_length is not None and max_length > 0:
+                return max_length
+        
+        # For API engines, use known context limits based on model name
+        model_name = getattr(config.model, 'model_name', '').lower()
+        
+        # Anthropic context limits
+        if "ANTHROPIC" in engine_type or "claude" in model_name:
+            if "opus" in model_name:
+                return 200000  # Claude Opus
+            elif "sonnet" in model_name:
+                return 200000  # Claude 3.5 Sonnet / 3.7 Sonnet
+            elif "haiku" in model_name:
+                return 200000  # Claude Haiku
+            else:
+                return 200000  # Default for Claude models
+        
+        # OpenAI context limits
+        elif "OPENAI" in engine_type or "gpt" in model_name:
+            if "gpt-4o" in model_name:
+                return 128000  # GPT-4o
+            elif "gpt-4" in model_name:
+                return 128000  # GPT-4
+            elif "gpt-3.5" in model_name:
+                return 16385   # GPT-3.5-turbo
+            else:
+                return 128000  # Default for OpenAI models
+        
+        # Together AI context limits (varies by model)
+        elif "TOGETHER" in engine_type:
+            if "llama" in model_name and "405b" in model_name:
+                return 128000
+            elif "llama" in model_name:
+                return 128000  # Most Llama models
+            else:
+                return 32768   # Conservative default
+        
+        # DeepSeek context limits
+        elif "DEEPSEEK" in engine_type or "deepseek" in model_name:
+            return 32768  # DeepSeek models
+        
+        # Default fallback
+        else:
+            return 4096
 
     def _serialize_generation_config(self, generation_config) -> dict:
         """Serialize generation config to dictionary."""
