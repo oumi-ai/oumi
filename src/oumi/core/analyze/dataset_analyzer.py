@@ -121,7 +121,7 @@ class DatasetAnalyzer:
         self._analysis_summary: Optional[dict[str, Any]] = None
 
         # Decimal precision for rounding metrics
-        self.decimal_precision = 2
+        self._decimal_precision = 2
 
     def set_decimal_precision(self, precision: int) -> None:
         """Set the decimal precision for rounding metrics in analysis summary.
@@ -132,7 +132,7 @@ class DatasetAnalyzer:
         """
         if not isinstance(precision, int) or precision < 0:
             raise ValueError("Decimal precision must be a non-negative integer")
-        self.decimal_precision = precision
+        self._decimal_precision = precision
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
@@ -628,7 +628,7 @@ class DatasetAnalyzer:
                 / self._analysis_results.total_conversations
                 if self._analysis_results.total_conversations > 0
                 else 0,
-                self.decimal_precision,
+                self._decimal_precision,
             ),
             "total_messages": len(self._message_df)
             if self._message_df is not None
@@ -675,12 +675,14 @@ class DatasetAnalyzer:
                     if len(values) > 0:
                         summary[analyzer_name][metric_name] = {
                             "count": len(values),
-                            "mean": round(float(values.mean()), self.decimal_precision),
-                            "std": round(float(values.std()), self.decimal_precision),
+                            "mean": round(
+                                float(values.mean()), self._decimal_precision
+                            ),
+                            "std": round(float(values.std()), self._decimal_precision),
                             "min": float(values.min()),
                             "max": float(values.max()),
                             "median": round(
-                                float(values.median()), self.decimal_precision
+                                float(values.median()), self._decimal_precision
                             ),
                         }
 
@@ -720,12 +722,14 @@ class DatasetAnalyzer:
                     if len(values) > 0:
                         summary[analyzer_name][metric_name] = {
                             "count": len(values),
-                            "mean": round(float(values.mean()), self.decimal_precision),
-                            "std": round(float(values.std()), self.decimal_precision),
+                            "mean": round(
+                                float(values.mean()), self._decimal_precision
+                            ),
+                            "std": round(float(values.std()), self._decimal_precision),
                             "min": float(values.min()),
                             "max": float(values.max()),
                             "median": round(
-                                float(values.median()), self.decimal_precision
+                                float(values.median()), self._decimal_precision
                             ),
                         }
 
@@ -741,15 +745,15 @@ class DatasetAnalyzer:
 
             summary["conversation_turns"] = {
                 "count": len(turns_per_conversation),
-                "mean": round(float(mean_val), self.decimal_precision)  # type: ignore
+                "mean": round(float(mean_val), self._decimal_precision)  # type: ignore
                 if mean_val is not None
                 else 0.0,
-                "std": round(float(std_val), self.decimal_precision)  # type: ignore
+                "std": round(float(std_val), self._decimal_precision)  # type: ignore
                 if std_val is not None
                 else 0.0,
                 "min": int(min_val) if min_val is not None else 0,  # type: ignore
                 "max": int(max_val) if max_val is not None else 0,  # type: ignore
-                "median": round(float(median_val), self.decimal_precision)  # type: ignore
+                "median": round(float(median_val), self._decimal_precision)  # type: ignore
                 if median_val is not None
                 else 0.0,
             }
