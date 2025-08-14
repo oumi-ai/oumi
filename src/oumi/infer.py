@@ -835,6 +835,8 @@ def infer_interactive(
                 ):
                     input_text = command_result.user_input_override
                     is_from_override = True
+                    print(f"🔧 DEBUG: Command provided user_input_override: '{input_text[:50]}...'")
+                    print(f"🔧 DEBUG: Set is_from_override = {is_from_override}")
                 else:
                     # Skip inference since we don't have regular user input
                     console.print()  # Add spacing
@@ -943,10 +945,17 @@ def infer_interactive(
                         )
 
                     # Create conversation with full history
+                    # For regen operations, don't add current_user_message since it's already in history
+                    if is_from_override:
+                        print(f"🔧 DEBUG: NATIVE engine - skipping current_user_message for regen")
+                        user_messages = []
+                    else:
+                        user_messages = [current_user_message]
+                    
                     full_conversation = Conversation(
                         messages=system_messages
                         + history_messages
-                        + [current_user_message]
+                        + user_messages
                     )
 
                     # Call inference engine directly with the full conversation
@@ -1023,10 +1032,17 @@ def infer_interactive(
                         )
 
                     # Create conversation with full history for VLLM
+                    # For regen operations, don't add current_user_message since it's already in history
+                    if is_from_override:
+                        print(f"🔧 DEBUG: VLLM engine - skipping current_user_message for regen")
+                        user_messages = []
+                    else:
+                        user_messages = [current_user_message]
+                    
                     full_conversation = Conversation(
                         messages=system_messages
                         + history_messages
-                        + [current_user_message]
+                        + user_messages
                     )
 
                     # Call inference engine directly with the full conversation
@@ -1100,6 +1116,12 @@ def infer_interactive(
                 else:
                     # Fallback - shouldn't happen but just in case
                     conversation_history.append({"role": "user", "content": input_text})
+            else:
+                # DEBUG: This should be printed during regen operations
+                print(f"🔧 DEBUG: Skipping user message addition (is_from_override={is_from_override})")
+                print(f"🔧 DEBUG: Conversation history length: {len(conversation_history)}")
+                for i, msg in enumerate(conversation_history):
+                    print(f"🔧 DEBUG:   {i}: {msg['role']}: {msg['content'][:30]}...")
 
             # Store assistant response in history
             # Check if this is a GPT-OSS model for response cleaning
