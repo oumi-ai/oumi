@@ -136,6 +136,15 @@ class CommandRouter:
 - **`/attach(path)`** - Attach files to conversation
   - Supports: images (JPG, PNG, etc.), PDFs, text files, CSV, JSON, Markdown
   - Example: `/attach(document.pdf)` or `/attach(image.jpg)`
+- **`/fetch(url)`** - Fetch web content and add to conversation context
+  - Retrieves and parses HTML content from websites
+  - Example: `/fetch(https://example.com)` or `/fetch(docs.python.org)`
+  - Requires: `pip install 'oumi[interactive]'`
+- **`/shell(command)`** - Execute safe shell commands and capture output
+  - Runs commands in local environment with security restrictions
+  - Example: `/shell(ls -la)` or `/shell(python --version)`
+  - Output (stdout/stderr) added to conversation context
+  - Security: Blocks dangerous operations, 30s timeout, 200 char limit
 
 ### Conversation Management
 - **`/delete()`** - Delete the previous conversation turn
@@ -145,6 +154,10 @@ class CommandRouter:
   - `/show()` - Show most recent assistant message
   - `/show(3)` - Show assistant message #3
   - Shows both user and assistant messages for the specified turn
+- **`/render(path)`** - Record conversation playback as asciinema recording
+  - Example: `/render(conversation.cast)` - Creates animated terminal recording
+  - Plays back entire conversation step-by-step with realistic timing
+  - Requires asciinema: `pip install asciinema`
 
 ### Parameter Adjustment
 - **`/set(param=value)`** - Adjust generation parameters
@@ -260,6 +273,8 @@ class CommandRouter:
 /ml                        # Switch to multi-line mode
 /exit()
 /attach(my_document.pdf)
+/fetch(https://docs.python.org) # Fetch web content
+/shell(ls -la)             # Execute shell command safely
 /set(temperature=0.7, top_p=0.9)
 /save(conversation.pdf)
 /save_history(complete.json)   # Save complete conversation state with all branches
@@ -270,6 +285,7 @@ class CommandRouter:
 /compact()                 # Compress conversation history
 /show()                    # Show most recent assistant message
 /show(2)                   # Show assistant message #2
+/render(demo.cast)         # Record conversation playback as asciinema
 /branch()                  # Create a new conversation branch
 /branch_from(test,3)       # Create branch from assistant message #3
 /list_engines()            # Show available inference engines

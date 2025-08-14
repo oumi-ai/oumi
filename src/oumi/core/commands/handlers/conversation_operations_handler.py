@@ -18,6 +18,7 @@ from typing import Optional
 
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
+from oumi.core.commands.conversation_renderer import ConversationRenderer
 
 
 class ConversationOperationsHandler(BaseCommandHandler):
@@ -33,6 +34,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
             "full_thoughts",
             "clear_thoughts",
             "show",
+            "render",
         ]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
@@ -51,6 +53,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
             return self._handle_clear_thoughts(command)
         elif command.command == "show":
             return self._handle_show(command)
+        elif command.command == "render":
+            return self._handle_render(command)
         else:
             return CommandResult(
                 success=False,
@@ -452,5 +456,58 @@ class ConversationOperationsHandler(BaseCommandHandler):
             return CommandResult(
                 success=False,
                 message=f"Error showing conversation position: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_render(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /render(path) command to record conversation playback with asciinema."""
+        try:
+            if not command.args:
+                return CommandResult(
+                    success=False,
+                    message="render command requires a file path argument (e.g., /render(conversation.cast))",
+                    should_continue=False,
+                )
+
+            output_path = command.args[0].strip()
+            
+            # Ensure .cast extension
+            from pathlib import Path
+            path_obj = Path(output_path)
+            if path_obj.suffix.lower() != ".cast":
+                output_path = str(path_obj.with_suffix(".cast"))
+
+            # Check if asciinema is available
+            import subprocess
+            import shutil
+            
+            if not shutil.which("asciinema"):
+                return CommandResult(
+                    success=False,
+                    message="asciinema is not installed. Install with: pip install asciinema",
+                    should_continue=False,
+                )
+
+            # Create the conversation renderer
+            renderer = ConversationRenderer(
+                conversation_history=self.conversation_history,
+                console=self.console,
+                config=self.config,
+                thinking_processor=self.context.thinking_processor
+            )
+
+            # Start asciinema recording and play back conversation
+            success, message = renderer.render_to_asciinema(output_path)
+
+            return CommandResult(
+                success=success,
+                message=message,
+                should_continue=False,
+            )
+
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error rendering conversation: {str(e)}",
                 should_continue=False,
             )
