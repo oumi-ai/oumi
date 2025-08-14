@@ -234,18 +234,26 @@ class ConversationBranchManager:
         )
 
     def switch_branch(
-        self, branch_id: str
+        self, branch_identifier: str
     ) -> tuple[bool, str, Optional[ConversationBranch]]:
         """Switch to a different branch.
 
         Args:
-            branch_id: ID of the branch to switch to.
+            branch_identifier: ID or name of the branch to switch to.
 
         Returns:
             Tuple of (success, message, branch).
         """
-        if branch_id not in self.branches:
-            return False, f"Branch '{branch_id}' not found", None
+        # First try by ID
+        if branch_identifier in self.branches:
+            branch_id = branch_identifier
+        else:
+            # Try by name (case-insensitive)
+            branch = self.get_branch_by_name(branch_identifier)
+            if branch:
+                branch_id = branch.id
+            else:
+                return False, f"Branch '{branch_identifier}' not found", None
 
         self.current_branch_id = branch_id
         branch = self.branches[branch_id]
@@ -284,6 +292,16 @@ class ConversationBranchManager:
             The current ConversationBranch.
         """
         return self.branches[self.current_branch_id]
+
+    def sync_conversation_history(self, conversation_history: list[dict]) -> None:
+        """Update the current branch's conversation history.
+
+        Args:
+            conversation_history: The conversation history to sync to current branch.
+        """
+        current_branch = self.get_current_branch()
+        current_branch.conversation_history = copy.deepcopy(conversation_history)
+        current_branch.last_active = datetime.now()
 
     def list_branches(self) -> list[dict[str, any]]:
         """List all branches with their information.
