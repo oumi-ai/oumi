@@ -131,10 +131,10 @@ class ModelManagementHandler(BaseCommandHandler):
                 )
 
             # Create new inference engine with the loaded config
-            from oumi.core.inference.factory import create_inference_engine
+            from oumi.infer import get_engine
             
             try:
-                new_engine = create_inference_engine(new_config)
+                new_engine = get_engine(new_config)
                 
                 # Replace the current inference engine and config
                 self.context.inference_engine = new_engine
