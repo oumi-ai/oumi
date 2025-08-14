@@ -867,7 +867,7 @@ class FileOperationsHandler(BaseCommandHandler):
 
             # Use context manager for accurate token estimation and budget calculation
             context_manager = self.context.context_window_manager
-            
+
             # Build current conversation text for accurate token counting
             conversation_text = ""
             for msg in self.conversation_history:
@@ -876,12 +876,9 @@ class FileOperationsHandler(BaseCommandHandler):
                     if "content" in msg:
                         conversation_text += str(msg["content"]) + "\n"
                     # Handle attachment messages
-                    elif (
-                        msg.get("role") == "attachment"
-                        and "text_content" in msg
-                    ):
+                    elif msg.get("role") == "attachment" and "text_content" in msg:
                         conversation_text += str(msg["text_content"]) + "\n"
-            
+
             conversation_tokens = context_manager.estimate_tokens(conversation_text)
             budget = context_manager.calculate_budget(conversation_tokens)
             available_tokens = budget.available_for_content
@@ -917,18 +914,18 @@ class FileOperationsHandler(BaseCommandHandler):
                 # Use binary search to find the right truncation point
                 left, right = 0, len(content)
                 truncated_content = content
-                
+
                 while left < right:
                     mid = (left + right + 1) // 2
                     test_content = content[:mid]
                     test_tokens = context_manager.estimate_tokens(test_content)
-                    
+
                     if test_tokens <= available_tokens:
                         left = mid
                         truncated_content = test_content
                     else:
                         right = mid - 1
-                
+
                 content = (
                     truncated_content
                     + f"\n\n[Content truncated from {content_tokens:,} to {context_manager.estimate_tokens(truncated_content):,} tokens due to context window limits]"
@@ -1068,7 +1065,7 @@ class FileOperationsHandler(BaseCommandHandler):
 
             # Use accurate context management like attach and fetch commands
             context_manager = self.context.context_window_manager
-            
+
             # Build current conversation text for accurate token counting
             conversation_text = ""
             for msg in self.conversation_history:
@@ -1077,17 +1074,11 @@ class FileOperationsHandler(BaseCommandHandler):
                     if "content" in msg:
                         conversation_text += str(msg["content"]) + "\n"
                     # Handle attachment messages
-                    elif (
-                        msg.get("role") == "attachment"
-                        and "text_content" in msg
-                    ):
+                    elif msg.get("role") == "attachment" and "text_content" in msg:
                         conversation_text += str(msg["text_content"]) + "\n"
-                    elif (
-                        msg.get("role") == "attachment"
-                        and "content" in msg
-                    ):
+                    elif msg.get("role") == "attachment" and "content" in msg:
                         conversation_text += str(msg["content"]) + "\n"
-            
+
             conversation_tokens = context_manager.estimate_tokens(conversation_text)
             budget = context_manager.calculate_budget(conversation_tokens)
             available_tokens = budget.available_for_content
@@ -1125,18 +1116,18 @@ class FileOperationsHandler(BaseCommandHandler):
                 # Truncate output to fit available space using binary search
                 left, right = 0, len(output)
                 truncated_output = output
-                
+
                 while left < right:
                     mid = (left + right + 1) // 2
                     test_output = output[:mid]
                     test_tokens = context_manager.estimate_tokens(test_output)
-                    
+
                     if test_tokens <= available_tokens:
                         left = mid
                         truncated_output = test_output
                     else:
                         right = mid - 1
-                
+
                 output = (
                     truncated_output
                     + f"\n\n[Output truncated from {output_tokens:,} to {context_manager.estimate_tokens(truncated_output):,} tokens due to context window limits]"

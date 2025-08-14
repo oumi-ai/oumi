@@ -441,16 +441,16 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             # Get model name for assistant title
             model_name = getattr(self.config.model, "model_name", "Assistant")
-            
+
             # Clean up model name for display
             if "/" in model_name:
                 display_model_name = model_name.split("/")[-1]  # Get last part after /
             else:
                 display_model_name = model_name
-            
+
             # Show assistant response with markdown rendering
             from rich.markdown import Markdown
-            
+
             try:
                 # Try to render as markdown
                 markdown_content = Markdown(display_content)
@@ -470,7 +470,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     padding=(1, 2),
                     expand=getattr(self.config.style, "expand_panels", False),
                 )
-            
+
             self.console.print(assistant_panel)
 
             return CommandResult(
