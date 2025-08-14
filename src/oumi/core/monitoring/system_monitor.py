@@ -170,6 +170,13 @@ class SystemMonitor:
         Returns:
             True if HUD should be updated.
         """
+        # Defensive checks for None values that might occur during engine swaps
+        if self.last_update_time is None or self.update_interval is None:
+            print(f"🔧 DEBUG: SystemMonitor has None values - last_update_time: {self.last_update_time}, update_interval: {self.update_interval}")
+            self.last_update_time = 0.0
+            self.update_interval = 15.0
+            return True
+        
         current_time = time.time()
         if current_time - self.last_update_time >= self.update_interval:
             self.last_update_time = current_time
