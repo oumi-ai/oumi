@@ -53,6 +53,9 @@ class BranchOperationsHandler(BaseCommandHandler):
         try:
             branch_manager = self.context.branch_manager
 
+            # Save current conversation history before creating new branch
+            branch_manager.sync_conversation_history(self.conversation_history)
+
             # Get branch name from arguments
             branch_name = None
             if command.args:
@@ -65,12 +68,8 @@ class BranchOperationsHandler(BaseCommandHandler):
             )
 
             if success:
-                # Auto-save current state to new branch if file operations handler is available
+                # Auto-save current state to new branch if available
                 try:
-                    from oumi.core.commands.handlers.file_operations_handler import (
-                        FileOperationsHandler,
-                    )
-
                     # Check if we can find a file operations handler instance
                     # This is a bit hacky but works for the transition period
                     pass  # Auto-save functionality would be handled separately
@@ -108,6 +107,9 @@ class BranchOperationsHandler(BaseCommandHandler):
 
             branch_name = command.args[0].strip()
             branch_manager = self.context.branch_manager
+
+            # Save current conversation history to the current branch before switching
+            branch_manager.sync_conversation_history(self.conversation_history)
 
             # Switch to the branch
             success, message, branch = branch_manager.switch_branch(branch_name)
@@ -169,16 +171,13 @@ class BranchOperationsHandler(BaseCommandHandler):
 
             for branch in branches:
                 branch_name = branch.get("name", branch.get("id", "unknown"))
-                message_count = len(branch.get("conversation_history", []))
+                message_count = branch.get(
+                    "message_count", 0
+                )  # Use pre-calculated count
                 created_time = branch.get("created_at", "unknown")
 
-                # Get preview from last message
-                preview = "Empty"
-                history = branch.get("conversation_history", [])
-                if history:
-                    last_msg = history[-1]
-                    content = last_msg.get("content", "")
-                    preview = content[:50] + "..." if len(content) > 50 else content
+                # Get preview from the branch info
+                preview = branch.get("preview", "Empty")
 
                 # Format created time
                 if created_time != "unknown":
@@ -190,7 +189,7 @@ class BranchOperationsHandler(BaseCommandHandler):
                             created_display = dt.strftime("%m/%d %H:%M")
                         else:
                             created_display = str(created_time)
-                    except:
+                    except Exception:
                         created_display = str(created_time)
                 else:
                     created_display = "unknown"
@@ -213,7 +212,7 @@ class BranchOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_branch_delete(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /branch_delete(branch_name) command to delete a conversation branch."""
+        """Handle the /branch_delete(branch_name) command to delete a branch."""
         try:
             if not command.args:
                 return CommandResult(
@@ -242,7 +241,7 @@ class BranchOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_branch_from(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /branch_from(name,pos) command to create a branch from specific position."""
+        """Handle the /branch_from(name,pos) command to branch from position."""
         try:
             if len(command.args) < 2:
                 return CommandResult(
@@ -250,6 +249,10 @@ class BranchOperationsHandler(BaseCommandHandler):
                     message="branch_from command requires two arguments: branch_name and position",
                     should_continue=False,
                 )
+
+            # Save current conversation history to the current branch before branching
+            branch_manager = self.context.branch_manager
+            branch_manager.sync_conversation_history(self.conversation_history)
 
             branch_name = command.args[0].strip()
             try:
@@ -289,8 +292,6 @@ class BranchOperationsHandler(BaseCommandHandler):
 
             # Create conversation history up to the branch point
             branched_history = self.conversation_history[:branch_point_index]
-
-            branch_manager = self.context.branch_manager
 
             # Create the branch from specific position
             success, message = branch_manager.create_branch_from_position(
