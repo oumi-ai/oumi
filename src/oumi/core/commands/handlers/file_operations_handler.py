@@ -865,12 +865,26 @@ class FileOperationsHandler(BaseCommandHandler):
             if not url.startswith(("http://", "https://")):
                 url = f"https://{url}"
 
-            # Estimate current conversation tokens for context management
-            conversation_tokens = self._estimate_conversation_tokens()
-            max_context = getattr(self.config.model, "model_max_length", 4096)
-            available_tokens = (
-                max_context - conversation_tokens - 1000
-            )  # Reserve 1000 tokens
+            # Use context manager for accurate token estimation and budget calculation
+            context_manager = self.context.context_manager
+            
+            # Build current conversation text for accurate token counting
+            conversation_text = ""
+            for msg in self.conversation_history:
+                if isinstance(msg, dict):
+                    # Handle regular messages
+                    if "content" in msg:
+                        conversation_text += str(msg["content"]) + "\n"
+                    # Handle attachment messages
+                    elif (
+                        msg.get("role") == "attachment"
+                        and "text_content" in msg
+                    ):
+                        conversation_text += str(msg["text_content"]) + "\n"
+            
+            conversation_tokens = context_manager.estimate_tokens(conversation_text)
+            budget = context_manager.calculate_budget(conversation_tokens)
+            available_tokens = budget.available_for_content
 
             # Make the web request with timeout and user agent
             headers = {"User-Agent": "Oumi-AI-Assistant/1.0 (Interactive Chat Bot)"}
@@ -896,12 +910,28 @@ class FileOperationsHandler(BaseCommandHandler):
                 content = response.text
                 content_type = response.headers.get("content-type", "text/plain")
 
-            # Limit content size based on available context
-            max_chars = available_tokens * 4  # Rough estimate: 4 chars per token
-            if len(content) > max_chars:
+            # Check if content fits in available context using accurate tokenization
+            content_tokens = context_manager.estimate_tokens(content)
+            if content_tokens > available_tokens:
+                # Truncate content to fit available space
+                # Use binary search to find the right truncation point
+                left, right = 0, len(content)
+                truncated_content = content
+                
+                while left < right:
+                    mid = (left + right + 1) // 2
+                    test_content = content[:mid]
+                    test_tokens = context_manager.estimate_tokens(test_content)
+                    
+                    if test_tokens <= available_tokens:
+                        left = mid
+                        truncated_content = test_content
+                    else:
+                        right = mid - 1
+                
                 content = (
-                    content[:max_chars]
-                    + f"\n\n[Content truncated at {max_chars:,} characters due to context window limits]"
+                    truncated_content
+                    + f"\n\n[Content truncated from {content_tokens:,} to {context_manager.estimate_tokens(truncated_content):,} tokens due to context window limits]"
                 )
 
             # Create attachment-style message for the conversation
@@ -1036,10 +1066,31 @@ class FileOperationsHandler(BaseCommandHandler):
         try:
             import subprocess
 
-            # Estimate current conversation tokens
-            conversation_tokens = self._estimate_conversation_tokens()
-            max_context = getattr(self.config.model, "model_max_length", 4096)
-            available_tokens = max_context - conversation_tokens - 1000
+            # Use accurate context management like attach and fetch commands
+            context_manager = self.context.context_manager
+            
+            # Build current conversation text for accurate token counting
+            conversation_text = ""
+            for msg in self.conversation_history:
+                if isinstance(msg, dict):
+                    # Handle regular messages
+                    if "content" in msg:
+                        conversation_text += str(msg["content"]) + "\n"
+                    # Handle attachment messages
+                    elif (
+                        msg.get("role") == "attachment"
+                        and "text_content" in msg
+                    ):
+                        conversation_text += str(msg["text_content"]) + "\n"
+                    elif (
+                        msg.get("role") == "attachment"
+                        and "content" in msg
+                    ):
+                        conversation_text += str(msg["content"]) + "\n"
+            
+            conversation_tokens = context_manager.estimate_tokens(conversation_text)
+            budget = context_manager.calculate_budget(conversation_tokens)
+            available_tokens = budget.available_for_content
 
             self.console.print(f"🔧 Executing: {shell_command}")
 
@@ -1068,12 +1119,27 @@ class FileOperationsHandler(BaseCommandHandler):
             # Add return code info
             output += f"\n\nReturn code: {result.returncode}"
 
-            # Limit output size based on available context
-            max_chars = available_tokens * 4  # Rough estimate: 4 chars per token
-            if len(output) > max_chars:
+            # Check if output fits in available context using accurate tokenization
+            output_tokens = context_manager.estimate_tokens(output)
+            if output_tokens > available_tokens:
+                # Truncate output to fit available space using binary search
+                left, right = 0, len(output)
+                truncated_output = output
+                
+                while left < right:
+                    mid = (left + right + 1) // 2
+                    test_output = output[:mid]
+                    test_tokens = context_manager.estimate_tokens(test_output)
+                    
+                    if test_tokens <= available_tokens:
+                        left = mid
+                        truncated_output = test_output
+                    else:
+                        right = mid - 1
+                
                 output = (
-                    output[:max_chars]
-                    + f"\n\n[Output truncated at {max_chars:,} characters due to context window limits]"
+                    truncated_output
+                    + f"\n\n[Output truncated from {output_tokens:,} to {context_manager.estimate_tokens(truncated_output):,} tokens due to context window limits]"
                 )
 
             # Create attachment-style message for the conversation
