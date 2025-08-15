@@ -63,7 +63,7 @@ def patch_deepspeed_pin_memory_bug() -> None:
             align_bytes: Memory alignment bytes
             
         Returns:
-            The pinned tensor if successful, otherwise the original tensor
+            The pinned tensor if successful, otherwise a CPU contiguous tensor
         """
         try:
             return original_pin_memory(tensor, align_bytes)
@@ -72,18 +72,40 @@ def patch_deepspeed_pin_memory_bug() -> None:
             if "invalid argument" in error_msg or "cuda error" in error_msg:
                 logger.warning(
                     f"DeepSpeed pin_memory failed with error: {e}. "
-                    "Returning unpinned tensor. Consider setting pin_memory=False "
+                    "Returning CPU contiguous tensor. Consider setting pin_memory=False "
                     "in your training configuration."
                 )
-                return tensor
+                # Ensure we return a CPU tensor that's contiguous and has the right properties
+                try:
+                    if hasattr(tensor, 'cpu') and hasattr(tensor, 'contiguous'):
+                        # PyTorch tensor - move to CPU and make contiguous
+                        cpu_tensor = tensor.cpu().contiguous()
+                        return cpu_tensor
+                    else:
+                        # Fallback for non-PyTorch tensors
+                        return tensor
+                except Exception as fallback_error:
+                    logger.warning(
+                        f"Failed to create CPU contiguous tensor: {fallback_error}. "
+                        "Returning original tensor."
+                    )
+                    return tensor
             # Re-raise other RuntimeErrors
             raise
         except Exception as e:
             logger.warning(
                 f"DeepSpeed pin_memory failed with unexpected error: {e}. "
-                "Returning unpinned tensor."
+                "Returning CPU contiguous tensor if possible."
             )
-            return tensor
+            # Same fallback logic for other exceptions
+            try:
+                if hasattr(tensor, 'cpu') and hasattr(tensor, 'contiguous'):
+                    cpu_tensor = tensor.cpu().contiguous()
+                    return cpu_tensor
+                else:
+                    return tensor
+            except Exception:
+                return tensor
 
     # Mark the function as patched to avoid double-patching
     patched_pin_memory._oumi_patched = True  # type: ignore
