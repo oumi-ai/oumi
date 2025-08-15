@@ -80,6 +80,7 @@ from oumi.utils.torch_utils import (
     log_peak_gpu_memory,
     log_versioning_info,
 )
+from oumi.utils.deepspeed_utils import apply_deepspeed_patches
 from oumi.utils.version_utils import is_dev_build
 
 
@@ -279,6 +280,10 @@ def train(
     telemetry_dir = config.training.telemetry_dir
 
     config = _finalize_training_config(config)
+
+    # Apply DeepSpeed patches early to fix known issues (e.g., pin_memory bug)
+    if config.deepspeed and config.deepspeed.enable_deepspeed:
+        apply_deepspeed_patches()
 
     if is_local_process_zero():
         logger.info(f"TrainingConfig:\n{pformat(config)}")
