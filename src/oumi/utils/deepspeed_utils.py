@@ -118,6 +118,43 @@ def patch_deepspeed_pin_memory_bug() -> None:
     )
 
 
+def create_cache_clearing_callback() -> Any:
+    """
+    Create a training callback that periodically clears GPU cache.
+    
+    This helps prevent the DeepSpeed warning about cache flushes
+    by proactively clearing cache at regular intervals.
+    
+    Returns:
+        A TrainerCallback for cache clearing
+    """
+    try:
+        from transformers import TrainerCallback
+        import torch
+    except ImportError:
+        logger.warning("Cannot create cache clearing callback - missing dependencies")
+        return None
+    
+    class CacheClearingCallback(TrainerCallback):
+        """Callback to periodically clear GPU cache during training."""
+        
+        def __init__(self, clear_every_n_steps: int = 10):
+            self.clear_every_n_steps = clear_every_n_steps
+            
+        def on_step_end(self, args, state, control, **kwargs):
+            """Clear cache every N steps."""
+            if state.global_step > 0 and state.global_step % self.clear_every_n_steps == 0:
+                try:
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                        torch.mps.empty_cache()
+                except Exception as e:
+                    logger.warning(f"Failed to clear device cache: {e}")
+    
+    return CacheClearingCallback
+
+
 def apply_deepspeed_patches() -> None:
     """Apply all known DeepSpeed patches/fixes."""
     patch_deepspeed_pin_memory_bug()

@@ -1,0 +1,106 @@
+# DeepSpeed ZeRO-3 distributed training config for GPT OSS 20B
+
+model:
+  model_name: "openai/gpt-oss-20b"
+  model_max_length: 16384
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: true
+  chat_template: "auto"  # Use model's built-in chat template
+  # attn_implementation: "sdpa"
+  # Currently bugged
+  attn_implementation: "kernels-community/vllm-flash-attn3"
+
+  # Enable MXFP4 dequantization for training with pre-quantized models
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+      bits: 4
+      group_size: 128
+
+data:
+    train:
+      datasets:
+        - dataset_name: "Magpie-Align/Llama-3-Magpie-Pro-1M-v0.1"  # Uses MagpieProDataset (ShareGPT) format
+          split: "train"
+          dataset_kwargs:
+            dataset_name_override: "mlfoundations-dev/tbench_traces_local_sharegptv1"  # Override the default dataset
+          shuffle: True
+          seed: 42
+      collator_name: "text_completions_only_with_padding"
+      collator_kwargs:
+        # GPT-OSS Harmony format templates
+        instruction_template: "<|start|>user<|message|>"
+        response_template: "<|start|>assistant<|channel|>final<|message|>"
+      target_col: "conversations"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: false  # Full fine-tuning with ZeRO-3
+  ddp_find_unused_parameters: false
+  save_steps: 100
+  num_train_epochs: 5
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-05
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0  # HF recipe gradient clipping
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
+  logging_steps: 10
+  output_dir: "./outputs/gpt_oss_20b_zero3_tbench_traces"
+  seed: 42
+  include_performance_metrics: True
+  enable_wandb: True
+  empty_device_cache_steps: 5
+  dataloader_num_workers: 8
+  dataloader_prefetch_factor: 4
+
+# DeepSpeed configuration for ZeRO-3 with CPU offloading
+deepspeed:
+  enable_deepspeed: True
+  zero_stage: "ZERO_3"
+  precision: "BF16"
+
+  # ZeRO-3 specific parameters
+  allgather_partitions: True
+  allgather_bucket_size: 50000000
+  overlap_comm: True
+  reduce_scatter: True
+  reduce_bucket_size: 50000000 
+  contiguous_gradients: True
+  round_robin_gradients: False
+
+  # ZeRO-3 specific stage3 parameters
+  sub_group_size: 10000000
+  stage3_prefetch_bucket_size: 50000000
+  stage3_param_persistence_threshold: 10000
+  stage3_max_live_parameters: 100000000
+  stage3_max_reuse_distance: 100000000
+  gather_16bit_weights_on_model_save: True # Single node, should be OK
+
+  # CPU offloading for maximum memory efficiency
+  offload_optimizer:
+    device: "CPU"
+    pin_memory: False
+    buffer_count: 4
+    fast_init: false
+
+  offload_param:
+    device: "CPU"
+    pin_memory: False
+    buffer_count: 4
+    buffer_size: 100000000
+    max_in_cpu: 1000000000
+
+  # Memory optimization
+  zero_allow_untested_optimizer: True
+  zero_force_ds_cpu_optimizer: False
+
+  # Logging
+  steps_per_print: 10
+  wall_clock_breakdown: False
