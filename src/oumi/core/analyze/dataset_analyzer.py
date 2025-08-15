@@ -123,17 +123,6 @@ class DatasetAnalyzer:
         # Decimal precision for rounding metrics
         self._decimal_precision = 2
 
-    def set_decimal_precision(self, precision: int) -> None:
-        """Set the decimal precision for rounding metrics in analysis summary.
-
-        Args:
-            precision: Number of decimal places to round to (e.g., 2 for 0.12,
-                3 for 0.123)
-        """
-        if not isinstance(precision, int) or precision < 0:
-            raise ValueError("Decimal precision must be a non-negative integer")
-        self._decimal_precision = precision
-
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
 
