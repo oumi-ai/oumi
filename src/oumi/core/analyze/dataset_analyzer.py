@@ -22,7 +22,10 @@ from tqdm import tqdm
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY
-from oumi.utils.analysis_utils import load_dataset_from_config
+from oumi.utils.analysis_utils import (
+    build_tokenizer_from_config,
+    load_dataset_from_config,
+)
 from oumi.utils.logging import logger
 
 
@@ -107,9 +110,12 @@ class DatasetAnalyzer:
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
-        self.tokenizer = config.tokenizer
 
-        self.dataset = load_dataset_from_config(config)
+        # Build tokenizer from config if provided
+        self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
+
+        # Load dataset with the tokenizer
+        self.dataset = load_dataset_from_config(config, self.tokenizer)
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 
