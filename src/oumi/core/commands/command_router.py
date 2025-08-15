@@ -46,7 +46,6 @@ class CommandRouter:
             context: Shared command context.
         """
         self.context = context
-        self.console = context.console
         self._handlers: dict[str, BaseCommandHandler] = {}
         self._command_to_handler: dict[str, str] = {}
 
@@ -107,7 +106,7 @@ class CommandRouter:
 
         from rich.markdown import Markdown
 
-        self.console.print(Markdown(help_content))
+        self.context.console.print(Markdown(help_content))
 
         return CommandResult(success=True, should_continue=False)
 
@@ -295,7 +294,7 @@ class CommandRouter:
     def display_command_error(self, error_message: str):
         """Display a command error message with styling."""
         error_style = getattr(self.context._style, "error_style", "red")
-        self.console.print(f"❌ {error_message}", style=error_style)
+        self.context.console.print(f"❌ {error_message}", style=error_style)
 
     def display_command_success(self, message: str):
         """Display a command success message with styling."""
@@ -303,6 +302,6 @@ class CommandRouter:
         use_emoji = getattr(self.context._style, "use_emoji", True)
 
         if use_emoji:
-            self.console.print(f"✅ {message}", style=success_style)
+            self.context.console.print(f"✅ {message}", style=success_style)
         else:
-            self.console.print(f"Success: {message}", style=success_style)
+            self.context.console.print(f"Success: {message}", style=success_style)

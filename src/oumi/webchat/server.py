@@ -609,19 +609,47 @@ class OumiWebServer(OpenAICompatibleServer):
         session = await self.get_or_create_session(session_id)
         
         try:
-            # Execute command via command router
-            from oumi.core.commands.command_parser import ParsedCommand
-            parsed_command = ParsedCommand(
-                command=command, 
-                args=args,
-                kwargs={},
-                raw_input=f"/{command}({','.join(args)})"
-            )
-            result = session.command_router.handle_command(parsed_command)
+            # Create a string buffer to capture console output
+            import io
+            from rich.console import Console
+            
+            # Create a temporary console that writes to string buffer
+            string_buffer = io.StringIO()
+            temp_console = Console(file=string_buffer, width=80)
+            
+            # Temporarily replace the session's console
+            original_console = session.command_context.console
+            session.command_context.console = temp_console
+            
+            try:
+                # Execute command via command router
+                from oumi.core.commands.command_parser import ParsedCommand
+                parsed_command = ParsedCommand(
+                    command=command, 
+                    args=args,
+                    kwargs={},
+                    raw_input=f"/{command}({','.join(args)})"
+                )
+                result = session.command_router.handle_command(parsed_command)
+                
+                # Capture the console output
+                console_output = string_buffer.getvalue()
+                
+                # Combine command result message with console output
+                full_message = result.message or ""
+                if console_output.strip():
+                    if full_message:
+                        full_message += "\n\n" + console_output.strip()
+                    else:
+                        full_message = console_output.strip()
+                
+            finally:
+                # Restore the original console
+                session.command_context.console = original_console
             
             response_data = {
                 'success': result.success,
-                'message': result.message,
+                'message': full_message,
                 'should_continue': result.should_continue
             }
             
