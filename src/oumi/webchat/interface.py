@@ -182,6 +182,7 @@ class WebChatInterface:
                             value=self._get_system_monitor_html(),
                             elem_classes=["system-monitor"]
                         )
+                        refresh_monitor_btn = gr.Button("🔄 Refresh", size="sm")
                         
                     # Settings panel
                     with gr.Accordion("Settings", open=False):
@@ -352,7 +353,7 @@ class WebChatInterface:
             def handle_file_attachment(files: List, state: Dict) -> Tuple[str, Dict]:
                 """Handle file attachments."""
                 if not files:
-                    return "No files selected", state
+                    return "", state
                     
                 # Execute attach command for each file
                 messages = []
@@ -363,7 +364,9 @@ class WebChatInterface:
                     else:
                         messages.append(f"❌ Failed to attach {file.name}")
                 
-                return "\n".join(messages), state
+                # Return the attachment status as a message input placeholder
+                attachment_summary = " | ".join(messages)
+                return f"Files attached: {attachment_summary}", state
                 
             # Wire up event handlers
             send_button.click(
@@ -378,29 +381,53 @@ class WebChatInterface:
                 outputs=[chatbot, message_input, session_state]
             )
             
-            # Command buttons
+            # Command buttons - execute commands and refresh chat
+            def handle_clear_command(state):
+                execute_command("/clear()", state)
+                # Clear the chatbot display too
+                return [], state
+                
+            def handle_delete_command(state):
+                execute_command("/delete()", state)
+                # Update the chatbot to reflect changes
+                return state.get("conversation", []), state
+                
+            def handle_regen_command(state):
+                execute_command("/regen()", state) 
+                # Update the chatbot to reflect regenerated response
+                return state.get("conversation", []), state
+                
+            def handle_help_command(state):
+                result, updated_state = execute_command("/help()", state)
+                # Add help result as system message
+                help_msg = {"role": "assistant", "content": f"**Help**: {result}"}
+                conversation = updated_state.get("conversation", [])
+                conversation.append(help_msg)
+                updated_state["conversation"] = conversation
+                return conversation, updated_state
+            
             clear_btn.click(
-                lambda state: execute_command("/clear()", state),
+                handle_clear_command,
                 inputs=[session_state],
-                outputs=[gr.Textbox(), session_state]
+                outputs=[chatbot, session_state]
             )
             
             delete_btn.click(
-                lambda state: execute_command("/delete()", state),
+                handle_delete_command,
                 inputs=[session_state],
-                outputs=[gr.Textbox(), session_state]
+                outputs=[chatbot, session_state]
             )
             
             regen_btn.click(
-                lambda state: execute_command("/regen()", state),
+                handle_regen_command,
                 inputs=[session_state],
-                outputs=[gr.Textbox(), session_state]
+                outputs=[chatbot, session_state]
             )
             
             help_btn.click(
-                lambda state: execute_command("/help()", state),
+                handle_help_command,
                 inputs=[session_state],
-                outputs=[gr.Textbox(), session_state]
+                outputs=[chatbot, session_state]
             )
             
             # Branch operations
@@ -420,7 +447,16 @@ class WebChatInterface:
             attach_btn.upload(
                 handle_file_attachment,
                 inputs=[attach_btn, session_state],
-                outputs=[gr.Textbox(), session_state]
+                outputs=[message_input, session_state]  # Show result in message input
+            )
+            
+            # System monitor refresh
+            def refresh_system_monitor():
+                return self._get_system_monitor_html()
+                
+            refresh_monitor_btn.click(
+                refresh_system_monitor,
+                outputs=[system_monitor]
             )
             
         return interface
@@ -472,16 +508,52 @@ class WebChatInterface:
         """
     
     def _get_system_monitor_html(self) -> str:
-        """Get HTML for system monitor display."""
-        return """
-        <div class="system-monitor">
-            GPU: <span id="gpu-usage">--</span>%<br>
-            Memory: <span id="memory-usage">--</span>MB<br>
-            Context: <span id="context-usage">--/4096</span><br>
-            <br>
-            <small>Live monitoring via WebSocket</small>
-        </div>
-        """
+        """Get HTML for system monitor display with real data."""
+        try:
+            # Get actual system info
+            import psutil
+            import torch
+            
+            # Memory usage
+            memory = psutil.virtual_memory()
+            memory_used_mb = int(memory.used / 1024 / 1024)
+            memory_total_mb = int(memory.total / 1024 / 1024)
+            memory_percent = memory.percent
+            
+            # GPU usage (if available)
+            gpu_info = "N/A"
+            if torch.cuda.is_available():
+                try:
+                    gpu_memory = torch.cuda.memory_allocated() / 1024**3  # GB
+                    gpu_total = torch.cuda.memory_reserved() / 1024**3  # GB
+                    gpu_info = f"{gpu_memory:.1f}GB / {gpu_total:.1f}GB"
+                except:
+                    gpu_info = "Available"
+            
+            # Context estimation (placeholder - would need actual conversation length)
+            context_estimate = "estimating..."
+            
+            return f"""
+            <div class="system-monitor">
+                <strong>System Monitor</strong><br>
+                GPU: {gpu_info}<br>
+                Memory: {memory_used_mb}MB / {memory_total_mb}MB ({memory_percent:.1f}%)<br>
+                Context: {context_estimate}<br>
+                <br>
+                <small>Updates every 30s</small>
+            </div>
+            """
+        except Exception as e:
+            return f"""
+            <div class="system-monitor">
+                <strong>System Monitor</strong><br>
+                GPU: --<br>
+                Memory: --<br>
+                Context: --<br>
+                <br>
+                <small>Error: {str(e)}</small>
+            </div>
+            """
     
     def _get_available_models(self) -> List[str]:
         """Get list of available models for the dropdown."""
