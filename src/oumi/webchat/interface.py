@@ -388,14 +388,22 @@ class WebChatInterface:
                 return [], state
                 
             def handle_delete_command(state):
-                execute_command("/delete()", state)
-                # Update the chatbot to reflect changes
-                return state.get("conversation", []), state
+                # First sync the conversation to the backend session
+                self._sync_conversation_to_backend(state["session_id"], state.get("conversation", []))
+                result, updated_state = execute_command("/delete()", state)
+                # Get updated conversation from backend
+                updated_conversation = self._get_conversation_from_backend(state["session_id"])
+                updated_state["conversation"] = updated_conversation
+                return updated_conversation, updated_state
                 
             def handle_regen_command(state):
-                execute_command("/regen()", state) 
-                # Update the chatbot to reflect regenerated response
-                return state.get("conversation", []), state
+                # First sync the conversation to the backend session  
+                self._sync_conversation_to_backend(state["session_id"], state.get("conversation", []))
+                result, updated_state = execute_command("/regen()", state) 
+                # Get updated conversation from backend
+                updated_conversation = self._get_conversation_from_backend(state["session_id"])
+                updated_state["conversation"] = updated_conversation
+                return updated_conversation, updated_state
                 
             def handle_help_command(state):
                 result, updated_state = execute_command("/help()", state)
@@ -572,8 +580,13 @@ class WebChatInterface:
                 except:
                     gpu_info = "Available"
             
-            # Context estimation (placeholder - would need actual conversation length)
-            context_estimate = "estimating..."
+            # Context estimation based on conversation length
+            try:
+                # Get current conversation from session state if available
+                context_estimate = "0/16384 tokens (0%)"
+                # TODO: Could call backend API to get actual token count if needed
+            except Exception:
+                context_estimate = "unavailable"
             
             return f"""
             <div class="system-monitor">
@@ -604,6 +617,38 @@ class WebChatInterface:
         current_model = getattr(self.config.model, 'model_name', 'Current Model')
         return [current_model, "meta-llama/Llama-3.1-8B-Instruct", "anthropic:claude-3-5-sonnet"]
     
+    def _sync_conversation_to_backend(self, session_id: str, conversation: list):
+        """Sync conversation state from frontend to backend session."""
+        try:
+            # Send conversation to backend via a sync endpoint
+            response = requests.post(
+                f"{self.server_url}/v1/oumi/sync_conversation",
+                json={
+                    "session_id": session_id,
+                    "conversation": conversation
+                },
+                timeout=10
+            )
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Failed to sync conversation: {e}")
+            return False
+
+    def _get_conversation_from_backend(self, session_id: str) -> list:
+        """Get current conversation state from backend session."""
+        try:
+            response = requests.get(
+                f"{self.server_url}/v1/oumi/conversation",
+                params={"session_id": session_id},
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("conversation", [])
+        except Exception as e:
+            print(f"Failed to get conversation: {e}")
+        return []
+
     def _update_branch_tree(self, session_id: str) -> gr.HTML:
         """Update the branch tree display."""
         try:

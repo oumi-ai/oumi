@@ -196,14 +196,14 @@ class ConversationOperationsHandler(BaseCommandHandler):
             # Allow compaction even for short conversations - let the user decide
 
             # Use compaction engine
-            result = self.context.compaction_engine.compact_conversation(
+            compacted_history, summary_text = self.context.compaction_engine.compact_conversation(
                 self.conversation_history
             )
 
-            if result.success:
+            if compacted_history != self.conversation_history:
                 # Update conversation history with compacted version
                 self.conversation_history.clear()
-                self.conversation_history.extend(result.compacted_conversation)
+                self.conversation_history.extend(compacted_history)
 
                 # Update context monitor
                 self._update_context_in_monitor()
@@ -224,8 +224,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 )
             else:
                 return CommandResult(
-                    success=False,
-                    message=result.error_message or "Failed to compact conversation",
+                    success=True,
+                    message="Conversation is already compact (too few messages to compress)",
                     should_continue=False,
                 )
 
