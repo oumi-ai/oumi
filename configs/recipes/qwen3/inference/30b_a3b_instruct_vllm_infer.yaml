@@ -1,15 +1,10 @@
-# vLLM Inference config for GLM-4.5-Air GGUF.
+# vLLM Inference config for Qwen3-30B-A3B-Instruct.
 #
 # Requirements:
 #   - Run `pip install oumi[gpu]`
 #
 # Usage:
-#   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/GLM-4.5-Air-GGUF \
-#     GLM-4.5-Air-Q4_K_M.gguf --local-dir .
-#
-#   # 2. Run inference:
-#   oumi infer -i -c configs/recipes/glm4/inference/air_gguf_infer.yaml
+#   oumi infer -i -c configs/recipes/qwen3/inference/30b_a3b_instruct_vllm_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -18,12 +13,11 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "GLM-4.5-Air-Q4_K_M.gguf"
-  tokenizer_name: "THUDM/glm-4-9b-chat"
+  model_name: "Qwen/Qwen3-30B-A3B-Instruct"
   model_max_length: 8192
-  torch_dtype_str: "float16"
-  trust_remote_code: True
+  torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
+  trust_remote_code: True
 
 generation:
   max_new_tokens: 2048

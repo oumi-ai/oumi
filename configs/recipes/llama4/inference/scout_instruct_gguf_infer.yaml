@@ -1,15 +1,15 @@
-# vLLM Inference config for Llama-3.3-Nemotron-Super-49B GGUF.
+# vLLM Inference config for Llama-4-Scout-17B-16E-Instruct GGUF.
 #
 # Requirements:
 #   - Run `pip install oumi[gpu]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF \
-#     nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf --local-dir .
+#   huggingface-cli download unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF \
+#     Llama-4-Scout-17B-16E-Instruct-UD-Q4_K_M.gguf --local-dir .
 #
 #   # 2. Run inference:
-#   oumi infer -i -c configs/recipes/llama3_3/inference/nemotron_super_49b_gguf_infer.yaml
+#   oumi infer -i -c configs/recipes/llama4/inference/scout_instruct_gguf_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -18,8 +18,8 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf"
-  tokenizer_name: "nvidia/Llama-3.3-Nemotron-Super-49B-v1"
+  model_name: "Llama-4-Scout-17B-16E-Instruct-UD-Q4_K_M.gguf"
+  tokenizer_name: "meta-llama/Llama-4-Scout-17B-16E-Instruct"
   model_max_length: 8192
   torch_dtype_str: "float16"
   trust_remote_code: True
