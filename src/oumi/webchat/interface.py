@@ -558,46 +558,58 @@ class WebChatInterface:
         """
     
     def _get_system_monitor_html(self) -> str:
-        """Get HTML for system monitor display with real data."""
+        """Get HTML for system monitor display using backend SystemMonitor."""
         try:
-            # Get actual system info
-            import psutil
-            import torch
+            # Get system stats from backend
+            response = requests.get(
+                f"{self.server_url}/v1/oumi/system_stats",
+                params={"session_id": self.session_id},
+                timeout=5
+            )
             
-            # Memory usage
-            memory = psutil.virtual_memory()
-            memory_used_mb = int(memory.used / 1024 / 1024)
-            memory_total_mb = int(memory.total / 1024 / 1024)
-            memory_percent = memory.percent
-            
-            # GPU usage (if available)
-            gpu_info = "N/A"
-            if torch.cuda.is_available():
-                try:
-                    gpu_memory = torch.cuda.memory_allocated() / 1024**3  # GB
-                    gpu_total = torch.cuda.memory_reserved() / 1024**3  # GB
-                    gpu_info = f"{gpu_memory:.1f}GB / {gpu_total:.1f}GB"
-                except:
-                    gpu_info = "Available"
-            
-            # Context estimation based on conversation length
-            try:
-                # Get current conversation from session state if available
-                context_estimate = "0/16384 tokens (0%)"
-                # TODO: Could call backend API to get actual token count if needed
-            except Exception:
-                context_estimate = "unavailable"
-            
-            return f"""
-            <div class="system-monitor">
-                <strong>System Monitor</strong><br>
-                GPU: {gpu_info}<br>
-                Memory: {memory_used_mb}MB / {memory_total_mb}MB ({memory_percent:.1f}%)<br>
-                Context: {context_estimate}<br>
-                <br>
-                <small>Updates every 30s</small>
-            </div>
-            """
+            if response.status_code == 200:
+                data = response.json()
+                
+                # GPU info
+                if data.get('gpu_vram_used_gb') is not None:
+                    gpu_info = f"{data['gpu_vram_used_gb']:.1f}GB / {data['gpu_vram_total_gb']:.1f}GB ({data['gpu_vram_percent']:.1f}%)"
+                else:
+                    gpu_info = "N/A"
+                
+                # Memory info
+                ram_used_gb = data.get('ram_used_gb', 0)
+                ram_total_gb = data.get('ram_total_gb', 0)
+                ram_percent = data.get('ram_percent', 0)
+                
+                # Context info
+                context_used = data.get('context_used_tokens', 0)
+                context_max = data.get('context_max_tokens', 0)
+                context_percent = data.get('context_percent', 0)
+                context_info = f"{context_used}/{context_max} tokens ({context_percent:.1f}%)"
+                
+                return f"""
+                <div class="system-monitor">
+                    <strong>System Monitor</strong><br>
+                    GPU: {gpu_info}<br>
+                    Memory: {ram_used_gb:.1f}GB / {ram_total_gb:.1f}GB ({ram_percent:.1f}%)<br>
+                    Context: {context_info}<br>
+                    <br>
+                    <small>Live stats from backend</small>
+                </div>
+                """
+            else:
+                # Fallback to basic info if backend unavailable
+                return f"""
+                <div class="system-monitor">
+                    <strong>System Monitor</strong><br>
+                    GPU: --<br>
+                    Memory: --<br>
+                    Context: --<br>
+                    <br>
+                    <small>Backend unavailable</small>
+                </div>
+                """
+                
         except Exception as e:
             return f"""
             <div class="system-monitor">
