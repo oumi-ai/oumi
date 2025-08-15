@@ -228,7 +228,7 @@ class OpenAICompatibleServer:
 def run_server(
     config: InferenceConfig,
     host: str = "0.0.0.0",
-    port: int = 8000,
+    port: int = 9000,
     system_prompt: Optional[str] = None,
 ) -> None:
     """Run the OpenAI-compatible HTTP server."""

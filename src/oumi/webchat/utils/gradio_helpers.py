@@ -17,55 +17,45 @@
 from typing import Any, Dict, List, Tuple
 
 
-def format_conversation_for_gradio(conversation: List[Dict[str, Any]]) -> List[Tuple[str, str]]:
-    """Convert conversation history to Gradio chatbot format.
+def format_conversation_for_gradio(conversation: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """Convert conversation history to Gradio messages format.
     
     Args:
         conversation: List of conversation messages with role/content.
         
     Returns:
-        List of (user_message, assistant_message) tuples for Gradio.
+        List of message dictionaries with 'role' and 'content' keys for Gradio.
     """
-    gradio_history = []
-    current_pair = [None, None]  # [user_message, assistant_message]
+    gradio_messages = []
     
     for msg in conversation:
         role = msg.get('role', 'unknown')
         content = msg.get('content', '')
         
-        if role == 'user':
-            # Start a new conversation pair
-            if current_pair[0] is not None or current_pair[1] is not None:
-                # Save previous pair if it has content
-                gradio_history.append((current_pair[0] or "", current_pair[1] or ""))
-            current_pair = [content, None]
-            
-        elif role == 'assistant':
-            # Complete the current pair
-            current_pair[1] = content
+        if role in ['user', 'assistant']:
+            # Add user and assistant messages directly
+            gradio_messages.append({
+                'role': role,
+                'content': content
+            })
             
         elif role == 'system':
             # Skip system messages in chat display
             continue
             
         elif role == 'attachment':
-            # Format attachment info
+            # Format attachment info and add as user message
             attachment_info = msg.get('attachment_info', {})
             filename = attachment_info.get('filename', 'Unknown file')
             file_type = attachment_info.get('type', 'file')
             
             attachment_text = f"📎 Attached {file_type}: {filename}"
-            
-            if current_pair[0] is None:
-                current_pair[0] = attachment_text
-            else:
-                current_pair[0] += f"\n{attachment_text}"
+            gradio_messages.append({
+                'role': 'user',
+                'content': attachment_text
+            })
     
-    # Add the final pair if it has content
-    if current_pair[0] is not None or current_pair[1] is not None:
-        gradio_history.append((current_pair[0] or "", current_pair[1] or ""))
-    
-    return gradio_history
+    return gradio_messages
 
 
 def format_message_for_display(message: Dict[str, Any]) -> str:

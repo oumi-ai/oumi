@@ -31,7 +31,7 @@ from oumi.webchat.utils.gradio_helpers import format_conversation_for_gradio
 class WebChatInterface:
     """Main WebChat interface using Gradio."""
     
-    def __init__(self, config: InferenceConfig, server_url: str = "http://localhost:8000"):
+    def __init__(self, config: InferenceConfig, server_url: str = "http://localhost:9000"):
         """Initialize the WebChat interface.
         
         Args:
@@ -47,6 +47,7 @@ class WebChatInterface:
         self.api_base = f"{server_url}/v1/oumi"
         self.command_endpoint = f"{self.api_base}/command"
         self.branches_endpoint = f"{self.api_base}/branches"
+        self.chat_endpoint = f"{server_url}/v1/chat/completions"
         self.websocket_url = f"{server_url.replace('http', 'ws')}/v1/oumi/ws?session_id={self.session_id}"
         
     def create_interface(self) -> gr.Blocks:
@@ -126,6 +127,7 @@ class WebChatInterface:
                         show_copy_button=True,
                         show_share_button=False,
                         container=True,
+                        type="messages",
                         elem_classes=["chat-container"]
                     )
                     
@@ -219,8 +221,8 @@ class WebChatInterface:
                 if not message.strip():
                     return history, "", state
                     
-                # Add user message to history
-                history.append([message, None])
+                # Add user message to history in messages format
+                history.append({"role": "user", "content": message})
                 
                 # Check if it's a command
                 if message.startswith('/'):
@@ -228,15 +230,55 @@ class WebChatInterface:
                     if response.get("success"):
                         # Command executed successfully
                         if response.get("message"):
-                            history[-1][1] = f"✅ {response['message']}"
+                            content = f"✅ {response['message']}"
                         else:
-                            history[-1][1] = "✅ Command executed"
+                            content = "✅ Command executed"
                     else:
-                        history[-1][1] = f"❌ {response.get('message', 'Command failed')}"
+                        content = f"❌ {response.get('message', 'Command failed')}"
                 else:
-                    # Regular chat message - for now just echo
-                    # TODO: Connect to actual inference
-                    history[-1][1] = f"Echo: {message}"
+                    # Regular chat message - send to inference engine
+                    try:
+                        # Prepare messages for OpenAI-compatible API
+                        messages = []
+                        for msg in state.get("conversation", []):
+                            if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                                messages.append({"role": msg["role"], "content": msg["content"]})
+                        
+                        # Add the current user message
+                        messages.append({"role": "user", "content": message})
+                        
+                        # Call chat completions API
+                        import requests
+                        response = requests.post(
+                            self.chat_endpoint,
+                            json={
+                                "messages": messages,
+                                "session_id": self.session_id,
+                                "max_tokens": getattr(self.config.generation, 'max_new_tokens', 100),
+                                "temperature": getattr(self.config.generation, 'temperature', 0.7),
+                                "stream": False
+                            },
+                            timeout=30
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            if "choices" in result and len(result["choices"]) > 0:
+                                content = result["choices"][0]["message"]["content"]
+                            else:
+                                content = "I couldn't generate a response."
+                        else:
+                            error_text = response.text if hasattr(response, 'text') else 'Unknown error'
+                            content = f"Server Error ({response.status_code}): Backend may still be loading the model. Please wait a moment and try again."
+                            
+                    except Exception as e:
+                        if "Connection refused" in str(e) or "Read timed out" in str(e):
+                            content = "🔄 Backend is starting up. Please wait for the model to load and try again."
+                        else:
+                            content = f"Connection error: {str(e)}"
+                
+                # Add assistant response in messages format
+                history.append({"role": "assistant", "content": content})
                 
                 # Update state
                 state["conversation"] = history
@@ -486,7 +528,7 @@ class WebChatInterface:
 
 def create_webchat_interface(
     config: InferenceConfig, 
-    server_url: str = "http://localhost:8000"
+    server_url: str = "http://localhost:9000"
 ) -> gr.Blocks:
     """Create the WebChat interface.
     
@@ -503,7 +545,7 @@ def create_webchat_interface(
 
 def launch_webchat(
     config: InferenceConfig,
-    server_url: str = "http://localhost:8000",
+    server_url: str = "http://localhost:9000",
     share: bool = False,
     server_name: str = "0.0.0.0",
     server_port: int = 7860
