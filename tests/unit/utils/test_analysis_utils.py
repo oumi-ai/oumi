@@ -18,7 +18,10 @@ import pytest
 
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
-from oumi.utils.analysis_utils import load_dataset_from_config
+from oumi.utils.analysis_utils import (
+    build_tokenizer_from_config,
+    load_dataset_from_config,
+)
 
 
 @pytest.fixture
@@ -141,4 +144,82 @@ def test_load_dataset_from_config_with_processor_parameters(
     assert call_kwargs["processor_name"] == "Salesforce/blip2-opt-2.7b"
     assert call_kwargs["processor_kwargs"] == {"image_size": 224}
     assert call_kwargs["trust_remote_code"] is True
+    assert result == mock_dataset_instance
+
+
+def test_build_tokenizer_from_config_success():
+    """Test successful tokenizer building from config."""
+    tokenizer_config = {
+        "model_name": "gpt2",
+        "tokenizer_kwargs": {"padding_side": "left"},
+        "trust_remote_code": False,
+    }
+
+    tokenizer = build_tokenizer_from_config(tokenizer_config)
+
+    assert tokenizer is not None
+    assert hasattr(tokenizer, "encode")
+    assert hasattr(tokenizer, "decode")
+
+
+def test_build_tokenizer_from_config_none():
+    """Test tokenizer building with None config."""
+    tokenizer = build_tokenizer_from_config(None)
+
+    assert tokenizer is None
+
+
+def test_build_tokenizer_from_config_missing_model_name():
+    """Test error handling when model_name is missing from config."""
+    tokenizer_config = {
+        "tokenizer_kwargs": {"padding_side": "left"},
+        "trust_remote_code": False,
+    }
+
+    with pytest.raises(
+        ValueError, match="tokenizer_config must contain 'model_name' field"
+    ):
+        build_tokenizer_from_config(tokenizer_config)
+
+
+def test_load_dataset_from_config_with_tokenizer(
+    mock_dataset_class_and_instance, mock_registry
+):
+    """Test dataset loading with provided tokenizer."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        split="train",
+    )
+
+    mock_tokenizer = Mock()
+    mock_dataset_class, mock_dataset_instance = mock_dataset_class_and_instance
+    mock_registry.get_dataset.return_value = mock_dataset_class
+
+    result = load_dataset_from_config(config, tokenizer=mock_tokenizer)
+
+    # Verify the dataset was called with tokenizer
+    mock_dataset_class.assert_called_once()
+    call_kwargs = mock_dataset_class.call_args[1]
+    assert call_kwargs["tokenizer"] == mock_tokenizer
+    assert result == mock_dataset_instance
+
+
+def test_load_dataset_from_config_without_tokenizer(
+    mock_dataset_class_and_instance, mock_registry
+):
+    """Test dataset loading without tokenizer."""
+    config = AnalyzeConfig(
+        dataset_name="test_dataset",
+        split="train",
+    )
+
+    mock_dataset_class, mock_dataset_instance = mock_dataset_class_and_instance
+    mock_registry.get_dataset.return_value = mock_dataset_class
+
+    result = load_dataset_from_config(config)
+
+    # Verify the dataset was called without tokenizer
+    mock_dataset_class.assert_called_once()
+    call_kwargs = mock_dataset_class.call_args[1]
+    assert "tokenizer" not in call_kwargs
     assert result == mock_dataset_instance
