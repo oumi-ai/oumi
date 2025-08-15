@@ -399,8 +399,64 @@ class WebChatInterface:
             def handle_regen_command(state):
                 # First sync the conversation to the backend session  
                 self._sync_conversation_to_backend(state["session_id"], state.get("conversation", []))
-                result, updated_state = execute_command("/regen()", state) 
-                # Get updated conversation from backend
+                result, updated_state = execute_command("/regen()", state)
+                
+                # Check if regen command wants to regenerate (user_input_override)
+                if "user_input_override" in str(result):
+                    # Get the last user message from conversation
+                    conversation = state.get("conversation", [])
+                    if conversation:
+                        # Find last user message
+                        last_user_message = None
+                        for msg in reversed(conversation):
+                            if msg.get("role") == "user":
+                                last_user_message = msg.get("content", "")
+                                break
+                        
+                        if last_user_message:
+                            # Remove last assistant response if present
+                            if conversation and conversation[-1].get("role") == "assistant":
+                                conversation.pop()
+                            
+                            # Regenerate response using chat API
+                            try:
+                                messages = []
+                                for msg in conversation:
+                                    if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                                        messages.append({"role": msg["role"], "content": msg["content"]})
+                                
+                                # Add the user message we're regenerating for
+                                messages.append({"role": "user", "content": last_user_message})
+                                
+                                import requests
+                                response = requests.post(
+                                    self.chat_endpoint,
+                                    json={
+                                        "messages": messages,
+                                        "session_id": state["session_id"],
+                                        "max_tokens": getattr(self.config.generation, 'max_new_tokens', 100),
+                                        "temperature": getattr(self.config.generation, 'temperature', 0.7),
+                                        "stream": False
+                                    },
+                                    timeout=30
+                                )
+                                
+                                if response.status_code == 200:
+                                    result_data = response.json()
+                                    if "choices" in result_data and len(result_data["choices"]) > 0:
+                                        new_response = result_data["choices"][0]["message"]["content"]
+                                        # Add regenerated response
+                                        conversation.append({"role": "assistant", "content": new_response})
+                                        updated_state["conversation"] = conversation
+                                        return conversation, updated_state
+                                        
+                            except Exception as e:
+                                # Add error message if regeneration failed
+                                conversation.append({"role": "assistant", "content": f"Error regenerating: {str(e)}"})
+                                updated_state["conversation"] = conversation
+                                return conversation, updated_state
+                
+                # Fallback: get updated conversation from backend
                 updated_conversation = self._get_conversation_from_backend(state["session_id"])
                 updated_state["conversation"] = updated_conversation
                 return updated_conversation, updated_state
@@ -411,6 +467,25 @@ class WebChatInterface:
                 help_msg = {"role": "assistant", "content": f"**Help**: {result}"}
                 conversation = updated_state.get("conversation", [])
                 conversation.append(help_msg)
+                updated_state["conversation"] = conversation
+                return conversation, updated_state
+                
+            def handle_export_command(state):
+                # Generate default filename with timestamp
+                import time
+                timestamp = int(time.time())
+                filename = f"oumi_chat_{timestamp}.pdf"
+                
+                # Execute export command via backend
+                result, updated_state = execute_command(f'/save({filename})', state)
+                
+                if result and "success" in str(result) and "failed" not in str(result):
+                    export_msg = {"role": "assistant", "content": f"✅ **Exported**: {result}"}
+                else:
+                    export_msg = {"role": "assistant", "content": f"❌ **Export Failed**: {result}"}
+                
+                conversation = updated_state.get("conversation", [])
+                conversation.append(export_msg)
                 updated_state["conversation"] = conversation
                 return conversation, updated_state
             
@@ -434,6 +509,12 @@ class WebChatInterface:
             
             help_btn.click(
                 handle_help_command,
+                inputs=[session_state],
+                outputs=[chatbot, session_state]
+            )
+            
+            export_btn.click(
+                handle_export_command,
                 inputs=[session_state],
                 outputs=[chatbot, session_state]
             )
