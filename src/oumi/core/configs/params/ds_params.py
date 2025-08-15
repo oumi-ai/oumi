@@ -93,6 +93,15 @@ class OffloadConfig:
     thread_count: int = 1
     """Number of threads for NVMe operations."""
 
+    fast_init: bool = False
+    """Whether to use fast initialization for offloading."""
+
+    buffer_size: Optional[int] = None
+    """Buffer size for CPU offloading in bytes."""
+
+    max_in_cpu: Optional[int] = None
+    """Maximum amount of data to keep in CPU memory in bytes."""
+
 
 @dataclass
 class AIOConfig:
@@ -479,6 +488,13 @@ class DSParams(BaseParams):
                     )
                 else:
                     offload_config["buffer_count"] = self.offload_optimizer.buffer_count
+                    # Add CPU-specific parameters if set
+                    if self.offload_optimizer.fast_init:
+                        offload_config["fast_init"] = self.offload_optimizer.fast_init
+                    if self.offload_optimizer.buffer_size is not None:
+                        offload_config["buffer_size"] = self.offload_optimizer.buffer_size
+                    if self.offload_optimizer.max_in_cpu is not None:
+                        offload_config["max_in_cpu"] = self.offload_optimizer.max_in_cpu
 
                 zero_config["offload_optimizer"] = offload_config
 
@@ -503,6 +519,13 @@ class DSParams(BaseParams):
                     )
                 else:
                     offload_config["buffer_count"] = self.offload_param.buffer_count
+                    # Add CPU-specific parameters if set
+                    if self.offload_param.fast_init:
+                        offload_config["fast_init"] = self.offload_param.fast_init
+                    if self.offload_param.buffer_size is not None:
+                        offload_config["buffer_size"] = self.offload_param.buffer_size
+                    if self.offload_param.max_in_cpu is not None:
+                        offload_config["max_in_cpu"] = self.offload_param.max_in_cpu
 
                 zero_config["offload_param"] = offload_config
 
