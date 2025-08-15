@@ -20,7 +20,6 @@ import time
 import uuid
 from typing import Dict, Optional, Set
 
-import aiohttp_cors
 from aiohttp import web, WSMsgType
 from rich.console import Console
 
@@ -141,7 +140,19 @@ class OumiWebServer(OpenAICompatibleServer):
             config: Inference configuration.
             system_prompt: Optional system prompt.
         """
-        super().__init__(config, system_prompt)
+        # Initialize base properties without calling super().__init__()
+        # to avoid blocking inference engine initialization
+        self.config = config
+        self.system_prompt = system_prompt
+        self.inference_engine = None  # Defer initialization
+        
+        # Model info for /v1/models endpoint
+        self.model_info = {
+            "id": getattr(config.model, "model_name", "oumi-model"),
+            "object": "model",
+            "created": int(time.time()),
+            "owned_by": "oumi",
+        }
         
         # Session management
         self.sessions: Dict[str, WebChatSession] = {}
@@ -150,6 +161,176 @@ class OumiWebServer(OpenAICompatibleServer):
         
         # Start cleanup task
         self._cleanup_task = None
+
+    def get_inference_engine(self):
+        """Lazy initialization of inference engine."""
+        if self.inference_engine is None:
+            from oumi.infer import get_engine
+            logger.info("🔄 Initializing inference engine...")
+            self.inference_engine = get_engine(self.config)
+            logger.info("✅ Inference engine initialized")
+        return self.inference_engine
+
+    async def handle_health(self, request: web.Request) -> web.Response:
+        """Health check endpoint."""
+        logger.info("🔍 Health endpoint called!")
+        return web.json_response({"status": "ok"})
+
+    async def handle_models(self, request: web.Request) -> web.Response:
+        """List available models endpoint."""
+        return web.json_response({"object": "list", "data": [self.model_info]})
+
+    async def handle_chat_completions(self, request: web.Request) -> web.Response:
+        """Handle chat completions requests in OpenAI format."""
+        try:
+            data = await request.json()
+        except Exception as e:
+            return web.json_response(
+                {
+                    "error": {
+                        "message": f"Invalid JSON: {str(e)}",
+                        "type": "invalid_request_error",
+                    }
+                },
+                status=400,
+            )
+
+        # Extract required fields
+        messages = data.get("messages", [])
+        if not messages:
+            return web.json_response(
+                {
+                    "error": {
+                        "message": "messages field is required",
+                        "type": "invalid_request_error",
+                    }
+                },
+                status=400,
+            )
+
+        # Extract optional fields
+        model = data.get("model", self.model_info["id"])
+        temperature = data.get("temperature", 1.0)
+        max_tokens = data.get("max_tokens", 100)
+        stream = data.get("stream", False)
+
+        try:
+            # Convert OpenAI format messages to Oumi conversation format
+            oumi_messages = []
+
+            # Add system prompt if provided
+            if self.system_prompt:
+                from oumi.core.types.conversation import Message, Role
+                oumi_messages.append(
+                    Message(role=Role.SYSTEM, content=self.system_prompt)
+                )
+
+            # Convert messages
+            for msg in messages:
+                from oumi.core.types.conversation import Message, Role
+                role_mapping = {
+                    "system": Role.SYSTEM,
+                    "user": Role.USER,
+                    "assistant": Role.ASSISTANT,
+                }
+                role = role_mapping.get(msg.get("role"), Role.USER)
+                content = msg.get("content", "")
+                oumi_messages.append(Message(role=role, content=content))
+
+            # Get the latest user message for inference
+            user_messages = [msg for msg in messages if msg.get("role") == "user"]
+            if not user_messages:
+                return web.json_response(
+                    {
+                        "error": {
+                            "message": "No user message found",
+                            "type": "invalid_request_error",
+                        }
+                    },
+                    status=400,
+                )
+
+            latest_user_content = user_messages[-1].get("content", "")
+
+            # Run inference (lazy-loaded)
+            from oumi.infer import infer
+            results = infer(
+                config=self.config,
+                inputs=[latest_user_content],
+                system_prompt=self.system_prompt,
+                inference_engine=self.get_inference_engine(),  # Lazy initialization
+            )
+
+            if not results:
+                return web.json_response(
+                    {
+                        "error": {
+                            "message": "No response generated",
+                            "type": "server_error",
+                        }
+                    },
+                    status=500,
+                )
+
+            # Extract response content
+            response_content = ""
+            conversation = results[0]  # Take first result
+            for message in conversation.messages:
+                from oumi.core.types.conversation import Role
+                # Skip user messages and system messages, only get assistant responses
+                if message.role not in [Role.USER, Role.SYSTEM]:
+                    if isinstance(message.content, str):
+                        response_content = message.content
+                        break
+                    elif isinstance(message.content, list):
+                        for item in message.content:
+                            if hasattr(item, "content") and item.content:
+                                response_content = str(item.content)
+                                break
+
+            if not response_content:
+                response_content = str(conversation)
+
+            # Format response in OpenAI format
+            response_data = {
+                "id": f"chatcmpl-{int(time.time())}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": response_content},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": len(latest_user_content.split()),
+                    "completion_tokens": len(response_content.split()),
+                    "total_tokens": len(latest_user_content.split())
+                    + len(response_content.split()),
+                },
+            }
+
+            # Handle streaming vs non-streaming
+            if stream:
+                # For now, just return non-streaming response
+                # TODO: Implement proper streaming
+                return web.json_response(response_data)
+            else:
+                return web.json_response(response_data)
+
+        except Exception as e:
+            logger.error(f"Error during inference: {str(e)}")
+            return web.json_response(
+                {
+                    "error": {
+                        "message": f"Inference failed: {str(e)}",
+                        "type": "server_error",
+                    }
+                },
+                status=500,
+            )
 
     async def get_or_create_session(self, session_id: str) -> WebChatSession:
         """Get existing session or create new one."""
@@ -270,8 +451,7 @@ class OumiWebServer(OpenAICompatibleServer):
         try:
             # Initialize inference engine if not already done
             if session.command_context.inference_engine is None:
-                from oumi.infer import get_engine
-                session.command_context.inference_engine = get_engine(session.config)
+                session.command_context.inference_engine = self.get_inference_engine()
             
             # Create conversation for inference
             from oumi.core.types.conversation import Conversation, Message, Role
@@ -543,29 +723,40 @@ class OumiWebServer(OpenAICompatibleServer):
             except Exception as e:
                 logger.error(f"Session cleanup error: {e}")
 
+
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application with WebSocket support."""
-        app = super().create_app()
+        # Create base app without calling super() to avoid CORS middleware conflicts
+        app = web.Application()
         
-        # Add new endpoints
+        # Test with simple function-based handler to debug binding issue
+        async def simple_health(request):
+            logger.info("🔍 Simple health handler called!")
+            return web.json_response({"status": "simple_ok"})
+        
+        # Add base routes from OpenAICompatibleServer manually
+        app.router.add_get("/health", simple_health)  # Test simple function
+        app.router.add_get("/v1/models", self.handle_models)
+        app.router.add_post("/v1/chat/completions", self.handle_chat_completions)
+        
+        # Add new WebChat endpoints
         app.router.add_get("/v1/oumi/ws", self.handle_websocket)
         app.router.add_post("/v1/oumi/command", self.handle_command_api)
         app.router.add_get("/v1/oumi/branches", self.handle_branches_api)
         app.router.add_post("/v1/oumi/branches", self.handle_branches_api)
         
-        # Add CORS support for WebSocket
-        cors = aiohttp_cors.setup(app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-                allow_methods="*"
-            )
-        })
-        
-        # Add CORS to all routes
-        for route in list(app.router.routes()):
-            cors.add(route)
+        # Add debug middleware (disabled for now due to parameter issues)
+        # async def debug_middleware(request, handler):
+        #     logger.info(f"🔍 Request received: {request.method} {request.path}")
+        #     try:
+        #         response = await handler(request)
+        #         logger.info(f"🔍 Response sent: {response.status}")
+        #         return response
+        #     except Exception as e:
+        #         logger.error(f"🔍 Handler error: {e}")
+        #         raise
+        # 
+        # app.middlewares.append(debug_middleware)
         
         return app
 
@@ -586,16 +777,16 @@ class OumiWebServer(OpenAICompatibleServer):
 def run_webchat_server(
     config: InferenceConfig,
     host: str = "0.0.0.0", 
-    port: int = 8000,
+    port: int = 9000,
     system_prompt: Optional[str] = None,
 ) -> None:
     """Run the Oumi WebChat server."""
     server = OumiWebServer(config, system_prompt)
     app = server.create_app()
     
-    # Add startup/cleanup handlers
-    app.on_startup.append(server.start_background_tasks)
-    app.on_cleanup.append(server.cleanup_background_tasks)
+    # Temporarily disable startup/cleanup handlers to debug hanging issue
+    # app.on_startup.append(server.start_background_tasks)  
+    # app.on_cleanup.append(server.cleanup_background_tasks)
     
     logger.info("🚀 Starting Oumi WebChat server")
     logger.info(f"📍 Server URL: http://{host}:{port}")
@@ -606,5 +797,24 @@ def run_webchat_server(
     logger.info(f"   • Branches: http://{host}:{port}/v1/oumi/branches")
     logger.info("🛑 Press Ctrl+C to stop")
     
-    # Run the server
-    web.run_app(app, host=host, port=port, access_log=logger)
+    # Debug: Check routes before starting
+    logger.info(f"🔧 Debug: App has {len(list(app.router.routes()))} routes:")
+    for route in app.router.routes():
+        logger.info(f"   Route: {route.method} {route.resource.canonical}")
+    
+    try:
+        logger.info("🔧 Starting web.run_app with proper threading setup...")
+        # Use standard web.run_app - the issue was parameters, not the method
+        web.run_app(
+            app, 
+            host=host, 
+            port=port, 
+            handle_signals=False,  # Safe for threads
+            print=lambda *args: logger.info(f"aiohttp: {' '.join(map(str, args))}")  # Custom print function
+        )
+        logger.info("🔧 web.run_app returned")
+    except Exception as e:
+        logger.error(f"❌ Error in web.run_app: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
