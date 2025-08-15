@@ -21,6 +21,7 @@ from torch.utils.data import Dataset
 from typing_extensions import override
 
 from oumi.core.datasets.base_dpo_dataset import BaseDpoDataset
+from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtoDataset
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
 from oumi.core.registry import register_dataset
@@ -188,6 +189,40 @@ class DebugDpoDataset(BaseDpoDataset):
                 ],
                 "rejected": [
                     f"fine (Document number {idx})" for idx in range(self.size)
+                ],
+            }
+        )
+
+
+@register_dataset("debug_kto")
+class DebugKtoDataset(BaseExperimentalKtoDataset):
+    default_dataset = "debug_kto"
+
+    def __init__(
+        self,
+        dataset_size: int = 5,
+        **kwargs,
+    ):
+        """Initializes a DebugKtoDataset."""
+        self.size = dataset_size
+
+        super().__init__(**kwargs)
+
+    @override
+    def _load_data(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "prompt": [
+                    f"Hello, how are you? (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "completion": [
+                    f"I'm fine, thank you! (Document number {idx})"
+                    for idx in range(self.size)
+                ],
+                "label": [
+                    idx % 2 == 0  # True for even indices, False for odd indices
+                    for idx in range(self.size)
                 ],
             }
         )
