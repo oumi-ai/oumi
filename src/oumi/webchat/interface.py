@@ -459,6 +459,48 @@ class WebChatInterface:
                 outputs=[system_monitor]
             )
             
+            # Settings panel functionality
+            def update_temperature(value, state):
+                response = self._execute_command(f'/set(temperature={value})', state["session_id"])
+                if response.get("success"):
+                    return f"✅ Temperature updated to {value}", state
+                else:
+                    return f"❌ Failed to update temperature: {response.get('message', 'Unknown error')}", state
+            
+            def update_max_tokens(value, state):
+                response = self._execute_command(f'/set(max_tokens={int(value)})', state["session_id"])
+                if response.get("success"):
+                    return f"✅ Max tokens updated to {int(value)}", state
+                else:
+                    return f"❌ Failed to update max tokens: {response.get('message', 'Unknown error')}", state
+            
+            def update_model(model_name, state):
+                # Use swap command to change models
+                response = self._execute_command(f'/swap({model_name})', state["session_id"])
+                if response.get("success"):
+                    return f"✅ Model switched to {model_name}", state
+                else:
+                    return f"❌ Failed to switch model: {response.get('message', 'Unknown error')}", state
+            
+            # Wire up settings event handlers
+            temperature_slider.change(
+                update_temperature,
+                inputs=[temperature_slider, session_state],
+                outputs=[message_input, session_state]
+            )
+            
+            max_tokens_slider.change(
+                update_max_tokens, 
+                inputs=[max_tokens_slider, session_state],
+                outputs=[message_input, session_state]
+            )
+            
+            model_selector.change(
+                update_model,
+                inputs=[model_selector, session_state], 
+                outputs=[message_input, session_state]
+            )
+            
         return interface
     
     def _execute_command(self, command: str, session_id: str) -> Dict[str, Any]:

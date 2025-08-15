@@ -559,7 +559,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 parsed_command = session.command_parser.parse_command(command_str)
                 
                 # Execute command
-                result = session.command_router.execute_command(parsed_command)
+                result = session.command_router.handle_command(parsed_command)
                 
                 # Send result back
                 await ws.send_str(json.dumps({
@@ -612,8 +612,13 @@ class OumiWebServer(OpenAICompatibleServer):
         try:
             # Execute command via command router
             from oumi.core.commands.command_parser import ParsedCommand
-            parsed_command = ParsedCommand(command=command, args=args)
-            result = session.command_router.execute_command(parsed_command)
+            parsed_command = ParsedCommand(
+                command=command, 
+                args=args,
+                kwargs={},
+                raw_input=f"/{command}({','.join(args)})"
+            )
+            result = session.command_router.handle_command(parsed_command)
             
             response_data = {
                 'success': result.success,
@@ -632,7 +637,9 @@ class OumiWebServer(OpenAICompatibleServer):
             return web.json_response(response_data)
             
         except Exception as e:
+            import traceback
             logger.error(f"API command execution error: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return web.json_response(
                 {'error': f'Command failed: {str(e)}'}, status=500
             )
