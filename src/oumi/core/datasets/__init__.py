@@ -31,7 +31,7 @@ from oumi.core.datasets.base_dpo_dataset import (
 )
 from oumi.core.datasets.base_grpo_dataset import BaseExperimentalGrpoDataset
 from oumi.core.datasets.base_iterable_dataset import BaseIterableDataset
-from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtooDataset
+from oumi.core.datasets.base_kto_dataset import BaseExperimentalKtoDataset
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.datasets.base_pretraining_dataset import BasePretrainingDataset
 from oumi.core.datasets.base_sft_dataset import BaseSftDataset
@@ -47,7 +47,7 @@ __all__ = [
     "BaseExperimentalDpoDataset",
     "BaseExperimentalGrpoDataset",
     "BaseIterableDataset",
-    "BaseExperimentalKtooDataset",
+    "BaseExperimentalKtoDataset",
     "BaseMapDataset",
     "BasePretrainingDataset",
     "BaseSftDataset",

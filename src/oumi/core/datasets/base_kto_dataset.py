@@ -36,7 +36,7 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-class BaseExperimentalKtooDataset(BaseMapDataset):
+class BaseExperimentalKtoDataset(BaseMapDataset):
     """Base class for KTO (Kahneman-Tversky Optimization) datasets.
 
     This class provides a comprehensive foundation for creating KTO datasets that work
