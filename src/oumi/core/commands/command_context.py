@@ -118,9 +118,8 @@ class CommandContext:
             from oumi.core.commands.compaction_engine import CompactionEngine
 
             self._compaction_engine = CompactionEngine(
-                console=self.console,
                 inference_engine=self.inference_engine,
-                config=self.config,
+                model_config=self.config.model,
             )
         return self._compaction_engine
 
