@@ -867,6 +867,10 @@ class TrainingParams(BaseParams):
                 "split_batches": False,
                 "even_batches": True,
                 "use_seedable_sampler": True,
+                # Ensure gradient accumulation plugin uses the same value as training config
+                "gradient_accumulation_plugin": {
+                    "num_steps": self.gradient_accumulation_steps,
+                },
             },
             seed=self.seed,
             data_seed=self.data_seed,
