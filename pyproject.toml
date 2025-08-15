@@ -179,10 +179,7 @@ cambrian = [
 
 file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 
-# GPT OSS support - requires special installation procedure
-gpt_oss = [
-    # Note: vLLM GPT OSS build must be installed separately via:
-    "gpt-oss>=0.0.1",       # GPT OSS package
+kernels = [
     "kernels",              # HuggingFace kernels for Flash Attention 3
     "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
 ]
