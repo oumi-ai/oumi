@@ -120,7 +120,7 @@ class WebChatInterface:
             with gr.Row():
                 # Left column - Chat interface
                 with gr.Column(scale=2):
-                    # Chat display
+                    # Chat display  
                     chatbot = gr.Chatbot(
                         value=[],
                         height=500,
@@ -128,7 +128,8 @@ class WebChatInterface:
                         show_share_button=False,
                         container=True,
                         type="messages",
-                        elem_classes=["chat-container"]
+                        elem_classes=["chat-container"],
+                        label=self._get_chatbot_title()
                     )
                     
                     # Message input
@@ -567,9 +568,47 @@ class WebChatInterface:
                 # Use swap command to change models
                 response = self._execute_command(f'/swap({model_name})', state["session_id"])
                 if response.get("success"):
-                    return f"✅ Model switched to {model_name}", state
+                    # Update the config model name for title display
+                    if hasattr(self.config, 'model') and hasattr(self.config.model, 'model_name'):
+                        self.config.model.model_name = model_name
+                    
+                    # Create new chatbot with updated title
+                    updated_chatbot = gr.Chatbot(
+                        value=state.get("conversation", []),
+                        height=500,
+                        show_copy_button=True,
+                        show_share_button=False,
+                        container=True,
+                        type="messages",
+                        elem_classes=["chat-container"],
+                        label=self._get_chatbot_title()
+                    )
+                    
+                    # Also update the model info display
+                    updated_model_info = gr.HTML(
+                        value=self._get_model_info_html(),
+                        elem_classes=["model-info"]
+                    )
+                    
+                    return f"✅ Model switched to {model_name}", state, updated_chatbot, updated_model_info
                 else:
-                    return f"❌ Failed to switch model: {response.get('message', 'Unknown error')}", state
+                    # Return current chatbot unchanged if model switch failed
+                    current_chatbot = gr.Chatbot(
+                        value=state.get("conversation", []),
+                        height=500,
+                        show_copy_button=True,
+                        show_share_button=False,
+                        container=True,
+                        type="messages",
+                        elem_classes=["chat-container"],
+                        label=self._get_chatbot_title()
+                    )
+                    current_model_info = gr.HTML(
+                        value=self._get_model_info_html(),
+                        elem_classes=["model-info"]
+                    )
+                    
+                    return f"❌ Failed to switch model: {response.get('message', 'Unknown error')}", state, current_chatbot, current_model_info
             
             # Wire up settings event handlers
             temperature_slider.change(
@@ -587,7 +626,7 @@ class WebChatInterface:
             model_selector.change(
                 update_model,
                 inputs=[model_selector, session_state], 
-                outputs=[message_input, session_state]
+                outputs=[message_input, session_state, chatbot, model_info]
             )
             
         return interface
@@ -637,6 +676,18 @@ class WebChatInterface:
             <strong>Session:</strong> {self.session_id[:8]}...
         </div>
         """
+    
+    def _get_chatbot_title(self) -> str:
+        """Get formatted title for the chatbot component using Oumi chat pattern."""
+        model_name = getattr(self.config.model, 'model_name', 'Assistant')
+        
+        # Clean up model name for display (same as Oumi chat)
+        if "/" in model_name:
+            display_model_name = model_name.split("/")[-1]  # Get last part after /
+        else:
+            display_model_name = model_name
+            
+        return display_model_name
     
     def _get_system_monitor_html(self) -> str:
         """Get HTML for system monitor display using backend SystemMonitor."""
@@ -705,10 +756,28 @@ class WebChatInterface:
     
     def _get_available_models(self) -> List[str]:
         """Get list of available models for the dropdown."""
-        # For now, return current model
-        # TODO: Implement model discovery
         current_model = getattr(self.config.model, 'model_name', 'Current Model')
-        return [current_model, "meta-llama/Llama-3.1-8B-Instruct", "anthropic:claude-3-5-sonnet"]
+        
+        # Common model options organized by category
+        models = [
+            current_model,
+            "--- Local Models ---",
+            "meta-llama/Llama-3.1-8B-Instruct",
+            "microsoft/Qwen2.5-3B-Instruct", 
+            "microsoft/Phi-3.5-mini-instruct",
+            "--- API Models ---",
+            "anthropic:claude-3-5-sonnet-20241022",
+            "anthropic:claude-3-5-haiku-20241022",
+            "openai:gpt-4o",
+            "openai:gpt-4o-mini",
+            "together:meta-llama/Llama-3.1-70B-Instruct-Turbo",
+            "together:deepseek-ai/DeepSeek-R1",
+            "--- Config Files ---",
+            "config:configs/recipes/qwen2_5/inference/3b_infer.yaml",
+            "config:configs/recipes/llama3_1/inference/8b_infer.yaml"
+        ]
+        
+        return models
     
     def _sync_conversation_to_backend(self, session_id: str, conversation: list):
         """Sync conversation state from frontend to backend session."""
