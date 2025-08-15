@@ -735,6 +735,34 @@ class OumiWebServer(OpenAICompatibleServer):
                 logger.error(f"Branch API error: {e}")
                 return web.json_response({'error': str(e)}, status=500)
 
+    async def handle_sync_conversation_api(self, request: web.Request) -> web.Response:
+        """Handle syncing conversation from frontend to backend session."""
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({'error': 'Invalid JSON'}, status=400)
+        
+        session_id = data.get('session_id', 'default')
+        conversation = data.get('conversation', [])
+        
+        session = await self.get_or_create_session(session_id)
+        
+        # Update the session's conversation history
+        session.conversation_history.clear()
+        session.conversation_history.extend(conversation)
+        session.update_activity()
+        
+        return web.json_response({'success': True})
+
+    async def handle_get_conversation_api(self, request: web.Request) -> web.Response:
+        """Handle getting current conversation from backend session."""
+        session_id = request.query.get('session_id', 'default')
+        session = await self.get_or_create_session(session_id)
+        
+        return web.json_response({
+            'conversation': session.serialize_conversation()
+        })
+
     async def cleanup_sessions(self):
         """Clean up inactive sessions."""
         while True:
@@ -780,6 +808,8 @@ class OumiWebServer(OpenAICompatibleServer):
         app.router.add_post("/v1/oumi/command", self.handle_command_api)
         app.router.add_get("/v1/oumi/branches", self.handle_branches_api)
         app.router.add_post("/v1/oumi/branches", self.handle_branches_api)
+        app.router.add_post("/v1/oumi/sync_conversation", self.handle_sync_conversation_api)
+        app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
         
         # Add debug middleware (disabled for now due to parameter issues)
         # async def debug_middleware(request, handler):
