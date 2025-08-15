@@ -813,8 +813,20 @@ class TrainingParams(BaseParams):
                 )
             trainer_kwargs.update(grpo_kwargs)
 
+        # Determine if we should use AcceleratorConfig for gradient accumulation
+        # This is needed for DeepSpeed to avoid conflicts between Accelerate and DeepSpeed configs
+        use_accelerator_for_grad_accum = (
+            training_config is not None 
+            and training_config.deepspeed 
+            and training_config.deepspeed.enable_deepspeed
+        )
+        
         result = config_class(
-            gradient_accumulation_steps=self.gradient_accumulation_steps,
+            # Set gradient_accumulation_steps directly unless using AcceleratorConfig for DeepSpeed
+            **(
+                {} if use_accelerator_for_grad_accum 
+                else {"gradient_accumulation_steps": self.gradient_accumulation_steps}
+            ),
             log_level=self.dep_log_level,
             logging_dir=self.logging_dir,
             logging_nan_inf_filter=True,
@@ -861,16 +873,23 @@ class TrainingParams(BaseParams):
             dataloader_pin_memory=True,  # Set it to True to be explicit.
             ddp_find_unused_parameters=self.ddp_find_unused_parameters,
             max_grad_norm=self.max_grad_norm,  # type: ignore
-            accelerator_config={  # accelerator config for multi-device training
+            accelerator_config={
+                # accelerator config for multi-device training
                 "dispatch_batches": dispatch_batches,
                 # The params below are set to their default values.
                 "split_batches": False,
                 "even_batches": True,
                 "use_seedable_sampler": True,
-                # Ensure gradient accumulation plugin uses the same value as training config
-                "gradient_accumulation_kwargs": {
-                    "num_steps": self.gradient_accumulation_steps,
-                },
+                # Only add gradient accumulation for DeepSpeed to fix Accelerate/DeepSpeed conflicts
+                **(
+                    {
+                        "gradient_accumulation_kwargs": {
+                            "num_steps": self.gradient_accumulation_steps,
+                        }
+                    }
+                    if use_accelerator_for_grad_accum
+                    else {}
+                ),
             },
             seed=self.seed,
             data_seed=self.data_seed,
