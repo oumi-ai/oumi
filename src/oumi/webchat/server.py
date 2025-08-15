@@ -62,10 +62,12 @@ class WebChatSession:
             conversation_history=self.conversation_history,
             inference_engine=None,  # Will be set when needed
             system_monitor=self.system_monitor,
-            thinking_processor=self.thinking_processor,
-            branch_manager=self.branch_manager,
-            _style=type('Style', (), {'use_emoji': True, 'expand_panels': True})()
         )
+        
+        # Add additional components directly to the context
+        self.command_context.thinking_processor = self.thinking_processor
+        self.command_context.branch_manager = self.branch_manager
+        self.command_context._style = type('Style', (), {'use_emoji': True, 'expand_panels': True})()
         
         self.command_parser = CommandParser()
         self.command_router = CommandRouter(self.command_context)
