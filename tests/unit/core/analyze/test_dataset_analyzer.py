@@ -629,19 +629,14 @@ def test_invalid_expressions(test_data_path, mock_config):
 
 
 def test_analyzer_with_tokenizer(test_data_path):
-    """Test that tokenizer is properly passed to analyzers."""
-    from unittest.mock import Mock
-
-    # Create a mock tokenizer
-    mock_tokenizer = Mock()
-    mock_tokenizer.encode.return_value = [1, 2, 3]  # 3 tokens
-
-    # Create config with tokenizer
+    """Test that tokenizer is properly built from config and passed to analyzers."""
     config = AnalyzeConfig(
         dataset_name="text_sft",
         split="train",
         sample_count=2,
-        tokenizer=mock_tokenizer,
+        tokenizer_config={
+            "model_name": "gpt2"
+        },  # This will be used to build a real tokenizer
         analyzers=[
             SampleAnalyzerParams(
                 id="text_length_analyzer",
@@ -651,6 +646,10 @@ def test_analyzer_with_tokenizer(test_data_path):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
+
+    # Verify that tokenizer was built from config
+    assert analyzer.tokenizer is not None
+    assert hasattr(analyzer.tokenizer, "encode")
 
     # Run analysis to trigger tokenizer usage
     analyzer.analyze_dataset()
@@ -663,6 +662,3 @@ def test_analyzer_with_tokenizer(test_data_path):
     analysis_df = analyzer.analysis_df
     assert analysis_df is not None
     assert len(analysis_df) > 0
-
-    # Verify that the mock tokenizer was actually called
-    assert mock_tokenizer.encode.call_count > 0
