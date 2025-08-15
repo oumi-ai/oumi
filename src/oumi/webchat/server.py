@@ -51,7 +51,8 @@ class WebChatSession:
         
         # Initialize core components
         self.console = Console()
-        self.system_monitor = SystemMonitor(self.console)
+        # Initialize SystemMonitor - we'll get max_context from the command_context after it's created
+        self.system_monitor = SystemMonitor(max_context_tokens=4096)  # Temporary, will be updated
         self.thinking_processor = ThinkingProcessor()
         self.branch_manager = ConversationBranchManager(self.conversation_history)
         
@@ -70,6 +71,10 @@ class WebChatSession:
         
         self.command_parser = CommandParser()
         self.command_router = CommandRouter(self.command_context)
+        
+        # Update SystemMonitor with proper context length from command_context
+        max_context = self.command_context.context_window_manager.max_context_length
+        self.system_monitor.update_max_context_tokens(max_context)
         
         # WebSocket connections for this session
         self.websockets: Set[web.WebSocketResponse] = set()
@@ -102,6 +107,7 @@ class WebChatSession:
         # Clean up closed sockets
         for ws in closed_sockets:
             self.websockets.discard(ws)
+
 
     def update_activity(self):
         """Update last activity timestamp."""
@@ -413,10 +419,22 @@ class OumiWebServer(OpenAICompatibleServer):
             }))
             
         elif msg_type == 'system_monitor':
-            monitor_data = session.system_monitor.get_current_stats()
+            monitor_stats = session.system_monitor.get_stats()
             await ws.send_str(json.dumps({
                 'type': 'system_update',
-                'data': monitor_data
+                'data': {
+                    'cpu_percent': monitor_stats.cpu_percent,
+                    'ram_used_gb': monitor_stats.ram_used_gb,
+                    'ram_total_gb': monitor_stats.ram_total_gb,
+                    'ram_percent': monitor_stats.ram_percent,
+                    'gpu_vram_used_gb': monitor_stats.gpu_vram_used_gb,
+                    'gpu_vram_total_gb': monitor_stats.gpu_vram_total_gb,
+                    'gpu_vram_percent': monitor_stats.gpu_vram_percent,
+                    'context_used_tokens': monitor_stats.context_used_tokens,
+                    'context_max_tokens': monitor_stats.context_max_tokens,
+                    'context_percent': monitor_stats.context_percent,
+                    'conversation_turns': monitor_stats.conversation_turns
+                }
             }))
         
         else:
@@ -763,6 +781,48 @@ class OumiWebServer(OpenAICompatibleServer):
             'conversation': session.serialize_conversation()
         })
 
+    async def handle_system_stats_api(self, request: web.Request) -> web.Response:
+        """Handle getting system stats from backend session."""
+        session_id = request.query.get('session_id', 'default')
+        session = await self.get_or_create_session(session_id)
+        
+        # Update context usage based on current conversation
+        self._update_session_context_usage(session)
+        
+        # Get stats from SystemMonitor
+        stats = session.system_monitor.get_stats()
+        
+        return web.json_response({
+            'cpu_percent': stats.cpu_percent,
+            'ram_used_gb': stats.ram_used_gb,
+            'ram_total_gb': stats.ram_total_gb,
+            'ram_percent': stats.ram_percent,
+            'gpu_vram_used_gb': stats.gpu_vram_used_gb,
+            'gpu_vram_total_gb': stats.gpu_vram_total_gb,
+            'gpu_vram_percent': stats.gpu_vram_percent,
+            'context_used_tokens': stats.context_used_tokens,
+            'context_max_tokens': stats.context_max_tokens,
+            'context_percent': stats.context_percent,
+            'conversation_turns': stats.conversation_turns
+        })
+
+    def _update_session_context_usage(self, session):
+        """Update SystemMonitor with current conversation context usage."""
+        try:
+            # Use the existing ContextWindowManager for proper token estimation
+            context_manager = session.command_context.context_window_manager
+            total_tokens = 0
+            
+            for msg in session.conversation_history:
+                content = msg.get('content', '')
+                if content:
+                    total_tokens += context_manager.estimate_tokens(content)
+            
+            session.system_monitor.update_context_usage(total_tokens)
+            session.system_monitor.update_conversation_turns(len(session.conversation_history) // 2)
+        except Exception as e:
+            logger.warning(f"Failed to update context usage: {e}")
+
     async def cleanup_sessions(self):
         """Clean up inactive sessions."""
         while True:
@@ -810,6 +870,7 @@ class OumiWebServer(OpenAICompatibleServer):
         app.router.add_post("/v1/oumi/branches", self.handle_branches_api)
         app.router.add_post("/v1/oumi/sync_conversation", self.handle_sync_conversation_api)
         app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
+        app.router.add_get("/v1/oumi/system_stats", self.handle_system_stats_api)
         
         # Add debug middleware (disabled for now due to parameter issues)
         # async def debug_middleware(request, handler):
