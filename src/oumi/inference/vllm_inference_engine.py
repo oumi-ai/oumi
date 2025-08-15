@@ -123,6 +123,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                             "explicitly set the `tokenizer_name` in `model_params`."
                         )
 
+        supported_quantization_methods = list(get_args(QuantizationMethods))
+        if quantization and quantization not in supported_quantization_methods:
+            raise ValueError(
+                f"Unsupported quantization method: {quantization}. "
+                f"Supported methods are: {supported_quantization_methods}."
+            )
+
         vllm_kwargs = {}
 
         # Set the proper VLLM keys for the quantization type.
@@ -163,13 +170,6 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["max_num_seqs"] = max_num_seqs
 
         self._tokenizer = build_tokenizer(model_params)
-
-        supported_quantization_methods = list(get_args(QuantizationMethods))
-        if quantization and quantization not in supported_quantization_methods:
-            raise ValueError(
-                f"Unsupported quantization method: {quantization}. "
-                f"Supported methods are: {supported_quantization_methods}."
-            )
 
         self._llm = vllm.LLM(
             model=model_params.model_name,

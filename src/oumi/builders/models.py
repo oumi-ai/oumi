@@ -255,19 +255,11 @@ def build_huggingface_model(
     torch_dtype = model_params.torch_dtype or model_params.torch_dtype_str
 
     quantization_config = transformers.Mxfp4Config(dequantize=True)
-    # model_kwargs = dict(
-    #     quantization_config=quantization_config,
-    #     use_cache=False,
-    #     device_map="auto",
-    # )
-
 
     if model_params.load_pretrained_weights:
         model = transformers_model_class.from_pretrained(
             config=hf_config,
             torch_dtype=torch_dtype,
-            device_map="auto",
-            # use_cache=False,
             trust_remote_code=model_params.trust_remote_code,
             pretrained_model_name_or_path=model_params.model_name,
             quantization_config=quantization_config,

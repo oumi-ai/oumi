@@ -149,6 +149,8 @@ class ModelParams(BaseParams):
     - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
       Requires "flash-attn" package to be installed
     - "eager": Manual implementation of attention
+    - Custom kernel path (ex. "kernels-community/vllm-flash-attn3"): Load the custom
+      kernel from the given path in HF Hub.
     """
 
     device_map: Optional[str] = "auto"
