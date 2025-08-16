@@ -62,10 +62,17 @@ class AnalyzeConfig(BaseConfig):
     analyzers: list[SampleAnalyzerParams] = field(default_factory=list)
     """List of analyzer configurations (plugin-style)."""
 
-    # Add tokenizer parameter
-    tokenizer: Optional[Any] = None
-    """Tokenizer to use for dataset loading. If None, dataset will be loaded
-    without tokenizer."""
+    tokenizer_config: Optional[dict[str, Any]] = None
+    """Tokenizer configuration for building a tokenizer.
+    If None, no tokenizer will be used.
+
+    Expected format:
+    {
+        "model_name": "gpt2",  # Required: model name for tokenizer
+        "tokenizer_kwargs": {},  # Optional: additional tokenizer parameters
+        "trust_remote_code": False  # Optional: whether to trust remote code
+    }
+    """
 
     # Add processor parameters for vision-language datasets
     processor_name: Optional[str] = None
