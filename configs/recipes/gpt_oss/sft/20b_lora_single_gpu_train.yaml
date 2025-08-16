@@ -9,7 +9,7 @@
 #   - Efficient LoRA parameters
 #
 # Usage:
-#   oumi train -c configs/recipes/gpt_oss/sft/20b_lora_single_gpu.yaml
+#   oumi train -c oumi://configs/recipes/gpt_oss/sft/20b_lora_single_gpu_train.yaml
 #
 # Hardware Requirements:
 #   - Single GPU with 80GB+ VRAM (H100, A100 80GB)
@@ -25,14 +25,12 @@ model:
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
-  attn_implementation: "kernels-community/vllm-flash-attn3"  # Auto-detects best available Flash Attention
+  attn_implementation: "eager"
 
   # Enable MXFP4 dequantization for training with pre-quantized models
   model_kwargs:
     quantization_config:
       quant_method: "mxfp4"
-      bits: 4
-      group_size: 128
 
 data:
   train:
@@ -80,10 +78,11 @@ peft:
   lora_alpha: 16   # HF recipe alpha
   lora_dropout: 0  # No dropout for stability
   lora_target_modules:
-    - "q_proj"
-    - "k_proj"
-    - "v_proj"
-    - "o_proj"
-    - "gate_proj"
-    - "up_proj"
-    - "down_proj"
+    - "all-linear"
+  lora_target_parameters:
+    - "7.mlp.experts.gate_up_proj"
+    - "7.mlp.experts.down_proj"
+    - "15.mlp.experts.gate_up_proj"
+    - "15.mlp.experts.down_proj"
+    - "23.mlp.experts.gate_up_proj"
+    - "23.mlp.experts.down_proj"

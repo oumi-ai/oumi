@@ -145,6 +145,8 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["load_format"] = "bitsandbytes"
             logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
         elif quantization and quantization == "mxfp4":
+            # logic may not be needed; to be cleaned up after the next vllm patch
+            # version release if possible
             # For MXFP4, set quantization in vllm_kwargs and clear variable
             # to avoid passing it twice
             vllm_kwargs["quantization"] = "mxfp4"

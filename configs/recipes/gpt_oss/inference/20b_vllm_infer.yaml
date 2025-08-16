@@ -15,14 +15,11 @@ model:
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
-  attn_implementation: "flash_attention_2"  # Use Flash Attention 2
 
   # Enable MXFP4 quantization for efficient inference
   model_kwargs:
     quantization_config:
       quant_method: "mxfp4"
-      bits: 4
-      group_size: 128
 
 # Use vLLM engine for local inference
 engine: VLLM

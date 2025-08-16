@@ -207,18 +207,11 @@ def _get_quantization_config_for_training(model_params: ModelParams):
 
     # Handle MXFP4 quantization for training (requires dequantization)
     if isinstance(quant_config, dict) and quant_config.get("quant_method") == "mxfp4":
-        try:
-            logger.info(
-                "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
-                "for training."
-            )
-            return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]
-        except Exception as e:
-            raise ImportError(
-                "MXFP4 quantization requires transformers>=4.55.0 with "
-                "Mxfp4Config support. Please upgrade transformers: "
-                f"pip install 'transformers>=4.55.0'. Error: {str(e)}"
-            )
+        logger.info(
+            "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
+            "for training."
+        )
+        return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]
 
     return None
 
@@ -524,7 +517,6 @@ def build_tokenizer(
             f"Chat template set to 'auto' - using model's built-in template "
             f"for {tokenizer_id_str}."
         )
-        template_name = ""  # Don't set any template name to avoid override
     elif model_params.chat_template is not None:
         template_name = model_params.chat_template
     else:
