@@ -45,7 +45,10 @@ def build_quantizer(method: str) -> BaseQuantization:
         return BitsAndBytesQuantization()
     else:
         # Try all quantizers to find one that supports this method
-        for quantizer_class in [AwqQuantization, BitsAndBytesQuantization]:
+        for quantizer_class in [
+            AwqQuantization,
+            BitsAndBytesQuantization,
+        ]:
             instance = quantizer_class()
             if instance.supports_method(method):
                 return instance

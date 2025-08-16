@@ -355,6 +355,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             output_batch_decoded = self._tokenizer.batch_decode(
                 output_batch.data,
                 clean_up_tokenization_spaces=True,
+                skip_special_tokens=generation_params.skip_special_tokens,
             )
             for conversation, response in zip(
                 batched_input[batch_index], output_batch_decoded
@@ -404,6 +405,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "min_p",
             "presence_penalty",
             "seed",
+            "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",
             "temperature",
