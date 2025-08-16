@@ -1,4 +1,4 @@
-# Simplified GPT-2 config for local testing on Mac.
+# Simplified GPT-2 config for local testing on macOS.
 #
 # Usage:
 #   oumi train -c configs/recipes/gpt2/pretraining/macos_train.yaml

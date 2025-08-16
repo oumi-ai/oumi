@@ -1,4 +1,4 @@
-# Phi3 LoRA train config for Mac.
+# Phi3 LoRA train config for macOS.
 #
 # Usage:
 #   oumi train -c configs/recipes/phi3/sft/lora_macos_train.yaml
