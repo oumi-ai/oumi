@@ -89,7 +89,7 @@ def _handle_non_primitives(config: Any, removed_paths, path: str = "") -> Any:
             source = inspect.getsource(config)
             # Only return source if we successfully got it
             return source
-        except (TypeError, OSError, IOError):
+        except (TypeError, OSError):
             # Can't get source for lambdas, built-ins, or C extensions
             removed_paths.add(path)
             return None
