@@ -45,6 +45,13 @@ class TrainerType(Enum):
     for fine-tuning language models based on human preferences.
     """
 
+    TRL_KTO = "trl_kto"
+    """Kahneman-Tversky Optimization trainer from `trl` library.
+
+    This trainer implements the KTO algorithm for fine-tuning language models
+    based on binary feedback (desirable/undesirable) rather than preference pairs.
+    """
+
     TRL_GRPO = "trl_grpo"
     """Group Relative Policy Optimization trainer from `trl` library.
 
@@ -162,6 +169,7 @@ class TrainingParams(BaseParams):
     - HF: HuggingFace's Trainer
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
+    - TRL_KTO: TRL's KTO Trainer
     - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
     - VERL_GRPO: verl's GRPO Trainer
@@ -725,6 +733,8 @@ class TrainingParams(BaseParams):
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_KTO:
+            config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         else:
