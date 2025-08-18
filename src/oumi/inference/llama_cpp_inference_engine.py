@@ -122,6 +122,9 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             # Use Q8 quantization by default.
             "filename": "*8_0.gguf",
             "flash_attn": True,
+            # Memory safety defaults
+            "use_mmap": True,
+            "use_mlock": True,
         }
 
         model_kwargs = model_params.model_kwargs.copy()
