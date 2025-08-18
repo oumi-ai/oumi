@@ -12,57 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
-
-from oumi.builders.models import build_tokenizer
 from oumi.core.configs import AnalyzeConfig
-from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets import BaseMapDataset
 from oumi.utils.logging import logger
 
 
-def build_tokenizer_from_config(tokenizer_config: Optional[dict[str, Any]]):
-    """Build a tokenizer from configuration dictionary.
-
-    Args:
-        tokenizer_config: Dictionary containing tokenizer configuration
-
-    Returns:
-        Built tokenizer or None if config is None
-
-    Raises:
-        ValueError: If required fields are missing from tokenizer_config
-    """
-    if not tokenizer_config:
-        return None
-
-    if "model_name" not in tokenizer_config:
-        raise ValueError("tokenizer_config must contain 'model_name' field")
-
-    model_params = ModelParams(
-        model_name=tokenizer_config["model_name"],
-        tokenizer_kwargs=tokenizer_config.get("tokenizer_kwargs", {}),
-        trust_remote_code=tokenizer_config.get("trust_remote_code", False),
-    )
-    tokenizer = build_tokenizer(model_params)
-    logger.info(f"Built tokenizer for model: {model_params.model_name}")
-    return tokenizer
-
-
-def load_dataset_from_config(
-    config: AnalyzeConfig, tokenizer: Optional[Any] = None
-) -> BaseMapDataset:
+def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes.
-    If a tokenizer is provided, it will be passed to the dataset constructor.
-
-    Args:
-        config: Configuration object containing dataset parameters
-        tokenizer: Optional tokenizer to use with the dataset
-
-    Returns:
-        Loaded dataset
+    If a tokenizer is provided in the config, it will be passed to the dataset
+    constructor.
     """
     # Delayed import to avoid circular dependency with registry and dataset modules
     from oumi.core.registry import REGISTRY
@@ -70,6 +30,7 @@ def load_dataset_from_config(
     dataset_name = config.dataset_name
     split = config.split
     subset = config.subset
+    tokenizer = config.tokenizer
 
     if not dataset_name:
         raise ValueError("Dataset name is required")

@@ -141,9 +141,17 @@ def convert_message_content_item_to_json_dict(
         Dict[str, Any]: The content for the message.
     """
     if item.type == Type.TEXT:
+        text_content = item.content or ""
+        # Clean any harmony tags that might have slipped through
+        if "<|" in text_content and "|>" in text_content:
+            from oumi.core.thinking.thinking_processor import ThinkingProcessor
+
+            processor = ThinkingProcessor()
+            text_content = processor.clean_harmony_tags(text_content)
+
         return {
             _JSON_DICT_KEY_TYPE: Type.TEXT.value,
-            _JSON_DICT_KEY_TEXT: (item.content or ""),
+            _JSON_DICT_KEY_TEXT: text_content,
         }
     elif not item.is_image():
         raise ValueError(f"Unsupported message type: {item.type}")
@@ -208,7 +216,14 @@ def convert_message_to_json_content(
         or as a list of content items.
     """
     if isinstance(message.content, str):
-        return message.content
+        # Clean any harmony tags that might have slipped through
+        content = message.content
+        if "<|" in content and "|>" in content:
+            from oumi.core.thinking.thinking_processor import ThinkingProcessor
+
+            processor = ThinkingProcessor()
+            content = processor.clean_harmony_tags(content)
+        return content
 
     assert isinstance(message.content, list)
     return convert_content_items_to_json_list(message.content_items)
