@@ -469,8 +469,24 @@ class OumiWebServer(OpenAICompatibleServer):
         # Generate AI response using inference engine
         try:
             # Initialize inference engine if not already done
+            # Important: Only reset if None - preserve engines set by /swap commands
             if session.command_context.inference_engine is None:
+                logger.debug("Initializing inference engine from server config")
                 session.command_context.inference_engine = self.get_inference_engine()
+            else:
+                # Log current engine info for debugging swap issues
+                engine_info = getattr(session.command_context.inference_engine, 'model_name', 'Unknown')
+                logger.debug(f"Using existing inference engine: {engine_info}")
+                
+                # Validate that the existing engine is still usable
+                try:
+                    # Check if engine has required methods (basic validation)
+                    if not hasattr(session.command_context.inference_engine, 'generate_response'):
+                        logger.warning("Swapped inference engine missing generate_response method, falling back to original")
+                        session.command_context.inference_engine = self.get_inference_engine()
+                except Exception as e:
+                    logger.warning(f"Swapped inference engine validation failed: {e}, falling back to original")
+                    session.command_context.inference_engine = self.get_inference_engine()
             
             # Create conversation for inference
             from oumi.core.types.conversation import Conversation, Message, Role
