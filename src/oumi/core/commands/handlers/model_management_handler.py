@@ -148,6 +148,10 @@ class ModelManagementHandler(BaseCommandHandler):
                 self.context.inference_engine = new_engine
                 self.context.config = new_config
 
+                # Reset the context window manager so it picks up the new model config
+                if hasattr(self.context, "_context_window_manager"):
+                    self.context._context_window_manager = None
+
                 # Update system monitor with new model info if available
                 if (
                     hasattr(self.context, "system_monitor")
