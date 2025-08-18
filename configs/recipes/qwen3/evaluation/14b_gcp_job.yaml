@@ -24,7 +24,7 @@ resources:
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
 
 envs:
   # NOTE: For SFT, update this to point to your model checkpoint.
@@ -39,7 +39,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during eval.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen3-14B
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download Qwen/Qwen3-14B
 
 run: |
   set -e  # Exit if any command failed.
