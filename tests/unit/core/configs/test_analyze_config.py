@@ -67,6 +67,86 @@ def test_analyze_config_validation_empty_dataset_name():
         AnalyzeConfig(dataset_name="")
 
 
+def test_analyze_config_validation_missing_dataset_path():
+    """Test validation failure when both dataset_name and dataset_path are missing."""
+    with pytest.raises(
+        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+    ):
+        AnalyzeConfig(dataset_name=None, dataset_path=None)
+
+
+def test_analyze_config_validation_empty_dataset_path():
+    """Test validation failure when both dataset_name and dataset_path are empty."""
+    with pytest.raises(
+        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+    ):
+        AnalyzeConfig(dataset_name="", dataset_path="")
+
+
+def test_analyze_config_validation_missing_processor_when_multimodal():
+    """Test validation failure when processor_name is missing but
+    is_multimodal is True."""
+    with pytest.raises(
+        ValueError,
+        match="'processor_name' must be specified when 'is_multimodal' is True",
+    ):
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            dataset_format="oumi",
+            is_multimodal=True,
+            processor_name=None,
+        )
+
+
+def test_analyze_config_validation_empty_processor_when_multimodal():
+    """Test validation failure when processor_name is empty but is_multimodal
+    is True."""
+    with pytest.raises(
+        ValueError,
+        match="'processor_name' must be specified when 'is_multimodal' is True",
+    ):
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            dataset_format="oumi",
+            is_multimodal=True,
+            processor_name="",
+        )
+
+
+def test_analyze_config_validation_multimodal_wrong_format():
+    """Test validation failure when is_multimodal is True but dataset_format is
+    not 'oumi'."""
+    with pytest.raises(
+        ValueError, match="Multimodal datasets require dataset_format='oumi'"
+    ):
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            dataset_format="alpaca",
+            is_multimodal=True,
+            processor_name="openai/clip-vit-base-patch32",
+        )
+
+
+def test_analyze_config_validation_missing_dataset_format():
+    """Test validation failure when dataset_path is provided but dataset_format
+    is missing."""
+    with pytest.raises(
+        ValueError, match="'dataset_format' must be specified when using 'dataset_path'"
+    ):
+        AnalyzeConfig(dataset_path="/path/to/dataset.json")
+
+
+def test_analyze_config_validation_invalid_dataset_format():
+    """Test validation failure when dataset_format is not 'oumi' or 'alpaca'."""
+    with pytest.raises(
+        ValueError, match="'dataset_format' must be either 'oumi' or 'alpaca'"
+    ):
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            dataset_format="invalid_format",
+        )
+
+
 def test_analyze_config_validation_with_valid_analyzers():
     """Test validation with valid analyzer configurations."""
     analyzers = [
