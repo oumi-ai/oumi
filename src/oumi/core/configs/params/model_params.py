@@ -131,8 +131,12 @@ class ModelParams(BaseParams):
     chat_template: Optional[str] = None
     """The chat template to use for formatting inputs.
 
-    If provided, this template will be used to format multi-turn conversations
-    for models that support chat-like interactions.
+    Options:
+    - None: Uses fallback hierarchy (internal config → built-in template → default)
+    - "auto": Directly uses model's built-in chat template (recommended for clarity)
+    - Custom string: Uses specified Oumi template name (e.g., "llama3-instruct")
+
+    Recommendation: Use explicit "auto" instead of None for less ambiguous behavior.
 
     Note:
         Different models may require specific chat templates. Consult the model's
@@ -149,6 +153,9 @@ class ModelParams(BaseParams):
     - "flash_attention_2": Use Flash Attention 2 for potentially faster computation.
       Requires "flash-attn" package to be installed
     - "eager": Manual implementation of attention
+    - "kernels-community/vllm-flash-attn3": Use vLLM Flash Attention 3 kernel from
+      HF Hub
+    - Custom kernel paths: Any HuggingFace Hub path to attention kernels
     """
 
     device_map: Optional[str] = "auto"
