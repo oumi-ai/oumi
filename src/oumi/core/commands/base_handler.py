@@ -162,7 +162,11 @@ class BaseCommandHandler(ABC):
             current_config = getattr(self.context, "config", self.config)
             max_context = getattr(current_config.model, "model_max_length", None)
             
-            # If no max_context found in config, try to get it from inference engine
+            # If no max_context found in config, try to get it using the engine-specific logic
+            if not max_context:
+                max_context = self._get_context_length_for_engine(current_config)
+            
+            # If still no max_context, try to get it from inference engine
             if not max_context and hasattr(self.context, "inference_engine") and self.context.inference_engine:
                 engine_config = getattr(self.context.inference_engine, "model_config", None)
                 if engine_config:
@@ -196,6 +200,72 @@ class BaseCommandHandler(ABC):
 
         # Auto-save after context updates (conversation modifications)
         self._auto_save_if_enabled()
+
+    def _get_context_length_for_engine(self, config) -> int:
+        """Get the appropriate context length for the given engine configuration.
+        Args:
+            config: The inference configuration.
+        Returns:
+            Context length in tokens.
+        """
+        engine_type = str(config.engine) if config.engine else "NATIVE"
+        # For local engines, check model_max_length
+        if (
+            "NATIVE" in engine_type
+            or "VLLM" in engine_type
+            or "LLAMACPP" in engine_type
+        ):
+            max_length = getattr(config.model, "model_max_length", None)
+            if max_length is not None and max_length > 0:
+                return max_length
+        
+        # For API engines, use hardcoded context limits based on model patterns
+        model_name = getattr(config.model, "model_name", "").lower()
+        
+        # Anthropic context limits
+        if "ANTHROPIC" in engine_type or "claude" in model_name:
+            if "opus" in model_name:
+                return 200000  # Claude Opus
+            elif "sonnet" in model_name:
+                return 200000  # Claude 3.5 Sonnet / 3.7 Sonnet
+            elif "haiku" in model_name:
+                return 200000  # Claude Haiku
+            else:
+                return 200000  # Default for Claude models
+        
+        # OpenAI context limits
+        elif "OPENAI" in engine_type or "gpt" in model_name:
+            if "gpt-4o" in model_name:
+                return 128000  # GPT-4o
+            elif "gpt-4" in model_name:
+                return 128000  # GPT-4
+            elif "gpt-3.5" in model_name:
+                return 16385  # GPT-3.5-turbo
+            else:
+                return 128000  # Default for OpenAI models
+        
+        # Together AI context limits (varies by model)
+        elif "TOGETHER" in engine_type:
+            if "llama" in model_name:
+                if "405b" in model_name:
+                    return 131072  # Llama 3.1 405B
+                elif any(x in model_name for x in ["70b", "8b"]):
+                    return 131072  # Llama 3.1 70B/8B
+                else:
+                    return 32768   # Default Llama
+            elif "deepseek" in model_name:
+                return 32768  # DeepSeek models
+            elif "qwen" in model_name:
+                return 32768  # Qwen models
+            else:
+                return 32768  # Default for Together models
+        
+        # Other API engines - return reasonable defaults
+        elif any(x in engine_type for x in ["DEEPSEEK", "GOOGLE", "GEMINI"]):
+            return 128000  # Default for other API models
+        
+        # If we can't determine, return None to continue fallback chain
+        return None
 
     def _auto_save_if_enabled(self):
         """Auto-save chat if enabled and available."""
