@@ -14,6 +14,7 @@
 
 """Branch operations command handler."""
 
+import copy
 from datetime import datetime
 
 from rich.table import Table
@@ -54,7 +55,9 @@ class BranchOperationsHandler(BaseCommandHandler):
             branch_manager = self.context.branch_manager
 
             # Save current conversation history before creating new branch
-            branch_manager.sync_conversation_history(self.conversation_history)
+            # Use defensive copying to prevent shared reference issues
+            current_history_snapshot = copy.deepcopy(self.conversation_history)
+            branch_manager.sync_conversation_history(current_history_snapshot)
 
             # Get branch name from arguments
             branch_name = None
@@ -67,14 +70,18 @@ class BranchOperationsHandler(BaseCommandHandler):
                 from_branch_id=current_branch_id, name=branch_name
             )
 
-            if success:
-                # Auto-save current state to new branch if available
-                try:
-                    # Check if we can find a file operations handler instance
-                    # This is a bit hacky but works for the transition period
-                    pass  # Auto-save functionality would be handled separately
-                except ImportError:
-                    pass
+            if success and new_branch:
+                # Automatically switch to the newly created branch
+                # This ensures the user is working on the new branch immediately
+                branch_manager.current_branch_id = new_branch.id
+                
+                # Update conversation history to match the new branch
+                # (which should be a copy of the current conversation)
+                self.conversation_history.clear()
+                self.conversation_history.extend(copy.deepcopy(new_branch.conversation_history))
+                
+                # Update context monitor
+                self._update_context_in_monitor()
 
                 return CommandResult(
                     success=True,
@@ -109,16 +116,18 @@ class BranchOperationsHandler(BaseCommandHandler):
             branch_manager = self.context.branch_manager
 
             # Save current conversation history to the current branch before switching
-            branch_manager.sync_conversation_history(self.conversation_history)
+            # Use copy to ensure we don't get affected by subsequent list modifications
+            current_history_snapshot = copy.deepcopy(self.conversation_history)
+            branch_manager.sync_conversation_history(current_history_snapshot)
 
             # Switch to the branch
             success, message, branch = branch_manager.switch_branch(branch_name)
 
-            if success:
+            if success and branch:
                 # Update conversation history with branch content
-                if branch and hasattr(branch, "conversation_history"):
-                    self.conversation_history.clear()
-                    self.conversation_history.extend(branch.conversation_history)
+                # Clear and replace with deep copy to ensure isolation
+                self.conversation_history.clear()
+                self.conversation_history.extend(copy.deepcopy(branch.conversation_history))
 
                 # Update context monitor
                 self._update_context_in_monitor()
