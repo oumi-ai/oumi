@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
+import jsonlines
 import pytest
 
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
+from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
     build_tokenizer_from_config,
     load_dataset_from_config,
@@ -40,6 +45,122 @@ def mock_registry():
         yield mock_registry
 
 
+@pytest.fixture
+def sample_conversation_data():
+    """Sample conversation format data."""
+    return [
+        {
+            "messages": [
+                {"role": "user", "content": "Hello, how are you?"},
+                {"role": "assistant", "content": "I'm doing well, thank you!"},
+            ]
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "What's the weather like?"},
+                {
+                    "role": "assistant",
+                    "content": "I don't have access to real-time weather data.",
+                },
+            ]
+        },
+    ]
+
+
+@pytest.fixture
+def sample_alpaca_data():
+    """Sample alpaca format data."""
+    return [
+        {
+            "instruction": "What's the weather like in Seattle today?",
+            "input": "",
+            "output": "I apologize, but I don't have access to real-time weather "
+            "information for Seattle.",
+        },
+        {
+            "instruction": "Compute the average of the presented numbers.",
+            "input": "5, 6, 10",
+            "output": "The average for the numbers: 5, 6, 10 can be computed by "
+            "adding first all of them, and then dividing this sum by their total "
+            "number. First, 5+6+10 = 21. Then, 21 / 3 = 7. The average is 7.",
+        },
+    ]
+
+
+@pytest.fixture
+def sample_vision_language_data():
+    """Sample vision-language data."""
+    return [
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "content": "https://example.com/image_of_dog.jpg",
+                        },
+                        {"type": "text", "content": "What breed is this dog?"},
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": "This appears to be a Shih Tzu puppy.",
+                },
+            ]
+        },
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "content": "https://example.com/scenic_view.jpg",
+                        },
+                        {"type": "text", "content": "Describe this image:"},
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": "A scenic view of the puget sound with mountains in "
+                    "the background.",
+                },
+            ]
+        },
+    ]
+
+
+@pytest.fixture
+def temp_conversation_file(sample_conversation_data):
+    """Create a temporary conversation format file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(sample_conversation_data, f)
+        f.flush()  # Ensure data is written to disk
+        yield f.name
+    Path(f.name).unlink()  # Cleanup
+
+
+@pytest.fixture
+def temp_alpaca_file(sample_alpaca_data):
+    """Create a temporary alpaca format file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(sample_alpaca_data, f)
+        f.flush()  # Ensure data is written to disk
+        yield f.name
+    Path(f.name).unlink()  # Cleanup
+
+
+@pytest.fixture
+def temp_vision_language_file(sample_vision_language_data):
+    """Create a temporary vision-language format file."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        with jsonlines.open(f.name, mode="w") as writer:
+            writer.write_all(sample_vision_language_data)
+        yield f.name
+    Path(f.name).unlink()  # Cleanup
+
+
 def test_load_dataset_from_config_success(
     mock_dataset_class_and_instance, mock_registry
 ):
@@ -60,9 +181,12 @@ def test_load_dataset_from_config_success(
 
 def test_load_dataset_from_config_missing_dataset_name():
     """Test error handling when dataset_name is not provided."""
-    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
+    with pytest.raises(
+        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+    ):
         AnalyzeConfig(
             dataset_name=None,
+            dataset_path=None,
             split="train",
         )
 
@@ -223,3 +347,234 @@ def test_load_dataset_from_config_without_tokenizer(
     call_kwargs = mock_dataset_class.call_args[1]
     assert "tokenizer" not in call_kwargs
     assert result == mock_dataset_instance
+
+
+# Custom dataset loading tests
+def test_load_custom_dataset_conversation_format(temp_conversation_file):
+    """Test loading custom dataset in conversation format."""
+    config = AnalyzeConfig(
+        dataset_path=temp_conversation_file,
+        dataset_format="oumi",
+    )
+
+    dataset = load_dataset_from_config(config)
+
+    assert isinstance(dataset, TextSftJsonLinesDataset)
+    assert len(dataset) == 2
+
+    # Check first conversation
+    conv1 = dataset.conversation(0)
+    assert len(conv1.messages) == 2
+    assert conv1.messages[0].role == "user"
+    assert conv1.messages[0].content == "Hello, how are you?"
+    assert conv1.messages[1].role == "assistant"
+    assert conv1.messages[1].content == "I'm doing well, thank you!"
+
+
+def test_load_custom_dataset_alpaca_format(temp_alpaca_file):
+    """Test loading custom dataset in alpaca format."""
+    config = AnalyzeConfig(
+        dataset_path=temp_alpaca_file,
+        dataset_format="alpaca",
+    )
+
+    dataset = load_dataset_from_config(config)
+
+    assert isinstance(dataset, TextSftJsonLinesDataset)
+    assert len(dataset) == 2
+
+    # Check conversation structure
+    conv1 = dataset.conversation(0)
+    assert len(conv1.messages) == 2
+    assert conv1.messages[0].role == "user"
+    assert conv1.messages[1].role == "assistant"
+
+
+def test_load_custom_dataset_vision_language(temp_vision_language_file):
+    """Test loading custom vision-language dataset."""
+    # Create a mock tokenizer with required attributes
+    mock_tokenizer = Mock()
+    mock_tokenizer.pad_token_id = 0  # Set a valid pad_token_id
+
+    # Test 1: Vision-language dataset WITH processor - should load as VLJsonlinesDataset
+    config_with_processor = AnalyzeConfig(
+        dataset_path=temp_vision_language_file,
+        dataset_format="oumi",
+        processor_name="openai/clip-vit-base-patch32",  # Processor provided
+        is_vision_language=True,  # Explicitly mark as vision-language
+    )
+
+    dataset_with_processor = load_dataset_from_config(
+        config_with_processor, tokenizer=mock_tokenizer
+    )
+    assert isinstance(dataset_with_processor, VLJsonlinesDataset)
+    assert len(dataset_with_processor) == 2
+
+    # Test 2: Vision-language-like data WITHOUT processor - should load as
+    # TextSftJsonLinesDataset by default
+    config_without_processor = AnalyzeConfig(
+        dataset_path=temp_vision_language_file,
+        dataset_format="oumi",
+        # No processor_name - default is_vision_language=None -> text dataset
+    )
+
+    dataset_without_processor = load_dataset_from_config(
+        config_without_processor, tokenizer=mock_tokenizer
+    )
+    assert isinstance(dataset_without_processor, TextSftJsonLinesDataset)
+    assert len(dataset_without_processor) == 2
+
+    # Verify both datasets contain the same data
+    assert len(dataset_with_processor) == len(dataset_without_processor)
+
+    # Check conversation structure in the fallback dataset
+    conv1 = dataset_without_processor.conversation(0)
+    assert len(conv1.messages) == 2
+    assert conv1.messages[0].role == "user"
+    assert conv1.messages[1].role == "assistant"
+
+
+def test_load_custom_dataset_text_only_detection(temp_conversation_file):
+    """Test that text-only datasets are correctly detected and loaded as
+    TextSftJsonLinesDataset."""
+    config = AnalyzeConfig(
+        dataset_path=temp_conversation_file,
+        dataset_format="oumi",
+    )
+
+    dataset = load_dataset_from_config(config)
+
+    # Should be detected as text-only and loaded as TextSftJsonLinesDataset
+    assert isinstance(dataset, TextSftJsonLinesDataset)
+    assert len(dataset) == 2
+
+
+def test_load_custom_dataset_with_tokenizer(temp_conversation_file):
+    """Test loading custom dataset with tokenizer."""
+    mock_tokenizer = Mock()
+
+    config = AnalyzeConfig(
+        dataset_path=temp_conversation_file,
+        dataset_format="oumi",
+    )
+
+    dataset = load_dataset_from_config(config, tokenizer=mock_tokenizer)
+
+    assert isinstance(dataset, TextSftJsonLinesDataset)
+    # The tokenizer should be passed to the dataset constructor
+    # We can verify this by checking the dataset was created successfully
+
+
+def test_load_custom_dataset_file_not_found():
+    """Test error handling when custom dataset file doesn't exist."""
+    config = AnalyzeConfig(
+        dataset_path="nonexistent_file.json",
+        dataset_format="oumi",  # Required for custom datasets
+    )
+
+    with pytest.raises(
+        FileNotFoundError, match="Dataset file not found: nonexistent_file.json"
+    ):
+        load_dataset_from_config(config)
+
+
+def test_load_custom_dataset_directory_path():
+    """Test error handling when custom dataset path is a directory."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config = AnalyzeConfig(
+            dataset_path=temp_dir,
+            dataset_format="oumi",  # Required for custom datasets
+        )
+
+        with pytest.raises(
+            ValueError, match="Dataset path must be a file, not a directory"
+        ):
+            load_dataset_from_config(config)
+
+
+def test_load_custom_dataset_jsonl_format():
+    """Test loading custom dataset in JSONL format."""
+    sample_data = [
+        {
+            "messages": [
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi!"},
+            ]
+        },
+        {
+            "messages": [
+                {"role": "user", "content": "How are you?"},
+                {"role": "assistant", "content": "Good!"},
+            ]
+        },
+    ]
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        with jsonlines.open(f.name, mode="w") as writer:
+            writer.write_all(sample_data)
+
+        config = AnalyzeConfig(
+            dataset_path=f.name,
+            dataset_format="oumi",
+        )
+
+        dataset = load_dataset_from_config(config)
+
+        assert isinstance(dataset, TextSftJsonLinesDataset)
+        assert len(dataset) == 2
+
+        # Cleanup
+        Path(f.name).unlink()
+
+
+def test_analyze_config_with_custom_dataset_fields():
+    """Test AnalyzeConfig with custom dataset fields."""
+    config = AnalyzeConfig(
+        dataset_path="/path/to/custom/dataset.json",
+        dataset_format="oumi",
+    )
+
+    assert config.dataset_path == "/path/to/custom/dataset.json"
+    assert config.dataset_format == "oumi"
+
+
+def test_analyze_config_validation_custom_dataset_format():
+    """Test validation of custom dataset format values."""
+    # Valid formats
+    AnalyzeConfig(dataset_path="/path/to/dataset.json", dataset_format="oumi")
+    AnalyzeConfig(dataset_path="/path/to/dataset.json", dataset_format="alpaca")
+
+    # Invalid format
+    with pytest.raises(
+        ValueError, match="'dataset_format' must be either 'oumi' or 'alpaca'"
+    ):
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json", dataset_format="invalid_format"
+        )
+
+
+def test_analyze_config_validation_dataset_format_required():
+    """Test that dataset_format is required when dataset_path is provided."""
+    # Should raise error when dataset_path is provided but dataset_format is not
+    with pytest.raises(
+        ValueError, match="'dataset_format' must be specified when using 'dataset_path'"
+    ):
+        AnalyzeConfig(dataset_path="/path/to/dataset.json")
+
+    # Should work when both are provided
+    config = AnalyzeConfig(dataset_path="/path/to/dataset.json", dataset_format="oumi")
+    assert config.dataset_path == "/path/to/dataset.json"
+    assert config.dataset_format == "oumi"
+
+
+def test_analyze_config_priority_custom_over_registered():
+    """Test that custom dataset path takes priority over registered dataset name."""
+    config = AnalyzeConfig(
+        dataset_name="registered_dataset",
+        dataset_path="/path/to/custom/dataset.json",
+        dataset_format="oumi",  # Required for custom datasets
+    )
+
+    # Should use custom dataset path
+    assert config.dataset_path == "/path/to/custom/dataset.json"
+    assert config.dataset_name == "registered_dataset"

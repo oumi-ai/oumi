@@ -53,13 +53,17 @@ def test_sample_analyzer_param_with_language_detection_params():
 
 def test_analyze_config_validation_missing_dataset_name():
     """Test validation failure when dataset_name is missing."""
-    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
+    with pytest.raises(
+        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+    ):
         AnalyzeConfig(dataset_name=None)
 
 
 def test_analyze_config_validation_empty_dataset_name():
     """Test validation failure when dataset_name is empty."""
-    with pytest.raises(ValueError, match="'dataset_name' must be provided"):
+    with pytest.raises(
+        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+    ):
         AnalyzeConfig(dataset_name="")
 
 

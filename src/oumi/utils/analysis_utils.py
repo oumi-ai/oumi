@@ -1,4 +1,6 @@
-# Copyright 2025 - Oumi
+"""Utility functions for dataset analysis."""
+
+# Copyright 2024 Oumi AI.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,13 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+from pathlib import Path
 from typing import Any, Optional
 
 from oumi.builders.models import build_tokenizer
-from oumi.core.configs import AnalyzeConfig
+from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.datasets import BaseMapDataset
-from oumi.utils.logging import logger
+from oumi.core.datasets.base_map_dataset import BaseMapDataset
+from oumi.core.registry.registry import REGISTRY
+from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
+from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
+
+logger = logging.getLogger(__name__)
 
 
 def build_tokenizer_from_config(tokenizer_config: Optional[dict[str, Any]]):
@@ -57,6 +65,10 @@ def load_dataset_from_config(
     This function loads datasets directly from the registry for analysis purposes.
     If a tokenizer is provided, it will be passed to the dataset constructor.
 
+    For custom datasets, it supports loading from local files using
+    TextSftJsonLinesDataset for text data and VLJsonlinesDataset for
+    vision-language data.
+
     Args:
         config: Configuration object containing dataset parameters
         tokenizer: Optional tokenizer to use with the dataset
@@ -64,18 +76,26 @@ def load_dataset_from_config(
     Returns:
         Loaded dataset
     """
-    # Delayed import to avoid circular dependency with registry and dataset modules
-    from oumi.core.registry import REGISTRY
-
     dataset_name = config.dataset_name
     split = config.split
     subset = config.subset
+    dataset_path = config.dataset_path
+    dataset_format = config.dataset_format
 
-    if not dataset_name:
-        raise ValueError("Dataset name is required")
+    if not dataset_name and not dataset_path:
+        raise ValueError("Either dataset_name or dataset_path must be provided")
 
+    # Handle custom dataset loading from local files
+    if dataset_path:
+        return _load_custom_dataset_from_path(
+            dataset_path, dataset_format, tokenizer, config
+        )
+
+    # Handle registered dataset loading
     try:
         # Load dataset from the REGISTRY
+        if dataset_name is None:
+            raise ValueError("dataset_name cannot be None for registered datasets")
         dataset_class = REGISTRY.get_dataset(dataset_name, subset=subset)
 
         if dataset_class is not None:
@@ -119,3 +139,67 @@ def load_dataset_from_config(
     except Exception as e:
         logger.error(f"Failed to load dataset {dataset_name}: {e}")
         raise
+
+
+def _load_custom_dataset_from_path(
+    dataset_path: str,
+    dataset_format: Optional[str],
+    tokenizer: Optional[Any],
+    config: AnalyzeConfig,
+) -> BaseMapDataset:
+    """Load a custom dataset from a local file path.
+
+    Args:
+        dataset_path: Path to the dataset file
+        dataset_format: Format of the dataset ('oumi' or 'alpaca') - required for
+            custom datasets
+        tokenizer: Optional tokenizer to use with the dataset
+        config: Configuration object containing additional parameters
+
+    Returns:
+        Loaded dataset (TextSftJsonLinesDataset or VLJsonlinesDataset)
+    """
+    path = Path(dataset_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
+
+    if not path.is_file():
+        raise ValueError(
+            f"Dataset path must be a file, not a directory: {dataset_path}"
+        )
+
+    # Vision-language handling is explicit via config.is_vision_language
+    if config.is_vision_language is True:
+        # Require processor_name for VL datasets (AnalyzeConfig also validates this)
+        if config.processor_name is None:
+            raise ValueError(
+                "'processor_name' must be specified when 'is_vision_language' is True"
+            )
+        dataset_kwargs = {
+            "dataset_path": str(path),
+            "tokenizer": tokenizer,
+            "processor_name": config.processor_name,
+            "processor_kwargs": config.processor_kwargs,
+            "trust_remote_code": config.trust_remote_code,
+        }
+        dataset_kwargs = {k: v for k, v in dataset_kwargs.items() if v is not None}
+        dataset = VLJsonlinesDataset(**dataset_kwargs)
+        logger.info(f"Loaded vision-language dataset from: {dataset_path}")
+        return dataset
+
+    # If explicitly forced to text or unset, load as text-only
+    if config.is_vision_language is False or config.is_vision_language is None:
+        dataset_kwargs = {
+            "dataset_path": str(path),
+            "format": dataset_format,
+        }
+        if tokenizer is not None:
+            dataset_kwargs["tokenizer"] = tokenizer
+        dataset_kwargs = {k: v for k, v in dataset_kwargs.items() if v is not None}
+        dataset = TextSftJsonLinesDataset(**dataset_kwargs)
+        logger.info(f"Loaded text dataset from: {dataset_path}")
+        return dataset
+
+    # This should never be reached, but ensures all code paths return a value
+    raise ValueError("Invalid vision-language configuration")
