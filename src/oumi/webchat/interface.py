@@ -758,26 +758,63 @@ class WebChatInterface:
         """Get list of available models for the dropdown."""
         current_model = getattr(self.config.model, 'model_name', 'Current Model')
         
-        # Common model options organized by category
-        models = [
-            current_model,
-            "--- Local Models ---",
-            "meta-llama/Llama-3.1-8B-Instruct",
-            "microsoft/Qwen2.5-3B-Instruct", 
-            "microsoft/Phi-3.5-mini-instruct",
+        models = [current_model]
+        
+        # Discover inference configs dynamically
+        inference_configs = self._discover_inference_configs()
+        if inference_configs:
+            models.append("--- Inference Configs ---")
+            models.extend(inference_configs)
+        
+        # Add common API models as fallback options
+        models.extend([
             "--- API Models ---",
             "anthropic:claude-3-5-sonnet-20241022",
-            "anthropic:claude-3-5-haiku-20241022",
+            "anthropic:claude-3-5-haiku-20241022", 
             "openai:gpt-4o",
             "openai:gpt-4o-mini",
             "together:meta-llama/Llama-3.1-70B-Instruct-Turbo",
             "together:deepseek-ai/DeepSeek-R1",
-            "--- Config Files ---",
-            "config:configs/recipes/qwen2_5/inference/3b_infer.yaml",
-            "config:configs/recipes/llama3_1/inference/8b_infer.yaml"
-        ]
+            "--- Local Models ---",
+            "meta-llama/Llama-3.1-8B-Instruct",
+            "microsoft/Qwen2.5-3B-Instruct",
+            "microsoft/Phi-3.5-mini-instruct"
+        ])
         
         return models
+    
+    def _discover_inference_configs(self) -> List[str]:
+        """Discover available inference configuration files ending in *_infer.yaml."""
+        import os
+        import glob
+        
+        configs = []
+        try:
+            # Get the oumi repository root (assume we're in oumi/src/oumi/webchat)
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            # Go up to oumi root: webchat -> oumi -> src -> oumi -> [oumi root]
+            oumi_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+            configs_dir = os.path.join(oumi_root, "configs")
+            
+            if os.path.exists(configs_dir):
+                # Find all *_infer.yaml files recursively
+                pattern = os.path.join(configs_dir, "**", "*_infer.yaml")
+                config_files = glob.glob(pattern, recursive=True)
+                
+                for config_file in sorted(config_files):
+                    # Make path relative to oumi root for easier display
+                    rel_path = os.path.relpath(config_file, oumi_root)
+                    configs.append(f"config:{rel_path}")
+                    
+        except Exception as e:
+            print(f"Failed to discover inference configs: {e}")
+            # Fallback to some common known configs
+            configs = [
+                "config:configs/recipes/qwen2_5/inference/3b_infer.yaml",
+                "config:configs/recipes/llama3_1/inference/8b_infer.yaml"
+            ]
+            
+        return configs
     
     def _sync_conversation_to_backend(self, session_id: str, conversation: list):
         """Sync conversation state from frontend to backend session."""
