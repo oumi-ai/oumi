@@ -760,6 +760,9 @@ def infer_interactive(
     )
     command_router = CommandRouter(command_context)
     command_context.set_command_router(command_router)
+    
+    # Note: After this point, use command_context.inference_engine and command_context.config
+    # instead of local variables to ensure model swapping works properly
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
     while True:
@@ -957,9 +960,10 @@ def infer_interactive(
 
                     # Call inference engine directly with the full conversation
                     try:
-                        model_response = inference_engine.infer(
+                        # Use context references to ensure model swapping works
+                        model_response = command_context.inference_engine.infer(
                             input=[full_conversation],
-                            inference_config=config,
+                            inference_config=command_context.config,
                         )
                     except Exception as e:
                         console.print(f"[red]Inference error: {str(e)}[/red]")
@@ -1045,9 +1049,10 @@ def infer_interactive(
 
                     # Call inference engine directly with the full conversation
                     try:
-                        model_response = inference_engine.infer(
+                        # Use context references to ensure model swapping works
+                        model_response = command_context.inference_engine.infer(
                             input=[full_conversation],
-                            inference_config=config,
+                            inference_config=command_context.config,
                         )
                     except Exception as e:
                         console.print(f"[red]Inference error: {str(e)}[/red]")
