@@ -20,7 +20,7 @@
 model:
   model_name: "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF"
   tokenizer_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
-  model_max_length: 32768  # Increased from 8192 to allow longer conversations (trained max: 131072)
+  model_max_length: 8192
   torch_dtype_str: "float16"
   trust_remote_code: True
   model_kwargs:
