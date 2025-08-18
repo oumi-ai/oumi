@@ -23,11 +23,12 @@ from typing import Dict, Optional, Set
 from aiohttp import web, WSMsgType
 from rich.console import Console
 
+from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.command_parser import CommandParser
 from oumi.core.commands.command_router import CommandRouter
 from oumi.core.commands.conversation_branches import ConversationBranchManager
-from oumi.core.configs import InferenceConfig
+from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.input.enhanced_input import EnhancedInput
 from oumi.core.monitoring import SystemMonitor
 from oumi.core.thinking import ThinkingProcessor
@@ -51,17 +52,22 @@ class WebChatSession:
         
         # Initialize core components
         self.console = Console()
-        # Initialize SystemMonitor - we'll get max_context from the command_context after it's created
-        self.system_monitor = SystemMonitor(max_context_tokens=4096)  # Temporary, will be updated
         self.thinking_processor = ThinkingProcessor()
         self.branch_manager = ConversationBranchManager(self.conversation_history)
+        
+        # Initialize SystemMonitor with proper context length (same as oumi chat)
+        max_context_tokens = getattr(config.model, "model_max_length", None) or 4096
+        self.system_monitor = SystemMonitor(max_context_tokens=max_context_tokens)
+        
+        # Initialize inference engine upfront (same as oumi chat)
+        self.inference_engine = self._build_inference_engine(config)
         
         # Initialize command system
         self.command_context = CommandContext(
             console=self.console,
             config=config,
             conversation_history=self.conversation_history,
-            inference_engine=None,  # Will be set when needed
+            inference_engine=self.inference_engine,
             system_monitor=self.system_monitor,
         )
         
@@ -71,10 +77,6 @@ class WebChatSession:
         
         self.command_parser = CommandParser()
         self.command_router = CommandRouter(self.command_context)
-        
-        # Update SystemMonitor with proper context length from command_context
-        max_context = self.command_context.context_window_manager.max_context_length
-        self.system_monitor.update_max_context_tokens(max_context)
         
         # WebSocket connections for this session
         self.websockets: Set[web.WebSocketResponse] = set()
@@ -108,6 +110,19 @@ class WebChatSession:
         for ws in closed_sockets:
             self.websockets.discard(ws)
 
+
+    def _build_inference_engine(self, config: InferenceConfig):
+        """Build the inference engine for this session (same as oumi chat)."""
+        try:
+            return build_inference_engine(
+                engine_type=config.engine or InferenceEngineType.NATIVE,
+                model_params=config.model,
+                remote_params=config.remote_params,
+                generation_params=config.generation,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize inference engine: {e}")
+            return None
 
     def update_activity(self):
         """Update last activity timestamp."""
