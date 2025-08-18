@@ -1,5 +1,3 @@
-"""Utility functions for dataset analysis."""
-
 # Copyright 2024 Oumi AI.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
