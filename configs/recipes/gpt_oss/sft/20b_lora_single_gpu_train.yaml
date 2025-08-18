@@ -1,0 +1,88 @@
+# Single-GPU LoRA fine-tuning config for GPT OSS 20B
+# Optimized for training on a single high-memory GPU (recommended: 80GB+)
+# Replicates HF GPT-OSS recipes single GPU approach with memory optimizations
+#
+# This config uses aggressive memory optimization techniques:
+#   - Small batch size with high gradient accumulation
+#   - Gradient checkpointing
+#   - Mixed precision training
+#   - Efficient LoRA parameters
+#
+# Usage:
+#   oumi train -c oumi://configs/recipes/gpt_oss/sft/20b_lora_single_gpu_train.yaml
+#
+# Hardware Requirements:
+#   - Single GPU with 80GB+ VRAM (H100, A100 80GB)
+#   - Or 40GB GPU with gradient checkpointing + smaller batch
+#
+# See Also:
+#   - HF GPT-OSS recipes for single GPU training: https://cookbook.openai.com/articles/gpt-oss/fine-tune-transfomers
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+
+model:
+  model_name: "openai/gpt-oss-20b"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  trust_remote_code: true
+  chat_template: "auto"  # Use model's built-in chat template
+  attn_implementation: "eager"
+
+  # Enable MXFP4 dequantization for training with pre-quantized models
+  model_kwargs:
+    quantization_config:
+      quant_method: "mxfp4"
+
+data:
+  train:
+    datasets:
+      - dataset_name: "HuggingFaceH4/Multilingual-Thinking"
+    collator_name: "text_completions_only_with_padding"
+    collator_kwargs:
+      # GPT-OSS Harmony format templates
+      instruction_template: "<|start|>user<|message|>"
+      response_template: "<|start|>assistant<|channel|>final<|message|>"
+    target_col: "messages"
+
+training:
+  trainer_type: "TRL_SFT"
+  use_peft: true
+  ddp_find_unused_parameters: false
+  save_steps: 500
+  num_train_epochs: 1
+  # Small batch size for memory efficiency
+  per_device_train_batch_size: 1
+  # High gradient accumulation to maintain effective batch size
+  gradient_accumulation_steps: 4
+  enable_gradient_checkpointing: true
+  gradient_checkpointing_kwargs:
+    use_reentrant: false
+  optimizer: "adamw_torch_fused"
+  learning_rate: 2.0e-04  # HF recipe LoRA learning rate
+  warmup_ratio: 0.03
+  lr_scheduler_type: "cosine"
+  lr_scheduler_kwargs:
+    num_cycles: 0.5
+  max_grad_norm: 1.0
+  logging_steps: 5  # More frequent logging for single GPU
+  output_dir: "./outputs/gpt_oss_20b_lora_single_gpu"
+  seed: 42
+  # Reduce workers for single GPU to avoid CPU bottleneck
+  dataloader_num_workers: 4
+
+  # Performance optimizations
+  include_performance_metrics: true
+
+peft:
+  q_lora: false  # Regular LoRA for best compatibility
+  lora_r: 8        # HF recipe efficient rank
+  lora_alpha: 16   # HF recipe alpha
+  lora_dropout: 0  # No dropout for stability
+  lora_target_modules:
+    - "all-linear"
+  lora_target_parameters:
+    - "7.mlp.experts.gate_up_proj"
+    - "7.mlp.experts.down_proj"
+    - "15.mlp.experts.gate_up_proj"
+    - "15.mlp.experts.down_proj"
+    - "23.mlp.experts.gate_up_proj"
+    - "23.mlp.experts.down_proj"
