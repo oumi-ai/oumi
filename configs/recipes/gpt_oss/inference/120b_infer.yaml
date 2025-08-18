@@ -22,5 +22,6 @@ model:
 
 generation:
   max_new_tokens: 8192
+  skip_special_tokens: false
 
 engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
