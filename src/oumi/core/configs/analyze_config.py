@@ -94,8 +94,8 @@ class AnalyzeConfig(BaseConfig):
     trust_remote_code: bool = False
     """Whether to trust remote code for processor loading."""
 
-    is_vision_language: Optional[bool] = None
-    """If True, treat the dataset as vision-language (multimodal) when using a
+    is_multimodal: Optional[bool] = None
+    """If True, treat the dataset as multimodal (vision-language) when using a
     custom dataset_path. If False, treat as text-only.
     """
 
@@ -115,16 +115,16 @@ class AnalyzeConfig(BaseConfig):
             elif self.dataset_format not in ["oumi", "alpaca"]:
                 raise ValueError("'dataset_format' must be either 'oumi' or 'alpaca'")
 
-            # Additional validation for vision-language
-            if self.is_vision_language is True:
+            # Additional validation for multimodal
+            if self.is_multimodal is True:
                 # Currently VLJsonlinesDataset expects oumi conversation format
                 if self.dataset_format != "oumi":
                     raise ValueError(
-                        "Vision-language datasets require dataset_format='oumi'"
+                        "Multimodal datasets require dataset_format='oumi'"
                     )
                 if not self.processor_name:
                     raise ValueError(
-                        "'processor_name' must be specified when 'is_vision_language' "
+                        "'processor_name' must be specified when 'is_multimodal' "
                         "is True"
                     )
 

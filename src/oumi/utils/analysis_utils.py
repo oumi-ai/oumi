@@ -169,12 +169,13 @@ def _load_custom_dataset_from_path(
             f"Dataset path must be a file, not a directory: {dataset_path}"
         )
 
-    # Vision-language handling is explicit via config.is_vision_language
-    if config.is_vision_language is True:
-        # Require processor_name for VL datasets (AnalyzeConfig also validates this)
+    # Multimodal handling is explicit via config.is_multimodal
+    if config.is_multimodal is True:
+        # Require processor_name for multimodal datasets (AnalyzeConfig also
+        # validates this)
         if config.processor_name is None:
             raise ValueError(
-                "'processor_name' must be specified when 'is_vision_language' is True"
+                "'processor_name' must be specified when 'is_multimodal' is True"
             )
         dataset_kwargs = {
             "dataset_path": str(path),
@@ -189,7 +190,7 @@ def _load_custom_dataset_from_path(
         return dataset
 
     # If explicitly forced to text or unset, load as text-only
-    if config.is_vision_language is False or config.is_vision_language is None:
+    if config.is_multimodal is False or config.is_multimodal is None:
         dataset_kwargs = {
             "dataset_path": str(path),
             "format": dataset_format,

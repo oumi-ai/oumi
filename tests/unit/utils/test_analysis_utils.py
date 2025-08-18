@@ -401,7 +401,7 @@ def test_load_custom_dataset_vision_language(temp_vision_language_file):
         dataset_path=temp_vision_language_file,
         dataset_format="oumi",
         processor_name="openai/clip-vit-base-patch32",  # Processor provided
-        is_vision_language=True,  # Explicitly mark as vision-language
+        is_multimodal=True,  # Explicitly mark as multimodal
     )
 
     dataset_with_processor = load_dataset_from_config(
@@ -415,7 +415,7 @@ def test_load_custom_dataset_vision_language(temp_vision_language_file):
     config_without_processor = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
         dataset_format="oumi",
-        # No processor_name - default is_vision_language=None -> text dataset
+        # No processor_name - default is_multimodal=None -> text dataset
     )
 
     dataset_without_processor = load_dataset_from_config(
