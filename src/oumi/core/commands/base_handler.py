@@ -156,7 +156,33 @@ class BaseCommandHandler(ABC):
         """Update context usage and conversation turns in system monitor if available."""
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
             estimated_tokens = self._get_conversation_tokens()
-            max_context = getattr(self.config.model, "model_max_length", 4096)
+            
+            # Get max context from current config (which gets updated during model swaps)
+            # Use context.config to ensure we get the most up-to-date config
+            current_config = getattr(self.context, "config", self.config)
+            max_context = getattr(current_config.model, "model_max_length", None)
+            
+            # If no max_context found in config, try to get it from inference engine
+            if not max_context and hasattr(self.context, "inference_engine") and self.context.inference_engine:
+                engine_config = getattr(self.context.inference_engine, "model_config", None)
+                if engine_config:
+                    # Check various possible attribute names for context length
+                    for attr in ["model_max_length", "max_model_len", "max_tokens", "context_length"]:
+                        engine_context = getattr(engine_config, attr, None)
+                        if engine_context and engine_context > 0:
+                            max_context = engine_context
+                            break
+                
+                # Also check if the engine itself has a max_context attribute
+                if not max_context and hasattr(self.context.inference_engine, "max_context_length"):
+                    engine_max = getattr(self.context.inference_engine, "max_context_length", None)
+                    if engine_max and engine_max > 0:
+                        max_context = engine_max
+            
+            # Final fallback to prevent None values
+            if not max_context or max_context <= 0:
+                max_context = 4096
+            
             self.system_monitor.update_context_usage(estimated_tokens)
             if hasattr(self.system_monitor, "update_max_context_tokens"):
                 self.system_monitor.update_max_context_tokens(max_context)

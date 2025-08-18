@@ -1095,8 +1095,14 @@ def infer_interactive(
             }
 
             # Format and display the response with timing
-            # Get current model name in case of model swaps
-            current_model_name = getattr(config.model, "model_name", model_name)
+            # Get current model name from command context (handles model swaps)
+            current_model_name = model_name  # Default fallback
+            if command_context and hasattr(command_context, "config") and hasattr(command_context.config, "model"):
+                # Use the model name from the current (potentially swapped) config
+                current_model_name = getattr(command_context.config.model, "model_name", current_model_name)
+            elif command_context and hasattr(command_context, "inference_engine"):
+                # Fallback to inference engine model name if available
+                current_model_name = getattr(command_context.inference_engine, "model_name", current_model_name)
             for conversation in model_response:
                 _format_conversation_response(
                     conversation,
