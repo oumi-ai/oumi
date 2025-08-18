@@ -235,6 +235,7 @@ class OumiWebServer(OpenAICompatibleServer):
         temperature = data.get("temperature", 1.0)
         max_tokens = data.get("max_tokens", 100)
         stream = data.get("stream", False)
+        session_id = data.get("session_id")  # WebChat session ID
 
         try:
             # Convert OpenAI format messages to Oumi conversation format
@@ -333,6 +334,29 @@ class OumiWebServer(OpenAICompatibleServer):
                     + len(response_content.split()),
                 },
             }
+
+            # Update WebChat session if session_id provided
+            if session_id:
+                logger.info(f"🔍 DEBUG: Updating WebChat session {session_id} from OpenAI API")
+                session = await self.get_or_create_session(session_id)
+                
+                # Add user message to session conversation history
+                session.conversation_history.append({
+                    'role': 'user', 
+                    'content': latest_user_content,
+                    'timestamp': time.time()
+                })
+                
+                # Add assistant response to session conversation history  
+                session.conversation_history.append({
+                    'role': 'assistant',
+                    'content': response_content, 
+                    'timestamp': time.time()
+                })
+                
+                # Update context usage
+                self._update_session_context_usage(session)
+                logger.info(f"🔍 DEBUG: WebChat session updated, conversation length: {len(session.conversation_history)}")
 
             # Handle streaming vs non-streaming
             if stream:
@@ -573,6 +597,9 @@ class OumiWebServer(OpenAICompatibleServer):
                 'timestamp': time.time()
             })
             
+            # Update context usage after successful message exchange
+            self._update_session_context_usage(session)
+            
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             error_response = f"Error: {str(e)}"
@@ -591,6 +618,9 @@ class OumiWebServer(OpenAICompatibleServer):
                 'timestamp': time.time(),
                 'is_error': True
             })
+            
+            # Update context usage even after errors
+            self._update_session_context_usage(session)
 
     async def handle_command_message(
         self, 
@@ -817,13 +847,15 @@ class OumiWebServer(OpenAICompatibleServer):
         session_id = request.query.get('session_id', 'default')
         session = await self.get_or_create_session(session_id)
         
+        logger.info(f"🔍 DEBUG: System stats request for session {session_id}")
+        
         # Update context usage based on current conversation
         self._update_session_context_usage(session)
         
         # Get stats from SystemMonitor
         stats = session.system_monitor.get_stats()
         
-        return web.json_response({
+        response_data = {
             'cpu_percent': stats.cpu_percent,
             'ram_used_gb': stats.ram_used_gb,
             'ram_total_gb': stats.ram_total_gb,
@@ -835,7 +867,11 @@ class OumiWebServer(OpenAICompatibleServer):
             'context_max_tokens': stats.context_max_tokens,
             'context_percent': stats.context_percent,
             'conversation_turns': stats.conversation_turns
-        })
+        }
+        
+        logger.info(f"🔍 DEBUG: Returning system stats: {response_data}")
+        
+        return web.json_response(response_data)
 
     def _update_session_context_usage(self, session):
         """Update SystemMonitor with current conversation context usage."""
@@ -844,15 +880,30 @@ class OumiWebServer(OpenAICompatibleServer):
             context_manager = session.command_context.context_window_manager
             total_tokens = 0
             
-            for msg in session.conversation_history:
+            logger.info(f"🔍 DEBUG: Updating context usage for session {session.session_id}")
+            logger.info(f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}")
+            
+            for i, msg in enumerate(session.conversation_history):
                 content = msg.get('content', '')
                 if content:
-                    total_tokens += context_manager.estimate_tokens(content)
+                    msg_tokens = context_manager.estimate_tokens(content)
+                    total_tokens += msg_tokens
+                    logger.info(f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}...")
+            
+            logger.info(f"🔍 DEBUG: Total tokens calculated: {total_tokens}")
+            logger.info(f"🔍 DEBUG: Max context tokens: {session.system_monitor.max_context_tokens}")
             
             session.system_monitor.update_context_usage(total_tokens)
             session.system_monitor.update_conversation_turns(len(session.conversation_history) // 2)
+            
+            # Verify the update worked
+            stats = session.system_monitor.get_stats()
+            logger.info(f"🔍 DEBUG: SystemMonitor stats after update - context_used: {stats.context_used_tokens}, context_max: {stats.context_max_tokens}, percent: {stats.context_percent}")
+            
         except Exception as e:
             logger.warning(f"Failed to update context usage: {e}")
+            import traceback
+            logger.warning(f"Full traceback: {traceback.format_exc()}")
 
     async def cleanup_sessions(self):
         """Clean up inactive sessions."""
