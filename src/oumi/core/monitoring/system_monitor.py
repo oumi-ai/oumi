@@ -135,8 +135,8 @@ class SystemMonitor:
         # CPU and RAM stats using psutil
         if self._psutil:
             try:
-                # CPU usage (average over 0.1 seconds)
-                stats.cpu_percent = self._psutil.cpu_percent(interval=0.1)
+                # CPU usage (non-blocking - use previous call or instant reading)
+                stats.cpu_percent = self._psutil.cpu_percent(interval=None)
 
                 # RAM usage
                 memory = self._psutil.virtual_memory()
