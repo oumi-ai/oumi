@@ -5,7 +5,7 @@
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF \
+#   hf download bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF \
 #     nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf --local-dir .
 #
 #   # 2. Run inference:

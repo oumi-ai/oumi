@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/internvl3/sft/full/gcp_job.yaml --cluster internvl3
@@ -43,7 +43,7 @@ setup: |
 
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download OpenGVLab/InternVL3-1B-hf
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download OpenGVLab/InternVL3-1B-hf
 
   # Use transformers latest version (4.52.0.dev0)
   # Use this with caution, as it might break some of Oumi's features which is as of
