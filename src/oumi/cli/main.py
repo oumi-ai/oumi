@@ -14,6 +14,7 @@
 
 import os
 import sys
+import traceback
 
 import typer
 
@@ -21,7 +22,11 @@ from oumi.cli.cache import card as cache_card
 from oumi.cli.cache import get as cache_get
 from oumi.cli.cache import ls as cache_ls
 from oumi.cli.cache import rm as cache_rm
-from oumi.cli.cli_utils import CONSOLE, CONTEXT_ALLOW_EXTRA_ARGS
+from oumi.cli.cli_utils import (
+    CONSOLE,
+    CONTEXT_ALLOW_EXTRA_ARGS,
+    create_github_issue_url,
+)
 from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
@@ -156,7 +161,26 @@ def get_app() -> typer.Typer:
 def run():
     """The entrypoint for the CLI."""
     app = get_app()
-    return app()
+    try:
+        return app()
+    except Exception as e:
+        tb_str = traceback.format_exc()
+
+        issue_url = create_github_issue_url(e, tb_str)
+        CONSOLE.print(
+            "\n[red]If you believe this is a bug, please file an issue:[/red]"
+        )
+        CONSOLE.print(
+            f"📝 [yellow]Prefilled issue:[/yellow] "
+            f"[link={issue_url}]Click here to report[/link]"
+        )
+        CONSOLE.print(
+            "🔗 [dim]Or create your own:[/dim] "
+            "[link=https://github.com/oumi-ai/oumi/issues/new]"
+            "github.com/oumi-ai/oumi/issues/new[/link]"
+        )
+
+        sys.exit(1)
 
 
 if "sphinx" in sys.modules:

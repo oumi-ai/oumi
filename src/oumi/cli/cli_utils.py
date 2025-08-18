@@ -14,6 +14,9 @@
 
 import logging
 import os
+import platform
+import sys
+import urllib.parse
 from enum import Enum
 from pathlib import Path
 from typing import Annotated, Optional
@@ -235,3 +238,50 @@ def resolve_and_fetch_config(
         raise
 
     return Path(local_path)
+
+
+def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
+    """Create a prefilled GitHub issue URL with comprehensive error details.
+
+    Args:
+        exception: The exception that occurred
+        traceback_str: The full traceback string
+
+    Returns:
+        str: URL for creating a prefilled GitHub issue
+    """
+    python_version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    system_info = f"{platform.system()} {platform.release()}"
+
+    # Truncate long error messages and tracebacks to avoid URL length limits
+    error_msg = (
+        str(exception)[:200] + "..." if len(str(exception)) > 200 else str(exception)
+    )
+    short_traceback = traceback_str.split("\n")[-10:]  # Last 10 lines only
+    short_traceback = (
+        "\n".join(short_traceback)[:800] + "..."
+        if len("\n".join(short_traceback)) > 800
+        else "\n".join(short_traceback)
+    )
+
+    title = f"CLI Error: {type(exception).__name__}"
+
+    command_str = " ".join(sys.argv)
+    command_display = f"`{command_str[:100]}{'...' if len(command_str) > 100 else ''}`"
+
+    body = f"""**Error**: {error_msg}
+**Python**: {python_version}
+**System**: {system_info}
+**Command**: {command_display}git
+**Stack Trace (last lines)**:
+```
+{short_traceback}
+```
+
+<!-- Please add full error details and steps to reproduce -->"""
+
+    params = {"title": title, "body": body, "labels": "bug"}
+    query = urllib.parse.urlencode(params)
+    return f"https://github.com/oumi-ai/oumi/issues/new?{query}"
