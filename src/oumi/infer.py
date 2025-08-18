@@ -1090,11 +1090,13 @@ def infer_interactive(
             }
 
             # Format and display the response with timing
+            # Get current model name in case of model swaps
+            current_model_name = getattr(config.model, "model_name", model_name)
             for conversation in model_response:
                 _format_conversation_response(
                     conversation,
                     console,
-                    model_name,
+                    current_model_name,
                     config.style,
                     timing_info,
                     command_context,
@@ -1123,9 +1125,9 @@ def infer_interactive(
                 pass
 
             # Store assistant response in history
-            # Check if this is a GPT-OSS model for response cleaning
-            model_name = getattr(config.model, "model_name", "")
-            is_gpt_oss = _is_gpt_oss_model(model_name)
+            # Check if this is a GPT-OSS model for response cleaning (use current model name)
+            current_model_name_for_cleaning = getattr(config.model, "model_name", "")
+            is_gpt_oss = _is_gpt_oss_model(current_model_name_for_cleaning)
 
             for conversation in model_response:
                 for message in conversation.messages:
