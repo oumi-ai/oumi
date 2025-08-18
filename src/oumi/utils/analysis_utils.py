@@ -171,12 +171,7 @@ def _load_custom_dataset_from_path(
 
     # Multimodal handling is explicit via config.is_multimodal
     if config.is_multimodal is True:
-        # Require processor_name for multimodal datasets (AnalyzeConfig also
-        # validates this)
-        if config.processor_name is None:
-            raise ValueError(
-                "'processor_name' must be specified when 'is_multimodal' is True"
-            )
+        # Note: processor_name requirement is already validated in AnalyzeConfig
         dataset_kwargs = {
             "dataset_path": str(path),
             "tokenizer": tokenizer,
