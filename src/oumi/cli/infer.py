@@ -38,6 +38,26 @@ def infer(
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
+    browse: Annotated[
+        bool,
+        typer.Option(
+            "-b", "--browse", help="Browse and play back recent chat conversations."
+        ),
+    ] = False,
+    server_mode: Annotated[
+        bool,
+        typer.Option(
+            "--server-mode", help="Run as HTTP server compatible with OpenAI API."
+        ),
+    ] = False,
+    host: Annotated[
+        str,
+        typer.Option("--host", help="Host address for server mode."),
+    ] = "0.0.0.0",
+    port: Annotated[
+        int,
+        typer.Option("--port", help="Port for server mode."),
+    ] = 8000,
     image: Annotated[
         Optional[str],
         typer.Option(
@@ -69,9 +89,11 @@ def infer(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
-        output_dir: Directory to save configs
-        (defaults to OUMI_DIR env var or ~/.oumi/fetch).
         interactive: Whether to run in an interactive session.
+        browse: Whether to browse and play back recent chat conversations.
+        server_mode: Run as HTTP server compatible with OpenAI API.
+        host: Host address for server mode.
+        port: Port for server mode.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
@@ -146,6 +168,25 @@ def infer(
             table.add_row(repr(generation))
         cli_utils.CONSOLE.print(table)
         return
+    # Handle server mode
+    if server_mode:
+        from oumi.server import run_server
+
+        logger.info(f"Starting Oumi inference server on {host}:{port}")
+        return run_server(
+            config=parsed_config,
+            host=host,
+            port=port,
+            system_prompt=system_prompt,
+        )
+
+    # Handle browse mode
+    if browse:
+        from oumi.core.commands.chat_browser import ChatBrowser
+
+        browser = ChatBrowser(parsed_config)
+        return browser.run()
+
     if not interactive:
         logger.warning(
             "No input path provided, running in interactive mode. "
@@ -155,4 +196,68 @@ def infer(
         parsed_config,
         input_image_bytes=input_image_png_bytes,
         system_prompt=system_prompt,
+    )
+
+
+def chat(
+    ctx: typer.Context,
+    config: Annotated[
+        str,
+        typer.Option(
+            *cli_utils.CONFIG_FLAGS,
+            help="Path to the configuration file for inference.",
+        ),
+    ],
+    browse: Annotated[
+        bool,
+        typer.Option(
+            "-b", "--browse", help="Browse and play back recent chat conversations."
+        ),
+    ] = False,
+    image: Annotated[
+        Optional[str],
+        typer.Option(
+            "--image",
+            help=(
+                "File path or URL of an input image to be used with image+text VLLMs. "
+                "Only used in interactive mode."
+            ),
+        ),
+    ] = None,
+    system_prompt: Annotated[
+        Optional[str],
+        typer.Option(
+            "--system-prompt",
+            help=(
+                "System prompt for task-specific instructions. "
+                "Only used in interactive mode."
+            ),
+        ),
+    ] = None,
+    level: cli_utils.LOG_LEVEL_TYPE = None,
+):
+    """Start an interactive chat session with a model.
+
+    This is a convenience alias for `oumi infer --interactive`.
+
+    Args:
+        ctx: The Typer context object.
+        config: Path to the configuration file for inference.
+        browse: Whether to browse and play back recent chat conversations.
+        image: Path to the input image for `image+text` VLLMs.
+        system_prompt: System prompt for task-specific instructions.
+        level: The logging level for the specified command.
+    """
+    # Call infer with interactive=True
+    return infer(
+        ctx=ctx,
+        config=config,
+        interactive=True,  # Always interactive for chat
+        browse=browse,
+        server_mode=False,
+        host="0.0.0.0",
+        port=8000,
+        image=image,
+        system_prompt=system_prompt,
+        level=level,
     )

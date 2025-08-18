@@ -26,13 +26,14 @@ from oumi.cli.distributed_run import accelerate, torchrun
 from oumi.cli.env import env
 from oumi.cli.evaluate import evaluate
 from oumi.cli.fetch import fetch
-from oumi.cli.infer import infer
+from oumi.cli.infer import chat, infer
 from oumi.cli.judge import judge_conversations_file, judge_dataset_file
 from oumi.cli.launch import cancel, down, status, stop, up, which
 from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
+from oumi.cli.webchat import webchat, webchat_server
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -82,6 +83,10 @@ def get_app() -> typer.Typer:
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Start an interactive chat session with a model.",
+    )(chat)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Synthesize a dataset.",
     )(synth)
     app.command(  # Alias for synth
@@ -98,6 +103,15 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Quantize a model.",
     )(quantize)
+    app.command(
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Launch Oumi WebChat - web-based interface for interactive chat.",
+    )(webchat)
+    app.command(
+        name="webchat-server",
+        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
+        help="Launch only the WebChat backend server (no frontend).",
+    )(webchat_server)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_dataset_file
