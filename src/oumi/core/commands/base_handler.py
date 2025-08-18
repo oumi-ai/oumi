@@ -153,13 +153,20 @@ class BaseCommandHandler(ABC):
         return total_chars // 4
 
     def _update_context_in_monitor(self):
-        """Update context usage in system monitor if available."""
+        """Update context usage and conversation turns in system monitor if available."""
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
             estimated_tokens = self._get_conversation_tokens()
             max_context = getattr(self.config.model, "model_max_length", 4096)
             self.system_monitor.update_context_usage(estimated_tokens)
             if hasattr(self.system_monitor, "update_max_context_tokens"):
                 self.system_monitor.update_max_context_tokens(max_context)
+
+            # Also update conversation turn count (matches main inference loop logic)
+            if hasattr(self.system_monitor, "update_conversation_turns"):
+                assistant_messages = [
+                    msg for msg in self.conversation_history if msg.get("role") == "assistant"
+                ]
+                self.system_monitor.update_conversation_turns(len(assistant_messages))
 
         # Auto-save after context updates (conversation modifications)
         self._auto_save_if_enabled()

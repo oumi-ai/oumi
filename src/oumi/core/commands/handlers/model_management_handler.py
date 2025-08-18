@@ -160,9 +160,8 @@ class ModelManagementHandler(BaseCommandHandler):
                         self.context.system_monitor.update_max_context_tokens(
                             max_context
                         )
-                    # Reset context usage to 0 for new model
-                    if hasattr(self.context.system_monitor, "update_context_usage"):
-                        self.context.system_monitor.update_context_usage(0)
+                    # Update context and conversation turns properly (preserves history)
+                    self._update_context_in_monitor()
 
                 model_name = getattr(new_config.model, "model_name", "Unknown model")
                 engine_type = getattr(new_config, "engine", "Unknown engine")
