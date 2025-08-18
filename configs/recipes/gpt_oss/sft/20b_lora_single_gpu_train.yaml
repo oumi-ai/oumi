@@ -16,7 +16,7 @@
 #   - Or 40GB GPU with gradient checkpointing + smaller batch
 #
 # See Also:
-#   - HF GPT-OSS recipes for single GPU training
+#   - HF GPT-OSS recipes for single GPU training: https://cookbook.openai.com/articles/gpt-oss/fine-tune-transfomers
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
 
 model:
