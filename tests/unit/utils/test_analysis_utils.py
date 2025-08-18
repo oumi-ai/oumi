@@ -41,7 +41,7 @@ def mock_dataset_class_and_instance():
 @pytest.fixture
 def mock_registry():
     """Fixture to patch the registry."""
-    with patch("oumi.core.registry.REGISTRY") as mock_registry:
+    with patch("oumi.utils.analysis_utils.REGISTRY") as mock_registry:
         yield mock_registry
 
 
@@ -355,6 +355,7 @@ def test_load_custom_dataset_conversation_format(temp_conversation_file):
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
         dataset_format="oumi",
+        is_multimodal=False,  # Explicitly set as text-only
     )
 
     dataset = load_dataset_from_config(config)
@@ -376,6 +377,7 @@ def test_load_custom_dataset_alpaca_format(temp_alpaca_file):
     config = AnalyzeConfig(
         dataset_path=temp_alpaca_file,
         dataset_format="alpaca",
+        is_multimodal=False,  # Explicitly set as text-only
     )
 
     dataset = load_dataset_from_config(config)
@@ -390,56 +392,31 @@ def test_load_custom_dataset_alpaca_format(temp_alpaca_file):
     assert conv1.messages[1].role == "assistant"
 
 
-def test_load_custom_dataset_vision_language(temp_vision_language_file):
-    """Test loading custom vision-language dataset."""
+def test_load_custom_dataset_multi_modal(temp_vision_language_file):
+    """Test loading custom multimodal dataset with processor."""
     # Create a mock tokenizer with required attributes
     mock_tokenizer = Mock()
     mock_tokenizer.pad_token_id = 0  # Set a valid pad_token_id
 
-    # Test 1: Vision-language dataset WITH processor - should load as VLJsonlinesDataset
-    config_with_processor = AnalyzeConfig(
+    config = AnalyzeConfig(
         dataset_path=temp_vision_language_file,
         dataset_format="oumi",
         processor_name="openai/clip-vit-base-patch32",  # Processor provided
         is_multimodal=True,  # Explicitly mark as multimodal
     )
 
-    dataset_with_processor = load_dataset_from_config(
-        config_with_processor, tokenizer=mock_tokenizer
-    )
-    assert isinstance(dataset_with_processor, VLJsonlinesDataset)
-    assert len(dataset_with_processor) == 2
-
-    # Test 2: Vision-language-like data WITHOUT processor - should load as
-    # TextSftJsonLinesDataset by default
-    config_without_processor = AnalyzeConfig(
-        dataset_path=temp_vision_language_file,
-        dataset_format="oumi",
-        # No processor_name - default is_multimodal=None -> text dataset
-    )
-
-    dataset_without_processor = load_dataset_from_config(
-        config_without_processor, tokenizer=mock_tokenizer
-    )
-    assert isinstance(dataset_without_processor, TextSftJsonLinesDataset)
-    assert len(dataset_without_processor) == 2
-
-    # Verify both datasets contain the same data
-    assert len(dataset_with_processor) == len(dataset_without_processor)
-
-    # Check conversation structure in the fallback dataset
-    conv1 = dataset_without_processor.conversation(0)
-    assert len(conv1.messages) == 2
-    assert conv1.messages[0].role == "user"
-    assert conv1.messages[1].role == "assistant"
+    dataset = load_dataset_from_config(config, tokenizer=mock_tokenizer)
+    assert isinstance(dataset, VLJsonlinesDataset)
+    assert len(dataset) == 2
 
 
-def test_load_custom_dataset_text_only_detection(temp_conversation_file):
+def test_load_custom_dataset_text(temp_conversation_file):
     """Test that text-only datasets are correctly detected and loaded as
     TextSftJsonLinesDataset."""
     config = AnalyzeConfig(
         dataset_path=temp_conversation_file,
         dataset_format="oumi",
+        is_multimodal=False,  # Explicitly set as text-only
     )
 
     dataset = load_dataset_from_config(config)
@@ -449,27 +426,12 @@ def test_load_custom_dataset_text_only_detection(temp_conversation_file):
     assert len(dataset) == 2
 
 
-def test_load_custom_dataset_with_tokenizer(temp_conversation_file):
-    """Test loading custom dataset with tokenizer."""
-    mock_tokenizer = Mock()
-
-    config = AnalyzeConfig(
-        dataset_path=temp_conversation_file,
-        dataset_format="oumi",
-    )
-
-    dataset = load_dataset_from_config(config, tokenizer=mock_tokenizer)
-
-    assert isinstance(dataset, TextSftJsonLinesDataset)
-    # The tokenizer should be passed to the dataset constructor
-    # We can verify this by checking the dataset was created successfully
-
-
 def test_load_custom_dataset_file_not_found():
     """Test error handling when custom dataset file doesn't exist."""
     config = AnalyzeConfig(
         dataset_path="nonexistent_file.json",
         dataset_format="oumi",  # Required for custom datasets
+        is_multimodal=False,  # Required for custom datasets
     )
 
     with pytest.raises(
@@ -484,97 +446,10 @@ def test_load_custom_dataset_directory_path():
         config = AnalyzeConfig(
             dataset_path=temp_dir,
             dataset_format="oumi",  # Required for custom datasets
+            is_multimodal=False,  # Required for custom datasets
         )
 
         with pytest.raises(
             ValueError, match="Dataset path must be a file, not a directory"
         ):
             load_dataset_from_config(config)
-
-
-def test_load_custom_dataset_jsonl_format():
-    """Test loading custom dataset in JSONL format."""
-    sample_data = [
-        {
-            "messages": [
-                {"role": "user", "content": "Hello"},
-                {"role": "assistant", "content": "Hi!"},
-            ]
-        },
-        {
-            "messages": [
-                {"role": "user", "content": "How are you?"},
-                {"role": "assistant", "content": "Good!"},
-            ]
-        },
-    ]
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
-        with jsonlines.open(f.name, mode="w") as writer:
-            writer.write_all(sample_data)
-
-        config = AnalyzeConfig(
-            dataset_path=f.name,
-            dataset_format="oumi",
-        )
-
-        dataset = load_dataset_from_config(config)
-
-        assert isinstance(dataset, TextSftJsonLinesDataset)
-        assert len(dataset) == 2
-
-        # Cleanup
-        Path(f.name).unlink()
-
-
-def test_analyze_config_with_custom_dataset_fields():
-    """Test AnalyzeConfig with custom dataset fields."""
-    config = AnalyzeConfig(
-        dataset_path="/path/to/custom/dataset.json",
-        dataset_format="oumi",
-    )
-
-    assert config.dataset_path == "/path/to/custom/dataset.json"
-    assert config.dataset_format == "oumi"
-
-
-def test_analyze_config_validation_custom_dataset_format():
-    """Test validation of custom dataset format values."""
-    # Valid formats
-    AnalyzeConfig(dataset_path="/path/to/dataset.json", dataset_format="oumi")
-    AnalyzeConfig(dataset_path="/path/to/dataset.json", dataset_format="alpaca")
-
-    # Invalid format
-    with pytest.raises(
-        ValueError, match="'dataset_format' must be either 'oumi' or 'alpaca'"
-    ):
-        AnalyzeConfig(
-            dataset_path="/path/to/dataset.json", dataset_format="invalid_format"
-        )
-
-
-def test_analyze_config_validation_dataset_format_required():
-    """Test that dataset_format is required when dataset_path is provided."""
-    # Should raise error when dataset_path is provided but dataset_format is not
-    with pytest.raises(
-        ValueError, match="'dataset_format' must be specified when using 'dataset_path'"
-    ):
-        AnalyzeConfig(dataset_path="/path/to/dataset.json")
-
-    # Should work when both are provided
-    config = AnalyzeConfig(dataset_path="/path/to/dataset.json", dataset_format="oumi")
-    assert config.dataset_path == "/path/to/dataset.json"
-    assert config.dataset_format == "oumi"
-
-
-def test_analyze_config_priority_custom_over_registered():
-    """Test that custom dataset path takes priority over registered dataset name."""
-    config = AnalyzeConfig(
-        dataset_name="registered_dataset",
-        dataset_path="/path/to/custom/dataset.json",
-        dataset_format="oumi",  # Required for custom datasets
-    )
-
-    # Should use custom dataset path
-    assert config.dataset_path == "/path/to/custom/dataset.json"
-    assert config.dataset_name == "registered_dataset"

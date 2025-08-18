@@ -184,8 +184,8 @@ def _load_custom_dataset_from_path(
         logger.info(f"Loaded vision-language dataset from: {dataset_path}")
         return dataset
 
-    # If explicitly forced to text or unset, load as text-only
-    if config.is_multimodal is False or config.is_multimodal is None:
+    # If explicitly forced to text, load as text-only
+    if config.is_multimodal is False:
         dataset_kwargs = {
             "dataset_path": str(path),
             "format": dataset_format,
@@ -196,6 +196,9 @@ def _load_custom_dataset_from_path(
         dataset = TextSftJsonLinesDataset(**dataset_kwargs)
         logger.info(f"Loaded text dataset from: {dataset_path}")
         return dataset
+
+    # Note: is_multimodal=None case is already caught by AnalyzeConfig validation
+    # This ensures all code paths return a value
 
     # This should never be reached, but ensures all code paths return a value
     raise ValueError("Invalid vision-language configuration")

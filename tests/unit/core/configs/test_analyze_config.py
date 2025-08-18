@@ -147,6 +147,40 @@ def test_analyze_config_validation_invalid_dataset_format():
         )
 
 
+def test_analyze_config_validation_missing_is_multimodal():
+    """Test validation failure when dataset_path is provided but is_multimodal is
+    missing."""
+    with pytest.raises(
+        ValueError, match="'is_multimodal' must be specified when using 'dataset_path'"
+    ):
+        AnalyzeConfig(
+            dataset_path="/path/to/dataset.json",
+            dataset_format="oumi",
+            # Missing is_multimodal
+        )
+
+
+def test_analyze_config_validation_is_multimodal_required():
+    """Test that is_multimodal can be explicitly set to True or False for
+    custom datasets."""
+    # Should work with is_multimodal=True
+    config = AnalyzeConfig(
+        dataset_path="/path/to/dataset.json",
+        dataset_format="oumi",
+        is_multimodal=True,
+        processor_name="openai/clip-vit-base-patch32",
+    )
+    assert config.is_multimodal is True
+
+    # Should work with is_multimodal=False
+    config = AnalyzeConfig(
+        dataset_path="/path/to/dataset.json",
+        dataset_format="oumi",
+        is_multimodal=False,
+    )
+    assert config.is_multimodal is False
+
+
 def test_analyze_config_validation_with_valid_analyzers():
     """Test validation with valid analyzer configurations."""
     analyzers = [

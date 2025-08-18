@@ -115,6 +115,14 @@ class AnalyzeConfig(BaseConfig):
             elif self.dataset_format not in ["oumi", "alpaca"]:
                 raise ValueError("'dataset_format' must be either 'oumi' or 'alpaca'")
 
+            # Require explicit is_multimodal setting for custom datasets
+            if self.is_multimodal is None:
+                raise ValueError(
+                    "'is_multimodal' must be specified when using 'dataset_path'. "
+                    "Set to 'True' for vision-language datasets or 'False' for "
+                    "text-only datasets."
+                )
+
             # Additional validation for multimodal
             if self.is_multimodal is True:
                 # Currently VLJsonlinesDataset expects oumi conversation format
