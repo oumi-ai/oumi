@@ -165,7 +165,7 @@ def run():
         return app()
     except Exception as e:
         tb_str = traceback.format_exc()
-
+        CONSOLE.print(tb_str)
         issue_url = create_github_issue_url(e, tb_str)
         CONSOLE.print(
             "\n[red]If you believe this is a bug, please file an issue:[/red]"
