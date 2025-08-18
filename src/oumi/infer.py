@@ -1129,29 +1129,37 @@ def infer_interactive(
             current_model_name_for_cleaning = getattr(config.model, "model_name", "")
             is_gpt_oss = _is_gpt_oss_model(current_model_name_for_cleaning)
 
-            for conversation in model_response:
-                for message in conversation.messages:
-                    if message.role == Role.ASSISTANT and isinstance(
-                        message.content, str
-                    ):
-                        content = message.content
+            # Store only the latest assistant response to avoid duplicates and role alternation issues
+            # Get the last conversation and its last assistant message
+            if model_response:
+                last_conversation = model_response[-1]  # Get most recent conversation
+                last_assistant_message = None
+                
+                # Find the last assistant message in the conversation
+                for message in reversed(last_conversation.messages):
+                    if message.role == Role.ASSISTANT and isinstance(message.content, str):
+                        last_assistant_message = message
+                        break
+                
+                if last_assistant_message:
+                    content = last_assistant_message.content
 
-                        # For GPT-OSS models, clean up channel tags when storing in history
-                        # This prevents the raw tags from being sent back to the model
-                        if is_gpt_oss and "<|channel|>" in content:
-                            # Extract only the final content for conversation history
-                            harmony_fields = _convert_to_harmony_format(content)
-                            stored_content = harmony_fields.get("content", content)
+                    # For GPT-OSS models, clean up channel tags when storing in history
+                    # This prevents the raw tags from being sent back to the model
+                    if is_gpt_oss and "<|channel|>" in content:
+                        # Extract only the final content for conversation history
+                        harmony_fields = _convert_to_harmony_format(content)
+                        stored_content = harmony_fields.get("content", content)
 
-                            # Store the cleaned content for conversation history
-                            conversation_history.append(
-                                {"role": "assistant", "content": stored_content}
-                            )
-                        else:
-                            # Store original content for non-GPT-OSS models
-                            conversation_history.append(
-                                {"role": "assistant", "content": content}
-                            )
+                        # Store the cleaned content for conversation history
+                        conversation_history.append(
+                            {"role": "assistant", "content": stored_content}
+                        )
+                    else:
+                        # Store original content for non-GPT-OSS models
+                        conversation_history.append(
+                            {"role": "assistant", "content": content}
+                        )
 
             # Auto-save chat after each complete conversation turn
             try:
