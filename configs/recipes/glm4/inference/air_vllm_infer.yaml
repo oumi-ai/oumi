@@ -1,0 +1,27 @@
+# vLLM Inference config for GLM-4.5-Air.
+#
+# Requirements:
+#   - Run `pip install oumi[gpu]`
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/glm4/inference/air_vllm_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "THUDM/glm-4-9b-chat"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: VLLM

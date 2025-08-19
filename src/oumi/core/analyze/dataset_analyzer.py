@@ -22,7 +22,10 @@ from tqdm import tqdm
 from oumi.core.configs import AnalyzeConfig
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY
-from oumi.utils.analysis_utils import load_dataset_from_config
+from oumi.utils.analysis_utils import (
+    build_tokenizer_from_config,
+    load_dataset_from_config,
+)
 from oumi.utils.logging import logger
 
 
@@ -107,9 +110,12 @@ class DatasetAnalyzer:
         self.config = config
         self.dataset_name = config.dataset_name
         self.split = config.split
-        self.tokenizer = config.tokenizer
 
-        self.dataset = load_dataset_from_config(config)
+        # Build tokenizer from config if provided
+        self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
+
+        # Load dataset with the tokenizer
+        self.dataset = load_dataset_from_config(config, self.tokenizer)
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 
@@ -118,6 +124,10 @@ class DatasetAnalyzer:
         self._merged_df: Optional[pd.DataFrame] = None
         self._message_df: Optional[pd.DataFrame] = None
         self._conversation_df: Optional[pd.DataFrame] = None
+        self._analysis_summary: Optional[dict[str, Any]] = None
+
+        # Decimal precision for rounding metrics
+        self._decimal_precision = 2
 
     def _initialize_sample_analyzers(self) -> dict[str, Any]:
         """Initialize sample analyzer plugins from configuration.
@@ -184,6 +194,9 @@ class DatasetAnalyzer:
         logger.info(f"Analyzing {conversations_to_analyze} conversations")
 
         self._compute_conversation_metrics()
+
+        # Generate and store the analysis summary after metrics are computed
+        self._analysis_summary = self._generate_analysis_summary()
 
     @property
     def analysis_results(self) -> Optional[DatasetAnalysisResult]:
@@ -372,13 +385,16 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame containing rows that match the query expression
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
-        # Run analysis if not already done
+        # Check if analysis has been run
         if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            # After analysis, _merged_df should be populated
-            assert self._merged_df is not None
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to query the analysis results."
+            )
 
         # Apply the query filter
         try:
@@ -397,10 +413,15 @@ class DatasetAnalyzer:
         Returns:
             DataFrame with columns prefixed by message_ and conversation_ for each
             analyzer
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._merged_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the analysis DataFrame."
+            )
         return self._merged_df
 
     @property
@@ -409,10 +430,15 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame with message-level metrics prefixed by message_
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._message_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the message DataFrame."
+            )
         return self._message_df
 
     @property
@@ -421,10 +447,15 @@ class DatasetAnalyzer:
 
         Returns:
             DataFrame with conversation-level metrics prefixed by conversation_
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
         """
         if self._conversation_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to access the conversation DataFrame."
+            )
         return self._conversation_df
 
     def query_conversations(
@@ -440,18 +471,21 @@ class DatasetAnalyzer:
         Returns:
             DataFrame with filtered conversation analysis results
 
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+
         Examples:
             # Filter for short conversations
             long_conversations = analyzer.query_conversations(
                 "length_token_count > 1000"
             )
         """
-        # Run analysis if not already done
+        # Check if analysis has been run
         if self._conversation_df is None:
-            logger.info("Analysis not yet run, starting analysis...")
-            self.analyze_dataset()
-            # After analysis, _conversation_df should be populated
-            assert self._conversation_df is not None
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to query conversation results."
+            )
 
         # Apply the query filter
         try:
@@ -477,6 +511,9 @@ class DatasetAnalyzer:
 
         Returns:
             A new dataset object containing only the filtered conversations
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
 
         Examples:
             # Filter for conversations with short messages
@@ -528,3 +565,192 @@ class DatasetAnalyzer:
         filtered_dataset.dataset_name = f"{self.dataset.dataset_name}_filtered"
 
         return filtered_dataset
+
+    def _generate_analysis_summary(self) -> dict[str, Any]:
+        """Generate a comprehensive summary of dataset analysis results.
+
+        This method aggregates metrics from all analyzers to provide insights useful
+        for assessing datasets. It computes statistics like averages,
+        standard deviations, min/max values, and efficiency metrics.
+
+        Returns:
+            Dictionary containing comprehensive dataset analysis summary with:
+            - Dataset overview statistics
+            - Message-level aggregated metrics
+            - Conversation-level aggregated metrics
+        """
+        # Check if we have data to analyze
+        if self._merged_df is None or self._merged_df.empty:
+            return {"error": "No analysis data available"}
+
+        summary = {
+            "dataset_overview": self._get_dataset_overview(),
+            "message_level_summary": self._get_message_level_summary(),
+            "conversation_level_summary": self._get_conversation_level_summary(),
+        }
+
+        return summary
+
+    @property
+    def analysis_summary(self) -> dict[str, Any]:
+        """Get the comprehensive analysis summary.
+
+        Returns:
+            Dictionary containing comprehensive dataset analysis summary
+
+        Raises:
+            RuntimeError: If analysis has not been run yet.
+        """
+        if self._analysis_summary is None:
+            raise RuntimeError(
+                "Analysis has not been run yet. Please call analyze_dataset() first "
+                "to generate the analysis summary."
+            )
+        return self._analysis_summary
+
+    def _get_dataset_overview(self) -> dict[str, Any]:
+        """Get basic dataset overview statistics."""
+        if self._analysis_results is None:
+            return {}
+
+        return {
+            "dataset_name": self._analysis_results.dataset_name,
+            "total_conversations": self._analysis_results.total_conversations,
+            "conversations_analyzed": self._analysis_results.conversations_analyzed,
+            "dataset_coverage_percentage": round(
+                100.0
+                * self._analysis_results.conversations_analyzed
+                / self._analysis_results.total_conversations
+                if self._analysis_results.total_conversations > 0
+                else 0,
+                self._decimal_precision,
+            ),
+            "total_messages": len(self._message_df)
+            if self._message_df is not None
+            else 0,
+            "analyzers_used": list(self.sample_analyzers.keys()),
+        }
+
+    def _get_message_level_summary(self) -> dict[str, Any]:
+        """Get aggregated message-level metrics across all analyzers."""
+        if self._message_df is None or self._message_df.empty:
+            return {}
+
+        # Get all message-level analyzer columns
+        message_columns = [
+            col for col in self._message_df.columns if col.startswith("message_")
+        ]
+
+        summary = {}
+
+        for col in message_columns:
+            if col in [
+                "message_index",
+                "role",
+                "message_id",
+                "text_content",
+                "conversation_id",
+                "conversation_index",
+            ]:
+                continue
+
+            # Extract analyzer name and metric from column
+            # Format: message_{analyzer}_{metric}
+            parts = col.split("_", 2)
+            if len(parts) >= 3:
+                analyzer_name = parts[1]
+                metric_name = "_".join(parts[2:])
+
+                if analyzer_name not in summary:
+                    summary[analyzer_name] = {}
+
+                # Compute statistics for numeric columns
+                if pd.api.types.is_numeric_dtype(self._message_df[col]):
+                    values = self._message_df[col].dropna()
+                    if len(values) > 0:
+                        summary[analyzer_name][metric_name] = {
+                            "count": len(values),
+                            "mean": round(
+                                float(values.mean()), self._decimal_precision
+                            ),
+                            "std": round(float(values.std()), self._decimal_precision),
+                            "min": float(values.min()),
+                            "max": float(values.max()),
+                            "median": round(
+                                float(values.median()), self._decimal_precision
+                            ),
+                        }
+
+        return summary
+
+    def _get_conversation_level_summary(self) -> dict[str, Any]:
+        """Get aggregated conversation-level metrics across all analyzers."""
+        if self._conversation_df is None or self._conversation_df.empty:
+            return {}
+
+        # Get all conversation-level analyzer columns
+        conversation_columns = [
+            col
+            for col in self._conversation_df.columns
+            if col.startswith("conversation_")
+        ]
+
+        summary = {}
+
+        for col in conversation_columns:
+            if col in ["conversation_id", "conversation_index"]:
+                continue
+
+            # Extract analyzer name and metric from column
+            # Format: conversation_{analyzer}_{metric}
+            parts = col.split("_", 2)
+            if len(parts) >= 3:
+                analyzer_name = parts[1]
+                metric_name = "_".join(parts[2:])
+
+                if analyzer_name not in summary:
+                    summary[analyzer_name] = {}
+
+                # Compute statistics for numeric columns
+                if pd.api.types.is_numeric_dtype(self._conversation_df[col]):
+                    values = self._conversation_df[col].dropna()
+                    if len(values) > 0:
+                        summary[analyzer_name][metric_name] = {
+                            "count": len(values),
+                            "mean": round(
+                                float(values.mean()), self._decimal_precision
+                            ),
+                            "std": round(float(values.std()), self._decimal_precision),
+                            "min": float(values.min()),
+                            "max": float(values.max()),
+                            "median": round(
+                                float(values.median()), self._decimal_precision
+                            ),
+                        }
+
+        # Add conversation turn statistics if available
+        if self._message_df is not None and not self._message_df.empty:
+            turns_per_conversation = self._message_df.groupby("conversation_id").size()
+            # Handle pandas Series operations with proper type conversion
+            mean_val = turns_per_conversation.mean()
+            std_val = turns_per_conversation.std()
+            min_val = turns_per_conversation.min()
+            max_val = turns_per_conversation.max()
+            median_val = turns_per_conversation.median()
+
+            summary["conversation_turns"] = {
+                "count": len(turns_per_conversation),
+                "mean": round(float(mean_val), self._decimal_precision)  # type: ignore
+                if mean_val is not None
+                else 0.0,
+                "std": round(float(std_val), self._decimal_precision)  # type: ignore
+                if std_val is not None
+                else 0.0,
+                "min": int(min_val) if min_val is not None else 0,  # type: ignore
+                "max": int(max_val) if max_val is not None else 0,  # type: ignore
+                "median": round(float(median_val), self._decimal_precision)  # type: ignore
+                if median_val is not None
+                else 0.0,
+            }
+
+        return summary

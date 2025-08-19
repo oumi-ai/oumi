@@ -628,20 +628,73 @@ def test_invalid_expressions(test_data_path, mock_config):
             analyzer.filter(expression)
 
 
+def test_generate_analysis_summary(test_data_path, mock_config):
+    """Test the _generate_analysis_summary method."""
+    analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
+
+    # Test that summary is not available before analysis
+    with pytest.raises(RuntimeError, match="Analysis has not been run yet"):
+        _ = analyzer.analysis_summary
+
+    # Run analysis to generate summary
+    analyzer.analyze_dataset()
+
+    # Test that summary is now available
+    summary = analyzer.analysis_summary
+    assert summary is not None
+    assert isinstance(summary, dict)
+
+    # Test summary structure
+    expected_keys = [
+        "dataset_overview",
+        "message_level_summary",
+        "conversation_level_summary",
+    ]
+    for key in expected_keys:
+        assert key in summary
+
+    # Test dataset overview
+    overview = summary["dataset_overview"]
+    assert overview["dataset_name"] == "text_sft"
+    assert overview["total_conversations"] == 5
+    assert overview["conversations_analyzed"] == 2
+    assert "dataset_coverage_percentage" in overview
+    assert "total_messages" in overview
+    assert "analyzers_used" in overview
+
+    # Test message level summary - analyzer names with underscores get split
+    message_summary = summary["message_level_summary"]
+    # The analyzer names get split on underscores, so check for the actual keys
+    assert len(message_summary) > 0
+    # Check that we have some analyzer metrics
+    for analyzer_name, metrics in message_summary.items():
+        assert isinstance(metrics, dict)
+        assert len(metrics) > 0
+
+    # Test conversation level summary - analyzer names with underscores get split
+    conversation_summary = summary["conversation_level_summary"]
+    assert len(conversation_summary) > 0
+    assert "conversation_turns" in conversation_summary
+
+    # Test conversation turns statistics
+    turns_stats = conversation_summary["conversation_turns"]
+    assert "count" in turns_stats
+    assert "mean" in turns_stats
+    assert "std" in turns_stats
+    assert "min" in turns_stats
+    assert "max" in turns_stats
+    assert "median" in turns_stats
+
+
 def test_analyzer_with_tokenizer(test_data_path):
-    """Test that tokenizer is properly passed to analyzers."""
-    from unittest.mock import Mock
-
-    # Create a mock tokenizer
-    mock_tokenizer = Mock()
-    mock_tokenizer.encode.return_value = [1, 2, 3]  # 3 tokens
-
-    # Create config with tokenizer
+    """Test that tokenizer is properly built from config and passed to analyzers."""
     config = AnalyzeConfig(
         dataset_name="text_sft",
         split="train",
         sample_count=2,
-        tokenizer=mock_tokenizer,
+        tokenizer_config={
+            "model_name": "gpt2"
+        },  # This will be used to build a real tokenizer
         analyzers=[
             SampleAnalyzerParams(
                 id="text_length_analyzer",
@@ -651,6 +704,10 @@ def test_analyzer_with_tokenizer(test_data_path):
     )
 
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, config)
+
+    # Verify that tokenizer was built from config
+    assert analyzer.tokenizer is not None
+    assert hasattr(analyzer.tokenizer, "encode")
 
     # Run analysis to trigger tokenizer usage
     analyzer.analyze_dataset()
@@ -663,6 +720,3 @@ def test_analyzer_with_tokenizer(test_data_path):
     analysis_df = analyzer.analysis_df
     assert analysis_df is not None
     assert len(analysis_df) > 0
-
-    # Verify that the mock tokenizer was actually called
-    assert mock_tokenizer.encode.call_count > 0

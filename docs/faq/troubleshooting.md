@@ -14,19 +14,22 @@ If you'd like to use Oumi on Windows, we strongly suggest using
 [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/install).
 
 Installing natively on Windows outside of a WSL environment can lead to installation errors such as:
+
 ```shell
 ERROR: Could not find a version that satisfies the requirement ... (from versions: none)
 ```
+
 or runtime errors like:
+
 ```shell
 ModuleNotFoundError: No module named 'resource'
 ```
 
-### Installing on Mac
+### Installing on macOS
 
 Oumi only supports Apple Silicon Macs, not Intel Macs. This is because PyTorch dropped support for the latter. Installing on Intel Macs can lead to errors like:
 
-```
+```text
 Using Python 3.11.11 environment at: /Users/moonshine/miniconda3/envs/oumi
   × No solution found when resolving dependencies:
   ╰─▶ Because only the following versions of torch are available:

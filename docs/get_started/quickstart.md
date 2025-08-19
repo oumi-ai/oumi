@@ -73,7 +73,7 @@ oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
 To run the same recipe on your own dataset (e.g., in our supported JSON or JSONL formats), you can override the dataset name and path. You can try this functionality out by downloading the `alpaca_cleaned` dataset manually via the huggingface CLI, then including that local path in your run.
 
 ```bash
-huggingface-cli download yahma/alpaca-cleaned --repo-type dataset --local-dir /path/to/local/dataset
+hf download yahma/alpaca-cleaned --repo-type dataset --local-dir /path/to/local/dataset
 
 oumi train -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
   --data.train.datasets "[{dataset_name: text_sft, dataset_path: /path/to/local/dataset}]" \

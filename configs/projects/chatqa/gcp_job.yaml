@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - (optional) Request access to Llama 3.1 if you want to use it: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
@@ -21,13 +21,13 @@ resources:
   cloud: gcp
   accelerators: "A100-80GB"
   use_spot: false
-  disk_size: 1000  # Disk size in GB
+  disk_size: 1000 # Disk size in GB
 
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
-  ~/.cache/huggingface/token: ~/.cache/huggingface/token  # HF credentials
+  ~/.netrc: ~/.netrc # WandB credentials
+  ~/.cache/huggingface/token: ~/.cache/huggingface/token # HF credentials
 
 envs:
   WANDB_PROJECT: oumi-train
