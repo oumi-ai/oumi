@@ -391,7 +391,7 @@ class BaseJudge:
     ) -> bool:
         """Validate that all inputs contain the required placeholder keys."""
         if self.prompt_template_placeholders is None:
-            return True  # No validation needed if placeholders aren't specified
+            return True  # No validation needed if no placeholders are specified
 
         for index, input in enumerate(inputs):
             if missing_keys := self.prompt_template_placeholders - set(input.keys()):
