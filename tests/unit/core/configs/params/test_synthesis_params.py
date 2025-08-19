@@ -166,24 +166,22 @@ def test_permutable_attribute_value_valid():
 
 def test_permutable_attribute_value_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="PermutableAttributeValue.id cannot be empty"):
+    with pytest.raises(ValueError, match="SampledAttributeValue.id cannot be empty"):
         SampledAttributeValue(id="", name="test", description="test")
 
     # Test empty value
-    with pytest.raises(
-        ValueError, match="PermutableAttributeValue.value cannot be empty"
-    ):
+    with pytest.raises(ValueError, match="SampledAttributeValue.name cannot be empty"):
         SampledAttributeValue(id="test", name="", description="test")
 
     # Test empty description
     with pytest.raises(
-        ValueError, match="PermutableAttributeValue.description cannot be empty"
+        ValueError, match="SampledAttributeValue.description cannot be empty"
     ):
         SampledAttributeValue(id="test", name="test", description="")
 
     # Test invalid sample rate
     with pytest.raises(
-        ValueError, match="PermutableAttributeValue.sample_rate must be between 0 and 1"
+        ValueError, match="SampledAttributeValue.sample_rate must be between 0 and 1"
     ):
         SampledAttributeValue(
             id="test", name="test", description="test", sample_rate=1.5
@@ -230,7 +228,7 @@ def test_permutable_attribute_valid():
 
 def test_permutable_attribute_invalid():
     # Test empty id
-    with pytest.raises(ValueError, match="PermutableAttribute.id cannot be empty"):
+    with pytest.raises(ValueError, match="SampledAttribute.id cannot be empty"):
         SampledAttribute(
             id="",
             name="test",
@@ -241,9 +239,7 @@ def test_permutable_attribute_invalid():
         )
 
     # Test empty attribute
-    with pytest.raises(
-        ValueError, match="PermutableAttribute.attribute cannot be empty"
-    ):
+    with pytest.raises(ValueError, match="SampledAttribute.name cannot be empty"):
         SampledAttribute(
             id="test",
             name="",
@@ -255,7 +251,7 @@ def test_permutable_attribute_invalid():
 
     # Test empty description
     with pytest.raises(
-        ValueError, match="PermutableAttribute.description cannot be empty"
+        ValueError, match="SampledAttribute.description cannot be empty"
     ):
         SampledAttribute(
             id="test",
@@ -268,13 +264,13 @@ def test_permutable_attribute_invalid():
 
     # Test empty possible values
     with pytest.raises(
-        ValueError, match="PermutableAttribute.possible_values cannot be empty"
+        ValueError, match="SampledAttribute.possible_values cannot be empty"
     ):
         SampledAttribute(id="test", name="test", description="test", possible_values=[])
 
     # Test duplicate value ids
     with pytest.raises(
-        ValueError, match="PermutableAttribute.possible_values must have unique IDs"
+        ValueError, match="SampledAttribute.possible_values must have unique IDs"
     ):
         SampledAttribute(
             id="test",
@@ -288,7 +284,7 @@ def test_permutable_attribute_invalid():
 
     # Test sample rates sum > 1
     with pytest.raises(
-        ValueError, match="PermutableAttribute.possible_values must sum to 1.0"
+        ValueError, match="SampledAttribute.possible_values must sum to 1.0"
     ):
         SampledAttribute(
             id="test",
@@ -588,7 +584,7 @@ def test_general_synthesis_params_invalid():
 
     with pytest.raises(
         ValueError,
-        match="GeneralSynthesisParams.permutable_attributes cannot be empty.",
+        match="GeneralSynthesisParams.sampled_attributes cannot be empty.",
     ):
         GeneralSynthesisParams(sampled_attributes=[])
 

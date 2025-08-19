@@ -197,16 +197,16 @@ class SampledAttributeValue:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("PermutableAttributeValue.id cannot be empty.")
+            raise ValueError("SampledAttributeValue.id cannot be empty.")
         if not self.name:
-            raise ValueError("PermutableAttributeValue.name cannot be empty.")
+            raise ValueError("SampledAttributeValue.name cannot be empty.")
         if not self.description:
-            raise ValueError("PermutableAttributeValue.description cannot be empty.")
+            raise ValueError("SampledAttributeValue.description cannot be empty.")
         if self.sample_rate is not None and (
             self.sample_rate < 0 or self.sample_rate > 1
         ):
             raise ValueError(
-                "PermutableAttributeValue.sample_rate must be between 0 and 1."
+                "SampledAttributeValue.sample_rate must be between 0 and 1."
             )
 
 
@@ -236,13 +236,13 @@ class SampledAttribute:
     def __post_init__(self):
         """Verifies/populates params."""
         if not self.id:
-            raise ValueError("PermutableAttribute.id cannot be empty.")
+            raise ValueError("SampledAttribute.id cannot be empty.")
         if not self.name:
-            raise ValueError("PermutableAttribute.name cannot be empty.")
+            raise ValueError("SampledAttribute.name cannot be empty.")
         if not self.description:
-            raise ValueError("PermutableAttribute.description cannot be empty.")
+            raise ValueError("SampledAttribute.description cannot be empty.")
         if not self.possible_values:
-            raise ValueError("PermutableAttribute.possible_values cannot be empty.")
+            raise ValueError("SampledAttribute.possible_values cannot be empty.")
 
         value_ids = []
         sample_rates = []
@@ -252,9 +252,7 @@ class SampledAttribute:
 
         value_ids_set = set(value_ids)
         if len(value_ids) != len(value_ids_set):
-            raise ValueError(
-                "PermutableAttribute.possible_values must have unique IDs."
-            )
+            raise ValueError("SampledAttribute.possible_values must have unique IDs.")
 
         # Normalize sample rates
         normalized_sample_rates = []
@@ -267,7 +265,7 @@ class SampledAttribute:
                 undefined_sample_rate_count += 1
 
             if defined_sample_rate > 1.0:
-                raise ValueError("PermutableAttribute.possible_values must sum to 1.0.")
+                raise ValueError("SampledAttribute.possible_values must sum to 1.0.")
 
         # Assign remaining sample rate to undefined sample rates
         remaining_sample_rate = 1.0 - defined_sample_rate
