@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.metadata
+import importlib.util
 import logging
 import os
 import platform
@@ -241,7 +243,7 @@ def resolve_and_fetch_config(
 
 
 def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
-    """Create a prefilled GitHub issue URL with comprehensive error details.
+    """Create a prefilled GitHub issue URL aligned with the bug report template.
 
     Args:
         exception: The exception that occurred
@@ -256,6 +258,7 @@ def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
     system_info = f"{platform.system()} {platform.release()}"
 
     # Truncate long error messages and tracebacks to avoid URL length limits
+    # URL Length Limit: 2000 characters to be safe in all browsers
     error_msg = (
         str(exception)[:200] + "..." if len(str(exception)) > 200 else str(exception)
     )
@@ -266,22 +269,36 @@ def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
         else "\n".join(short_traceback)
     )
 
-    title = f"CLI Error: {type(exception).__name__}"
+    title = f"[CLI Error]: {type(exception).__name__}"
 
     command_str = " ".join(sys.argv)
     command_display = f"`{command_str[:100]}{'...' if len(command_str) > 100 else ''}`"
 
-    body = f"""**Error**: {error_msg}
-**Python**: {python_version}
-**System**: {system_info}
-**Command**: {command_display}git
-**Stack Trace (last lines)**:
-```
-{short_traceback}
-```
+    what_happened = error_msg
 
-<!-- Please add full error details and steps to reproduce -->"""
+    reproduction_steps = (
+        f"Steps to reproduce:\n\n"
+        f"1. Run command: {command_display}\n\n"
+        f"Error message:\n{error_msg}\n\n"
+        f"Stack trace:\n```\n{short_traceback}\n```"
+    )
 
-    params = {"title": title, "body": body, "labels": "bug"}
+    oumi_version = importlib.metadata.version("oumi")
+    system_info_content = (
+        f"Please paste the output of `oumi env` here. "
+        f"If you can't run this command, here's basic system info:\n\n"
+        f"- Operating system: {system_info}\n"
+        f"- Python version: {python_version}\n"
+        f"- Oumi version: {oumi_version}"
+    )
+
+    # Use the bug-report.yaml template
+    params = {
+        "template": "bug-report.yaml",
+        "title": title,
+        "what-happened": what_happened,
+        "reproduction-steps": reproduction_steps,
+        "system-info": system_info_content,
+    }
     query = urllib.parse.urlencode(params)
     return f"https://github.com/oumi-ai/oumi/issues/new?{query}"
