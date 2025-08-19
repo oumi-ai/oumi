@@ -176,19 +176,19 @@ class ExampleSource:
 
 
 @dataclass
-class PermutableAttributeValue:
-    """Value to be used for the attribute."""
+class SampledAttributeValue:
+    """Value to be sampled for the attribute."""
 
     id: str
     """ID to be used when referencing the attribute value during synthesis."""
 
-    value: str
-    """Value to be used for the attribute.
-    Referenced as {attribute_id.value}"""
+    name: str
+    """Plaintext name of the attribute value.
+    Referenced as {attribute_id}"""
 
     description: str
     """Description of the attribute value.
-    Referenced as {attribute_id.value.description}"""
+    Referenced as {attribute_id.description}"""
 
     sample_rate: Optional[float] = None
     """Sample rate for the attribute value. If not specified, will assume uniform
@@ -198,8 +198,8 @@ class PermutableAttributeValue:
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("PermutableAttributeValue.id cannot be empty.")
-        if not self.value:
-            raise ValueError("PermutableAttributeValue.value cannot be empty.")
+        if not self.name:
+            raise ValueError("PermutableAttributeValue.name cannot be empty.")
         if not self.description:
             raise ValueError("PermutableAttributeValue.description cannot be empty.")
         if self.sample_rate is not None and (
@@ -211,20 +211,20 @@ class PermutableAttributeValue:
 
 
 @dataclass
-class PermutableAttribute:
-    """Attributes to be varied across the dataset."""
+class SampledAttribute:
+    """Attributes to be sampled across the dataset."""
 
     id: str
     """ID to be used when referencing the attribute during synthesis."""
 
-    attribute: str
-    """Plaintext name of the attribute. Referenced as {attribute_id}"""
+    name: str
+    """Plaintext name of the attribute. Referenced as {id.parent}"""
 
     description: str
-    """Description of the attribute. Referenced as {attribute_id.description}"""
+    """Description of the attribute. Referenced as {id.parent.description}"""
 
-    possible_values: list[PermutableAttributeValue]
-    """Type of the attribute."""
+    possible_values: list[SampledAttributeValue]
+    """Values to be sampled for the attribute."""
 
     def get_value_distribution(self) -> dict[str, float]:
         """Get the distribution of attribute values."""
@@ -237,8 +237,8 @@ class PermutableAttribute:
         """Verifies/populates params."""
         if not self.id:
             raise ValueError("PermutableAttribute.id cannot be empty.")
-        if not self.attribute:
-            raise ValueError("PermutableAttribute.attribute cannot be empty.")
+        if not self.name:
+            raise ValueError("PermutableAttribute.name cannot be empty.")
         if not self.description:
             raise ValueError("PermutableAttribute.description cannot be empty.")
         if not self.possible_values:
@@ -517,7 +517,7 @@ class GeneralSynthesisParams(BaseParams):
     Examples will be enumerated during sampling, and attributes can be referenced as
     attributes when generating new attributes."""
 
-    permutable_attributes: Optional[list[PermutableAttribute]] = None
+    sampled_attributes: Optional[list[SampledAttribute]] = None
     """Attributes to be varied across the dataset.
 
     Attributes each have a set of possible values which will be randomly sampled
@@ -636,18 +636,18 @@ class GeneralSynthesisParams(BaseParams):
             for new_key in example_keys:
                 self._check_attribute_ids(all_attribute_ids, new_key)
 
-    def _check_permutable_attribute_ids(self, all_attribute_ids: set[str]) -> None:
-        """Check attribute IDs from permutable attributes for uniqueness."""
-        if self.permutable_attributes is None:
+    def _check_sampled_attribute_ids(self, all_attribute_ids: set[str]) -> None:
+        """Check attribute IDs from sampled attributes for uniqueness."""
+        if self.sampled_attributes is None:
             return
 
-        if len(self.permutable_attributes) == 0:
+        if len(self.sampled_attributes) == 0:
             raise ValueError(
-                "GeneralSynthesisParams.permutable_attributes cannot be empty."
+                "GeneralSynthesisParams.sampled_attributes cannot be empty."
             )
 
-        for permutable_attribute in self.permutable_attributes:
-            attribute_id = permutable_attribute.id
+        for sampled_attribute in self.sampled_attributes:
+            attribute_id = sampled_attribute.id
             self._check_attribute_ids(all_attribute_ids, attribute_id)
 
     def _check_generated_attribute_ids(self, all_attribute_ids: set[str]) -> None:
@@ -716,7 +716,7 @@ class GeneralSynthesisParams(BaseParams):
         self._check_dataset_source_attribute_ids(all_attribute_ids)
         self._check_document_source_attribute_ids(all_attribute_ids)
         self._check_example_source_attribute_ids(all_attribute_ids)
-        self._check_permutable_attribute_ids(all_attribute_ids)
+        self._check_sampled_attribute_ids(all_attribute_ids)
         self._check_generated_attribute_ids(all_attribute_ids)
         self._check_transformed_attribute_ids(all_attribute_ids)
         self._check_passthrough_attribute_ids()
