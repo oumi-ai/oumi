@@ -27,11 +27,6 @@ setup: |
   conda create -n oumi python=3.12 -y
   conda activate oumi
   pip install uv && uv pip install --pre oumi[gpu] hf_transfer
-  uv pip install --pre vllm==0.10.1+gptoss \
-    --extra-index-url https://wheels.vllm.ai/gpt-oss/ \
-    --extra-index-url https://download.pytorch.org/whl/nightly/cu128 \
-    --index-strategy unsafe-best-match \
-    --force-reinstall --no-cache
 
   HF_HUB_ENABLE_HF_TRANSFER=1 hf download openai/gpt-oss-120b --exclude original/*
 
