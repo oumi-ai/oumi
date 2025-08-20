@@ -12,158 +12,108 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from dataclasses import dataclass, field
-from enum import Enum
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, Optional, TypeVar
+from typing import Optional
 
-import pydantic
+import requests
+import yaml
+from typing_extensions import Self
 
+from oumi.cli import cli_utils
+from oumi.cli.alias import AliasType, try_get_config_name_for_alias
 from oumi.core.configs import BaseConfig
-from oumi.core.configs.inference_engine_type import InferenceEngineType
-from oumi.core.configs.params.generation_params import GenerationParams
-from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.configs.params.remote_params import RemoteParams
-from oumi.core.types.conversation import Conversation, Message, Role, TemplatedMessage
+from oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.configs.params.judge_params import JudgeParams
 
-
-class JudgeAttributeValueType(str, Enum):
-    """Enumeration of possible value types for judge attributes."""
-
-    BOOL = "bool"
-    """Boolean value type."""
-
-    CATEGORICAL = "categorical"
-    """Categorical value type."""
-
-    LIKERT_5 = "likert-5"
-    """Likert scale with 5 points value type."""
-
-
-T = TypeVar("T", bound=TemplatedMessage)
-
-
-class JudgeAttribute(pydantic.BaseModel, Generic[T]):
-    """Attributes for the judge.
-
-    Example:
-        >>> attribute = JudgeAttribute( # doctest: +SKIP
-        ...     name="helpful",
-        ...     system_prompt="You are an impartial judge.",
-        ...     examples=[
-        ...         TemplatedMessage(
-        ...             role=Role.USER,
-        ...             request="What is the capital of France?",
-        ...             response="The capital of France is Paris.",
-        ...         ),
-        ...         TemplatedMessage(
-        ...             role=Role.ASSISTANT,
-        ...             response="True",
-        ...         ),
-        ...     ],
-        ...     value_type=JudgeAttributeValueType.BOOL,
-        ...     limit_examples=5,
-        ... )
-        >>> print(attribute.name) # doctest: +SKIP
-        helpful
-    """
-
-    name: str
-    """The name of the attribute being judged."""
-
-    system_prompt: str
-    """The system prompt for the judge."""
-
-    examples: list[T] = field(default_factory=list)
-    """A list of few-shot example inputs and judgements."""
-
-    value_type: JudgeAttributeValueType = JudgeAttributeValueType.BOOL
-    """The type of value for the attribute."""
-
-    limit_examples: Optional[int] = 5
-    """The maximum number of examples to use.
-
-    This is an optional parameter that limits the number of examples to be used for
-    judging the attribute. If not specified, the default is 5.
-    """
-
-    @property
-    def conversation(self) -> Conversation:
-        """Returns the judgement conversation in oumi format.
-
-        This will include the judge system prompt, and any few-shot examples.
-        """
-        return Conversation(messages=self.messages)
-
-    @property
-    def messages(self) -> list[Message]:
-        """Returns the messages in oumi format.
-
-        This will include the judge system prompt, and any few-shot examples.
-        """
-        messages = [Message(content=self.system_prompt, role=Role.SYSTEM)]
-        return messages + [e.message for e in self.examples]
-
-    @classmethod
-    def load(cls: type, filename: str) -> "JudgeAttribute[T]":
-        """Loads the judge attribute config from a file."""
-        path = Path(filename)
-        if not path.exists():
-            raise FileNotFoundError(path)
-        return cls.model_validate_json(path.read_text())
+JUDGE_CONFIG_REPO_PATH_TEMPLATE = "oumi://configs/projects/judges/{path}.yaml"
 
 
 @dataclass
 class JudgeConfig(BaseConfig):
-    """Configuration for the Judge.
+    """Consolidated configuration for the Judge.
 
-    This class holds the configuration for the Judge,
-      including the attributes to judge, the model parameters,
-      and the text generation parameters.
+    This class combines the judge parameters (JudgeParams) and inference
+    configuration (InferenceConfig) into a single configuration object.
 
-    Examples:
-        >>> attributes = {
-        ...     "helpful": JudgeAttribute( # doctest: +SKIP
-        ...         name="helpful",
-        ...         system_prompt="Is this answer helpful?",
-        ...         examples=[
-        ...             TemplatedMessage(
-        ...                 role=Role.USER,
-        ...                 request="What is the capital of France?",
-        ...                 response="The capital of France is Paris.",
-        ...             ),
-        ...             TemplatedMessage(
-        ...                 role=Role.ASSISTANT,
-        ...                 response="True",
-        ...             ),
-        ...         ],
-        ...     ),
-        ...     "honest": JudgeAttribute(
-        ...         name="honest",
-        ...         system_prompt="Is this answer honest?",
-        ...         examples=[]
-        ...     )
-        ... }
-        >>> model_params = ModelParams(model_name="example-model")
-        >>> generation_params = GenerationParams(max_new_tokens=100) # doctest: +SKIP
+    Example:
         >>> judge_config = JudgeConfig( # doctest: +SKIP
-        ...     attributes=attributes,
-        ...     model=model_params,
-        ...     generation=generation_params
+        ...     judge_params=JudgeParams(
+        ...         prompt_template="Is this helpful? {question}, {answer}",
+        ...         response_format=JudgeResponseFormat.XML,
+        ...         judgment_type=JudgeOutputType.BOOL,
+        ...         include_explanation=False
+        ...     ),
+        ...     inference_config=InferenceConfig(
+        ...         model=ModelParams(model_name="gpt-4.1"),
+        ...         generation=GenerationParams(max_tokens=100),
+        ...         engine=InferenceEngineType.OPENAI
+        ...     )
         ... )
     """
 
-    attributes: dict[str, JudgeAttribute] = field(default_factory=dict)
-    """The attributes to judge."""
+    judge_params: JudgeParams
+    """Parameters for the judge prompt and response format."""
 
-    model: ModelParams = field(default_factory=ModelParams)
-    """Parameters for the model used in inference."""
+    inference_config: InferenceConfig
+    """Configuration for the inference engine and generation parameters."""
 
-    generation: GenerationParams = field(default_factory=GenerationParams)
-    """Parameters for text generation during inference."""
+    @classmethod
+    def from_path(cls, path: str, extra_args: Optional[list[str]] = None) -> Self:
+        """Resolve the JudgeConfig from a local or repo path."""
 
-    engine: InferenceEngineType = field(default=InferenceEngineType.NATIVE)
-    """The inference engine to use for generation."""
+        def _resolve_path(unresolved_path: str) -> Optional[str]:
+            try:
+                # Attempt to resolve the path using CLI utilities.
+                # This will handle both local paths and repo (oumi://) paths.
+                resolved_path = str(
+                    cli_utils.resolve_and_fetch_config(
+                        unresolved_path,
+                    )
+                )
+            except (
+                requests.exceptions.RequestException,  # Network/HTTP issues
+                yaml.YAMLError,  # YAML parsing errors
+                OSError,  # File system operations (includes IOError)
+            ):
+                # If resolution fails, mask the error and return None.
+                return None
 
-    remote_params: Optional[RemoteParams] = None
-    """Parameters for running inference against a remote API."""
+            # If resolution succeeds, check if the resolved path exists indeed.
+            return resolved_path if Path(resolved_path).exists() else None
+
+        if extra_args is None:
+            extra_args = []
+
+        # If `path` is an alias, resolve it to the corresponding oumi:// path.
+        path = try_get_config_name_for_alias(path, AliasType.JUDGE)
+
+        # If `path` is a local or repo path, load JudgeConfig obj from that path.
+        # Repo example: path = "oumi://configs/projects/judges/doc_qa/relevance.yaml"
+        # Local example: path= "./local_path/relevance.yaml"
+        resolved_path = _resolve_path(path)
+
+        # If `path` is a built-in judge name, construct the path from the default
+        # repo location, and then load the corresponding JudgeConfig.
+        # Example:
+        # "doc_qa/relevance" => "oumi://configs/projects/judges/doc_qa/relevance.yaml"
+        if not resolved_path:
+            resolved_path = _resolve_path(
+                JUDGE_CONFIG_REPO_PATH_TEMPLATE.format(path=path)
+            )
+
+        if resolved_path:
+            try:
+                return cls.from_yaml_and_arg_list(resolved_path, extra_args)
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to parse {resolved_path} as JudgeConfig. "
+                    f"Please ensure the YAML file contains both 'judge_params' and "
+                    f"'inference_config' sections with valid fields. "
+                    f"Original error: {e}"
+                ) from e
+        else:
+            raise ValueError(
+                f"Could not resolve JudgeConfig from path: {path}. "
+                "Please provide a valid local or GitHub repo path."
+            )

@@ -1,6 +1,3 @@
-> [!NOTE]
-> Sign up for our July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://lu.ma/6e2b5tcp?utm_source=github-readme-notice).
-
 ![Oumi Logo](https://github.com/oumi-ai/oumi/raw/main/docs/_static/logo/header_logo.png)
 
 [![Documentation](https://img.shields.io/badge/Documentation-oumi-blue.svg)](https://oumi.ai/docs/en/latest/index.html)
@@ -25,7 +22,11 @@
 </p>
 
 ## 🔥 News
-- [2025/07] July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://lu.ma/6e2b5tcp?utm_source=github-readme-news)
+- [2025/08] Inference support for OpenAI's `gpt-oss-20b` and `gpt-oss-120b`: [recipes here](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/gpt_oss)
+- [2025/08] Aug 14 Webinar - [OpenAI's gpt-oss: Separating the Substance from the Hype](https://youtu.be/g1PkAV7fXn0).
+- [2025/08] [Oumi v0.3.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.3.0) with model quantization (AWQ), an improved LLM-as-a-Judge API, and Adaptive Inference
+- [2025/07] Recipe for [Qwen3 235B](https://github.com/oumi-ai/oumi/blob/main/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml)
+- [2025/07] July 24 webinar: ["Training a State-of-the-art Agent LLM with Oumi + Lambda"](https://youtu.be/f3SU_heBP54)
 - [2025/06] [Oumi v0.2.0 released](https://github.com/oumi-ai/oumi/releases/tag/v0.2.0) with support for GRPO fine-tuning, a plethora of new model support, and much more
 - [2025/06] Announcement of [Data Curation for Vision Language Models (DCVLR) competition](https://oumi.ai/blog/posts/announcing-dcvlr) at NeurIPS2025
 - [2025/06] Recipes for training, inference, and eval with the newly released [Falcon-H1](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/falcon_h1) and [Falcon-E](https://github.com/oumi-ai/oumi/tree/main/configs/recipes/falcon_e) models
@@ -61,7 +62,7 @@ Learn more at [oumi.ai](https://oumi.ai/docs), or jump right in with the [quicks
 | **📚 Model Distillation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Distill a Large Model.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Guide to distilling large models into smaller, efficient ones |
 | **📋 Model Evaluation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Evaluation with Oumi.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Comprehensive model evaluation using Oumi's evaluation framework |
 | **☁️ Remote Training** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Running Jobs Remotely.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Launch and monitor training jobs on cloud (AWS, Azure, GCP, Lambda, etc.) platforms |
-| **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Oumi Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
+| **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Simple Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
 
 ## 🔧 Usage
 

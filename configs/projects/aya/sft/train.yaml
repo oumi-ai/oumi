@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
 #
 # Usage:
@@ -12,7 +12,7 @@
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
 #   - Config class: oumi.core.configs.TrainingConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+#   - Other training configs: configs/**/*train.yaml
 
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
@@ -73,3 +73,4 @@ training:
     packing: True
   # Use for debugging purposes
   #max_steps: 10
+  enable_wandb: True

@@ -31,23 +31,25 @@ _SYSTEM_PROMPT = (
 class LetterCountGrpoDataset(BaseExperimentalGrpoDataset):
     """Dataset class for the `oumi-ai/oumi-letter-count` dataset.
 
-    A sample from the dataset:
-    {
-        "conversation_id": "oumi_letter_count_0",
-        "messages": [
-            {
-                "content": "Can you let me know how many 'r's are in 'pandered'?",
-                "role": "user",
-            }
-        ],
-        "metadata": {
-            "letter": "r",
-            "letter_count_integer": 1,
-            "letter_count_string": "one",
-            "unformatted_prompt": "Can you let me know how many {letter}s are in {word}?",
-            "word": "pandered",
-        },
-    }
+    A sample from the dataset::
+
+        {
+            "conversation_id": "oumi_letter_count_0",
+            "messages": [
+                {
+                    "content": "Can you let me know how many 'r's are in 'pandered'?",
+                    "role": "user",
+                }
+            ],
+            "metadata": {
+                "letter": "r",
+                "letter_count_integer": 1,
+                "letter_count_string": "one",
+                "unformatted_prompt": "Can you let me know how many {letter}s are in {word}?",
+                "word": "pandered",
+            },
+        }
+
     """  # noqa: E501
 
     default_dataset = "oumi-ai/oumi-letter-count"

@@ -106,8 +106,6 @@ def _validate_job_config(job: JobConfig) -> None:
     """
     if not job.user:
         raise ValueError("User must be provided for Slurm jobs.")
-    if not job.working_dir:
-        raise ValueError("Working directory must be provided for Slurm jobs.")
     if not job.run:
         raise ValueError("Run script must be provided for Slurm jobs.")
     if job.num_nodes < 1:
@@ -118,6 +116,8 @@ def _validate_job_config(job: JobConfig) -> None:
             f"Unsupported cloud: {job.resources.cloud}"
         )
     # Warn that other resource parameters are unused for Slurm.
+    if not job.working_dir:
+        logger.warning("Working directory is not set. This is not recommended.")
     if job.resources.region:
         logger.warning("Region is unused for Slurm jobs.")
     if job.resources.zone:
@@ -230,14 +230,12 @@ class SlurmCluster(BaseCluster):
     def run_job(self, job: JobConfig) -> JobStatus:
         """Runs the specified job on this cluster.
 
-        For Slurm this method consists of 5 parts:
+        For Slurm this method consists of 4 parts:
 
-        1. Copy the working directory to ~/oumi_launcher/$JOB_NAME.
-        2. Check if there is a conda installation at /home/$USER/miniconda3/envs/oumi.
-           If not, install it.
-        3. Copy all file mounts.
-        4. Create a job script with all env vars, setup, and run commands.
-        5. CD into the working directory and submit the job.
+        1. Copy the working directory to ~/oumi_launcher/<submission_time>.
+        2. Copy all file mounts.
+        3. Create a job script with all env vars, setup, and run commands.
+        4. CD into the working directory and submit the job.
 
         Args:
             job: The job to run.
@@ -250,7 +248,10 @@ class SlurmCluster(BaseCluster):
         submission_time = _format_date(datetime.now())
         remote_working_dir = Path(f"~/oumi_launcher/{submission_time}")
         # Copy the working directory to ~/oumi_launcher/...
-        self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        if job.working_dir:
+            self._client.put_recursive(job.working_dir, str(remote_working_dir))
+        else:
+            self._client.run_commands([f"mkdir -p {remote_working_dir}"])
         # Copy all file mounts.
         for remote_path, local_path in job.file_mounts.items():
             self._client.put_recursive(local_path, remote_path)

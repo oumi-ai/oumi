@@ -1,0 +1,27 @@
+# Inference config for gpt-oss-20b.
+#
+# Requirements:
+#   - Run on a Hopper-family GPU. See https://huggingface.co/blog/welcome-openai-gpt-oss#using-transformers.
+#   - Run `uv pip install -U accelerate transformers kernels torchvision git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels`
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c oumi://configs/recipes/gpt_oss/inference/20b_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "openai/gpt-oss-20b"
+  model_max_length: 131072
+  trust_remote_code: True
+  attn_implementation: "kernels-community/vllm-flash-attn3"
+
+generation:
+  max_new_tokens: 8192
+  skip_special_tokens: false
+
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.

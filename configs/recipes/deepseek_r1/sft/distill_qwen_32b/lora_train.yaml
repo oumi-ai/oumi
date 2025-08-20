@@ -10,7 +10,7 @@
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
 #   - Config class: oumi.core.configs.TrainingConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+#   - Other training configs: configs/**/*train.yaml
 
 model:
   model_name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
@@ -57,7 +57,6 @@ training:
 peft:
   lora_r: 16
   lora_alpha: 32
-  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "k_proj"

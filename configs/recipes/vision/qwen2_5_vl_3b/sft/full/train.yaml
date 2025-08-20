@@ -11,17 +11,17 @@
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
 #   - Config class: oumi.core.configs.TrainingConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+#   - Other training configs: configs/**/*train.yaml
 
 model:
   model_name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  model_max_length: 16384
   torch_dtype_str: "bfloat16"
-  model_max_length: 4096
+  attn_implementation: "sdpa"
+  load_pretrained_weights: True
   trust_remote_code: True
-  attn_implementation: "sdpa" # You can also use `flash_attention_2` if you install it
-  chat_template: "qwen2-vl-instruct" # 2.5 uses the same template as 2.0
-  freeze_layers:
-    - "visual"
+  enable_liger_kernel: False
+  chat_template: "qwen2-vl-instruct"
 
 data:
   train:
@@ -54,10 +54,9 @@ training:
   trainer_type: "TRL_SFT"
   enable_gradient_checkpointing: True
   per_device_train_batch_size: 1 # Must be 1: the model generates variable-sized image features
-  gradient_accumulation_steps: 32
-  # max_steps: 20 # Uncomment if you want to limit the number of training steps.
-  num_train_epochs: 1
-
+  gradient_accumulation_steps: 1
+  # If this is not passed, checkpoints may be saved which are suitable for resuming training but not for loading from HF
+  save_final_model: True
   gradient_checkpointing_kwargs:
     # Reentrant docs: https://pytorch.org/docs/stable/checkpoint.html#torch.utils.checkpoint.checkpoint
     use_reentrant: False
@@ -71,11 +70,18 @@ training:
   weight_decay: 0.01
   lr_scheduler_type: "cosine"
 
-  logging_steps: 5
+  logging_steps: 50
   save_steps: 0
-  dataloader_main_process_only: False
-  dataloader_num_workers: 2
-  dataloader_prefetch_factor: 8
+  dataloader_num_workers: 64  # Match LIMO preprocessing workers
+  dataloader_prefetch_factor: 32
   include_performance_metrics: True
   log_model_summary: False
   enable_wandb: True
+
+fsdp:
+  enable_fsdp: True
+  sharding_strategy: "FULL_SHARD"  # Similar to DeepSpeed ZeRO-3
+  forward_prefetch: True
+  use_orig_params: True
+  auto_wrap_policy: "TRANSFORMER_BASED_WRAP"
+  transformer_layer_cls: "transformers.models.qwen2_5_vl.modeling_qwen2_5_vl.Qwen2_5_VLDecoderLayer"

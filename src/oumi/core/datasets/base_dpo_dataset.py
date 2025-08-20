@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import Any, Optional
 
 from typing_extensions import override
 
@@ -28,7 +28,7 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-class BaseExperimentalDpoDataset(BaseMapDataset):
+class BaseDpoDataset(BaseMapDataset):
     """Preprocess the samples to the Oumi format.
 
     Warning:
@@ -45,7 +45,7 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         return_tensors: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the BaseExperimentalDpoDataset class."""
+        """Initializes a new instance of the BaseDpoDataset class."""
         super().__init__(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
@@ -83,10 +83,29 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         """Transform the samples to the Oumi format."""
         return self.transform_preference(sample)
 
-    def _extract_from_chat_format(self, sample: dict) -> str:
+    def _extract_from_chat_format(self, sample: list[dict[str, Any]]) -> str:
         """Extract the last 'assistant' turn in the chat."""
         for turn in sample[::-1]:
             if turn[_ROLE] == _ASSISTANT:
                 return turn[_CONTENT]
 
         raise ValueError("No chat turn was found with an 'assistant' role.")
+
+
+class BaseExperimentalDpoDataset(BaseDpoDataset):
+    """Preprocess the samples to the Oumi format.
+
+    Warning:
+        This class is experimental and subject to change.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initializes a new instance of the BaseExperimentalDpoDataset class."""
+        from oumi.utils.logging import logger
+
+        logger.warning(
+            "`BaseExperimentalDpoDataset` is deprecated and will be removed in the "
+            "future. Please use `BaseDpoDataset` instead."
+        )
+
+        super().__init__(*args, **kwargs)

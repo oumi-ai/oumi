@@ -4,6 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from oumi.core.analyze.dataset_analyzer import (
+    ConversationAnalysisResult,
+    MessageAnalysisResult,
+)
 from oumi.core.configs import EvaluationBackend, EvaluationConfig, EvaluationTaskParams
 from oumi.core.evaluation.evaluation_result import EvaluationResult
 from oumi.core.registry import (
@@ -13,6 +17,7 @@ from oumi.core.registry import (
     register,
     register_dataset,
     register_evaluation_function,
+    register_sample_analyzer,
 )
 
 
@@ -493,8 +498,8 @@ def test_register_evaluation_fn_with_annotations_happy_path():
     assert evaluation_fn
     evaluation_result = evaluation_fn(
         task_params=EvaluationTaskParams(
-            evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluation_fn",
+            evaluation_backend=EvaluationBackend.CUSTOM.value,
         ),
         config=EvaluationConfig(run_name="run_name_for_test_evaluation_fn"),
         optional_param="optional_param_value",
@@ -523,8 +528,8 @@ def test_register_evaluation_fn_without_annotations_happy_path():
     assert evaluation_fn
     evaluation_result = evaluation_fn(
         task_params=EvaluationTaskParams(
-            evaluation_backend=EvaluationBackend.CUSTOM.value,
             task_name="test_evaluation_fn",
+            evaluation_backend=EvaluationBackend.CUSTOM.value,
         ),
         config=EvaluationConfig(run_name="run_name_for_test_evaluation_fn"),
         optional_param="optional_param_value",
@@ -550,3 +555,109 @@ def test_register_evaluation_fn_without_inputs_happy_path():
     assert evaluation_result.task_name == "unknown_task"
     assert evaluation_result.task_result == {"result": "dummy_result"}
     assert evaluation_result.backend_config == {"config": "dummy_config"}
+
+
+# Tests for registering sample analyzers.
+def test_registry_sample_analyzer():
+    @register_sample_analyzer("dummy_analyzer")
+    class DummyAnalyzer:
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
+            )
+
+    assert REGISTRY.contains("dummy_analyzer", RegistryType.SAMPLE_ANALYZER)
+    assert REGISTRY.get("dummy_analyzer", RegistryType.SAMPLE_ANALYZER) == DummyAnalyzer
+    assert not REGISTRY.contains("some_other_analyzer", RegistryType.SAMPLE_ANALYZER)
+
+
+def test_registry_sample_analyzer_get_all():
+    @register_sample_analyzer("analyzer_one")
+    class AnalyzerOne:
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
+            )
+
+    @register_sample_analyzer("analyzer_two")
+    class AnalyzerTwo:
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
+            )
+
+    all_analyzers = REGISTRY.get_all(RegistryType.SAMPLE_ANALYZER).values()
+    assert list(all_analyzers) == [AnalyzerOne, AnalyzerTwo]
+
+
+def test_registry_sample_analyzer_failure_register_twice():
+    @register_sample_analyzer("duplicate_analyzer")
+    class DummyAnalyzer:
+        def analyze_sample(
+            self, conversation, tokenizer=None
+        ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+            return (
+                [
+                    MessageAnalysisResult(
+                        message_index=0,
+                        role="user",
+                        message_id="dummy_msg",
+                        text_content="dummy_message",
+                        analyzer_metrics={},
+                    )
+                ],
+                ConversationAnalysisResult(analyzer_metrics={}),
+            )
+
+    with pytest.raises(ValueError):
+
+        @register_sample_analyzer("duplicate_analyzer")
+        class AnotherDummyAnalyzer:
+            def analyze_sample(
+                self, conversation, tokenizer=None
+            ) -> tuple[list[MessageAnalysisResult], ConversationAnalysisResult]:
+                return (
+                    [
+                        MessageAnalysisResult(
+                            message_index=0,
+                            role="user",
+                            message_id="dummy_msg",
+                            text_content="dummy_message",
+                            analyzer_metrics={},
+                        )
+                    ],
+                    ConversationAnalysisResult(analyzer_metrics={}),
+                )

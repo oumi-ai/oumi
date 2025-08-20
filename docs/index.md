@@ -38,6 +38,7 @@ user_guides/evaluate/evaluate
 user_guides/judge/judge
 user_guides/launch/launch
 user_guides/customization
+user_guides/quantization
 ```
 
 ```{toctree}
@@ -121,7 +122,7 @@ All with one consistent API, production-grade reliability, and all the flexibili
 | **📚 Model Distillation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Distill a Large Model.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Guide to distilling large models into smaller, efficient ones |
 | **📋 Model Evaluation** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Evaluation with Oumi.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Comprehensive model evaluation using Oumi's evaluation framework |
 | **☁️ Remote Training** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Running Jobs Remotely.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Launch and monitor training jobs on cloud (AWS, Azure, GCP, Lambda, etc.) platforms |
-| **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Oumi Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
+| **📈 LLM-as-a-Judge** | <a target="_blank" href="https://colab.research.google.com/github/oumi-ai/oumi/blob/main/notebooks/Oumi - Simple Judge.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a> | Filter and curate training data with built-in judges |
 
 ## 💻 Why use Oumi?
 
@@ -136,7 +137,6 @@ Here are some of the key features that make Oumi stand out:
 - 🚀 **SOTA Performance**: Native support for distributed training techniques (FSDP, DDP) and optimized inference engines (vLLM, SGLang).
 - 🤝 **Community First**: 100% open source with an active community. No vendor lock-in, no strings attached.
 
-
 ## 📖 Where to go next?
 
 While you can dive directly into any section that interests you, we recommend following the suggested path below to get the most out of Oumi.
@@ -149,15 +149,13 @@ While you can dive directly into any section that interests you, we recommend fo
 | 🔧 Development | Contribute to Oumi | [→ Dev Setup](development/dev_setup)<br>[→ Contributing](development/contributing)<br>[→ Style Guide](development/style_guide) |
 | 📖 API Reference | Documentation of all modules | [→ Python API](api/oumi)<br>[→ CLI](cli/commands) |
 
-
-## 🤝 Join the Community!
+## 🤝 Join the Community
 
 Oumi is a community-first effort. Whether you are a developer, a researcher, or a non-technical user, all contributions are very welcome!
 
 - To contribute to the `oumi` repository, please check the [`CONTRIBUTING.md`](https://github.com/oumi-ai/oumi/blob/main/CONTRIBUTING.md) for guidance on how to contribute to send your first Pull Request.
 - Make sure to join our [Discord community](https://discord.gg/oumi) to get help, share your experiences, and contribute to the project!
 - If you are interested by joining one of the community's open-science efforts, check out our [open collaboration](https://oumi.ai/community) page.
-
 
 ## ❓ Need Help?
 

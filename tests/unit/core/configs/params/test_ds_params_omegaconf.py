@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for DSParams OmegaConf integration."""
+"""Tests for DeepSpeedParams OmegaConf integration."""
 
 import sys
 from pathlib import Path
@@ -26,19 +26,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent)
 from oumi.core.configs.params.ds_params import (
     DeepSpeedOffloadDevice,
     DeepSpeedPrecision,
-    DSParams,
+    DeepSpeedParams,
     OffloadConfig,
     ZeRORuntimeStage,
 )
 
 
-class TestDSParamsOmegaConf:
-    """Test suite for DSParams OmegaConf integration."""
+class TestDeepSpeedParamsOmegaConf:
+    """Test suite for DeepSpeedParams OmegaConf integration."""
 
     def test_basic_instantiation(self):
-        """Test basic instantiation of DSParams with OmegaConf."""
-        # Create DSParams instance
-        params = DSParams()
+        """Test basic instantiation of DeepSpeedParams with OmegaConf."""
+        # Create DeepSpeedParams instance
+        params = DeepSpeedParams()
 
         # Convert to OmegaConf DictConfig
         config = OmegaConf.structured(params)
@@ -46,15 +46,19 @@ class TestDSParamsOmegaConf:
         # Verify basic properties
         assert isinstance(config, DictConfig)
         assert config.enable_deepspeed is False
-        assert config.zero_stage == ZeRORuntimeStage.ZERO_3
+        assert config.zero_stage == ZeRORuntimeStage.ZERO_0
 
     def test_nested_dataclass_instantiation(self):
         """Test instantiation with nested dataclasses (OffloadConfig)."""
-        # Create DSParams with offload config
+        # Create DeepSpeedParams with offload config
         offload_config = OffloadConfig(
             device=DeepSpeedOffloadDevice.CPU, pin_memory=True, buffer_count=4
         )
-        params = DSParams(enable_deepspeed=True, offload_optimizer=offload_config)
+        params = DeepSpeedParams(
+            enable_deepspeed=True,
+            zero_stage=ZeRORuntimeStage.ZERO_2,
+            offload_optimizer=offload_config
+        )
 
         # Convert to OmegaConf DictConfig
         config = OmegaConf.structured(params)
@@ -71,20 +75,20 @@ class TestDSParamsOmegaConf:
         with pytest.raises(
             ValueError, match="Parameter offloading is only supported with ZeRO stage 3"
         ):
-            DSParams(zero_stage=ZeRORuntimeStage.ZERO_2, offload_param=OffloadConfig())
+            DeepSpeedParams(zero_stage=ZeRORuntimeStage.ZERO_2, offload_param=OffloadConfig())
 
         # Test invalid optimizer offloading configuration
         with pytest.raises(
             ValueError, match="Optimizer offloading requires ZeRO stage 2 or 3"
         ):
-            DSParams(
+            DeepSpeedParams(
                 zero_stage=ZeRORuntimeStage.ZERO_1, offload_optimizer=OffloadConfig()
             )
 
     def test_omegaconf_merge(self):
         """Test merging configurations with OmegaConf."""
         # Base configuration
-        base_params = DSParams(
+        base_params = DeepSpeedParams(
             enable_deepspeed=True,
             zero_stage=ZeRORuntimeStage.ZERO_2,
             precision=DeepSpeedPrecision.FP16,
@@ -107,7 +111,7 @@ class TestDSParamsOmegaConf:
 
     def test_to_deepspeed_config(self):
         """Test conversion to DeepSpeed configuration format."""
-        params = DSParams(
+        params = DeepSpeedParams(
             enable_deepspeed=True,
             zero_stage=ZeRORuntimeStage.ZERO_3,
             precision=DeepSpeedPrecision.BF16,
@@ -128,7 +132,7 @@ class TestDSParamsOmegaConf:
 
     def test_enum_serialization(self):
         """Test that enums serialize correctly with OmegaConf."""
-        params = DSParams(
+        params = DeepSpeedParams(
             zero_stage=ZeRORuntimeStage.ZERO_3, precision=DeepSpeedPrecision.BF16
         )
 
@@ -144,7 +148,7 @@ class TestDSParamsOmegaConf:
 
     def test_default_factory_fields(self):
         """Test fields with default_factory work correctly."""
-        params = DSParams()
+        params = DeepSpeedParams()
 
         # Convert to OmegaConf
         config = OmegaConf.structured(params)
@@ -160,7 +164,7 @@ class TestDSParamsOmegaConf:
 
 def run_tests():
     """Run the tests and print results."""
-    print("Running DSParams OmegaConf integration tests...")
+    print("Running DeepSpeedParams OmegaConf integration tests...")
     pytest.main([__file__, "-v"])
 
 

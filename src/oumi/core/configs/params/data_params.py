@@ -252,13 +252,6 @@ class DatasetSplitParams(BaseParams):
     If set to `None` mixing will be non-deterministic.
     """
 
-    use_async_dataset: bool = False
-    """Whether to use the PretrainingAsyncTextDataset instead of ConstantLengthDataset.
-
-    Deprecated:
-        This parameter is deprecated and will be removed in the future.
-    """
-
     use_torchdata: Optional[bool] = None
     """Whether to use the `torchdata` library for dataset loading and processing.
 

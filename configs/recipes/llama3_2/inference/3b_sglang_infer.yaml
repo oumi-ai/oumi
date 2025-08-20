@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Install SGLang: https://docs.sglang.ai/start/install.html
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
 #
 # Usage:
@@ -41,7 +41,6 @@ model:
 
 generation:
   max_new_tokens: 2048
-  batch_size: 4
 
 remote_params:
   # This address is just an example (it's what you usually get when you start sglang sever locally).

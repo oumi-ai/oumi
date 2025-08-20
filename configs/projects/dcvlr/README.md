@@ -91,10 +91,10 @@ We provide configurations for three models; Molmo-D, Molmo-O, and QwenVL-2.5. Ot
 
 Depending on how `training: output_dir` is set in the config file, the model checkpoints will be saved in the base of the specified directory.
 
-We then recommend syncing the trained model to HuggingFace Hub using the `huggingface-cli` tool to enable version control and ease of future access. The repository need not exist in advance, it will be automatically created when you use this command.
+We then recommend syncing the trained model to HuggingFace Hub using the `hf` CLI tool to enable version control and ease of future access. The repository need not exist in advance, it will be automatically created when you use this command.
 
 ```bash
-huggingface-cli upload-large-folder <YOUR_HF_REPO> <YOUR_OUTPUT_DIRECTORY> --repo-type=model
+hf upload-large-folder <YOUR_HF_REPO> <YOUR_OUTPUT_DIRECTORY> --repo-type=model
 ```
 
 ### Model Evaluation
@@ -111,15 +111,18 @@ Model evaluation can also be conducted using a simple one-line command. We give 
 export MODEL_NAME=<YOUR/HF/MODEL/PATH>
 export WORK_DIR=<YOUR/OUTPUT/DIRECTORY>
 mkdir -p "$WORK_DIR"
-export DATASETS="VMCBench_DEV WeMath MathVista_MINI LiveXivVQA"
+export DATASETS="VMCBench_DEV OlympiadBench LiveXivVQA LiveXivTQA"
 python scripts/wandb_logger.py --run-and-log \
                                --data $DATASETS \
                                --work-dir $WORK_DIR \
                                --use-vllm \
-                               --save-detailed-eval \
-                               --save-judge-responses \
-                               --max-output-tokens 4096 \
+                               --max-output-tokens 8192 \
                                --pass-custom-model $MODEL_NAME
+
+python scripts/dcvlr_standalone_scorer.py --benchmarks "${DATASETS[@]}" \
+                                        --input-dir "${WORK_DIR}/${MODEL_NAME}" \
+                                        --llm-backend openai \
+                                        --model gpt-4o-mini
 ```
 
 ## How to Cite DCVLR

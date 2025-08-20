@@ -171,13 +171,20 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
     def _apply_chat_template_impl(self, conversation: Conversation) -> str:
         if self._processor is None:
-            return self._tokenizer.apply_chat_template(
-                conversation,  # type: ignore
+            prompt = self._tokenizer.apply_chat_template(
+                conversation.to_dict()["messages"],
                 tokenize=False,
                 add_generation_prompt=True,
             )
+            if not isinstance(prompt, str):
+                raise RuntimeError(
+                    "`apply_chat_template` returned an object that is not a string. "
+                    f"Actual type: {type(prompt)}"
+                )
+            return prompt
+
         return self._processor.apply_chat_template(
-            conversation,  # type: ignore
+            conversation.messages,
             add_generation_prompt=True,
         )
 
@@ -347,8 +354,8 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
 
             output_batch_decoded = self._tokenizer.batch_decode(
                 output_batch.data,
-                skip_special_tokens=True,
                 clean_up_tokenization_spaces=True,
+                skip_special_tokens=generation_params.skip_special_tokens,
             )
             for conversation, response in zip(
                 batched_input[batch_index], output_batch_decoded
@@ -398,6 +405,7 @@ class NativeTextInferenceEngine(BaseInferenceEngine):
             "min_p",
             "presence_penalty",
             "seed",
+            "skip_special_tokens",
             "stop_strings",
             "stop_token_ids",
             "temperature",

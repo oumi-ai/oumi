@@ -5,7 +5,7 @@
 # Adjust per_device_train_batch_size & gradient_accumulation_steps for your setup.
 #
 # Requirements:
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
 #
 # Usage:
@@ -15,7 +15,7 @@
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
 #   - Config class: oumi.core.configs.TrainingConfig
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
-#   - Other training configs: configs/**/pretraining/, configs/**/sft/, configs/**/dpo/
+#   - Other training configs: configs/**/*train.yaml
 
 model:
   model_name: "mistralai/Mistral-7B-v0.1"

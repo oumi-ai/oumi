@@ -92,16 +92,21 @@ class OffloadConfig:
 
 
 @dataclass
-class DSParams(BaseParams):
+class DeepSpeedParams(BaseParams):
     """Configuration options for DeepSpeed distributed training.
 
     Based on DeepSpeed configuration schema and best practices from
     LLaMA-Factory implementation.
+
+    For detailed ZeRO configuration options, see:
+    https://github.com/microsoft/DeepSpeed/blob/master/deepspeed/runtime/zero/config.py
     """
 
     enable_deepspeed: bool = False
     """If True, enables DeepSpeed distributed training.
 
+    When False, uses standard PyTorch distributed training (DDP/FSDP).
+    When True, initializes DeepSpeed engine with ZeRO optimizations based on zero_stage.
     Allows training larger models using ZeRO optimization stages
     for memory-efficient distributed training.
     """
@@ -110,19 +115,23 @@ class DSParams(BaseParams):
     """Path to a DeepSpeed JSON configuration file.
 
     If provided, this will override other DeepSpeed parameters.
-    Takes precedence over auto-generated configuration.
+    Takes precedence over auto-generated configuration. Parameters specified
+    in the JSON will override DeepSpeed defaults; unspecified parameters
+    will use DeepSpeed's internal defaults (not Oumi's defaults).
     """
 
-    zero_stage: ZeRORuntimeStage = ZeRORuntimeStage.ZERO_3
+    zero_stage: ZeRORuntimeStage = ZeRORuntimeStage.ZERO_0
     """ZeRO optimization stage.
 
     Controls the level of memory optimization:
-    - Stage 0: Disabled (standard data parallelism)
+    - Stage 0: Disabled ZeRO optimization, but DeepSpeed engine still active - DEFAULT
     - Stage 1: Optimizer state sharding
     - Stage 2: Optimizer + gradient sharding
     - Stage 3: Full sharding (optimizer + gradients + parameters)
 
-    Stage 3 provides maximum memory efficiency for large models.
+    Stage 0 is the default to match DeepSpeed behavior. Unlike enable_deepspeed=False,
+    Stage 0 still uses DeepSpeed's runtime features without ZeRO memory optimizations.
+    Enable higher stages for memory efficiency with large models.
     """
 
     offload_optimizer: Optional[OffloadConfig] = None
@@ -148,21 +157,25 @@ class DSParams(BaseParams):
     - None: Use model's native precision
     """
 
-    # Communication optimization parameters
-    overlap_comm: bool = True
-    """Whether to overlap communication with computation."""
+    # Communication optimization parameters (general)
+    overlap_comm: bool = False
+    """Whether to overlap communication with computation.
+    
+    DeepSpeed default is False. Automatically enabled for ZeRO Stage 3.
+    """
 
     contiguous_gradients: bool = True
     """Whether to ensure gradient memory is contiguous."""
-
-    allgather_bucket_size: int = int(5e8)
-    """Bucket size for allgather operations (ZeRO stages 0-2)."""
 
     reduce_bucket_size: Union[int, str] = "auto"
     """Bucket size for gradient reduction.
 
     Can be an integer or "auto" for automatic sizing.
     """
+
+    # ZeRO-2 specific communication parameters
+    allgather_bucket_size: int = int(5e8)
+    """Bucket size for allgather operations (ZeRO stages 0-2)."""
 
     # ZeRO-3 specific parameters
     stage3_prefetch_bucket_size: Union[int, str] = "auto"
@@ -177,15 +190,23 @@ class DSParams(BaseParams):
     stage3_max_reuse_distance: int = int(1e9)
     """Maximum reuse distance for parameters in ZeRO-3."""
 
-    stage3_gather_16bit_weights_on_model_save: bool = True
-    """Whether to gather 16-bit weights during model saving in ZeRO-3."""
+    stage3_gather_16bit_weights_on_model_save: bool = False
+    """Whether to gather 16-bit weights during model saving in ZeRO-3.
+    
+    DeepSpeed default is False. Set to True if you need full precision weights
+    in saved checkpoints.
+    """
 
     sub_group_size: int = int(1e9)
     """Sub-group size for ZeRO-3 parameter sharding."""
 
     # Training parameters (auto-configured by HuggingFace Transformers)
-    train_batch_size: str = "auto"
-    """Total training batch size across all GPUs."""
+    train_batch_size: Union[int, str] = "auto"
+    """Total training batch size across all GPUs.
+    
+    Can be an integer or "auto" for automatic configuration by HuggingFace.
+    When using TRL trainers, this should remain "auto" to allow proper batch size management.
+    """
 
     train_micro_batch_size_per_gpu: str = "auto"
     """Micro batch size per GPU."""
@@ -205,7 +226,25 @@ class DSParams(BaseParams):
 
     # Activation checkpointing
     activation_checkpointing: dict[str, Any] = field(default_factory=dict)
-    """Configuration for activation checkpointing to save memory."""
+    """Configuration for activation checkpointing to save memory.
+    
+    DeepSpeed activation checkpointing trades computation for memory by recomputing
+    activations during backward pass. Available parameters:
+    
+    - partition_activations (bool, default=False): Partition activation checkpoints 
+      across model parallel GPUs
+    - checkpoint_in_cpu (bool, default=False): Move activation checkpoints to CPU.
+      Only works when partition_activations=True
+    - contiguous_checkpointing (bool, default=False): Copy checkpoints to contiguous 
+      memory buffer. Requires num_checkpoints to be set
+    - num_checkpoints (int, optional): Number of activation checkpoints stored 
+      during forward propagation. Required for contiguous_checkpointing
+    - synchronize (bool, default=False): Perform device synchronization at 
+      checkpoint boundaries
+    - profile (bool, default=False): Log forward/backward time for each checkpoint
+    
+    Example: {"partition_activations": True, "checkpoint_in_cpu": True, "profile": False}
+    """
 
     # Memory optimization
     memory_efficient_linear: bool = False

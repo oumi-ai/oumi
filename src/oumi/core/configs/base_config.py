@@ -173,6 +173,18 @@ class BaseConfig:
 
         return cast(T, config)
 
+    def print_config(self, logger: Optional[logging.Logger] = None) -> None:
+        """Prints the configuration in a human-readable format.
+
+        Args:
+            logger: Optional logger to use. If None, uses module logger.
+        """
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
+        config_yaml = OmegaConf.to_yaml(self, resolve=True)
+        logger.info(f"Configuration:\n{config_yaml}")
+
     def finalize_and_validate(self) -> None:
         """Finalizes and validates the top level params objects."""
         for _, attr_value in self:

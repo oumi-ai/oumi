@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Run `pip install oumi[gpu]`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
 #
 # Usage:
@@ -24,6 +24,5 @@ model:
 
 generation:
   max_new_tokens: 2048
-  batch_size: 1
 
 engine: VLLM
