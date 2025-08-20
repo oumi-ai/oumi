@@ -547,18 +547,20 @@ class GeneralSynthesisParams(BaseParams):
     attribute.
 
     For example, if one of the previous attributes is "name", and you use the following
-    instruction messages:
-    [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "How do you pronounce the name {name}?"}
-    ]
+    instruction messages::
+
+        [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "How do you pronounce the name {name}?"}
+        ]
 
     Then assuming your data point has a value of "Oumi" for the "name" attribute, the
-    chat will be run with the following messages:
-    [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "How do you pronounce the name Oumi?"}
-    ]
+    chat will be run with the following messages::
+
+        [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "How do you pronounce the name Oumi?"}
+        ]
 
     The model's response to these messages will be the value of the "name" attribute
     for that data point."""
@@ -571,12 +573,14 @@ class GeneralSynthesisParams(BaseParams):
 
     For example, if you have "prompt" and "response" attributes, you can create a
     "chat" attribute by transforming the "prompt" and "response" attributes into a
-    chat message.
+    chat message::
 
-    [
-        {"role": "user", "content": "{prompt}"},
-        {"role": "assistant", "content": "{response}"}
-    ]"""
+        [
+            {"role": "user", "content": "{prompt}"},
+            {"role": "assistant", "content": "{response}"}
+        ]
+
+    """
 
     passthrough_attributes: Optional[list[str]] = None
     """When specified, will ONLY pass through these attributes in final output.

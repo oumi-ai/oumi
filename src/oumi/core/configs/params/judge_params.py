@@ -83,6 +83,16 @@ class JudgeParams(BaseParams):
     prompt_template: str
     """Template for the judge prompt with placeholders, such as {question}, {answer}."""
 
+    prompt_template_placeholders: Optional[list[str]] = field(default=None)
+    """List of placeholder names in `prompt_template`, to be replaced by the dataset.
+
+    These placeholders correspond to the keys that are expected to be found in every
+    example of the input dataset. Their values will replace the placeholders of the
+    prompt template, generating a different judge prompt for each example.
+    Specifically, if the prompt template contains "{question}" and "{answer}",
+    this list (if defined) should be ["question", "answer"].
+    """
+
     system_instruction: Optional[str] = field(default=None)
     """Optional system message to guide judge behavior."""
 
@@ -116,7 +126,8 @@ class JudgeParams(BaseParams):
     Each dictionary should contain values for all template placeholders and
     expected output fields. Used to provide examples of how the judge should respond.
 
-    Example:
+    Example::
+
         [
             {
                 "question": "What is 2+2?",                      # placeholder value
@@ -160,6 +171,17 @@ class JudgeParams(BaseParams):
                 raise ValueError("All judgment_scores values must be numeric")
             if not self.judgment_scores:
                 raise ValueError("judgment_scores cannot be empty when provided")
+
+        # Validate prompt_template_placeholders
+        if self.prompt_template_placeholders:
+            actual_placeholders = self.get_placeholders()
+            declared_placeholders = set(self.prompt_template_placeholders)
+            if declared_placeholders != actual_placeholders:
+                raise ValueError(
+                    f"prompt_template_placeholders ({declared_placeholders}) are "
+                    "inconsistent with placeholders found in the prompt_template "
+                    f"({actual_placeholders})"
+                )
 
     def replace_template_variables(self):
         """Apply template variables to prompt_template and system_instruction."""

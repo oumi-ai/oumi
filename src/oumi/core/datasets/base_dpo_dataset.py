@@ -28,7 +28,7 @@ _CONTENT = "content"
 _ASSISTANT = "assistant"
 
 
-class BaseExperimentalDpoDataset(BaseMapDataset):
+class BaseDpoDataset(BaseMapDataset):
     """Preprocess the samples to the Oumi format.
 
     Warning:
@@ -45,7 +45,7 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
         return_tensors: bool = False,
         **kwargs,
     ) -> None:
-        """Initializes a new instance of the BaseExperimentalDpoDataset class."""
+        """Initializes a new instance of the BaseDpoDataset class."""
         super().__init__(
             dataset_name=dataset_name,
             dataset_path=dataset_path,
@@ -90,3 +90,22 @@ class BaseExperimentalDpoDataset(BaseMapDataset):
                 return turn[_CONTENT]
 
         raise ValueError("No chat turn was found with an 'assistant' role.")
+
+
+class BaseExperimentalDpoDataset(BaseDpoDataset):
+    """Preprocess the samples to the Oumi format.
+
+    Warning:
+        This class is experimental and subject to change.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initializes a new instance of the BaseExperimentalDpoDataset class."""
+        from oumi.utils.logging import logger
+
+        logger.warning(
+            "`BaseExperimentalDpoDataset` is deprecated and will be removed in the "
+            "future. Please use `BaseDpoDataset` instead."
+        )
+
+        super().__init__(*args, **kwargs)

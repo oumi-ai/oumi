@@ -5,7 +5,7 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
 #
 # Usage:
@@ -70,7 +70,6 @@ peft:
   bnb_4bit_compute_dtype: "bfloat16"
   lora_r: 16
   lora_alpha: 32
-  lora_dropout: 0.0
   lora_target_modules:
     - "q_proj"
     - "k_proj"

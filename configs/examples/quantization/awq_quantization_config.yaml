@@ -1,0 +1,34 @@
+# AWQ quantization config for TinyLlama.
+#
+# Usage:
+#   oumi quantize -c configs/examples/quantization/awq_quantization_config.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/quantization.html
+#   - Config class: oumi.core.configs.QuantizationConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/quantization_config.py
+#   - Other quantization configs: configs/examples/quantization/*quantization_config.yaml
+
+# Model configuration
+model:
+  model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # HuggingFace model ID or local path
+  tokenizer_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0" # Tokenizer to use
+  model_kwargs:
+    torch_dtype: "float16" # Load model in half precision for efficiency
+    trust_remote_code: true
+  adapter_model: null # No LoRA adapter
+
+# Quantization settings
+method: "awq_q4_0" # 4-bit AWQ with enhanced calibration for quality
+output_path: "tinyllama-1.1b-awq4" # Production output path
+
+# AWQ calibration settings
+awq_group_size: 128 # Standard grouping size
+awq_zero_point: true # Enable zero-point for better accuracy
+awq_version: "GEMM" # Use GEMM kernel for speed
+calibration_samples: 1024 # More samples for production quality
+cleanup_temp: true # Clean up temporary files
+
+# Performance tuning
+batch_size: 8 # Smaller batch for memory efficiency
+verbose: true # Detailed progress logging

@@ -503,6 +503,7 @@ class TestBaseJudge:
     def base_judge(self, mock_inference_engine, sample_output_fields):
         return BaseJudge(
             prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders={"question", "answer"},
             system_instruction=None,
             example_field_values=[],
             response_format=JudgeResponseFormat.XML,
@@ -714,3 +715,39 @@ class TestBaseJudge:
 
         with pytest.raises(ValueError, match="Expected 2 messages, got 1"):
             base_judge.judge(inputs)
+
+    def test_validate_dataset_no_declared_placeholders(
+        self, mock_inference_engine, sample_output_fields
+    ):
+        judge = BaseJudge(
+            prompt_template="Is this helpful? Question: {question}, Answer: {answer}",
+            prompt_template_placeholders=None,
+            system_instruction=None,
+            example_field_values=[],
+            response_format=JudgeResponseFormat.XML,
+            output_fields=sample_output_fields,
+            inference_engine=mock_inference_engine,
+        )
+
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},  # Input 0: Valid
+            {"question": "What is 2+2?"},  # Input 1: Missing 'answer'
+        ]
+        result = judge.validate_dataset(inputs)  # Should not raise an exception
+        assert result is True
+
+    def test_validate_dataset_valid_inputs(self, base_judge):
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},  # Valid
+            {"question": "What is 2+2?", "answer": "4", "extra": "ignored"},  # Valid
+        ]
+        result = base_judge.validate_dataset(inputs)
+        assert result is True
+
+    def test_validate_dataset_missing_keys(self, base_judge):
+        inputs = [
+            {"question": "What is 1+1?", "answer": "2"},  # Input 0: Valid
+            {"question": "What is 2+2?"},  # Input 1: Missing 'answer'
+        ]
+        with pytest.raises(ValueError, match=r"Input 1 is missing keys: \['answer'\]"):
+            base_judge.validate_dataset(inputs)

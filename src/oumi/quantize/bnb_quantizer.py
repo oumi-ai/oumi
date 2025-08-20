@@ -35,7 +35,7 @@ class BitsAndBytesQuantization(BaseQuantization):
     """
 
     supported_methods = ["bnb_4bit", "bnb_8bit"]
-    supported_formats = ["pytorch", "safetensors"]
+    supported_formats = ["safetensors"]
 
     def __init__(self):
         """Initialize BitsAndBytes quantizer."""
@@ -167,10 +167,11 @@ class BitsAndBytesQuantization(BaseQuantization):
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Save based on format
-        safe_serialization = config.output_format == "safetensors"
-
         logger.info(f"Saving quantized model to: {output_dir}")
-        model.save_pretrained(str(output_dir), safe_serialization=safe_serialization)
+        model.save_pretrained(
+            str(output_dir),
+            safe_serialization=True,  # use safetensors
+        )
         tokenizer.save_pretrained(str(output_dir))
 
         return str(output_dir)

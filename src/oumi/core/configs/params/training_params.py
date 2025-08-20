@@ -45,6 +45,13 @@ class TrainerType(Enum):
     for fine-tuning language models based on human preferences.
     """
 
+    TRL_KTO = "trl_kto"
+    """Kahneman-Tversky Optimization trainer from `trl` library.
+
+    This trainer implements the KTO algorithm for fine-tuning language models
+    based on binary feedback (desirable/undesirable) rather than preference pairs.
+    """
+
     TRL_GRPO = "trl_grpo"
     """Group Relative Policy Optimization trainer from `trl` library.
 
@@ -162,6 +169,7 @@ class TrainingParams(BaseParams):
     - HF: HuggingFace's Trainer
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
+    - TRL_KTO: TRL's KTO Trainer
     - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
     - VERL_GRPO: verl's GRPO Trainer
@@ -633,12 +641,15 @@ class TrainingParams(BaseParams):
     `{"actor_rollout_ref": {"actor": {"use_kl_loss": True}}}`.
 
     The priority of setting verl config params, from highest to lowest, is:
-    1. Values specified by this field.
-    2. Values automatically set by Oumi in
-        `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()` for verl params
-        which have corresponding Oumi params. For example,
-        Oumi's `training.output_dir` -> verl's `trainer.default_local_dir`
-    3. Default verl config values in `src/oumi/core/trainers/verl_trainer_config.yaml`.
+
+        1. Values specified by this field.
+        2. Values automatically set by Oumi in
+           `src/oumi/core/trainers/verl_grpo_trainer.py:_create_config()`
+           for verl params
+           which have corresponding Oumi params. For example,
+           Oumi's `training.output_dir` -> verl's `trainer.default_local_dir`
+        3. Default verl config values in
+           `src/oumi/core/trainers/verl_trainer_config.yaml`.
     """
 
     profiler: ProfilerParams = field(default_factory=ProfilerParams)
@@ -722,6 +733,8 @@ class TrainingParams(BaseParams):
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_KTO:
+            config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         else:

@@ -2,7 +2,7 @@
 #
 # Requirements:
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.1: https://huggingface.co/meta-llama/Llama-3.1-70B-Instruct
 #
 # Usage:
@@ -24,7 +24,7 @@ model:
   shard_for_eval: True
 
 generation:
-  batch_size: 3  # 4 will OOM on a Polaris node
+  batch_size: 3 # 4 will OOM on a Polaris node
 
 tasks:
   # For all available tasks, see https://oumi.ai/docs/en/latest/user_guides/evaluate/evaluate.html
