@@ -171,7 +171,7 @@ def run():
             "\n[red]If you believe this is a bug, please file an issue:[/red]"
         )
         CONSOLE.print(
-            f"📝 [yellow]Prefilled issue:[/yellow] "
+            f"📝 [yellow]Templated issue:[/yellow] "
             f"[link={issue_url}]Click here to report[/link]"
         )
         CONSOLE.print(

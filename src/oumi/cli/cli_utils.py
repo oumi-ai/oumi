@@ -252,53 +252,67 @@ def create_github_issue_url(exception: Exception, traceback_str: str) -> str:
     Returns:
         str: URL for creating a prefilled GitHub issue
     """
+    # 2000 is the max length of a URL to ensure it works with any browser
+    MAX_URL_LENGTH = 2000
+    base_url = "https://github.com/oumi-ai/oumi/issues/new?"
+
     python_version = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     system_info = f"{platform.system()} {platform.release()}"
-
-    # Truncate long error messages and tracebacks to avoid URL length limits
-    # URL Length Limit: 2000 characters to be safe in all browsers
-    error_msg = (
-        str(exception)[:200] + "..." if len(str(exception)) > 200 else str(exception)
-    )
-    short_traceback = traceback_str.split("\n")[-10:]  # Last 10 lines only
-    short_traceback = (
-        "\n".join(short_traceback)[:800] + "..."
-        if len("\n".join(short_traceback)) > 800
-        else "\n".join(short_traceback)
-    )
-
-    title = f"[CLI Error]: {type(exception).__name__}"
-
-    command_str = " ".join(sys.argv)
-    command_display = f"`{command_str[:100]}{'...' if len(command_str) > 100 else ''}`"
-
-    what_happened = error_msg
-
-    reproduction_steps = (
-        f"Steps to reproduce:\n\n"
-        f"1. Run command: {command_display}\n\n"
-        f"Error message:\n{error_msg}\n\n"
-        f"Stack trace:\n```\n{short_traceback}\n```"
-    )
-
     oumi_version = importlib.metadata.version("oumi")
     system_info_content = (
-        f"Please paste the output of `oumi env` here. "
+        f"**Please paste the output of `oumi env` here.** "
         f"If you can't run this command, here's basic system info:\n\n"
         f"- Operating system: {system_info}\n"
         f"- Python version: {python_version}\n"
         f"- Oumi version: {oumi_version}"
     )
 
-    # Use the bug-report.yaml template
-    params = {
-        "template": "bug-report.yaml",
-        "title": title,
-        "what-happened": what_happened,
-        "reproduction-steps": reproduction_steps,
-        "system-info": system_info_content,
-    }
-    query = urllib.parse.urlencode(params)
-    return f"https://github.com/oumi-ai/oumi/issues/new?{query}"
+    title_template = "[Automatic Error Report]: {error_msg}"
+    reproduction_template = (
+        "Steps to reproduce:\n\n"
+        "Command executed: `{command}`\n\n"
+        "Stack trace:\n```\n{traceback}\n```"
+    )
+
+    exception_str = str(exception)
+    command_str = " ".join(sys.argv)
+
+    # Limit the title to 50 chars (unencoded)
+    title_error = exception_str[:50]
+
+    command_part = command_str
+    error_part = exception_str
+    stack_part = traceback_str or ""
+
+    def build_url(command_part: str, error_part: str, stack_part: str) -> str:
+        params = {
+            "template": "bug-report.yaml",
+            "title": title_template.format(error_msg=title_error),
+            "what-happened": error_part,
+            "reproduction-steps": reproduction_template.format(
+                command=command_part, traceback=stack_part
+            ),
+            "system-info": system_info_content,
+        }
+        return f"{base_url}{urllib.parse.urlencode(params)}"
+
+    full_url = build_url(command_part, error_part, stack_part)
+
+    # If too long, iteratively shrink fields by encoded length
+    while len(full_url) > MAX_URL_LENGTH:
+        if stack_part:
+            # shrink stack from the front (keep tail)
+            cut = max(1, len(stack_part) // 2)
+            stack_part = stack_part[cut:]
+        elif error_part:
+            cut = max(1, len(error_part) // 2)
+            error_part = error_part[:-cut]
+        elif command_part:
+            cut = max(1, len(command_part) // 2)
+            command_part = command_part[:-cut]
+        else:
+            return f"{base_url}template=bug-report.yaml"
+        full_url = build_url(command_part, error_part, stack_part)
+    return full_url
