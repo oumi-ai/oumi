@@ -44,7 +44,6 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click<8.3.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<3.3",
-    "deepspeed>=0.17.0,<=0.17.4",   # DeepSpeed ZeRO optimization for distributed training
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",
