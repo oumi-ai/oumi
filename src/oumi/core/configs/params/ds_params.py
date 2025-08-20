@@ -129,7 +129,7 @@ class DSParams(BaseParams):
     """Configuration for optimizer state offloading.
 
     When enabled, optimizer states are offloaded to CPU/NVMe
-    to save GPU memory. Available for ZeRO stages 2 and 3.
+    to save GPU memory. Available for ZeRO stages 1, 2, and 3.
     """
 
     offload_param: Optional[OffloadConfig] = None
