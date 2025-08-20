@@ -44,7 +44,7 @@ dependencies = [
     "backoff>=2.2.1,<2.3",
     "click<8.3.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
     "datasets>=3.2,<3.3",
-    "deepspeed>=0.10.0,<=0.16.9",   # DeepSpeed ZeRO optimization for distributed training
+    "deepspeed>=0.17.0,<=0.17.4",   # DeepSpeed ZeRO optimization for distributed training
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",
@@ -126,6 +126,7 @@ gpu = [
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl==0.4.0",        # Used for the VERL_GRPO trainer.
     "vllm>=0.10.0,<0.11", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "deepspeed>=0.17.0,<=0.17.4"
 ]
 
 # Targets for supported cloud providers
