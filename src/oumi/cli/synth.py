@@ -37,7 +37,6 @@ def synth(
         ),
     ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
-    verbose: cli_utils.VERBOSE_TYPE = False,
 ):
     """Synthesize a dataset.
 
@@ -45,7 +44,6 @@ def synth(
         ctx: The Typer context object.
         config: Path to the configuration file for synthesis.
         level: The logging level for the specified command.
-        verbose: Enable verbose logging with additional debug information.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
