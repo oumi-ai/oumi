@@ -165,6 +165,16 @@ LOG_LEVEL_TYPE = Annotated[
     ),
 ]
 
+VERBOSE_TYPE = Annotated[
+    bool,
+    typer.Option(
+        "--verbose",
+        "-v",
+        help="Enable verbose logging with additional debug information.",
+        show_default=True,
+    ),
+]
+
 
 def _resolve_oumi_prefix(
     config_path: str, output_dir: Optional[Path] = None
