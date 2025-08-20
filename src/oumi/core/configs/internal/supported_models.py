@@ -85,7 +85,7 @@ def find_model_hf_config(
     *,
     trust_remote_code: bool,
     revision: Optional[str] = None,
-    **kwargs: dict[str, Any],
+    **kwargs: Any,
 ) -> transformers.PretrainedConfig:
     """Finds HF model config by model name."""
     hf_config, unused_kwargs = transformers.AutoConfig.from_pretrained(

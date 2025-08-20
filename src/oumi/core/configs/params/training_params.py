@@ -702,7 +702,7 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
-    def to_hf(self, training_config: "TrainingConfig" = None):
+    def to_hf(self, training_config: Optional["TrainingConfig"] = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
         Args:
