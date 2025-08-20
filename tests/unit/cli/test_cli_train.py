@@ -213,3 +213,23 @@ def test_train_runs_with_oumi_prefix(
         mock_device_cleanup.assert_has_calls([call(), call()])
         mock_set_random_seeds.assert_called_once()
         assert logger.level == logging.ERROR
+
+
+def test_train_with_verbose_flag(
+    app,
+    mock_train,
+    mock_limit_per_process_memory,
+    mock_device_cleanup,
+    mock_set_random_seeds,
+):
+    """Test that verbose flag is properly passed through to train function."""
+    with tempfile.TemporaryDirectory() as output_temp_dir:
+        train_yaml_path = str(Path(output_temp_dir) / "train.yaml")
+        config: TrainingConfig = _create_training_config()
+        config.to_yaml(train_yaml_path)
+
+        # Test with --verbose
+        result = runner.invoke(app, ["--config", train_yaml_path, "--verbose"])
+
+        assert result.exit_code == 0
+        mock_train.assert_called_once_with(config, verbose=True)
