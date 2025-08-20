@@ -30,6 +30,7 @@ def train(
         ),
     ],
     level: cli_utils.LOG_LEVEL_TYPE = None,
+    verbose: cli_utils.VERBOSE_TYPE = False,
 ):
     """Train a model.
 
@@ -37,6 +38,7 @@ def train(
         ctx: The Typer context object.
         config: Path to the configuration file for training.
         level: The logging level for the specified command.
+        verbose: Enable verbose logging with additional debug information.
     """
     extra_args = cli_utils.parse_extra_cli_args(ctx)
 
@@ -72,6 +74,6 @@ def train(
     )
 
     # Run training
-    oumi_train(parsed_config)
+    oumi_train(parsed_config, verbose=verbose)
 
     device_cleanup()

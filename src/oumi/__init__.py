@@ -239,6 +239,7 @@ def train(
     config: TrainingConfig,
     additional_model_kwargs: dict[str, Any] | None = None,
     additional_trainer_kwargs: dict[str, Any] | None = None,
+    verbose: bool = False,
 ) -> None:
     """Trains a model using the provided configuration."""
     import oumi.train
@@ -247,6 +248,7 @@ def train(
         config,
         additional_model_kwargs=additional_model_kwargs,
         additional_trainer_kwargs=additional_trainer_kwargs,
+        verbose=verbose,
     )
 
 
