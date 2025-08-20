@@ -48,7 +48,7 @@ dependencies = [
     "jsonlines",
     "lm_eval[wandb]>=0.4.5,<0.4.9",
     "mlflow>=3.3.0",                # Logging to MLflow
-    "numpy>=2.3.0,<2.4",
+    "numpy>=2.0.0,<2.4",            # numpy>=2.1.0 drops support for Python3.9
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
