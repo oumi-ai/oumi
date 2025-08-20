@@ -170,15 +170,20 @@ def run():
         CONSOLE.print(
             "\n[red]If you believe this is a bug, please file an issue:[/red]"
         )
-        CONSOLE.print(
-            f"📝 [yellow]Templated issue:[/yellow] "
-            f"[link={issue_url}]Click here to report[/link]"
-        )
-        CONSOLE.print(
-            "🔗 [dim]Or create your own:[/dim] "
-            "[link=https://github.com/oumi-ai/oumi/issues/new]"
-            "github.com/oumi-ai/oumi/issues/new[/link]"
-        )
+        if sys.stdout.isatty():
+            CONSOLE.print(
+                f"📝 [yellow]Templated issue:[/yellow] "
+                f"[link={issue_url}]Click here to report[/link]"
+            )
+            CONSOLE.print(
+                "🔗 [dim]Or create your own:[/dim] "
+                "[link=https://github.com/oumi-ai/oumi/issues/new]"
+                "github.com/oumi-ai/oumi/issues/new[/link]"
+            )
+        else:
+            CONSOLE.print(
+                "https://github.com/oumi-ai/oumi/issues/new?template=bug-report.yaml"
+            )
 
         sys.exit(1)
 
