@@ -460,7 +460,6 @@ def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
     return config.deepspeed.is_zero3_enabled()
 
 
-
 def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict]:
     """Get DeepSpeed configuration as file path or dictionary.
 

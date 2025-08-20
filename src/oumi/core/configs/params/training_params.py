@@ -16,7 +16,10 @@ import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+if TYPE_CHECKING:
+    from oumi.core.configs.training_config import TrainingConfig
 
 import transformers
 import trl
@@ -699,7 +702,7 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
-    def to_hf(self, training_config: TrainingConfig = None):
+    def to_hf(self, training_config: "TrainingConfig" = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
         Args:

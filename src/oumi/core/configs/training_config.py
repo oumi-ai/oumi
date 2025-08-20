@@ -110,12 +110,19 @@ class TrainingConfig(BaseConfig):
         trainer_type: Final[TrainerType] = self.training.trainer_type
         if (
             self.deepspeed.enable_deepspeed
-            and trainer_type in (TrainerType.TRL_SFT, TrainerType.TRL_DPO, TrainerType.TRL_KTO, TrainerType.TRL_GRPO)
+            and trainer_type
+            in (
+                TrainerType.TRL_SFT,
+                TrainerType.TRL_DPO,
+                TrainerType.TRL_KTO,
+                TrainerType.TRL_GRPO,
+            )
             and self.deepspeed.train_batch_size != "auto"
         ):
             raise ValueError(
                 f"When using TRL trainer ({trainer_type}) with DeepSpeed, "
-                "train_batch_size must be set to 'auto' to allow proper batch size management. "
+                "train_batch_size must be set to 'auto' to allow proper batch size "
+                "management. "
                 f"Current value: {self.deepspeed.train_batch_size}"
             )
 

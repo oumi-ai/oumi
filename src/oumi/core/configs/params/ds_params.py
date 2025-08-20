@@ -160,7 +160,7 @@ class DeepSpeedParams(BaseParams):
     # Communication optimization parameters (general)
     overlap_comm: bool = False
     """Whether to overlap communication with computation.
-    
+
     DeepSpeed default is False. Automatically enabled for ZeRO Stage 3.
     """
 
@@ -192,7 +192,7 @@ class DeepSpeedParams(BaseParams):
 
     stage3_gather_16bit_weights_on_model_save: bool = False
     """Whether to gather 16-bit weights during model saving in ZeRO-3.
-    
+
     DeepSpeed default is False. Set to True if you need full precision weights
     in saved checkpoints.
     """
@@ -203,9 +203,10 @@ class DeepSpeedParams(BaseParams):
     # Training parameters (auto-configured by HuggingFace Transformers)
     train_batch_size: Union[int, str] = "auto"
     """Total training batch size across all GPUs.
-    
+
     Can be an integer or "auto" for automatic configuration by HuggingFace.
-    When using TRL trainers, this should remain "auto" to allow proper batch size management.
+    When using TRL trainers, this should remain "auto" to allow proper batch size
+    management.
     """
 
     train_micro_batch_size_per_gpu: str = "auto"
@@ -237,23 +238,24 @@ class DeepSpeedParams(BaseParams):
     # Activation checkpointing
     activation_checkpointing: dict[str, Any] = field(default_factory=dict)
     """Configuration for activation checkpointing to save memory.
-    
+
     DeepSpeed activation checkpointing trades computation for memory by recomputing
     activations during backward pass. Available parameters:
-    
-    - partition_activations (bool, default=False): Partition activation checkpoints 
+
+    - partition_activations (bool, default=False): Partition activation checkpoints
       across model parallel GPUs
     - checkpoint_in_cpu (bool, default=False): Move activation checkpoints to CPU.
       Only works when partition_activations=True
-    - contiguous_checkpointing (bool, default=False): Copy checkpoints to contiguous 
+    - contiguous_checkpointing (bool, default=False): Copy checkpoints to contiguous
       memory buffer. Requires num_checkpoints to be set
-    - num_checkpoints (int, optional): Number of activation checkpoints stored 
+    - num_checkpoints (int, optional): Number of activation checkpoints stored
       during forward propagation. Required for contiguous_checkpointing
-    - synchronize (bool, default=False): Perform device synchronization at 
+    - synchronize (bool, default=False): Perform device synchronization at
       checkpoint boundaries
     - profile (bool, default=False): Log forward/backward time for each checkpoint
-    
-    Example: {"partition_activations": True, "checkpoint_in_cpu": True, "profile": False}
+
+    Example: {"partition_activations": True, "checkpoint_in_cpu": True,
+              "profile": False}
     """
 
     # Memory optimization
@@ -280,11 +282,12 @@ class DeepSpeedParams(BaseParams):
             )
 
         if self.offload_optimizer is not None and self.zero_stage not in [
+            ZeRORuntimeStage.ZERO_1,
             ZeRORuntimeStage.ZERO_2,
             ZeRORuntimeStage.ZERO_3,
         ]:
             raise ValueError(
-                "Optimizer offloading requires ZeRO stage 2 or 3. "
+                "Optimizer offloading requires ZeRO stage 1, 2, or 3. "
                 f"Current stage: {self.zero_stage}"
             )
 
