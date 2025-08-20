@@ -37,7 +37,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "accelerate>=1.7.0,<3.0",
+    "accelerate>=1.10.0,<3.0",
     "aiohttp>=3.10,<3.16",          # Used by inference engine
     "aiofiles>=22.1.0,<25",         # Allows to use async file operations
     "aioresponses>=0.7.6,<0.8",     # User by inference engine tests
