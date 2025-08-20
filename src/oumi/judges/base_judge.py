@@ -296,6 +296,7 @@ class BaseJudge:
     def __init__(
         self,
         prompt_template: str,
+        prompt_template_placeholders: Optional[set[str]],
         system_instruction: Optional[str],
         example_field_values: list[dict[str, str]],
         response_format: JudgeResponseFormat,
@@ -306,6 +307,7 @@ class BaseJudge:
 
         Args:
             prompt_template: Template string with placeholders for input data
+            prompt_template_placeholders: Set of expected placeholders in template
             system_instruction: Optional system message to guide judge behavior
             example_field_values: List of field value dicts for few-shot learning
             response_format: Expected format of judge responses (XML, JSON, or RAW)
@@ -313,6 +315,7 @@ class BaseJudge:
             inference_engine: Engine for running model inference
         """
         self.prompt_template = prompt_template
+        self.prompt_template_placeholders = prompt_template_placeholders
         self.system_instruction = system_instruction
         self.example_field_values = example_field_values
         self.response_format = response_format
@@ -340,6 +343,9 @@ class BaseJudge:
         Raises:
             ValueError: If inference returns unexpected number of conversations
         """
+        # Fast fail if the dataset is invalid
+        self.validate_dataset(inputs)
+
         # Build few-shot examples: convert field values to prompts and responses
         example_user_prompts = [
             self._build_judgment_prompt(example_fields)
@@ -379,6 +385,24 @@ class BaseJudge:
             judge_outputs.append(judge_output)
 
         return judge_outputs
+
+    def validate_dataset(
+        self, inputs: list[dict[str, str]], raise_on_error: bool = True
+    ) -> bool:
+        """Validate that all inputs contain the required placeholder keys."""
+        if self.prompt_template_placeholders is None:
+            return True  # No validation needed if no placeholders are specified
+
+        for index, input in enumerate(inputs):
+            if missing_keys := self.prompt_template_placeholders - set(input.keys()):
+                if raise_on_error:
+                    raise ValueError(
+                        f"Input {index} is missing keys: {sorted(missing_keys)}. "
+                        f"Required: {sorted(self.prompt_template_placeholders)}, "
+                        f"Found: {sorted(set(input.keys()))}."
+                    )
+                return False
+        return True
 
     def _validate_output_fields(self, output_fields: list[JudgeOutputField]) -> None:
         """Ensure all output fields are properly defined."""
