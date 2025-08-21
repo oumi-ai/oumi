@@ -131,7 +131,7 @@ gpu = [
 aws = ["skypilot[aws]"]
 azure = ["skypilot[azure]"]
 gcp = [
-    "google-api-core>=2.19.0",
+    "google-api-core>=2.25.0",
     "google-api-python-client",
     "google-auth>=2.30.0",
     "google-cloud-core>=2.4.1",
