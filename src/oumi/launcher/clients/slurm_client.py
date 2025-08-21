@@ -497,7 +497,7 @@ class SlurmClient:
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
-    def tail_job_output(self, working_dir: str, job_id: str) -> int:
+    def tail_job(self, working_dir: str, job_id: str) -> int:
         """Tails the Slurm job output file in the current terminal.
 
         This method opens an interactive SSH session and runs:
@@ -517,9 +517,11 @@ class SlurmClient:
             The SSH command's exit code. This is a blocking call.
         """
         # Force a pseudo-TTY so tail -f streams interactively to the user's terminal.
+        # Start a remote tail and locally poll job status via SlurmClient.
+        # When the job is done, gracefully stop the tail.
         tail_cmd = (
             f"ssh {_CTRL_PATH} -tt {self._user}@{self._slurm_host} "
-            f'"cd {working_dir} && tail -f slurm-{job_id}.out"'
+            f'"cd {working_dir} && tail -n +1 -F slurm-{job_id}.out"'
         )
         logger.info(
             "Starting remote tail: cd %s && tail -f slurm-%s.out", working_dir, job_id
@@ -533,26 +535,27 @@ class SlurmClient:
                 stdin=subprocess.DEVNULL,
                 start_new_session=True,
             )
-            return_code = proc.wait()
-            return int(return_code)
+            # Poll job status in parallel while tail runs.
+            poll_interval_sec = 2.0
+            while True:
+                # If tail ended on its own, propagate its return code.
+                if proc.poll() is not None:
+                    return int(proc.returncode)
+                job = self.get_job(job_id)
+                # If job is missing or done, stop tail.
+                if job is None or job.done:
+                    os.killpg(proc.pid, signal.SIGINT)
+                    return int(proc.wait(timeout=5))
+                time.sleep(poll_interval_sec)
         except KeyboardInterrupt:
             # Gracefully stop tailing on Ctrl-C by signaling the process group.
             logger.info("Stopped tailing logs for job %s", job_id)
             if proc and proc.poll() is None:
-                try:
-                    os.killpg(proc.pid, signal.SIGINT)
-                except Exception:
-                    pass
-                try:
-                    proc.wait(timeout=5)
-                except Exception:
-                    pass
-            return 130
+                os.killpg(proc.pid, signal.SIGINT)
+                proc.wait(timeout=5)
+            return 130  # Exit code for Ctrl-C
         except Exception:
             logger.exception("Failed while tailing logs for job %s", job_id)
             if proc and proc.poll() is None:
-                try:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                except Exception:
-                    pass
+                os.killpg(proc.pid, signal.SIGTERM)
             raise

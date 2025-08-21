@@ -274,7 +274,7 @@ class SlurmCluster(BaseCluster):
             job_status = self.get_job(job_id)
             if job_status is not None:
                 time.sleep(2)
-                self._client.tail_job_output(str(remote_working_dir), job_id)
+                self._client.tail_job(str(remote_working_dir), job_id)
                 return job_status
             logger.info(f"Job {job_id} not found. Retrying in {wait_time} seconds.")
             time.sleep(wait_time)
@@ -283,7 +283,7 @@ class SlurmCluster(BaseCluster):
             raise RuntimeError(f"Job {job_id} not found after submission.")
         # Tail logs in the current terminal session. This call blocks until interrupted
         # or until the remote command exits.
-        self._client.tail_job_output(str(remote_working_dir), job_id)
+        self._client.tail_job(str(remote_working_dir), job_id)
         return job_status
 
     def stop(self) -> None:
