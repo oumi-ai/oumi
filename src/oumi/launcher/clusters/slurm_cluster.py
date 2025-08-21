@@ -158,6 +158,7 @@ class SlurmCluster(BaseCluster):
         """Initializes a new instance of the SlurmCluster class."""
         self._client = client
         self._connection = self.parse_cluster_name(name)
+        self.jobs_to_dir = {}
 
     def __eq__(self, other: Any) -> bool:
         """Checks if two SlurmClusters are equal."""
@@ -268,22 +269,18 @@ class SlurmCluster(BaseCluster):
             job.num_nodes,
             job_name,
         )
+        self.jobs_to_dir[job_id] = remote_working_dir
         max_retries = 3
         wait_time = 5
         for _ in range(max_retries):
             job_status = self.get_job(job_id)
             if job_status is not None:
-                time.sleep(2)
-                self._client.tail_job(str(remote_working_dir), job_id)
                 return job_status
             logger.info(f"Job {job_id} not found. Retrying in {wait_time} seconds.")
             time.sleep(wait_time)
         job_status = self.get_job(job_id)
         if job_status is None:
             raise RuntimeError(f"Job {job_id} not found after submission.")
-        # Tail logs in the current terminal session. This call blocks until interrupted
-        # or until the remote command exits.
-        self._client.tail_job(str(remote_working_dir), job_id)
         return job_status
 
     def stop(self) -> None:
@@ -293,3 +290,12 @@ class SlurmCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Slurm clusters."""
         pass
+
+    def tail_logs(self, job_id: str, cluster_name: str) -> None:
+        """Tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster to tail the logs of.
+        """
+        self._client.tail_job(self.jobs_to_dir[job_id], job_id, cluster_name)

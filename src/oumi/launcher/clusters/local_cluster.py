@@ -127,3 +127,7 @@ class LocalCluster(BaseCluster):
         """Cancels all jobs, running or queued."""
         for job in self.get_jobs():
             self.cancel_job(job.id)
+
+    def tail_logs(self, job_id: str, cluster_name: str) -> None:
+        """This is a no-op for local clusters."""
+        raise NotImplementedError

@@ -192,7 +192,6 @@ def _poll_job(
     If the job is running in detached mode and the job is not on the local cloud,
     the function returns immediately.
     """
-    import oumi.launcher.clients.sky_client as sky_client
     from oumi import launcher
 
     is_local = cloud == "local"
@@ -210,18 +209,14 @@ def _poll_job(
 
     assert running_cluster
 
-    # Check if this is a Skypilot job and tail logs automatically
-    if cloud in [cloud.value for cloud in sky_client.SkyClient.SupportedClouds]:
+    # Prefer cluster-provided tailing when available; otherwise, poll.
+    if hasattr(running_cluster, "tail_logs") and callable(
+        getattr(running_cluster, "tail_logs")
+    ):
         cli_utils.CONSOLE.print(
             f"Tailing logs for job [yellow]{job_status.id}[/yellow]..."
         )
-        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
-        import sky
-
-        sky.tail_logs(
-            cluster_name=job_status.cluster,
-            job_id=job_status.id,
-        )
+        running_cluster.tail_logs(job_status.id, job_status.cluster)
     else:
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",

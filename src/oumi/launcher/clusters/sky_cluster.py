@@ -106,3 +106,18 @@ class SkyCluster(BaseCluster):
     def down(self) -> None:
         """Tears down the current cluster."""
         self._client.down(self.name())
+
+    def tail_logs(self, job_id: str, cluster_name: str) -> None:
+        """Tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster to tail the logs of.
+        """
+        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
+        import sky
+
+        sky.tail_logs(
+            cluster_name=cluster_name,
+            job_id=job_id,
+        )

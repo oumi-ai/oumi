@@ -297,3 +297,7 @@ class PolarisCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Polaris clusters."""
         pass
+
+    def tail_logs(self, job_id: str, cluster_name: str) -> None:
+        """This is a no-op for Polaris clusters."""
+        raise NotImplementedError

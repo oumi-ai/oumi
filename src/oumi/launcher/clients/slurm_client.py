@@ -497,7 +497,7 @@ class SlurmClient:
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
-    def tail_job(self, working_dir: str, job_id: str) -> int:
+    def tail_job(self, working_dir: str, job_id: str, cluster_name: str) -> int:
         """Tails the Slurm job output file in the current terminal.
 
         This method opens an interactive SSH session and runs:
@@ -512,6 +512,7 @@ class SlurmClient:
         Args:
             working_dir: Remote working directory where the job was submitted.
             job_id: The Slurm job ID whose output file to follow.
+            cluster_name: The name of the cluster to tail the logs of.
 
         Returns:
             The SSH command's exit code. This is a blocking call.
@@ -520,12 +521,21 @@ class SlurmClient:
         # Start a remote tail and locally poll job status via SlurmClient.
         # When the job is done, gracefully stop the tail.
         tail_cmd = (
-            f"ssh {_CTRL_PATH} -tt {self._user}@{self._slurm_host} "
+            f"ssh {_CTRL_PATH} -tt {cluster_name} "
             f'"cd {working_dir} && tail -n +1 -F slurm-{job_id}.out"'
         )
         logger.info(
             "Starting remote tail: cd %s && tail -f slurm-%s.out", working_dir, job_id
         )
+        # Pre-flight: verify the output file exists remotely before tailing.
+        preflight = self.run_commands(
+            [f"cd {working_dir}", f"test -f slurm-{job_id}.out"]
+        )
+        if preflight.exit_code != 0:
+            raise FileNotFoundError(
+                f"Log file not found: {working_dir}/slurm-{job_id}.out. "
+                "The job may not have started writing yet."
+            )
         proc = None
         try:
             # Blocking mode: stream logs to the user's terminal.
