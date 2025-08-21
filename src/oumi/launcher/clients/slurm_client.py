@@ -494,3 +494,33 @@ class SlurmClient:
         result = self.run_commands(cmds)
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
+
+    def tail_job_output(self, working_dir: str, job_id: str) -> int:
+        """Tails the Slurm job output file in the current terminal.
+
+        This method opens an interactive SSH session and runs:
+        cd <working_dir> && tail -f slurm-<job_id>.out
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            job_id: The Slurm job ID whose output file to follow.
+
+        Returns:
+            The SSH command's exit code. This is a non-blocking call.
+        """
+        # Force a pseudo-TTY so tail -f streams interactively to the user's terminal.
+        tail_cmd = (
+            f"ssh {_CTRL_PATH} -t {self._user}@{self._slurm_host} "
+            f'"cd {working_dir} && tail -f slurm-{job_id}.out"'
+        )
+        logger.info(
+            "Starting remote tail: cd %s && tail -f slurm-%s.out", working_dir, job_id
+        )
+        try:
+            # Non-blocking mode: spawn the tail process and return immediately.
+            subprocess.Popen(tail_cmd, shell=True)
+            return 0
+        except KeyboardInterrupt:
+            # Allow users to stop tailing with Ctrl-C gracefully.
+            logger.info("Stopped tailing logs for job %s", job_id)
+            return 130
