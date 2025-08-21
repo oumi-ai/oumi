@@ -60,17 +60,17 @@ dependencies = [
     "pexpect>=4.9.0,<5.0",       # Used by Polaris client
     "pillow>=11.3.0,<11.4",      # Used by image datasets
     "protobuf>=6.32.0",
-    "pydantic>=2.11.7,<2.12",     # breaking change for 4.0
+    "pydantic>=2.11.7,<2.12",     # breaking change
     "responses>=0.25.8,<0.26",
     "safetensors>=0.6.2,<0.7",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
     "tensorboard>=2.20.0,<3.0", # Optional, for monitoring training
-    "torch>=2.8,<2.9.0",
+    "torch>=2.6,<2.9.0",         # breaking change
     "torchao>=0.11.0,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
     # if python > 3.13, install from source for now.
-    "torchdata>=0.9.0,<0.10.0",  # Used by data pipes loader
+    "torchdata>=0.11.0,<0.13.0",  # Used by data pipes loader
     "torchvision>=0.21.0,<0.23", # Used by some VLM-s (multimodal)
     "tqdm",
     # Llama Vision attention is broken as late as 4.48.2 if gradient checkpointing is
