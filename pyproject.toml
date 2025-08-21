@@ -118,7 +118,7 @@ docs = [
 
 # Useful dependencies when running on GPU
 gpu = [
-    "liger-kernel>=0.5.0,<0.6",
+    "liger-kernel>=0.6.0,<0.7",
     "nvidia-ml-py>=12.560.30,<12.561",
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
