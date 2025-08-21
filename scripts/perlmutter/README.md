@@ -20,19 +20,19 @@ Use the `launcher.sh` script to submit jobs to Perlmutter. The script handles:
 
 - Setting up an SSH tunnel
 - Copying your local files to Perlmutter
-- Creating and activating the Conda environment
+- Activating the Conda environment and updating the installation
 - Submitting your job
 
 Basic usage:
 
 ```bash
-./launcher.sh -u username -q queue -n num_nodes -s source_dir -d dest_dir -j job_script
+./launcher.sh -u username -q qos -n num_nodes -s source_dir -d dest_dir -j job_script
 ```
 
 Arguments:
 
 - `-u`: Your Perlmutter username
-- `-q`: Queue/partition to use (options: batch, extended)
+- `-q`: QoS (quality of service) to use (debug, regular, etc.)
 - `-n`: Number of nodes to request
 - `-s`: Source directory to copy (defaults to current directory)
 - `-d`: Destination directory on Perlmutter
@@ -43,10 +43,10 @@ Arguments:
 ```bash
 ./scripts/perlmutter/launcher.sh \
     -u jdoe \
-    -q batch \
+    -q regular \
     -n 4 \
     -s . \
-    -d  $CFS/$SBATCH_ACCOUNT/jdoe/oumi/ \
+    -d  $HOME/oumi/ \
     -j ./scripts/perlmutter/jobs/example_job.sh
 ```
 
