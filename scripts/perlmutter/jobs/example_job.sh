@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J example_job
-#SBATCH -t 01:00:00
+#SBATCH -t 00:30:00
 
 PERLMUTTER_NODE_RANK=${PMI_RANK:=0}
 

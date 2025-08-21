@@ -5,7 +5,7 @@ helpFunction() {
     echo "Usage: $0 -u username -q regular -n 1 -s . -d /home/username/copylocation/ -j ./local/path/to/your_job.sh"
     echo -e "\t-u The username on NERSC Perlmutter cluster."
     echo -e "\t-q The Perlmutter QoS to use. https://docs.nersc.gov/jobs/policy/#selecting-a-qos."
-    echo -e "\t-n The number of Perlmutter nodes to use."
+    echo -e "\t-n The number of Perlmutter nodes to use. Defaults to 1."
     echo -e "\t-s The source directory to copy. Defaults to the current directory."
     echo -e "\t-d The destination directory on Perlmutter to copy local files."
     echo -e "\t-j The local path to your job."
@@ -93,9 +93,6 @@ ssh -S ~/.ssh/control-%h-%p-%r "${SSH_TARGET}" "bash -s $varsStr" <<'EOF'
 
   uv pip install -U -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer
 
-  # Optional: print GPU count and GPU name.
-  python -c "import torch; print('GPU count: ', torch.cuda.device_count()); print(torch.cuda.get_device_name(0))"
-
   echo "Submitting job... -----------------------------------------"
   # Create a logs directory for the user if it doesn't exist.
   # This directory must exist for the run to work, as Perlmutter won't create them.
@@ -103,15 +100,16 @@ ssh -S ~/.ssh/control-%h-%p-%r "${SSH_TARGET}" "bash -s $varsStr" <<'EOF'
 
   set -x
 
-  # Additional options are set by the job script in #SBATCH comments.
+  # Additional options are set by the job script in #SBATCH comments.-
   SBATCH_OUTPUT=$(sbatch \
-    -C=GPU \
-    --gpus-per-node=4 \
-    -N=${PERLMUTTER_NODES} \
-    -n=${PERLMUTTER_NODES} \
-    -q=${PERLMUTTER_QOS} \
-    -o="$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.OU" \
-    -e="$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.ER" ${JOB_PATH}
+    -C gpu \
+    --gpus-per-node 4 \
+    -N ${PERLMUTTER_NODES} \
+    -n ${PERLMUTTER_NODES} \
+    -q ${PERLMUTTER_QOS} \
+    -o "$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.OU" \
+    -e "$CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.ER" \
+    ${JOB_PATH}
   )
   SBATCH_RESULT=$?
   set +x  # Turn-off printing
