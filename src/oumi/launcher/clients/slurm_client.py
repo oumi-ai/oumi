@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import functools
+import os
 import re
+import signal
 import subprocess
 import time
 from dataclasses import dataclass
@@ -501,26 +503,56 @@ class SlurmClient:
         This method opens an interactive SSH session and runs:
         cd <working_dir> && tail -f slurm-<job_id>.out
 
+        Behavior:
+        - Uses a double TTY allocation (-tt) for unbuffered interactive output.
+        - Disables stdin (DEVNULL) to avoid terminal corruption in multi-proc contexts.
+        - Blocks until the remote tail exits or the user presses Ctrl-C.
+        - On Ctrl-C, sends SIGINT to the child process group and returns 130.
+
         Args:
             working_dir: Remote working directory where the job was submitted.
             job_id: The Slurm job ID whose output file to follow.
 
         Returns:
-            The SSH command's exit code. This is a non-blocking call.
+            The SSH command's exit code. This is a blocking call.
         """
         # Force a pseudo-TTY so tail -f streams interactively to the user's terminal.
         tail_cmd = (
-            f"ssh {_CTRL_PATH} -t {self._user}@{self._slurm_host} "
+            f"ssh {_CTRL_PATH} -tt {self._user}@{self._slurm_host} "
             f'"cd {working_dir} && tail -f slurm-{job_id}.out"'
         )
         logger.info(
             "Starting remote tail: cd %s && tail -f slurm-%s.out", working_dir, job_id
         )
+        proc = None
         try:
-            # Non-blocking mode: spawn the tail process and return immediately.
-            subprocess.Popen(tail_cmd, shell=True)
-            return 0
+            # Blocking mode: stream logs to the user's terminal.
+            proc = subprocess.Popen(
+                tail_cmd,
+                shell=True,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            return_code = proc.wait()
+            return int(return_code)
         except KeyboardInterrupt:
-            # Allow users to stop tailing with Ctrl-C gracefully.
+            # Gracefully stop tailing on Ctrl-C by signaling the process group.
             logger.info("Stopped tailing logs for job %s", job_id)
+            if proc and proc.poll() is None:
+                try:
+                    os.killpg(proc.pid, signal.SIGINT)
+                except Exception:
+                    pass
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    pass
             return 130
+        except Exception:
+            logger.exception("Failed while tailing logs for job %s", job_id)
+            if proc and proc.poll() is None:
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except Exception:
+                    pass
+            raise
