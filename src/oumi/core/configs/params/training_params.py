@@ -357,7 +357,7 @@ class TrainingParams(BaseParams):
     Possible values are "debug", "info", "warning", "error", "critical".
     """
 
-    log_example_for_debugging: bool = False
+    log_examples: bool = False
     """Whether to log an example of the data in each step for debugging purposes.
 
     If True, the example will be logged to the console.
