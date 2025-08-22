@@ -111,7 +111,7 @@ Oumi integrates with HuggingFace (HF) Hub for access to models and datasets. Whi
 3. Run the following to log in on your machine, using the token created in the previous step:
 
    ```shell
-   huggingface-cli login
+   hf auth login
    ```
 
    This will save your token in the HF cache directory at `~/.cache/huggingface/token`. Oumi jobs mount this file to remote clusters to access gated content there. See [this config](https://github.com/oumi-ai/oumi/blob/535f28b3c93a6423abc247e921a00d2b27de14df/configs/recipes/llama3_1/sft/8b_full/gcp_job.yaml#L19) for an example.

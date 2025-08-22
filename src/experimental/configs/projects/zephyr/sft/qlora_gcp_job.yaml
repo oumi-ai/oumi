@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Mistral: https://huggingface.co/mistralai/Mistral-7B-v0.1
 #
 # Usage:
@@ -25,7 +25,7 @@ resources:
   # preemption. For more information, see:
   # https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#mount-cloud-storage
   use_spot: false
-  disk_size: 200  # Disk size in GB
+  disk_size: 200 # Disk size in GB
   # region: us-west3  # Uncomment this line to only consider a specific region.
 
 working_dir: .

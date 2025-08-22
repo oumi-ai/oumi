@@ -1,7 +1,7 @@
 # Inference config for Llama 3.3 70B Instruct with a NATIVE engine.
 #
 # Requirements:
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to Llama 3.3: https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct
 #
 # Usage:

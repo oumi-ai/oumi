@@ -14,9 +14,9 @@ resources:
 working_dir: .
 
 file_mounts:
-  ~/.netrc: ~/.netrc  # WandB credentials
+  ~/.netrc: ~/.netrc # WandB credentials
   # Mount HF token, which is needed to download locked-down models from HF Hub.
-  # This is created on the local machine by running `huggingface-cli login`.
+  # This is created on the local machine by running `hf auth login`.
   ~/.cache/huggingface/token: ~/.cache/huggingface/token
 
 envs:
@@ -31,7 +31,7 @@ setup: |
   pip install uv && uv pip install -e .[gpu,evaluation] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download meta-llama/Meta-Llama-3.1-8B --exclude original/*
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download meta-llama/Meta-Llama-3.1-8B --exclude original/*
   pip install -U flash-attn --no-build-isolation
 
 run: |
