@@ -1,11 +1,11 @@
 # LlamaCPP Inference config for DeepSeek R1 Distill Qwen 32B GGUF (macOS compatible).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF \
+#   hf download unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF \
 #     DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf --local-dir .
 #
 #   # 2. Run inference:

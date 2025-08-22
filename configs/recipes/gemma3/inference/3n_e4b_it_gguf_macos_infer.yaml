@@ -1,11 +1,11 @@
 # LlamaCPP Inference config for Gemma-3n-E4B-it GGUF (macOS compatible).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/gemma-3n-E4B-it-GGUF \
+#   hf download unsloth/gemma-3n-E4B-it-GGUF \
 #     gemma-3n-E4B-it-UD-Q5_K_XL.gguf --local-dir .
 #
 #   # 2. Run inference:
