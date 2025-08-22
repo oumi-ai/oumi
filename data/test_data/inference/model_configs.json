@@ -1,6 +1,7 @@
 {
   "smollm_135m": {
     "model_name": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "model_max_length": 2048,
     "trust_remote_code": true,
     "torch_dtype_str": "bfloat16",
     "device_map": "auto"
