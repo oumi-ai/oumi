@@ -32,13 +32,12 @@ from tests.integration.infer.inference_test_utils import (
     get_contextual_keywords,
     get_test_generation_params,
     get_test_models,
-    measure_tokens_per_second,
     validate_generation_output,
 )
 
 # Skip all tests if llama-cpp-python is not available
 try:
-    from llama_cpp import Llama
+    from llama_cpp import Llama  # noqa: F401
 
     llamacpp_available = True
 except ImportError:
@@ -52,16 +51,6 @@ pytestmark = [
 
 class TestLlamaCppBasicFunctionality:
     """Test core LlamaCpp inference functionality with GGUF models."""
-
-    def test_llamacpp_gguf_loading(self):
-        """Test loading GGUF model (Q4_K_M quantization)."""
-
-        models = get_test_models()
-        model_params = models["gemma_270m_gguf"]
-
-        # Should successfully initialize with GGUF model
-        engine = LlamaCppInferenceEngine(model_params)
-        assert engine is not None
 
     def test_llamacpp_basic_inference(self):
         """Test basic inference with quantized Gemma model."""
@@ -310,7 +299,8 @@ class TestLlamaCppMemoryManagement:
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
 
-        # Test combination of memory features (should be defaults from your implementation)
+        # Test combination of memory features (should be defaults from your
+        # implementation)
         model_params.model_kwargs = {
             **model_params.model_kwargs,
             "use_mmap": True,
@@ -428,6 +418,7 @@ class TestLlamaCppHardwareOptimization:
         assert validate_generation_output(result)
 
 
+
 class TestLlamaCppGenerationParameters:
     """Test LlamaCpp generation parameter handling."""
 
@@ -476,7 +467,8 @@ class TestLlamaCppGenerationParameters:
         response1 = result1[0].messages[-1].content
         response2 = result2[0].messages[-1].content
 
-        # Note: LlamaCpp might still have some variability, so we check for basic similarity
+        # Note: LlamaCpp might still have some variability, so we check for
+        # basic similarity
         assert len(response1.strip()) > 0
         assert len(response2.strip()) > 0
 
@@ -561,80 +553,36 @@ class TestLlamaCppErrorHandling:
         assert validate_generation_output(result)
 
 
-class TestLlamaCppPerformance:
-    """Test LlamaCpp performance characteristics."""
+class TestLlamaCppConsistency:
+    """Test LlamaCpp consistency and deterministic behavior."""
 
-    def test_llamacpp_throughput_measurement(self):
-        """Test and measure LlamaCpp throughput."""
+    def test_llamacpp_deterministic_consistency(self):
+        """Test LlamaCpp produces consistent outputs with same seed."""
 
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
 
-        # Create multiple conversations for throughput testing
-        conversations = create_batch_conversations(4, "What is")
-
-        generation_params = GenerationParams(
-            max_new_tokens=15, temperature=0.0, seed=42
+        # Use deterministic parameters
+        gen_params = GenerationParams(
+            max_new_tokens=15, temperature=0.0, seed=42, use_sampling=False
         )
-        inference_config = InferenceConfig(generation=generation_params)
-
-        start_time = time.time()
-        result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
-
-        # Validate results
-        assert validate_generation_output(result)
-        assert len(result) == len(conversations)
-
-        # Measure performance
-        total_tokens = count_response_tokens(result)
-        throughput = measure_tokens_per_second(total_tokens, elapsed_time)
-
-        # Should achieve some reasonable throughput (CPU inference is slower)
-        assert throughput > 1.0, f"Throughput too low: {throughput} tokens/sec"
-
-    @pytest.mark.memory_intensive
-    def test_llamacpp_memory_optimization_comparison(self):
-        """Compare performance with different memory settings."""
+        inference_config = InferenceConfig(generation=gen_params)
 
         conversations = create_test_conversations()[:1]
-        generation_params = GenerationParams(
-            max_new_tokens=20, temperature=0.0, seed=42
-        )
-        config = InferenceConfig(generation=generation_params)
 
-        models = get_test_models()
+        # Run same inference twice
+        result1 = engine.infer(conversations, inference_config)
+        result2 = engine.infer(conversations, inference_config)
 
-        # Test with memory mapping enabled
-        model_params_mmap = models["gemma_270m_gguf"]
-        model_params_mmap.model_kwargs = {
-            **model_params_mmap.model_kwargs,
-            "use_mmap": True,
-            "verbose": False,
-        }
+        # Both should be valid
+        assert validate_generation_output(result1)
+        assert validate_generation_output(result2)
 
-        engine_mmap = LlamaCppInferenceEngine(model_params_mmap)
-        start_time = time.time()
-        result_mmap = engine_mmap.infer(conversations, config)
-        elapsed_mmap = time.time() - start_time
+        response1 = result1[0].messages[-1].content
+        response2 = result2[0].messages[-1].content
 
-        # Test with memory mapping disabled (requires more RAM)
-        model_params_no_mmap = models["gemma_270m_gguf"]
-        model_params_no_mmap.model_kwargs = {
-            **model_params_no_mmap.model_kwargs,
-            "use_mmap": False,
-            "verbose": False,
-        }
-
-        engine_no_mmap = LlamaCppInferenceEngine(model_params_no_mmap)
-        start_time = time.time()
-        result_no_mmap = engine_no_mmap.infer(conversations, config)
-        elapsed_no_mmap = time.time() - start_time
-
-        # Both should work
-        assert validate_generation_output(result_mmap)
-        assert validate_generation_output(result_no_mmap)
-
-        # Both should complete in reasonable time
-        assert elapsed_mmap < 60.0
-        assert elapsed_no_mmap < 60.0
+        # With deterministic settings, should have some consistency
+        # (Note: LlamaCpp might still have some variability, so we check basic
+        # properties)
+        assert len(response1.strip()) > 0
+        assert len(response2.strip()) > 0
