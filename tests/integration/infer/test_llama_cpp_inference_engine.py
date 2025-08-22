@@ -21,11 +21,6 @@ import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
-from tests.integration.infer.base_inference_engine_test import (
-    AbstractInferenceEngineBasicFunctionality,
-    AbstractInferenceEngineErrorHandling,
-    AbstractInferenceEngineGenerationParameters,
-)
 from tests.integration.infer.inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
@@ -35,6 +30,11 @@ from tests.integration.infer.inference_test_utils import (
     get_test_generation_params,
     get_test_models,
     validate_generation_output,
+)
+from tests.integration.infer.test_base_inference_engine import (
+    AbstractInferenceEngineBasicFunctionality,
+    AbstractInferenceEngineErrorHandling,
+    AbstractInferenceEngineGenerationParameters,
 )
 
 # Skip all tests if llama-cpp-python is not available
