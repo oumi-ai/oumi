@@ -41,7 +41,7 @@ run: |
   set -x
   oumi distributed torchrun \
       -m oumi train \
-      -c oumi://configs/recipes/qwen3/sft/4b_full/train.yaml \
+      -c configs/recipes/qwen3/sft/4b_full/train.yaml \
       --training.run_name "${OUMI_RUN_NAME}.${SKYPILOT_TASK_ID}"
 
   echo "Node ${SKYPILOT_NODE_RANK} is all done!"
