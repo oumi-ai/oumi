@@ -133,7 +133,7 @@ azure = ["skypilot[azure]"]
 gcp = [
     "google-api-core>=2.25.0",
     "google-api-python-client",
-    "google-auth>=2.30.0",
+    "google-auth>=2.40.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-storage>=2.17.0",
     "skypilot[gcp]",
