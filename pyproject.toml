@@ -152,7 +152,7 @@ evaluation = [
     "nltk>=3.9.1",                  # leaderboard_ifeval
     "antlr4-python3-runtime==4.11", # leaderboard_math_hard
     "sympy>=1.14",                  # leaderboard_math_hard
-    "sentencepiece>=0.1.98",
+    "sentencepiece>=0.2.0",
 ]
 
 quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46"]
