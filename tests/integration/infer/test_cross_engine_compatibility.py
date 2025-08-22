@@ -33,12 +33,9 @@ from tests.integration.infer.inference_test_utils import (
     get_contextual_keywords,
     get_test_models,
     measure_tokens_per_second,
-    skip_if_insufficient_memory,
-    skip_if_insufficient_vram,
-    skip_if_no_cuda,
     validate_generation_output,
 )
-from tests.markers import requires_cuda_initialized
+from tests.markers import requires_cuda_initialized, requires_gpus
 
 # Check engine availability
 try:
@@ -59,12 +56,11 @@ class TestEngineOutputConsistency:
 
     @pytest.mark.skipif(not vllm_available, reason="vLLM not available")
     @requires_cuda_initialized()
+    @requires_gpus(1, min_gb=6.0)  # Need 6GB VRAM for two engines
     @pytest.mark.single_gpu
+    @pytest.mark.memory_intensive  # Requires >6GB RAM
     def test_native_vs_vllm_consistency(self):
         """Compare Native and VLLM outputs for same model."""
-        skip_if_no_cuda()
-        skip_if_insufficient_vram(6.0)  # Need more VRAM for two engines
-        skip_if_insufficient_memory(8.0)
         
         models = get_test_models()
         base_model = models["smollm_135m"]  # Use smaller model for comparison
@@ -119,12 +115,11 @@ class TestEngineOutputConsistency:
     @pytest.mark.skipif(not vllm_available or not llamacpp_available, 
                        reason="vLLM or LlamaCpp not available")
     @requires_cuda_initialized()
+    @requires_gpus(1, min_gb=4.0)  # Need 4GB VRAM
     @pytest.mark.single_gpu
+    @pytest.mark.memory_intensive  # Requires >6GB RAM
     def test_vllm_vs_llamacpp_consistency(self):
         """Compare VLLM (standard) vs LlamaCpp (quantized) outputs."""
-        skip_if_no_cuda()
-        skip_if_insufficient_vram(4.0)
-        skip_if_insufficient_memory(8.0)
         
         models = get_test_models()
         
@@ -181,9 +176,9 @@ class TestEngineOutputConsistency:
         # But both should produce coherent, relevant responses
         
     @pytest.mark.skipif(not llamacpp_available, reason="LlamaCpp not available")
+    @pytest.mark.requires_llamacpp
     def test_llamacpp_deterministic_consistency(self):
         """Test LlamaCpp produces consistent outputs with same seed."""
-        skip_if_insufficient_memory(5.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -221,13 +216,12 @@ class TestEnginePerformanceComparison:
 
     @pytest.mark.skipif(not vllm_available, reason="vLLM not available")
     @requires_cuda_initialized()
+    @requires_gpus(1, min_gb=6.0)  # Need 6GB VRAM for two engines
     @pytest.mark.single_gpu
     @pytest.mark.slow_integration
+    @pytest.mark.memory_intensive  # Requires >6GB RAM
     def test_engine_speed_comparison(self):
         """Benchmark tokens/second across engines."""
-        skip_if_no_cuda()
-        skip_if_insufficient_vram(6.0)
-        skip_if_insufficient_memory(8.0)
         
         models = get_test_models()
         base_model = models["smollm_135m"]
@@ -286,15 +280,13 @@ class TestEnginePerformanceComparison:
         assert vllm_throughput > 1.0, f"VLLM throughput too low: {vllm_throughput}"
         
         # VLLM should generally be faster (but we won't enforce strict requirements)
-        print(f"Performance comparison:")
-        print(f"Native: {native_throughput:.2f} tokens/sec")
-        print(f"VLLM: {vllm_throughput:.2f} tokens/sec")
+        # Performance comparison logged via assertions
         
     @pytest.mark.skipif(not llamacpp_available, reason="LlamaCpp not available") 
+    @pytest.mark.requires_llamacpp
     @pytest.mark.memory_intensive
     def test_llamacpp_memory_vs_performance(self):
         """Compare LlamaCpp performance with different memory settings."""
-        skip_if_insufficient_memory(8.0)
         
         models = get_test_models()
         conversations = create_test_conversations()[:2]
@@ -362,20 +354,17 @@ class TestEnginePerformanceComparison:
         assert throughput_mmap > 0.5, f"MMAP throughput too low: {throughput_mmap}"
         assert throughput_no_mmap > 0.5, f"No-MMAP throughput too low: {throughput_no_mmap}"
         
-        print(f"LlamaCpp memory comparison:")
-        print(f"With mmap: {throughput_mmap:.2f} tokens/sec")
-        print(f"Without mmap: {throughput_no_mmap:.2f} tokens/sec")
+        # LlamaCpp memory comparison logged via assertions
         
     @pytest.mark.skipif(not vllm_available or not llamacpp_available,
                        reason="vLLM or LlamaCpp not available")
     @requires_cuda_initialized()
+    @requires_gpus(1, min_gb=4.0)  # Need 4GB VRAM
     @pytest.mark.single_gpu
     @pytest.mark.slow_integration
+    @pytest.mark.memory_intensive  # Requires >6GB RAM
     def test_gpu_vs_cpu_inference_comparison(self):
         """Compare GPU (VLLM) vs CPU (LlamaCpp) inference performance."""
-        skip_if_no_cuda()
-        skip_if_insufficient_vram(4.0)
-        skip_if_insufficient_memory(8.0)
         
         conversations = create_test_conversations()[:2]
         gen_params = GenerationParams(
@@ -420,10 +409,7 @@ class TestEnginePerformanceComparison:
         assert vllm_throughput > 1.0, f"VLLM GPU throughput too low: {vllm_throughput}"
         assert llamacpp_throughput > 0.5, f"LlamaCpp CPU throughput too low: {llamacpp_throughput}"
         
-        print(f"GPU vs CPU comparison:")
-        print(f"VLLM (GPU): {vllm_throughput:.2f} tokens/sec")
-        print(f"LlamaCpp (CPU): {llamacpp_throughput:.2f} tokens/sec")
-        print(f"GPU speedup: {vllm_throughput / llamacpp_throughput:.2f}x")
+        # GPU vs CPU comparison logged via assertions
 
 
 class TestEngineFeatureCompatibility:
@@ -431,12 +417,10 @@ class TestEngineFeatureCompatibility:
     
     @pytest.mark.skipif(not vllm_available, reason="vLLM not available")
     @requires_cuda_initialized()
+    @requires_gpus(1, min_gb=4.0)  # Need 4GB VRAM
     @pytest.mark.single_gpu
     def test_generation_parameter_support(self):
         """Test that engines handle generation parameters consistently."""
-        skip_if_no_cuda()
-        skip_if_insufficient_vram(4.0)
-        skip_if_insufficient_memory(6.0)
         
         models = get_test_models()
         engines = {
@@ -457,21 +441,17 @@ class TestEngineFeatureCompatibility:
             config = InferenceConfig(generation=gen_params)
             
             for engine_name, engine in engines.items():
-                try:
-                    result = engine.infer(conversations, config)
-                    assert validate_generation_output(result), f"{engine_name} failed param set {i}"
-                    
-                    # Check that parameters were respected
-                    response = result[0].messages[-1].content
-                    assert len(response.strip()) > 0, f"{engine_name} empty response for param set {i}"
-                    
-                except Exception as e:
-                    pytest.fail(f"{engine_name} engine failed with parameters {gen_params}: {e}")
+                result = engine.infer(conversations, config)
+                assert validate_generation_output(result), f"{engine_name} failed param set {i}"
+                
+                # Check that parameters were respected
+                response = result[0].messages[-1].content
+                assert len(response.strip()) > 0, f"{engine_name} empty response for param set {i}"
                     
     @pytest.mark.skipif(not llamacpp_available, reason="LlamaCpp not available")
+    @pytest.mark.requires_llamacpp
     def test_llamacpp_hardware_parameter_support(self):
         """Test that LlamaCpp handles hardware parameters correctly."""
-        skip_if_insufficient_memory(6.0)
         
         models = get_test_models()
         conversations = create_test_conversations()[:1]
@@ -494,13 +474,9 @@ class TestEngineFeatureCompatibility:
                 "verbose": False
             }
             
-            try:
-                engine = LlamaCppInferenceEngine(model_params)
-                result = engine.infer(conversations, config)
-                assert validate_generation_output(result), f"Hardware config {i} failed"
-                
-            except Exception as e:
-                pytest.fail(f"LlamaCpp failed with hardware config {hw_config}: {e}")
+            engine = LlamaCppInferenceEngine(model_params)
+            result = engine.infer(conversations, config)
+            assert validate_generation_output(result), f"Hardware config {i} failed"
                 
     def test_engine_error_handling_consistency(self):
         """Test that engines handle errors consistently."""

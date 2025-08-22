@@ -369,12 +369,9 @@ class TestLlamaCppHardwareOptimization:
         skip_if_insufficient_memory(4.0)
         
         # Skip if no CUDA available
-        try:
-            import torch
-            if not torch.cuda.is_available():
-                pytest.skip("CUDA not available for GPU layers test")
-        except ImportError:
-            pytest.skip("PyTorch not available")
+        import torch
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA not available for GPU layers test")
             
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
