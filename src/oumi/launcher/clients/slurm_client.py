@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Union
 
+from oumi.cli import cli_utils
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
 
@@ -523,8 +524,12 @@ class SlurmClient:
             f"ssh {_CTRL_PATH} -tt {cluster_name} "
             f'"cd {working_dir} && tail -n +1 -F {stdout_file}"'
         )
-        logger.info(
-            "Starting remote tail: cd %s && tail -f %s", working_dir, stdout_file
+        cli_utils.CONSOLE.print(
+            f"Tailing logs of job {job_id} on cluster '{cluster_name}'..."
+        )
+        cli_utils.CONSOLE.print(f"└── Following output file: {stdout_file}")
+        cli_utils.CONSOLE.print(
+            "Press Ctrl-C to exit log streaming; job will not be killed."
         )
         # Pre-flight: verify the output file exists remotely before tailing.
         preflight = self.run_commands([f"cd {working_dir}", f"test -f {stdout_file}"])
@@ -533,6 +538,9 @@ class SlurmClient:
                 f"Log file not found: {working_dir}/{stdout_file}. "
                 "The job may not have started writing yet."
             )
+        # checking for logs progress bar give it sometime
+        # make all other logs use console print
+        # add status bar for the others
         proc = None
         try:
             # Blocking mode: stream logs to the user's terminal.
