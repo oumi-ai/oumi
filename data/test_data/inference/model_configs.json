@@ -1,0 +1,21 @@
+{
+  "gemma_270m": {
+    "model_name": "google/gemma-3-270m",
+    "trust_remote_code": true,
+    "torch_dtype_str": "bfloat16",
+    "device_map": "auto"
+  },
+  "smollm_135m": {
+    "model_name": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "trust_remote_code": true,
+    "torch_dtype_str": "bfloat16", 
+    "device_map": "auto"
+  },
+  "gemma_270m_gguf": {
+    "model_name": "unsloth/gemma-3-270m-it-GGUF",
+    "model_kwargs": {
+      "filename": "gemma-3-270m-it-Q4_K_M.gguf"
+    },
+    "trust_remote_code": true
+  }
+}
