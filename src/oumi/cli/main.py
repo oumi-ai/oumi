@@ -38,6 +38,7 @@ from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
+from oumi.utils.logging import _should_use_rich_logging
 
 _ASCII_LOGO = r"""
    ____  _    _ __  __ _____
@@ -170,15 +171,10 @@ def run():
         CONSOLE.print(
             "\n[red]If you believe this is a bug, please file an issue:[/red]"
         )
-        if sys.stdout.isatty():
+        if _should_use_rich_logging():
             CONSOLE.print(
                 f"📝 [yellow]Templated issue:[/yellow] "
                 f"[link={issue_url}]Click here to report[/link]"
-            )
-            CONSOLE.print(
-                "🔗 [dim]Or create your own:[/dim] "
-                "[link=https://github.com/oumi-ai/oumi/issues/new]"
-                "github.com/oumi-ai/oumi/issues/new[/link]"
             )
         else:
             CONSOLE.print(
