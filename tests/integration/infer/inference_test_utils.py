@@ -16,7 +16,6 @@
 
 import re
 import time
-import psutil
 import pytest
 import torch
 from typing import Dict, List, Set, Optional
@@ -502,40 +501,6 @@ def get_contextual_keywords(prompt: str) -> List[str]:
     keywords.extend(nouns[:3])  # Add up to 3 main nouns
     
     return list(set(keywords)) if keywords else []
-
-
-def skip_if_insufficient_memory(required_gb: float):
-    """Skip test if insufficient system memory available.
-    
-    Args:
-        required_gb: Required memory in GB.
-    """
-    available_gb = psutil.virtual_memory().available / (1024**3)
-    if available_gb < required_gb:
-        pytest.skip(f"Insufficient memory: {available_gb:.1f}GB available, {required_gb}GB required")
-
-
-def skip_if_no_cuda():
-    """Skip test if CUDA is not available."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-
-
-def skip_if_insufficient_vram(required_gb: float):
-    """Skip test if insufficient GPU memory available.
-    
-    Args:
-        required_gb: Required VRAM in GB.
-    """
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA not available")
-        
-    device = torch.cuda.current_device()
-    total_memory = torch.cuda.get_device_properties(device).total_memory
-    available_gb = total_memory / (1024**3)
-    
-    if available_gb < required_gb:
-        pytest.skip(f"Insufficient VRAM: {available_gb:.1f}GB available, {required_gb}GB required")
 
 
 def compare_conversation_responses(conv1: Conversation, conv2: Conversation, check_exact_match: bool = False) -> bool:
