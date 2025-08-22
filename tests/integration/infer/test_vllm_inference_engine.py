@@ -72,7 +72,7 @@ class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
 
     def get_default_model_key(self) -> str:
         """Return the default model key for VLLM testing."""
-        return "gemma_270m"
+        return "smollm_135m"
 
     def get_performance_thresholds(self) -> dict[str, Any]:
         """Return VLLM-specific performance expectations."""
@@ -84,8 +84,8 @@ class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
 
     # Additional VLLM-specific tests can be added here
     @pytest.mark.memory_intensive  # Requires >6GB RAM
-    def test_vllm_specific_gemma_270m(self):
-        """Test VLLM-specific features with Gemma-3-270m model."""
+    def test_vllm_specific_smollm_135m(self):
+        """Test VLLM-specific features with SmolLM2-135M-Instruct model."""
         # This is an example of an additional VLLM-specific test
         # The basic functionality is already covered by inherited methods
         import torch
@@ -93,7 +93,7 @@ class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
         _use_gpu = torch.cuda.is_available()
 
         models = get_test_models()
-        engine = VLLMInferenceEngine(models["gemma_270m"])
+        engine = VLLMInferenceEngine(models["smollm_135m"])
 
         conversations = create_test_conversations()[:1]
         inference_config = InferenceConfig(generation=get_test_generation_params())
