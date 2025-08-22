@@ -42,6 +42,11 @@ download_with_retry "HuggingFaceTB/SmolLM2-135M-Instruct" --exclude "onnx/*" "ru
 # Add delay between downloads to avoid rate limiting
 sleep 10
 
+download_with_retry "HuggingFaceTB/SmolVLM-Instruct"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
 download_with_retry "Qwen/Qwen2-VL-2B-Instruct"
 
 # Add delay between downloads to avoid rate limiting
@@ -76,11 +81,6 @@ sleep 10
 
 # Vision/multimodal models for VL tests
 download_with_retry "microsoft/Phi-3-vision-128k-instruct"
-
-# Add delay between downloads to avoid rate limiting
-sleep 10
-
-download_with_retry "HuggingFaceTB/SmolVLM-Instruct"
 
 # Add delay between downloads to avoid rate limiting
 sleep 10

@@ -91,16 +91,13 @@ def test_infer_basic_interactive_with_images(
 ):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
-            model_name="Qwen/Qwen2-VL-2B-Instruct",
+            model_name="HuggingFaceTB/SmolVLM-Instruct",
             model_max_length=1024,
             trust_remote_code=True,
-            chat_template="qwen2-vl-instruct",
             torch_dtype_str="bfloat16",  # Use bfloat16 for efficiency
             device_map="auto",
         ),
-        generation=GenerationParams(
-            max_new_tokens=10, temperature=0.0, seed=42
-        ),  # Reduced for speed
+        generation=GenerationParams(max_new_tokens=10, temperature=0.0, seed=42),
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
@@ -183,10 +180,9 @@ def test_infer_basic_non_interactive_with_images(
     test_spec: InferTestSpec, root_testdata_dir: Path
 ):
     model_params = ModelParams(
-        model_name="Qwen/Qwen2-VL-2B-Instruct",
+        model_name="HuggingFaceTB/SmolVLM-Instruct",
         model_max_length=1024,
         trust_remote_code=True,
-        chat_template="qwen2-vl-instruct",
         torch_dtype_str="bfloat16",
         device_map=get_default_device_map_for_inference(),
     )
@@ -207,12 +203,15 @@ def test_infer_basic_non_interactive_with_images(
         input_image_bytes=[png_image_bytes],
     )
 
+    # Updated for SmolVLM-Instruct - more capable 2B model
     valid_responses = [
-        "A detailed Japanese print depicting a large wave crashing with",
-        "A traditional Japanese painting of a large wave crashing with",
-        "A traditional Japanese ukiyo-e painting depicting a",
-        "A detailed Japanese woodblock print depicting a large wave",
-        "A Japanese woodblock print depicting a large wave crashing",
+        "A large wave",
+        "The image shows",
+        "This is a Japanese",
+        "A Japanese art",
+        "An ocean wave",
+        "A famous artwork",
+        "The Great Wave",
     ]
 
     def _create_conversation(response: str) -> Conversation:
