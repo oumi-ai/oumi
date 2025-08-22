@@ -30,7 +30,6 @@ from tests.integration.infer.inference_test_utils import (
     count_response_tokens,
     create_batch_conversations,
     create_test_conversations,
-    create_test_conversations_with_keywords,
     get_contextual_keywords,
     get_test_generation_params,
     get_test_models,
