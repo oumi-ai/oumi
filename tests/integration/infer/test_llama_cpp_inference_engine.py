@@ -35,7 +35,6 @@ from tests.integration.infer.inference_test_utils import (
     get_test_generation_params,
     get_test_models,
     measure_tokens_per_second,
-    skip_if_insufficient_memory,
     validate_generation_output,
 )
 
@@ -57,7 +56,6 @@ class TestLlamaCppBasicFunctionality:
     
     def test_llamacpp_gguf_loading(self):
         """Test loading GGUF model (Q4_K_M quantization)."""
-        skip_if_insufficient_memory(4.0)  # Require 4GB RAM
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -68,7 +66,6 @@ class TestLlamaCppBasicFunctionality:
         
     def test_llamacpp_basic_inference(self):
         """Test basic inference with quantized Gemma model."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -108,7 +105,6 @@ class TestLlamaCppBasicFunctionality:
         
     def test_llamacpp_batch_inference(self):
         """Test batched conversations."""
-        skip_if_insufficient_memory(5.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -157,7 +153,6 @@ class TestLlamaCppBasicFunctionality:
             
     def test_llamacpp_file_io(self):
         """Test input/output file operations."""
-        skip_if_insufficient_memory(4.0)
         
         with tempfile.TemporaryDirectory() as temp_dir:
             models = get_test_models()
@@ -198,7 +193,6 @@ class TestLlamaCppMemoryManagement:
     
     def test_llamacpp_memory_mapping_enabled(self):
         """Test use_mmap=True parameter effects."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -242,9 +236,9 @@ class TestLlamaCppMemoryManagement:
             min_throughput=1.0
         )
         
+    @pytest.mark.memory_intensive  # Need more RAM when not using mmap
     def test_llamacpp_memory_mapping_disabled(self):
         """Test use_mmap=False parameter effects.""" 
-        skip_if_insufficient_memory(6.0)  # Need more RAM when not using mmap
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -266,7 +260,6 @@ class TestLlamaCppMemoryManagement:
         
     def test_llamacpp_memory_locking_enabled(self):
         """Test use_mlock=True parameter effects."""
-        skip_if_insufficient_memory(5.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -288,7 +281,6 @@ class TestLlamaCppMemoryManagement:
         
     def test_llamacpp_memory_locking_disabled(self):
         """Test use_mlock=False parameter effects."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -310,7 +302,6 @@ class TestLlamaCppMemoryManagement:
         
     def test_llamacpp_combined_memory_features(self):
         """Test use_mmap + use_mlock together."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -343,7 +334,6 @@ class TestLlamaCppHardwareOptimization:
     
     def test_llamacpp_cpu_inference(self):
         """Test pure CPU inference (n_gpu_layers=0)."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -366,7 +356,6 @@ class TestLlamaCppHardwareOptimization:
     @pytest.mark.single_gpu
     def test_llamacpp_gpu_layers(self):
         """Test n_gpu_layers parameter with GPU acceleration."""
-        skip_if_insufficient_memory(4.0)
         
         # Skip if no CUDA available
         import torch
@@ -393,7 +382,6 @@ class TestLlamaCppHardwareOptimization:
         
     def test_llamacpp_thread_scaling(self):
         """Test n_threads parameter effects."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -415,7 +403,6 @@ class TestLlamaCppHardwareOptimization:
         
     def test_llamacpp_flash_attention(self):
         """Test flash_attn parameter."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         model_params = models["gemma_270m_gguf"]
@@ -441,7 +428,6 @@ class TestLlamaCppGenerationParameters:
     
     def test_llamacpp_generation_params(self):
         """Test temperature, top_p, max_tokens parameters."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -463,7 +449,6 @@ class TestLlamaCppGenerationParameters:
         
     def test_llamacpp_deterministic_generation(self):
         """Test seed-based reproducible outputs."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -496,7 +481,6 @@ class TestLlamaCppGenerationParameters:
         
     def test_llamacpp_variable_max_tokens(self):
         """Test different max_new_tokens values."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -562,7 +546,6 @@ class TestLlamaCppErrorHandling:
             
     def test_llamacpp_extreme_parameters(self):
         """Test handling of extreme parameter values."""
-        skip_if_insufficient_memory(4.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -588,7 +571,6 @@ class TestLlamaCppPerformance:
     
     def test_llamacpp_throughput_measurement(self):
         """Test and measure LlamaCpp throughput."""
-        skip_if_insufficient_memory(5.0)
         
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
@@ -621,7 +603,6 @@ class TestLlamaCppPerformance:
     @pytest.mark.memory_intensive
     def test_llamacpp_memory_optimization_comparison(self):
         """Compare performance with different memory settings."""
-        skip_if_insufficient_memory(8.0)  # Need extra memory for comparison
         
         conversations = create_test_conversations()[:1]
         generation_params = GenerationParams(
