@@ -5,7 +5,7 @@
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/GLM-4.5-Air-GGUF \
+#   hf download unsloth/GLM-4.5-Air-GGUF \
 #     GLM-4.5-Air-UD-Q2_K_XL.gguf --local-dir .
 #
 #   # 2. Run inference:

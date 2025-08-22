@@ -105,8 +105,16 @@ class SimpleJudge(BaseJudge):
         if system_instruction:
             system_instruction = f"{system_instruction}{self._get_format_suffix()}"
 
+        # Get set of prompt template placeholders
+        prompt_template_placeholders_set = (
+            set(self._judge_params.prompt_template_placeholders)
+            if self._judge_params.prompt_template_placeholders
+            else self._judge_params.get_placeholders()
+        )
+
         super().__init__(
             prompt_template=self._judge_params.prompt_template,
+            prompt_template_placeholders=prompt_template_placeholders_set,
             system_instruction=system_instruction,
             example_field_values=self._judge_params.examples,
             response_format=self._judge_params.response_format,

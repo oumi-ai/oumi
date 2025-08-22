@@ -5,7 +5,7 @@
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF \
+#   hf download unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF \
 #     Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf --local-dir .
 #
 #   # 2. Run inference:

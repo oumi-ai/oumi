@@ -40,6 +40,16 @@ class AnalyzeConfig(BaseConfig):
     dataset_name: Optional[str] = None
     """Dataset name."""
 
+    dataset_path: Optional[str] = None
+    """Path to a custom dataset file (JSON or JSONL format).
+    If provided, this takes precedence over dataset_name for loading custom datasets.
+    """
+
+    dataset_format: Optional[str] = None
+    """Format of the custom dataset. Either 'oumi' (conversation format) or 'alpaca'.
+    Only used when dataset_path is provided.
+    """
+
     split: str = "train"
     """The split of the dataset to load.
     This is typically one of "train", "test", or "validation". Defaults to "train".
@@ -84,10 +94,47 @@ class AnalyzeConfig(BaseConfig):
     trust_remote_code: bool = False
     """Whether to trust remote code for processor loading."""
 
+    is_multimodal: Optional[bool] = None
+    """If True, treat the dataset as multimodal (vision-language) when using a
+    custom dataset_path. If False, treat as text-only.
+    """
+
     def __post_init__(self):
         """Validates the configuration parameters."""
-        if not self.dataset_name:
-            raise ValueError("'dataset_name' must be provided")
+        if not self.dataset_name and not self.dataset_path:
+            raise ValueError("Either 'dataset_name' or 'dataset_path' must be provided")
+
+        # Validate dataset_format requirements
+        if self.dataset_path is not None:
+            if self.dataset_format is None:
+                raise ValueError(
+                    "'dataset_format' must be specified when using 'dataset_path'. "
+                    "Use 'oumi' for conversation format or 'alpaca' for instruction "
+                    "format."
+                )
+            elif self.dataset_format not in ["oumi", "alpaca"]:
+                raise ValueError("'dataset_format' must be either 'oumi' or 'alpaca'")
+
+            # Require explicit is_multimodal setting for custom datasets
+            if self.is_multimodal is None:
+                raise ValueError(
+                    "'is_multimodal' must be specified when using 'dataset_path'. "
+                    "Set to 'True' for vision-language datasets or 'False' for "
+                    "text-only datasets."
+                )
+
+            # Additional validation for multimodal
+            if self.is_multimodal is True:
+                # Currently VLJsonlinesDataset expects oumi conversation format
+                if self.dataset_format != "oumi":
+                    raise ValueError(
+                        "Multimodal datasets require dataset_format='oumi'"
+                    )
+                if not self.processor_name:
+                    raise ValueError(
+                        "'processor_name' must be specified when 'is_multimodal' "
+                        "is True"
+                    )
 
         # Validate sample_count
         if self.sample_count is not None and self.sample_count <= 0:

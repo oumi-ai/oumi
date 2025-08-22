@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/qwen2_vl_2b/sft/full/gcp_job.yaml --cluster qwen2-vl-vision
@@ -41,7 +41,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download Qwen/Qwen2-VL-2B-Instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download Qwen/Qwen2-VL-2B-Instruct
 
 run: |
   set -e  # Exit if any command failed.
