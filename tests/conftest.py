@@ -65,7 +65,9 @@ def cleanup_gpu_memory(request):
 
             # Clear VLLM engine cache if available
             try:
-                from vllm.engine.llm_engine import LLMEngine  # type: ignore[import-untyped]
+                from vllm.engine.llm_engine import (
+                    LLMEngine,  # type: ignore[import-untyped]
+                )
 
                 if hasattr(LLMEngine, "_clear_cache"):
                     LLMEngine._clear_cache()  # type: ignore[attr-defined]
