@@ -43,3 +43,52 @@ download_with_retry "HuggingFaceTB/SmolLM2-135M-Instruct" --exclude "onnx/*" "ru
 sleep 10
 
 download_with_retry "Qwen/Qwen2-VL-2B-Instruct"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+download_with_retry "openai/clip-vit-base-patch32"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# Core text models used extensively in tests
+download_with_retry "gpt2"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+download_with_retry "openai-community/gpt2"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# Models used in specific test suites
+download_with_retry "microsoft/Phi-3-mini-4k-instruct"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+download_with_retry "TinyLlama/TinyLlama-1.1B-Chat-v1.0" --exclude "onnx/*"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# Vision/multimodal models for VL tests
+download_with_retry "microsoft/Phi-3-vision-128k-instruct"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+download_with_retry "HuggingFaceTB/SmolVLM-Instruct"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# Additional smaller models used in tests
+download_with_retry "bert-base-uncased"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+download_with_retry "t5-small"
