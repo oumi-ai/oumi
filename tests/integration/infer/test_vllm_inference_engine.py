@@ -17,11 +17,17 @@
 import tempfile
 import time
 from pathlib import Path
+from typing import Any, Dict
 
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
+from tests.integration.infer.base_inference_engine_test import (
+    AbstractInferenceEngineBasicFunctionality,
+    AbstractInferenceEngineErrorHandling,
+    AbstractInferenceEngineGenerationParameters,
+)
 from tests.integration.infer.inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
@@ -50,180 +56,94 @@ pytestmark = [
 ]
 
 
-class TestVLLMBasicFunctionality:
-    """Test core VLLM inference functionality."""
+class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
+    """Test core VLLM inference functionality using abstract base class.
 
+    This class inherits 7 comprehensive test methods:
+    - test_basic_inference() - Single conversation inference
+    - test_batch_inference() - Multiple conversation batch processing
+    - test_file_io() - Input/output file handling
+    - test_empty_input() - Edge case: empty conversation list
+    - test_generation_params() - Parameter validation and handling
+    - test_deterministic_generation() - Seed-based reproducibility testing
+    - test_invalid_model_name() - Error handling for invalid models
+    """
+
+    def get_engine_class(self) -> type:
+        """Return the VLLM inference engine class."""
+        return VLLMInferenceEngine
+
+    def get_default_model_key(self) -> str:
+        """Return the default model key for VLLM testing."""
+        return "gemma_270m"
+
+    def get_performance_thresholds(self) -> Dict[str, Any]:
+        """Return VLLM-specific performance expectations."""
+        return {
+            "max_time_seconds": 60.0,
+            "min_throughput": 10.0,  # VLLM should achieve higher throughput
+            "batch_size": 8,  # VLLM handles larger batches well
+        }
+
+    # Additional VLLM-specific tests can be added here
     @pytest.mark.memory_intensive  # Requires >6GB RAM
-    def test_vllm_basic_inference_gemma_270m(self):
-        """Test basic VLLM inference with Gemma-3-270m (CPU or GPU)."""
-        # Check if we should use GPU acceleration
+    def test_vllm_specific_gemma_270m(self):
+        """Test VLLM-specific features with Gemma-3-270m model."""
+        # This is an example of an additional VLLM-specific test
+        # The basic functionality is already covered by inherited methods
         import torch
 
         _use_gpu = torch.cuda.is_available()
-        # Note: This test will run on CPU if no GPU available
 
         models = get_test_models()
         engine = VLLMInferenceEngine(models["gemma_270m"])
 
-        conversations = create_test_conversations()[:1]  # Single conversation
+        conversations = create_test_conversations()[:1]
         inference_config = InferenceConfig(generation=get_test_generation_params())
 
-        start_time = time.time()
         result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
 
-        # Validate output structure and basic properties
+        # Basic validation (detailed validation is in inherited methods)
         assert validate_generation_output(result)
-        assert len(result) == len(conversations)
 
-        # Enhanced property-based validation
-        # Since we use natural keyword instructions, we can test for them
+        # VLLM-specific validation could go here
         assert_response_properties(
             result,
             min_length=5,
             max_length=500,
-            expected_keywords=[
-                "Hello"
-            ],  # Test for the natural keyword that should appear in greeting response
+            expected_keywords=["Hello"],
             forbidden_patterns=[r"\berror\b", r"\bfailed\b", r"\bunable\b"],
         )
 
-        # Performance validation
-        tokens_generated = count_response_tokens(result)
-        assert_performance_requirements(
-            elapsed_time, tokens_generated, max_time_seconds=30.0, min_throughput=2.0
-        )
 
-    def test_vllm_basic_inference_smollm_135m(self):
-        """Test basic VLLM inference with SmolLM2-135M-Instruct (CPU or GPU)."""
-        # Check if we should use GPU acceleration
-        import torch
+class TestVLLMGenerationParameters(AbstractInferenceEngineGenerationParameters):
+    """Test VLLM generation parameter handling using abstract base class.
 
-        _use_gpu = torch.cuda.is_available()
-        # Note: This test will run on CPU if no GPU available
+    This class inherits comprehensive parameter testing from the base class
+    and adds VLLM-specific parameter variations.
+    """
 
-        models = get_test_models()
-        engine = VLLMInferenceEngine(models["smollm_135m"])
+    def get_engine_class(self) -> type:
+        """Return the VLLM inference engine class."""
+        return VLLMInferenceEngine
 
-        conversations = create_test_conversations()[:1]  # Single conversation
-        inference_config = InferenceConfig(generation=get_test_generation_params())
+    def get_default_model_key(self) -> str:
+        """Return the default model key for VLLM testing."""
+        return "smollm_135m"
 
-        start_time = time.time()
-        result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
+    def get_performance_thresholds(self) -> Dict[str, Any]:
+        """Return VLLM-specific performance expectations."""
+        return {
+            "max_time_seconds": 30.0,
+            "min_throughput": 5.0,
+            "batch_size": 4,
+        }
 
-        # Validate output structure and properties
-        assert validate_generation_output(result)
-        assert len(result) == len(conversations)
-
-        # Enhanced validation for SmolLM responses
-        assert_response_properties(
-            result,
-            min_length=3,
-            max_length=400,
-            forbidden_patterns=[r"\berror\b", r"\bfailed\b"],
-        )
-
-        # Performance validation for small model
-        tokens_generated = count_response_tokens(result)
-        assert_performance_requirements(
-            elapsed_time, tokens_generated, max_time_seconds=25.0, min_throughput=3.0
-        )
-
-    @requires_cuda_initialized()
-    @requires_gpus(1, min_gb=3.0)  # Need 3GB VRAM
-    def test_vllm_batch_inference(self):
-        """Test batched inference with multiple conversations."""
-
-        models = get_test_models()
-        engine = VLLMInferenceEngine(models["smollm_135m"])
-
-        # Create batch of conversations
-        conversations = create_batch_conversations(4, "What is")
-
-        generation_params = get_test_generation_params()
-        generation_params.max_new_tokens = 15
-        inference_config = InferenceConfig(generation=generation_params)
-
-        start_time = time.time()
-        result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
-
-        # Validate output structure
-        assert validate_generation_output(result)
-        assert len(result) == len(conversations)
-
-        # Enhanced batch validation - all responses should address their prompts
-        for i, conversation in enumerate(result):
-            original_prompt = conversations[i].messages[0].content
-            expected_keywords = get_contextual_keywords(original_prompt)
-
-            # Validate individual response properties
-            assert_response_properties(
-                [conversation],
-                min_length=3,
-                max_length=300,
-                expected_keywords=expected_keywords[:2]
-                if expected_keywords
-                else None,  # Use top 2 keywords
-                forbidden_patterns=[r"\berror\b", r"\bfailed\b"],
-            )
-
-        # Performance validation for batch processing
-        tokens_generated = count_response_tokens(result)
-        assert_performance_requirements(
-            elapsed_time,
-            tokens_generated,
-            max_time_seconds=40.0,  # Longer for batch
-            min_throughput=5.0,  # Should be efficient with batching
-        )
-
-    @requires_cuda_initialized()
-    @requires_gpus(1, min_gb=2.0)  # Need 2GB VRAM
-    def test_vllm_empty_input(self):
-        """Test graceful handling of empty conversations."""
-
-        models = get_test_models()
-        engine = VLLMInferenceEngine(models["smollm_135m"])
-
-        inference_config = InferenceConfig(generation=get_test_generation_params())
-        result = engine.infer([], inference_config)
-
-        assert result == []
-
-    def test_vllm_file_io(self):
-        """Test input/output file handling with VLLM."""
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            models = get_test_models()
-            engine = VLLMInferenceEngine(models["smollm_135m"])
-
-            conversations = create_test_conversations()[:2]
-            output_path = Path(temp_dir) / "vllm_output.jsonl"
-
-            inference_config = InferenceConfig(
-                generation=get_test_generation_params(), output_path=str(output_path)
-            )
-
-            result = engine.infer(conversations, inference_config)
-
-            # Validate output
-            assert validate_generation_output(result)
-            assert output_path.exists()
-
-            # Check file content
-            assert output_path.stat().st_size > 0
-
-
-class TestVLLMGenerationParameters:
-    """Test VLLM generation parameter handling."""
-
+    # VLLM-specific parameter tests
     def test_vllm_temperature_variation(self):
-        """Test temperature parameter effects."""
-
+        """Test VLLM-specific temperature parameter effects."""
         models = get_test_models()
         engine = VLLMInferenceEngine(models["smollm_135m"])
-
         conversation = create_test_conversations()[0:1]
 
         # Test with temperature=0.0 (deterministic)
@@ -266,52 +186,10 @@ class TestVLLMGenerationParameters:
             expected_topics=["hello", "greeting", "conversation"],
         )
 
-    def test_vllm_max_tokens_parameter(self):
-        """Test max_new_tokens parameter."""
-
-        models = get_test_models()
-        engine = VLLMInferenceEngine(models["smollm_135m"])
-
-        conversation = create_test_conversations()[0:1]
-
-        # Test with small token limit
-        gen_params_small = GenerationParams(max_new_tokens=5, temperature=0.0, seed=42)
-        config_small = InferenceConfig(generation=gen_params_small)
-        result_small = engine.infer(conversation, config_small)
-
-        # Test with larger token limit
-        gen_params_large = GenerationParams(max_new_tokens=30, temperature=0.0, seed=42)
-        config_large = InferenceConfig(generation=gen_params_large)
-        result_large = engine.infer(conversation, config_large)
-
-        # Both should be valid
-        assert validate_generation_output(result_small)
-        assert validate_generation_output(result_large)
-
-        # Enhanced validation with appropriate length expectations
-        assert_response_properties(
-            result_small,
-            min_length=2,  # Very short responses acceptable with low token limit
-            max_length=100,  # Should respect token limit
-            forbidden_patterns=[r"\berror\b", r"\bfailed\b"],
-        )
-
-        assert_response_properties(
-            result_large,
-            min_length=5,  # Should have more content with higher limit
-            max_length=600,
-            forbidden_patterns=[r"\berror\b", r"\bfailed\b"],
-        )
-
-        # Both should address the greeting
-        assert_response_relevance(result_small + result_large)
-
     def test_vllm_top_p_parameter(self):
-        """Test top_p nucleus sampling parameter."""
-
+        """Test VLLM-specific top_p nucleus sampling parameter."""
         models = get_test_models()
         engine = VLLMInferenceEngine(models["smollm_135m"])
-
         conversation = create_test_conversations()[0:1]
 
         gen_params = GenerationParams(
@@ -408,19 +286,30 @@ class TestVLLMSpecificFeatures:
         assert validate_generation_output(result)
 
 
-class TestVLLMErrorHandling:
-    """Test VLLM error handling and edge cases."""
+class TestVLLMErrorHandling(AbstractInferenceEngineErrorHandling):
+    """Test VLLM error handling and edge cases using abstract base class.
 
-    def test_vllm_invalid_model_name(self):
-        """Test error handling for invalid model names."""
+    This class inherits standard error handling tests and adds VLLM-specific
+    error scenarios.
+    """
 
-        models = get_test_models()
-        model_params = models["smollm_135m"]
-        model_params.model_name = "nonexistent/invalid-model"
+    def get_engine_class(self) -> type:
+        """Return the VLLM inference engine class."""
+        return VLLMInferenceEngine
 
-        # Should raise an error during engine initialization
-        with pytest.raises(Exception):  # Could be various error types from vLLM
-            VLLMInferenceEngine(model_params)
+    def get_default_model_key(self) -> str:
+        """Return the default model key for VLLM testing."""
+        return "smollm_135m"
+
+    def get_performance_thresholds(self) -> Dict[str, Any]:
+        """Return VLLM-specific performance expectations."""
+        return {
+            "max_time_seconds": 30.0,
+            "min_throughput": 2.0,
+            "batch_size": 2,
+        }
+
+    # VLLM-specific error handling tests
 
     def test_vllm_invalid_generation_params(self):
         """Test error handling for invalid generation parameters."""
@@ -479,7 +368,6 @@ class TestVLLMErrorHandling:
 
 class TestVLLMPerformance:
     """Test VLLM performance characteristics."""
-
 
     @requires_cuda_initialized()
     @requires_gpus(1, min_gb=5.0)  # Need 5GB VRAM

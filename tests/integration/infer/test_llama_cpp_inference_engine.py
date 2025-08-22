@@ -17,11 +17,17 @@
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
+from tests.integration.infer.base_inference_engine_test import (
+    AbstractInferenceEngineBasicFunctionality,
+    AbstractInferenceEngineErrorHandling,
+    AbstractInferenceEngineGenerationParameters,
+)
 from tests.integration.infer.inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
@@ -49,35 +55,57 @@ pytestmark = [
 ]
 
 
-class TestLlamaCppBasicFunctionality:
-    """Test core LlamaCpp inference functionality with GGUF models."""
+class TestLlamaCppBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
+    """Test core LlamaCpp inference functionality using abstract base class.
 
-    def test_llamacpp_basic_inference(self):
-        """Test basic inference with quantized Gemma model."""
+    This class inherits 7 comprehensive test methods:
+    - test_basic_inference() - Single conversation inference
+    - test_batch_inference() - Multiple conversation batch processing
+    - test_file_io() - Input/output file handling
+    - test_empty_input() - Edge case: empty conversation list
+    - test_generation_params() - Parameter validation and handling
+    - test_deterministic_generation() - Seed-based reproducibility testing
+    - test_invalid_model_name() - Error handling for invalid models
+    """
 
+    def get_engine_class(self) -> type:
+        """Return the LlamaCpp inference engine class."""
+        return LlamaCppInferenceEngine
+
+    def get_default_model_key(self) -> str:
+        """Return the default model key for LlamaCpp testing."""
+        return "gemma_270m_gguf"
+
+    def get_performance_thresholds(self) -> dict[str, Any]:
+        """Return LlamaCpp-specific performance expectations."""
+        return {
+            "max_time_seconds": 45.0,  # CPU inference is slower
+            "min_throughput": 1.0,  # Lower throughput for CPU
+            "batch_size": 3,  # Smaller batches for CPU
+        }
+
+    # LlamaCpp-specific additional tests can be added here
+    def test_llamacpp_specific_gguf_features(self):
+        """Test LlamaCpp-specific GGUF model features."""
+        # This is an example of an additional LlamaCpp-specific test
+        # The basic functionality is already covered by inherited methods
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
 
-        conversations = create_test_conversations()[:1]  # Single conversation
+        conversations = create_test_conversations()[:1]
         inference_config = InferenceConfig(generation=get_test_generation_params())
 
-        start_time = time.time()
         result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
 
-        # Validate output structure and basic properties
+        # Basic validation (detailed validation is in inherited methods)
         assert validate_generation_output(result)
-        assert len(result) == len(conversations)
 
-        # Enhanced property-based validation for GGUF quantized model
-        # Since we use natural keyword instructions, we can test for them
+        # GGUF-specific validation could go here
         assert_response_properties(
             result,
             min_length=3,
             max_length=400,
-            expected_keywords=[
-                "Hello"
-            ],  # Test for the natural keyword that should appear in greeting response
+            expected_keywords=["Hello"],
             forbidden_patterns=[
                 r"\berror\b",
                 r"\bfailed\b",
@@ -86,102 +114,8 @@ class TestLlamaCppBasicFunctionality:
             ],
         )
 
-        # Validate response relevance to greeting (broad validation)
+        # Validate response relevance to greeting
         assert_response_relevance(result)
-
-        # Performance validation (CPU inference is slower)
-        tokens_generated = count_response_tokens(result)
-        assert_performance_requirements(
-            elapsed_time,
-            tokens_generated,
-            max_time_seconds=45.0,  # Longer timeout for CPU
-            min_throughput=1.0,  # Lower throughput expectations for CPU
-        )
-
-    def test_llamacpp_batch_inference(self):
-        """Test batched conversations."""
-
-        models = get_test_models()
-        engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
-
-        # Create batch of conversations
-        conversations = create_batch_conversations(3, "Tell me about")
-
-        generation_params = get_test_generation_params()
-        generation_params.max_new_tokens = 15  # Keep responses short for batch testing
-        inference_config = InferenceConfig(generation=generation_params)
-
-        start_time = time.time()
-        result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
-
-        # Validate output structure
-        assert validate_generation_output(result)
-        assert len(result) == len(conversations)
-
-        # Enhanced batch validation with topic relevance
-        for i, conversation in enumerate(result):
-            assert len(conversation.messages) > len(conversations[i].messages)
-            assert conversation.messages[-1].role.value == "assistant"
-
-            # Extract expected topic from original prompt
-            original_prompt = conversations[i].messages[0].content
-            expected_keywords = get_contextual_keywords(original_prompt)
-
-            # Validate each response's properties
-            assert_response_properties(
-                [conversation],
-                min_length=3,
-                max_length=300,
-                expected_keywords=expected_keywords[:1]
-                if expected_keywords
-                else None,  # Use top keyword
-                forbidden_patterns=[r"\berror\b", r"\bfailed\b", r"\bunable\b"],
-            )
-
-        # Performance validation for batch processing
-        tokens_generated = count_response_tokens(result)
-        assert_performance_requirements(
-            elapsed_time,
-            tokens_generated,
-            max_time_seconds=60.0,  # Longer for CPU batch processing
-            min_throughput=0.8,  # Lower expectations for CPU batching
-        )
-
-    def test_llamacpp_file_io(self):
-        """Test input/output file operations."""
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            models = get_test_models()
-            engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
-
-            conversations = create_test_conversations()[:2]
-            output_path = Path(temp_dir) / "llamacpp_output.jsonl"
-
-            generation_params = get_test_generation_params()
-            generation_params.max_new_tokens = 10  # Keep short for file I/O test
-            inference_config = InferenceConfig(
-                generation=generation_params, output_path=str(output_path)
-            )
-
-            result = engine.infer(conversations, inference_config)
-
-            # Validate output
-            assert validate_generation_output(result)
-            assert output_path.exists()
-
-            # Check file content
-            assert output_path.stat().st_size > 0
-
-    def test_llamacpp_empty_input(self):
-        """Test graceful handling of empty conversations."""
-        models = get_test_models()
-        engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
-
-        inference_config = InferenceConfig(generation=get_test_generation_params())
-        result = engine.infer([], inference_config)
-
-        assert result == []
 
 
 class TestLlamaCppMemoryManagement:
@@ -418,66 +352,34 @@ class TestLlamaCppHardwareOptimization:
         assert validate_generation_output(result)
 
 
+class TestLlamaCppGenerationParameters(AbstractInferenceEngineGenerationParameters):
+    """Test LlamaCpp generation parameter handling using abstract base class.
 
-class TestLlamaCppGenerationParameters:
-    """Test LlamaCpp generation parameter handling."""
+    This class inherits comprehensive parameter testing from the base class
+    and adds LlamaCpp-specific parameter variations.
+    """
 
-    def test_llamacpp_generation_params(self):
-        """Test temperature, top_p, max_tokens parameters."""
+    def get_engine_class(self) -> type:
+        """Return the LlamaCpp inference engine class."""
+        return LlamaCppInferenceEngine
 
-        models = get_test_models()
-        engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
+    def get_default_model_key(self) -> str:
+        """Return the default model key for LlamaCpp testing."""
+        return "gemma_270m_gguf"
 
-        conversation = create_test_conversations()[0:1]
+    def get_performance_thresholds(self) -> dict[str, Any]:
+        """Return LlamaCpp-specific performance expectations."""
+        return {
+            "max_time_seconds": 35.0,
+            "min_throughput": 1.0,
+            "batch_size": 2,
+        }
 
-        # Test with various generation parameters
-        gen_params = GenerationParams(
-            max_new_tokens=15, temperature=0.7, top_p=0.9, seed=42, use_sampling=True
-        )
-        config = InferenceConfig(generation=gen_params)
-        result = engine.infer(conversation, config)
-
-        assert validate_generation_output(result)
-
-    def test_llamacpp_deterministic_generation(self):
-        """Test seed-based reproducible outputs."""
-
-        models = get_test_models()
-        engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
-
-        conversation = create_test_conversations()[0:1]
-
-        # Test deterministic generation with same seed
-        gen_params = GenerationParams(
-            max_new_tokens=20,
-            temperature=0.0,  # Deterministic
-            seed=42,
-            use_sampling=False,
-        )
-        config = InferenceConfig(generation=gen_params)
-
-        # Run twice with same parameters
-        result1 = engine.infer(conversation, config)
-        result2 = engine.infer(conversation, config)
-
-        assert validate_generation_output(result1)
-        assert validate_generation_output(result2)
-
-        # With temperature=0.0 and same seed, results should be identical
-        response1 = result1[0].messages[-1].content
-        response2 = result2[0].messages[-1].content
-
-        # Note: LlamaCpp might still have some variability, so we check for
-        # basic similarity
-        assert len(response1.strip()) > 0
-        assert len(response2.strip()) > 0
-
+    # LlamaCpp-specific parameter tests
     def test_llamacpp_variable_max_tokens(self):
-        """Test different max_new_tokens values."""
-
+        """Test LlamaCpp-specific max_new_tokens variations."""
         models = get_test_models()
         engine = LlamaCppInferenceEngine(models["gemma_270m_gguf"])
-
         conversation = create_test_conversations()[0:1]
 
         # Test with small token limit
@@ -501,9 +403,30 @@ class TestLlamaCppGenerationParameters:
         assert len(large_response.strip()) > 0
 
 
-class TestLlamaCppErrorHandling:
-    """Test LlamaCpp error handling and edge cases."""
+class TestLlamaCppErrorHandling(AbstractInferenceEngineErrorHandling):
+    """Test LlamaCpp error handling and edge cases using abstract base class.
 
+    This class inherits standard error handling tests and adds LlamaCpp-specific
+    error scenarios.
+    """
+
+    def get_engine_class(self) -> type:
+        """Return the LlamaCpp inference engine class."""
+        return LlamaCppInferenceEngine
+
+    def get_default_model_key(self) -> str:
+        """Return the default model key for LlamaCpp testing."""
+        return "gemma_270m_gguf"
+
+    def get_performance_thresholds(self) -> dict[str, Any]:
+        """Return LlamaCpp-specific performance expectations."""
+        return {
+            "max_time_seconds": 35.0,
+            "min_throughput": 1.0,
+            "batch_size": 2,
+        }
+
+    # LlamaCpp-specific error handling tests
     def test_llamacpp_invalid_gguf_file(self):
         """Test error handling for invalid GGUF files."""
         models = get_test_models()
@@ -519,16 +442,6 @@ class TestLlamaCppErrorHandling:
         with pytest.raises(
             Exception
         ):  # Could be FileNotFoundError or llama-cpp specific error
-            LlamaCppInferenceEngine(model_params)
-
-    def test_llamacpp_invalid_model_path(self):
-        """Test error handling for invalid model paths."""
-        models = get_test_models()
-        model_params = models["gemma_270m_gguf"]
-        model_params.model_name = "nonexistent/invalid-model"
-
-        # Should raise an error during engine initialization
-        with pytest.raises(Exception):
             LlamaCppInferenceEngine(model_params)
 
     def test_llamacpp_extreme_parameters(self):
