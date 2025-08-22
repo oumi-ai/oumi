@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
@@ -52,8 +52,8 @@ def _check_connection(user: str, slurm_host: str) -> None:
     raise _SlurmAuthException("Connection to Slurm host is closed." + error_msg)
 
 
-def _is_job_done(job_state: str) -> bool:
-    """Determines if a job is done based on its state.
+def _get_job_state(job_state: str) -> JobState:
+    """Gets the JobState from a job state string.
 
     See https://slurm.schedmd.com/job_state_codes.html for more details.
 
@@ -61,12 +61,10 @@ def _is_job_done(job_state: str) -> bool:
         job_state: The state of the job.
 
     Returns:
-        True if the job is done, False otherwise.
+        The JobState.
     """
-    terminal_states = {
+    failure_states = {
         "BOOT_FAIL",
-        "CANCELLED",
-        "COMPLETED",
         "DEADLINE",
         "FAILED",
         "LAUNCH_FAILED",
@@ -77,7 +75,29 @@ def _is_job_done(job_state: str) -> bool:
         "SUSPENDED",
         "STOPPED",
     }
-    return job_state in terminal_states
+    if job_state in failure_states:
+        return JobState.FAILED
+    elif job_state == "COMPLETED":
+        return JobState.SUCCEEDED
+    elif job_state == "CANCELLED":
+        return JobState.CANCELLED
+    return JobState.PENDING
+
+
+def _is_job_done(job_state: JobState) -> bool:
+    """Determines if a job is done based on its state.
+
+    Args:
+        job_state: The state of the job.
+
+    Returns:
+        True if the job is done, False otherwise.
+    """
+    return (
+        job_state == JobState.SUCCEEDED
+        or job_state == JobState.CANCELLED
+        or job_state == JobState.FAILED
+    )
 
 
 def _split_status_line(
@@ -117,6 +137,7 @@ def _split_status_line(
         start = sum(column_lengths[:i]) + i
         end = start + column_lengths[i]
         fields.append(line[start:end].strip())
+    state = _get_job_state(fields[3])
     return JobStatus(
         id=fields[0],
         name=fields[1],
@@ -124,7 +145,8 @@ def _split_status_line(
         status=fields[3].split(" ")[0],
         cluster=cluster_name,
         metadata=metadata,
-        done=_is_job_done(fields[3]),
+        done=_is_job_done(state),
+        state=state,
     )
 
 

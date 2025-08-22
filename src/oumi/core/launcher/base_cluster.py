@@ -14,8 +14,18 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 
 from oumi.core.configs import JobConfig
+
+
+class JobState(Enum):
+    """Enum to hold the state of a job."""
+
+    PENDING = "pending"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 @dataclass
@@ -41,6 +51,10 @@ class JobStatus:
     #: True only if the job is in a terminal state (e.g. completed, failed, or
     #: canceled).
     done: bool
+
+    #: The state of the job.
+    #: For more fine-grained information about the job, see the status field.
+    state: JobState
 
 
 class BaseCluster(ABC):
