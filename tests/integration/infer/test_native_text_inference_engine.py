@@ -16,7 +16,7 @@ from oumi.core.types.conversation import (
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from tests.integration.infer import get_default_device_map_for_inference
-from tests.integration.infer.base_inference_engine_test import (
+from tests.integration.infer.test_base_inference_engine import (
     AbstractInferenceEngineBasicFunctionality,
     AbstractInferenceEngineErrorHandling,
     AbstractInferenceEngineGenerationParameters,
