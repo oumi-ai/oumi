@@ -49,17 +49,29 @@ def cleanup_gpu_memory(request):
         "requires_cuda" in str(mark) or "requires_gpu" in str(mark)
         for mark in request.node.iter_markers()
     )
+    
+    # Check if test function uses GPU device mapping
+    test_source = ""
+    try:
+        import inspect
+        test_source = inspect.getsource(request.node.function)
+        has_device_map = "get_default_device_map_for_inference" in test_source
+    except Exception:
+        has_device_map = False
 
-    if gpu_markers.intersection(test_markers) or has_gpu_decorator:
+    if gpu_markers.intersection(test_markers) or has_gpu_decorator or has_device_map:
         try:
             import torch
+            import gc
 
             if torch.cuda.is_available():
+                # More aggressive GPU memory cleanup
                 torch.cuda.empty_cache()
+                torch.cuda.reset_peak_memory_stats()
                 torch.cuda.synchronize()
-                import gc
-
                 gc.collect()
+                # Force another cache clear after garbage collection
+                torch.cuda.empty_cache()
         except Exception:
             # Silently ignore cleanup errors to avoid test failures
             pass
