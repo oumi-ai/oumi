@@ -137,60 +137,70 @@ def _validate_job_config(job: JobConfig) -> None:
         job: The job to validate.
     """
     if not job.user:
-        raise ValueError("User must be provided for Frontier jobs.")
+        raise ValueError("User must be provided for Perlmutter jobs.")
     if not job.working_dir:
-        raise ValueError("Working directory must be provided for Frontier jobs.")
+        raise ValueError("Working directory must be provided for Perlmutter jobs.")
     if not job.run:
-        raise ValueError("Run script must be provided for Frontier jobs.")
+        raise ValueError("Run script must be provided for Perlmutter jobs.")
     if job.num_nodes < 1:
         raise ValueError("Number of nodes must be at least 1.")
-    if job.resources.cloud != "frontier":
+    if job.resources.cloud != "perlmutter":
         raise ValueError(
-            f"`Resources.cloud` must be `frontier`. "
+            f"`Resources.cloud` must be `perlmutter`. "
             f"Unsupported cloud: {job.resources.cloud}"
         )
-    # Warn that other resource parameters are unused for Frontier.
+    # Warn that other resource parameters are unused for Perlmutter.
     if job.resources.region:
-        logger.warning("Region is unused for Frontier jobs.")
+        logger.warning("Region is unused for Perlmutter jobs.")
     if job.resources.zone:
-        logger.warning("Zone is unused for Frontier jobs.")
+        logger.warning("Zone is unused for Perlmutter jobs.")
     if job.resources.accelerators:
-        logger.warning("Accelerators are unused for Frontier jobs.")
+        logger.warning("Accelerators are unused for Perlmutter jobs.")
     if job.resources.cpus:
-        logger.warning("CPUs are unused for Frontier jobs.")
+        logger.warning("CPUs are unused for Perlmutter jobs.")
     if job.resources.memory:
-        logger.warning("Memory is unused for Frontier jobs.")
+        logger.warning("Memory is unused for Perlmutter jobs.")
     if job.resources.instance_type:
-        logger.warning("Instance type is unused for Frontier jobs.")
+        logger.warning("Instance type is unused for Perlmutter jobs.")
     if job.resources.disk_size:
-        logger.warning("Disk size is unused for Frontier jobs.")
+        logger.warning("Disk size is unused for Perlmutter jobs.")
     # Warn that storage mounts are currently unsupported.
     if len(job.storage_mounts.items()) > 0:
-        logger.warning("Storage mounts are currently unsupported for Frontier jobs.")
+        logger.warning("Storage mounts are currently unsupported for Perlmutter jobs.")
 
 
-class FrontierCluster(BaseCluster):
-    """A cluster implementation backed by OLCF Frontier."""
+class PerlmutterCluster(BaseCluster):
+    """A cluster implementation backed by NERSC Perlmutter."""
 
     class SupportedQueues(Enum):
-        """Enum representing the supported partitions (queues) on Frontier.
+        """Enum representing the supported quality of service (QoS) on Perlmutter.
 
         For more details, see:
-        https://docs.olcf.ornl.gov/systems/frontier_user_guide.html#batch-partition-queue-policy
+        https://docs.nersc.gov/jobs/policy/#perlmutter-gpu
         """
 
-        BATCH = "batch"
-        EXTENDED = "extended"
+        REGULAR = "regular"
+        INTERACTIVE = "interactive"
+        SHARED_INTERACTIVE = "shared_interactive"
+        JUPYTER = "jupyter"
+        DEBUG = "debug"
+        SHARED = "shared"
+        PREEMPT = "preempt"
+        DEBUG_PREEMPT = "debug_preempt"
+        PREMIUM = "premium"
+        OVERRUN = "overrun"
+        SHARED_OVERRUN = "shared_overrun"
+        REALTIME = "realtime"
 
     def __init__(self, name: str, client: SlurmClient) -> None:
-        """Initializes a new instance of the FrontierCluster class."""
+        """Initializes a new instance of the PerlmutterCluster class."""
         self._name = name
         self._queue = self._get_queue_from_name()
         self._client = client
 
     def __eq__(self, other: Any) -> bool:
-        """Checks if two FrontierClusters are equal."""
-        if not isinstance(other, FrontierCluster):
+        """Checks if two PerlmutterClusters are equal."""
+        if not isinstance(other, PerlmutterCluster):
             return False
         return self.name() == other.name()
 
@@ -203,10 +213,10 @@ class FrontierCluster(BaseCluster):
                 "A queue name should be of the form: `queue.user`."
             )
         queue = splits[0].lower()
-        if queue == FrontierCluster.SupportedQueues.BATCH.value:
-            return FrontierCluster.SupportedQueues.BATCH
-        elif queue == FrontierCluster.SupportedQueues.EXTENDED.value:
-            return FrontierCluster.SupportedQueues.EXTENDED
+        if queue == PerlmutterCluster.SupportedQueues.BATCH.value:
+            return PerlmutterCluster.SupportedQueues.BATCH
+        elif queue == PerlmutterCluster.SupportedQueues.EXTENDED.value:
+            return PerlmutterCluster.SupportedQueues.EXTENDED
 
         raise ValueError(f"Unsupported partition: {queue}")
 
@@ -239,7 +249,7 @@ class FrontierCluster(BaseCluster):
     def run_job(self, job: JobConfig) -> JobStatus:
         """Runs the specified job on this cluster.
 
-        For Frontier this method consists of 5 parts:
+        For Perlmutter this method consists of 5 parts:
 
         1. Copy the working directory to
            /lustre/orion/lrn081/scratch/$USER/oumi_launcher/$JOB_NAME.
@@ -263,17 +273,13 @@ class FrontierCluster(BaseCluster):
         remote_working_dir = Path(
             f"/lustre/orion/lrn081/scratch/{user}/oumi_launcher/{submission_time}"
         )
-        # Copy the working directory to Frontier user's scratch directory.
+        # Copy the working directory to Perlmutter user's scratch directory.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # Check if Oumi is installed in a conda env. If not, install it.
         oumi_env_path = Path("/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi")
         install_cmds = [
             f"cd {remote_working_dir}",
-            # For details, see https://docs.olcf.ornl.gov/software/analytics/pytorch_frontier.html
-            "module load PrgEnv-gnu/8.6.0",
-            "module load miniforge3/23.11.0-0",
-            "module load rocm/6.2.4",
-            "module load craype-accel-amd-gfx90a",
+            "module load conda",
             f"if [ ! -d {oumi_env_path} ]; then",
             'echo "Creating Oumi Conda environment... ---------------------------"',
             f"conda create -y python=3.10 -c conda-forge --prefix {oumi_env_path}",
@@ -337,9 +343,9 @@ class FrontierCluster(BaseCluster):
         return job_status
 
     def stop(self) -> None:
-        """This is a no-op for Frontier clusters."""
+        """This is a no-op for Perlmutter clusters."""
         pass
 
     def down(self) -> None:
-        """This is a no-op for Frontier clusters."""
+        """This is a no-op for Perlmutter clusters."""
         pass
