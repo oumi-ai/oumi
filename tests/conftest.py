@@ -68,7 +68,7 @@ def cleanup_gpu_memory(request):
                 from vllm.engine.llm_engine import LLMEngine
 
                 if hasattr(LLMEngine, "_clear_cache"):
-                    LLMEngine._clear_cache()
+                    LLMEngine._clear_cache()  # type: ignore[attr-defined]
             except (ImportError, AttributeError):
                 pass
 

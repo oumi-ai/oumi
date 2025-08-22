@@ -49,6 +49,13 @@ jobs:
         # Disable Triton flash attention at runtime for T4 compatibility
         VLLM_USE_TRITON_FLASH_ATTN: "False"
 
+    - name: Install VLLM for CPU (VLLM tests are CPU-only)
+      run: |
+        # Uninstall GPU VLLM and install CPU version for integration tests
+        # All VLLM tests have been converted to CPU-only to avoid CUDA compatibility issues
+        uv pip uninstall vllm --system
+        VLLM_TARGET_DEVICE=cpu uv pip install vllm==0.10.1.1 --no-cache --system
+
     - name: Download Test Data
       run: |
         ./tests/scripts/predownload_for_github_gpu_tests.sh
