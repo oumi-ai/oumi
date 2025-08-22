@@ -16,7 +16,7 @@ from oumi.core.types.conversation import (
 )
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from tests.integration.infer import get_default_device_map_for_inference
-from tests.integration.infer.inference_test_utils import (
+from tests.integration.infer.test_inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
     assert_response_relevance,
@@ -98,7 +98,9 @@ def test_infer_basic_interactive_with_images(
             torch_dtype_str="bfloat16",  # Use bfloat16 for efficiency
             device_map="auto",
         ),
-        generation=GenerationParams(max_new_tokens=10, temperature=0.0, seed=42),  # Reduced for speed
+        generation=GenerationParams(
+            max_new_tokens=10, temperature=0.0, seed=42
+        ),  # Reduced for speed
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
@@ -243,13 +245,13 @@ def test_infer_basic_non_interactive_with_images(
 
 # Check engine availability for new tests
 try:
-    import vllm
+    __import__("vllm")
     vllm_available = True
 except ImportError:
     vllm_available = False
 
 try:
-    from llama_cpp import Llama
+    __import__("llama_cpp")
     llamacpp_available = True
 except ImportError:
     llamacpp_available = False
@@ -259,8 +261,16 @@ except ImportError:
     "engine_type",
     [
         InferenceEngineType.NATIVE,
-        pytest.param(InferenceEngineType.VLLM, marks=pytest.mark.skipif(not vllm_available, reason="vLLM not available")),
-        pytest.param(InferenceEngineType.LLAMACPP, marks=pytest.mark.skipif(not llamacpp_available, reason="LlamaCpp not available")),
+        pytest.param(
+            InferenceEngineType.VLLM,
+            marks=pytest.mark.skipif(not vllm_available, reason="vLLM not available"),
+        ),
+        pytest.param(
+            InferenceEngineType.LLAMACPP,
+            marks=pytest.mark.skipif(
+                not llamacpp_available, reason="LlamaCpp not available"
+            ),
+        ),
     ],
 )
 def test_infer_with_different_engines(engine_type: InferenceEngineType):
@@ -275,11 +285,14 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
     else:
         # Use standard model for Native and VLLM
         model_params = models["smollm_135m"]
-        generation_params = GenerationParams(max_new_tokens=10, temperature=0.0, seed=42)
+        generation_params = GenerationParams(
+            max_new_tokens=10, temperature=0.0, seed=42
+        )
 
         if engine_type == InferenceEngineType.VLLM:
             # Skip if insufficient GPU memory for VLLM
             import torch
+
             if torch.cuda.is_available():
                 device = torch.cuda.current_device()
                 total_memory = torch.cuda.get_device_properties(device).total_memory
@@ -312,8 +325,9 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
         output,
         min_length=3,
         max_length=400,
-        # Make keywords optional since models may respond differently to "Tell me about the sky"
-        expected_keywords=None,  # Don't enforce specific keywords for this generic prompt
+        # Make keywords optional since models may respond differently
+        # to "Tell me about the sky"
+        expected_keywords=None,  # Don't enforce specific keywords
         forbidden_patterns=[r"\berror\b", r"\bfailed\b", r"\bunable\b"],
     )
 
@@ -322,14 +336,16 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
 
     # Performance validation (timeouts vary by engine)
     tokens_generated = count_response_tokens(output)
-    max_time = 60.0 if engine_type == InferenceEngineType.LLAMACPP else 30.0  # CPU vs GPU
+    max_time = (
+        60.0 if engine_type == InferenceEngineType.LLAMACPP else 30.0
+    )  # CPU vs GPU
     min_throughput = 0.5 if engine_type == InferenceEngineType.LLAMACPP else 2.0
 
     assert_performance_requirements(
         elapsed_time,
         tokens_generated,
         max_time_seconds=max_time,
-        min_throughput=min_throughput
+        min_throughput=min_throughput,
     )
 
     # Check response content
@@ -345,10 +361,7 @@ def test_infer_vllm_specific_features():
     model_params = models["smollm_135m"]
 
     # Add VLLM-specific model kwargs
-    model_params.model_kwargs = {
-        "gpu_memory_utilization": 0.6,
-        "max_num_seqs": 8
-    }
+    model_params.model_kwargs = {"gpu_memory_utilization": 0.6, "max_num_seqs": 8}
 
     config = InferenceConfig(
         model=model_params,
@@ -376,7 +389,9 @@ def test_infer_vllm_specific_features():
     )
 
     # Should address technical topics appropriately
-    assert_response_relevance(output, expected_topics=["machine learning", "neural networks", "technology"])
+    assert_response_relevance(
+        output, expected_topics=["machine learning", "neural networks", "technology"]
+    )
 
     # Performance validation for VLLM features
     tokens_generated = count_response_tokens(output)
@@ -384,7 +399,7 @@ def test_infer_vllm_specific_features():
         elapsed_time,
         tokens_generated,
         max_time_seconds=35.0,
-        min_throughput=3.0  # Should be efficient with VLLM optimizations
+        min_throughput=3.0,  # Should be efficient with VLLM optimizations
     )
 
     for i, conversation in enumerate(output):
@@ -403,7 +418,7 @@ def test_infer_llamacpp_memory_optimization():
         "use_mmap": True,
         "use_mlock": True,
         "n_threads": 2,
-        "verbose": False
+        "verbose": False,
     }
 
     config = InferenceConfig(

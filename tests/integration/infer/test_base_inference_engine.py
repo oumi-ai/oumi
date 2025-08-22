@@ -23,7 +23,7 @@ from typing import Any
 import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig
-from tests.integration.infer.inference_test_utils import (
+from tests.integration.infer.test_inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
     count_response_tokens,
