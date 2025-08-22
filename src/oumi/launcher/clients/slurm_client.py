@@ -497,11 +497,12 @@ class SlurmClient:
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
-    def tail_job(self, working_dir: str, job_id: str, cluster_name: str) -> int:
+    def tail_job(
+        self, working_dir: str, job_id: str, cluster_name: str, stdout_file: str
+    ) -> int:
         """Tails the Slurm job output file in the current terminal.
 
-        This method opens an interactive SSH session and runs:
-        cd <working_dir> && tail -f slurm-<job_id>.out
+        Opens an interactive SSH session and tails the specified stdout file.
 
         Behavior:
         - Uses a double TTY allocation (-tt) for unbuffered interactive output.
@@ -513,27 +514,23 @@ class SlurmClient:
             working_dir: Remote working directory where the job was submitted.
             job_id: The Slurm job ID whose output file to follow.
             cluster_name: The name of the cluster to tail the logs of.
+            stdout_file: The name of the stdout file to tail.
 
         Returns:
             The SSH command's exit code. This is a blocking call.
         """
-        # Force a pseudo-TTY so tail -f streams interactively to the user's terminal.
-        # Start a remote tail and locally poll job status via SlurmClient.
-        # When the job is done, gracefully stop the tail.
         tail_cmd = (
             f"ssh {_CTRL_PATH} -tt {cluster_name} "
-            f'"cd {working_dir} && tail -n +1 -F slurm-{job_id}.out"'
+            f'"cd {working_dir} && tail -n +1 -F {stdout_file}"'
         )
         logger.info(
-            "Starting remote tail: cd %s && tail -f slurm-%s.out", working_dir, job_id
+            "Starting remote tail: cd %s && tail -f %s", working_dir, stdout_file
         )
         # Pre-flight: verify the output file exists remotely before tailing.
-        preflight = self.run_commands(
-            [f"cd {working_dir}", f"test -f slurm-{job_id}.out"]
-        )
+        preflight = self.run_commands([f"cd {working_dir}", f"test -f {stdout_file}"])
         if preflight.exit_code != 0:
             raise FileNotFoundError(
-                f"Log file not found: {working_dir}/slurm-{job_id}.out. "
+                f"Log file not found: {working_dir}/{stdout_file}. "
                 "The job may not have started writing yet."
             )
         proc = None
