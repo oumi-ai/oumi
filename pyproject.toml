@@ -61,7 +61,6 @@ dependencies = [
     "pillow>=11.1.0,<11.4",      # Used by image datasets
     "protobuf>=5.29.0",
     "pydantic>=2.9.2,<2.12",
-    "reportlab>=4.0.0",           # PDF generation for /save() command in interactive inference
     "responses>=0.25.0,<0.26",
     "safetensors>=0.6.1,<0.7",
     "skypilot>=0.7.0,<0.8",      # Used by launcher
@@ -168,17 +167,6 @@ cambrian = [
 ]
 
 file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
-
-interactive = [
-    "asciinema>=2.4.0",    # Terminal recording for /render() command
-    "requests>=2.31.0",    # Web requests for /fetch() command
-    "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
-]
-
-webchat = [
-    "gradio>=5.0.0,<6.0",    # Web-based UI framework for chat interface
-    "aiohttp-cors>=0.7.0",  # CORS support for WebSocket connections
-]
 
 # CI targets
 ci_cpu = [

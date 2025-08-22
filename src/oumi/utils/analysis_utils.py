@@ -27,11 +27,45 @@ from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 logger = logging.getLogger(__name__)
 
 
-def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
+def build_tokenizer_from_config(tokenizer_config: Optional[dict[str, Any]]):
+    """Build a tokenizer from configuration dictionary.
+
+    Args:
+        tokenizer_config: Dictionary containing tokenizer configuration
+
+    Returns:
+        Built tokenizer or None if config is None
+
+    Raises:
+        ValueError: If required fields are missing from tokenizer_config
+    """
+    if not tokenizer_config:
+        return None
+
+    if "model_name" not in tokenizer_config:
+        raise ValueError("tokenizer_config must contain 'model_name' field")
+
+    model_params = ModelParams(
+        model_name=tokenizer_config["model_name"],
+        tokenizer_kwargs=tokenizer_config.get("tokenizer_kwargs", {}),
+        trust_remote_code=tokenizer_config.get("trust_remote_code", False),
+    )
+    tokenizer = build_tokenizer(model_params)
+    logger.info(f"Built tokenizer for model: {model_params.model_name}")
+    return tokenizer
+
+
+def load_dataset_from_config(
+    config: AnalyzeConfig, tokenizer: Optional[Any] = None
+) -> BaseMapDataset:
     """Load dataset based on configuration.
 
     This function loads datasets directly from the registry for analysis purposes.
     If a tokenizer is provided, it will be passed to the dataset constructor.
+
+    For custom datasets, it supports loading from local files using
+    TextSftJsonLinesDataset for text data and VLJsonlinesDataset for
+    vision-language data.
 
     Args:
         config: Configuration object containing dataset parameters
@@ -43,10 +77,19 @@ def load_dataset_from_config(config: AnalyzeConfig) -> BaseMapDataset:
     dataset_name = config.dataset_name
     split = config.split
     subset = config.subset
+    dataset_path = config.dataset_path
+    dataset_format = config.dataset_format
 
-    if not dataset_name:
-        raise ValueError("Dataset name is required")
+    if not dataset_name and not dataset_path:
+        raise ValueError("Either dataset_name or dataset_path must be provided")
 
+    # Handle custom dataset loading from local files
+    if dataset_path:
+        return _load_custom_dataset_from_path(
+            dataset_path, dataset_format, tokenizer, config
+        )
+
+    # Handle registered dataset loading
     try:
         # Load dataset from the REGISTRY
         if dataset_name is None:

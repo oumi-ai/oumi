@@ -1,15 +1,10 @@
-# LlamaCPP Inference config for Gemma-3n-E4B-it GGUF (macOS compatible).
+# vLLM Inference config for Gemma-3n-E4B-it GGUF.
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[gpu]`
 #
 # Usage:
-#   # 1. Download the GGUF file to current working directory:
-#   huggingface-cli download unsloth/gemma-3n-E4B-it-GGUF \
-#     gemma-3n-E4B-it-UD-Q5_K_XL.gguf --local-dir .
-#
-#   # 2. Run inference:
-#   oumi infer -i -c configs/recipes/gemma3/inference/3n_e4b_it_gguf_macos_infer.yaml
+#   oumi infer -i -c configs/recipes/gemma3/inference/3n_e4b_it_gguf_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -23,6 +18,7 @@ model:
   model_max_length: 16384
   torch_dtype_str: "float16"
   trust_remote_code: True
+  attn_implementation: "sdpa"
   model_kwargs:
     filename: "gemma-3n-E4B-it-UD-Q5_K_XL.gguf"
 
@@ -31,4 +27,4 @@ generation:
   temperature: 0.7
   top_p: 0.9
 
-engine: LLAMACPP
+engine: VLLM
