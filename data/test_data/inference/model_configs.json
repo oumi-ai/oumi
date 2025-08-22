@@ -13,7 +13,7 @@
   "smollm_135m": {
     "model_name": "HuggingFaceTB/SmolLM2-135M-Instruct",
     "trust_remote_code": true,
-    "torch_dtype_str": "bfloat16", 
+    "torch_dtype_str": "bfloat16",
     "device_map": "auto"
   },
   "gemma_270m_gguf": {

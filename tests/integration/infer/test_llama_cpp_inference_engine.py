@@ -21,7 +21,7 @@ import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.inference.llama_cpp_inference_engine import LlamaCppInferenceEngine
-from tests.integration.infer.inference_test_utils import (
+from tests.integration.infer.test_inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
     assert_response_relevance,
