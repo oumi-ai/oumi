@@ -168,6 +168,8 @@ cambrian = [
 
 file_formats = ["pdf2image>=1.17.0,<1.18", "python-poppler>=0.4.1,<0.5"]
 
+llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
+
 # CI targets
 ci_cpu = [
     "oumi[dev,docs,gcp,synthesis]",
