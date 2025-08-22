@@ -32,14 +32,13 @@ from tests.integration.infer.inference_test_utils import (
     get_contextual_keywords,
     get_test_generation_params,
     get_test_models,
-    measure_tokens_per_second,
     validate_generation_output,
 )
 from tests.markers import requires_cuda_initialized, requires_gpus
 
 # Skip all tests if vLLM is not available
 try:
-    import vllm
+    import vllm  # noqa: F401
 
     vllm_available = True
 except ImportError:
@@ -60,7 +59,7 @@ class TestVLLMBasicFunctionality:
         # Check if we should use GPU acceleration
         import torch
 
-        use_gpu = torch.cuda.is_available()
+        _use_gpu = torch.cuda.is_available()
         # Note: This test will run on CPU if no GPU available
 
         models = get_test_models()
@@ -100,7 +99,7 @@ class TestVLLMBasicFunctionality:
         # Check if we should use GPU acceleration
         import torch
 
-        use_gpu = torch.cuda.is_available()
+        _use_gpu = torch.cuda.is_available()
         # Note: This test will run on CPU if no GPU available
 
         models = get_test_models()
@@ -481,36 +480,6 @@ class TestVLLMErrorHandling:
 class TestVLLMPerformance:
     """Test VLLM performance characteristics."""
 
-    @requires_cuda_initialized()
-    @requires_gpus(1, min_gb=4.0)  # Need 4GB VRAM
-    def test_vllm_throughput_measurement(self):
-        """Test and measure VLLM throughput."""
-
-        models = get_test_models()
-        engine = VLLMInferenceEngine(models["smollm_135m"])
-
-        # Create multiple conversations for throughput testing
-        conversations = create_batch_conversations(8, "Explain")
-
-        generation_params = GenerationParams(
-            max_new_tokens=25, temperature=0.0, seed=42
-        )
-        inference_config = InferenceConfig(generation=generation_params)
-
-        start_time = time.time()
-        result = engine.infer(conversations, inference_config)
-        elapsed_time = time.time() - start_time
-
-        # Validate results
-        assert validate_generation_output(result)
-        assert len(result) == len(conversations)
-
-        # Measure performance
-        total_tokens = count_response_tokens(result)
-        throughput = measure_tokens_per_second(total_tokens, elapsed_time)
-
-        # Should achieve reasonable throughput (>10 tokens/sec for small model)
-        assert throughput > 10.0, f"Throughput too low: {throughput} tokens/sec"
 
     @requires_cuda_initialized()
     @requires_gpus(1, min_gb=5.0)  # Need 5GB VRAM

@@ -15,7 +15,7 @@
 """Shared utilities for inference engine integration tests."""
 
 import re
-from typing import Dict, List, Optional
+from typing import Optional
 
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -65,7 +65,8 @@ def create_test_conversations() -> list[Conversation]:
     """Create standard test conversations for consistency across tests.
 
     Returns:
-        List of test conversations with natural keyword instructions that should work with small models.
+        List of test conversations with natural keyword instructions that should work
+        with small models.
     """
     conversations_path = (
         get_oumi_root_directory().parent.parent
@@ -177,7 +178,8 @@ def validate_response_properties(
         max_length: Maximum acceptable response length in characters.
         expected_keywords: Keywords that should appear in responses.
         forbidden_patterns: Patterns that should not appear in responses.
-        require_complete_sentences: Whether responses should end with sentence terminators.
+        require_complete_sentences: Whether responses should end with sentence
+            terminators.
 
     Returns:
         Dictionary with validation results for different properties.
@@ -456,7 +458,8 @@ def assert_performance_requirements(
 
     for metric, is_valid in perf.items():
         assert is_valid, (
-            f"Performance validation failed: {metric} (time: {elapsed_time:.2f}s, tokens: {token_count})"
+            f"Performance validation failed: {metric} "
+            f"(time: {elapsed_time:.2f}s, tokens: {token_count})"
         )
 
 
@@ -499,52 +502,8 @@ def get_contextual_keywords(prompt: str) -> list[str]:
     return list(set(keywords)) if keywords else []
 
 
-def compare_conversation_responses(
-    conv1: Conversation, conv2: Conversation, check_exact_match: bool = False
-) -> bool:
-    """Compare responses from two conversations.
-
-    Args:
-        conv1: First conversation to compare.
-        conv2: Second conversation to compare.
-        check_exact_match: If True, requires exact string match. If False, checks basic similarity.
-
-    Returns:
-        True if responses are considered equivalent.
-    """
-    if len(conv1.messages) != len(conv2.messages):
-        return False
-
-    # Compare assistant responses
-    for msg1, msg2 in zip(conv1.messages, conv2.messages):
-        if msg1.role == Role.ASSISTANT and msg2.role == Role.ASSISTANT:
-            if check_exact_match:
-                if msg1.content != msg2.content:
-                    return False
-            else:
-                # Basic similarity check - both should be non-empty
-                if not msg1.content or not msg2.content:
-                    return False
-                # Both should have reasonable length
-                if len(msg1.content.strip()) < 2 or len(msg2.content.strip()) < 2:
-                    return False
-
-    return True
 
 
-def measure_tokens_per_second(num_tokens: int, elapsed_time: float) -> float:
-    """Calculate tokens per second generation rate.
-
-    Args:
-        num_tokens: Number of tokens generated.
-        elapsed_time: Time taken in seconds.
-
-    Returns:
-        Tokens per second rate.
-    """
-    if elapsed_time <= 0:
-        return 0.0
-    return num_tokens / elapsed_time
 
 
 def count_response_tokens(conversations: list[Conversation]) -> int:
