@@ -280,18 +280,15 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
         
         if engine_type == InferenceEngineType.VLLM:
             # Skip if insufficient GPU memory for VLLM
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    device = torch.cuda.current_device()
-                    total_memory = torch.cuda.get_device_properties(device).total_memory
-                    available_gb = total_memory / (1024**3)
-                    if available_gb < 4.0:
-                        pytest.skip("Insufficient VRAM for VLLM test")
-                else:
-                    pytest.skip("CUDA not available for VLLM test")
-            except ImportError:
-                pytest.skip("PyTorch not available")
+            import torch
+            if torch.cuda.is_available():
+                device = torch.cuda.current_device()
+                total_memory = torch.cuda.get_device_properties(device).total_memory
+                available_gb = total_memory / (1024**3)
+                if available_gb < 4.0:
+                    pytest.skip("Insufficient VRAM for VLLM test")
+            else:
+                pytest.skip("CUDA not available for VLLM test")
 
     # Configure inference with specific engine
     config = InferenceConfig(
