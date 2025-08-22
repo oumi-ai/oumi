@@ -393,8 +393,8 @@ class TestLlamaCppGenerationParameters(AbstractInferenceEngineGenerationParamete
         assert validate_generation_output(result_large)
 
         # Both should have content
-        small_response = result_small[0].messages[-1].content
-        large_response = result_large[0].messages[-1].content
+        small_response = result_small[0].messages[-1].compute_flattened_text_content()
+        large_response = result_large[0].messages[-1].compute_flattened_text_content()
         assert len(small_response.strip()) > 0
         assert len(large_response.strip()) > 0
 
@@ -487,8 +487,8 @@ class TestLlamaCppConsistency:
         assert validate_generation_output(result1)
         assert validate_generation_output(result2)
 
-        response1 = result1[0].messages[-1].content
-        response2 = result2[0].messages[-1].content
+        response1 = result1[0].messages[-1].compute_flattened_text_content()
+        response2 = result2[0].messages[-1].compute_flattened_text_content()
 
         # With deterministic settings, should have some consistency
         # (Note: LlamaCpp might still have some variability, so we check basic

@@ -165,7 +165,8 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
         assert len(conversation.messages) >= 2  # User message + Assistant response
         assert conversation.messages[0].content == FIXED_PROMPT
         assert conversation.messages[-1].role == Role.ASSISTANT
-        assert len(conversation.messages[-1].content.strip()) > 0
+        last_msg_content = conversation.messages[-1].compute_flattened_text_content()
+        assert len(last_msg_content.strip()) > 0
 
 
 @pytest.mark.parametrize(
@@ -434,5 +435,5 @@ def test_infer_llamacpp_memory_optimization():
     assert len(output) == 1
     assert validate_generation_output(output)
 
-    response = output[0].messages[-1].content
+    response = output[0].messages[-1].compute_flattened_text_content()
     assert len(response.strip()) > 1

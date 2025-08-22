@@ -18,7 +18,7 @@ import tempfile
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import pytest
 
@@ -77,7 +77,7 @@ class AbstractInferenceEngineTest(ABC):
         """
         pass
 
-    def get_engine_instance(self, model_key: str = None):
+    def get_engine_instance(self, model_key: Optional[str] = None):
         """Create an engine instance with the specified model.
 
         Args:
@@ -147,7 +147,8 @@ class AbstractInferenceEngineTest(ABC):
 
         # Validate each response
         for i, conversation in enumerate(result):
-            original_prompt = conversations[i].messages[0].content
+            original_msg = conversations[i].messages[0]
+            original_prompt = original_msg.compute_flattened_text_content()
             expected_keywords = get_contextual_keywords(original_prompt)
 
             # Filter to get actual topic words (not meta instruction words)

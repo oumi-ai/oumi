@@ -193,11 +193,12 @@ def validate_generation_output(conversations: list[Conversation]) -> bool:
             return False
 
         # Check that the response has content
-        if not last_message.content or len(last_message.content.strip()) == 0:
+        text_content = last_message.compute_flattened_text_content()
+        if not text_content or len(text_content.strip()) == 0:
             return False
 
         # Basic coherence check - response should be reasonable length
-        if len(last_message.content.strip()) < 2:
+        if len(text_content.strip()) < 2:
             return False
 
     return True
@@ -246,7 +247,7 @@ def validate_response_properties(
 
         # Get the assistant's response
         assistant_responses = [
-            msg.content
+            msg.compute_flattened_text_content()
             for msg in conversation.messages
             if msg.role == Role.ASSISTANT and msg.content
         ]
@@ -333,8 +334,9 @@ def validate_response_relevance(
         if not user_messages or not assistant_messages:
             continue
 
-        user_prompt = user_messages[-1].content.lower()
-        assistant_response = assistant_messages[-1].content.lower()
+        user_prompt = user_messages[-1].compute_flattened_text_content().lower()
+        assistant_msg = assistant_messages[-1]
+        assistant_response = assistant_msg.compute_flattened_text_content().lower()
 
         # Check if response addresses the prompt (basic keyword overlap)
         prompt_words = set(re.findall(r"\b\w+\b", user_prompt))
@@ -557,5 +559,6 @@ def count_response_tokens(conversations: list[Conversation]) -> int:
         for message in conversation.messages:
             if message.role == Role.ASSISTANT and message.content:
                 # Simple token approximation using whitespace
-                total_tokens += len(message.content.split())
+                text_content = message.compute_flattened_text_content()
+                total_tokens += len(text_content.split())
     return total_tokens
