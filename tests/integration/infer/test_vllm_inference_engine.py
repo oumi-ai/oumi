@@ -42,7 +42,7 @@ from tests.integration.infer.test_inference_test_utils import (
 
 # Skip all tests if vLLM is not available
 try:
-    import vllm  # noqa: F401
+    import vllm  # type: ignore[import-untyped]  # noqa: F401
 
     vllm_available = True
 except ImportError:
