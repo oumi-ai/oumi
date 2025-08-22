@@ -14,10 +14,8 @@
 
 """Live integration tests for VLLMInferenceEngine with real models."""
 
-import tempfile
 import time
-from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -35,7 +33,6 @@ from tests.integration.infer.inference_test_utils import (
     count_response_tokens,
     create_batch_conversations,
     create_test_conversations,
-    get_contextual_keywords,
     get_test_generation_params,
     get_test_models,
     validate_generation_output,
@@ -77,7 +74,7 @@ class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
         """Return the default model key for VLLM testing."""
         return "gemma_270m"
 
-    def get_performance_thresholds(self) -> Dict[str, Any]:
+    def get_performance_thresholds(self) -> dict[str, Any]:
         """Return VLLM-specific performance expectations."""
         return {
             "max_time_seconds": 60.0,
@@ -131,7 +128,7 @@ class TestVLLMGenerationParameters(AbstractInferenceEngineGenerationParameters):
         """Return the default model key for VLLM testing."""
         return "smollm_135m"
 
-    def get_performance_thresholds(self) -> Dict[str, Any]:
+    def get_performance_thresholds(self) -> dict[str, Any]:
         """Return VLLM-specific performance expectations."""
         return {
             "max_time_seconds": 30.0,
@@ -301,7 +298,7 @@ class TestVLLMErrorHandling(AbstractInferenceEngineErrorHandling):
         """Return the default model key for VLLM testing."""
         return "smollm_135m"
 
-    def get_performance_thresholds(self) -> Dict[str, Any]:
+    def get_performance_thresholds(self) -> dict[str, Any]:
         """Return VLLM-specific performance expectations."""
         return {
             "max_time_seconds": 30.0,
