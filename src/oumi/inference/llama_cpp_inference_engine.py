@@ -86,6 +86,8 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
             - n_threads: 4
             - filename: "*q8_0.gguf" (applies Q8 quantization by default)
             - flash_attn: True
+            - use_mmap: True (loads model parts as needed)
+            - use_mlock: True (locks the model pages in physical RAM)
             These defaults can be overridden by specifying them in
             `model_params.model_kwargs`.
         """
