@@ -201,16 +201,21 @@ class SystemMonitor:
         # Create a table for neat alignment
         table = Table(show_header=False, box=None, padding=(0, 1))
 
+        # Get label and value styles from style parameters
+        label_style = self._get_monitor_style(
+            style_params, "monitor_labels", "bold cyan"
+        )
+
         # Add columns
-        table.add_column(style="bold cyan", min_width=15)
-        table.add_column(style="white")
+        table.add_column(style=label_style, min_width=15)
+        table.add_column()
 
         # CPU row
-        cpu_color = self._get_usage_color(stats.cpu_percent)
+        cpu_color = self._get_usage_color(stats.cpu_percent, style_params)
         table.add_row("CPU:", f"[{cpu_color}]{stats.cpu_percent:.1f}%[/{cpu_color}]")
 
         # RAM row
-        ram_color = self._get_usage_color(stats.ram_percent)
+        ram_color = self._get_usage_color(stats.ram_percent, style_params)
         table.add_row(
             "RAM:",
             (
@@ -221,7 +226,7 @@ class SystemMonitor:
 
         # GPU rows (if available)
         if stats.gpu_vram_percent is not None:
-            gpu_mem_color = self._get_usage_color(stats.gpu_vram_percent)
+            gpu_mem_color = self._get_usage_color(stats.gpu_vram_percent, style_params)
             table.add_row(
                 "GPU VRAM:",
                 (
@@ -232,14 +237,16 @@ class SystemMonitor:
             )
 
         if stats.gpu_compute_percent is not None:
-            gpu_compute_color = self._get_usage_color(stats.gpu_compute_percent)
+            gpu_compute_color = self._get_usage_color(
+                stats.gpu_compute_percent, style_params
+            )
             table.add_row(
                 "GPU Compute:",
                 f"[{gpu_compute_color}]{stats.gpu_compute_percent:.1f}%[/{gpu_compute_color}]",
             )
 
         # Context window row
-        context_color = self._get_usage_color(stats.context_percent)
+        context_color = self._get_usage_color(stats.context_percent, style_params)
         remaining_tokens = stats.context_max_tokens - stats.context_used_tokens
         table.add_row(
             "Context:",
@@ -251,23 +258,29 @@ class SystemMonitor:
         )
 
         # Conversation turns row
+        value_style = self._get_monitor_style(style_params, "monitor_values", "cyan")
         table.add_row(
             "Turns:",
-            f"[cyan]{stats.conversation_turns} exchanges[/cyan]",
+            f"[{value_style}]{stats.conversation_turns} exchanges[/{value_style}]",
         )
 
         # Get style settings
         use_emoji = getattr(style_params, "use_emoji", True) if style_params else True
         border_style = (
-            getattr(style_params, "status_border_style", "dim cyan")
+            getattr(style_params, "status_border_style", None)
             if style_params
-            else "dim cyan"
+            else None
         )
+        if not border_style:
+            border_style = "dim cyan"
+            
         title_style = (
-            getattr(style_params, "status_title_style", "bold cyan")
+            getattr(style_params, "status_title_style", None)
             if style_params
-            else "bold cyan"
+            else None
         )
+        if not title_style:
+            title_style = "bold cyan"
 
         emoji = "📊 " if use_emoji else ""
 
@@ -291,11 +304,12 @@ class SystemMonitor:
             hud_panel = self.format_hud(stats, style_params)
             console.print(hud_panel)
 
-    def _get_usage_color(self, percent: float) -> str:
-        """Get color based on usage percentage.
+    def _get_usage_color(self, percent: float, style_params=None) -> str:
+        """Get color based on usage percentage, respecting theme settings.
 
         Args:
             percent: Usage percentage (0-100).
+            style_params: Optional style parameters for theme-aware colors.
 
         Returns:
             Color string for Rich formatting.
@@ -304,11 +318,49 @@ class SystemMonitor:
         if percent is None:
             return "dim"
 
+        # Determine the usage tier
         if percent >= 90:
-            return "red"
+            return self._get_monitor_style(style_params, "monitor_critical", "red")
         elif percent >= 70:
-            return "yellow"
+            return self._get_monitor_style(style_params, "monitor_high", "yellow")
         elif percent >= 50:
-            return "cyan"
+            return self._get_monitor_style(style_params, "monitor_medium", "cyan")
         else:
-            return "green"
+            return self._get_monitor_style(style_params, "monitor_low", "green")
+
+    def _get_monitor_style(self, style_params, theme_key: str, fallback: str) -> str:
+        """Get a monitor style from theme or style_params with fallback.
+
+        Args:
+            style_params: Style parameters object.
+            theme_key: Key to look up in predefined themes.
+            fallback: Fallback color if not found.
+
+        Returns:
+            Color string for Rich formatting.
+        """
+        if not style_params:
+            return fallback
+
+        # Check if we have a predefined theme
+        if hasattr(style_params, "get_predefined_theme"):
+            theme = style_params.get_predefined_theme()
+            if theme and theme_key in theme:
+                return theme[theme_key]
+
+        # Check for direct attribute mapping
+        attr_map = {
+            "monitor_low": "monitor_low_usage_color",
+            "monitor_medium": "monitor_medium_usage_color",
+            "monitor_high": "monitor_high_usage_color",
+            "monitor_critical": "monitor_critical_usage_color",
+            "monitor_labels": "monitor_label_style",
+            "monitor_values": "monitor_value_style",
+        }
+
+        if theme_key in attr_map:
+            attr_name = attr_map[theme_key]
+            if hasattr(style_params, attr_name):
+                return getattr(style_params, attr_name)
+
+        return fallback
