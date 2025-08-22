@@ -358,7 +358,7 @@ class TrainingParams(BaseParams):
     """
 
     log_examples: bool = False
-    """Whether to log an example of the data in each step for debugging purposes.
+    """Whether to log an example of the data in the first step for debugging purposes.
 
     If True, the example will be logged to the console.
     """
