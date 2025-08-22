@@ -61,3 +61,10 @@ style:
   expand_panels: false
   panel_box_style: "rounded"
   code_theme: "monokai"  # Consistent code highlighting
+  # System monitor colors (theme-aware)
+  monitor_low_usage_color: "#a6e22e"     # Monokai green
+  monitor_medium_usage_color: "#66d9ef"  # Monokai blue  
+  monitor_high_usage_color: "#fd971f"    # Monokai orange
+  monitor_critical_usage_color: "#f92672" # Monokai red
+  monitor_label_style: "bold #ae81ff"    # Monokai purple
+  monitor_value_style: "#f8f8f2"         # Monokai foreground
