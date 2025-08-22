@@ -102,3 +102,9 @@ sleep 10
 
 # MMLU dataset used in unit tests (test_data_mixtures.py)
 download_with_retry "tasksource/mmlu" --repo-type dataset
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# Alpaca dataset used in integration tests (test_train.py)
+download_with_retry "yahma/alpaca-cleaned" --repo-type dataset
