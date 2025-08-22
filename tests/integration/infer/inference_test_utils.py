@@ -15,10 +15,7 @@
 """Shared utilities for inference engine integration tests."""
 
 import re
-import time
-import pytest
-import torch
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Optional
 
 from oumi.core.configs import GenerationParams, ModelParams
 from oumi.core.types.conversation import Conversation, Message, Role
@@ -107,50 +104,6 @@ def create_test_conversations() -> list[Conversation]:
     ]
 
 
-def create_test_conversations_with_keywords() -> list[tuple[Conversation, list[str]]]:
-    """Create test conversations with expected keywords for validation.
-    
-    Returns:
-        List of tuples containing (conversation, expected_keywords).
-    """
-    return [
-        (
-            Conversation(
-                conversation_id="keyword_test_1",
-                messages=[
-                    Message(
-                        content="Tell me about the weather. Please use the word 'sunshine' in your response.", 
-                        role=Role.USER
-                    ),
-                ]
-            ),
-            ["sunshine"]
-        ),
-        (
-            Conversation(
-                conversation_id="keyword_test_2",
-                messages=[
-                    Message(
-                        content="Explain machine learning. Please include the word 'algorithms' somewhere in your explanation.", 
-                        role=Role.USER
-                    ),
-                ]
-            ),
-            ["algorithms"]
-        ),
-        (
-            Conversation(
-                conversation_id="keyword_test_3",
-                messages=[
-                    Message(
-                        content="Describe a forest. Make sure to mention 'trees' in your description.", 
-                        role=Role.USER
-                    ),
-                ]
-            ),
-            ["trees"]
-        ),
-    ]
 
 
 def create_batch_conversations(count: int, base_prompt: str = "Tell me a fact about") -> list[Conversation]:
