@@ -532,15 +532,29 @@ class SlurmClient:
             "Press Ctrl-C to exit log streaming; job will not be killed."
         )
         # Pre-flight: verify the output file exists remotely before tailing.
-        preflight = self.run_commands([f"cd {working_dir}", f"test -f {stdout_file}"])
-        if preflight.exit_code != 0:
-            raise FileNotFoundError(
-                f"Log file not found: {working_dir}/{stdout_file}. "
-                "The job may not have started writing yet."
-            )
-        # checking for logs progress bar give it sometime
-        # make all other logs use console print
-        # add status bar for the others
+        max_attempts = 3
+        base_delay = 0.5
+        max_delay = 5.0
+
+        with cli_utils.CONSOLE.status("Waiting for log file to appear..."):
+            for attempt in range(max_attempts):
+                preflight = self.run_commands(
+                    [f"cd {working_dir}", f"test -f {stdout_file}"]
+                )
+                if preflight.exit_code == 0:
+                    break
+
+                if attempt < max_attempts - 1:
+                    # Calculate delay with exponential backoff
+                    delay = min(base_delay * (2**attempt), max_delay)
+                    time.sleep(delay)
+                else:
+                    # Final attempt failed
+                    raise FileNotFoundError(
+                        f"Log file not found after {max_attempts} attempts: "
+                        f"{working_dir}/{stdout_file}. "
+                        "The job may not have started."
+                    )
         proc = None
         try:
             # Blocking mode: stream logs to the user's terminal.
