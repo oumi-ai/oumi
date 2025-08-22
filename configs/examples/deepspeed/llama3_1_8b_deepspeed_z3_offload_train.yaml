@@ -2,6 +2,12 @@
 # This example demonstrates maximum memory efficiency using ZeRO-3 with CPU offloading
 # Suitable for training large models on limited GPU memory by offloading
 # optimizer states and parameters to CPU memory.
+#
+# Hardware Requirements:
+#   - Single or multi-GPU setup with 12GB+ VRAM per GPU
+#   - 64GB+ system RAM (128GB+ recommended for optimal CPU offloading)
+#   - High-bandwidth CPU-GPU interconnect for efficient offloading
+#   - Minimum memory config: 1x RTX 4090 (24GB) with 64GB system RAM
 
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"

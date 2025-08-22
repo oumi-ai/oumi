@@ -20,7 +20,7 @@ import torch
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.data_params import DataParams
-from oumi.core.configs.params.ds_params import DeepSpeedParams
+from oumi.core.configs.params.deepspeed_params import DeepSpeedParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
@@ -82,7 +82,8 @@ class TrainingConfig(BaseConfig):
     This field contains configuration options for DeepSpeed ZeRO optimization
     stages, memory offloading, and other DeepSpeed-specific settings.
 
-    For more details, see :class:`oumi.core.configs.params.ds_params.DeepSpeedParams`.
+    For more details, see
+    :class:`oumi.core.configs.params.deepspeed_params.DeepSpeedParams`.
     """
 
     def __post_init__(self):

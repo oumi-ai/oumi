@@ -17,7 +17,7 @@
 import pytest
 from omegaconf import DictConfig, OmegaConf
 
-from oumi.core.configs.params.ds_params import (
+from oumi.core.configs.params.deepspeed_params import (
     DeepSpeedOffloadDevice,
     DeepSpeedParams,
     DeepSpeedPrecision,
@@ -141,7 +141,7 @@ def test_omegaconf_merge():
     assert merged_config.steps_per_print == 20
 
 
-def test_to_deepspeed_config():
+def test_to_deepspeed():
     """Test conversion to DeepSpeed configuration format."""
     params = DeepSpeedParams(
         enable_deepspeed=True,
@@ -151,7 +151,7 @@ def test_to_deepspeed_config():
     )
 
     # Convert to DeepSpeed config
-    ds_config = params.to_deepspeed_config()
+    ds_config = params.to_deepspeed()
 
     # Verify structure
     assert isinstance(ds_config, dict)

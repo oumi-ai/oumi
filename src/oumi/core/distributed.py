@@ -472,7 +472,7 @@ def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict
     if config.deepspeed.deepspeed_config_path is not None:
         return str(config.deepspeed.deepspeed_config_path)
     else:
-        return config.deepspeed.to_deepspeed_config()
+        return config.deepspeed.to_deepspeed()
 
 
 def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:

@@ -114,10 +114,11 @@ class DeepSpeedParams(BaseParams):
     deepspeed_config_path: Optional[Union[str, Path]] = None
     """Path to a DeepSpeed JSON configuration file.
 
-    If provided, this will override other DeepSpeed parameters.
-    Takes precedence over auto-generated configuration. Parameters specified
-    in the JSON will override DeepSpeed defaults; unspecified parameters
-    will use DeepSpeed's internal defaults (not Oumi's defaults).
+    If this parameter is not None, all other Deepspeed user-specified fields in
+    the Oumi YAML as well as any Deepspeed default values will be overridden
+    by settings in the config file passed in this param, Unspecified parameters
+    will use DeepSpeed's internal defaults (not Oumi's defaults), where
+    they are available.
     """
 
     zero_stage: ZeRORuntimeStage = ZeRORuntimeStage.ZERO_0
@@ -167,7 +168,7 @@ class DeepSpeedParams(BaseParams):
     contiguous_gradients: bool = True
     """Whether to ensure gradient memory is contiguous."""
 
-    reduce_bucket_size: Union[int, str] = "auto"
+    reduce_bucket_size: Union[int, str] = int(5e8)
     """Bucket size for gradient reduction.
 
     Can be an integer or "auto" for automatic sizing.
@@ -178,10 +179,10 @@ class DeepSpeedParams(BaseParams):
     """Bucket size for allgather operations (ZeRO stages 0-2)."""
 
     # ZeRO-3 specific parameters
-    stage3_prefetch_bucket_size: Union[int, str] = "auto"
+    stage3_prefetch_bucket_size: Union[int, str] = int(5e7)
     """Bucket size for parameter prefetching in ZeRO-3."""
 
-    stage3_param_persistence_threshold: Union[int, str] = "auto"
+    stage3_param_persistence_threshold: Union[int, str] = int(1e5)
     """Parameter persistence threshold in ZeRO-3."""
 
     stage3_max_live_parameters: int = int(1e9)
@@ -256,6 +257,9 @@ class DeepSpeedParams(BaseParams):
 
     Example: {"partition_activations": True, "checkpoint_in_cpu": True,
               "profile": False}
+
+    For detailed configuration options and API reference, see:
+    https://deepspeed.readthedocs.io/en/latest/activation-checkpointing.html
     """
 
     # Memory optimization
@@ -291,7 +295,7 @@ class DeepSpeedParams(BaseParams):
                 f"Current stage: {self.zero_stage}"
             )
 
-    def to_deepspeed_config(self) -> dict[str, Any]:
+    def to_deepspeed(self) -> dict[str, Any]:
         """Generate DeepSpeed configuration dictionary.
 
         Creates a DeepSpeed configuration dict based on the current parameters,

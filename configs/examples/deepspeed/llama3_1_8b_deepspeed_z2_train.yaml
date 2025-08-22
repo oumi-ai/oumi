@@ -1,7 +1,12 @@
-# Llama 3.1 8B SFT training with DeepSpeed ZeRO-3
-# This example demonstrates using DeepSpeed ZeRO-3 for maximum memory efficiency
-# ZeRO-3 shards model parameters, gradients, and optimizer states across GPUs
-# enabling training of larger models on limited GPU memory.
+# Llama 3.1 8B SFT training with DeepSpeed ZeRO-2
+# This example demonstrates using DeepSpeed ZeRO-2 for memory-efficient training
+# ZeRO-2 shards optimizer states and gradients, providing good memory savings
+# while maintaining reasonable performance.
+#
+# Hardware Requirements:
+#   - Multi-GPU setup with 24GB+ VRAM per GPU (recommended: 2-8 GPUs)
+#   - 32GB+ system RAM per GPU for optimal performance
+#   - DeepSpeed requires at least 2 GPUs for ZeRO-2 optimization
 
 model:
   model_name: "meta-llama/Llama-3.1-8B-Instruct"
@@ -22,8 +27,8 @@ training:
   trainer_type: "TRL_SFT"
   save_steps: 500
   num_train_epochs: 3
-  per_device_train_batch_size: 4  # Can use larger batch size with ZeRO-3
-  gradient_accumulation_steps: 2
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
 
   enable_gradient_checkpointing: True
   gradient_checkpointing_kwargs:
@@ -40,45 +45,31 @@ training:
   dataloader_prefetch_factor: 2
 
   logging_steps: 10
-  output_dir: "output/llama3_1_8b_deepspeed_z3"
+  output_dir: "output/llama3_1_8b_deepspeed_z2"
   enable_wandb: False
   save_final_model: True
 
-# DeepSpeed configuration for ZeRO-3 with maximum memory optimization
+# DeepSpeed configuration for ZeRO-2
 deepspeed:
   enable_deepspeed: True
-  zero_stage: "ZERO_3"
+  zero_stage: "ZERO_2"
   precision: "BF16"
 
-  # ZeRO-3 specific parameters for memory optimization
+  # Communication optimization
   allgather_partitions: True
-  allgather_bucket_size: 200000000  # 2e8
+  allgather_bucket_size: 500000000  # 5e8
   overlap_comm: True
   reduce_scatter: True
-  reduce_bucket_size: 200000000     # 2e8
+  reduce_bucket_size: 500000000     # 5e8
   contiguous_gradients: True
   round_robin_gradients: False
-
-  # ZeRO-3 specific stage3 parameters
-  sub_group_size: 1000000000        # 1e9
-  stage3_prefetch_bucket_size: "auto"
-  stage3_param_persistence_threshold: "auto"
-  stage3_max_live_parameters: 1000000000     # 1e9
-  stage3_max_reuse_distance: 1000000000      # 1e9
-  stage3_gather_16bit_weights_on_model_save: False
 
   # Memory optimization
   zero_allow_untested_optimizer: True
   zero_force_ds_cpu_optimizer: False
 
-  # Optional: Enable CPU offloading for even more memory savings
-  # Uncomment these lines if you need maximum memory efficiency
+  # Optional: Enable CPU offloading for optimizer states
   # offload_optimizer:
-  #   device: "CPU"
-  #   pin_memory: True
-  #   buffer_count: 4
-  #
-  # offload_param:
   #   device: "CPU"
   #   pin_memory: True
   #   buffer_count: 4
