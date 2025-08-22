@@ -154,14 +154,24 @@ class AbstractInferenceEngineTest(ABC):
             topic_keywords = []
             if expected_keywords:
                 # Remove meta-instruction words that models might not naturally include
-                meta_words = {"about", "details", "information", "tell", "explanation", "description"}
-                topic_keywords = [kw for kw in expected_keywords if kw.lower() not in meta_words]
+                meta_words = {
+                    "about",
+                    "details",
+                    "information",
+                    "tell",
+                    "explanation",
+                    "description",
+                }
+                topic_keywords = [
+                    kw for kw in expected_keywords if kw.lower() not in meta_words
+                ]
 
             assert_response_properties(
                 [conversation],
                 min_length=3,
                 max_length=200,
-                expected_keywords=topic_keywords[:1] if topic_keywords else None,  # Only expect 1 topic keyword
+                # Only expect 1 topic keyword
+                expected_keywords=topic_keywords[:1] if topic_keywords else None,
                 forbidden_patterns=[r"\berror\b", r"\bfailed\b"],
             )
 
@@ -252,9 +262,8 @@ class AbstractInferenceEngineTest(ABC):
 
     def test_invalid_model_name(self):
         """Test error handling for invalid model names."""
-        # Get a valid model configuration first
-        engine_instance = self.get_engine_instance()
-        
+        # Test error handling for invalid model names
+
         # Create a copy of the model params with invalid model name
         try:
             models = get_test_models()
@@ -263,6 +272,7 @@ class AbstractInferenceEngineTest(ABC):
         except (KeyError, AttributeError):
             # Fallback for engines with custom model configurations
             from oumi.core.configs import ModelParams
+
             model_params = ModelParams(
                 model_name="nonexistent/invalid-model",
                 trust_remote_code=True,

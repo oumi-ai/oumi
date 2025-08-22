@@ -21,7 +21,6 @@ from tests.integration.infer.inference_test_utils import (
     assert_response_properties,
     assert_response_relevance,
     count_response_tokens,
-    get_contextual_keywords,
     get_test_models,
     validate_generation_output,
 )
@@ -65,7 +64,7 @@ def _compare_conversation_lists(
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
     models = get_test_models()
     model_params = models["smollm_135m"]
-    
+
     config: InferenceConfig = InferenceConfig(
         model=model_params,
         generation=GenerationParams(max_new_tokens=10, temperature=0.0, seed=42),
@@ -132,7 +131,7 @@ def test_infer_basic_interactive_with_images(
 def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     models = get_test_models()
     model_params = models["smollm_135m"]  # Use SmolLM instead of GPT-2
-    
+
     generation_params = GenerationParams(
         max_new_tokens=10, temperature=0.0, seed=42, batch_size=test_spec.batch_size
     )
@@ -146,19 +145,19 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     # Validate that we got the expected number of conversations with responses
     assert len(output) == test_spec.num_batches * test_spec.batch_size
     assert validate_generation_output(output)
-    
+
     # Enhanced property-based validation for non-interactive inference
     assert_response_properties(
         output,
         min_length=3,
         max_length=200,  # Short responses for fixed prompt
         expected_keywords=None,  # Don't enforce specific keywords for "Hello world!"
-        forbidden_patterns=[r'\berror\b', r'\bfailed\b', r'\bunable\b'],
+        forbidden_patterns=[r"\berror\b", r"\bfailed\b", r"\bunable\b"],
     )
-    
+
     # Validate response relevance to the fixed prompt (use broader topic matching)
     assert_response_relevance(output)
-    
+
     # Check that each conversation has the original prompt plus a response
     for conversation in output:
         assert len(conversation.messages) >= 2  # User message + Assistant response
@@ -267,7 +266,7 @@ except ImportError:
 def test_infer_with_different_engines(engine_type: InferenceEngineType):
     """Test inference with different engines."""
     models = get_test_models()
-    
+
     if engine_type == InferenceEngineType.LLAMACPP:
         # Use GGUF model for LlamaCpp
         model_params = models["gemma_270m_gguf"]
@@ -277,7 +276,7 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
         # Use standard model for Native and VLLM
         model_params = models["smollm_135m"]
         generation_params = GenerationParams(max_new_tokens=10, temperature=0.0, seed=42)
-        
+
         if engine_type == InferenceEngineType.VLLM:
             # Skip if insufficient GPU memory for VLLM
             import torch
@@ -299,7 +298,7 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
 
     # Test with single input
     inputs = ["Tell me about the sky."]
-    
+
     start_time = time.time()
     output = infer(config=config, inputs=inputs)
     elapsed_time = time.time() - start_time
@@ -307,7 +306,7 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
     # Validate output
     assert len(output) == 1
     assert validate_generation_output(output)
-    
+
     # Enhanced property-based validation for different engines
     assert_response_properties(
         output,
@@ -315,42 +314,42 @@ def test_infer_with_different_engines(engine_type: InferenceEngineType):
         max_length=400,
         # Make keywords optional since models may respond differently to "Tell me about the sky"
         expected_keywords=None,  # Don't enforce specific keywords for this generic prompt
-        forbidden_patterns=[r'\berror\b', r'\bfailed\b', r'\bunable\b'],
+        forbidden_patterns=[r"\berror\b", r"\bfailed\b", r"\bunable\b"],
     )
-    
+
     # Should address the topic appropriately
     assert_response_relevance(output, expected_topics=["sky", "weather", "atmosphere"])
-    
+
     # Performance validation (timeouts vary by engine)
     tokens_generated = count_response_tokens(output)
     max_time = 60.0 if engine_type == InferenceEngineType.LLAMACPP else 30.0  # CPU vs GPU
     min_throughput = 0.5 if engine_type == InferenceEngineType.LLAMACPP else 2.0
-    
+
     assert_performance_requirements(
         elapsed_time,
         tokens_generated,
         max_time_seconds=max_time,
         min_throughput=min_throughput
     )
-    
+
     # Check response content
     assert output[0].messages[0].content == inputs[0]
 
 
 @pytest.mark.skipif(not vllm_available, reason="vLLM not available")
 @requires_cuda_initialized()
-@pytest.mark.single_gpu 
+@pytest.mark.single_gpu
 def test_infer_vllm_specific_features():
     """Test VLLM-specific configuration in infer function."""
     models = get_test_models()
     model_params = models["smollm_135m"]
-    
+
     # Add VLLM-specific model kwargs
     model_params.model_kwargs = {
         "gpu_memory_utilization": 0.6,
         "max_num_seqs": 8
     }
-    
+
     config = InferenceConfig(
         model=model_params,
         generation=GenerationParams(max_new_tokens=12, temperature=0.0, seed=42),
@@ -358,7 +357,7 @@ def test_infer_vllm_specific_features():
     )
 
     inputs = ["What is machine learning?", "Explain neural networks."]
-    
+
     start_time = time.time()
     output = infer(config=config, inputs=inputs)
     elapsed_time = time.time() - start_time
@@ -366,19 +365,19 @@ def test_infer_vllm_specific_features():
     # Validate output
     assert len(output) == 2
     assert validate_generation_output(output)
-    
+
     # Enhanced validation for VLLM-specific features test
     assert_response_properties(
         output,
         min_length=5,
         max_length=600,  # Longer for technical explanations
         expected_keywords=["machine", "learning", "neural", "network"],
-        forbidden_patterns=[r'\berror\b', r'\bfailed\b', r'\bunable\b'],
+        forbidden_patterns=[r"\berror\b", r"\bfailed\b", r"\bunable\b"],
     )
-    
+
     # Should address technical topics appropriately
     assert_response_relevance(output, expected_topics=["machine learning", "neural networks", "technology"])
-    
+
     # Performance validation for VLLM features
     tokens_generated = count_response_tokens(output)
     assert_performance_requirements(
@@ -387,7 +386,7 @@ def test_infer_vllm_specific_features():
         max_time_seconds=35.0,
         min_throughput=3.0  # Should be efficient with VLLM optimizations
     )
-    
+
     for i, conversation in enumerate(output):
         assert conversation.messages[0].content == inputs[i]
 
@@ -397,7 +396,7 @@ def test_infer_llamacpp_memory_optimization():
     """Test LlamaCpp with memory optimization features."""
     models = get_test_models()
     model_params = models["gemma_270m_gguf"]
-    
+
     # Add LlamaCpp-specific memory optimization
     model_params.model_kwargs = {
         **model_params.model_kwargs,
@@ -406,7 +405,7 @@ def test_infer_llamacpp_memory_optimization():
         "n_threads": 2,
         "verbose": False
     }
-    
+
     config = InferenceConfig(
         model=model_params,
         generation=GenerationParams(max_new_tokens=8, temperature=0.0, seed=42),
@@ -419,6 +418,6 @@ def test_infer_llamacpp_memory_optimization():
     # Validate output
     assert len(output) == 1
     assert validate_generation_output(output)
-    
+
     response = output[0].messages[-1].content
     assert len(response.strip()) > 1

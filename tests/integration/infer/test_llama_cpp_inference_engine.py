@@ -14,9 +14,7 @@
 
 """Live integration tests for LlamaCppInferenceEngine with real GGUF models."""
 
-import tempfile
 import time
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -33,9 +31,7 @@ from tests.integration.infer.inference_test_utils import (
     assert_response_properties,
     assert_response_relevance,
     count_response_tokens,
-    create_batch_conversations,
     create_test_conversations,
-    get_contextual_keywords,
     get_test_generation_params,
     get_test_models,
     validate_generation_output,
