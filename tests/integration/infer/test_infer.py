@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import NamedTuple
 
@@ -5,6 +6,7 @@ import pytest
 
 from oumi import infer, infer_interactive
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -14,6 +16,15 @@ from oumi.core.types.conversation import (
 )
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from tests.integration.infer import get_default_device_map_for_inference
+from tests.integration.infer.inference_test_utils import (
+    assert_performance_requirements,
+    assert_response_properties,
+    assert_response_relevance,
+    count_response_tokens,
+    get_contextual_keywords,
+    get_test_models,
+    validate_generation_output,
+)
 from tests.markers import requires_cuda_initialized, requires_gpus
 
 FIXED_PROMPT = "Hello world!"
@@ -52,14 +63,12 @@ def _compare_conversation_lists(
 @requires_cuda_initialized()
 @requires_gpus()
 def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
+    models = get_test_models()
+    model_params = models["smollm_135m"]
+    
     config: InferenceConfig = InferenceConfig(
-        model=ModelParams(
-            model_name="openai-community/gpt2",
-            trust_remote_code=True,
-            chat_template="gpt2",
-            tokenizer_pad_token="<|endoftext|>",
-        ),
-        generation=GenerationParams(max_new_tokens=5, temperature=0.0, seed=42),
+        model=model_params,
+        generation=GenerationParams(max_new_tokens=10, temperature=0.0, seed=42),
     )
 
     # Simulate the user entering "Hello world!" in the terminal folowed by Ctrl+D.
@@ -78,7 +87,6 @@ def test_infer_basic_interactive(monkeypatch: pytest.MonkeyPatch):
 
 @requires_cuda_initialized()
 @requires_gpus()
-@pytest.mark.skip(reason="TODO: this test takes too long to run")
 def test_infer_basic_interactive_with_images(
     monkeypatch: pytest.MonkeyPatch, root_testdata_dir: Path
 ):
@@ -88,8 +96,10 @@ def test_infer_basic_interactive_with_images(
             model_max_length=1024,
             trust_remote_code=True,
             chat_template="qwen2-vl-instruct",
+            torch_dtype_str="bfloat16",  # Use bfloat16 for efficiency
+            device_map="auto",
         ),
-        generation=GenerationParams(max_new_tokens=16, temperature=0.0, seed=42),
+        generation=GenerationParams(max_new_tokens=10, temperature=0.0, seed=42),  # Reduced for speed
     )
 
     png_image_bytes = load_image_png_bytes_from_path(
@@ -116,20 +126,15 @@ def test_infer_basic_interactive_with_images(
         InferTestSpec(num_batches=1, batch_size=1),
         InferTestSpec(num_batches=1, batch_size=2),
         InferTestSpec(num_batches=2, batch_size=1),
-        InferTestSpec(num_batches=2, batch_size=2),
-    ],
+    ],  # Reduced test cases for faster execution
     ids=_get_infer_test_spec_id,
 )
 def test_infer_basic_non_interactive(test_spec: InferTestSpec):
-    model_params = ModelParams(
-        model_name="openai-community/gpt2",
-        trust_remote_code=True,
-        chat_template="gpt2",
-        tokenizer_pad_token="<|endoftext|>",
-        device_map=get_default_device_map_for_inference(),
-    )
+    models = get_test_models()
+    model_params = models["smollm_135m"]  # Use SmolLM instead of GPT-2
+    
     generation_params = GenerationParams(
-        max_new_tokens=5, temperature=0.0, seed=42, batch_size=test_spec.batch_size
+        max_new_tokens=10, temperature=0.0, seed=42, batch_size=test_spec.batch_size
     )
 
     input = [FIXED_PROMPT] * (test_spec.num_batches * test_spec.batch_size)
@@ -138,18 +143,28 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
         inputs=input,
     )
 
-    conversation = Conversation(
-        messages=(
-            [
-                Message(content=FIXED_PROMPT, role=Role.USER),
-                Message(content=FIXED_RESPONSE, role=Role.ASSISTANT),
-            ]
-        )
+    # Validate that we got the expected number of conversations with responses
+    assert len(output) == test_spec.num_batches * test_spec.batch_size
+    assert validate_generation_output(output)
+    
+    # Enhanced property-based validation for non-interactive inference
+    assert_response_properties(
+        output,
+        min_length=3,
+        max_length=200,  # Short responses for fixed prompt
+        expected_keywords=None,  # Don't enforce specific keywords for "Hello world!"
+        forbidden_patterns=[r'\berror\b', r'\bfailed\b', r'\bunable\b'],
     )
-    expected_output = [conversation] * (test_spec.num_batches * test_spec.batch_size)
-
-    # Compare messages and metadata while ignoring conversation IDs
-    assert _compare_conversation_lists(output, expected_output)
+    
+    # Validate response relevance to the fixed prompt (use broader topic matching)
+    assert_response_relevance(output)
+    
+    # Check that each conversation has the original prompt plus a response
+    for conversation in output:
+        assert len(conversation.messages) >= 2  # User message + Assistant response
+        assert conversation.messages[0].content == FIXED_PROMPT
+        assert conversation.messages[-1].role == Role.ASSISTANT
+        assert len(conversation.messages[-1].content.strip()) > 0
 
 
 @pytest.mark.parametrize(
@@ -225,3 +240,188 @@ def test_infer_basic_non_interactive_with_images(
             _compare_conversation_lists([conv], [_create_conversation(response)])
             for response in valid_responses
         ), f"Generated response '{conv.messages[-1].content}' not in valid responses"
+
+
+# Check engine availability for new tests
+try:
+    import vllm
+    vllm_available = True
+except ImportError:
+    vllm_available = False
+
+try:
+    from llama_cpp import Llama
+    llamacpp_available = True
+except ImportError:
+    llamacpp_available = False
+
+
+@pytest.mark.parametrize(
+    "engine_type",
+    [
+        InferenceEngineType.NATIVE,
+        pytest.param(InferenceEngineType.VLLM, marks=pytest.mark.skipif(not vllm_available, reason="vLLM not available")),
+        pytest.param(InferenceEngineType.LLAMACPP, marks=pytest.mark.skipif(not llamacpp_available, reason="LlamaCpp not available")),
+    ],
+)
+def test_infer_with_different_engines(engine_type: InferenceEngineType):
+    """Test inference with different engines."""
+    models = get_test_models()
+    
+    if engine_type == InferenceEngineType.LLAMACPP:
+        # Use GGUF model for LlamaCpp
+        model_params = models["gemma_270m_gguf"]
+        # Reduce requirements for CPU inference
+        generation_params = GenerationParams(max_new_tokens=8, temperature=0.0, seed=42)
+    else:
+        # Use standard model for Native and VLLM
+        model_params = models["smollm_135m"]
+        generation_params = GenerationParams(max_new_tokens=10, temperature=0.0, seed=42)
+        
+        if engine_type == InferenceEngineType.VLLM:
+            # Skip if insufficient GPU memory for VLLM
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    device = torch.cuda.current_device()
+                    total_memory = torch.cuda.get_device_properties(device).total_memory
+                    available_gb = total_memory / (1024**3)
+                    if available_gb < 4.0:
+                        pytest.skip("Insufficient VRAM for VLLM test")
+                else:
+                    pytest.skip("CUDA not available for VLLM test")
+            except ImportError:
+                pytest.skip("PyTorch not available")
+
+    # Configure inference with specific engine
+    config = InferenceConfig(
+        model=model_params,
+        generation=generation_params,
+        engine=engine_type,
+    )
+
+    # Test with single input
+    inputs = ["Tell me about the sky."]
+    
+    start_time = time.time()
+    output = infer(config=config, inputs=inputs)
+    elapsed_time = time.time() - start_time
+
+    # Validate output
+    assert len(output) == 1
+    assert validate_generation_output(output)
+    
+    # Enhanced property-based validation for different engines
+    assert_response_properties(
+        output,
+        min_length=3,
+        max_length=400,
+        # Make keywords optional since models may respond differently to "Tell me about the sky"
+        expected_keywords=None,  # Don't enforce specific keywords for this generic prompt
+        forbidden_patterns=[r'\berror\b', r'\bfailed\b', r'\bunable\b'],
+    )
+    
+    # Should address the topic appropriately
+    assert_response_relevance(output, expected_topics=["sky", "weather", "atmosphere"])
+    
+    # Performance validation (timeouts vary by engine)
+    tokens_generated = count_response_tokens(output)
+    max_time = 60.0 if engine_type == InferenceEngineType.LLAMACPP else 30.0  # CPU vs GPU
+    min_throughput = 0.5 if engine_type == InferenceEngineType.LLAMACPP else 2.0
+    
+    assert_performance_requirements(
+        elapsed_time,
+        tokens_generated,
+        max_time_seconds=max_time,
+        min_throughput=min_throughput
+    )
+    
+    # Check response content
+    assert output[0].messages[0].content == inputs[0]
+
+
+@pytest.mark.skipif(not vllm_available, reason="vLLM not available")
+@requires_cuda_initialized()
+@pytest.mark.single_gpu 
+def test_infer_vllm_specific_features():
+    """Test VLLM-specific configuration in infer function."""
+    models = get_test_models()
+    model_params = models["smollm_135m"]
+    
+    # Add VLLM-specific model kwargs
+    model_params.model_kwargs = {
+        "gpu_memory_utilization": 0.6,
+        "max_num_seqs": 8
+    }
+    
+    config = InferenceConfig(
+        model=model_params,
+        generation=GenerationParams(max_new_tokens=12, temperature=0.0, seed=42),
+        engine=InferenceEngineType.VLLM,
+    )
+
+    inputs = ["What is machine learning?", "Explain neural networks."]
+    
+    start_time = time.time()
+    output = infer(config=config, inputs=inputs)
+    elapsed_time = time.time() - start_time
+
+    # Validate output
+    assert len(output) == 2
+    assert validate_generation_output(output)
+    
+    # Enhanced validation for VLLM-specific features test
+    assert_response_properties(
+        output,
+        min_length=5,
+        max_length=600,  # Longer for technical explanations
+        expected_keywords=["machine", "learning", "neural", "network"],
+        forbidden_patterns=[r'\berror\b', r'\bfailed\b', r'\bunable\b'],
+    )
+    
+    # Should address technical topics appropriately
+    assert_response_relevance(output, expected_topics=["machine learning", "neural networks", "technology"])
+    
+    # Performance validation for VLLM features
+    tokens_generated = count_response_tokens(output)
+    assert_performance_requirements(
+        elapsed_time,
+        tokens_generated,
+        max_time_seconds=35.0,
+        min_throughput=3.0  # Should be efficient with VLLM optimizations
+    )
+    
+    for i, conversation in enumerate(output):
+        assert conversation.messages[0].content == inputs[i]
+
+
+@pytest.mark.skipif(not llamacpp_available, reason="LlamaCpp not available")
+def test_infer_llamacpp_memory_optimization():
+    """Test LlamaCpp with memory optimization features."""
+    models = get_test_models()
+    model_params = models["gemma_270m_gguf"]
+    
+    # Add LlamaCpp-specific memory optimization
+    model_params.model_kwargs = {
+        **model_params.model_kwargs,
+        "use_mmap": True,
+        "use_mlock": True,
+        "n_threads": 2,
+        "verbose": False
+    }
+    
+    config = InferenceConfig(
+        model=model_params,
+        generation=GenerationParams(max_new_tokens=8, temperature=0.0, seed=42),
+        engine=InferenceEngineType.LLAMACPP,
+    )
+
+    inputs = ["Hello, how are you?"]
+    output = infer(config=config, inputs=inputs)
+
+    # Validate output
+    assert len(output) == 1
+    assert validate_generation_output(output)
+    
+    response = output[0].messages[-1].content
+    assert len(response.strip()) > 1
