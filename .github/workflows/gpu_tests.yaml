@@ -43,7 +43,11 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        uv pip install -e '.[ci_gpu]' hf_transfer --system
+        # BUILD_TRITON=0 prevents Triton compilation issues on T4 GPUs
+        BUILD_TRITON=0 uv pip install -e '.[ci_gpu]' hf_transfer --system
+      env:
+        # Disable Triton flash attention at runtime for T4 compatibility
+        VLLM_USE_TRITON_FLASH_ATTN: "False"
 
     - name: Download Test Data
       run: |

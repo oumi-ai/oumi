@@ -177,6 +177,8 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     ],
     ids=_get_infer_test_spec_id,
 )
+@requires_cuda_initialized()
+@requires_gpus()
 def test_infer_basic_non_interactive_with_images(
     test_spec: InferTestSpec, root_testdata_dir: Path
 ):
