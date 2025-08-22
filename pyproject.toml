@@ -155,7 +155,7 @@ evaluation = [
     "sentencepiece>=0.2.0",
 ]
 
-quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46"]
+quantization = ["autoawq>=0.2.9,<0.3", "bitsandbytes>=0.45.0,<0.46"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
