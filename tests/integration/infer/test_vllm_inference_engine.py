@@ -21,6 +21,11 @@ import pytest
 
 from oumi.core.configs import GenerationParams, InferenceConfig
 from oumi.inference.vllm_inference_engine import VLLMInferenceEngine
+from tests.integration.infer.test_base_inference_engine import (
+    AbstractInferenceEngineBasicFunctionality,
+    AbstractInferenceEngineErrorHandling,
+    AbstractInferenceEngineGenerationParameters,
+)
 from tests.integration.infer.test_inference_test_utils import (
     assert_performance_requirements,
     assert_response_properties,
@@ -31,11 +36,6 @@ from tests.integration.infer.test_inference_test_utils import (
     get_test_generation_params,
     get_test_models,
     validate_generation_output,
-)
-from tests.integration.infer.test_base_inference_engine import (
-    AbstractInferenceEngineBasicFunctionality,
-    AbstractInferenceEngineErrorHandling,
-    AbstractInferenceEngineGenerationParameters,
 )
 from tests.markers import requires_cuda_initialized, requires_gpus
 

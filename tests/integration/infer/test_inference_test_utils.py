@@ -30,6 +30,7 @@ def get_compute_capability() -> Optional[float]:
     """
     try:
         import torch
+
         if torch.cuda.is_available() and torch.cuda.device_count() > 0:
             major, minor = torch.cuda.get_device_capability(0)
             return float(f"{major}.{minor}")
@@ -540,10 +541,6 @@ def get_contextual_keywords(prompt: str) -> list[str]:
     keywords.extend(nouns[:3])  # Add up to 3 main nouns
 
     return list(set(keywords)) if keywords else []
-
-
-
-
 
 
 def count_response_tokens(conversations: list[Conversation]) -> int:
