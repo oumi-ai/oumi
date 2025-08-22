@@ -174,9 +174,9 @@ class DeepSpeedParams(BaseParams):
     Can be an integer or "auto" for automatic sizing.
     """
 
-    # ZeRO-2 specific communication parameters
+    # ZeRO-1 and ZeRO-2 specific communication parameters
     allgather_bucket_size: int = int(5e8)
-    """Bucket size for allgather operations (ZeRO stages 0-2)."""
+    """Bucket size for allgather operations (ZeRO stages 1 and 2)."""
 
     # ZeRO-3 specific parameters
     stage3_prefetch_bucket_size: Union[int, str] = int(5e7)
