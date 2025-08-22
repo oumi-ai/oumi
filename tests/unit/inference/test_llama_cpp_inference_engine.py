@@ -46,6 +46,8 @@ def test_initialization(mock_llama):
         n_gpu_layers=-1,
         n_threads=4,
         flash_attn=True,
+        use_mmap=True,
+        use_mlock=True,
     )
 
 
