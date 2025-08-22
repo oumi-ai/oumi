@@ -22,6 +22,34 @@ from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.io_utils import get_oumi_root_directory, load_json
 
 
+def get_compute_capability() -> Optional[float]:
+    """Get GPU compute capability if CUDA is available.
+
+    Returns:
+        GPU compute capability as float (e.g., 7.5, 8.0) or None if no GPU.
+    """
+    try:
+        import torch
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            major, minor = torch.cuda.get_device_capability(0)
+            return float(f"{major}.{minor}")
+    except ImportError:
+        pass
+    return None
+
+
+def get_optimal_dtype() -> str:
+    """Get optimal dtype based on GPU compute capability.
+
+    Returns:
+        "bfloat16" for compute capability >= 8.0, "float16" otherwise.
+    """
+    compute_cap = get_compute_capability()
+    if compute_cap is not None and compute_cap >= 8.0:
+        return "bfloat16"
+    return "float16"
+
+
 def get_test_models() -> dict[str, ModelParams]:
     """Get optimized model configurations for testing.
 
@@ -37,7 +65,19 @@ def get_test_models() -> dict[str, ModelParams]:
     )
     configs = load_json(config_path)
 
-    return {name: ModelParams(**config) for name, config in configs.items()}
+    # Apply optimal dtype based on compute capability
+    optimal_dtype = get_optimal_dtype()
+    model_params = {}
+
+    for name, config in configs.items():
+        # Update torch_dtype_str if it exists and is bfloat16/float16
+        dtype_key = "torch_dtype_str"
+        if dtype_key in config and config[dtype_key] in ["bfloat16", "float16"]:
+            config = config.copy()  # Don't modify the original
+            config[dtype_key] = optimal_dtype
+        model_params[name] = ModelParams(**config)
+
+    return model_params
 
 
 def get_test_generation_params() -> GenerationParams:
