@@ -35,6 +35,36 @@ def retain_logging_level():
     logger.setLevel(log_level)
 
 
+@pytest.fixture(autouse=True)
+def cleanup_gpu_memory(request):
+    """Automatically clean up GPU memory after GPU tests."""
+    yield  # Let the test run first
+
+    # Only cleanup for GPU-related tests to avoid overhead
+    gpu_markers = {"single_gpu", "multi_gpu"}
+    test_markers = {mark.name for mark in request.node.iter_markers()}
+
+    # Also check for GPU-related decorators in the test
+    has_gpu_decorator = any(
+        "requires_cuda" in str(mark) or "requires_gpu" in str(mark)
+        for mark in request.node.iter_markers()
+    )
+
+    if gpu_markers.intersection(test_markers) or has_gpu_decorator:
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                import gc
+
+                gc.collect()
+        except Exception:
+            # Silently ignore cleanup errors to avoid test failures
+            pass
+
+
 @pytest.fixture
 def single_turn_conversation():
     return Conversation(
