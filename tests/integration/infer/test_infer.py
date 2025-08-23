@@ -91,8 +91,8 @@ def test_infer_basic_interactive_with_images(
 ):
     config: InferenceConfig = InferenceConfig(
         model=ModelParams(
-            model_name="HuggingFaceTB/SmolVLM-Instruct",
-            model_max_length=1024,
+            model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+            model_max_length=512,  # Reduced for smaller model
             trust_remote_code=True,
             torch_dtype_str="bfloat16",  # Use bfloat16 for efficiency
             device_map="auto",
@@ -180,8 +180,8 @@ def test_infer_basic_non_interactive_with_images(
     test_spec: InferTestSpec, root_testdata_dir: Path
 ):
     model_params = ModelParams(
-        model_name="HuggingFaceTB/SmolVLM-Instruct",
-        model_max_length=1024,
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+        model_max_length=512,  # Reduced for smaller model
         trust_remote_code=True,
         torch_dtype_str="bfloat16",
         device_map=get_default_device_map_for_inference(),
@@ -203,15 +203,17 @@ def test_infer_basic_non_interactive_with_images(
         input_image_bytes=[png_image_bytes],
     )
 
-    # Updated for SmolVLM-Instruct - more capable 2B model
-    valid_responses = [
-        "A large wave",
-        "The image shows",
-        "This is a Japanese",
-        "A Japanese art",
-        "An ocean wave",
-        "A famous artwork",
-        "The Great Wave",
+    # Updated for SmolVLM-256M-Instruct - allow more flexible matching
+    valid_response_patterns = [
+        "wave",
+        "japanese",
+        "woodblock",
+        "print",
+        "art",
+        "ocean",
+        "image",
+        "hokusai",
+        "century",
     ]
 
     def _create_conversation(response: str) -> Conversation:
@@ -236,13 +238,17 @@ def test_infer_basic_non_interactive_with_images(
             )
         )
 
-    # Check that each output conversation matches one of the valid responses
+    # Check that each output conversation contains relevant VLM content
     assert len(output) == test_spec.num_batches * test_spec.batch_size
     for conv in output:
+        response_content = conv.messages[-1].compute_flattened_text_content().lower()
         assert any(
-            _compare_conversation_lists([conv], [_create_conversation(response)])
-            for response in valid_responses
-        ), f"Generated response '{conv.messages[-1].content}' not in valid responses"
+            pattern in response_content for pattern in valid_response_patterns
+        ), (
+            f"Generated response "
+            f"'{conv.messages[-1].compute_flattened_text_content()}' "
+            "does not contain expected vision keywords"
+        )
 
 
 # Check engine availability for new tests

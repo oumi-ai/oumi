@@ -36,10 +36,9 @@ def _get_default_text_model_params() -> ModelParams:
 
 def _get_default_image_model_params() -> ModelParams:
     return ModelParams(
-        model_name="Qwen/Qwen2-VL-2B-Instruct",
-        model_max_length=1024,
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+        model_max_length=512,  # Reduced for smaller model
         trust_remote_code=True,
-        chat_template="qwen2-vl-instruct",
         device_map=get_default_device_map_for_inference(),
     )
 

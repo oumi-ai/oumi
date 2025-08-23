@@ -158,8 +158,8 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         image_placeholder="<|image_1|>",
     ),
     ChatTemplateTestSpec(
-        chat_template_name="qwen2-vl-instruct",
-        model_name="Qwen/Qwen2-VL-2B-Instruct",
+        chat_template_name="smolvlm",
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         test_image=True,
         image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
     ),
@@ -482,7 +482,7 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
 @pytest.mark.parametrize(
     "model_name, is_vision",
     [
-        ("Qwen/Qwen2-VL-2B-Instruct", True),
+        ("HuggingFaceTB/SmolVLM-256M-Instruct", True),
         ("Qwen/Qwen2.5-VL-3B-Instruct", True),
     ],
 )

@@ -66,3 +66,6 @@ jobs:
 
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
+      env:
+        # Force VLLM to use CPU backend despite GPU availability
+        VLLM_TARGET_DEVICE: cpu
