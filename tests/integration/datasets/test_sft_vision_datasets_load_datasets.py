@@ -20,7 +20,7 @@ from oumi.core.registry import REGISTRY, RegistryType
 
 _DEFALT_DATASET_SPLIT: Final[str] = "test"
 _DEFAULT_MODEL_NAME: Final[str] = "HuggingFaceTB/SmolVLM-256M-Instruct"
-_DEFAULT_CHAT_TEMPLATE: Final[str] = "smolvlm"
+_DEFAULT_CHAT_TEMPLATE: Final[str] = "auto"
 
 
 def _get_all_sft_vision_dataset_names() -> list[str]:
