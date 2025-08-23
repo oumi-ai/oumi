@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import transformers
+from typing import TYPE_CHECKING
 
-BaseTokenizer = transformers.PreTrainedTokenizerBase
+if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizerBase as BaseTokenizer
+else:
+    import transformers
+
+    BaseTokenizer = transformers.PreTrainedTokenizerBase

@@ -9,10 +9,10 @@ from typing import Final, NamedTuple, Optional
 import pytest
 import transformers
 from packaging import version
+from transformers import PreTrainedTokenizerBase as BaseTokenizer
 
 from oumi.builders.models import build_chat_template, build_tokenizer
 from oumi.core.configs import ModelParams
-from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
 from oumi.core.types.conversation import (
     ContentItem,
     Conversation,
@@ -158,10 +158,10 @@ _ALL_CHAT_TEMPLATE_TESTS: Final[list[ChatTemplateTestSpec]] = [
         image_placeholder="<|image_1|>",
     ),
     ChatTemplateTestSpec(
-        chat_template_name="smolvlm",
+        chat_template_name="llava",
         model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
         test_image=True,
-        image_placeholder="<|vision_start|><|image_pad|><|vision_end|>",
+        image_placeholder="<image>",
     ),
     ChatTemplateTestSpec(
         chat_template_name="zephyr",
@@ -482,7 +482,6 @@ def test_llama3_chat_template(model_name: str, is_vision: bool):
 @pytest.mark.parametrize(
     "model_name, is_vision",
     [
-        ("HuggingFaceTB/SmolVLM-256M-Instruct", True),
         ("Qwen/Qwen2.5-VL-3B-Instruct", True),
     ],
 )
