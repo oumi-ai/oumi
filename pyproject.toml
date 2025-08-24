@@ -283,8 +283,4 @@ markers = [
     "e2e_eternal: Extremely slow e2e integration tests (for manual/selective runs)",
     "single_gpu: The test uses max 1 GPU (can be potentially skipped on multi-GPU machine to conserve GPU resources)",
     "multi_gpu: The test should run on a machine with multiple GPU-s",
-    "requires_vllm: Tests requiring vLLM installation",
-    "requires_llamacpp: Tests requiring llama-cpp-python installation",
-    "memory_intensive: Tests requiring >6GB RAM",
-    "slow_integration: Tests taking >60 seconds",
 ]
