@@ -50,7 +50,6 @@ except ImportError:
 
 pytestmark = [
     pytest.mark.skipif(not vllm_available, reason="vLLM not available"),
-    pytest.mark.requires_vllm,
 ]
 
 
@@ -395,7 +394,6 @@ class TestVLLMPerformance:
     """Test VLLM performance characteristics."""
 
     # GPU requirements removed - test now runs on CPU
-    @pytest.mark.slow_integration
     def test_vllm_concurrent_requests(self):
         """Test handling of concurrent inference requests."""
 

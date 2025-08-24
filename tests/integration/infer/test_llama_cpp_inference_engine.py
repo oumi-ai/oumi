@@ -47,7 +47,6 @@ except ImportError:
 
 pytestmark = [
     pytest.mark.skipif(not llamacpp_available, reason="llama-cpp-python not available"),
-    pytest.mark.requires_llamacpp,
 ]
 
 
@@ -159,7 +158,6 @@ class TestLlamaCppMemoryManagement:
             elapsed_time, tokens_generated, max_time_seconds=35.0, min_throughput=1.0
         )
 
-    @pytest.mark.memory_intensive  # Need more RAM when not using mmap
     def test_llamacpp_memory_mapping_disabled(self):
         """Test use_mmap=False parameter effects."""
 
