@@ -271,7 +271,10 @@ except ImportError:
         InferenceEngineType.NATIVE,
         pytest.param(
             InferenceEngineType.VLLM,
-            marks=pytest.mark.skipif(not vllm_available, reason="vLLM not available"),
+            marks=[
+                pytest.mark.skipif(not vllm_available, reason="vLLM not available"),
+                pytest.mark.skip(reason="Skipping VLLM throughput test - T4 hardware limitations"),
+            ],
         ),
         pytest.param(
             InferenceEngineType.LLAMACPP,
