@@ -1,7 +1,7 @@
 # LlamaCPP Inference config for Llama-3.3-Nemotron-Super-49B GGUF (macOS compatible).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:
