@@ -23,11 +23,10 @@ from oumi.core.configs.analyze_config import (
 
 def test_dataset_source_required_field():
     """Test that dataset_source is a required field."""
-    # Should fail without dataset_source
-    with pytest.raises(
-        TypeError, match="missing 1 required positional argument: 'dataset_source'"
-    ):
-        AnalyzeConfig()
+    # Should work without dataset_source (MISSING becomes '???')
+    config = AnalyzeConfig()
+    assert config.dataset_source == "???"
+    assert config.dataset_name == "Custom Dataset"
 
     # Should work with dataset_source
     config = AnalyzeConfig(
@@ -108,7 +107,9 @@ def test_sample_analyzer_param_with_language_detection_params():
 def test_analyze_config_validation_missing_dataset_name():
     """Test validation failure when dataset_name is missing."""
     with pytest.raises(
-        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+        ValueError,
+        match="Either 'dataset_name' or 'dataset_path' must be provided when "
+        "dataset_source=DatasetSource.CONFIG",
     ):
         AnalyzeConfig(
             dataset_source=DatasetSource.CONFIG,  # Required field
@@ -274,8 +275,11 @@ def test_analyze_config_validation_duplicate_analyzer_ids():
 
 def test_analyze_config_default_values():
     """Test that AnalyzeConfig has correct default values."""
-    config = AnalyzeConfig(dataset_name="test_dataset")
+    config = AnalyzeConfig(
+        dataset_source=DatasetSource.CONFIG, dataset_name="test_dataset"
+    )
 
+    assert config.dataset_source == DatasetSource.CONFIG
     assert config.dataset_name == "test_dataset"
     assert config.split == "train"  # default value
     assert config.sample_count is None  # default value

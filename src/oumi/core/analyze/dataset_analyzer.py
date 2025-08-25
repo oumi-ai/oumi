@@ -121,9 +121,9 @@ class DatasetAnalyzer:
             # Direct mode: must provide dataset
             if dataset is None:
                 raise ValueError(
-                    "Config specifies dataset_source=DatasetSource.DIRECT but no"
-                    "dataset was provided. Either pass a dataset to"
-                    "DatasetAnalyzer.__init__() or"
+                    "Config specifies dataset_source=DatasetSource.DIRECT but no "
+                    "dataset was provided. Either pass a dataset to "
+                    "DatasetAnalyzer.__init__() or "
                     "set dataset_source=DatasetSource.CONFIG.value."
                 )
 
@@ -140,10 +140,10 @@ class DatasetAnalyzer:
             if dataset is not None:
                 raise ValueError(
                     f"Dataset provided but config.dataset_source is "
-                    f"'{config.dataset_source.value}'. When using DatasetSource.CONFIG,"
-                    f"do not pass a dataset to the constructor. Set "
-                    f"dataset_source=DatasetSource.DIRECT if you want to use the "
-                    f"provided dataset."
+                    f"'{config.dataset_source.value}'. When using "
+                    f"DatasetSource.CONFIG, do not pass a dataset to the "
+                    f"constructor. Set dataset_source=DatasetSource.DIRECT "
+                    f"if you want to use the provided dataset."
                 )
 
             # Load dataset with the tokenizer
