@@ -5,7 +5,7 @@ from unittest.mock import ANY, Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.sky_client import (
     SkyClient,
     _convert_job_to_task,
@@ -169,6 +169,7 @@ def test_sky_client_launch(
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
@@ -198,6 +199,7 @@ def test_sky_client_launch_no_stop(
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
@@ -223,6 +225,7 @@ def test_sky_client_launch_kwarg(mock_sky_data_storage):
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
@@ -248,6 +251,7 @@ def test_sky_client_launch_kwarg_value(mock_sky_data_storage):
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
@@ -273,6 +277,7 @@ def test_sky_client_launch_unused_kwarg(mock_sky_data_storage):
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(
@@ -298,6 +303,7 @@ def test_sky_client_launch_with_cluster_name(mock_sky_data_storage):
             status="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         assert job_status == expected_job_status
         mock_launch.assert_called_once_with(

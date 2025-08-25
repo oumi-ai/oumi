@@ -1,7 +1,7 @@
 # LlamaCPP Inference config for GLM-4.5-Air GGUF (macOS compatible).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:

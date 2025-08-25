@@ -96,7 +96,9 @@ class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
 
     # Additional VLLM-specific tests can be added here
     # Memory intensive requirement removed - CPU inference uses less memory
-    @pytest.mark.skip(reason="Skipping due to triton PassManager::run failures and keyword validation issues")
+    @pytest.mark.skip(
+        reason="Skipping due to triton PassManager::run failures and keyword issues"
+    )
     def test_vllm_specific_smollm_135m(self):
         """Test VLLM-specific features with SmolLM2-135M-Instruct model."""
         # This is an example of an additional VLLM-specific test
@@ -130,7 +132,7 @@ class TestVLLMBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
         """Override inherited test_batch_inference with skip."""
         pass
 
-    @pytest.mark.skip(reason="Skipping due to triton PassManager::run failures")  
+    @pytest.mark.skip(reason="Skipping due to triton PassManager::run failures")
     def test_deterministic_generation(self):
         """Override inherited test_deterministic_generation with skip."""
         pass

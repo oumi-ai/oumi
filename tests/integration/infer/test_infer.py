@@ -166,6 +166,7 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
         assert len(last_msg_content.strip()) > 0
 
 
+@requires_gpus()
 @pytest.mark.parametrize(
     "test_spec",
     [
@@ -273,7 +274,9 @@ except ImportError:
             InferenceEngineType.VLLM,
             marks=[
                 pytest.mark.skipif(not vllm_available, reason="vLLM not available"),
-                pytest.mark.skip(reason="Skipping VLLM throughput test - T4 hardware limitations"),
+                pytest.mark.skip(
+                    reason="Skipping VLLM throughput test - T4 limitations"
+                ),
             ],
         ),
         pytest.param(
