@@ -101,11 +101,13 @@ class DatasetAnalysisResult:
 class DatasetAnalyzer:
     """Orchestrates the analysis of datasets using multiple sample analyzers."""
 
-    def __init__(self, config: AnalyzeConfig):
+    def __init__(self, config: AnalyzeConfig, dataset: Optional[BaseMapDataset] = None):
         """Initialize the dataset analyzer with configuration.
 
         Args:
             config: AnalyzeConfig object containing all analysis parameters
+            dataset: Optional pre-loaded dataset. If provided, this dataset will be used
+                    instead of loading from the config.
         """
         self.config = config
         self.dataset_name = config.dataset_name
@@ -114,8 +116,14 @@ class DatasetAnalyzer:
         # Build tokenizer from config if provided
         self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
 
-        # Load dataset with the tokenizer
-        self.dataset = load_dataset_from_config(config, self.tokenizer)
+        # Use provided dataset or load from config
+        if dataset is not None:
+            self.dataset = dataset
+            logger.info(f"Using provided dataset with {len(dataset)} conversations")
+        else:
+            # Load dataset with the tokenizer
+            self.dataset = load_dataset_from_config(config, self.tokenizer)
+            logger.info(f"Loaded dataset from config: {self.dataset_name}")
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 

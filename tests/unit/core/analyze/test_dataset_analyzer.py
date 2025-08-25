@@ -240,6 +240,34 @@ def test_analyzer_initialization(mock_load, mock_config):
     assert "analyzer_2" in analyzer.sample_analyzers
 
 
+@patch("oumi.core.analyze.dataset_analyzer.REGISTRY", MockRegistry())
+@patch("oumi.core.analyze.dataset_analyzer.load_dataset_from_config")
+def test_analyzer_initialization_with_dataset(mock_load, mock_config, test_data_path):
+    """Test DatasetAnalyzer initialization with optional dataset parameter."""
+    # Create a real dataset from test data
+    dataset = TextSftJsonLinesDataset(dataset_path=test_data_path)
+
+    # Test initialization with provided dataset
+    analyzer = DatasetAnalyzer(mock_config, dataset=dataset)
+
+    # Test basic initialization
+    assert analyzer.config == mock_config
+    assert analyzer.dataset_name == "text_sft"
+    assert analyzer.split == "train"
+
+    # Test that the provided dataset was used instead of loading from config
+    assert analyzer.dataset == dataset
+    assert len(analyzer.dataset) == 5  # Should have 5 conversations from test data
+
+    # Test that load_dataset_from_config was not called
+    mock_load.assert_not_called()
+
+    # Test that analyzers were initialized correctly
+    assert len(analyzer.sample_analyzers) == 2
+    assert "text_length_analyzer" in analyzer.sample_analyzers
+    assert "analyzer_2" in analyzer.sample_analyzers
+
+
 def test_analyze_dataset_integration(test_data_path, mock_config):
     """Test DatasetAnalyzer analysis integration."""
     analyzer, _ = create_analyzer_with_jsonl_dataset(test_data_path, mock_config)
