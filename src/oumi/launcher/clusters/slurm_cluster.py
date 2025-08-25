@@ -277,6 +277,7 @@ class SlurmCluster(BaseCluster):
             job.num_nodes,
             job_name,
         )
+        # By default, Slurm writes to slurm-<job_id>.out.
         self.jobs_info[job_id] = SlurmCluster.JobInfo(
             working_dir=remote_working_dir,
             stdout_file=f"slurm-{job_id}.out",
