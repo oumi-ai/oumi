@@ -20,6 +20,7 @@ from functools import reduce
 from pathlib import Path
 from typing import Any, Optional
 
+from oumi.cli import cli_utils
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
@@ -347,5 +348,13 @@ class FrontierCluster(BaseCluster):
         pass
 
     def tail_logs(self, job_id: str, cluster_name: str) -> None:
-        """This is a no-op for Frontier clusters."""
+        """Tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster to tail the logs of.
+        """
+        cli_utils.CONSOLE.print(
+            "Support for tailing logs is not implemented for Frontier clusters."
+        )
         raise NotImplementedError

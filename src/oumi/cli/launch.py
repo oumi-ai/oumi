@@ -209,10 +209,7 @@ def _poll_job(
 
     assert running_cluster
 
-    # Prefer cluster-provided tailing when available; otherwise, poll.
-    if hasattr(running_cluster, "tail_logs") and callable(
-        getattr(running_cluster, "tail_logs")
-    ):
+    if callable(getattr(running_cluster, "tail_logs", None)):
         cli_utils.CONSOLE.print(
             f"Tailing logs for job [yellow]{job_status.id}[/yellow]..."
         )

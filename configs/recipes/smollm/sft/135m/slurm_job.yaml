@@ -39,7 +39,7 @@ setup: |
 
 run: |
   oumi train \
-      -c configs/recipes/smollm/sft/135m/quickstart_train.yaml \
+      -c configs/recipes/smollm/sft/135m/train.yaml \
       --training.enable_wandb=False
 
   echo "Training complete!"

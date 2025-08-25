@@ -19,6 +19,7 @@ from functools import reduce
 from pathlib import Path
 from typing import Any, Optional
 
+from oumi.cli import cli_utils
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.polaris_client import PolarisClient
@@ -300,4 +301,7 @@ class PolarisCluster(BaseCluster):
 
     def tail_logs(self, job_id: str, cluster_name: str) -> None:
         """This is a no-op for Polaris clusters."""
+        cli_utils.CONSOLE.print(
+            "Support for tailing logs is not implemented for Polaris clusters."
+        )
         raise NotImplementedError
