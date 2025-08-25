@@ -4,7 +4,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.polaris_client import PolarisClient
 from oumi.launcher.clusters.polaris_cluster import PolarisCluster
 
@@ -101,6 +101,7 @@ def test_polaris_cluster_get_job_valid_id(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -109,6 +110,7 @@ def test_polaris_cluster_get_job_valid_id(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -117,6 +119,7 @@ def test_polaris_cluster_get_job_valid_id(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("myjob")
@@ -150,6 +153,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -158,6 +162,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -166,6 +171,7 @@ def test_polaris_cluster_get_job_invalid_id_nonempty(
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("wrong job")
@@ -185,6 +191,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -193,6 +200,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -201,6 +209,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     jobs = cluster.get_jobs()
@@ -215,6 +224,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -223,6 +233,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -231,6 +242,7 @@ def test_polaris_cluster_get_jobs_nonempty(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     assert jobs == expected_jobs
@@ -257,6 +269,7 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -265,6 +278,7 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -273,6 +287,7 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job_status = cluster.cancel_job("job2")
@@ -283,6 +298,7 @@ def test_polaris_cluster_cancel_job(mock_datetime, mock_polaris_client):
         metadata="",
         cluster="prod.name",
         done=False,
+        state=JobState.PENDING,
     )
     mock_polaris_client.cancel.assert_called_once_with(
         "job2",
@@ -301,6 +317,7 @@ def test_polaris_cluster_cancel_job_fails(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     with pytest.raises(RuntimeError):
@@ -321,6 +338,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -330,6 +348,7 @@ def test_polaris_cluster_run_job(mock_datetime, mock_polaris_client):
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job_status = cluster.run_job(_get_default_job("polaris"))
     mock_polaris_client.put_recursive.assert_has_calls(
@@ -416,6 +435,7 @@ def test_polaris_cluster_run_job_no_working_dir(mock_datetime, mock_polaris_clie
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -425,6 +445,7 @@ def test_polaris_cluster_run_job_no_working_dir(mock_datetime, mock_polaris_clie
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job_config = _get_default_job("polaris")
     job_config.working_dir = None
@@ -507,6 +528,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -516,6 +538,7 @@ def test_polaris_cluster_run_job_with_conda_setup(mock_datetime, mock_polaris_cl
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job_status = cluster.run_job(_get_default_job("polaris"))
     mock_polaris_client.put_recursive.assert_has_calls(
@@ -602,6 +625,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -611,6 +635,7 @@ def test_polaris_cluster_run_job_no_name(mock_datetime, mock_polaris_client):
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("polaris")
     job.name = None
@@ -703,6 +728,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -712,6 +738,7 @@ def test_polaris_cluster_run_job_no_mounts(mock_datetime, mock_polaris_client):
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("polaris")
     job.file_mounts = {}
@@ -792,6 +819,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -801,6 +829,7 @@ def test_polaris_cluster_run_job_no_pbs(mock_datetime, mock_polaris_client):
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("polaris")
     job.file_mounts = {}
@@ -873,6 +902,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -882,6 +912,7 @@ def test_polaris_cluster_run_job_no_setup(mock_datetime, mock_polaris_client):
         metadata="",
         cluster="debug.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("polaris")
     job.file_mounts = {}
@@ -951,6 +982,7 @@ def test_polaris_cluster_run_job_fails(mock_datetime, mock_polaris_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     with pytest.raises(RuntimeError):

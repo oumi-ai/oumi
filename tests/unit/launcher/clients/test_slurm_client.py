@@ -5,7 +5,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 
 _CTRL_PATH: str = "-S ~/.ssh/control-%h-%p-%r"
@@ -440,6 +440,7 @@ def test_slurm_client_get_job_success(mock_subprocess):
             "                             6                           test                         taenin                      COMPLETED                           None"  # noqa: E501
         ),
         done=True,
+        state=JobState.SUCCEEDED,
     )
     assert job_status == expected_status
 
@@ -476,6 +477,7 @@ def test_slurm_client_get_job_success_one_job(mock_subprocess):
             "                             6                           test                         taenin                      COMPLETED                           None"  # noqa: E501
         ),
         done=True,
+        state=JobState.SUCCEEDED,
     )
     assert job_status == expected_status
 
@@ -596,6 +598,7 @@ def test_slurm_client_cancel_success(mock_subprocess):
             "                       7.batch                          batch                                                       RUNNING"  # noqa: E501
         ),
         done=False,
+        state=JobState.RUNNING,
     )
     assert job_status == expected_status
 
