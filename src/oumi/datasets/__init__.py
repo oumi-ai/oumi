@@ -91,6 +91,7 @@ from oumi.datasets.vision_language.pixmo_ask_model_anything import (
 )
 from oumi.datasets.vision_language.pixmo_cap import PixmoCapDataset
 from oumi.datasets.vision_language.pixmo_cap_qa import PixmoCapQADataset
+from oumi.datasets.vision_language.rlaif_v import OpenbmbRlaifVDataset
 from oumi.datasets.vision_language.the_cauldron import TheCauldronDataset
 from oumi.datasets.vision_language.vision_dpo_jsonlines import (
     VisionDpoJsonlinesDataset,
@@ -127,6 +128,7 @@ __all__ = [
     "LmmsLabMultimodalOpenR1Dataset",
     "MagpieProDataset",
     "MnistSftDataset",
+    "OpenbmbRlaifVDataset",
     "OpenO1SFTDataset",
     "OrpoDpoMix40kDataset",
     "PileV1Dataset",
