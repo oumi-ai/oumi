@@ -22,16 +22,14 @@ from pathlib import Path
 from pprint import pformat
 from typing import Any, Callable, Optional, cast
 
+import mlflow
 import pydantic
 import safetensors.torch
 import torch
 import torch.amp
 import torch.distributed.checkpoint as dcp
 import torch.utils.tensorboard as tensorboard
-
-import mlflow  # isort: skip
-
-import wandb  # isort: skip
+import wandb
 from torch.distributed.checkpoint.state_dict import (
     StateDictOptions,
     get_state_dict,
@@ -54,19 +52,10 @@ from oumi.core.distributed import (
 from oumi.core.processors.base_processor import BaseProcessor
 from oumi.core.tokenizers import BaseTokenizer
 from oumi.core.trainers.base_trainer import BaseTrainer
-from oumi.models.layers.ring_attention import (
-    apply_zigzag_ring_attn_monkey_patch_llama as apply_ring_attention_monkey_patch,
-)
-from oumi.models.layers.ring_attention import (
-    prepare_zigzag_ring_attn_inputs as prepare_seq_parallel_inputs,
-)
 from oumi.performance.telemetry import TelemetryTracker
 from oumi.utils.io_utils import load_json, save_json
 from oumi.utils.logging import logger
 from oumi.utils.serialization_utils import flatten_config
-
-torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
-torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
 
 
 class TrainingState(pydantic.BaseModel):
@@ -93,6 +82,9 @@ class Trainer(BaseTrainer):
         # Importing these here to avoid circular dependencies
         from oumi.builders.lr_schedules import build_lr_scheduler
         from oumi.builders.optimizers import build_optimizer
+
+        torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
+        torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
 
         self.telemetry = TelemetryTracker()
         self.start_time = time.perf_counter()
@@ -182,9 +174,6 @@ class Trainer(BaseTrainer):
                     self.config,
                     ddp_find_unused_parameters=self.params.ddp_find_unused_parameters,
                 )
-                # Apply ring attention monkey patch if enabled
-                if self.is_using_ring_attention:
-                    apply_ring_attention_monkey_patch()
 
         if self.params.compile:
             self.log("Compiling model...")
@@ -343,7 +332,7 @@ class Trainer(BaseTrainer):
                         self.state.total_tokens_seen += num_tokens
 
                 with self._telemetry_block("moving batch to device"):
-                    if not self.is_using_fsdp and not self.is_using_ring_attention:
+                    if not self.is_using_fsdp:
                         batch = {
                             k: v.to(self.device, non_blocking=True)
                             for k, v in batch.items()
@@ -354,19 +343,7 @@ class Trainer(BaseTrainer):
                         end_of_global_step or stop_on_max_steps_limit
                     )
 
-                    if self.is_using_ring_attention:
-                        # Prepare inputs for ring attention
-                        prepared_inputs = prepare_seq_parallel_inputs(
-                            batch["input_ids"],
-                            batch.get("position_ids"),
-                            batch.get("labels"),
-                            get_device_rank_info().rank,
-                            get_device_rank_info().world_size,
-                            self.device,
-                        )
-                        outputs = self.model(**prepared_inputs)
-                    else:
-                        outputs = self.model(**batch)
+                    outputs = self.model(**batch)
 
                     loss = outputs["loss"] / gradient_accumulation_steps
 

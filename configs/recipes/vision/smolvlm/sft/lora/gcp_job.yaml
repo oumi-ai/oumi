@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/smolvlm/sft/lora/gcp_job.yaml --cluster smolvlm-vision
@@ -39,10 +39,9 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download HuggingFaceTB/SmolVLM-Instruct --exclude "onnx/*" "runs/*"
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download HuggingFaceTB/SmolVLM-Instruct --exclude "onnx/*" "runs/*"
 
-  # TODO: OPE-1336 - Remove version pin when error with later versions is fixed.
-  pip install -U "flash-attn==2.7.4.post1" --no-build-isolation
+  pip install -U flash-attn --no-build-isolation
 
 run: |
   set -e  # Exit if any command failed.
