@@ -43,7 +43,7 @@ dependencies = [
     "aioresponses>=0.7.8,<0.8",     # User by inference engine tests
     "backoff>=2.2.1,<2.3",
     "click<8.3.0",                  # Used by CLI. 8.2.0 is currently unsupported by Typer.
-    "datasets>=3.2,<3.3",           # breaking change for 4.0
+    "datasets>=4.0,<5.0",           # breaking change for 4.0
     "hdrhistogram>=0.10,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4,<0.5.0",
