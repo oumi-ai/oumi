@@ -154,10 +154,19 @@ class SlurmCluster(BaseCluster):
             """Gets the name of the connection in the form user@hostname."""
             return f"{self.user}@{self.hostname}"
 
+    @dataclass
+    class JobInfo:
+        """Information about a submitted job."""
+
+        working_dir: Path
+        stdout_file: str
+        stderr_file: str
+
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
         self._client = client
         self._connection = self.parse_cluster_name(name)
+        self.jobs_info: dict[str, SlurmCluster.JobInfo] = {}
 
     def __eq__(self, other: Any) -> bool:
         """Checks if two SlurmClusters are equal."""
@@ -268,6 +277,12 @@ class SlurmCluster(BaseCluster):
             job.num_nodes,
             job_name,
         )
+        # By default, Slurm writes to slurm-<job_id>.out.
+        self.jobs_info[job_id] = SlurmCluster.JobInfo(
+            working_dir=remote_working_dir,
+            stdout_file=f"slurm-{job_id}.out",
+            stderr_file=f"slurm-{job_id}.out",
+        )
         max_retries = 3
         wait_time = 5
         for _ in range(max_retries):
@@ -288,3 +303,20 @@ class SlurmCluster(BaseCluster):
     def down(self) -> None:
         """This is a no-op for Slurm clusters."""
         pass
+
+    def tail_logs(self, job_id: str, cluster_name: str) -> None:
+        """Tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster to tail the logs of.
+        """
+        if job_id not in self.jobs_info:
+            raise ValueError(f"Job {job_id} not found in jobs_info")
+        job_info = self.jobs_info[job_id]
+        self._client.tail_job(
+            str(job_info.working_dir),
+            job_id,
+            cluster_name,
+            job_info.stdout_file,
+        )

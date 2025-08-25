@@ -13,13 +13,16 @@
 # limitations under the License.
 
 import functools
+import os
 import re
+import signal
 import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Union
 
+from oumi.cli import cli_utils
 from oumi.core.launcher import JobStatus
 from oumi.utils.logging import logger
 
@@ -494,3 +497,90 @@ class SlurmClient:
         result = self.run_commands(cmds)
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
+
+    def tail_job(
+        self, working_dir: str, job_id: str, cluster_name: str, stdout_file: str
+    ) -> int:
+        """Tails the Slurm job output file in the current terminal.
+
+        Opens an interactive SSH session and tails the specified stdout file.
+
+        Behavior:
+        - Uses a double TTY allocation (-tt) for unbuffered interactive output.
+        - Disables stdin (DEVNULL) to avoid terminal corruption in multi-proc contexts.
+        - Blocks until the remote tail exits or the user presses Ctrl-C.
+        - On Ctrl-C, sends SIGINT to the child process group and returns 130.
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            job_id: The Slurm job ID whose output file to follow.
+            cluster_name: The name of the cluster to tail the logs of.
+            stdout_file: The name of the stdout file to tail.
+
+        Returns:
+            The SSH command's exit code. This is a blocking call.
+        """
+        tail_cmd = (
+            f"ssh {_CTRL_PATH} -tt {cluster_name} "
+            f'"cd {working_dir} && tail -n +1 -F {stdout_file}"'
+        )
+        cli_utils.CONSOLE.print(
+            f"Tailing logs of job {job_id} on cluster '{cluster_name}'..."
+        )
+        cli_utils.CONSOLE.print(f"└── Following output file: {stdout_file}")
+        cli_utils.CONSOLE.print(
+            "Press Ctrl-C to exit log streaming; job will not be killed."
+        )
+
+        max_attempts = 3
+        base_delay = 0.5
+        max_delay = 5.0
+
+        with cli_utils.CONSOLE.status("Waiting for log file to appear..."):
+            for attempt in range(max_attempts):
+                preflight = self.run_commands(
+                    [f"cd {working_dir}", f"test -f {stdout_file}"]
+                )
+                if preflight.exit_code == 0:
+                    break
+
+                if attempt < max_attempts - 1:
+                    delay = min(base_delay * (2**attempt), max_delay)
+                    time.sleep(delay)
+                else:
+                    raise FileNotFoundError(
+                        f"Log file not found after {max_attempts} attempts: "
+                        f"{working_dir}/{stdout_file}. "
+                        "The job may not have started."
+                    )
+        proc = None
+        try:
+            proc = subprocess.Popen(
+                tail_cmd,
+                shell=True,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            # Poll job status in parallel while tail runs.
+            poll_interval_sec = 2.0
+            while True:
+                # If tail ended on its own, propagate its return code.
+                if proc.poll() is not None:
+                    return int(proc.returncode)
+                job = self.get_job(job_id)
+                # If job is missing or done, stop tail.
+                if job is None or job.done:
+                    os.killpg(proc.pid, signal.SIGINT)
+                    return int(proc.wait(timeout=5))
+                time.sleep(poll_interval_sec)
+        except KeyboardInterrupt:
+            logger.info("Stopped tailing logs for job %s", job_id)
+            if proc and proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGINT)
+                proc.wait(timeout=5)
+            return 130  # Exit code for Ctrl-C
+        except Exception:
+            logger.exception("Failed while tailing logs for job %s", job_id)
+            if proc and proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGTERM)
+            raise

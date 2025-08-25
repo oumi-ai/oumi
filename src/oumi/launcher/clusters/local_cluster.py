@@ -16,6 +16,7 @@ import uuid
 from copy import deepcopy
 from typing import Any, Optional
 
+from oumi.cli import cli_utils
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
 from oumi.launcher.clients.local_client import LocalClient
@@ -127,3 +128,15 @@ class LocalCluster(BaseCluster):
         """Cancels all jobs, running or queued."""
         for job in self.get_jobs():
             self.cancel_job(job.id)
+
+    def tail_logs(self, job_id: str, cluster_name: str) -> None:
+        """Tails the logs of the target job.
+
+        Args:
+            job_id: The ID of the job to tail the logs of.
+            cluster_name: The name of the cluster to tail the logs of.
+        """
+        cli_utils.CONSOLE.print(
+            "Support for tailing logs is not implemented for local clusters."
+        )
+        raise NotImplementedError
