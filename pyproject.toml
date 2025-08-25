@@ -48,7 +48,7 @@ dependencies = [
     "jsonlines",
     "lm_eval[wandb]>=0.4.9,<0.5.0",
     "mlflow>=3.1.4",                # >=3.1.4 requires Python3.10>=
-    "numpy>=2.0.1,<2.4",            # >=2.1 requires Python3.10>=
+    "numpy>=1.26.4,<2.4",           # verl==0.5.0 depends on numpy<2.0.0
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
@@ -65,7 +65,7 @@ dependencies = [
     "safetensors>=0.6.2,<0.7",
     "skypilot>=0.7.0,<0.8",      #  Used by launcher
     "tensorboard>=2.20.0,<3.0", # Optional, for monitoring training
-    "torch>=2.6,<2.9.0",         # breaking change
+    "torch>=2.8,<2.9.0",         # breaking change
     "torchao>=0.11.0,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
