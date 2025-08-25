@@ -4,7 +4,7 @@ import pytest
 import sky
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.sky_client import SkyClient
 from oumi.launcher.clouds.sky_cloud import SkyCloud
@@ -71,6 +71,7 @@ def test_sky_cloud_up_cluster(mock_sky_client, mock_sky_cluster):
         status="",
         metadata="",
         done=False,
+        state=JobState.PENDING,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()
@@ -142,6 +143,7 @@ def test_sky_cloud_up_cluster_kwargs(mock_sky_client, mock_sky_cluster):
         status="",
         metadata="",
         done=False,
+        state=JobState.PENDING,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()
@@ -205,6 +207,7 @@ def test_sky_cloud_up_cluster_no_name(mock_sky_client, mock_sky_cluster):
         status="",
         metadata="",
         done=False,
+        state=JobState.PENDING,
     )
     mock_gcp_cluster = Mock(spec=sky.clouds.GCP)
     mock_gcp_handler = Mock()

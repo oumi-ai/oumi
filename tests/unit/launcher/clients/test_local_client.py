@@ -8,7 +8,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.local_client import LocalClient
 
 
@@ -101,7 +101,13 @@ def test_local_client_submit_job(mock_thread):
     job = _get_default_job()
     job_status = client.submit_job(job)
     expected_status = JobStatus(
-        id="0", name=str(job.name), cluster="", status="QUEUED", metadata="", done=False
+        id="0",
+        name=str(job.name),
+        cluster="",
+        status="QUEUED",
+        metadata="",
+        done=False,
+        state=JobState.PENDING,
     )
     assert job_status == expected_status
     assert client.list_jobs() == [expected_status]
@@ -137,6 +143,7 @@ pip install -r requirements.txt
         status="COMPLETED",
         metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} .",
         done=True,
+        state=JobState.SUCCEEDED,
     )
     assert job_status == expected_status
     assert client.list_jobs() == [expected_status]
@@ -188,6 +195,7 @@ pip install -r requirements.txt
             metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} ."
             f" Logs available at: {output_temp_dir}/1970_01_01_00_00_10_123_0.stdout",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         assert job_status == expected_status
         assert client.list_jobs() == [expected_status]
@@ -246,6 +254,7 @@ echo 'hello'"""
         status="COMPLETED",
         metadata=f"Job finished at {datetime.fromtimestamp(10).isoformat()} .",
         done=True,
+        state=JobState.SUCCEEDED,
     )
     second_expected_status = JobStatus(
         id="1",
@@ -254,6 +263,7 @@ echo 'hello'"""
         status="FAILED",
         metadata="a" * 1024,
         done=True,
+        state=JobState.FAILED,
     )
     assert job_status == expected_status
     assert second_job_status == second_expected_status

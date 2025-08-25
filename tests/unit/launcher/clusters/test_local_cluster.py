@@ -3,7 +3,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.local_client import LocalClient
 from oumi.launcher.clusters.local_cluster import LocalCluster
 
@@ -74,6 +74,7 @@ def test_local_cluster_get_job_valid_id(mock_local_client):
             metadata="",
             cluster="",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -82,6 +83,7 @@ def test_local_cluster_get_job_valid_id(mock_local_client):
             metadata="",
             cluster="",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -90,6 +92,7 @@ def test_local_cluster_get_job_valid_id(mock_local_client):
             metadata="",
             cluster="",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("myjob")
@@ -101,6 +104,7 @@ def test_local_cluster_get_job_valid_id(mock_local_client):
         metadata="",
         cluster="name",
         done=False,
+        state=JobState.PENDING,
     )
 
 
@@ -122,6 +126,7 @@ def test_local_cluster_get_job_invalid_id_nonempty(mock_local_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -130,6 +135,7 @@ def test_local_cluster_get_job_invalid_id_nonempty(mock_local_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -138,6 +144,7 @@ def test_local_cluster_get_job_invalid_id_nonempty(mock_local_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("wrong job")
@@ -155,6 +162,7 @@ def test_local_cluster_get_jobs_nonempty(mock_local_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -163,6 +171,7 @@ def test_local_cluster_get_jobs_nonempty(mock_local_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -171,6 +180,7 @@ def test_local_cluster_get_jobs_nonempty(mock_local_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     jobs = cluster.get_jobs()
@@ -183,6 +193,7 @@ def test_local_cluster_get_jobs_nonempty(mock_local_client):
             metadata="",
             cluster="name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -191,6 +202,7 @@ def test_local_cluster_get_jobs_nonempty(mock_local_client):
             metadata="",
             cluster="name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -199,6 +211,7 @@ def test_local_cluster_get_jobs_nonempty(mock_local_client):
             metadata="",
             cluster="name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     assert jobs == expected_jobs
@@ -223,6 +236,7 @@ def test_local_cluster_cancel_job(mock_local_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -231,6 +245,7 @@ def test_local_cluster_cancel_job(mock_local_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -239,6 +254,7 @@ def test_local_cluster_cancel_job(mock_local_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job_status = cluster.cancel_job("job2")
@@ -249,6 +265,7 @@ def test_local_cluster_cancel_job(mock_local_client):
         metadata="",
         cluster="name",
         done=False,
+        state=JobState.PENDING,
     )
     mock_local_client.cancel.assert_called_once_with(
         "job2",
@@ -266,6 +283,7 @@ def test_local_cluster_cancel_job_fails(mock_local_client):
             metadata="",
             cluster="debug.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     with pytest.raises(RuntimeError, match="Job myjobid not found."):
@@ -281,6 +299,7 @@ def test_local_cluster_run_job(mock_local_client):
         metadata="",
         cluster="mycluster",
         done=False,
+        state=JobState.PENDING,
     )
     expected_status = JobStatus(
         id="1234",
@@ -289,6 +308,7 @@ def test_local_cluster_run_job(mock_local_client):
         metadata="",
         cluster="name",
         done=False,
+        state=JobState.PENDING,
     )
     expected_job = _get_default_job("local")
     job_status = cluster.run_job(expected_job)
@@ -307,6 +327,7 @@ def test_local_cluster_run_job_no_name(mock_local_client):
         metadata="",
         cluster="mycluster",
         done=False,
+        state=JobState.PENDING,
     )
     expected_status = JobStatus(
         id="1234",
@@ -315,6 +336,7 @@ def test_local_cluster_run_job_no_name(mock_local_client):
         metadata="",
         cluster="name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("local")
     job.name = None
@@ -342,6 +364,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -350,6 +373,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -358,6 +382,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         [
@@ -368,6 +393,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -376,6 +402,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -384,6 +411,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         [
@@ -394,6 +422,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -402,6 +431,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -410,6 +440,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         [
@@ -420,6 +451,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -428,6 +460,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -436,6 +469,7 @@ def test_local_cluster_down(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     ]
@@ -458,6 +492,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -466,6 +501,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -474,6 +510,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         [
@@ -484,6 +521,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -492,6 +530,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -500,6 +539,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         [
@@ -510,6 +550,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -518,6 +559,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -526,6 +568,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         [
@@ -536,6 +579,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="job2",
@@ -544,6 +588,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="final job",
@@ -552,6 +597,7 @@ def test_local_cluster_stop(mock_local_client):
                 metadata="",
                 cluster="",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     ]

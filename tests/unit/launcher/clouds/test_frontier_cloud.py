@@ -3,7 +3,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clouds.frontier_cloud import FrontierCloud
@@ -73,6 +73,7 @@ def test_frontier_cloud_up_cluster_extended(mock_slurm_client, mock_frontier_clu
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("frontier")
@@ -97,6 +98,7 @@ def test_frontier_cloud_up_cluster_batch(mock_slurm_client, mock_frontier_cluste
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("frontier")
@@ -133,6 +135,7 @@ def test_frontier_cloud_up_cluster_default_queue(
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("frontier")
