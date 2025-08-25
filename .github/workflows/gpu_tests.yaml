@@ -54,8 +54,7 @@ jobs:
       run: |
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
-        # BUILD_TRITON=0 prevents Triton compilation issues on T4 GPUs
-        BUILD_TRITON=0 uv pip install -e '.[ci_gpu]' hf_transfer --system
+        uv pip install -e '.[ci_gpu]' hf_transfer --system
       env:
         # Disable Triton flash attention at runtime for T4 compatibility
         VLLM_USE_TRITON_FLASH_ATTN: "False"
@@ -63,7 +62,7 @@ jobs:
     - name: Install VLLM for CPU (VLLM tests are CPU-only)
       run: |
         # Uninstall GPU VLLM and install CPU version for integration tests
-        # All VLLM tests have been converted to CPU-only to avoid CUDA compatibility issues
+        # Active VLLM tests are CPU-only to avoid CUDA compatibility issues
         uv pip uninstall vllm --system
         VLLM_TARGET_DEVICE=cpu uv pip install vllm==0.10.1.1 --no-cache --system
 
