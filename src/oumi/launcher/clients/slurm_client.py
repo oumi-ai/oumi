@@ -531,7 +531,7 @@ class SlurmClient:
         cli_utils.CONSOLE.print(
             "Press Ctrl-C to exit log streaming; job will not be killed."
         )
-        # Pre-flight: verify the output file exists remotely before tailing.
+
         max_attempts = 3
         base_delay = 0.5
         max_delay = 5.0
@@ -545,11 +545,9 @@ class SlurmClient:
                     break
 
                 if attempt < max_attempts - 1:
-                    # Calculate delay with exponential backoff
                     delay = min(base_delay * (2**attempt), max_delay)
                     time.sleep(delay)
                 else:
-                    # Final attempt failed
                     raise FileNotFoundError(
                         f"Log file not found after {max_attempts} attempts: "
                         f"{working_dir}/{stdout_file}. "
@@ -557,7 +555,6 @@ class SlurmClient:
                     )
         proc = None
         try:
-            # Blocking mode: stream logs to the user's terminal.
             proc = subprocess.Popen(
                 tail_cmd,
                 shell=True,
@@ -577,7 +574,6 @@ class SlurmClient:
                     return int(proc.wait(timeout=5))
                 time.sleep(poll_interval_sec)
         except KeyboardInterrupt:
-            # Gracefully stop tailing on Ctrl-C by signaling the process group.
             logger.info("Stopped tailing logs for job %s", job_id)
             if proc and proc.poll() is None:
                 os.killpg(proc.pid, signal.SIGINT)
