@@ -120,7 +120,7 @@ def _validate_results_in_file(
                 "acc_stderr,none": {"value": 0.133, "round_digits": 3},
             },
             marks=pytest.mark.skip(
-                reason="VLLM evaluation tests skipped due to triton/GPU issues"
+                reason="Frequently failing"
             ),
         ),
     ],
