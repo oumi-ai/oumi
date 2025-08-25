@@ -128,13 +128,6 @@ gpu = [
     "deepspeed>=0.17.0,<0.18.0"
 ]
 
-# CPU-only dependencies for VLLM (macOS and CPU-based CI)
-# Install with: uv pip install --environment-variable VLLM_TARGET_DEVICE=cpu "oumi[cpu]"
-cpu = [
-    # Note: VLLM for CPU must be installed with special environment variable
-    # This requires manual installation: VLLM_TARGET_DEVICE=cpu uv pip install vllm --no-cache
-]
-
 # Targets for supported cloud providers
 aws = ["skypilot[aws]"]
 azure = ["skypilot[azure]"]
