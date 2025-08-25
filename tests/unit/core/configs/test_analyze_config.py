@@ -14,7 +14,59 @@
 
 import pytest
 
-from oumi.core.configs.analyze_config import AnalyzeConfig, SampleAnalyzerParams
+from oumi.core.configs.analyze_config import (
+    AnalyzeConfig,
+    DatasetSource,
+    SampleAnalyzerParams,
+)
+
+
+def test_dataset_source_required_field():
+    """Test that dataset_source is a required field."""
+    # Should fail without dataset_source
+    with pytest.raises(
+        TypeError, match="missing 1 required positional argument: 'dataset_source'"
+    ):
+        AnalyzeConfig()
+
+    # Should work with dataset_source
+    config = AnalyzeConfig(
+        dataset_source=DatasetSource.CONFIG, dataset_name="test_dataset"
+    )
+    assert config.dataset_source == DatasetSource.CONFIG
+    assert config.dataset_name == "test_dataset"
+
+
+def test_dataset_source_validation_success():
+    """Test successful validation of dataset_source values."""
+    # Test CONFIG mode
+    config_config = AnalyzeConfig(
+        dataset_source=DatasetSource.CONFIG, dataset_name="test_dataset"
+    )
+    assert config_config.dataset_source == DatasetSource.CONFIG
+    assert config_config.dataset_name == "test_dataset"
+
+    # Test DIRECT mode
+    config_direct = AnalyzeConfig(
+        dataset_source=DatasetSource.DIRECT, dataset_name="test_dataset"
+    )
+    assert config_direct.dataset_source == DatasetSource.DIRECT
+    assert config_direct.dataset_name == "test_dataset"
+
+
+def test_dataset_source_validation_invalid_value():
+    """Test validation failure with invalid dataset_source value."""
+    # The validation for invalid dataset_source values happens in DatasetAnalyzer,
+    # not in AnalyzeConfig
+    # So this should actually work (though it's not a valid enum value)
+    config = AnalyzeConfig(dataset_source="invalid_value", dataset_name="test_dataset")  # type: ignore
+    assert config.dataset_source == "invalid_value"
+
+    # The validation will fail when trying to use this config in DatasetAnalyzer
+    from oumi.core.analyze.dataset_analyzer import DatasetAnalyzer
+
+    with pytest.raises(ValueError, match="Invalid dataset_source: invalid_value"):
+        DatasetAnalyzer(config)
 
 
 def test_sample_analyzer_param_validation_success():
@@ -28,7 +80,9 @@ def test_sample_analyzer_param_validation_missing_id():
     """Test validation failure when id is missing."""
     with pytest.raises(ValueError, match="Analyzer 'id' must be provided"):
         AnalyzeConfig(
-            dataset_name="test_dataset", analyzers=[SampleAnalyzerParams(id="")]
+            dataset_source=DatasetSource.CONFIG,  # Required field
+            dataset_name="test_dataset",
+            analyzers=[SampleAnalyzerParams(id="")],
         )
 
 
@@ -56,7 +110,10 @@ def test_analyze_config_validation_missing_dataset_name():
     with pytest.raises(
         ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
     ):
-        AnalyzeConfig(dataset_name=None)
+        AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
+            dataset_name=None,
+        )
 
 
 def test_analyze_config_validation_empty_dataset_name():
@@ -64,7 +121,10 @@ def test_analyze_config_validation_empty_dataset_name():
     with pytest.raises(
         ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
     ):
-        AnalyzeConfig(dataset_name="")
+        AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
+            dataset_name="",
+        )
 
 
 def test_analyze_config_validation_missing_dataset_path():
@@ -72,7 +132,11 @@ def test_analyze_config_validation_missing_dataset_path():
     with pytest.raises(
         ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
     ):
-        AnalyzeConfig(dataset_name=None, dataset_path=None)
+        AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
+            dataset_name=None,
+            dataset_path=None,
+        )
 
 
 def test_analyze_config_validation_empty_dataset_path():
@@ -80,7 +144,11 @@ def test_analyze_config_validation_empty_dataset_path():
     with pytest.raises(
         ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
     ):
-        AnalyzeConfig(dataset_name="", dataset_path="")
+        AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
+            dataset_name="",
+            dataset_path="",
+        )
 
 
 def test_analyze_config_validation_missing_processor_when_multimodal():
@@ -91,6 +159,7 @@ def test_analyze_config_validation_missing_processor_when_multimodal():
         match="'processor_name' must be specified when 'is_multimodal' is True",
     ):
         AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
             dataset_path="/path/to/dataset.json",
             dataset_format="oumi",
             is_multimodal=True,

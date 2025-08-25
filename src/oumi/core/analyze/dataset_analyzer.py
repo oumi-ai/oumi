@@ -19,7 +19,7 @@ from typing import Any, Optional, Union
 import pandas as pd
 from tqdm import tqdm
 
-from oumi.core.configs import AnalyzeConfig
+from oumi.core.configs import AnalyzeConfig, DatasetSource
 from oumi.core.datasets import BaseMapDataset
 from oumi.core.registry import REGISTRY
 from oumi.utils.analysis_utils import (
@@ -116,14 +116,41 @@ class DatasetAnalyzer:
         # Build tokenizer from config if provided
         self.tokenizer = build_tokenizer_from_config(config.tokenizer_config)
 
-        # Use provided dataset or load from config
-        if dataset is not None:
+        # Use provided dataset or load from config based on dataset_source
+        if config.dataset_source == DatasetSource.DIRECT:
+            # Direct mode: must provide dataset
+            if dataset is None:
+                raise ValueError(
+                    "Config specifies dataset_source=DatasetSource.DIRECT but no"
+                    "dataset was provided. Either pass a dataset to"
+                    "DatasetAnalyzer.__init__() or"
+                    "set dataset_source=DatasetSource.CONFIG.value."
+                )
+
             self.dataset = dataset
-            logger.info(f"Using provided dataset with {len(dataset)} conversations")
-        else:
+            # Use the provided dataset name if config doesn't have one
+            if not self.dataset_name:
+                self.dataset_name = getattr(dataset, "dataset_name", "Custom Dataset")
+            logger.info(
+                f"Using provided dataset '{self.dataset_name}' with "
+                f"{len(dataset)} conversations"
+            )
+        elif config.dataset_source == DatasetSource.CONFIG:
+            # Config mode: load dataset from config parameters
+            if dataset is not None:
+                raise ValueError(
+                    f"Dataset provided but config.dataset_source is "
+                    f"'{config.dataset_source.value}'. When using DatasetSource.CONFIG,"
+                    f"do not pass a dataset to the constructor. Set "
+                    f"dataset_source=DatasetSource.DIRECT if you want to use the "
+                    f"provided dataset."
+                )
+
             # Load dataset with the tokenizer
             self.dataset = load_dataset_from_config(config, self.tokenizer)
             logger.info(f"Loaded dataset from config: {self.dataset_name}")
+        else:
+            raise ValueError(f"Invalid dataset_source: {config.dataset_source}")
 
         self.sample_analyzers = self._initialize_sample_analyzers()
 

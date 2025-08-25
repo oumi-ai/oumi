@@ -13,12 +13,22 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Optional
 
 from omegaconf import MISSING
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.base_params import BaseParams
+
+
+class DatasetSource(Enum):
+    """Source of the dataset for analysis."""
+
+    CONFIG = "config"
+    """Load dataset from config parameters (dataset_name, dataset_path, etc.)"""
+    DIRECT = "direct"
+    """Pass dataset directly to DatasetAnalyzer.__init__()"""
 
 
 @dataclass
@@ -35,6 +45,14 @@ class SampleAnalyzerParams(BaseParams):
 @dataclass
 class AnalyzeConfig(BaseConfig):
     """Configuration for dataset analysis and aggregation."""
+
+    # Required field - must come first
+    dataset_source: DatasetSource = MISSING
+    """Source of the dataset for analysis. Use CONFIG to load from config parameters
+    or DIRECT to pass dataset directly to DatasetAnalyzer.__init__().
+
+    This field is required and must be explicitly set.
+    """
 
     # Simple fields for common use cases
     dataset_name: Optional[str] = None
@@ -101,8 +119,17 @@ class AnalyzeConfig(BaseConfig):
 
     def __post_init__(self):
         """Validates the configuration parameters."""
-        if not self.dataset_name and not self.dataset_path:
-            raise ValueError("Either 'dataset_name' or 'dataset_path' must be provided")
+        if self.dataset_source == DatasetSource.CONFIG:
+            # Only require dataset info when loading from config
+            if not self.dataset_name and not self.dataset_path:
+                raise ValueError(
+                    "Either 'dataset_name' or 'dataset_path' must be provided when "
+                    "dataset_source=DatasetSource.CONFIG"
+                )
+        else:
+            # When using direct dataset, dataset_name is optional but recommended
+            if not self.dataset_name:
+                self.dataset_name = "Custom Dataset"
 
         # Validate dataset_format requirements
         if self.dataset_path is not None:
