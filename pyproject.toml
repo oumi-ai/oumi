@@ -47,8 +47,8 @@ dependencies = [
     "hdrhistogram>=0.10.3,<0.11",
     "jsonlines",
     "lm_eval[wandb]>=0.4.9,<0.5.0",
-    "mlflow>=3.3.1",                # Logging to MLflow
-    "numpy>=1.26.4,<2.4",
+    "mlflow>=3.1.4",                # >=3.1.4 requires Python3.10>=
+    "numpy>=2.3.2,<2.4",
     # The latest stable version, 2.3.0, is two years old and is causing dependency
     # conflicts. We'll use the dev version until a new stable version is released.
     # See https://github.com/oumi-ai/oumi/issues/1377
