@@ -132,7 +132,7 @@ def test_sky_cluster_get_jobs_nonempty(mock_sky_client):
             metadata="",
             cluster="mycluster",
             done=False,
-            state=JobState.PENDING,
+            state=JobState.RUNNING,
         ),
         JobStatus(
             id="myjob",

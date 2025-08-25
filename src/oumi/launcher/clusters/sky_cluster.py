@@ -52,6 +52,8 @@ class SkyCluster(BaseCluster):
             return JobState.SUCCEEDED
         elif status == "JobStatus.CANCELLED":
             return JobState.CANCELLED
+        elif status == "JobStatus.RUNNING":
+            return JobState.RUNNING
         elif status in failed_states:
             return JobState.FAILED
         return JobState.PENDING

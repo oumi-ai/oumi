@@ -81,6 +81,8 @@ def _get_job_state(job_state: str) -> JobState:
         return JobState.SUCCEEDED
     elif job_state == "CANCELLED":
         return JobState.CANCELLED
+    elif job_state == "RUNNING":
+        return JobState.RUNNING
     return JobState.PENDING
 
 

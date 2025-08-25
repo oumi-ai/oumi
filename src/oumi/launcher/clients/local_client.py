@@ -69,7 +69,7 @@ class LocalClient:
         if job_state == _JobState.QUEUED:
             return JobState.PENDING
         elif job_state == _JobState.RUNNING:
-            return JobState.PENDING
+            return JobState.RUNNING
         elif job_state == _JobState.COMPLETED:
             return JobState.SUCCEEDED
         elif job_state == _JobState.FAILED:

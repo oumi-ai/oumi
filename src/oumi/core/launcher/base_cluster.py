@@ -23,6 +23,7 @@ class JobState(Enum):
     """Enum to hold the state of a job."""
 
     PENDING = "pending"
+    RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"

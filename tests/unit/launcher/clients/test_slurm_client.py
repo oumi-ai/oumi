@@ -598,7 +598,7 @@ def test_slurm_client_cancel_success(mock_subprocess):
             "                       7.batch                          batch                                                       RUNNING"  # noqa: E501
         ),
         done=False,
-        state=JobState.PENDING,
+        state=JobState.RUNNING,
     )
     assert job_status == expected_status
 

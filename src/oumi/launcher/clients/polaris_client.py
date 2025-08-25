@@ -91,7 +91,7 @@ class PolarisClient:
 
     _FINISHED_STATUS = "F"
     _FAILED_STATUS = "E"
-
+    _RUNNING_STATUS = "R"
     _PROD_QUEUES = {
         "small",
         "medium",
@@ -123,6 +123,8 @@ class PolarisClient:
             return JobState.SUCCEEDED
         elif status == self._FAILED_STATUS:
             return JobState.FAILED
+        elif status == self._RUNNING_STATUS:
+            return JobState.RUNNING
         return JobState.PENDING
 
     def _split_status_line(self, line: str, metadata: str) -> JobStatus:
