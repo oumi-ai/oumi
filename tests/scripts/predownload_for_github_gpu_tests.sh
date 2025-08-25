@@ -18,7 +18,7 @@ download_with_retry() {
     while [ $attempt -lt $max_retries ]; do
         echo "Attempting to download $model (attempt $((attempt + 1))/$max_retries)..."
 
-        if huggingface-cli download "$model" "$@"; then
+        if hf download "$model" "$@"; then
             echo "Successfully downloaded $model"
             return 0
         else
@@ -85,6 +85,11 @@ download_with_retry "microsoft/Phi-3-vision-128k-instruct"
 # Add delay between downloads to avoid rate limiting
 sleep 10
 
+download_with_retry "HuggingFaceTB/SmolVLM-Instruct"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
 # Additional smaller models used in tests
 download_with_retry "bert-base-uncased"
 
@@ -92,3 +97,19 @@ download_with_retry "bert-base-uncased"
 sleep 10
 
 download_with_retry "t5-small"
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# ========================================
+# DATASETS USED IN ACTIVE TESTS
+# ========================================
+
+# MMLU dataset used in unit tests (test_data_mixtures.py)
+download_with_retry "tasksource/mmlu" --repo-type dataset
+
+# Add delay between downloads to avoid rate limiting
+sleep 10
+
+# Alpaca dataset used in integration tests (test_train.py)
+download_with_retry "yahma/alpaca-cleaned" --repo-type dataset

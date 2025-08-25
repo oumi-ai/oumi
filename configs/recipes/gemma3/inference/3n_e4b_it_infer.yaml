@@ -1,0 +1,27 @@
+# Inference config for Gemma-3n-E4B-it.
+#
+# Requirements:
+#   - (Optional) Run `pip install oumi[gpu]` if using the VLLM inference engine.
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/gemma3/inference/3n_e4b_it_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "google/gemma-3n-E4B-it"
+  model_max_length: 16384
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+
+engine: NATIVE # Can also use `VLLM` for faster inference on GPUs.
