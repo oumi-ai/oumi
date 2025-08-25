@@ -1,7 +1,7 @@
 # LlamaCPP Inference config for Qwen3-Coder-30B-A3B-Instruct GGUF (macOS compatible).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
 #   # 1. Download the GGUF file to current working directory:

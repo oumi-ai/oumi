@@ -9,7 +9,7 @@ Job ID                         Username        Queue           Jobname         S
    Not Running: Not enough free nodes available and terminated
 2017652.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2354947    1    64    --  00:10 F 00:00:43
    Job run at Wed Jul 10 at 23:28 on (x3006c0s19b1n0:ncpus=64) and failed
-2017654.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2356268    1    64    --  00:10 F 00:00:42
+2017654.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh   2356268    1    64    --  00:10 E 00:00:42
    Job run at Wed Jul 10 at 23:33 on (x3006c0s19b1n0:ncpus=64) and failed
 2018469.polaris-pbs-01.hsn.cm* matthew         debug           example_job.sh    504718    1    64    --  00:10 F 00:00:44
    Job run at Thu Jul 11 at 16:26 on (x3004c0s37b0n0:ncpus=64) and failed

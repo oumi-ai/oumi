@@ -21,7 +21,7 @@ from oumi.core.configs import (
     TrainingConfig,
     TrainingParams,
 )
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher import JobConfig, JobResources
 from oumi.utils.logging import logger
 
@@ -195,6 +195,7 @@ def test_launch_up_job(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -204,6 +205,7 @@ def test_launch_up_job(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -240,6 +242,7 @@ def test_launch_up_job_with_alias(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -249,6 +252,7 @@ def test_launch_up_job_with_alias(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -287,6 +291,7 @@ def test_launch_up_job_dev_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -296,6 +301,7 @@ def test_launch_up_job_dev_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -331,6 +337,7 @@ def test_launch_up_job_dev_no_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -340,6 +347,7 @@ def test_launch_up_job_dev_no_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -375,6 +383,7 @@ def test_launch_up_job_dev_no_confirm_same_path(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -384,6 +393,7 @@ def test_launch_up_job_dev_no_confirm_same_path(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -417,6 +427,7 @@ def test_launch_up_job_no_working_dir(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -426,6 +437,7 @@ def test_launch_up_job_no_working_dir(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -459,6 +471,7 @@ def test_launch_up_job_existing_cluster(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.run.return_value = job_status
         mock_cluster.get_job.return_value = JobStatus(
@@ -468,6 +481,7 @@ def test_launch_up_job_existing_cluster(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         mock_cloud = Mock()
         mock_launcher.get_cloud.return_value = mock_cloud
@@ -505,6 +519,7 @@ def test_launch_up_job_detach(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -514,6 +529,7 @@ def test_launch_up_job_detach(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -547,6 +563,7 @@ def test_launch_up_job_detached_local(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -556,6 +573,7 @@ def test_launch_up_job_detached_local(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -595,6 +613,7 @@ def test_launch_up_job_sky_logs(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -604,6 +623,7 @@ def test_launch_up_job_sky_logs(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -635,6 +655,7 @@ def test_launch_up_job_not_found(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_launcher.up.return_value = (mock_cluster, job_status)
         mock_cluster.get_job.return_value = job_status = JobStatus(
@@ -644,6 +665,7 @@ def test_launch_up_job_not_found(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         with pytest.raises(FileNotFoundError) as exception_info:
             res = runner.invoke(
@@ -678,6 +700,7 @@ def test_launch_run_job(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -690,6 +713,7 @@ def test_launch_run_job(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -733,6 +757,7 @@ def test_launch_run_job_with_alias(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -745,6 +770,7 @@ def test_launch_run_job_with_alias(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -790,6 +816,7 @@ def test_launch_run_job_dev_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -802,6 +829,7 @@ def test_launch_run_job_dev_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -843,6 +871,7 @@ def test_launch_run_job_dev_no_confirm(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -855,6 +884,7 @@ def test_launch_run_job_dev_no_confirm(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -893,6 +923,7 @@ def test_launch_run_job_detached(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -905,6 +936,7 @@ def test_launch_run_job_detached(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -943,6 +975,7 @@ def test_launch_run_job_detached_local(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -955,6 +988,7 @@ def test_launch_run_job_detached_local(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         _ = runner.invoke(
             app,
@@ -991,6 +1025,7 @@ def test_launch_run_job_no_cluster(
             status="running",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud = Mock()
         mock_launcher.run.return_value = job_status
@@ -1003,6 +1038,7 @@ def test_launch_run_job_no_cluster(
             status="done",
             metadata="",
             done=True,
+            state=JobState.SUCCEEDED,
         )
         with pytest.raises(
             ValueError, match="No cluster specified for the `run` action."
