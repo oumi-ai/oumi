@@ -209,12 +209,12 @@ def _poll_job(
 
     assert running_cluster
 
-    if callable(getattr(running_cluster, "tail_logs", None)):
+    try:
         cli_utils.CONSOLE.print(
             f"Tailing logs for job [yellow]{job_status.id}[/yellow]..."
         )
         running_cluster.tail_logs(job_status.id, job_status.cluster)
-    else:
+    except NotImplementedError:
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",
             _is_job_done,
