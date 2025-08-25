@@ -65,7 +65,7 @@ dependencies = [
     "safetensors>=0.6,<0.7",
     "skypilot>=0.7,<0.8",      #  Used by launcher
     "tensorboard>=2.20,<3.0",  # Optional, for monitoring training
-    "torch>=2.8,<2.9.0",       # vllm only supports torch2.7.0<=
+    "torch>=2.6,<2.7.1",       # vllm only supports up to torch==2.7
     "torchao>=0.12,<0.13",     # Used by transformers
     # torchdata 0.10 drops support for datapipes which we currently use
     # also, torchdata does not provide a py13 wheel for version 0.9.0.
