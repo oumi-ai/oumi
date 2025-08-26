@@ -60,7 +60,7 @@ class TestBranchCommand:
 
     def test_create_branch_from_current_position(self, mock_handler):
         """Test creating a branch from the current conversation position."""
-        parsed_cmd = ParsedCommand(name="branch", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch", args=[], kwargs={}, raw_input="/branch()")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -77,7 +77,7 @@ class TestBranchCommand:
 
     def test_create_named_branch(self, mock_handler):
         """Test creating a branch with a specific name."""
-        parsed_cmd = ParsedCommand(name="branch", args=["alternative_path"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch", args=["alternative_path"], kwargs={}, raw_input="/branch(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -97,7 +97,7 @@ class TestBranchCommand:
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
         
-        parsed_cmd = ParsedCommand(name="branch", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch", args=[], kwargs={}, raw_input="/branch()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -114,7 +114,7 @@ class TestBranchCommand:
 
     def test_create_branch_duplicate_name(self, mock_handler):
         """Test creating a branch with a name that already exists."""
-        parsed_cmd = ParsedCommand(name="branch", args=["existing_branch"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch", args=["existing_branch"], kwargs={}, raw_input="/branch(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -168,7 +168,7 @@ class TestBranchFromCommand:
 
     def test_branch_from_specific_position(self, mock_handler):
         """Test creating a branch from a specific message position."""
-        parsed_cmd = ParsedCommand(name="branch_from", args=["experiment", "3"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_from", args=["experiment", "3"], kwargs={}, raw_input="/branch_from(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -185,7 +185,7 @@ class TestBranchFromCommand:
 
     def test_branch_from_invalid_position(self, mock_handler):
         """Test creating a branch from an invalid position."""
-        parsed_cmd = ParsedCommand(name="branch_from", args=["test_branch", "99"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_from", args=["test_branch", "99"], kwargs={}, raw_input="/branch_from(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -202,7 +202,7 @@ class TestBranchFromCommand:
 
     def test_branch_from_missing_arguments(self, mock_handler):
         """Test branch_from command with missing arguments."""
-        parsed_cmd = ParsedCommand(name="branch_from", args=["branch_name"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_from", args=["branch_name"], kwargs={}, raw_input="/branch_from(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -262,7 +262,7 @@ class TestSwitchCommand:
 
     def test_switch_to_existing_branch(self, mock_handler):
         """Test switching to an existing branch."""
-        parsed_cmd = ParsedCommand(name="switch", args=["experiment1"], kwargs={})
+        parsed_cmd = ParsedCommand(command="switch", args=["experiment1"], kwargs={}, raw_input="/switch(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -279,7 +279,7 @@ class TestSwitchCommand:
 
     def test_switch_to_nonexistent_branch(self, mock_handler):
         """Test switching to a branch that doesn't exist."""
-        parsed_cmd = ParsedCommand(name="switch", args=["nonexistent"], kwargs={})
+        parsed_cmd = ParsedCommand(command="switch", args=["nonexistent"], kwargs={}, raw_input="/switch(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -296,7 +296,7 @@ class TestSwitchCommand:
 
     def test_switch_without_branch_name(self, mock_handler):
         """Test switch command without branch name argument."""
-        parsed_cmd = ParsedCommand(name="switch", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="switch", args=[], kwargs={}, raw_input="/switch()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -337,7 +337,7 @@ class TestBranchesCommand:
 
     def test_list_branches_with_multiple(self, mock_handler):
         """Test listing branches when multiple branches exist."""
-        parsed_cmd = ParsedCommand(name="branches", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branches", args=[], kwargs={}, raw_input="/branches()")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -354,7 +354,7 @@ class TestBranchesCommand:
 
     def test_list_branches_single_branch(self, mock_handler):
         """Test listing branches when only main branch exists."""
-        parsed_cmd = ParsedCommand(name="branches", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branches", args=[], kwargs={}, raw_input="/branches()")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -371,7 +371,7 @@ class TestBranchesCommand:
 
     def test_list_branches_no_conversation(self, mock_handler):
         """Test listing branches when no conversation exists."""
-        parsed_cmd = ParsedCommand(name="branches", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branches", args=[], kwargs={}, raw_input="/branches()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -412,7 +412,7 @@ class TestBranchDeleteCommand:
 
     def test_delete_existing_branch(self, mock_handler):
         """Test deleting an existing branch."""
-        parsed_cmd = ParsedCommand(name="branch_delete", args=["experiment1"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_delete", args=["experiment1"], kwargs={}, raw_input="/branch_delete(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -429,7 +429,7 @@ class TestBranchDeleteCommand:
 
     def test_delete_nonexistent_branch(self, mock_handler):
         """Test deleting a branch that doesn't exist."""
-        parsed_cmd = ParsedCommand(name="branch_delete", args=["nonexistent"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_delete", args=["nonexistent"], kwargs={}, raw_input="/branch_delete(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -446,7 +446,7 @@ class TestBranchDeleteCommand:
 
     def test_delete_main_branch(self, mock_handler):
         """Test attempting to delete the main branch."""
-        parsed_cmd = ParsedCommand(name="branch_delete", args=["main"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_delete", args=["main"], kwargs={}, raw_input="/branch_delete(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -463,7 +463,7 @@ class TestBranchDeleteCommand:
 
     def test_delete_current_branch(self, mock_handler):
         """Test attempting to delete the currently active branch."""
-        parsed_cmd = ParsedCommand(name="branch_delete", args=["current_branch"], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_delete", args=["current_branch"], kwargs={}, raw_input="/branch_delete(...)")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -480,7 +480,7 @@ class TestBranchDeleteCommand:
 
     def test_delete_without_branch_name(self, mock_handler):
         """Test branch_delete command without branch name argument."""
-        parsed_cmd = ParsedCommand(name="branch_delete", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branch_delete", args=[], kwargs={}, raw_input="/branch_delete()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -532,7 +532,7 @@ class TestBranchingWorkflows:
         ]
         
         for cmd_name, args, expected_msg in commands_and_results:
-            parsed_cmd = ParsedCommand(name=cmd_name, args=args, kwargs={})
+            parsed_cmd = ParsedCommand(command=cmd_name, args=args, kwargs={})
             
             mock_handler.handle.return_value = CommandResult(
                 success=True,
@@ -547,7 +547,7 @@ class TestBranchingWorkflows:
     def test_branch_isolation(self, mock_handler):
         """Test that branches maintain isolation from each other."""
         # Test that operations in one branch don't affect others
-        parsed_cmd = ParsedCommand(name="branches", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="branches", args=[], kwargs={}, raw_input="/branches()")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,

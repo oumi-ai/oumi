@@ -113,6 +113,10 @@ class ChatTestSession:
         self.mock_engine: Optional[Mock] = None
         self.mock_console: Optional[Mock] = None
         self.command_context: Optional[CommandContext] = None
+        
+        # Session state
+        self._session_active: bool = False
+        self._current_conversation: Optional[Conversation] = None
 
     @contextmanager
     def mock_interactive_session(self):
@@ -165,15 +169,15 @@ class ChatTestSession:
             Result of command execution.
         """
         parser = CommandParser()
-        router = CommandRouter()
+        router = CommandRouter(self.command_context)
         
         # Parse the command
-        parsed_command = parser.parse(command)
+        parsed_command = parser.parse_command(command)
         if parsed_command is None:
             result = CommandResult(success=False, message=f"Failed to parse command: {command}")
         else:
             # Execute the command
-            result = router.execute(parsed_command, self.command_context)
+            result = router.handle_command(parsed_command)
         
         # Record in history
         self.command_history.append((command, result))
@@ -294,10 +298,121 @@ class ChatTestSession:
             f"Expected role {expected_role}, got {last_msg.role}"
         )
 
+    def start_session(self) -> CommandResult:
+        """Start a new chat session.
+        
+        Returns:
+            Command result indicating session start status.
+        """
+        if self._session_active:
+            return CommandResult(
+                success=False,
+                message="Session is already active. End current session first."
+            )
+        
+        self._session_active = True
+        self._current_conversation = Conversation(
+            conversation_id=f"test_session_{len(self.conversation_history)}",
+            messages=[]
+        )
+        
+        return CommandResult(
+            success=True,
+            message="Chat session started successfully"
+        )
+
+    def end_session(self) -> CommandResult:
+        """End the current chat session.
+        
+        Returns:
+            Command result indicating session end status.
+        """
+        if not self._session_active:
+            return CommandResult(
+                success=False,
+                message="No active session to end"
+            )
+        
+        if self._current_conversation and self._current_conversation.messages:
+            self.conversation_history.append(self._current_conversation)
+        
+        self._session_active = False
+        self._current_conversation = None
+        
+        return CommandResult(
+            success=True,
+            message="Chat session ended successfully"
+        )
+
+    def is_active(self) -> bool:
+        """Check if the chat session is currently active.
+        
+        Returns:
+            True if session is active, False otherwise.
+        """
+        return self._session_active
+
+    def send_message(self, message: str) -> CommandResult:
+        """Send a message in the chat session and get response.
+        
+        Args:
+            message: User message to send.
+            
+        Returns:
+            Command result with assistant response.
+        """
+        if not self._session_active:
+            return CommandResult(
+                success=False,
+                message="No active session. Start a session first."
+            )
+        
+        if not self._current_conversation:
+            self._current_conversation = Conversation(
+                conversation_id=f"conversation_{len(self.conversation_history)}",
+                messages=[]
+            )
+        
+        # Add user message
+        user_message = Message(role=Role.USER, content=message)
+        self._current_conversation.messages.append(user_message)
+        
+        # Generate mock assistant response
+        assistant_response = f"Mock assistant response to: {message[:50]}..."
+        assistant_message = Message(role=Role.ASSISTANT, content=assistant_response)
+        self._current_conversation.messages.append(assistant_message)
+        
+        return CommandResult(
+            success=True,
+            message=assistant_response
+        )
+
+    def execute_command(self, command: str) -> CommandResult:
+        """Execute a chat command.
+        
+        Args:
+            command: Command string to execute.
+            
+        Returns:
+            Command result from execution.
+        """
+        # Delegate to existing inject_command method
+        return self.inject_command(command)
+
+    def get_conversation(self) -> Optional[Conversation]:
+        """Get the current conversation.
+        
+        Returns:
+            Current conversation if active, None otherwise.
+        """
+        return self._current_conversation
+
     def clear_history(self):
         """Clear all conversation and command history."""
         self.conversation_history.clear()
         self.command_history.clear()
+        self._session_active = False
+        self._current_conversation = None
         if self.output_capture:
             self.output_capture.outputs.clear()
             self.output_capture.console_output.clear()

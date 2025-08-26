@@ -156,7 +156,7 @@ class TestAttachCommand:
 
     def test_attach_without_file_argument(self, mock_handler):
         """Test attach command without file argument."""
-        parsed_cmd = ParsedCommand(name="attach", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="attach", args=[], kwargs={}, raw_input="/attach()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -349,7 +349,7 @@ class TestFetchCommand:
 
     def test_fetch_without_url(self, mock_handler):
         """Test fetch command without URL argument."""
-        parsed_cmd = ParsedCommand(name="fetch", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="fetch", args=[], kwargs={}, raw_input="/fetch()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -473,7 +473,7 @@ class TestSaveCommand:
 
     def test_save_without_filename(self, mock_handler):
         """Test save command without filename argument."""
-        parsed_cmd = ParsedCommand(name="save", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="save", args=[], kwargs={}, raw_input="/save()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -606,7 +606,7 @@ class TestShellCommand:
 
     def test_shell_without_command(self, mock_handler):
         """Test shell command without command argument."""
-        parsed_cmd = ParsedCommand(name="shell", args=[], kwargs={})
+        parsed_cmd = ParsedCommand(command="shell", args=[], kwargs={}, raw_input="/shell()")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
