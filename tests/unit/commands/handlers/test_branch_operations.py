@@ -547,7 +547,7 @@ class TestBranchingWorkflows:
         ]
         
         for cmd_name, args, expected_msg in commands_and_results:
-            parsed_cmd = ParsedCommand(command=cmd_name, args=args, kwargs={}, raw_input=f"/{cmd_name}(..., raw_input=f"/{cmd_name}(..., raw_input=f"/{cmd_name}(...)")")")
+            parsed_cmd = ParsedCommand(command=cmd_name, args=args, kwargs={}, raw_input=f"/{cmd_name}(...)")
             
             mock_handler.handle.return_value = CommandResult(
                 success=True,

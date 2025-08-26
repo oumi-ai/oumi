@@ -196,7 +196,7 @@ class TestCommandRouter:
         }
         
         for command_name, expected_handler_type in command_to_handler_mapping.items():
-            parsed_cmd = ParsedCommand(command=command_name, args=[], kwargs={}, raw_input="/command_name(, raw_input=f"/{command_name}(...)")")
+            parsed_cmd = ParsedCommand(command=command_name, args=[], kwargs={}, raw_input=f"/{command_name}(...)")
             
             with patch('oumi.core.commands.handlers') as mock_handlers:
                 # Set up mock to track which handler type would be selected
