@@ -16,7 +16,10 @@ import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+if TYPE_CHECKING:
+    from oumi.core.configs.training_config import TrainingConfig
 
 import transformers
 import trl
@@ -25,7 +28,6 @@ from oumi.core.configs.params.base_params import BaseParams
 from oumi.core.configs.params.grpo_params import GrpoParams
 from oumi.core.configs.params.profiler_params import ProfilerParams
 from oumi.core.configs.params.telemetry_params import TelemetryParams
-from oumi.utils.logging import logger
 from oumi.utils.str_utils import sanitize_run_name
 
 
@@ -44,6 +46,13 @@ class TrainerType(Enum):
 
     This trainer implements the Direct Preference Optimization algorithm
     for fine-tuning language models based on human preferences.
+    """
+
+    TRL_KTO = "trl_kto"
+    """Kahneman-Tversky Optimization trainer from `trl` library.
+
+    This trainer implements the KTO algorithm for fine-tuning language models
+    based on binary feedback (desirable/undesirable) rather than preference pairs.
     """
 
     TRL_GRPO = "trl_grpo"
@@ -163,6 +172,7 @@ class TrainingParams(BaseParams):
     - HF: HuggingFace's Trainer
     - TRL_SFT: TRL's SFT Trainer
     - TRL_DPO: TRL's DPO Trainer
+    - TRL_KTO: TRL's KTO Trainer
     - TRL_GRPO: TRL's GRPO Trainer
     - OUMI: Custom generic trainer implementation
     - VERL_GRPO: verl's GRPO Trainer
@@ -692,30 +702,7 @@ class TrainingParams(BaseParams):
     not satisfactory, or for new models not yet fully-integrated by Oumi.
     """
 
-    # ---------------------
-    # Sequence packing params.
-    # ---------------------
-    packing: bool = False
-    """Whether to enable sequence packing for efficient training.
-
-    When enabled, multiple examples are concatenated into a single sequence
-    up to the maximum sequence length, reducing padding and improving efficiency.
-    This is particularly beneficial for datasets with variable-length sequences.
-    """
-
-    packing_strategy: str = "wrapped"
-    """Strategy for sequence packing when packing=True.
-
-    Options:
-    - "wrapped": Pack sequences end-to-end with attention masking (recommended)
-    - "truncated": Pack sequences but truncate if they exceed max length
-    - "padded": Pack sequences with padding between examples
-
-    The "wrapped" strategy provides the best efficiency while maintaining
-    proper attention boundaries between examples.
-    """
-
-    def to_hf(self, training_config=None):
+    def to_hf(self, training_config: Optional["TrainingConfig"] = None):
         """Converts Oumi config to HuggingFace's TrainingArguments.
 
         Args:
@@ -753,41 +740,14 @@ class TrainingParams(BaseParams):
             config_class = trl.SFTConfig
         elif self.trainer_type == TrainerType.TRL_DPO:
             config_class = trl.DPOConfig
+        elif self.trainer_type == TrainerType.TRL_KTO:
+            config_class = trl.KTOConfig
         elif self.trainer_type == TrainerType.TRL_GRPO:
             config_class = trl.GRPOConfig
         else:
             config_class = transformers.TrainingArguments
 
         trainer_kwargs = copy.deepcopy(self.trainer_kwargs)
-
-        # Add packing configuration for TRL trainers
-        if self.trainer_type in [TrainerType.TRL_SFT, TrainerType.TRL_DPO]:
-            if self.packing:
-                # Prevent conflicts with user-specified packing in trainer_kwargs
-                if "packing" in trainer_kwargs:
-                    logger.warning(
-                        "Both training.packing and trainer_kwargs.packing are specified. "
-                        "Using trainer_kwargs.packing value."
-                    )
-                else:
-                    trainer_kwargs["packing"] = self.packing
-
-                # Add packing strategy if not already specified
-                if "dataset_kwargs" not in trainer_kwargs:
-                    trainer_kwargs["dataset_kwargs"] = {}
-                if "packing_strategy" not in trainer_kwargs["dataset_kwargs"]:
-                    trainer_kwargs["dataset_kwargs"]["packing_strategy"] = (
-                        self.packing_strategy
-                    )
-
-                # Disable data_collator when packing is enabled to avoid conflicts
-                # TRL will handle data collation internally for packed sequences
-                if "data_collator" not in trainer_kwargs:
-                    trainer_kwargs["data_collator"] = None
-                    logger.info(
-                        "Packing enabled: data_collator set to None to avoid conflicts. "
-                        "TRL will handle data collation for packed sequences."
-                    )
 
         # Add DeepSpeed configuration if enabled
         # NOTE: DeepSpeed config is passed directly to trainer_kwargs instead of through

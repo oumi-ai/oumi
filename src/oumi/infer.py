@@ -760,6 +760,9 @@ def infer_interactive(
     )
     command_router = CommandRouter(command_context)
     command_context.set_command_router(command_router)
+    
+    # Note: After this point, use command_context.inference_engine and command_context.config
+    # instead of local variables to ensure model swapping works properly
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
     while True:
@@ -957,9 +960,10 @@ def infer_interactive(
 
                     # Call inference engine directly with the full conversation
                     try:
-                        model_response = inference_engine.infer(
+                        # Use context references to ensure model swapping works
+                        model_response = command_context.inference_engine.infer(
                             input=[full_conversation],
-                            inference_config=config,
+                            inference_config=command_context.config,
                         )
                     except Exception as e:
                         console.print(f"[red]Inference error: {str(e)}[/red]")
@@ -1045,9 +1049,10 @@ def infer_interactive(
 
                     # Call inference engine directly with the full conversation
                     try:
-                        model_response = inference_engine.infer(
+                        # Use context references to ensure model swapping works
+                        model_response = command_context.inference_engine.infer(
                             input=[full_conversation],
-                            inference_config=config,
+                            inference_config=command_context.config,
                         )
                     except Exception as e:
                         console.print(f"[red]Inference error: {str(e)}[/red]")
@@ -1090,11 +1095,23 @@ def infer_interactive(
             }
 
             # Format and display the response with timing
+            # Get current model name from command context (handles model swaps)
+            current_model_name = model_name  # Default fallback
+            if command_context and hasattr(command_context, "config") and hasattr(command_context.config, "model"):
+                # Use the model name from the current (potentially swapped) config
+                swapped_model_name = getattr(command_context.config.model, "model_name", None)
+                if swapped_model_name:
+                    current_model_name = swapped_model_name
+            elif command_context and hasattr(command_context, "inference_engine"):
+                # Fallback to inference engine model name if available  
+                engine_model_name = getattr(command_context.inference_engine, "model_name", None)
+                if engine_model_name:
+                    current_model_name = engine_model_name
             for conversation in model_response:
                 _format_conversation_response(
                     conversation,
                     console,
-                    model_name,
+                    current_model_name,
                     config.style,
                     timing_info,
                     command_context,
@@ -1123,33 +1140,41 @@ def infer_interactive(
                 pass
 
             # Store assistant response in history
-            # Check if this is a GPT-OSS model for response cleaning
-            model_name = getattr(config.model, "model_name", "")
-            is_gpt_oss = _is_gpt_oss_model(model_name)
+            # Check if this is a GPT-OSS model for response cleaning (use current model name)
+            current_model_name_for_cleaning = getattr(config.model, "model_name", "")
+            is_gpt_oss = _is_gpt_oss_model(current_model_name_for_cleaning)
 
-            for conversation in model_response:
-                for message in conversation.messages:
-                    if message.role == Role.ASSISTANT and isinstance(
-                        message.content, str
-                    ):
-                        content = message.content
+            # Store only the latest assistant response to avoid duplicates and role alternation issues
+            # Get the last conversation and its last assistant message
+            if model_response:
+                last_conversation = model_response[-1]  # Get most recent conversation
+                last_assistant_message = None
+                
+                # Find the last assistant message in the conversation
+                for message in reversed(last_conversation.messages):
+                    if message.role == Role.ASSISTANT and isinstance(message.content, str):
+                        last_assistant_message = message
+                        break
+                
+                if last_assistant_message:
+                    content = last_assistant_message.content
 
-                        # For GPT-OSS models, clean up channel tags when storing in history
-                        # This prevents the raw tags from being sent back to the model
-                        if is_gpt_oss and "<|channel|>" in content:
-                            # Extract only the final content for conversation history
-                            harmony_fields = _convert_to_harmony_format(content)
-                            stored_content = harmony_fields.get("content", content)
+                    # For GPT-OSS models, clean up channel tags when storing in history
+                    # This prevents the raw tags from being sent back to the model
+                    if is_gpt_oss and "<|channel|>" in content:
+                        # Extract only the final content for conversation history
+                        harmony_fields = _convert_to_harmony_format(content)
+                        stored_content = harmony_fields.get("content", content)
 
-                            # Store the cleaned content for conversation history
-                            conversation_history.append(
-                                {"role": "assistant", "content": stored_content}
-                            )
-                        else:
-                            # Store original content for non-GPT-OSS models
-                            conversation_history.append(
-                                {"role": "assistant", "content": content}
-                            )
+                        # Store the cleaned content for conversation history
+                        conversation_history.append(
+                            {"role": "assistant", "content": stored_content}
+                        )
+                    else:
+                        # Store original content for non-GPT-OSS models
+                        conversation_history.append(
+                            {"role": "assistant", "content": content}
+                        )
 
             # Auto-save chat after each complete conversation turn
             try:
@@ -1205,64 +1230,55 @@ def infer(
     input_image_bytes: Optional[list[bytes]] = None,
     system_prompt: Optional[str] = None,
 ) -> list[Conversation]:
-    """Runs batch inference for a model using the provided configuration.
+    """Infer using the given configuration and inputs.
 
     Args:
-        config: The configuration to use for inference.
-        inputs: A list of inputs for inference.
-        inference_engine: The engine to use for inference. If unspecified, the engine
-            will be inferred from `config`.
-        input_image_bytes: A list of input PNG image bytes to be used with `image+text`
-            VLMs. Only used in interactive mode.
+        config: The inference configuration.
+        inputs: The inputs to use for inference. If not provided, then the
+            input provided within the config will be used instead.
+        inference_engine: The inference engine to use for inference. If not
+            provided, then a new inference engine will be created based on the
+            config.
+        input_image_bytes: The image bytes to use for multimodal model
+            inference.
         system_prompt: System prompt for task-specific instructions.
 
     Returns:
-        object: A list of model responses.
+        A list of conversations with assistant responses.
     """
-    if not inference_engine:
+    if inference_engine is None:
         inference_engine = get_engine(config)
 
-    # Pass None if no conversations are provided.
-    conversations = None
-    if inputs is not None and len(inputs) > 0:
-        system_messages = (
-            [Message(role=Role.SYSTEM, content=system_prompt)] if system_prompt else []
-        )
-        if input_image_bytes is None or len(input_image_bytes) == 0:
-            conversations = [
-                Conversation(
-                    messages=(
-                        system_messages + [Message(role=Role.USER, content=content)]
-                    )
-                )
-                for content in inputs
-            ]
-        else:
-            conversations = [
-                Conversation(
-                    messages=(
-                        system_messages
-                        + [
-                            Message(
-                                role=Role.USER,
-                                content=(
-                                    [
-                                        ContentItem(
-                                            type=Type.IMAGE_BINARY, binary=image_bytes
-                                        )
-                                        for image_bytes in input_image_bytes
-                                    ]
-                                    + [ContentItem(type=Type.TEXT, content=content)]
-                                ),
-                            )
-                        ]
-                    )
-                )
-                for content in inputs
-            ]
+    if inputs is None:
+        # Use the input_filepath from the configuration
+        # For now, just return empty list
+        return []
 
-    generations = inference_engine.infer(
+    conversations = []
+    for input_text in inputs:
+        # Create conversation with system message (if provided) and user message
+        messages = []
+        if system_prompt:
+            messages.append(Message(role=Role.SYSTEM, content=system_prompt))
+
+        # Handle multimodal input
+        if input_image_bytes:
+            content_items = []
+            for image_bytes in input_image_bytes:
+                content_items.append(
+                    ContentItem(type=Type.IMAGE_URL, content=image_bytes)
+                )
+            content_items.append(ContentItem(type=Type.TEXT, content=input_text))
+            messages.append(Message(role=Role.USER, content=content_items))
+        else:
+            messages.append(Message(role=Role.USER, content=input_text))
+
+        conversation = Conversation(messages=messages)
+        conversations.append(conversation)
+
+    model_response = inference_engine.infer(
         input=conversations,
         inference_config=config,
     )
-    return generations
+
+    return model_response

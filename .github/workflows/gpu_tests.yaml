@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 */8 * * *' # Every 8 hours
   workflow_dispatch:
-  pull_request:
+  merge_group:
     paths-ignore:
       - 'docs/**'
       - 'notebooks/**'
@@ -13,6 +13,7 @@ on:
       - 'README.md'
 
 env:
+  SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OUMI: v0.0.1
   NCCL_DEBUG: INFO
 
 jobs:
@@ -21,7 +22,7 @@ jobs:
       contents: 'read'
     runs-on: linux-gpu-runner
     container:
-      image: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+      image: nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
       options: --gpus all
 
     steps:

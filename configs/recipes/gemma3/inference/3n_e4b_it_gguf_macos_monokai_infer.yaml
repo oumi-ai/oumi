@@ -1,0 +1,70 @@
+# LlamaCPP Inference config for Gemma-3n-E4B-it GGUF (macOS compatible) with Monokai theme styling.
+# This config uses the popular Monokai color scheme familiar to developers.
+#
+# Requirements:
+#   - Run `pip install oumi`
+#
+# Usage:
+#   # 1. Download the GGUF file to current working directory:
+#   huggingface-cli download unsloth/gemma-3n-E4B-it-GGUF \
+#     gemma-3n-E4B-it-UD-Q5_K_XL.gguf --local-dir .
+#
+#   # 2. Run inference:
+#   oumi infer -i -c configs/recipes/gemma3/inference/3n_e4b_it_gguf_macos_monokai_theme.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "unsloth/gemma-3n-E4B-it-GGUF"
+  tokenizer_name: "google/gemma-3n-E4B-it"
+  model_max_length: 16384
+  torch_dtype_str: "float16"
+  trust_remote_code: True
+  model_kwargs:
+    filename: "gemma-3n-E4B-it-UD-Q5_K_XL.gguf"
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.7
+  top_p: 0.9
+  min_p: 0.0
+  use_sampling: True
+  presence_penalty: 0.0
+
+engine: LLAMACPP
+
+# Monokai theme with developer-familiar colors
+style:
+  theme_name: "monokai"
+  welcome_style: "bold #ae81ff"  # Monokai purple
+  welcome_border_style: "#ae81ff"
+  user_prompt_style: "bold #66d9ef"  # Monokai blue
+  assistant_title_style: "bold #a6e22e"  # Monokai green
+  assistant_border_style: "#a6e22e"
+  assistant_text_style: "#f8f8f2"  # Monokai foreground
+  assistant_padding: [1, 2]
+  status_style: "bold #a6e22e"  # Monokai green
+  error_style: "#f92672"  # Monokai red
+  error_title_style: "bold #f92672"
+  error_border_style: "#f92672"
+  analysis_text_style: "#66d9ef"  # Monokai blue
+  analysis_title_style: "bold #fd971f"  # Monokai orange
+  analysis_border_style: "#fd971f"
+  response_text_style: "#f8f8f2"  # Monokai foreground
+  response_title_style: "bold #a6e22e"  # Monokai green
+  response_border_style: "#a6e22e"
+  use_emoji: true
+  expand_panels: false
+  panel_box_style: "rounded"
+  code_theme: "monokai"  # Consistent code highlighting
+  # System monitor colors (theme-aware)
+  monitor_low_usage_color: "#a6e22e"     # Monokai green
+  monitor_medium_usage_color: "#66d9ef"  # Monokai blue  
+  monitor_high_usage_color: "#fd971f"    # Monokai orange
+  monitor_critical_usage_color: "#f92672" # Monokai red
+  monitor_label_style: "bold #ae81ff"    # Monokai purple
+  monitor_value_style: "#f8f8f2"         # Monokai foreground

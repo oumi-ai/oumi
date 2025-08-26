@@ -16,19 +16,14 @@
 
 model:
   model_name: "openai/gpt-oss-120b"
-  model_max_length: 32768  # Context window size
   torch_dtype_str: "bfloat16"
   trust_remote_code: true
   chat_template: "auto"  # Use model's built-in chat template
-  attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
-  enable_hf_kernels: true  # Enable HF kernels for optimal FA3 performance
 
   # Enable MXFP4 quantization for efficient inference
   model_kwargs:
     quantization_config:
       quant_method: "mxfp4"
-      bits: 4
-      group_size: 128
 
 # Use vLLM engine for local inference
 engine: VLLM

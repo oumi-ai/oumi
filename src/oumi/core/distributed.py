@@ -460,31 +460,6 @@ def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
     return config.deepspeed.is_zero3_enabled()
 
 
-def create_deepspeed_config_file(config: TrainingConfig, output_path: str) -> str:
-    """Create a DeepSpeed configuration file from training config.
-
-    Args:
-        config: The training configuration containing DeepSpeed parameters.
-        output_path: Path where to save the generated DeepSpeed config file.
-
-    Returns:
-        str: Path to the created configuration file.
-    """
-    import json
-    from pathlib import Path
-
-    deepspeed_config = config.deepspeed.to_deepspeed_config()
-
-    output_path_obj = Path(output_path)
-    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(output_path_obj, "w") as f:
-        json.dump(deepspeed_config, f, indent=2, sort_keys=True)
-
-    logger.info(f"Created DeepSpeed configuration file: {output_path_obj}")
-    return str(output_path_obj)
-
-
 def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict]:
     """Get DeepSpeed configuration as file path or dictionary.
 
@@ -497,7 +472,7 @@ def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict
     if config.deepspeed.deepspeed_config_path is not None:
         return str(config.deepspeed.deepspeed_config_path)
     else:
-        return config.deepspeed.to_deepspeed_config()
+        return config.deepspeed.to_deepspeed()
 
 
 def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:

@@ -12,6 +12,9 @@ results/
 # Local model checkpoints
 models/
 
+# Pyright Config
+pyrightconfig.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

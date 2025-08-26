@@ -33,7 +33,12 @@ from oumi.utils.peft_utils import get_lora_rank
 
 try:
     import vllm  # pyright: ignore[reportMissingImports]
-    from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+
+    try:
+        from vllm.config import ModelDType  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        # For compatibility with newer vLLM versions
+        ModelDType = str  # type: ignore
     from vllm.entrypoints.chat_utils import (  # pyright: ignore[reportMissingImports]
         ChatCompletionMessageParam,
     )
@@ -140,7 +145,9 @@ class VLLMInferenceEngine(BaseInferenceEngine):
             vllm_kwargs["load_format"] = "bitsandbytes"
             logger.info("VLLM engine loading a `bitsandbytes` quantized model.")
         elif quantization and quantization == "mxfp4":
-            # For MXFP4, set quantization in vllm_kwargs and clear the quantization variable
+            # logic may not be needed; to be cleaned up after the next vllm patch
+            # version release if possible
+            # For MXFP4, set quantization in vllm_kwargs and clear variable
             # to avoid passing it twice
             vllm_kwargs["quantization"] = "mxfp4"
             quantization = None  # Avoid double setting
@@ -187,14 +194,13 @@ class VLLMInferenceEngine(BaseInferenceEngine):
                 f"Supported methods are: {supported_quantization_methods}."
             )
 
-        self._llm = vllm.LLM(
+        final_vllm_kwargs = dict(
             model=model_params.model_name,
             tokenizer=model_params.tokenizer_name,
             trust_remote_code=model_params.trust_remote_code,
-            dtype=cast(ModelDType, model_params.torch_dtype_str),
+            dtype=cast(ModelDType, model_params.torch_dtype_str),  # pyright: ignore[reportInvalidTypeForm]
             # TODO: these params should be settable via config,
             # but they don't belong to model_params
-            quantization=cast(QuantizationMethods, quantization),
             tensor_parallel_size=tensor_parallel_size,
             enable_prefix_caching=enable_prefix_caching,
             enable_lora=self._lora_request is not None,
@@ -208,7 +214,7 @@ class VLLMInferenceEngine(BaseInferenceEngine):
         if quantization is not None and "quantization" not in vllm_kwargs:
             final_vllm_kwargs["quantization"] = quantization
 
-        self._llm = vllm.LLM(**final_vllm_kwargs)
+        self._llm = vllm.LLM(**final_vllm_kwargs)  # pyright: ignore[reportArgumentType]
         # Ensure the tokenizer is set properly
         self._llm.set_tokenizer(self._tokenizer)
 

@@ -264,6 +264,7 @@ def train(
     config: TrainingConfig,
     additional_model_kwargs: Optional[dict[str, Any]] = None,
     additional_trainer_kwargs: Optional[dict[str, Any]] = None,
+    verbose: bool = False,
 ) -> None:
     """Trains a model using the provided configuration."""
     _START_TIME = time.time()
@@ -280,10 +281,29 @@ def train(
 
     config = _finalize_training_config(config)
 
+    # Check for potential multi-node DeepSpeed ZeRO-3 saving issue early
+    if (
+        config.deepspeed
+        and config.deepspeed.is_zero3_enabled()
+        and config.deepspeed.stage3_gather_16bit_weights_on_model_save
+        and get_device_rank_info().world_size > get_device_rank_info().local_world_size
+    ):
+        logger.warning(
+            "⚠️  Multi-node DeepSpeed ZeRO-3 model saving detected with "
+            "stage3_gather_16bit_weights_on_model_save=True. This can cause hangs "
+            "during weight gathering across nodes. Consider setting "
+            "stage3_gather_16bit_weights_on_model_save=False and using "
+            "zero_to_fp32.py for post-training conversion. "
+            "See: https://github.com/microsoft/DeepSpeed/issues/2450"
+        )
+
     if is_local_process_zero():
-        logger.info(f"TrainingConfig:\n{pformat(config)}")
+        if verbose:
+            logger.info(f"TrainingConfig:\n{pformat(config)}")
         if telemetry_dir and is_world_process_zero():
-            config.to_yaml(str(telemetry_dir / "training_config.yaml"))
+            config_path = telemetry_dir / "training_config.yaml"
+            config.to_yaml(str(config_path))
+            logger.info(f"Training config saved to {config_path}")
 
     # Initialize tokenizer and processor.
     tokenizer: Optional[BaseTokenizer] = None
@@ -365,7 +385,9 @@ def train(
     # 1. It uses Ray
     # 2. Some of the setup below is not applicable.
     if config.training.trainer_type == TrainerType.VERL_GRPO:
-        create_trainer_fn = build_trainer(trainer_type, processor=processor)
+        create_trainer_fn = build_trainer(
+            trainer_type, processor=processor, verbose=verbose
+        )
 
         # We don't initialize the trainer here because it needs to run in a remote Ray
         # function.
@@ -458,7 +480,7 @@ def train(
 
     # Train model
     create_trainer_fn: Callable[..., BaseTrainer] = build_trainer(
-        trainer_type, processor=processor
+        trainer_type, processor=processor, verbose=verbose
     )
 
     # Reclaim memory before training starts.
@@ -534,23 +556,6 @@ def train(
         barrier()
 
         logger.info("Saving final model...")
-
-        # Check for potential multi-node DeepSpeed ZeRO-3 saving issue
-        if (
-            config.deepspeed
-            and config.deepspeed.is_zero3_enabled()
-            and config.deepspeed.stage3_gather_16bit_weights_on_model_save
-            and get_device_rank_info().world_size
-            > get_device_rank_info().local_world_size
-        ):
-            logger.warning(
-                "⚠️  Multi-node DeepSpeed ZeRO-3 model saving detected with "
-                "stage3_gather_16bit_weights_on_model_save=True. This can cause hangs "
-                "during weight gathering across nodes. Consider setting "
-                "stage3_gather_16bit_weights_on_model_save=False and using "
-                "zero_to_fp32.py for post-training conversion. "
-                "See: https://github.com/microsoft/DeepSpeed/issues/2450"
-            )
 
         trainer.save_model(config=config)
 

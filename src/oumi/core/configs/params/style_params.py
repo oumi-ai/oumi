@@ -79,6 +79,31 @@ class StyleParams(BaseParams):
     status_style: str = "bold green"
     """Style for status messages (e.g., 'Thinking...')."""
 
+    status_title_style: Optional[str] = None
+    """Style for status panel titles (defaults to status_style)."""
+
+    status_border_style: Optional[str] = None
+    """Style for status panel borders (defaults to status_style without bold)."""
+
+    # System monitor color scheme
+    monitor_low_usage_color: str = "green"
+    """Color for low usage percentages (0-49%)."""
+
+    monitor_medium_usage_color: str = "cyan"
+    """Color for medium usage percentages (50-69%)."""
+
+    monitor_high_usage_color: str = "yellow"
+    """Color for high usage percentages (70-89%)."""
+
+    monitor_critical_usage_color: str = "red"
+    """Color for critical usage percentages (90-100%)."""
+
+    monitor_label_style: str = "bold cyan"
+    """Style for system monitor labels (CPU:, RAM:, etc.)."""
+
+    monitor_value_style: str = "white"
+    """Style for system monitor values when not colored by usage."""
+
     # User interaction styles
     user_prompt_style: str = "bold blue"
     """Style for user input prompts."""
@@ -190,6 +215,12 @@ class StyleParams(BaseParams):
                 "warning": "bright_yellow",
                 "success": "bright_green",
                 "info": "bright_blue",
+                "monitor_low": "bright_green",
+                "monitor_medium": "bright_cyan",
+                "monitor_high": "bright_yellow",
+                "monitor_critical": "bright_red",
+                "monitor_labels": "bold bright_cyan",
+                "monitor_values": "bright_white",
             },
             "light": {
                 "user_prompt": "bold blue",
@@ -199,6 +230,12 @@ class StyleParams(BaseParams):
                 "warning": "dark_orange",
                 "success": "green",
                 "info": "blue",
+                "monitor_low": "green",
+                "monitor_medium": "blue",
+                "monitor_high": "dark_orange",
+                "monitor_critical": "red",
+                "monitor_labels": "bold blue",
+                "monitor_values": "black",
             },
             "monokai": {
                 "user_prompt": "bold #66d9ef",  # Monokai blue
@@ -208,6 +245,12 @@ class StyleParams(BaseParams):
                 "warning": "#fd971f",  # Monokai orange
                 "success": "#a6e22e",  # Monokai green
                 "info": "#ae81ff",  # Monokai purple
+                "monitor_low": "#a6e22e",  # Monokai green
+                "monitor_medium": "#66d9ef",  # Monokai blue
+                "monitor_high": "#fd971f",  # Monokai orange
+                "monitor_critical": "#f92672",  # Monokai red
+                "monitor_labels": "bold #ae81ff",  # Monokai purple
+                "monitor_values": "#f8f8f2",  # Monokai foreground
             },
             "minimal": {
                 "user_prompt": "bold",
@@ -217,6 +260,12 @@ class StyleParams(BaseParams):
                 "warning": "yellow",
                 "success": "green",
                 "info": "blue",
+                "monitor_low": "green",
+                "monitor_medium": "blue",
+                "monitor_high": "yellow",
+                "monitor_critical": "red",
+                "monitor_labels": "bold",
+                "monitor_values": "white",
             },
             "neon": {
                 "user_prompt": "bold #00ffff",  # Cyan neon
@@ -226,6 +275,12 @@ class StyleParams(BaseParams):
                 "warning": "#ffff00",  # Yellow neon
                 "success": "#00ff00",  # Green neon
                 "info": "#0099ff",  # Blue neon
+                "monitor_low": "#00ff00",  # Green neon
+                "monitor_medium": "#00ffff",  # Cyan neon
+                "monitor_high": "#ffff00",  # Yellow neon
+                "monitor_critical": "#ff0066",  # Hot pink
+                "monitor_labels": "bold #ff00ff",  # Magenta neon
+                "monitor_values": "#ffffff",
             },
         }
         return themes.get(self.theme_name)

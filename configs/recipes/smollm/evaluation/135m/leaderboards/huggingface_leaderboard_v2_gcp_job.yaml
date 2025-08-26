@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #   - Request access to the GPQA dataset: https://huggingface.co/datasets/Idavidrein/gpqa
 #   - (optional) Mount a storage bucket below
 #

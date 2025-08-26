@@ -14,7 +14,7 @@ model:
   model_name: "Qwen/Qwen2.5-7B-Instruct"
   model_max_length: 131072  # Extended context length: 32768 * 4.0 = 131072
   torch_dtype_str: "bfloat16"
-  attn_implementation: "flash_attention"  # Auto-detects best available Flash Attention
+  # attn_implementation: "flash_attention_2"  # Match LIMO FA2
   load_pretrained_weights: True
   trust_remote_code: True
   enable_liger_kernel: True

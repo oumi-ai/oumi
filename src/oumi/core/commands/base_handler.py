@@ -153,16 +153,119 @@ class BaseCommandHandler(ABC):
         return total_chars // 4
 
     def _update_context_in_monitor(self):
-        """Update context usage in system monitor if available."""
+        """Update context usage and conversation turns in system monitor if available."""
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
             estimated_tokens = self._get_conversation_tokens()
-            max_context = getattr(self.config.model, "model_max_length", 4096)
+            
+            # Get max context from current config (which gets updated during model swaps)
+            # Use context.config to ensure we get the most up-to-date config
+            current_config = getattr(self.context, "config", self.config)
+            max_context = getattr(current_config.model, "model_max_length", None)
+            
+            # If no max_context found in config, try to get it using the engine-specific logic
+            if not max_context:
+                max_context = self._get_context_length_for_engine(current_config)
+            
+            # If still no max_context, try to get it from inference engine
+            if not max_context and hasattr(self.context, "inference_engine") and self.context.inference_engine:
+                engine_config = getattr(self.context.inference_engine, "model_config", None)
+                if engine_config:
+                    # Check various possible attribute names for context length
+                    for attr in ["model_max_length", "max_model_len", "max_tokens", "context_length"]:
+                        engine_context = getattr(engine_config, attr, None)
+                        if engine_context and engine_context > 0:
+                            max_context = engine_context
+                            break
+                
+                # Also check if the engine itself has a max_context attribute
+                if not max_context and hasattr(self.context.inference_engine, "max_context_length"):
+                    engine_max = getattr(self.context.inference_engine, "max_context_length", None)
+                    if engine_max and engine_max > 0:
+                        max_context = engine_max
+            
+            # Final fallback to prevent None values
+            if not max_context or max_context <= 0:
+                max_context = 4096
+            
             self.system_monitor.update_context_usage(estimated_tokens)
             if hasattr(self.system_monitor, "update_max_context_tokens"):
                 self.system_monitor.update_max_context_tokens(max_context)
 
+            # Also update conversation turn count (matches main inference loop logic)
+            if hasattr(self.system_monitor, "update_conversation_turns"):
+                assistant_messages = [
+                    msg for msg in self.conversation_history if msg.get("role") == "assistant"
+                ]
+                self.system_monitor.update_conversation_turns(len(assistant_messages))
+
         # Auto-save after context updates (conversation modifications)
         self._auto_save_if_enabled()
+
+    def _get_context_length_for_engine(self, config) -> int:
+        """Get the appropriate context length for the given engine configuration.
+        Args:
+            config: The inference configuration.
+        Returns:
+            Context length in tokens.
+        """
+        engine_type = str(config.engine) if config.engine else "NATIVE"
+        # For local engines, check model_max_length
+        if (
+            "NATIVE" in engine_type
+            or "VLLM" in engine_type
+            or "LLAMACPP" in engine_type
+        ):
+            max_length = getattr(config.model, "model_max_length", None)
+            if max_length is not None and max_length > 0:
+                return max_length
+        
+        # For API engines, use hardcoded context limits based on model patterns
+        model_name = getattr(config.model, "model_name", "").lower()
+        
+        # Anthropic context limits
+        if "ANTHROPIC" in engine_type or "claude" in model_name:
+            if "opus" in model_name:
+                return 200000  # Claude Opus
+            elif "sonnet" in model_name:
+                return 200000  # Claude 3.5 Sonnet / 3.7 Sonnet
+            elif "haiku" in model_name:
+                return 200000  # Claude Haiku
+            else:
+                return 200000  # Default for Claude models
+        
+        # OpenAI context limits
+        elif "OPENAI" in engine_type or "gpt" in model_name:
+            if "gpt-4o" in model_name:
+                return 128000  # GPT-4o
+            elif "gpt-4" in model_name:
+                return 128000  # GPT-4
+            elif "gpt-3.5" in model_name:
+                return 16385  # GPT-3.5-turbo
+            else:
+                return 128000  # Default for OpenAI models
+        
+        # Together AI context limits (varies by model)
+        elif "TOGETHER" in engine_type:
+            if "llama" in model_name:
+                if "405b" in model_name:
+                    return 131072  # Llama 3.1 405B
+                elif any(x in model_name for x in ["70b", "8b"]):
+                    return 131072  # Llama 3.1 70B/8B
+                else:
+                    return 32768   # Default Llama
+            elif "deepseek" in model_name:
+                return 32768  # DeepSeek models
+            elif "qwen" in model_name:
+                return 32768  # Qwen models
+            else:
+                return 32768  # Default for Together models
+        
+        # Other API engines - return reasonable defaults
+        elif any(x in engine_type for x in ["DEEPSEEK", "GOOGLE", "GEMINI"]):
+            return 128000  # Default for other API models
+        
+        # If we can't determine, return None to continue fallback chain
+        return None
 
     def _auto_save_if_enabled(self):
         """Auto-save chat if enabled and available."""

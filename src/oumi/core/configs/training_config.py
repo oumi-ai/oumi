@@ -20,7 +20,7 @@ import torch
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.params.data_params import DataParams
-from oumi.core.configs.params.ds_params import DSParams
+from oumi.core.configs.params.deepspeed_params import DeepSpeedParams
 from oumi.core.configs.params.fsdp_params import FSDPParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.peft_params import PeftParams
@@ -76,13 +76,14 @@ class TrainingConfig(BaseConfig):
     fsdp: FSDPParams = field(default_factory=FSDPParams)
     """Parameters for FSDP."""
 
-    deepspeed: DSParams = field(default_factory=DSParams)
+    deepspeed: DeepSpeedParams = field(default_factory=DeepSpeedParams)
     """Parameters for DeepSpeed distributed training.
 
     This field contains configuration options for DeepSpeed ZeRO optimization
     stages, memory offloading, and other DeepSpeed-specific settings.
 
-    For more details, see :class:`oumi.core.configs.params.ds_params.DSParams`.
+    For more details, see
+    :class:`oumi.core.configs.params.deepspeed_params.DeepSpeedParams`.
     """
 
     def __post_init__(self):
@@ -106,6 +107,26 @@ class TrainingConfig(BaseConfig):
                 "Please enable only one distributed training method."
             )
 
+        # Validate DeepSpeed batch size configuration for TRL trainers
+        trainer_type: Final[TrainerType] = self.training.trainer_type
+        if (
+            self.deepspeed.enable_deepspeed
+            and trainer_type
+            in (
+                TrainerType.TRL_SFT,
+                TrainerType.TRL_DPO,
+                TrainerType.TRL_KTO,
+                TrainerType.TRL_GRPO,
+            )
+            and self.deepspeed.train_batch_size != "auto"
+        ):
+            raise ValueError(
+                f"When using TRL trainer ({trainer_type}) with DeepSpeed, "
+                "train_batch_size must be set to 'auto' to allow proper batch size "
+                "management. "
+                f"Current value: {self.deepspeed.train_batch_size}"
+            )
+
         # Verify values for model dtype and mixed precision training.
         if self.training.mixed_precision_dtype in [
             MixedPrecisionDtype.FP16,
@@ -115,8 +136,6 @@ class TrainingConfig(BaseConfig):
                 raise ValueError(
                     "Model must be loaded in fp32 to enable mixed precision training."
                 )
-
-        trainer_type: Final[TrainerType] = self.training.trainer_type
 
         # Check values for model sequence length.
         if self.model.model_max_length and self.model.model_max_length > 0:

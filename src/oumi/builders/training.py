@@ -28,13 +28,14 @@ from oumi.utils.logging import logger
 
 
 def build_trainer(
-    trainer_type: TrainerType, processor: Optional[BaseProcessor]
+    trainer_type: TrainerType, processor: Optional[BaseProcessor], verbose: bool = False
 ) -> Callable[..., BaseTrainer]:
     """Builds a trainer creator functor based on the provided configuration.
 
     Args:
         trainer_type (TrainerType): Enum indicating the type of training.
         processor: An optional processor.
+        verbose (bool): Whether to enable verbose logging of training arguments.
 
     Returns:
         A builder function that can create an appropriate trainer based on the trainer
@@ -59,7 +60,7 @@ def build_trainer(
                 training_args.finalize_and_validate()
 
             hf_args = training_args.to_hf(training_config)
-            if is_world_process_zero():
+            if verbose and is_world_process_zero():
                 logger.info(pformat(hf_args))
             trainer = HuggingFaceTrainer(cls(*args, **kwargs, args=hf_args), processor)
             if callbacks:
@@ -105,6 +106,8 @@ def build_trainer(
         return _create_hf_builder_fn(trl.SFTTrainer)
     elif trainer_type == TrainerType.TRL_DPO:
         return _create_hf_builder_fn(trl.DPOTrainer)
+    elif trainer_type == TrainerType.TRL_KTO:
+        return _create_hf_builder_fn(trl.KTOTrainer)
     elif trainer_type == TrainerType.TRL_GRPO:
         return _create_hf_builder_fn(trl.GRPOTrainer)
     elif trainer_type == TrainerType.HF:

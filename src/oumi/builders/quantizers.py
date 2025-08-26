@@ -37,21 +37,17 @@ def build_quantizer(method: str) -> BaseQuantization:
     # Import here to avoid circular imports
     from oumi.quantize.awq_quantizer import AwqQuantization
     from oumi.quantize.bnb_quantizer import BitsAndBytesQuantization
-    from oumi.quantize.mxfp4_quantizer import MXFP4Quantizer
 
     # Determine quantizer based on method prefix
     if method.startswith("awq_"):
         return AwqQuantization()
     elif method.startswith("bnb_"):
         return BitsAndBytesQuantization()
-    elif method == "mxfp4":
-        return MXFP4Quantizer()
     else:
         # Try all quantizers to find one that supports this method
         for quantizer_class in [
             AwqQuantization,
             BitsAndBytesQuantization,
-            MXFP4Quantizer,
         ]:
             instance = quantizer_class()
             if instance.supports_method(method):
@@ -77,7 +73,6 @@ def get_available_methods() -> dict[str, list[str]]:
     return {
         "AWQ": AwqQuantization.supported_methods,
         "BitsAndBytes": BitsAndBytesQuantization.supported_methods,
-        "MXFP4": ["mxfp4"],
     }
 
 

@@ -3,7 +3,7 @@
 # Requirements:
 #   - Set up SkyPilot GCP: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html#setup
 #   - Log into WandB (`wandb login`) or disable `enable_wandb`
-#   - Log into HF: `huggingface-cli login`
+#   - Log into HF: `hf auth login`
 #
 # Usage:
 #   oumi launch up --config configs/recipes/vision/phi3/sft/full/trl_gcp_job.yaml --cluster phi3-vision
@@ -43,7 +43,7 @@ setup: |
   pip install uv && uv pip install oumi[gpu] hf_transfer
   # Install model from HF Hub. This tool increases download speed compared to
   # downloading the model during training.
-  HF_HUB_ENABLE_HF_TRANSFER=1 huggingface-cli download microsoft/Phi-3-vision-128k-instruct
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download microsoft/Phi-3-vision-128k-instruct
 
   pip install -U flash-attn --no-build-isolation
 

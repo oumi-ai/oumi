@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import BaseCloud, BaseCluster, JobStatus
+from oumi.core.launcher import BaseCloud, BaseCluster, JobState, JobStatus
 from oumi.launcher.launcher import (
     LAUNCHER,
     Launcher,
@@ -159,6 +159,7 @@ def test_launcher_up_succeeds(mock_registry):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cloud.up_cluster.return_value = expected_job_status
     mock_cloud.get_cluster.return_value = mock_cluster
@@ -187,6 +188,7 @@ def test_launcher_up_succeeds_kwargs(mock_registry):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cloud.up_cluster.return_value = expected_job_status
     mock_cloud.get_cluster.return_value = mock_cluster
@@ -215,6 +217,7 @@ def test_launcher_up_succeeds_no_name(mock_registry):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cloud.up_cluster.return_value = expected_job_status
     mock_cloud.get_cluster.return_value = mock_cluster
@@ -243,6 +246,7 @@ def test_launcher_up_inavlid_cluster(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         )
         mock_cloud.up_cluster.return_value = expected_job_status
         mock_cloud.get_cluster.return_value = None
@@ -269,6 +273,7 @@ def test_launcher_run_succeeds(mock_registry):
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cloud.get_cluster.return_value = mock_cluster
     mock_cluster.run_job.return_value = expected_job_status
@@ -314,6 +319,7 @@ def test_launcher_cancel_succeeds(mock_registry):
         status="canceled",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cloud.get_cluster.return_value = mock_cluster
     mock_cluster.cancel_job.return_value = expected_job_status
@@ -401,6 +407,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="2",
@@ -409,6 +416,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -420,6 +428,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -431,6 +440,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -444,6 +454,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -465,6 +476,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="2",
@@ -473,6 +485,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -481,6 +494,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         "polaris": [
@@ -491,6 +505,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -499,6 +514,7 @@ def test_launcher_status_multiple_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     }
@@ -533,6 +549,7 @@ def test_launcher_status_filters_clusters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="2",
@@ -541,6 +558,7 @@ def test_launcher_status_filters_clusters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -553,6 +571,7 @@ def test_launcher_status_filters_clusters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -565,6 +584,7 @@ def test_launcher_status_filters_clusters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -580,6 +600,7 @@ def test_launcher_status_filters_clusters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -601,6 +622,7 @@ def test_launcher_status_filters_clusters(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="2",
@@ -609,6 +631,7 @@ def test_launcher_status_filters_clusters(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         "polaris": [],
@@ -643,6 +666,7 @@ def test_launcher_status_filters_jobs(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="2",
@@ -651,6 +675,7 @@ def test_launcher_status_filters_jobs(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -662,6 +687,7 @@ def test_launcher_status_filters_jobs(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -673,6 +699,7 @@ def test_launcher_status_filters_jobs(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -686,6 +713,7 @@ def test_launcher_status_filters_jobs(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -707,6 +735,7 @@ def test_launcher_status_filters_jobs(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -715,6 +744,7 @@ def test_launcher_status_filters_jobs(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         "polaris": [
@@ -725,6 +755,7 @@ def test_launcher_status_filters_jobs(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -733,6 +764,7 @@ def test_launcher_status_filters_jobs(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     }
@@ -766,6 +798,7 @@ def test_launcher_status_filters_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="2",
@@ -774,6 +807,7 @@ def test_launcher_status_filters_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -785,6 +819,7 @@ def test_launcher_status_filters_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -796,6 +831,7 @@ def test_launcher_status_filters_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -809,6 +845,7 @@ def test_launcher_status_filters_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -829,6 +866,7 @@ def test_launcher_status_filters_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="2",
@@ -837,6 +875,7 @@ def test_launcher_status_filters_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -845,6 +884,7 @@ def test_launcher_status_filters_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     }
@@ -879,6 +919,7 @@ def test_launcher_status_all_filters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="2",
@@ -887,6 +928,7 @@ def test_launcher_status_all_filters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -899,6 +941,7 @@ def test_launcher_status_all_filters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -911,6 +954,7 @@ def test_launcher_status_all_filters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -926,6 +970,7 @@ def test_launcher_status_all_filters(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -946,6 +991,7 @@ def test_launcher_status_all_filters(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     }
@@ -983,6 +1029,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="2",
@@ -991,6 +1038,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_sky_cluster2 = Mock(spec=BaseCluster)
@@ -1002,6 +1050,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster1 = Mock(spec=BaseCluster)
@@ -1013,6 +1062,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     mock_polaris_cluster2 = Mock(spec=BaseCluster)
@@ -1026,6 +1076,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
             status="running",
             metadata="bar",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     sky_mock.list_clusters.return_value = [mock_sky_cluster1, mock_sky_cluster2]
@@ -1051,6 +1102,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="2",
@@ -1059,6 +1111,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -1067,6 +1120,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
         "polaris": [
@@ -1077,6 +1131,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
             JobStatus(
                 id="1",
@@ -1085,6 +1140,7 @@ def test_launcher_status_inits_new_clouds(mock_registry):
                 status="running",
                 metadata="bar",
                 done=False,
+                state=JobState.PENDING,
             ),
         ],
     }

@@ -1,15 +1,16 @@
-# Inference config for GPT-5-chat-latest (always points to the latest GPT-5 chat version)
+# OpenAI Inference config for GPT-5-chat-latest.
 #
 # Requirements:
-#   - Set the `OPENAI_API_KEY` env var to your OpenAI API key.
+#   - Set environment variable: export OPENAI_API_KEY=your_key_here
 #
 # Usage:
 #   oumi infer -i -c configs/apis/openai/infer_gpt_5_chat_latest.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
-#   - OpenAI API: https://platform.openai.com/docs/models
 #   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
 
 model:
   model_name: "gpt-5-chat-latest"

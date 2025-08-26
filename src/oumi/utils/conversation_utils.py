@@ -148,6 +148,7 @@ def convert_message_content_item_to_json_dict(
 
             processor = ThinkingProcessor()
             text_content = processor.clean_harmony_tags(text_content)
+
         return {
             _JSON_DICT_KEY_TYPE: Type.TEXT.value,
             _JSON_DICT_KEY_TEXT: text_content,

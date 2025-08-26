@@ -79,7 +79,7 @@ rsync -e "ssh -S ~/.ssh/control-%h-%p-%r" -avz --delete \
 echo "Setting up environment and submitting job on Frontier..."
 # Save the variables to pass to the remote script.
 printf -v varsStr '%q ' "$COPY_DIRECTORY" "$JOB_PATH" "$FRONTIER_NODES" "$FRONTIER_QUEUE"
-# We need to properly escape the remote script due to the qsub command substitution.
+# We need to properly escape the remote script due to the sbatch command substitution.
 ssh -S ~/.ssh/control-%h-%p-%r "${FRONTIER_USER}@frontier.olcf.ornl.gov" "bash -s $varsStr" <<'EOF'
   COPY_DIRECTORY=$1; JOB_PATH=$2; FRONTIER_NODES=$3; FRONTIER_QUEUE=$4
   cd "${COPY_DIRECTORY}"

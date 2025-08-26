@@ -5,7 +5,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.launcher.clients.slurm_client import SlurmClient
 from oumi.launcher.clusters.frontier_cluster import FrontierCluster
 
@@ -123,6 +123,7 @@ def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -131,6 +132,7 @@ def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -139,6 +141,7 @@ def test_frontier_cluster_get_job_valid_id(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("myjob")
@@ -166,6 +169,7 @@ def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -174,6 +178,7 @@ def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -182,6 +187,7 @@ def test_frontier_cluster_get_job_invalid_id_nonempty(mock_datetime, mock_slurm_
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job = cluster.get_job("wrong job")
@@ -199,6 +205,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -207,6 +214,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -215,6 +223,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     jobs = cluster.get_jobs()
@@ -227,6 +236,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -235,6 +245,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -243,6 +254,7 @@ def test_frontier_cluster_get_jobs_nonempty(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     assert jobs == expected_jobs
@@ -267,6 +279,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="job2",
@@ -275,6 +288,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
         JobStatus(
             id="final job",
@@ -283,6 +297,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     job_status = cluster.cancel_job("job2")
@@ -293,6 +308,7 @@ def test_frontier_cluster_cancel_job(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="extended.name",
         done=False,
+        state=JobState.PENDING,
     )
     mock_slurm_client.cancel.assert_called_once_with("job2")
     assert job_status == expected_status
@@ -308,6 +324,7 @@ def test_frontier_cluster_cancel_job_fails(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="batch.name",
             done=False,
+            state=JobState.PENDING,
         ),
     ]
     with pytest.raises(RuntimeError):
@@ -328,6 +345,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -337,6 +355,7 @@ def test_frontier_cluster_run_job(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="batch.name",
         done=False,
+        state=JobState.PENDING,
     )
     job_status = cluster.run_job(_get_default_job("frontier"))
     mock_slurm_client.put_recursive.assert_has_calls(
@@ -417,6 +436,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -426,6 +446,7 @@ def test_frontier_cluster_run_job_with_conda_setup(mock_datetime, mock_slurm_cli
         metadata="",
         cluster="batch.name",
         done=False,
+        state=JobState.PENDING,
     )
     job_status = cluster.run_job(_get_default_job("frontier"))
     mock_slurm_client.put_recursive.assert_has_calls(
@@ -497,6 +518,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -506,6 +528,7 @@ def test_frontier_cluster_run_job_no_name(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="batch.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("frontier")
     job.name = None
@@ -588,6 +611,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -597,6 +621,7 @@ def test_frontier_cluster_run_job_no_mounts(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="batch.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("frontier")
     job.file_mounts = {}
@@ -667,6 +692,7 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -676,6 +702,7 @@ def test_frontier_cluster_run_job_no_sbatch(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="batch.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("frontier")
     job.file_mounts = {}
@@ -738,6 +765,7 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     expected_status = JobStatus(
@@ -747,6 +775,7 @@ def test_frontier_cluster_run_job_no_setup(mock_datetime, mock_slurm_client):
         metadata="",
         cluster="batch.name",
         done=False,
+        state=JobState.PENDING,
     )
     job = _get_default_job("frontier")
     job.file_mounts = {}
@@ -806,6 +835,7 @@ def test_frontier_cluster_run_job_fails(mock_datetime, mock_slurm_client):
             metadata="",
             cluster="mycluster",
             done=False,
+            state=JobState.PENDING,
         )
     ]
     with pytest.raises(RuntimeError):

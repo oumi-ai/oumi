@@ -13,22 +13,15 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Literal, Optional, Union, cast
+from typing import Optional, Union, cast
 
 import torch
 import torch.nn as nn
 import transformers
-from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
+from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
+from transformers import Mxfp4Config  # pyright: ignore[reportAttributeAccessIssue]
 
-try:
-    from transformers import Mxfp4Config
-
-    MXFP4_AVAILABLE = True
-except ImportError:
-    MXFP4_AVAILABLE = False
-    Mxfp4Config = None
-
-from oumi.core.configs import LoraWeightInitialization, ModelParams, PeftParams
+from oumi.core.configs import ModelParams, PeftParams
 from oumi.core.configs.internal.internal_model_config import InternalModelConfig
 from oumi.core.configs.internal.supported_models import (
     find_internal_model_config_using_model_name,
@@ -99,19 +92,6 @@ def build_model(
 
     if model_params.enable_liger_kernel:
         _patch_model_for_liger_kernel(model)
-
-    # Apply HuggingFace kernels optimization if enabled
-    if hasattr(model_params, "enable_hf_kernels") and model_params.enable_hf_kernels:
-        try:
-            from oumi.core.kernels import enhance_model_with_kernels
-
-            model = enhance_model_with_kernels(model, model_params)
-        except ImportError as e:
-            logger.warning(
-                f"HF kernels enhancement requested but kernels not available: {e}"
-            )
-        except Exception as e:
-            logger.warning(f"Failed to apply HF kernels enhancement: {e}")
 
     if model_params.model_name in (
         "tiiuae/Falcon-E-1B-Base",
@@ -227,18 +207,11 @@ def _get_quantization_config_for_training(model_params: ModelParams):
 
     # Handle MXFP4 quantization for training (requires dequantization)
     if isinstance(quant_config, dict) and quant_config.get("quant_method") == "mxfp4":
-        if not MXFP4_AVAILABLE:
-            raise ImportError(
-                "MXFP4 quantization requires transformers>=4.55.0 with "
-                "Mxfp4Config support. Please upgrade transformers: "
-                "pip install 'transformers>=4.55.0'"
-            )
-
         logger.info(
             "Detected MXFP4 quantized model. Creating Mxfp4Config(dequantize=True) "
             "for training."
         )
-        return Mxfp4Config(dequantize=True)
+        return Mxfp4Config(dequantize=True)  # pyright: ignore[reportOptionalCall]
 
     return None
 
@@ -544,12 +517,7 @@ def build_tokenizer(
             f"Chat template set to 'auto' - using model's built-in template "
             f"for {tokenizer_id_str}."
         )
-        template_name = ""  # Don't set any template name to avoid override
     elif model_params.chat_template is not None:
-        logger.info(
-            f"Using the chat template '{model_params.chat_template}' "
-            f"specified in model config for {tokenizer_id_str}. "
-        )
         template_name = model_params.chat_template
     else:
         # Try to find the default chat template by model type.
@@ -583,27 +551,6 @@ def build_tokenizer(
     return tokenizer
 
 
-def _convert_lora_init_weights_to_lora_config(
-    param: LoraWeightInitialization,
-) -> Union[
-    bool,
-    Literal[
-        "gaussian",
-        "eva",
-        "pissa",
-        "pissa_niter_[number of iters]",
-        "loftq",
-        "olora",
-    ],
-]:
-    if param == LoraWeightInitialization.RANDOM:
-        return False
-    if param == LoraWeightInitialization.DEFAULT:
-        return True
-
-    return param.value
-
-
 def build_peft_model(
     base_model, use_gradient_checkpointing: bool, peft_params: PeftParams
 ):
@@ -617,18 +564,7 @@ def build_peft_model(
     Returns:
         The built PEFT model.
     """
-    lora_config = LoraConfig(
-        r=peft_params.lora_r,
-        lora_alpha=peft_params.lora_alpha,
-        lora_dropout=peft_params.lora_dropout,
-        target_modules=peft_params.lora_target_modules,
-        modules_to_save=peft_params.lora_modules_to_save,
-        bias=peft_params.lora_bias,  # type: ignore
-        task_type=peft_params.lora_task_type,
-        init_lora_weights=(
-            _convert_lora_init_weights_to_lora_config(peft_params.lora_init_weights)
-        ),
-    )
+    lora_config = peft_params.to_lora()
 
     if peft_params.q_lora:
         model = prepare_model_for_kbit_training(

@@ -56,7 +56,7 @@ dependencies = [
     "omegaconf==2.4.0.dev3",
     "packaging",
     "pandas>=2.0.3,<3",
-    "peft>=0.15.0,<0.16",
+    "peft>=0.17.0,<0.18",
     "pexpect>=4.8.0,<4.9",       # Used by Polaris client
     "pillow>=11.1.0,<11.4",      # Used by image datasets
     "protobuf>=5.29.0",
@@ -124,13 +124,9 @@ gpu = [
     "bitsandbytes>=0.45.0,<0.46",      # Used for QLora, and PagedAdam implementation
     # When updating verl version, make sure to also update the default config:
     # src/oumi/core/trainers/verl_trainer_config.yaml.
-    "verl==0.4.0",        # Used for the VERL_GRPO trainer.
+    "verl>=0.5.0,<0.6",   # Used for the VERL_GRPO trainer.
     "vllm>=0.10.0,<0.11", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
-]
-
-gpu_mac = [
-    "llama-cpp-python>=0.3.15,<0.4",   # GGUF model support via LlamaCPP with Metal acceleration on Apple Silicon
-    "verl==0.4.0",      # Used for the VERL_GRPO trainer.
+    "deepspeed>=0.17.0,<0.18.0"
 ]
 
 # Targets for supported cloud providers
@@ -168,7 +164,7 @@ evaluation = [
     "sentencepiece>=0.1.98",
 ]
 
-quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46", "mxfp4>=0.1.0"]
+quantization = ["autoawq>=0.2.0,<0.3", "bitsandbytes>=0.45.0,<0.46"]
 
 bitnet = ["onebitllms>=0.0.3"]
 
@@ -187,24 +183,11 @@ interactive = [
     "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
 ]
 
+llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
+
 webchat = [
     "gradio>=5.0.0,<6.0",    # Web-based UI framework for chat interface
     "aiohttp-cors>=0.7.0",  # CORS support for WebSocket connections
-]
-
-# GPT OSS support - requires special installation procedure
-gpt_oss = [
-    # Note: vLLM GPT OSS build must be installed separately via:
-    # pip install vllm==0.10.2+gptoss --extra-index-url https://wheels.vllm.ai/gpt-oss/
-    "transformers>=4.55",
-    "gpt-oss>=0.0.1",       # GPT OSS package with MXFP4 quantization support
-    "kernels",              # HuggingFace kernels for Flash Attention 3
-    "triton_kernels @ git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels",
-]
-
-gpt_oss_mac = [
-    "gpt-oss>=0.0.1",       # GPT OSS package with MXFP4 quantization support
-    "kernels",              # HuggingFace kernels for Flash Attention 3
 ]
 
 # CI targets
@@ -300,7 +283,6 @@ pythonVersion = "3.9"
 pythonPlatform = "All" # Include linux, mac, windows
 
 reportPrivateImportUsage = "none"
-reportMissingImports = "none"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
