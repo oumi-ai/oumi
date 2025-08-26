@@ -69,8 +69,8 @@ class TestBranchingWorkflows:
         # Verify branch isolation
         list_result = chat_session.execute_command("/branches()")
         assert list_result.success
-        assert "neural_networks_deep" in list_result.message
-        assert "main" in list_result.message
+        assert list_result.message and "neural_networks_deep" in list_result.message
+        assert list_result.message and "main" in list_result.message
 
     def test_branch_from_specific_position(self, chat_session):
         """Test creating a branch from a specific conversation position."""
@@ -100,7 +100,7 @@ class TestBranchingWorkflows:
         # Verify the branch contains only messages up to position 3
         show_result = chat_session.execute_command("/show(all)")
         assert show_result.success
-        assert "Can you give examples?" in show_result.message
+        assert show_result.message and "Can you give examples?" in show_result.message
         assert "How about deep learning?" not in show_result.message
 
     def test_branch_cleanup_workflow(self, chat_session):
@@ -122,7 +122,7 @@ class TestBranchingWorkflows:
         list_result = chat_session.execute_command("/branches()")
         assert list_result.success
         for branch_name in branch_names:
-            assert branch_name in list_result.message
+            assert list_result.message and branch_name in list_result.message
         
         # Delete a branch
         delete_result = chat_session.execute_command("/branch_delete(temp_branch)")
@@ -132,8 +132,8 @@ class TestBranchingWorkflows:
         list_result2 = chat_session.execute_command("/branches()")
         assert list_result2.success
         assert "temp_branch" not in list_result2.message
-        assert "experiment1" in list_result2.message
-        assert "experiment2" in list_result2.message
+        assert list_result2.message and "experiment1" in list_result2.message
+        assert list_result2.message and "experiment2" in list_result2.message
 
 
 class TestFileOperationWorkflows:

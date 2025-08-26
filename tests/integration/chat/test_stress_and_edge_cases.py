@@ -22,6 +22,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from oumi.core.commands import CommandResult
 from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
@@ -155,7 +156,7 @@ class TestEdgeCaseInputs:
         for input_text in edge_case_inputs:
             result = chat_session.send_message(input_text)
             # Should handle gracefully - either accept or reject with informative message
-            assert isinstance(result, ChatTestSession.CommandResult)
+            assert isinstance(result, CommandResult)
         
         # Session should still be functional
         normal_result = chat_session.send_message("Normal message after edge cases")
@@ -180,7 +181,7 @@ class TestEdgeCaseInputs:
         
         # Test commands with special characters
         special_command_result = chat_session.execute_command("/help()")
-        assert isinstance(special_command_result, ChatTestSession.CommandResult)
+        assert isinstance(special_command_result, CommandResult)
 
     def test_malformed_commands(self, chat_session):
         """Test handling of malformed commands."""
@@ -203,7 +204,7 @@ class TestEdgeCaseInputs:
         for malformed_cmd in malformed_commands:
             result = chat_session.execute_command(malformed_cmd)
             # Should handle gracefully without crashing
-            assert isinstance(result, ChatTestSession.CommandResult)
+            assert isinstance(result, CommandResult)
             assert not result.success or "error" in result.message.lower() or "invalid" in result.message.lower()
         
         # Session should still work after malformed commands
@@ -266,7 +267,7 @@ class TestEdgeCaseInputs:
                 # Try to attach each file
                 attach_result = chat_session.execute_command(f"/attach({temp_file.name})")
                 # Should handle gracefully - either process or reject with informative message
-                assert isinstance(attach_result, ChatTestSession.CommandResult)
+                assert isinstance(attach_result, CommandResult)
         
         finally:
             for temp_file in temp_files:
@@ -300,14 +301,14 @@ class TestResourceExhaustion:
             if large_file_result.success:
                 # Ask for analysis of large content
                 analysis_result = chat_session.send_message("Can you summarize this large document?")
-                assert isinstance(analysis_result, ChatTestSession.CommandResult)
+                assert isinstance(analysis_result, CommandResult)
             
             # Test multiple large operations
             for i in range(5):
                 large_message = f"Processing iteration {i}: " + "data " * 1000
                 result = chat_session.send_message(large_message)
                 # Should handle gracefully
-                assert isinstance(result, ChatTestSession.CommandResult)
+                assert isinstance(result, CommandResult)
 
     def test_concurrent_operations_simulation(self, chat_session):
         """Test simulation of concurrent operations."""
@@ -356,11 +357,11 @@ class TestResourceExhaustion:
             # Process all attached files
             if any(r.success for r in attachment_results):
                 analysis_result = chat_session.send_message("Please analyze all the attached files together")
-                assert isinstance(analysis_result, ChatTestSession.CommandResult)
+                assert isinstance(analysis_result, CommandResult)
             
             # Try to save conversation with all attachments
             save_result = chat_session.execute_command("/save(stress_test_output.json)")
-            assert isinstance(save_result, ChatTestSession.CommandResult)
+            assert isinstance(save_result, CommandResult)
 
 
 class TestErrorRecoveryAndResilience:
@@ -432,7 +433,7 @@ class TestErrorRecoveryAndResilience:
             
             # Verify conversation is still accessible
             show_result = chat_session.execute_command("/show(all)")
-            assert isinstance(show_result, ChatTestSession.CommandResult)
+            assert isinstance(show_result, CommandResult)
 
     def test_resource_cleanup_on_errors(self, chat_session):
         """Test that resources are properly cleaned up after errors."""

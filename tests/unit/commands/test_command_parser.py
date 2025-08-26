@@ -129,16 +129,16 @@ class TestCommandParser:
         assert result.kwargs == {"enable_stream": "true", "debug": "false"}
 
     def test_parse_command_case_sensitivity(self):
-        """Test that command names are case sensitive."""
+        """Test that command names are normalized to lowercase."""
         result_lower = self.parser.parse_command("/help()")
         result_upper = self.parser.parse_command("/HELP()")
         
         assert result_lower is not None
-        assert result_lower.name == "help"
+        assert result_lower.command == "help"
         
-        # Upper case should also parse but maintain case
+        # Upper case should also parse and be normalized to lowercase
         if result_upper is not None:
-            assert result_upper.name == "HELP"
+            assert result_upper.command == "help"  # Commands are normalized to lowercase
 
     def test_parse_command_with_empty_args(self):
         """Test parsing commands with empty arguments."""
@@ -151,7 +151,7 @@ class TestCommandParser:
         # Only the first case should parse successfully
         result1 = self.parser.parse_command(test_cases[0])
         assert result1 is not None
-        assert result1.name == "save"
+        assert result1.command == "save"
         assert result1.args == []
         
         # Others should fail or handle gracefully

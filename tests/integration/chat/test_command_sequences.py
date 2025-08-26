@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from oumi.core.commands import CommandResult
 from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
@@ -91,7 +92,7 @@ class TestSequentialCommandExecution:
         for cmd in management_sequence:
             result = chat_session.execute_command(cmd)
             # Commands may not be implemented, but should not crash
-            assert isinstance(result, ChatTestSession.CommandResult)
+            assert isinstance(result, CommandResult)
             
             # Continue conversation after each command
             cont_result = chat_session.send_message("Continuing after management command")
@@ -222,7 +223,7 @@ class TestConditionalCommandFlows:
             else:
                 result = chat_session.execute_command(cmd)
                 # Don't assert success - errors are expected
-                assert isinstance(result, ChatTestSession.CommandResult)
+                assert isinstance(result, CommandResult)
                 
                 # Session should remain functional after any error
                 test_result = chat_session.send_message("Testing functionality")
@@ -383,7 +384,7 @@ class TestComplexWorkflowComposition:
                     result = chat_session.execute_command(command)
                     analysis_results.append((description, result.success))
                     # Commands may not be implemented, but should not crash
-                    assert isinstance(result, ChatTestSession.CommandResult)
+                    assert isinstance(result, CommandResult)
             
             # Verify we got through the workflow
             successful_messages = sum(1 for desc, success in analysis_results if "send" in desc and success)
@@ -447,7 +448,7 @@ class TestComplexWorkflowComposition:
                 else:
                     result = chat_session.execute_command(command)
                     # Branching commands may not be implemented
-                    assert isinstance(result, ChatTestSession.CommandResult)
+                    assert isinstance(result, CommandResult)
 
     def test_iterative_refinement_workflow(self, chat_session):
         """Test iterative refinement workflow with feedback loops."""
@@ -549,7 +550,7 @@ class TestErrorHandlingInSequences:
             else:
                 result = chat_session.execute_command(command)
                 # Don't assert specific success/failure - just that it doesn't crash
-                assert isinstance(result, ChatTestSession.CommandResult)
+                assert isinstance(result, CommandResult)
         
         # Session should still be functional at the end
         final_test = chat_session.send_message("Final functionality test")
