@@ -520,14 +520,12 @@ class SlurmClient:
         Returns:
             The SSH command's exit code. This is a blocking call.
         """
-        tail_cmd = (
-            f"ssh {_CTRL_PATH} -tt {cluster_name} "
-            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
-        )
         cli_utils.CONSOLE.print(
             f"Tailing logs of job {job_id} on cluster '{cluster_name}'..."
         )
-        cli_utils.CONSOLE.print(f"└── Following output file: {stdout_filename}")
+        cli_utils.CONSOLE.print(
+            f"└── Following output file: {working_dir}/{stdout_filename}"
+        )
         cli_utils.CONSOLE.print(
             "Press Ctrl-C to exit log streaming; job will not be killed."
         )
@@ -553,6 +551,10 @@ class SlurmClient:
                         f"{working_dir}/{stdout_filename}. "
                         "The job may not have started."
                     )
+        tail_cmd = (
+            f"ssh {_CTRL_PATH} -tt {cluster_name} "
+            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
+        )
         proc = None
         try:
             proc = subprocess.Popen(

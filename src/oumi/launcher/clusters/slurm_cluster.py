@@ -312,7 +312,7 @@ class SlurmCluster(BaseCluster):
             cluster_name: The name of the cluster the job was run in.
         """
         if job_id not in self.jobs_info:
-            raise ValueError(f"Job {job_id} not found in jobs_info")
+            raise RuntimeError(f"Job {job_id} not found in jobs_info")
         job_info = self.jobs_info[job_id]
         self._client.tail_job(
             str(job_info.working_dir),
