@@ -126,6 +126,7 @@ gpu = [
     # src/oumi/core/trainers/verl_trainer_config.yaml.
     "verl>=0.5.0,<0.6",   # Used for the VERL_GRPO trainer.
     "vllm>=0.10.0,<0.11", # For VLLMInferenceEngine, and vLLM-powered GRPO training.
+    "deepspeed>=0.17.0,<0.18.0"
 ]
 
 # Targets for supported cloud providers
@@ -144,6 +145,13 @@ runpod = ["skypilot[runpod]"]
 
 synthesis = [
     "pdftext>=0.6.3", # Document ingestion for synthesis
+]
+
+# Flash Attention - separate group due to special installation requirements
+flash_attn = [
+    # Note: May require manual installation with: pip install flash-attn --no-build-isolation
+    # This is kept separate to avoid breaking existing environments
+    "flash-attn>=2.0.0",
 ]
 
 evaluation = [
@@ -174,6 +182,8 @@ interactive = [
     "requests>=2.31.0",    # Web requests for /fetch() command
     "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
 ]
+
+llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
 webchat = [
     "gradio>=5.0.0,<6.0",    # Web-based UI framework for chat interface

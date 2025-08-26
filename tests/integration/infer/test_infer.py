@@ -152,6 +152,7 @@ def test_infer_basic_non_interactive(test_spec: InferTestSpec):
     assert _compare_conversation_lists(output, expected_output)
 
 
+@requires_gpus()
 @pytest.mark.parametrize(
     "test_spec",
     [
