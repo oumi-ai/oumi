@@ -32,18 +32,18 @@ class TestDeleteCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         # Create mock conversation with multiple messages
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
             messages=[
                 Message(role=Role.USER, content="First message"),
                 Message(role=Role.ASSISTANT, content="First response"),
-                Message(role=Role.USER, content="Second message"), 
+                Message(role=Role.USER, content="Second message"),
                 Message(role=Role.ASSISTANT, content="Second response"),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -63,14 +63,14 @@ class TestDeleteCommand:
     def test_delete_last_turn(self, mock_handler):
         """Test deleting the last conversation turn."""
         parsed_cmd = ParsedCommand(command="delete", args=[], kwargs={}, raw_input="/delete(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Deleted the last conversation turn"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -80,14 +80,14 @@ class TestDeleteCommand:
     def test_delete_specific_position(self, mock_handler):
         """Test deleting a specific conversation position."""
         parsed_cmd = ParsedCommand(command="delete", args=["2"], kwargs={}, raw_input="/delete(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Deleted message at position 2"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -99,16 +99,16 @@ class TestDeleteCommand:
         # Set up empty conversation
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
-        
+
         parsed_cmd = ParsedCommand(command="delete", args=[], kwargs={}, raw_input="/delete(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="No messages to delete"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -118,14 +118,14 @@ class TestDeleteCommand:
     def test_delete_invalid_position(self, mock_handler):
         """Test deleting invalid position."""
         parsed_cmd = ParsedCommand(command="delete", args=["99"], kwargs={}, raw_input="/delete(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Invalid position: 99. Conversation has 4 messages."
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -141,7 +141,7 @@ class TestRegenCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
             messages=[
@@ -149,7 +149,7 @@ class TestRegenCommand:
                 Message(role=Role.ASSISTANT, content="AI is artificial intelligence."),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -158,7 +158,7 @@ class TestRegenCommand:
         )
         self.command_context.current_conversation = self.mock_conversation
 
-    @pytest.fixture  
+    @pytest.fixture
     def mock_handler(self):
         """Mock conversation operations handler."""
         with patch('oumi.core.commands.handlers.conversation_operations_handler.ConversationOperationsHandler') as mock_handler_class:
@@ -169,14 +169,14 @@ class TestRegenCommand:
     def test_regen_last_response(self, mock_handler):
         """Test regenerating the last assistant response."""
         parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Regenerated the last response"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -191,16 +191,16 @@ class TestRegenCommand:
             messages=[Message(role=Role.USER, content="Hello")]
         )
         self.command_context.current_conversation = user_only_conversation
-        
+
         parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="No assistant response to regenerate"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -210,14 +210,14 @@ class TestRegenCommand:
     def test_regen_with_inference_error(self, mock_handler):
         """Test regeneration when inference fails."""
         parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Failed to regenerate: Model inference error"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -233,7 +233,7 @@ class TestClearCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
             messages=[
@@ -243,7 +243,7 @@ class TestClearCommand:
                 Message(role=Role.ASSISTANT, content="Response 2"),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -263,14 +263,14 @@ class TestClearCommand:
     def test_clear_conversation(self, mock_handler):
         """Test clearing the entire conversation."""
         parsed_cmd = ParsedCommand(command="clear", args=[], kwargs={}, raw_input="/clear(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation history cleared"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -281,16 +281,16 @@ class TestClearCommand:
         """Test clearing an already empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
-        
+
         parsed_cmd = ParsedCommand(command="clear", args=[], kwargs={}, raw_input="/clear(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation is already empty"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(result, expect_success=True)
 
 
@@ -302,7 +302,7 @@ class TestShowCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
             messages=[
@@ -312,7 +312,7 @@ class TestShowCommand:
                 Message(role=Role.ASSISTANT, content="Second answer"),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -332,14 +332,14 @@ class TestShowCommand:
     def test_show_specific_position(self, mock_handler):
         """Test showing a specific conversation position."""
         parsed_cmd = ParsedCommand(command="show", args=["2"], kwargs={}, raw_input="/show(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Message 2 (User): Second question"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -349,14 +349,14 @@ class TestShowCommand:
     def test_show_invalid_position(self, mock_handler):
         """Test showing invalid position."""
         parsed_cmd = ParsedCommand(command="show", args=["99"], kwargs={}, raw_input="/show(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Invalid position: 99. Conversation has 4 messages (1-4)."
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -366,14 +366,14 @@ class TestShowCommand:
     def test_show_without_position(self, mock_handler):
         """Test show command without position argument."""
         parsed_cmd = ParsedCommand(command="show", args=[], kwargs={}, raw_input="/show(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Usage: /show(position) - Please specify message position"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -383,14 +383,14 @@ class TestShowCommand:
     def test_show_all_messages(self, mock_handler):
         """Test showing all messages with 'all' argument."""
         parsed_cmd = ParsedCommand(command="show", args=["all"], kwargs={}, raw_input="/show(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation (4 messages):\n1. User: First question\n2. Assistant: First answer\n3. User: Second question\n4. Assistant: Second answer"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -402,11 +402,11 @@ class TestCompactCommand:
     """Test suite for /compact() command."""
 
     def setup_method(self):
-        """Set up test fixtures.""" 
+        """Set up test fixtures."""
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         # Create a longer conversation for compacting
         messages = []
         for i in range(10):
@@ -414,12 +414,12 @@ class TestCompactCommand:
                 Message(role=Role.USER, content=f"Question {i+1}: " + "Long question " * 20),
                 Message(role=Role.ASSISTANT, content=f"Answer {i+1}: " + "Long detailed response " * 30),
             ])
-        
+
         self.mock_conversation = Conversation(
             conversation_id="long_conversation",
             messages=messages
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -439,14 +439,14 @@ class TestCompactCommand:
     def test_compact_long_conversation(self, mock_handler):
         """Test compacting a long conversation."""
         parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation compacted: 20 messages → 8 messages (60% reduction)"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -463,16 +463,16 @@ class TestCompactCommand:
             ]
         )
         self.command_context.current_conversation = short_conversation
-        
+
         parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation is already compact (2 messages)"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -483,16 +483,16 @@ class TestCompactCommand:
         """Test compacting an empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
-        
+
         parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="No conversation to compact"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -506,9 +506,9 @@ class TestRenderCommand:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_engine = Mock()
-        self.mock_console = Mock()  
+        self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
             messages=[
@@ -518,7 +518,7 @@ class TestRenderCommand:
                 Message(role=Role.ASSISTANT, content="I'm doing well, thanks!"),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -538,14 +538,14 @@ class TestRenderCommand:
     def test_render_conversation(self, mock_handler):
         """Test rendering conversation to asciinema format."""
         parsed_cmd = ParsedCommand(command="render", args=["chat.cast"], kwargs={}, raw_input="/render(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation rendered to chat.cast (4 messages, 2.5s duration)"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -555,14 +555,14 @@ class TestRenderCommand:
     def test_render_without_filename(self, mock_handler):
         """Test render command without filename argument."""
         parsed_cmd = ParsedCommand(command="render", args=[], kwargs={}, raw_input="/render(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Usage: /render(filename.cast) - Please specify output filename"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -573,16 +573,16 @@ class TestRenderCommand:
         """Test rendering empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
-        
+
         parsed_cmd = ParsedCommand(command="render", args=["empty.cast"], kwargs={}, raw_input="/render(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="No conversation to render"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -598,7 +598,7 @@ class TestThinkingCommands:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         # Create conversation with thinking content
         self.mock_conversation = Conversation(
             conversation_id="thinking_conversation",
@@ -607,7 +607,7 @@ class TestThinkingCommands:
                 Message(role=Role.ASSISTANT, content="<thinking>Let me think... 2 + 2 = 4</thinking>\n\nThe answer is 4."),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -627,14 +627,14 @@ class TestThinkingCommands:
     def test_clear_thoughts(self, mock_handler):
         """Test clearing thinking content from responses."""
         parsed_cmd = ParsedCommand(command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Cleared thinking content from 1 message"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -644,14 +644,14 @@ class TestThinkingCommands:
     def test_full_thoughts_toggle(self, mock_handler):
         """Test toggling full thoughts display mode."""
         parsed_cmd = ParsedCommand(command="full_thoughts", args=[], kwargs={}, raw_input="/full_thoughts(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Full thoughts display mode enabled"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -668,16 +668,16 @@ class TestThinkingCommands:
             ]
         )
         self.command_context.current_conversation = simple_conversation
-        
+
         parsed_cmd = ParsedCommand(command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="No thinking content found to clear"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,

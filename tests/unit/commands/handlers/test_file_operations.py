@@ -42,7 +42,7 @@ class TestAttachCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -62,20 +62,20 @@ class TestAttachCommand:
         """Test attaching a text file."""
         file_data = get_file_attachment_data()
         test_content = file_data["test_files"]["sample_text.txt"]
-        
+
         with temporary_test_files({"test.txt": test_content}) as temp_files:
             parsed_cmd = ParsedCommand(command="attach", args=[temp_files["test.txt"]], kwargs={},
                 raw_input="/attach(..."
             )
-            
+
             # Mock successful attachment
             mock_handler.handle.return_value = CommandResult(
                 success=True,
                 message=f"Successfully attached {temp_files['test.txt']}"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(
                 result,
                 expect_success=True,
@@ -86,18 +86,18 @@ class TestAttachCommand:
         """Test attaching a CSV file."""
         file_data = get_file_attachment_data()
         csv_content = file_data["test_files"]["sample_data.csv"]
-        
+
         with temporary_test_files({"data.csv": csv_content}) as temp_files:
             parsed_cmd = ParsedCommand(command="attach", args=[temp_files["data.csv"]], kwargs={}
             , raw_input="/attach(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=True,
                 message="CSV file attached successfully with 5 rows"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(
                 result,
                 expect_success=True,
@@ -108,18 +108,18 @@ class TestAttachCommand:
         """Test attaching a JSON file."""
         file_data = get_file_attachment_data()
         json_content = file_data["test_files"]["sample_config.json"]
-        
+
         with temporary_test_files({"config.json": json_content}) as temp_files:
             parsed_cmd = ParsedCommand(command="attach", args=[temp_files["config.json"]], kwargs={}
             , raw_input="/attach(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=True,
                 message="JSON file attached and parsed successfully"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(
                 result,
                 expect_success=True,
@@ -130,14 +130,14 @@ class TestAttachCommand:
         """Test attaching a file that doesn't exist."""
         parsed_cmd = ParsedCommand(command="attach", args=["/nonexistent/file.txt"], kwargs={}
         , raw_input="/attach(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="File not found: /nonexistent/file.txt"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -147,14 +147,14 @@ class TestAttachCommand:
     def test_attach_without_file_argument(self, mock_handler):
         """Test attach command without file argument."""
         parsed_cmd = ParsedCommand(command="attach", args=[], kwargs={}, raw_input="/attach(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Usage: /attach(file_path) - Please specify a file to attach"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -164,40 +164,40 @@ class TestAttachCommand:
     def test_attach_large_file_handling(self, mock_handler):
         """Test handling of large files."""
         large_content = "Large file content\n" * 10000  # Simulate large file
-        
+
         with temporary_test_files({"large.txt": large_content}) as temp_files:
             parsed_cmd = ParsedCommand(command="attach", args=[temp_files["large.txt"]], kwargs={}
             , raw_input="/attach(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=True,
                 message="Large file attached (content truncated for display)"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(result, expect_success=True)
 
     def test_attach_binary_file_rejection(self, mock_handler):
         """Test that binary files are handled appropriately."""
         # Create a simple binary file
         binary_content = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
-        
+
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             f.write(binary_content)
             temp_path = f.name
-        
+
         try:
             parsed_cmd = ParsedCommand(command="attach", args=[temp_path], kwargs={}
             , raw_input="/attach(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=False,
                 message="Binary files are not supported for attachment"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(
                 result,
                 expect_success=False,
@@ -215,7 +215,7 @@ class TestFetchCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -235,18 +235,18 @@ class TestFetchCommand:
         """Test fetching web content."""
         web_mocks = get_web_content_mocks()
         test_url = "https://example.com/article1"
-        
+
         with mock_web_content({test_url: web_mocks["mock_urls"][test_url]["content"]}):
             parsed_cmd = ParsedCommand(command="fetch", args=[test_url], kwargs={}
             , raw_input="/fetch(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=True,
                 message=f"Successfully fetched content from {test_url}"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(
                 result,
                 expect_success=True,
@@ -257,24 +257,24 @@ class TestFetchCommand:
         """Test fetching JSON API content."""
         web_mocks = get_web_content_mocks()
         test_url = "https://example.com/json-api"
-        
+
         with mock_web_content({test_url: web_mocks["mock_urls"][test_url]["content"]}):
             parsed_cmd = ParsedCommand(command="fetch", args=[test_url], kwargs={}
             , raw_input="/fetch(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=True,
                 message=f"Successfully fetched JSON data from {test_url}"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(result, expect_success=True)
 
     def test_fetch_404_error(self, mock_handler):
         """Test fetching from a URL that returns 404."""
         test_url = "https://example.com/not-found"
-        
+
         with mock_web_content({test_url: "404 Not Found"}):
             # Mock the actual HTTP error behavior
             import requests
@@ -283,17 +283,17 @@ class TestFetchCommand:
                 mock_response.status_code = 404
                 mock_response.text = "404 Not Found"
                 mock_get.return_value = mock_response
-                
+
                 parsed_cmd = ParsedCommand(command="fetch", args=[test_url], kwargs={}
                 , raw_input="/fetch(...")
-                
+
                 mock_handler.handle.return_value = CommandResult(
                     success=False,
                     message=f"Failed to fetch {test_url}: 404 Not Found"
                 )
-                
+
                 result = mock_handler.handle(parsed_cmd, self.command_context)
-                
+
                 validate_command_result(
                     result,
                     expect_success=False,
@@ -303,17 +303,17 @@ class TestFetchCommand:
     def test_fetch_invalid_url(self, mock_handler):
         """Test fetching with invalid URL."""
         invalid_url = "not-a-valid-url"
-        
+
         parsed_cmd = ParsedCommand(command="fetch", args=[invalid_url], kwargs={}
         , raw_input="/fetch(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message=f"Invalid URL: {invalid_url}"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -323,14 +323,14 @@ class TestFetchCommand:
     def test_fetch_without_url(self, mock_handler):
         """Test fetch command without URL argument."""
         parsed_cmd = ParsedCommand(command="fetch", args=[], kwargs={}, raw_input="/fetch(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Usage: /fetch(url) - Please specify a URL to fetch"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -346,7 +346,7 @@ class TestSaveCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         # Create mock conversation
         self.mock_conversation = Conversation(
             conversation_id="test_conversation",
@@ -355,7 +355,7 @@ class TestSaveCommand:
                 Message(role=Role.ASSISTANT, content="Hi there! How can I help?"),
             ]
         )
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -377,14 +377,14 @@ class TestSaveCommand:
         """Test saving conversation in JSON format."""
         parsed_cmd = ParsedCommand(command="save", args=["conversation.json"], kwargs={}
         , raw_input="/save(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation saved to conversation.json"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -395,55 +395,55 @@ class TestSaveCommand:
         """Test saving conversation in CSV format."""
         parsed_cmd = ParsedCommand(command="save", args=["conversation.csv"], kwargs={}
         , raw_input="/save(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation exported to CSV: conversation.csv"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(result, expect_success=True)
 
     def test_save_markdown_format(self, mock_handler):
         """Test saving conversation in Markdown format."""
         parsed_cmd = ParsedCommand(command="save", args=["conversation.md"], kwargs={}
         , raw_input="/save(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation exported to Markdown: conversation.md"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(result, expect_success=True)
 
     def test_save_pdf_format(self, mock_handler):
         """Test saving conversation in PDF format."""
         parsed_cmd = ParsedCommand(command="save", args=["conversation.pdf"], kwargs={}
         , raw_input="/save(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Conversation exported to PDF: conversation.pdf"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(result, expect_success=True)
 
     def test_save_without_filename(self, mock_handler):
         """Test save command without filename argument."""
         parsed_cmd = ParsedCommand(command="save", args=[], kwargs={}, raw_input="/save(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Usage: /save(filename) - Please specify an output filename"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -454,14 +454,14 @@ class TestSaveCommand:
         """Test saving in unsupported format."""
         parsed_cmd = ParsedCommand(command="save", args=["conversation.xyz"], kwargs={}
         , raw_input="/save(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Unsupported format: .xyz. Supported formats: json, csv, md, pdf, txt"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -476,14 +476,14 @@ class TestSaveCommand:
             kwargs={},
             raw_input="/save(...)"
         )
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Permission denied: Unable to write to /root/conversation.json"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -499,7 +499,7 @@ class TestShellCommand:
         self.mock_engine = Mock()
         self.mock_console = Mock()
         self.test_config = create_test_inference_config()
-        
+
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
@@ -519,14 +519,14 @@ class TestShellCommand:
         """Test executing safe shell command."""
         parsed_cmd = ParsedCommand(command="shell", args=["ls -la"], kwargs={}
         , raw_input="/shell(...")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=True,
             message="Command executed successfully:\ntotal 8\ndrwxr-xr-x  2 user user 4096 Jan  1 00:00 ."
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=True,
@@ -541,18 +541,18 @@ class TestShellCommand:
             "format c:",
             "dd if=/dev/zero of=/dev/sda",
         ]
-        
+
         for dangerous_cmd in dangerous_commands:
             parsed_cmd = ParsedCommand(command="shell", args=[dangerous_cmd], kwargs={}
             , raw_input="/shell(...")
-            
+
             mock_handler.handle.return_value = CommandResult(
                 success=False,
                 message=f"Command blocked for security: {dangerous_cmd}"
             )
-            
+
             result = mock_handler.handle(parsed_cmd, self.command_context)
-            
+
             validate_command_result(
                 result,
                 expect_success=False,
@@ -562,14 +562,14 @@ class TestShellCommand:
     def test_shell_without_command(self, mock_handler):
         """Test shell command without command argument."""
         parsed_cmd = ParsedCommand(command="shell", args=[], kwargs={}, raw_input="/shell(")
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Usage: /shell(command) - Please specify a command to execute"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,
@@ -584,14 +584,14 @@ class TestShellCommand:
             kwargs={},
             raw_input="/shell(...)"
         )
-        
+
         mock_handler.handle.return_value = CommandResult(
             success=False,
             message="Command timed out after 30 seconds: sleep 300"
         )
-        
+
         result = mock_handler.handle(parsed_cmd, self.command_context)
-        
+
         validate_command_result(
             result,
             expect_success=False,

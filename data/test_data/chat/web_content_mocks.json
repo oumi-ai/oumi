@@ -12,7 +12,7 @@
     },
     "https://example.com/markdown-doc": {
       "content": "# Documentation Sample\n\n## Commands Overview\n\nThis document explains various commands:\n\n### File Operations\n- `/save()` - Save conversation\n- `/load()` - Load conversation\n- `/attach()` - Attach files\n\n### Conversation Management\n- `/clear()` - Clear history\n- `/branch()` - Create branch\n- `/delete()` - Delete last turn\n\n**Note**: This is mock content for testing purposes.",
-      "content_type": "text/markdown", 
+      "content_type": "text/markdown",
       "status_code": 200
     },
     "https://example.com/not-found": {
@@ -22,7 +22,7 @@
     },
     "https://example.com/server-error": {
       "content": "Internal Server Error",
-      "content_type": "text/html", 
+      "content_type": "text/html",
       "status_code": 500
     }
   }

@@ -31,10 +31,10 @@ from oumi.utils.logging import logger
 
 def check_port_availability(port: int) -> tuple[bool, str]:
     """Check if a port is available for use.
-    
+
     Args:
         port: Port number to check.
-        
+
     Returns:
         Tuple of (is_available, error_message_if_not_available).
     """
@@ -46,7 +46,7 @@ def check_port_availability(port: int) -> tuple[bool, str]:
             text=True,
             timeout=5
         )
-        
+
         if result.returncode == 0 and result.stdout.strip():
             # Port is in use - extract process info
             lines = result.stdout.strip().split('\n')
@@ -57,7 +57,7 @@ def check_port_availability(port: int) -> tuple[bool, str]:
                     pid = process_line[1]
                     return False, f"Port {port} is already in use by {command} (PID {pid})"
             return False, f"Port {port} is already in use"
-        
+
         # Try to bind to the port to confirm availability
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -67,7 +67,7 @@ def check_port_availability(port: int) -> tuple[bool, str]:
             return False, f"Cannot bind to port {port}: {e}"
         finally:
             sock.close()
-            
+
     except subprocess.TimeoutExpired:
         logger.warning("Port check timed out, assuming port is available")
         return True, ""
@@ -78,14 +78,14 @@ def check_port_availability(port: int) -> tuple[bool, str]:
 
 def find_available_port(start_port: int = 9000, max_attempts: int = 100) -> int:
     """Find an available port starting from start_port.
-    
+
     Args:
         start_port: Port to start checking from.
         max_attempts: Maximum number of ports to try.
-        
+
     Returns:
         An available port number.
-        
+
     Raises:
         RuntimeError: If no available port is found.
     """
@@ -93,7 +93,7 @@ def find_available_port(start_port: int = 9000, max_attempts: int = 100) -> int:
         is_available, _ = check_port_availability(port)
         if is_available:
             return port
-    
+
     raise RuntimeError(
         f"Could not find an available port in range {start_port}-{start_port + max_attempts - 1}. "
         f"Please specify a custom port with --backend-port or --port option."
@@ -102,21 +102,21 @@ def find_available_port(start_port: int = 9000, max_attempts: int = 100) -> int:
 
 def wait_for_backend_health(backend_url: str, timeout: int, check_interval: float = 2.0) -> bool:
     """Wait for backend to become healthy with async polling.
-    
+
     Args:
         backend_url: Base URL of the backend server.
         timeout: Maximum time to wait in seconds.
         check_interval: Time between health checks in seconds.
-        
+
     Returns:
         True if backend becomes healthy, False if timeout.
-        
+
     Raises:
         Exception: If backend startup fails definitively.
     """
     import requests
     import time
-    
+
     start_time = time.time()
     # Try multiple endpoints to determine if backend is ready
     test_endpoints = [
@@ -124,14 +124,14 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
         f"{backend_url}/v1/chat/completions",  # Fallback to main API endpoint
     ]
     attempt = 0
-    
+
     logger.info(f"⏳ Waiting for backend readiness at {backend_url}")
     logger.info(f"🕐 Timeout: {timeout}s, Check interval: {check_interval}s")
-    
+
     while time.time() - start_time < timeout:
         attempt += 1
         elapsed = time.time() - start_time
-        
+
         for endpoint in test_endpoints:
             try:
                 if endpoint.endswith("/health"):
@@ -162,7 +162,7 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
                         return True
                     else:
                         logger.debug(f"❌ API check failed: HTTP {response.status_code}")
-                        
+
             except requests.exceptions.ConnectionError:
                 # Backend not ready yet - this is expected during startup
                 logger.info(f"⏳ Backend starting... ({elapsed:.1f}s/{timeout}s)")
@@ -173,10 +173,10 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
             except Exception as e:
                 logger.debug(f"⚠️  Request error (attempt {attempt}): {e}")
                 continue  # Try next endpoint
-        
+
         # Wait before next check
         time.sleep(check_interval)
-    
+
     # Timeout reached
     elapsed = time.time() - start_time
     logger.error(f"💥 Backend failed to start within {timeout}s (elapsed: {elapsed:.1f}s)")
@@ -222,10 +222,10 @@ def webchat(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Launch Oumi WebChat - a web-based interface for interactive chat.
-    
+
     This command starts both the backend API server and the frontend web interface,
     providing full access to all Oumi chat features through a browser.
-    
+
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
@@ -292,7 +292,7 @@ def webchat(
 
     # Start backend server in a separate thread
     backend_error = []  # Shared list to capture errors
-    
+
     def run_backend():
         """Run the backend server."""
         try:
@@ -313,15 +313,15 @@ def webchat(
 
     # Wait for backend to become healthy with proper polling
     backend_url = f"http://{host if host != '0.0.0.0' else 'localhost'}:{backend_port}"
-    
+
     # Check for immediate backend startup errors
     time.sleep(1)  # Brief wait to catch immediate errors
     if backend_error:
         raise RuntimeError(f"Backend failed to start: {backend_error[0]}")
-    
+
     # Poll for backend health with configurable timeout
     backend_ready = wait_for_backend_health(backend_url, backend_timeout)
-    
+
     if not backend_ready:
         if backend_error:
             raise RuntimeError(f"Backend startup failed: {backend_error[0]}")
@@ -334,7 +334,7 @@ def webchat(
     # Launch frontend interface (backend is confirmed healthy)
     logger.info(f"🌐 Launching WebChat interface at http://{host}:{frontend_port}")
     logger.info(f"🔗 Connected to backend: {backend_url}")
-    
+
     try:
         launch_webchat(
             config=parsed_config,
@@ -385,9 +385,9 @@ def webchat_server(
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
     """Launch only the WebChat backend server (no frontend).
-    
+
     This is useful for development or when you want to run the frontend separately.
-    
+
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
@@ -440,7 +440,7 @@ def webchat_server(
     if wait_healthy:
         # Start server in background thread and wait for health
         server_error = []
-        
+
         def run_server():
             try:
                 run_webchat_server(
@@ -453,21 +453,21 @@ def webchat_server(
                 logger.error(f"Server startup error: {e}")
                 server_error.append(str(e))
                 raise
-        
+
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
-        
+
         # Wait for health
         backend_url = f"http://{host if host != '0.0.0.0' else 'localhost'}:{port}"
-        
+
         # Check for immediate errors
         time.sleep(1)
         if server_error:
             raise RuntimeError(f"Server failed to start: {server_error[0]}")
-        
+
         # Poll for health
         server_ready = wait_for_backend_health(backend_url, health_timeout)
-        
+
         if not server_ready:
             if server_error:
                 raise RuntimeError(f"Server startup failed: {server_error[0]}")
@@ -476,9 +476,9 @@ def webchat_server(
                     f"Server did not become healthy within {health_timeout}s. "
                     "Try increasing --health-timeout or check server logs."
                 )
-        
+
         logger.info("🎉 WebChat server is healthy and ready!")
-        
+
         # Keep server running
         try:
             while server_thread.is_alive():

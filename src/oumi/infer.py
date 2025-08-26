@@ -760,7 +760,7 @@ def infer_interactive(
     )
     command_router = CommandRouter(command_context)
     command_context.set_command_router(command_router)
-    
+
     # Note: After this point, use command_context.inference_engine and command_context.config
     # instead of local variables to ensure model swapping works properly
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
@@ -1103,7 +1103,7 @@ def infer_interactive(
                 if swapped_model_name:
                     current_model_name = swapped_model_name
             elif command_context and hasattr(command_context, "inference_engine"):
-                # Fallback to inference engine model name if available  
+                # Fallback to inference engine model name if available
                 engine_model_name = getattr(command_context.inference_engine, "model_name", None)
                 if engine_model_name:
                     current_model_name = engine_model_name
@@ -1149,13 +1149,13 @@ def infer_interactive(
             if model_response:
                 last_conversation = model_response[-1]  # Get most recent conversation
                 last_assistant_message = None
-                
+
                 # Find the last assistant message in the conversation
                 for message in reversed(last_conversation.messages):
                     if message.role == Role.ASSISTANT and isinstance(message.content, str):
                         last_assistant_message = message
                         break
-                
+
                 if last_assistant_message:
                     content = last_assistant_message.content
 

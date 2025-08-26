@@ -55,6 +55,26 @@ def requires_cuda_initialized() -> pytest.MarkDecorator:
     )
 
 
+def requires_inference_backend() -> pytest.MarkDecorator:
+    """Decorator to skip test if no suitable inference backend is available.
+
+    Tests can run with either CUDA or LlamaCPP on MPS systems.
+
+    Returns:
+        pytest.MarkDecorator: Skips test only if no inference backend available.
+    """
+    # Allow CUDA if available
+    if torch.cuda.is_available():
+        return pytest.mark.skipif(False, reason="")  # Don't skip
+
+    # Allow MPS for LlamaCPP fallback
+    if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return pytest.mark.skipif(False, reason="")  # Don't skip - can use LlamaCPP
+
+    # Skip if no suitable backend
+    return pytest.mark.skip(reason="No suitable inference backend (CUDA or MPS) available")
+
+
 def requires_cuda_not_available() -> pytest.MarkDecorator:
     return pytest.mark.skipif(torch.cuda.is_available(), reason="CUDA is available")
 

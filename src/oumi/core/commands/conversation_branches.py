@@ -261,20 +261,28 @@ class ConversationBranchManager:
 
         return True, f"Switched to branch '{branch.name}'", branch
 
-    def delete_branch(self, branch_id: str) -> tuple[bool, str]:
+    def delete_branch(self, branch_identifier: str) -> tuple[bool, str]:
         """Delete a branch.
 
         Args:
-            branch_id: ID of the branch to delete.
+            branch_identifier: ID or name of the branch to delete.
 
         Returns:
             Tuple of (success, message).
         """
-        if branch_id.lower() == "main":
+        if branch_identifier.lower() == "main":
             return False, "Cannot delete the main branch"
 
-        if branch_id not in self.branches:
-            return False, f"Branch '{branch_id}' not found"
+        # First try by ID
+        if branch_identifier in self.branches:
+            branch_id = branch_identifier
+        else:
+            # Try by name (case-insensitive)
+            branch = self.get_branch_by_name(branch_identifier)
+            if branch:
+                branch_id = branch.id
+            else:
+                return False, f"Branch '{branch_identifier}' not found"
 
         if branch_id == self.current_branch_id:
             # Switch to main if deleting current branch

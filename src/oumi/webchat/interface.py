@@ -30,10 +30,10 @@ from oumi.webchat.utils.gradio_helpers import format_conversation_for_gradio
 
 class WebChatInterface:
     """Main WebChat interface using Gradio."""
-    
+
     def __init__(self, config: InferenceConfig, server_url: str = "http://localhost:9000"):
         """Initialize the WebChat interface.
-        
+
         Args:
             config: Inference configuration.
             server_url: URL of the Oumi WebChat server.
@@ -42,17 +42,17 @@ class WebChatInterface:
         self.server_url = server_url
         self.session_id = str(uuid.uuid4())
         self.console = Console()
-        
+
         # API endpoints
         self.api_base = f"{server_url}/v1/oumi"
         self.command_endpoint = f"{self.api_base}/command"
         self.branches_endpoint = f"{self.api_base}/branches"
         self.chat_endpoint = f"{server_url}/v1/chat/completions"
         self.websocket_url = f"{server_url.replace('http', 'ws')}/v1/oumi/ws?session_id={self.session_id}"
-        
+
     def create_interface(self) -> gr.Blocks:
         """Create the main Gradio interface."""
-        
+
         # Custom CSS for better styling
         custom_css = """
         .branch-panel {
@@ -61,12 +61,12 @@ class WebChatInterface:
             padding: 16px;
             margin: 8px 0;
         }
-        
+
         .command-button {
             margin: 2px;
             padding: 4px 8px;
         }
-        
+
         .system-monitor {
             font-family: monospace;
             background: #1e1e1e;
@@ -75,52 +75,52 @@ class WebChatInterface:
             border-radius: 4px;
             font-size: 12px;
         }
-        
+
         .chat-container {
             max-height: 600px;
             overflow-y: auto;
         }
-        
+
         .branch-tree-container {
             min-height: 400px;
             border: 1px solid #ddd;
             border-radius: 8px;
             padding: 16px;
         }
-        
+
         /* Mobile responsive */
         @media (max-width: 768px) {
             .gradio-container {
                 flex-direction: column !important;
             }
-            
+
             .branch-tree-container {
                 min-height: 200px;
             }
         }
         """
-        
+
         with gr.Blocks(
-            title="Oumi WebChat", 
+            title="Oumi WebChat",
             css=custom_css,
             theme=gr.themes.Soft()
         ) as interface:
-            
+
             # Header
             with gr.Row():
                 gr.Markdown("# 🤖 Oumi WebChat")
-                
+
                 # Model info display
                 model_info = gr.HTML(
                     value=self._get_model_info_html(),
                     elem_classes=["model-info"]
                 )
-            
+
             # Main layout - two columns
             with gr.Row():
                 # Left column - Chat interface
                 with gr.Column(scale=2):
-                    # Chat display  
+                    # Chat display
                     chatbot = gr.Chatbot(
                         value=[],
                         height=500,
@@ -131,7 +131,7 @@ class WebChatInterface:
                         elem_classes=["chat-container"],
                         label=self._get_chatbot_title()
                     )
-                    
+
                     # Message input
                     with gr.Row():
                         message_input = gr.Textbox(
@@ -141,23 +141,23 @@ class WebChatInterface:
                             container=False
                         )
                         send_button = gr.Button("Send", variant="primary", scale=1)
-                    
+
                     # Quick command buttons
                     with gr.Row():
                         clear_btn = gr.Button("Clear", size="sm", elem_classes=["command-button"])
-                        delete_btn = gr.Button("Delete Last", size="sm", elem_classes=["command-button"]) 
+                        delete_btn = gr.Button("Delete Last", size="sm", elem_classes=["command-button"])
                         regen_btn = gr.Button("Regenerate", size="sm", elem_classes=["command-button"])
-                        
+
                     with gr.Row():
                         attach_btn = gr.UploadButton(
-                            "Attach File", 
+                            "Attach File",
                             file_types=["image", ".pdf", ".txt", ".json", ".csv", ".md"],
                             file_count="multiple",
                             size="sm"
                         )
                         export_btn = gr.Button("Export", size="sm", elem_classes=["command-button"])
                         help_btn = gr.Button("Help", size="sm", elem_classes=["command-button"])
-                        
+
                 # Right column - Branch tree and controls
                 with gr.Column(scale=1):
                     # Branch tree visualization
@@ -166,17 +166,17 @@ class WebChatInterface:
                             session_id=self.session_id,
                             server_url=self.server_url
                         )
-                        
+
                         # Branch controls
                         with gr.Row():
                             new_branch_btn = gr.Button("New Branch", size="sm", variant="secondary")
                             switch_branch_input = gr.Textbox(
-                                placeholder="Branch name to switch...", 
+                                placeholder="Branch name to switch...",
                                 scale=2,
                                 show_label=False
                             )
                             switch_btn = gr.Button("Switch", size="sm")
-                    
+
                     # System monitor
                     with gr.Accordion("System Monitor", open=False):
                         system_monitor = gr.HTML(
@@ -184,7 +184,7 @@ class WebChatInterface:
                             elem_classes=["system-monitor"]
                         )
                         refresh_monitor_btn = gr.Button("🔄 Refresh", size="sm")
-                        
+
                     # Settings panel
                     with gr.Accordion("Settings", open=False):
                         temperature_slider = gr.Slider(
@@ -194,7 +194,7 @@ class WebChatInterface:
                             step=0.1,
                             label="Temperature"
                         )
-                        
+
                         max_tokens_slider = gr.Slider(
                             minimum=100,
                             maximum=4000,
@@ -202,30 +202,30 @@ class WebChatInterface:
                             step=100,
                             label="Max Tokens"
                         )
-                        
+
                         model_selector = gr.Dropdown(
                             choices=self._get_available_models(),
                             value=getattr(self.config.model, 'model_name', 'Current Model'),
                             label="Model",
                             interactive=True
                         )
-            
+
             # Hidden state components
             session_state = gr.State({"session_id": self.session_id, "conversation": []})
             current_branch = gr.State("main")
             branches_data = gr.State([])
-            
+
             # Event handlers
-            
+
             # Send message
             def handle_send_message(message: str, history: List, state: Dict) -> Tuple[List, str, Dict]:
                 """Handle sending a chat message."""
                 if not message.strip():
                     return history, "", state
-                    
+
                 # Add user message to history in messages format
                 history.append({"role": "user", "content": message})
-                
+
                 # Check if it's a command
                 if message.startswith('/'):
                     response = self._execute_command(message, state["session_id"])
@@ -245,10 +245,10 @@ class WebChatInterface:
                         for msg in state.get("conversation", []):
                             if isinstance(msg, dict) and "role" in msg and "content" in msg:
                                 messages.append({"role": msg["role"], "content": msg["content"]})
-                        
+
                         # Add the current user message
                         messages.append({"role": "user", "content": message})
-                        
+
                         # Call chat completions API
                         import requests
                         response = requests.post(
@@ -262,7 +262,7 @@ class WebChatInterface:
                             },
                             timeout=30
                         )
-                        
+
                         if response.status_code == 200:
                             result = response.json()
                             if "choices" in result and len(result["choices"]) > 0:
@@ -272,38 +272,38 @@ class WebChatInterface:
                         else:
                             error_text = response.text if hasattr(response, 'text') else 'Unknown error'
                             content = f"Server Error ({response.status_code}): Backend may still be loading the model. Please wait a moment and try again."
-                            
+
                     except Exception as e:
                         if "Connection refused" in str(e) or "Read timed out" in str(e):
                             content = "🔄 Backend is starting up. Please wait for the model to load and try again."
                         else:
                             content = f"Connection error: {str(e)}"
-                
+
                 # Add assistant response in messages format
                 history.append({"role": "assistant", "content": content})
-                
+
                 # Update state
                 state["conversation"] = history
-                
+
                 return history, "", state
-            
+
             # Command execution
             def execute_command(command: str, state: Dict) -> Tuple[str, Dict]:
                 """Execute a command and return result."""
                 response = self._execute_command(command, state["session_id"])
-                
+
                 if response.get("success"):
                     message = f"✅ {response.get('message', 'Command executed')}"
                 else:
                     message = f"❌ {response.get('message', 'Command failed')}"
-                
+
                 return message, state
-            
+
             # Branch operations
             def create_new_branch(state: Dict) -> Tuple[gr.HTML, Dict]:
                 """Create a new conversation branch."""
                 branch_name = f"branch_{int(time.time())}"
-                
+
                 response = requests.post(
                     self.branches_endpoint,
                     json={
@@ -313,49 +313,49 @@ class WebChatInterface:
                         "from_branch": state.get("current_branch", "main")
                     }
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
                         # Refresh branch tree
                         return self._update_branch_tree(state["session_id"]), state
-                
+
                 return gr.HTML("❌ Failed to create branch"), state
-            
+
             def switch_branch(branch_name: str, state: Dict) -> Tuple[List, gr.HTML, Dict]:
                 """Switch to a different branch."""
                 if not branch_name:
                     return [], gr.HTML("❌ Please enter a branch name"), state
-                    
+
                 response = requests.post(
                     self.branches_endpoint,
                     json={
                         "session_id": state["session_id"],
-                        "action": "switch", 
+                        "action": "switch",
                         "branch_id": branch_name
                     }
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
                         # Update conversation with branch history
                         conversation = data.get("conversation", [])
                         history = format_conversation_for_gradio(conversation)
-                        
+
                         state["conversation"] = history
                         state["current_branch"] = data.get("current_branch", branch_name)
-                        
+
                         return history, self._update_branch_tree(state["session_id"]), state
-                
+
                 return [], gr.HTML("❌ Failed to switch branch"), state
-            
+
             # File attachment
             def handle_file_attachment(files: List, state: Dict) -> Tuple[str, Dict]:
                 """Handle file attachments."""
                 if not files:
                     return "", state
-                    
+
                 # Execute attach command for each file
                 messages = []
                 for file in files:
@@ -364,30 +364,30 @@ class WebChatInterface:
                         messages.append(f"✅ Attached {file.name}")
                     else:
                         messages.append(f"❌ Failed to attach {file.name}")
-                
+
                 # Return the attachment status as a message input placeholder
                 attachment_summary = " | ".join(messages)
                 return f"Files attached: {attachment_summary}", state
-                
+
             # Wire up event handlers
             send_button.click(
                 handle_send_message,
                 inputs=[message_input, chatbot, session_state],
                 outputs=[chatbot, message_input, session_state]
             )
-            
+
             message_input.submit(
                 handle_send_message,
-                inputs=[message_input, chatbot, session_state], 
+                inputs=[message_input, chatbot, session_state],
                 outputs=[chatbot, message_input, session_state]
             )
-            
+
             # Command buttons - execute commands and refresh chat
             def handle_clear_command(state):
                 execute_command("/clear()", state)
                 # Clear the chatbot display too
                 return [], state
-                
+
             def handle_delete_command(state):
                 # First sync the conversation to the backend session
                 self._sync_conversation_to_backend(state["session_id"], state.get("conversation", []))
@@ -396,12 +396,12 @@ class WebChatInterface:
                 updated_conversation = self._get_conversation_from_backend(state["session_id"])
                 updated_state["conversation"] = updated_conversation
                 return updated_conversation, updated_state
-                
+
             def handle_regen_command(state):
-                # First sync the conversation to the backend session  
+                # First sync the conversation to the backend session
                 self._sync_conversation_to_backend(state["session_id"], state.get("conversation", []))
                 result, updated_state = execute_command("/regen()", state)
-                
+
                 # Check if regen command wants to regenerate (user_input_override)
                 if "user_input_override" in str(result):
                     # Get the last user message from conversation
@@ -413,22 +413,22 @@ class WebChatInterface:
                             if msg.get("role") == "user":
                                 last_user_message = msg.get("content", "")
                                 break
-                        
+
                         if last_user_message:
                             # Remove last assistant response if present
                             if conversation and conversation[-1].get("role") == "assistant":
                                 conversation.pop()
-                            
+
                             # Regenerate response using chat API
                             try:
                                 messages = []
                                 for msg in conversation:
                                     if isinstance(msg, dict) and "role" in msg and "content" in msg:
                                         messages.append({"role": msg["role"], "content": msg["content"]})
-                                
+
                                 # Add the user message we're regenerating for
                                 messages.append({"role": "user", "content": last_user_message})
-                                
+
                                 import requests
                                 response = requests.post(
                                     self.chat_endpoint,
@@ -441,7 +441,7 @@ class WebChatInterface:
                                     },
                                     timeout=30
                                 )
-                                
+
                                 if response.status_code == 200:
                                     result_data = response.json()
                                     if "choices" in result_data and len(result_data["choices"]) > 0:
@@ -450,18 +450,18 @@ class WebChatInterface:
                                         conversation.append({"role": "assistant", "content": new_response})
                                         updated_state["conversation"] = conversation
                                         return conversation, updated_state
-                                        
+
                             except Exception as e:
                                 # Add error message if regeneration failed
                                 conversation.append({"role": "assistant", "content": f"Error regenerating: {str(e)}"})
                                 updated_state["conversation"] = conversation
                                 return conversation, updated_state
-                
+
                 # Fallback: get updated conversation from backend
                 updated_conversation = self._get_conversation_from_backend(state["session_id"])
                 updated_state["conversation"] = updated_conversation
                 return updated_conversation, updated_state
-                
+
             def handle_help_command(state):
                 result, updated_state = execute_command("/help()", state)
                 # Add help result as system message
@@ -470,85 +470,85 @@ class WebChatInterface:
                 conversation.append(help_msg)
                 updated_state["conversation"] = conversation
                 return conversation, updated_state
-                
+
             def handle_export_command(state):
                 # Generate default filename with timestamp
                 import time
                 timestamp = int(time.time())
                 filename = f"oumi_chat_{timestamp}.pdf"
-                
+
                 # Execute export command via backend
                 result, updated_state = execute_command(f'/save({filename})', state)
-                
+
                 if result and "success" in str(result) and "failed" not in str(result):
                     export_msg = {"role": "assistant", "content": f"✅ **Exported**: {result}"}
                 else:
                     export_msg = {"role": "assistant", "content": f"❌ **Export Failed**: {result}"}
-                
+
                 conversation = updated_state.get("conversation", [])
                 conversation.append(export_msg)
                 updated_state["conversation"] = conversation
                 return conversation, updated_state
-            
+
             clear_btn.click(
                 handle_clear_command,
                 inputs=[session_state],
                 outputs=[chatbot, session_state]
             )
-            
+
             delete_btn.click(
                 handle_delete_command,
                 inputs=[session_state],
                 outputs=[chatbot, session_state]
             )
-            
+
             regen_btn.click(
                 handle_regen_command,
                 inputs=[session_state],
                 outputs=[chatbot, session_state]
             )
-            
+
             help_btn.click(
                 handle_help_command,
                 inputs=[session_state],
                 outputs=[chatbot, session_state]
             )
-            
+
             export_btn.click(
                 handle_export_command,
                 inputs=[session_state],
                 outputs=[chatbot, session_state]
             )
-            
+
             # Branch operations
             new_branch_btn.click(
                 create_new_branch,
                 inputs=[session_state],
                 outputs=[branch_tree, session_state]
             )
-            
+
             switch_btn.click(
                 switch_branch,
                 inputs=[switch_branch_input, session_state],
                 outputs=[chatbot, branch_tree, session_state]
             )
-            
+
             # File attachment
             attach_btn.upload(
                 handle_file_attachment,
                 inputs=[attach_btn, session_state],
                 outputs=[message_input, session_state]  # Show result in message input
             )
-            
+
             # System monitor refresh
             def refresh_system_monitor():
                 return self._get_system_monitor_html()
-                
+
             refresh_monitor_btn.click(
                 refresh_system_monitor,
                 outputs=[system_monitor]
             )
-            
+
             # Settings panel functionality
             def update_temperature(value, state):
                 response = self._execute_command(f'/set(temperature={value})', state["session_id"])
@@ -556,14 +556,14 @@ class WebChatInterface:
                     return f"✅ Temperature updated to {value}", state
                 else:
                     return f"❌ Failed to update temperature: {response.get('message', 'Unknown error')}", state
-            
+
             def update_max_tokens(value, state):
                 response = self._execute_command(f'/set(max_tokens={int(value)})', state["session_id"])
                 if response.get("success"):
                     return f"✅ Max tokens updated to {int(value)}", state
                 else:
                     return f"❌ Failed to update max tokens: {response.get('message', 'Unknown error')}", state
-            
+
             def update_model(model_name, state):
                 # Use swap command to change models
                 response = self._execute_command(f'/swap({model_name})', state["session_id"])
@@ -571,7 +571,7 @@ class WebChatInterface:
                     # Update the config model name for title display
                     if hasattr(self.config, 'model') and hasattr(self.config.model, 'model_name'):
                         self.config.model.model_name = model_name
-                    
+
                     # Create new chatbot with updated title
                     updated_chatbot = gr.Chatbot(
                         value=state.get("conversation", []),
@@ -583,13 +583,13 @@ class WebChatInterface:
                         elem_classes=["chat-container"],
                         label=self._get_chatbot_title()
                     )
-                    
+
                     # Also update the model info display
                     updated_model_info = gr.HTML(
                         value=self._get_model_info_html(),
                         elem_classes=["model-info"]
                     )
-                    
+
                     return f"✅ Model switched to {model_name}", state, updated_chatbot, updated_model_info
                 else:
                     # Return current chatbot unchanged if model switch failed
@@ -607,37 +607,37 @@ class WebChatInterface:
                         value=self._get_model_info_html(),
                         elem_classes=["model-info"]
                     )
-                    
+
                     return f"❌ Failed to switch model: {response.get('message', 'Unknown error')}", state, current_chatbot, current_model_info
-            
+
             # Wire up settings event handlers
             temperature_slider.change(
                 update_temperature,
                 inputs=[temperature_slider, session_state],
                 outputs=[message_input, session_state]
             )
-            
+
             max_tokens_slider.change(
-                update_max_tokens, 
+                update_max_tokens,
                 inputs=[max_tokens_slider, session_state],
                 outputs=[message_input, session_state]
             )
-            
+
             model_selector.change(
                 update_model,
-                inputs=[model_selector, session_state], 
+                inputs=[model_selector, session_state],
                 outputs=[message_input, session_state, chatbot, model_info]
             )
-            
+
         return interface
-    
+
     def _execute_command(self, command: str, session_id: str) -> Dict[str, Any]:
         """Execute a command via the API."""
         try:
             # Parse command
             if command.startswith('/'):
                 command = command[1:]  # Remove leading slash
-                
+
             # Split command and args
             if '(' in command and command.endswith(')'):
                 cmd_name = command.split('(')[0]
@@ -646,7 +646,7 @@ class WebChatInterface:
             else:
                 cmd_name = command
                 args = []
-            
+
             response = requests.post(
                 self.command_endpoint,
                 json={
@@ -655,20 +655,20 @@ class WebChatInterface:
                     "args": args
                 }
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             else:
                 return {"success": False, "message": f"HTTP {response.status_code}"}
-                
+
         except Exception as e:
             return {"success": False, "message": str(e)}
-    
+
     def _get_model_info_html(self) -> str:
         """Get HTML for model information display."""
         model_name = getattr(self.config.model, 'model_name', 'Unknown Model')
         engine = str(self.config.engine) if hasattr(self.config, 'engine') else 'Unknown'
-        
+
         return f"""
         <div style="text-align: right; padding: 8px; background: #f0f0f0; border-radius: 4px;">
             <strong>Model:</strong> {model_name}<br>
@@ -676,19 +676,19 @@ class WebChatInterface:
             <strong>Session:</strong> {self.session_id[:8]}...
         </div>
         """
-    
+
     def _get_chatbot_title(self) -> str:
         """Get formatted title for the chatbot component using Oumi chat pattern."""
         model_name = getattr(self.config.model, 'model_name', 'Assistant')
-        
+
         # Clean up model name for display (same as Oumi chat)
         if "/" in model_name:
             display_model_name = model_name.split("/")[-1]  # Get last part after /
         else:
             display_model_name = model_name
-            
+
         return display_model_name
-    
+
     def _get_system_monitor_html(self) -> str:
         """Get HTML for system monitor display using backend SystemMonitor."""
         try:
@@ -698,27 +698,27 @@ class WebChatInterface:
                 params={"session_id": self.session_id},
                 timeout=5
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
-                
+
                 # GPU info
                 if data.get('gpu_vram_used_gb') is not None:
                     gpu_info = f"{data['gpu_vram_used_gb']:.1f}GB / {data['gpu_vram_total_gb']:.1f}GB ({data['gpu_vram_percent']:.1f}%)"
                 else:
                     gpu_info = "N/A"
-                
+
                 # Memory info
                 ram_used_gb = data.get('ram_used_gb', 0)
                 ram_total_gb = data.get('ram_total_gb', 0)
                 ram_percent = data.get('ram_percent', 0)
-                
+
                 # Context info
                 context_used = data.get('context_used_tokens', 0)
                 context_max = data.get('context_max_tokens', 0)
                 context_percent = data.get('context_percent', 0)
                 context_info = f"{context_used}/{context_max} tokens ({context_percent:.1f}%)"
-                
+
                 return f"""
                 <div class="system-monitor">
                     <strong>System Monitor</strong><br>
@@ -741,7 +741,7 @@ class WebChatInterface:
                     <small>Backend unavailable</small>
                 </div>
                 """
-                
+
         except Exception as e:
             return f"""
             <div class="system-monitor">
@@ -753,24 +753,24 @@ class WebChatInterface:
                 <small>Error: {str(e)}</small>
             </div>
             """
-    
+
     def _get_available_models(self) -> List[str]:
         """Get list of available models for the dropdown."""
         current_model = getattr(self.config.model, 'model_name', 'Current Model')
-        
+
         models = [current_model]
-        
+
         # Discover inference configs dynamically
         inference_configs = self._discover_inference_configs()
         if inference_configs:
             models.append("--- Inference Configs ---")
             models.extend(inference_configs)
-        
+
         # Add common API models as fallback options
         models.extend([
             "--- API Models ---",
             "anthropic:claude-3-5-sonnet-20241022",
-            "anthropic:claude-3-5-haiku-20241022", 
+            "anthropic:claude-3-5-haiku-20241022",
             "openai:gpt-4o",
             "openai:gpt-4o-mini",
             "together:meta-llama/Llama-3.1-70B-Instruct-Turbo",
@@ -780,14 +780,14 @@ class WebChatInterface:
             "microsoft/Qwen2.5-3B-Instruct",
             "microsoft/Phi-3.5-mini-instruct"
         ])
-        
+
         return models
-    
+
     def _discover_inference_configs(self) -> List[str]:
         """Discover available inference configuration files ending in *_infer.yaml."""
         import os
         import glob
-        
+
         configs = []
         try:
             # Get the oumi repository root (assume we're in oumi/src/oumi/webchat)
@@ -795,17 +795,17 @@ class WebChatInterface:
             # Go up to oumi root: webchat -> oumi -> src -> oumi -> [oumi root]
             oumi_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
             configs_dir = os.path.join(oumi_root, "configs")
-            
+
             if os.path.exists(configs_dir):
                 # Find all *_infer.yaml files recursively
                 pattern = os.path.join(configs_dir, "**", "*_infer.yaml")
                 config_files = glob.glob(pattern, recursive=True)
-                
+
                 for config_file in sorted(config_files):
                     # Make path relative to oumi root for easier display
                     rel_path = os.path.relpath(config_file, oumi_root)
                     configs.append(f"config:{rel_path}")
-                    
+
         except Exception as e:
             print(f"Failed to discover inference configs: {e}")
             # Fallback to some common known configs
@@ -813,9 +813,9 @@ class WebChatInterface:
                 "config:configs/recipes/qwen2_5/inference/3b_infer.yaml",
                 "config:configs/recipes/llama3_1/inference/8b_infer.yaml"
             ]
-            
+
         return configs
-    
+
     def _sync_conversation_to_backend(self, session_id: str, conversation: list):
         """Sync conversation state from frontend to backend session."""
         try:
@@ -855,19 +855,19 @@ class WebChatInterface:
                 self.branches_endpoint,
                 params={"session_id": session_id}
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 branches = data.get("branches", [])
                 current_branch = data.get("current_branch", "main")
-                
+
                 # Generate HTML for branch list (simplified for now)
                 branch_html = "<div class='branch-list'>"
                 for branch in branches:
                     name = branch.get("name", "Unknown")
                     is_current = branch.get("id") == current_branch
                     style = "font-weight: bold; color: blue;" if is_current else ""
-                    
+
                     branch_html += f"""
                     <div style="padding: 4px; {style}">
                         {'→ ' if is_current else '  '}{name}
@@ -875,25 +875,25 @@ class WebChatInterface:
                     </div>
                     """
                 branch_html += "</div>"
-                
+
                 return gr.HTML(branch_html)
-        
+
         except Exception as e:
             return gr.HTML(f"Error loading branches: {e}")
-        
+
         return gr.HTML("No branches loaded")
 
 
 def create_webchat_interface(
-    config: InferenceConfig, 
+    config: InferenceConfig,
     server_url: str = "http://localhost:9000"
 ) -> gr.Blocks:
     """Create the WebChat interface.
-    
+
     Args:
         config: Inference configuration.
         server_url: URL of the WebChat server.
-        
+
     Returns:
         Gradio Blocks interface.
     """
@@ -909,7 +909,7 @@ def launch_webchat(
     server_port: int = 7860
 ):
     """Launch the WebChat interface.
-    
+
     Args:
         config: Inference configuration.
         server_url: URL of the WebChat server.
@@ -918,12 +918,12 @@ def launch_webchat(
         server_port: Server port.
     """
     interface = create_webchat_interface(config, server_url)
-    
+
     print(f"🌐 Launching Oumi WebChat interface...")
     print(f"📍 Web Interface: http://{server_name}:{server_port}")
     print(f"🔗 Backend Server: {server_url}")
     print(f"🛑 Press Ctrl+C to stop")
-    
+
     interface.launch(
         share=share,
         server_name=server_name,

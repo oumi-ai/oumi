@@ -273,7 +273,7 @@ class SystemMonitor:
         )
         if not border_style:
             border_style = "dim cyan"
-            
+
         title_style = (
             getattr(style_params, "status_title_style", None)
             if style_params

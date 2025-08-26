@@ -29,7 +29,7 @@ A beautiful, full-featured web interface for Oumi's interactive chat functionali
 - **Bulk Operations**: Handle multiple file attachments simultaneously
 
 ### ⚙️ System Integration
-- **Live Monitoring**: Real-time GPU/CPU/memory usage display  
+- **Live Monitoring**: Real-time GPU/CPU/memory usage display
 - **Context Window Tracking**: Visual progress bars for token usage
 - **Model Switching**: Dynamic model/engine changes during conversation
 - **Parameter Control**: Adjust temperature, max_tokens, and other settings live
@@ -101,7 +101,7 @@ oumi webchat -c config.yaml --system-prompt "You are a helpful assistant."
 ### Key Files
 
 - `server.py` - Extended WebSocket server with command support
-- `interface.py` - Main Gradio interface and UI components  
+- `interface.py` - Main Gradio interface and UI components
 - `components/branch_tree.py` - Interactive D3.js branch visualization
 - `utils/gradio_helpers.py` - Utility functions for Gradio integration
 
@@ -172,7 +172,7 @@ Connect to `ws://localhost:8000/v1/oumi/ws?session_id=<session_id>`
 }
 
 {
-  "type": "command", 
+  "type": "command",
   "command": "/help()"
 }
 
@@ -240,7 +240,7 @@ curl -X POST http://localhost:8000/v1/oumi/branches \
    python -c "
    from oumi.webchat.interface import launch_webchat
    from oumi.core.configs import InferenceConfig
-   config = InferenceConfig.from_yaml_file('config.yaml')  
+   config = InferenceConfig.from_yaml_file('config.yaml')
    launch_webchat(config, server_url='http://localhost:8000', server_port=7860)
    "
    ```
@@ -275,7 +275,7 @@ python demo_webchat.py --run
 - Ensure D3.js is loading from CDN
 - Verify WebSocket messages for branch data
 
-**File Upload Issues**  
+**File Upload Issues**
 - Check file size limits (default: 100MB)
 - Ensure proper MIME type detection
 - Verify upload directory permissions

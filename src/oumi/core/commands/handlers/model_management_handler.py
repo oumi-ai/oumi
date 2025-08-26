@@ -166,7 +166,7 @@ class ModelManagementHandler(BaseCommandHandler):
                         )
                     # Update context and conversation turns properly (preserves history)
                     self._update_context_in_monitor()
-                    
+
                     # Force refresh the system monitor display to show updated values
                     if hasattr(self.context, "system_monitor") and self.context.system_monitor:
                         # Trigger an immediate update of the system monitor display

@@ -299,4 +299,8 @@ markers = [
     "e2e_eternal: Extremely slow e2e integration tests (for manual/selective runs)",
     "single_gpu: The test uses max 1 GPU (can be potentially skipped on multi-GPU machine to conserve GPU resources)",
     "multi_gpu: The test should run on a machine with multiple GPU-s",
+    "real_model_chat: Chat tests using actual model inference (slower than mocked tests)",
+    "chat_fuzzing: Stress/fuzzing tests with extended runtime for chat functionality",
+    "chat_journey: Complete end-to-end user workflow integration tests",
+    "chat_performance: Performance and resource usage tests for chat functionality",
 ]

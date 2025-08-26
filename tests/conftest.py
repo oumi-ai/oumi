@@ -152,14 +152,14 @@ def cleanup_test_files(request):
     """Automatically clean up test-generated files after each test."""
     import tempfile
     from pathlib import Path
-    
+
     # Get the current working directory at test start
     test_cwd = Path.cwd()
-    
+
     def _cleanup_test_files():
         """Clean up test files in the current working directory."""
         test_file_patterns = [
-            "test_output*.json", "test_*.json", "test_*.txt", "test_*.pdf", 
+            "test_output*.json", "test_*.json", "test_*.txt", "test_*.pdf",
             "test_*.csv", "test_*.md", "test_*.cast", "test_*.bin",
             "*_test_*.json", "*_test_*.txt", "*_test_*.pdf", "*_test_*.csv",
             "*_test_*.md", "*_test_*.cast", "*_test_*.bin",
@@ -168,12 +168,12 @@ def cleanup_test_files(request):
             "sales_data*.json", "config*.json", "requirements*.txt", "readme*.md",
             "*_report*.md",
             # Command router test files
-            "file1.json", "file2.json", "output.json", "file.txt", "test.json", 
+            "file1.json", "file2.json", "output.json", "file.txt", "test.json",
             "refinement_*.md", "demo.cast",
             # Malformed command test artifacts (these shouldn't be created!)
             "'mixed\"", "\"unclosed"
         ]
-        
+
         for pattern in test_file_patterns:
             for file_path in test_cwd.glob(pattern):
                 try:
@@ -181,7 +181,7 @@ def cleanup_test_files(request):
                         file_path.unlink()
                 except Exception:
                     pass  # Ignore cleanup errors
-        
+
         # Also clean up temp files from the system temp directory
         temp_dir = Path(tempfile.gettempdir())
         for pattern in ["tmp*test*", "*_test_*", "stress_test_*"]:
@@ -196,8 +196,8 @@ def cleanup_test_files(request):
                             file_path.unlink()
                 except Exception:
                     pass  # Ignore cleanup errors
-    
+
     # Use finalizer to ensure cleanup runs even on test failure
     request.addfinalizer(_cleanup_test_files)
-    
+
     yield  # Let the test run

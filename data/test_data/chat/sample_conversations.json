@@ -7,7 +7,7 @@
         "content": "Hello! How are you today?"
       },
       {
-        "role": "assistant", 
+        "role": "assistant",
         "content": "Hello! I'm doing well, thank you for asking. How can I help you today?"
       },
       {
@@ -32,7 +32,7 @@
         "content": "Machine learning is like teaching a computer to recognize patterns and make predictions, similar to how you learn to recognize faces or predict weather patterns from experience."
       },
       {
-        "role": "user", 
+        "role": "user",
         "content": "What are the main types of machine learning?"
       },
       {
@@ -67,7 +67,7 @@
     "conversation_id": "test_command_workflow",
     "messages": [
       {
-        "role": "user", 
+        "role": "user",
         "content": "Let me save our conversation and then load it back."
       },
       {
@@ -100,7 +100,7 @@
         "content": "Thanks for handling that gracefully. What happens if I try to load a file that doesn't exist?"
       },
       {
-        "role": "assistant", 
+        "role": "assistant",
         "content": "If you try to load a non-existent file, I'll show you an error message and suggest checking the filename or using /load() without arguments to browse available saved conversations."
       }
     ]

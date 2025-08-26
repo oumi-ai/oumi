@@ -21,9 +21,9 @@ from oumi.core.commands.command_router import CommandRouter
 
 __all__ = [
     "BaseCommandHandler",
-    "CommandResult", 
-    "CommandParser", 
-    "ParsedCommand", 
-    "CommandRouter", 
+    "CommandResult",
+    "CommandParser",
+    "ParsedCommand",
+    "CommandRouter",
     "CommandContext"
 ]

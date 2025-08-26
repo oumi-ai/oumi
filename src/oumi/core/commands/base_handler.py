@@ -156,16 +156,16 @@ class BaseCommandHandler(ABC):
         """Update context usage and conversation turns in system monitor if available."""
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
             estimated_tokens = self._get_conversation_tokens()
-            
+
             # Get max context from current config (which gets updated during model swaps)
             # Use context.config to ensure we get the most up-to-date config
             current_config = getattr(self.context, "config", self.config)
             max_context = getattr(current_config.model, "model_max_length", None)
-            
+
             # If no max_context found in config, try to get it using the engine-specific logic
             if not max_context:
                 max_context = self._get_context_length_for_engine(current_config)
-            
+
             # If still no max_context, try to get it from inference engine
             if not max_context and hasattr(self.context, "inference_engine") and self.context.inference_engine:
                 engine_config = getattr(self.context.inference_engine, "model_config", None)
@@ -176,17 +176,17 @@ class BaseCommandHandler(ABC):
                         if engine_context and engine_context > 0:
                             max_context = engine_context
                             break
-                
+
                 # Also check if the engine itself has a max_context attribute
                 if not max_context and hasattr(self.context.inference_engine, "max_context_length"):
                     engine_max = getattr(self.context.inference_engine, "max_context_length", None)
                     if engine_max and engine_max > 0:
                         max_context = engine_max
-            
+
             # Final fallback to prevent None values
             if not max_context or max_context <= 0:
                 max_context = 4096
-            
+
             self.system_monitor.update_context_usage(estimated_tokens)
             if hasattr(self.system_monitor, "update_max_context_tokens"):
                 self.system_monitor.update_max_context_tokens(max_context)
@@ -218,10 +218,10 @@ class BaseCommandHandler(ABC):
             max_length = getattr(config.model, "model_max_length", None)
             if max_length is not None and max_length > 0:
                 return max_length
-        
+
         # For API engines, use hardcoded context limits based on model patterns
         model_name = getattr(config.model, "model_name", "").lower()
-        
+
         # Anthropic context limits
         if "ANTHROPIC" in engine_type or "claude" in model_name:
             if "opus" in model_name:
@@ -232,7 +232,7 @@ class BaseCommandHandler(ABC):
                 return 200000  # Claude Haiku
             else:
                 return 200000  # Default for Claude models
-        
+
         # OpenAI context limits
         elif "OPENAI" in engine_type or "gpt" in model_name:
             if "gpt-4o" in model_name:
@@ -243,7 +243,7 @@ class BaseCommandHandler(ABC):
                 return 16385  # GPT-3.5-turbo
             else:
                 return 128000  # Default for OpenAI models
-        
+
         # Together AI context limits (varies by model)
         elif "TOGETHER" in engine_type:
             if "llama" in model_name:
@@ -259,11 +259,11 @@ class BaseCommandHandler(ABC):
                 return 32768  # Qwen models
             else:
                 return 32768  # Default for Together models
-        
+
         # Other API engines - return reasonable defaults
         elif any(x in engine_type for x in ["DEEPSEEK", "GOOGLE", "GEMINI"]):
             return 128000  # Default for other API models
-        
+
         # If we can't determine, return None to continue fallback chain
         return None
 

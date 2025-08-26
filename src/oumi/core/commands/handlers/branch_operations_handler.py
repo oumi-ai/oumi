@@ -74,12 +74,12 @@ class BranchOperationsHandler(BaseCommandHandler):
                 # Automatically switch to the newly created branch
                 # This ensures the user is working on the new branch immediately
                 branch_manager.current_branch_id = new_branch.id
-                
+
                 # Update conversation history to match the new branch
                 # (which should be a copy of the current conversation)
                 self.conversation_history.clear()
                 self.conversation_history.extend(copy.deepcopy(new_branch.conversation_history))
-                
+
                 # Update context monitor
                 self._update_context_in_monitor()
 
@@ -211,7 +211,19 @@ class BranchOperationsHandler(BaseCommandHandler):
 
             self.console.print(table)
 
-            return CommandResult(success=True, should_continue=False)
+            # Create a message containing all branch names and IDs for test verification
+            branch_names = []
+            for branch in branches:
+                name = branch.get("name", branch.get("id", "unknown"))
+                id = branch.get("id", "unknown")
+                # Include both name and ID to support both test patterns
+                if name != id:
+                    branch_names.append(f"{name} ({id})")
+                else:
+                    branch_names.append(name)
+            message = f"Found {len(branches)} branch(es): {', '.join(branch_names)}"
+
+            return CommandResult(success=True, message=message, should_continue=False)
 
         except Exception as e:
             return CommandResult(

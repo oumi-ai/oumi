@@ -1,11 +1,11 @@
 {
   "test_files": {
     "sample_text.txt": "This is a sample text file for testing the /attach() command.\n\nIt contains multiple lines of text that should be properly processed when attached to a conversation.\n\nThe content includes:\n- Plain text\n- Multiple paragraphs\n- Simple formatting\n\nThis file is used to test text file attachment functionality.",
-    
+
     "sample_data.csv": "name,age,city\nAlice,25,New York\nBob,30,San Francisco\nCharlie,35,London\nDiana,28,Paris\nEve,32,Tokyo",
-    
+
     "sample_config.json": "{\n  \"model_settings\": {\n    \"temperature\": 0.7,\n    \"max_tokens\": 100,\n    \"top_p\": 0.9\n  },\n  \"features\": {\n    \"enable_commands\": true,\n    \"enable_history\": true,\n    \"auto_save\": false\n  },\n  \"test_data\": [\n    {\"id\": 1, \"value\": \"test1\"},\n    {\"id\": 2, \"value\": \"test2\"}\n  ]\n}",
-    
+
     "sample_markdown.md": "# Sample Markdown Document\n\nThis is a test markdown file for the `/attach()` command.\n\n## Features Tested\n\n- **Headers**: Different levels of headers\n- **Lists**: Both bulleted and numbered\n- **Code**: Inline `code` and blocks\n- **Links**: [Example](https://example.com)\n\n## Code Example\n\n```python\ndef hello_world():\n    print('Hello from attached markdown!')\n    return True\n```\n\n## Notes\n\nThis file tests markdown parsing and attachment functionality in the chat system.\n\n> This is a blockquote for testing\n\n1. Numbered list item 1\n2. Numbered list item 2\n3. Numbered list item 3"
   }
 }
