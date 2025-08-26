@@ -45,8 +45,9 @@ class TestDeleteCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -150,8 +151,9 @@ class TestRegenCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -243,8 +245,9 @@ class TestClearCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -311,8 +314,9 @@ class TestShowCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -417,8 +421,9 @@ class TestCompactCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -515,8 +520,9 @@ class TestRenderCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -603,8 +609,9 @@ class TestThinkingCommands:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation

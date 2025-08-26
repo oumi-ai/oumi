@@ -35,8 +35,9 @@ class TestCommandRouter:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         

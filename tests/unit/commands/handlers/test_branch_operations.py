@@ -44,8 +44,9 @@ class TestBranchCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -152,8 +153,9 @@ class TestBranchFromCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         self.command_context.current_conversation = self.mock_conversation
@@ -228,9 +230,19 @@ class TestSwitchCommand:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
+        )
+        
+        # Create mock conversation for main branch
+        self.mock_conversation = Conversation(
+            conversation_id="main_conversation",
+            messages=[
+                Message(role=Role.USER, content="Main branch question"),
+                Message(role=Role.ASSISTANT, content="Main branch answer"),
+            ]
         )
         
         # Simulate existing branches
@@ -322,8 +334,9 @@ class TestBranchesCommand:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
 
@@ -397,8 +410,9 @@ class TestBranchDeleteCommand:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
 
@@ -506,8 +520,9 @@ class TestBranchingWorkflows:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
 

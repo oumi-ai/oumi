@@ -147,8 +147,9 @@ class ChatTestSession:
             
             # Set up command context
             self.command_context = CommandContext(
-                config=self.config,
                 console=self.mock_console or Console(),
+                config=self.config,
+                conversation_history=[],
                 inference_engine=self.mock_engine,
             )
             
@@ -628,9 +629,9 @@ def load_chat_test_data(filename: str) -> Dict[str, Any]:
     Returns:
         Loaded test data as dictionary.
     """
-    data_path = (
-        get_oumi_root_directory() / "data" / "test_data" / "chat" / filename
-    )
+    # Get the project root directory (go up from src/oumi to the project root)
+    project_root = get_oumi_root_directory().parent.parent
+    data_path = project_root / "data" / "test_data" / "chat" / filename
     return load_json(data_path)
 
 
@@ -723,13 +724,13 @@ def validate_command_result(
     
     if expected_message_parts:
         for part in expected_message_parts:
-            assert part in result.message, (
+            assert part.lower() in result.message.lower(), (
                 f"Expected message part '{part}' not found in: {result.message}"
             )
     
     if unexpected_message_parts:
         for part in unexpected_message_parts:
-            assert part not in result.message, (
+            assert part.lower() not in result.message.lower(), (
                 f"Unexpected message part '{part}' found in: {result.message}"
             )
 

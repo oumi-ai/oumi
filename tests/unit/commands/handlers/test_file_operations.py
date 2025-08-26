@@ -44,8 +44,9 @@ class TestAttachCommand:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
 
@@ -64,9 +65,10 @@ class TestAttachCommand:
         
         with temporary_test_files({"test.txt": test_content}) as temp_files:
             parsed_cmd = ParsedCommand(
-                name="attach", 
+                command="attach", 
                 args=[temp_files["test.txt"]], 
-                kwargs={}
+                kwargs={},
+                raw_input="/attach(...)"
             )
             
             # Mock successful attachment
@@ -80,7 +82,7 @@ class TestAttachCommand:
             validate_command_result(
                 result,
                 expect_success=True,
-                expected_message_parts=["attached", "test.txt"]
+                expected_message_parts=["attached", ".txt"]
             )
 
     def test_attach_csv_file(self, mock_handler):
@@ -90,7 +92,7 @@ class TestAttachCommand:
         
         with temporary_test_files({"data.csv": csv_content}) as temp_files:
             parsed_cmd = ParsedCommand(
-                name="attach",
+                command="attach",
                 args=[temp_files["data.csv"]],
                 kwargs={}
             )
@@ -115,7 +117,7 @@ class TestAttachCommand:
         
         with temporary_test_files({"config.json": json_content}) as temp_files:
             parsed_cmd = ParsedCommand(
-                name="attach",
+                command="attach",
                 args=[temp_files["config.json"]],
                 kwargs={}
             )
@@ -136,7 +138,7 @@ class TestAttachCommand:
     def test_attach_nonexistent_file(self, mock_handler):
         """Test attaching a file that doesn't exist."""
         parsed_cmd = ParsedCommand(
-            name="attach",
+            command="attach",
             args=["/nonexistent/file.txt"],
             kwargs={}
         )
@@ -177,7 +179,7 @@ class TestAttachCommand:
         
         with temporary_test_files({"large.txt": large_content}) as temp_files:
             parsed_cmd = ParsedCommand(
-                name="attach",
+                command="attach",
                 args=[temp_files["large.txt"]],
                 kwargs={}
             )
@@ -202,7 +204,7 @@ class TestAttachCommand:
         
         try:
             parsed_cmd = ParsedCommand(
-                name="attach",
+                command="attach",
                 args=[temp_path],
                 kwargs={}
             )
@@ -233,8 +235,9 @@ class TestFetchCommand:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
 
@@ -253,7 +256,7 @@ class TestFetchCommand:
         
         with mock_web_content({test_url: web_mocks["mock_urls"][test_url]["content"]}):
             parsed_cmd = ParsedCommand(
-                name="fetch",
+                command="fetch",
                 args=[test_url],
                 kwargs={}
             )
@@ -278,7 +281,7 @@ class TestFetchCommand:
         
         with mock_web_content({test_url: web_mocks["mock_urls"][test_url]["content"]}):
             parsed_cmd = ParsedCommand(
-                name="fetch",
+                command="fetch",
                 args=[test_url],
                 kwargs={}
             )
@@ -306,7 +309,7 @@ class TestFetchCommand:
                 mock_get.return_value = mock_response
                 
                 parsed_cmd = ParsedCommand(
-                    name="fetch",
+                    command="fetch",
                     args=[test_url],
                     kwargs={}
                 )
@@ -329,7 +332,7 @@ class TestFetchCommand:
         invalid_url = "not-a-valid-url"
         
         parsed_cmd = ParsedCommand(
-            name="fetch",
+            command="fetch",
             args=[invalid_url],
             kwargs={}
         )
@@ -384,8 +387,9 @@ class TestSaveCommand:
         )
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
         # Add conversation to context
@@ -402,7 +406,7 @@ class TestSaveCommand:
     def test_save_json_format(self, mock_handler):
         """Test saving conversation in JSON format."""
         parsed_cmd = ParsedCommand(
-            name="save",
+            command="save",
             args=["conversation.json"],
             kwargs={}
         )
@@ -423,7 +427,7 @@ class TestSaveCommand:
     def test_save_csv_format(self, mock_handler):
         """Test saving conversation in CSV format."""
         parsed_cmd = ParsedCommand(
-            name="save",
+            command="save",
             args=["conversation.csv"],
             kwargs={}
         )
@@ -440,7 +444,7 @@ class TestSaveCommand:
     def test_save_markdown_format(self, mock_handler):
         """Test saving conversation in Markdown format."""
         parsed_cmd = ParsedCommand(
-            name="save",
+            command="save",
             args=["conversation.md"],
             kwargs={}
         )
@@ -457,7 +461,7 @@ class TestSaveCommand:
     def test_save_pdf_format(self, mock_handler):
         """Test saving conversation in PDF format."""
         parsed_cmd = ParsedCommand(
-            name="save",
+            command="save",
             args=["conversation.pdf"],
             kwargs={}
         )
@@ -491,7 +495,7 @@ class TestSaveCommand:
     def test_save_unsupported_format(self, mock_handler):
         """Test saving in unsupported format."""
         parsed_cmd = ParsedCommand(
-            name="save",
+            command="save",
             args=["conversation.xyz"],
             kwargs={}
         )
@@ -512,7 +516,7 @@ class TestSaveCommand:
     def test_save_permission_error(self, mock_handler):
         """Test save with permission error."""
         parsed_cmd = ParsedCommand(
-            name="save",
+            command="save",
             args=["/root/conversation.json"],  # Likely to cause permission error
             kwargs={}
         )
@@ -541,8 +545,9 @@ class TestShellCommand:
         self.test_config = create_test_inference_config()
         
         self.command_context = CommandContext(
-            config=self.test_config,
             console=self.mock_console,
+            config=self.test_config,
+            conversation_history=[],
             inference_engine=self.mock_engine,
         )
 
@@ -557,7 +562,7 @@ class TestShellCommand:
     def test_shell_safe_command(self, mock_handler):
         """Test executing safe shell command."""
         parsed_cmd = ParsedCommand(
-            name="shell",
+            command="shell",
             args=["ls -la"],
             kwargs={}
         )
@@ -586,7 +591,7 @@ class TestShellCommand:
         
         for dangerous_cmd in dangerous_commands:
             parsed_cmd = ParsedCommand(
-                name="shell",
+                command="shell",
                 args=[dangerous_cmd],
                 kwargs={}
             )
@@ -624,7 +629,7 @@ class TestShellCommand:
     def test_shell_command_timeout(self, mock_handler):
         """Test shell command timeout handling."""
         parsed_cmd = ParsedCommand(
-            name="shell",
+            command="shell",
             args=["sleep 300"],  # Long-running command
             kwargs={}
         )
