@@ -54,16 +54,10 @@ class TestCommandRouter:
         """Test executing the help command."""
         parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help(")
         
-        with patch('oumi.core.commands.handlers.help_handler.HelpHandler') as mock_handler_class:
-            mock_handler = Mock()
-            mock_handler.handle.return_value = CommandResult(success=True, message="Help displayed")
-            mock_handler_class.return_value = mock_handler
-            
-            result = self.router.handle_command(parsed_cmd)
-            
-            assert isinstance(result, CommandResult)
-            if result.success:  # If handler was found and executed
-                assert "help" in result.message.lower() or result.success
+        result = self.router.handle_command(parsed_cmd)
+        
+        assert isinstance(result, CommandResult)
+        assert result.success
 
     def test_execute_save_command(self):
         """Test executing the save command."""
@@ -142,15 +136,11 @@ class TestCommandRouter:
                     message=f"Executed {parsed_cmd.command}"
                 )
                 
-                # Mock the handler lookup
-                with patch.object(self.router, '_get_handler', return_value=mock_handler):
-                    result = self.router.handle_command(parsed_cmd)
-                    
-                    assert isinstance(result, CommandResult)
-                    # Verify handler was called with command context
-                    if mock_handler.handle.called:
-                        call_args = mock_handler.handle.call_args
-                        assert call_args is not None
+                # Execute the command directly - router handles command routing internally
+                result = self.router.handle_command(parsed_cmd)
+                
+                assert isinstance(result, CommandResult)
+                # The router should return a valid result for any command
 
     def test_router_context_validation(self):
         """Test that router validates command context properly."""

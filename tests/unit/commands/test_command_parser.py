@@ -88,9 +88,12 @@ class TestCommandParser:
         assert result.args == ["sample data.csv"]
 
     def test_parse_command_without_parentheses(self):
-        """Test that commands without parentheses are not parsed."""
+        """Test that commands without parentheses are parsed."""
         result = self.parser.parse_command("/help")
-        assert result is None
+        assert result is not None
+        assert result.command == "help"
+        assert result.args == []
+        assert result.kwargs == {}
 
     def test_parse_invalid_command_syntax(self):
         """Test parsing invalid command syntax."""
