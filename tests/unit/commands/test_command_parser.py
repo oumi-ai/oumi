@@ -28,68 +28,68 @@ class TestCommandParser:
 
     def test_parse_simple_command(self):
         """Test parsing simple commands without arguments."""
-        result = self.parser.parse("/help()")
+        result = self.parser.parse_command("/help()")
         assert result is not None
-        assert result.name == "help"
+        assert result.command == "help"
         assert result.args == []
         assert result.kwargs == {}
 
     def test_parse_command_with_positional_args(self):
         """Test parsing commands with positional arguments."""
-        result = self.parser.parse("/save(output.json)")
+        result = self.parser.parse_command("/save(output.json)")
         assert result is not None
-        assert result.name == "save"
+        assert result.command == "save"
         assert result.args == ["output.json"]
         assert result.kwargs == {}
 
     def test_parse_command_with_multiple_positional_args(self):
         """Test parsing commands with multiple positional arguments."""
-        result = self.parser.parse("/branch_from(main,5)")
+        result = self.parser.parse_command("/branch_from(main,5)")
         assert result is not None
-        assert result.name == "branch_from"
+        assert result.command == "branch_from"
         assert result.args == ["main", "5"]
         assert result.kwargs == {}
 
     def test_parse_command_with_keyword_args(self):
         """Test parsing commands with keyword arguments."""
-        result = self.parser.parse("/set(temperature=0.8)")
+        result = self.parser.parse_command("/set(temperature=0.8)")
         assert result is not None
-        assert result.name == "set"
+        assert result.command == "set"
         assert result.args == []
         assert result.kwargs == {"temperature": "0.8"}
 
     def test_parse_command_with_mixed_args(self):
         """Test parsing commands with both positional and keyword arguments."""
-        result = self.parser.parse("/set(temperature=0.8, top_p=0.9)")
+        result = self.parser.parse_command("/set(temperature=0.8, top_p=0.9)")
         assert result is not None
-        assert result.name == "set"
+        assert result.command == "set"
         assert result.args == []
         assert result.kwargs == {"temperature": "0.8", "top_p": "0.9"}
 
     def test_parse_command_with_quoted_strings(self):
         """Test parsing commands with quoted string arguments."""
-        result = self.parser.parse('/save("my file.json")')
+        result = self.parser.parse_command('/save("my file.json")')
         assert result is not None
-        assert result.name == "save"
+        assert result.command == "save"
         assert result.args == ["my file.json"]  # Quotes should be removed
 
     def test_parse_command_with_single_quotes(self):
         """Test parsing commands with single-quoted arguments."""
-        result = self.parser.parse("/save('output file.json')")
+        result = self.parser.parse_command("/save('output file.json')")
         assert result is not None
-        assert result.name == "save"
+        assert result.command == "save"
         assert result.args == ["output file.json"]
 
     def test_parse_command_with_spaces_in_args(self):
         """Test parsing commands with spaces in arguments."""
-        result = self.parser.parse('/attach("sample data.csv")')
+        result = self.parser.parse_command('/attach("sample data.csv")')
         assert result is not None
-        assert result.name == "attach"
+        assert result.command == "attach"
         assert result.args == ["sample data.csv"]
 
     def test_parse_command_without_parentheses(self):
         """Test that commands without parentheses are not parsed."""
-        result = self.parser.parse("/help")
+        result = self.parser.parse_command("/help")
         assert result is None
 
     def test_parse_invalid_command_syntax(self):
@@ -104,34 +104,34 @@ class TestCommandParser:
         ]
         
         for invalid_cmd in invalid_commands:
-            result = self.parser.parse(invalid_cmd)
+            result = self.parser.parse_command(invalid_cmd)
             assert result is None, f"Should not parse invalid command: {invalid_cmd}"
 
     def test_parse_command_with_special_characters(self):
         """Test parsing commands with special characters in arguments."""
-        result = self.parser.parse("/fetch('https://example.com/api?key=123&value=test')")
+        result = self.parser.parse_command("/fetch('https://example.com/api?key=123&value=test')")
         assert result is not None
-        assert result.name == "fetch"
+        assert result.command == "fetch"
         assert result.args == ["https://example.com/api?key=123&value=test"]
 
     def test_parse_command_with_numbers(self):
         """Test parsing commands with numeric arguments."""
-        result = self.parser.parse("/set(temperature=0.8, max_tokens=100)")
+        result = self.parser.parse_command("/set(temperature=0.8, max_tokens=100)")
         assert result is not None
-        assert result.name == "set"
+        assert result.command == "set"
         assert result.kwargs == {"temperature": "0.8", "max_tokens": "100"}
 
     def test_parse_command_with_boolean_like_values(self):
         """Test parsing commands with boolean-like values."""
-        result = self.parser.parse("/set(enable_stream=true, debug=false)")
+        result = self.parser.parse_command("/set(enable_stream=true, debug=false)")
         assert result is not None
-        assert result.name == "set" 
+        assert result.command == "set" 
         assert result.kwargs == {"enable_stream": "true", "debug": "false"}
 
     def test_parse_command_case_sensitivity(self):
         """Test that command names are case sensitive."""
-        result_lower = self.parser.parse("/help()")
-        result_upper = self.parser.parse("/HELP()")
+        result_lower = self.parser.parse_command("/help()")
+        result_upper = self.parser.parse_command("/HELP()")
         
         assert result_lower is not None
         assert result_lower.name == "help"
@@ -149,23 +149,23 @@ class TestCommandParser:
         ]
         
         # Only the first case should parse successfully
-        result1 = self.parser.parse(test_cases[0])
+        result1 = self.parser.parse_command(test_cases[0])
         assert result1 is not None
         assert result1.name == "save"
         assert result1.args == []
         
         # Others should fail or handle gracefully
         for cmd in test_cases[1:]:
-            result = self.parser.parse(cmd)
+            result = self.parser.parse_command(cmd)
             # Either fails to parse or parses with empty/filtered args
             if result is not None:
-                assert result.name == "save"
+                assert result.command == "save"
 
     def test_parse_command_with_nested_quotes(self):
         """Test parsing commands with nested quotes."""
-        result = self.parser.parse('/shell("echo \\"hello world\\"")')
+        result = self.parser.parse_command('/shell("echo \\"hello world\\"")')
         assert result is not None
-        assert result.name == "shell"
+        assert result.command == "shell"
         # The exact handling of nested quotes depends on implementation
         assert len(result.args) == 1
 
@@ -180,7 +180,7 @@ class TestCommandParser:
         ]
         
         for text in non_commands:
-            result = self.parser.parse(text)
+            result = self.parser.parse_command(text)
             assert result is None, f"Should not parse non-command text: {text}"
 
     def test_parse_command_with_whitespace(self):
@@ -193,7 +193,7 @@ class TestCommandParser:
         ]
         
         for cmd in test_cases:
-            result = self.parser.parse(cmd)
+            result = self.parser.parse_command(cmd)
             assert result is not None, f"Should parse command with whitespace: {cmd}"
 
     def test_is_command_detection(self):
@@ -260,12 +260,12 @@ class TestCommandParser:
             if cmd in ["/ml", "/sl"]:
                 continue
                 
-            result = self.parser.parse(cmd)
+            result = self.parser.parse_command(cmd)
             assert result is not None, f"Should parse known command: {cmd}"
             
             # Extract expected command name
             expected_name = cmd.split("(")[0][1:]  # Remove / and split at (
-            assert result.name == expected_name
+            assert result.command == expected_name
 
     def test_parse_command_edge_cases(self):
         """Test parsing edge cases and boundary conditions."""
@@ -279,10 +279,10 @@ class TestCommandParser:
         ]
         
         for cmd in edge_cases:
-            result = self.parser.parse(cmd)
+            result = self.parser.parse_command(cmd)
             # These should either parse successfully or fail gracefully
             if result is not None:
-                assert isinstance(result.name, str)
+                assert isinstance(result.command, str)
                 assert isinstance(result.args, list)
                 assert isinstance(result.kwargs, dict)
 
@@ -300,10 +300,10 @@ class TestCommandParser:
         for cmd in malformed_commands:
             # Should either return None or raise appropriate exception
             try:
-                result = self.parser.parse(cmd)
+                result = self.parser.parse_command(cmd)
                 if result is not None:
                     # If it does parse, the result should be well-formed
-                    assert isinstance(result.name, str)
+                    assert isinstance(result.command, str)
                     assert isinstance(result.args, list) 
                     assert isinstance(result.kwargs, dict)
             except Exception:
