@@ -5,6 +5,8 @@ wandb/
 output/
 # test coverage report
 coverage_html/
+# Local pyright config for development (overrides pyproject.toml)
+pyrightconfig.json
 # Notebook tutorial working files/directories
 notebooks/*tutorial*
 # Evaluation results

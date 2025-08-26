@@ -119,7 +119,7 @@ def _validate_results_in_file(
                 "acc,none": {"value": 0.2, "round_digits": 3},
                 "acc_stderr,none": {"value": 0.133, "round_digits": 3},
             },
-            marks=pytest.mark.skip(reason="CUDA error: invalid argument"),
+            marks=pytest.mark.skip(reason="Frequently failing"),
         ),
     ],
     ids=[

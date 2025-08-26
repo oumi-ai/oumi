@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import jsonlines
 import pytest
@@ -15,6 +16,11 @@ from oumi.core.types.conversation import (
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from tests.integration.infer import get_default_device_map_for_inference
+from tests.integration.infer.test_base_inference_engine import (
+    AbstractInferenceEngineBasicFunctionality,
+    AbstractInferenceEngineErrorHandling,
+    AbstractInferenceEngineGenerationParameters,
+)
 from tests.markers import requires_cuda_initialized, requires_gpus
 
 
@@ -30,10 +36,9 @@ def _get_default_text_model_params() -> ModelParams:
 
 def _get_default_image_model_params() -> ModelParams:
     return ModelParams(
-        model_name="Qwen/Qwen2-VL-2B-Instruct",
-        model_max_length=1024,
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
+        model_max_length=512,  # Reduced for smaller model
         trust_remote_code=True,
-        chat_template="qwen2-vl-instruct",
         device_map=get_default_device_map_for_inference(),
     )
 
@@ -399,3 +404,78 @@ def test_unsupported_model_raises_error():
     )
     with pytest.raises(ValueError, match="requires a generation config"):
         NativeTextInferenceEngine(model_params)
+
+
+#
+# Abstract Base Class Implementations
+#
+
+
+class TestNativeBasicFunctionality(AbstractInferenceEngineBasicFunctionality):
+    """Test core Native inference functionality using abstract base class.
+
+    This class inherits 7 comprehensive test methods:
+    - test_basic_inference() - Single conversation inference
+    - test_batch_inference() - Multiple conversation batch processing
+    - test_file_io() - Input/output file handling
+    - test_empty_input() - Edge case: empty conversation list
+    - test_generation_params() - Parameter validation and handling
+    - test_deterministic_generation() - Seed-based reproducibility testing
+    - test_invalid_model_name() - Error handling for invalid models
+    """
+
+    def get_engine_class(self) -> type:
+        """Return the Native inference engine class."""
+        return NativeTextInferenceEngine
+
+    def get_default_model_key(self) -> str:
+        """Return the default model key for Native testing."""
+        return "smollm_135m"
+
+    def get_performance_thresholds(self) -> dict[str, Any]:
+        """Return Native-specific performance expectations."""
+        return {
+            "max_time_seconds": 120.0,  # Native can be slower
+            "min_throughput": 1.0,  # Lower throughput expectations
+            "batch_size": 3,  # Smaller batches for Native
+        }
+
+
+class TestNativeGenerationParameters(AbstractInferenceEngineGenerationParameters):
+    """Test Native generation parameter handling using abstract base class."""
+
+    def get_engine_class(self) -> type:
+        """Return the Native inference engine class."""
+        return NativeTextInferenceEngine
+
+    def get_default_model_key(self) -> str:
+        """Return the default model key for Native testing."""
+        return "smollm_135m"
+
+    def get_performance_thresholds(self) -> dict[str, Any]:
+        """Return Native-specific performance expectations."""
+        return {
+            "max_time_seconds": 60.0,
+            "min_throughput": 2.0,
+            "batch_size": 2,
+        }
+
+
+class TestNativeErrorHandling(AbstractInferenceEngineErrorHandling):
+    """Test Native error handling using abstract base class."""
+
+    def get_engine_class(self) -> type:
+        """Return the Native inference engine class."""
+        return NativeTextInferenceEngine
+
+    def get_default_model_key(self) -> str:
+        """Return the default model key for Native testing."""
+        return "smollm_135m"
+
+    def get_performance_thresholds(self) -> dict[str, Any]:
+        """Return Native-specific performance expectations."""
+        return {
+            "max_time_seconds": 30.0,
+            "min_throughput": 1.0,
+            "batch_size": 2,
+        }
