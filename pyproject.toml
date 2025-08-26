@@ -181,6 +181,7 @@ interactive = [
     "asciinema>=2.4.0",    # Terminal recording for /render() command
     "requests>=2.31.0",    # Web requests for /fetch() command
     "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
+    "pathvalidate>=3.3.1", # File path validation and sanitization for /save() commands
 ]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
