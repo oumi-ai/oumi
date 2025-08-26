@@ -109,10 +109,15 @@ class ChatTestSession:
         self.output_capture = MockOutputCapture() if capture_output else None
         self.input_handler = MockInputHandler(mock_inputs) if mock_inputs else None
         
-        # Mock objects for testing
-        self.mock_engine: Optional[Mock] = None
-        self.mock_console: Optional[Mock] = None
-        self.command_context: Optional[CommandContext] = None
+        # Mock objects for testing - initialize immediately for direct access
+        self.mock_engine: Mock = Mock(spec=BaseInferenceEngine)
+        self.mock_console: Mock = Mock()
+        self.command_context = CommandContext(
+            console=self.mock_console,
+            config=self.config,
+            conversation_history=[],
+            inference_engine=self.mock_engine,
+        )
         
         # Session state
         self._session_active: bool = False
@@ -136,22 +141,14 @@ class ChatTestSession:
                 patches.append(console_patch)
                 mock_console = console_patch.start()
                 mock_console.return_value.print.side_effect = self.output_capture.print
-                self.mock_console = mock_console.return_value
+                # Update the existing mock console with capture behavior
+                self.mock_console.print.side_effect = self.output_capture.print
             
-            # Mock inference engine
+            # Mock inference engine builder to return our existing mock
             engine_patch = patch('oumi.builders.inference_engines.build_inference_engine')
             patches.append(engine_patch)
             mock_engine_builder = engine_patch.start()
-            self.mock_engine = Mock(spec=BaseInferenceEngine)
             mock_engine_builder.return_value = self.mock_engine
-            
-            # Set up command context
-            self.command_context = CommandContext(
-                console=self.mock_console or Console(),
-                config=self.config,
-                conversation_history=[],
-                inference_engine=self.mock_engine,
-            )
             
             yield self
             

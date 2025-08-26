@@ -358,7 +358,7 @@ class TestConversationManagementWorkflows:
         conv1 = chat_session.get_conversation()
         original_response = conv1.messages[-1].content if conv1.messages else ""
         
-        # Regenerate the last response
+        # Reinfer the last response
         regen_result = chat_session.execute_command("/regen()")
         if not regen_result.success:
             pytest.skip("Regeneration not implemented")

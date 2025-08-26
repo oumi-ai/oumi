@@ -65,8 +65,8 @@ class TestBasicChatSession:
         
         # Send user message
         user_input = "Hello, how are you today?"
-        with patch.object(chat_session.mock_engine, 'generate') as mock_generate:
-            mock_generate.return_value = "Hello! I'm doing well, thank you for asking. How can I help you today?"
+        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
+            mock_infer.return_value = "Hello! I'm doing well, thank you for asking. How can I help you today?"
             
             result = chat_session.send_message(user_input)
             
@@ -90,8 +90,8 @@ class TestBasicChatSession:
             "How does machine learning work?",
         ]
         
-        with patch.object(chat_session.mock_engine, 'generate') as mock_generate:
-            mock_generate.side_effect = [
+        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
+            mock_infer.side_effect = [
                 "AI is the simulation of human intelligence in machines.",
                 "An example is image recognition systems.",
                 "Machine learning uses algorithms to learn from data.",
@@ -130,9 +130,9 @@ class TestBasicChatSession:
         """Test recovery from inference engine errors."""
         chat_session.start_session()
         
-        with patch.object(chat_session.mock_engine, 'generate') as mock_generate:
+        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
             # Simulate engine error
-            mock_generate.side_effect = Exception("Model inference failed")
+            mock_infer.side_effect = Exception("Model inference failed")
             
             result = chat_session.send_message("Test message")
             
@@ -155,8 +155,8 @@ class TestBasicChatSession:
                 f"Assistant response {i}: " + "This is a long response. " * 50,
             ])
         
-        with patch.object(chat_session.mock_engine, 'generate') as mock_generate:
-            mock_generate.return_value = "Response within context limits"
+        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
+            mock_infer.return_value = "Response within context limits"
             
             # Send many messages to trigger context management
             for i in range(10):
