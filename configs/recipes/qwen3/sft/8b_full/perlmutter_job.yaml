@@ -1,11 +1,11 @@
-# Job config to full fine-tune Deepseek R1 Distill Qwen2.5 1.5B on OLCF Frontier cluster.
+# Job config to full fine-tune Deepseek R1 Distill Qwen2.5 1.5B on NERSC Frontier cluster.
 #
 # Requirements:
-#   - Set up your OLCF account (only available to Oumi core team)
-#   - Set $OLCF_USER to your OLCF username
+#   - Set up your NERSC account (only available to Oumi core team and collaborators)
+#   - Set $NERSC_USER to your NERSC username
 #
 # Usage:
-#   oumi launch up -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_frontier_job.yaml --cluster batch.$OLCF_USER --user $OLCF_USER --log-level DEBUG
+#   oumi launch up -c configs/recipes/qwen3/sft/8b_full/perlmutter_job.yaml --cluster regular.$NERSC_USER --user $NERSC_USER --log-level DEBUG
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/launch/launch.html
@@ -13,11 +13,11 @@
 #   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/job_config.py
 #   - Other job configs: configs/**/*job.yaml
 
-name: deepseek-r1-distill-qwen1-5b-fft
+name: qwen3-8b-fft
 
 num_nodes: 1
 resources:
-  cloud: frontier
+  cloud: perlmutter
 
 # Upload working directory to ~/oumi_launcher/{submission_time}
 working_dir: .
@@ -27,31 +27,24 @@ file_mounts:
 
 envs:
   WANDB_PROJECT: oumi-train
-  OUMI_RUN_NAME: deepseek-r1.qwen1.5b.fft
+  OUMI_RUN_NAME: qwen3.8b.fft
 
 setup: |
   #SBATCH -N 1
-  #SBATCH -A lrn081
-  #SBATCH -J distill_qwen_1_5b_fft
-  #SBATCH -o /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU
-  #SBATCH -e /lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER
+  #SBATCH -J qwen3_8b_fft
+  #SBATCH -o $CFS/$USER/jobs/logs/%j.OU
+  #SBATCH -e $CFS/$USER/jobs/logs/%j.ER
   #SBATCH -t 01:00:00
-  #SBATCH -p batch
-  #SBATCH -q debug
 
 run: |
   set -e  # Exit if any command failed.
 
-  FRONTIER_NODE_RANK=${PMI_RANK:=0}
+  PERLMUTTER_NODE_RANK=${PMI_RANK:=0}
 
-  # Only necessary if submitting like: sbatch --export=NONE ... (recommended)
-  # Do NOT include this line when submitting without --export=NONE
-  unset SLURM_EXPORT_ENV
+  # Various setup for running on NERSC Perlmutter.
+  source "${SLURM_SUBMIT_DIR}/scripts/perlmutter/perlmutter_init.sh"
 
-  # Various setup for running on OLCF Frontier.
-  source "${SLURM_SUBMIT_DIR}/scripts/frontier/frontier_init.sh"
-
-  LOG_PREFIX="Node: ${FRONTIER_NODE_RANK}:"
+  LOG_PREFIX="Node: ${PERLMUTTER_NODE_RANK}:"
   echo "${LOG_PREFIX} ***ENV BEGIN***"
   echo "${LOG_PREFIX} SLURM_JOBID: $SLURM_JOBID"
   echo "${LOG_PREFIX} OUMI_JOBNUM: $OUMI_JOBNUM"
@@ -75,7 +68,7 @@ run: |
   echo "${LOG_PREFIX} ***ENV END***"
 
   echo "Using this Python environment: $(which python3)"
-  HF_HUB_ENABLE_HF_TRANSFER=1 hf download "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+  HF_HUB_ENABLE_HF_TRANSFER=1 hf download "Qwen/Qwen3-8B"
 
   # Log some context info and  verify that Oumi is usable in this environment:
   python -c "from oumi.utils.torch_utils import log_devices_info, log_versioning_info; log_versioning_info(); log_devices_info();"
@@ -85,11 +78,11 @@ run: |
   set -x
   oumi distributed torchrun \
     -m oumi train \
-    -c configs/recipes/deepseek_r1/sft/distill_qwen_1_5b/full_train.yaml \
-    --training.run_name="deepseek-r1.qwen1.5b.fft.${SLURM_JOBID}" \
+    -c configs/recipes/qwen3/sft/8b_full/train.yaml \
+    --training.run_name="qwen3.8b.fft.${SLURM_JOBID}" \
     --training.max_steps=50 \
     --training.dataloader_num_workers=2 \
     --training.dataloader_prefetch_factor=32 \
     --training.enable_wandb=false
 
-  echo "Node ${FRONTIER_NODE_RANK} is all done!"
+  echo "Node ${PERLMUTTER_NODE_RANK} is all done!"

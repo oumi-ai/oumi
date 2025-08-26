@@ -40,7 +40,7 @@ _PERLMUTTER_HOSTNAME = "perlmutter.nersc.gov"
 
 
 class PerlmutterCloud(BaseCloud):
-    """A resource pool for managing the OLCF Perlmutter job queues."""
+    """A resource pool for managing the NERSC Perlmutter job queues."""
 
     def __init__(self):
         """Initializes a new instance of the PerlmutterCloud class."""
