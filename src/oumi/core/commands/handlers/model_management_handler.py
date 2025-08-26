@@ -168,9 +168,14 @@ class ModelManagementHandler(BaseCommandHandler):
                     self._update_context_in_monitor()
 
                     # Force refresh the system monitor display to show updated values
-                    if hasattr(self.context, "system_monitor") and self.context.system_monitor:
+                    if (
+                        hasattr(self.context, "system_monitor")
+                        and self.context.system_monitor
+                    ):
                         # Trigger an immediate update of the system monitor display
-                        self.context.system_monitor._last_update_time = 0  # Force refresh
+                        self.context.system_monitor._last_update_time = (
+                            0  # Force refresh
+                        )
 
                 model_name = getattr(new_config.model, "model_name", "Unknown model")
                 engine_type = getattr(new_config, "engine", "Unknown engine")

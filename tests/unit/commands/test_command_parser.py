@@ -14,8 +14,6 @@
 
 """Unit tests for command parsing functionality."""
 
-import pytest
-
 from oumi.core.commands import CommandParser
 
 
@@ -123,7 +121,9 @@ class TestCommandParser:
 
     def test_parse_command_with_special_characters(self):
         """Test parsing commands with special characters in arguments."""
-        result = self.parser.parse_command("/fetch('https://example.com/api?key=123&value=test')")
+        result = self.parser.parse_command(
+            "/fetch('https://example.com/api?key=123&value=test')"
+        )
         assert result is not None
         assert result.command == "fetch"
         assert result.args == ["https://example.com/api?key=123&value=test"]
@@ -152,7 +152,9 @@ class TestCommandParser:
 
         # Upper case should also parse and be normalized to lowercase
         if result_upper is not None:
-            assert result_upper.command == "help"  # Commands are normalized to lowercase
+            assert (
+                result_upper.command == "help"
+            )  # Commands are normalized to lowercase
 
     def test_parse_command_with_empty_args(self):
         """Test parsing commands with empty arguments."""
@@ -213,7 +215,7 @@ class TestCommandParser:
     def test_is_command_detection(self):
         """Test command detection functionality."""
         # If the parser has an is_command method
-        if hasattr(self.parser, 'is_command'):
+        if hasattr(self.parser, "is_command"):
             assert self.parser.is_command("/help()")
             assert self.parser.is_command("/save(file.json)")
             assert not self.parser.is_command("Regular text")
@@ -233,11 +235,9 @@ class TestCommandParser:
             # Basic commands
             "/help()",
             "/exit()",
-
             # Input mode commands
             "/ml",  # This might not have parentheses
             "/sl",  # This might not have parentheses
-
             # File operations
             "/attach(file.txt)",
             "/fetch(https://example.com)",
@@ -247,7 +247,6 @@ class TestCommandParser:
             "/save_history(history.json)",
             "/import_history(history.json)",
             "/load(chat_id)",
-
             # Conversation management
             "/delete()",
             "/regen()",
@@ -257,21 +256,17 @@ class TestCommandParser:
             "/show(1)",
             "/render(output.cast)",
             "/full_thoughts()",
-
             # Parameter management
             "/set(temperature=0.8)",
-
             # Branching
             "/branch()",
             "/branch_from(main,5)",
             "/switch(branch_name)",
             "/branches()",
             "/branch_delete(branch_name)",
-
             # Model management
             "/swap(model_name)",
             "/list_engines()",
-
             # Macro system
             "/macro(template.jinja)",
         ]
@@ -295,7 +290,7 @@ class TestCommandParser:
             "/command_with_underscores()",
             "/command123()",  # Command with numbers
             "/save('')",  # Empty string argument
-            "/save(\"\")",  # Empty string with double quotes
+            '/save("")',  # Empty string with double quotes
             "/set(a=1,b=2,c=3,d=4,e=5)",  # Many keyword arguments
         ]
 

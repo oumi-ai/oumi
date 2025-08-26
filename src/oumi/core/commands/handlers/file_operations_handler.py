@@ -49,9 +49,17 @@ class FileOperationsHandler(BaseCommandHandler):
             Tuple of (is_valid, sanitized_path, error_message)
         """
         try:
-            from pathvalidate import ValidationError, sanitize_filepath, is_valid_filepath
+            from pathvalidate import (
+                ValidationError,
+                is_valid_filepath,
+                sanitize_filepath,
+            )
         except ImportError:
-            return False, "", "pathvalidate library is required for file path validation"
+            return (
+                False,
+                "",
+                "pathvalidate library is required for file path validation",
+            )
 
         if not file_path:
             return False, "", "File path cannot be empty"
@@ -77,7 +85,7 @@ class FileOperationsHandler(BaseCommandHandler):
             sanitized = sanitize_filepath(
                 cleaned_path,
                 platform="universal",  # Works on all platforms
-                max_len=255  # Standard filesystem limit
+                max_len=255,  # Standard filesystem limit
             )
         except ValidationError as e:
             return False, "", f"Invalid file path: {str(e)}"
@@ -87,8 +95,12 @@ class FileOperationsHandler(BaseCommandHandler):
             return False, "", "File path contains invalid characters or format"
 
         # Additional security check - prevent path traversal
-        if '..' in sanitized or sanitized.startswith('/'):
-            return False, "", "File path contains potential security risks (path traversal)"
+        if ".." in sanitized or sanitized.startswith("/"):
+            return (
+                False,
+                "",
+                "File path contains potential security risks (path traversal)",
+            )
 
         # Check if the path would create a file with quotes in the name
         if any(quote in Path(sanitized).name for quote in ["'", '"']):

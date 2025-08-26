@@ -14,10 +14,9 @@
 
 """Unit tests for file operations command handlers."""
 
-import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -53,7 +52,9 @@ class TestAttachCommand:
     @pytest.fixture
     def mock_handler(self):
         """Mock file operations handler."""
-        with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
+        with patch(
+            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+        ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
             yield mock_handler
@@ -64,22 +65,22 @@ class TestAttachCommand:
         test_content = file_data["test_files"]["sample_text.txt"]
 
         with temporary_test_files({"test.txt": test_content}) as temp_files:
-            parsed_cmd = ParsedCommand(command="attach", args=[temp_files["test.txt"]], kwargs={},
-                raw_input="/attach(..."
+            parsed_cmd = ParsedCommand(
+                command="attach",
+                args=[temp_files["test.txt"]],
+                kwargs={},
+                raw_input="/attach(...",
             )
 
             # Mock successful attachment
             mock_handler.handle.return_value = CommandResult(
-                success=True,
-                message=f"Successfully attached {temp_files['test.txt']}"
+                success=True, message=f"Successfully attached {temp_files['test.txt']}"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
 
             validate_command_result(
-                result,
-                expect_success=True,
-                expected_message_parts=["attached", ".txt"]
+                result, expect_success=True, expected_message_parts=["attached", ".txt"]
             )
 
     def test_attach_csv_file(self, mock_handler):
@@ -88,20 +89,21 @@ class TestAttachCommand:
         csv_content = file_data["test_files"]["sample_data.csv"]
 
         with temporary_test_files({"data.csv": csv_content}) as temp_files:
-            parsed_cmd = ParsedCommand(command="attach", args=[temp_files["data.csv"]], kwargs={}
-            , raw_input="/attach(...")
+            parsed_cmd = ParsedCommand(
+                command="attach",
+                args=[temp_files["data.csv"]],
+                kwargs={},
+                raw_input="/attach(...",
+            )
 
             mock_handler.handle.return_value = CommandResult(
-                success=True,
-                message="CSV file attached successfully with 5 rows"
+                success=True, message="CSV file attached successfully with 5 rows"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
 
             validate_command_result(
-                result,
-                expect_success=True,
-                expected_message_parts=["CSV", "attached"]
+                result, expect_success=True, expected_message_parts=["CSV", "attached"]
             )
 
     def test_attach_json_file(self, mock_handler):
@@ -110,55 +112,57 @@ class TestAttachCommand:
         json_content = file_data["test_files"]["sample_config.json"]
 
         with temporary_test_files({"config.json": json_content}) as temp_files:
-            parsed_cmd = ParsedCommand(command="attach", args=[temp_files["config.json"]], kwargs={}
-            , raw_input="/attach(...")
+            parsed_cmd = ParsedCommand(
+                command="attach",
+                args=[temp_files["config.json"]],
+                kwargs={},
+                raw_input="/attach(...",
+            )
 
             mock_handler.handle.return_value = CommandResult(
-                success=True,
-                message="JSON file attached and parsed successfully"
+                success=True, message="JSON file attached and parsed successfully"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
 
             validate_command_result(
-                result,
-                expect_success=True,
-                expected_message_parts=["JSON", "attached"]
+                result, expect_success=True, expected_message_parts=["JSON", "attached"]
             )
 
     def test_attach_nonexistent_file(self, mock_handler):
         """Test attaching a file that doesn't exist."""
-        parsed_cmd = ParsedCommand(command="attach", args=["/nonexistent/file.txt"], kwargs={}
-        , raw_input="/attach(...")
+        parsed_cmd = ParsedCommand(
+            command="attach",
+            args=["/nonexistent/file.txt"],
+            kwargs={},
+            raw_input="/attach(...",
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=False,
-            message="File not found: /nonexistent/file.txt"
+            success=False, message="File not found: /nonexistent/file.txt"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["not found"]
+            result, expect_success=False, expected_message_parts=["not found"]
         )
 
     def test_attach_without_file_argument(self, mock_handler):
         """Test attach command without file argument."""
-        parsed_cmd = ParsedCommand(command="attach", args=[], kwargs={}, raw_input="/attach(")
+        parsed_cmd = ParsedCommand(
+            command="attach", args=[], kwargs={}, raw_input="/attach("
+        )
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Usage: /attach(file_path) - Please specify a file to attach"
+            message="Usage: /attach(file_path) - Please specify a file to attach",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Usage", "file_path"]
+            result, expect_success=False, expected_message_parts=["Usage", "file_path"]
         )
 
     def test_attach_large_file_handling(self, mock_handler):
@@ -166,12 +170,16 @@ class TestAttachCommand:
         large_content = "Large file content\n" * 10000  # Simulate large file
 
         with temporary_test_files({"large.txt": large_content}) as temp_files:
-            parsed_cmd = ParsedCommand(command="attach", args=[temp_files["large.txt"]], kwargs={}
-            , raw_input="/attach(...")
+            parsed_cmd = ParsedCommand(
+                command="attach",
+                args=[temp_files["large.txt"]],
+                kwargs={},
+                raw_input="/attach(...",
+            )
 
             mock_handler.handle.return_value = CommandResult(
                 success=True,
-                message="Large file attached (content truncated for display)"
+                message="Large file attached (content truncated for display)",
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -181,19 +189,19 @@ class TestAttachCommand:
     def test_attach_binary_file_rejection(self, mock_handler):
         """Test that binary files are handled appropriately."""
         # Create a simple binary file
-        binary_content = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
+        binary_content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
 
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             f.write(binary_content)
             temp_path = f.name
 
         try:
-            parsed_cmd = ParsedCommand(command="attach", args=[temp_path], kwargs={}
-            , raw_input="/attach(...")
+            parsed_cmd = ParsedCommand(
+                command="attach", args=[temp_path], kwargs={}, raw_input="/attach(..."
+            )
 
             mock_handler.handle.return_value = CommandResult(
-                success=False,
-                message="Binary files are not supported for attachment"
+                success=False, message="Binary files are not supported for attachment"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -201,7 +209,7 @@ class TestAttachCommand:
             validate_command_result(
                 result,
                 expect_success=False,
-                expected_message_parts=["binary", "not supported"]
+                expected_message_parts=["binary", "not supported"],
             )
         finally:
             Path(temp_path).unlink()
@@ -226,7 +234,9 @@ class TestFetchCommand:
     @pytest.fixture
     def mock_handler(self):
         """Mock file operations handler."""
-        with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
+        with patch(
+            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+        ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
             yield mock_handler
@@ -237,12 +247,12 @@ class TestFetchCommand:
         test_url = "https://example.com/article1"
 
         with mock_web_content({test_url: web_mocks["mock_urls"][test_url]["content"]}):
-            parsed_cmd = ParsedCommand(command="fetch", args=[test_url], kwargs={}
-            , raw_input="/fetch(...")
+            parsed_cmd = ParsedCommand(
+                command="fetch", args=[test_url], kwargs={}, raw_input="/fetch(..."
+            )
 
             mock_handler.handle.return_value = CommandResult(
-                success=True,
-                message=f"Successfully fetched content from {test_url}"
+                success=True, message=f"Successfully fetched content from {test_url}"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -250,7 +260,7 @@ class TestFetchCommand:
             validate_command_result(
                 result,
                 expect_success=True,
-                expected_message_parts=["fetched", test_url]
+                expected_message_parts=["fetched", test_url],
             )
 
     def test_fetch_json_api(self, mock_handler):
@@ -259,12 +269,12 @@ class TestFetchCommand:
         test_url = "https://example.com/json-api"
 
         with mock_web_content({test_url: web_mocks["mock_urls"][test_url]["content"]}):
-            parsed_cmd = ParsedCommand(command="fetch", args=[test_url], kwargs={}
-            , raw_input="/fetch(...")
+            parsed_cmd = ParsedCommand(
+                command="fetch", args=[test_url], kwargs={}, raw_input="/fetch(..."
+            )
 
             mock_handler.handle.return_value = CommandResult(
-                success=True,
-                message=f"Successfully fetched JSON data from {test_url}"
+                success=True, message=f"Successfully fetched JSON data from {test_url}"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -277,19 +287,18 @@ class TestFetchCommand:
 
         with mock_web_content({test_url: "404 Not Found"}):
             # Mock the actual HTTP error behavior
-            import requests
-            with patch('requests.get') as mock_get:
+            with patch("requests.get") as mock_get:
                 mock_response = Mock()
                 mock_response.status_code = 404
                 mock_response.text = "404 Not Found"
                 mock_get.return_value = mock_response
 
-                parsed_cmd = ParsedCommand(command="fetch", args=[test_url], kwargs={}
-                , raw_input="/fetch(...")
+                parsed_cmd = ParsedCommand(
+                    command="fetch", args=[test_url], kwargs={}, raw_input="/fetch(..."
+                )
 
                 mock_handler.handle.return_value = CommandResult(
-                    success=False,
-                    message=f"Failed to fetch {test_url}: 404 Not Found"
+                    success=False, message=f"Failed to fetch {test_url}: 404 Not Found"
                 )
 
                 result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -297,44 +306,41 @@ class TestFetchCommand:
                 validate_command_result(
                     result,
                     expect_success=False,
-                    expected_message_parts=["404", "Not Found"]
+                    expected_message_parts=["404", "Not Found"],
                 )
 
     def test_fetch_invalid_url(self, mock_handler):
         """Test fetching with invalid URL."""
         invalid_url = "not-a-valid-url"
 
-        parsed_cmd = ParsedCommand(command="fetch", args=[invalid_url], kwargs={}
-        , raw_input="/fetch(...")
+        parsed_cmd = ParsedCommand(
+            command="fetch", args=[invalid_url], kwargs={}, raw_input="/fetch(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=False,
-            message=f"Invalid URL: {invalid_url}"
+            success=False, message=f"Invalid URL: {invalid_url}"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Invalid URL"]
+            result, expect_success=False, expected_message_parts=["Invalid URL"]
         )
 
     def test_fetch_without_url(self, mock_handler):
         """Test fetch command without URL argument."""
-        parsed_cmd = ParsedCommand(command="fetch", args=[], kwargs={}, raw_input="/fetch(")
+        parsed_cmd = ParsedCommand(
+            command="fetch", args=[], kwargs={}, raw_input="/fetch("
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=False,
-            message="Usage: /fetch(url) - Please specify a URL to fetch"
+            success=False, message="Usage: /fetch(url) - Please specify a URL to fetch"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Usage", "URL"]
+            result, expect_success=False, expected_message_parts=["Usage", "URL"]
         )
 
 
@@ -353,7 +359,7 @@ class TestSaveCommand:
             messages=[
                 Message(role=Role.USER, content="Hello!"),
                 Message(role=Role.ASSISTANT, content="Hi there! How can I help?"),
-            ]
+            ],
         )
 
         self.command_context = CommandContext(
@@ -368,19 +374,21 @@ class TestSaveCommand:
     @pytest.fixture
     def mock_handler(self):
         """Mock file operations handler."""
-        with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
+        with patch(
+            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+        ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
             yield mock_handler
 
     def test_save_json_format(self, mock_handler):
         """Test saving conversation in JSON format."""
-        parsed_cmd = ParsedCommand(command="save", args=["conversation.json"], kwargs={}
-        , raw_input="/save(...")
+        parsed_cmd = ParsedCommand(
+            command="save", args=["conversation.json"], kwargs={}, raw_input="/save(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=True,
-            message="Conversation saved to conversation.json"
+            success=True, message="Conversation saved to conversation.json"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -388,17 +396,17 @@ class TestSaveCommand:
         validate_command_result(
             result,
             expect_success=True,
-            expected_message_parts=["saved", "conversation.json"]
+            expected_message_parts=["saved", "conversation.json"],
         )
 
     def test_save_csv_format(self, mock_handler):
         """Test saving conversation in CSV format."""
-        parsed_cmd = ParsedCommand(command="save", args=["conversation.csv"], kwargs={}
-        , raw_input="/save(...")
+        parsed_cmd = ParsedCommand(
+            command="save", args=["conversation.csv"], kwargs={}, raw_input="/save(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=True,
-            message="Conversation exported to CSV: conversation.csv"
+            success=True, message="Conversation exported to CSV: conversation.csv"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -407,12 +415,12 @@ class TestSaveCommand:
 
     def test_save_markdown_format(self, mock_handler):
         """Test saving conversation in Markdown format."""
-        parsed_cmd = ParsedCommand(command="save", args=["conversation.md"], kwargs={}
-        , raw_input="/save(...")
+        parsed_cmd = ParsedCommand(
+            command="save", args=["conversation.md"], kwargs={}, raw_input="/save(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=True,
-            message="Conversation exported to Markdown: conversation.md"
+            success=True, message="Conversation exported to Markdown: conversation.md"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -421,12 +429,12 @@ class TestSaveCommand:
 
     def test_save_pdf_format(self, mock_handler):
         """Test saving conversation in PDF format."""
-        parsed_cmd = ParsedCommand(command="save", args=["conversation.pdf"], kwargs={}
-        , raw_input="/save(...")
+        parsed_cmd = ParsedCommand(
+            command="save", args=["conversation.pdf"], kwargs={}, raw_input="/save(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
-            success=True,
-            message="Conversation exported to PDF: conversation.pdf"
+            success=True, message="Conversation exported to PDF: conversation.pdf"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -435,29 +443,30 @@ class TestSaveCommand:
 
     def test_save_without_filename(self, mock_handler):
         """Test save command without filename argument."""
-        parsed_cmd = ParsedCommand(command="save", args=[], kwargs={}, raw_input="/save(")
+        parsed_cmd = ParsedCommand(
+            command="save", args=[], kwargs={}, raw_input="/save("
+        )
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Usage: /save(filename) - Please specify an output filename"
+            message="Usage: /save(filename) - Please specify an output filename",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Usage", "filename"]
+            result, expect_success=False, expected_message_parts=["Usage", "filename"]
         )
 
     def test_save_unsupported_format(self, mock_handler):
         """Test saving in unsupported format."""
-        parsed_cmd = ParsedCommand(command="save", args=["conversation.xyz"], kwargs={}
-        , raw_input="/save(...")
+        parsed_cmd = ParsedCommand(
+            command="save", args=["conversation.xyz"], kwargs={}, raw_input="/save(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Unsupported format: .xyz. Supported formats: json, csv, md, pdf, txt"
+            message="Unsupported format: .xyz. Supported formats: json, csv, md, pdf, txt",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -465,7 +474,7 @@ class TestSaveCommand:
         validate_command_result(
             result,
             expect_success=False,
-            expected_message_parts=["Unsupported format", "xyz"]
+            expected_message_parts=["Unsupported format", "xyz"],
         )
 
     def test_save_permission_error(self, mock_handler):
@@ -474,20 +483,18 @@ class TestSaveCommand:
             command="save",
             args=["/root/conversation.json"],  # Likely to cause permission error
             kwargs={},
-            raw_input="/save(...)"
+            raw_input="/save(...)",
         )
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Permission denied: Unable to write to /root/conversation.json"
+            message="Permission denied: Unable to write to /root/conversation.json",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Permission denied"]
+            result, expect_success=False, expected_message_parts=["Permission denied"]
         )
 
 
@@ -510,19 +517,22 @@ class TestShellCommand:
     @pytest.fixture
     def mock_handler(self):
         """Mock file operations handler."""
-        with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
+        with patch(
+            "oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler"
+        ) as mock_handler_class:
             mock_handler = Mock()
             mock_handler_class.return_value = mock_handler
             yield mock_handler
 
     def test_shell_safe_command(self, mock_handler):
         """Test executing safe shell command."""
-        parsed_cmd = ParsedCommand(command="shell", args=["ls -la"], kwargs={}
-        , raw_input="/shell(...")
+        parsed_cmd = ParsedCommand(
+            command="shell", args=["ls -la"], kwargs={}, raw_input="/shell(..."
+        )
 
         mock_handler.handle.return_value = CommandResult(
             success=True,
-            message="Command executed successfully:\ntotal 8\ndrwxr-xr-x  2 user user 4096 Jan  1 00:00 ."
+            message="Command executed successfully:\ntotal 8\ndrwxr-xr-x  2 user user 4096 Jan  1 00:00 .",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -530,7 +540,7 @@ class TestShellCommand:
         validate_command_result(
             result,
             expect_success=True,
-            expected_message_parts=["executed successfully"]
+            expected_message_parts=["executed successfully"],
         )
 
     def test_shell_dangerous_command_blocked(self, mock_handler):
@@ -543,12 +553,12 @@ class TestShellCommand:
         ]
 
         for dangerous_cmd in dangerous_commands:
-            parsed_cmd = ParsedCommand(command="shell", args=[dangerous_cmd], kwargs={}
-            , raw_input="/shell(...")
+            parsed_cmd = ParsedCommand(
+                command="shell", args=[dangerous_cmd], kwargs={}, raw_input="/shell(..."
+            )
 
             mock_handler.handle.return_value = CommandResult(
-                success=False,
-                message=f"Command blocked for security: {dangerous_cmd}"
+                success=False, message=f"Command blocked for security: {dangerous_cmd}"
             )
 
             result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -556,24 +566,24 @@ class TestShellCommand:
             validate_command_result(
                 result,
                 expect_success=False,
-                expected_message_parts=["blocked", "security"]
+                expected_message_parts=["blocked", "security"],
             )
 
     def test_shell_without_command(self, mock_handler):
         """Test shell command without command argument."""
-        parsed_cmd = ParsedCommand(command="shell", args=[], kwargs={}, raw_input="/shell(")
+        parsed_cmd = ParsedCommand(
+            command="shell", args=[], kwargs={}, raw_input="/shell("
+        )
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Usage: /shell(command) - Please specify a command to execute"
+            message="Usage: /shell(command) - Please specify a command to execute",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Usage", "command"]
+            result, expect_success=False, expected_message_parts=["Usage", "command"]
         )
 
     def test_shell_command_timeout(self, mock_handler):
@@ -582,18 +592,15 @@ class TestShellCommand:
             command="shell",
             args=["sleep 300"],  # Long-running command
             kwargs={},
-            raw_input="/shell(...)"
+            raw_input="/shell(...)",
         )
 
         mock_handler.handle.return_value = CommandResult(
-            success=False,
-            message="Command timed out after 30 seconds: sleep 300"
+            success=False, message="Command timed out after 30 seconds: sleep 300"
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
 
         validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["timed out"]
+            result, expect_success=False, expected_message_parts=["timed out"]
         )

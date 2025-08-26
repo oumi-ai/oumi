@@ -78,7 +78,9 @@ class BranchOperationsHandler(BaseCommandHandler):
                 # Update conversation history to match the new branch
                 # (which should be a copy of the current conversation)
                 self.conversation_history.clear()
-                self.conversation_history.extend(copy.deepcopy(new_branch.conversation_history))
+                self.conversation_history.extend(
+                    copy.deepcopy(new_branch.conversation_history)
+                )
 
                 # Update context monitor
                 self._update_context_in_monitor()
@@ -127,7 +129,9 @@ class BranchOperationsHandler(BaseCommandHandler):
                 # Update conversation history with branch content
                 # Clear and replace with deep copy to ensure isolation
                 self.conversation_history.clear()
-                self.conversation_history.extend(copy.deepcopy(branch.conversation_history))
+                self.conversation_history.extend(
+                    copy.deepcopy(branch.conversation_history)
+                )
 
                 # Update context monitor
                 self._update_context_in_monitor()

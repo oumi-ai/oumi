@@ -18,12 +18,10 @@ import json
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
 from oumi.core.commands import CommandResult
-from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,
@@ -51,7 +49,7 @@ class TestConversationLimits:
         max_messages = 100  # Reasonable limit for testing
 
         for i in range(max_messages):
-            result = chat_session.send_message(f"Message {i+1}: {base_message}")
+            result = chat_session.send_message(f"Message {i + 1}: {base_message}")
             if result.success:
                 message_count += 1
             else:
@@ -92,13 +90,15 @@ class TestConversationLimits:
 
         # Send 50 messages as quickly as possible
         for i in range(50):
-            result = chat_session.send_message(f"Rapid message {i+1}")
+            result = chat_session.send_message(f"Rapid message {i + 1}")
             if result.success:
                 successful_messages += 1
 
         elapsed_time = time.time() - start_time
 
-        assert successful_messages > 25, f"Should handle rapid messages (got {successful_messages}/50)"
+        assert successful_messages > 25, (
+            f"Should handle rapid messages (got {successful_messages}/50)"
+        )
 
         # Test that session is still functional after rapid fire
         final_result = chat_session.send_message("Final message after rapid fire")
@@ -130,7 +130,10 @@ class TestConversationLimits:
         if list_result.success:
             # Should show multiple branches
             if list_result.message:
-                assert str(successful_branches) in list_result.message or "branches" in list_result.message.lower()
+                assert (
+                    str(successful_branches) in list_result.message
+                    or "branches" in list_result.message.lower()
+                )
 
 
 class TestEdgeCaseInputs:
@@ -147,10 +150,10 @@ class TestEdgeCaseInputs:
         chat_session.start_session()
 
         edge_case_inputs = [
-            "",           # Empty string
-            " ",          # Single space
-            "\n",         # Newline only
-            "\t",         # Tab only
+            "",  # Empty string
+            " ",  # Single space
+            "\n",  # Newline only
+            "\t",  # Tab only
             "   \n\t  ",  # Mixed whitespace
         ]
 
@@ -169,11 +172,11 @@ class TestEdgeCaseInputs:
 
         special_inputs = [
             "Hello! @#$%^&*()_+-={}[]|\\:;\"'<>?,./",  # Special characters
-            "émojis: 😀🎉🚀💻🤖",                      # Emojis
-            "Ñiño café résumé naïve",                   # Accented characters
-            "中文测试 日本語 العربية русский",            # Multiple languages
-            "Math: ∑∞∂∆∇∈∉∪∩⊂⊃",                      # Mathematical symbols
-            "Arrows: ←↑→↓↔↕⇐⇑⇒⇓⇔",                    # Arrow symbols
+            "émojis: 😀🎉🚀💻🤖",  # Emojis
+            "Ñiño café résumé naïve",  # Accented characters
+            "中文测试 日本語 العربية русский",  # Multiple languages
+            "Math: ∑∞∂∆∇∈∉∪∩⊂⊃",  # Mathematical symbols
+            "Arrows: ←↑→↓↔↕⇐⇑⇒⇓⇔",  # Arrow symbols
         ]
 
         for special_input in special_inputs:
@@ -189,17 +192,17 @@ class TestEdgeCaseInputs:
         chat_session.start_session()
 
         malformed_commands = [
-            "/",                    # Just slash
-            "//help()",             # Double slash
-            "/help",                # Missing parentheses
-            "/help(())",            # Extra parentheses
-            "/help(unclosed",       # Unclosed parentheses
-            "/save(file.txt",       # Missing closing paren
-            "/save()file.txt)",     # Extra closing paren
-            "/save(\"unclosed)",    # Unclosed quote
-            "/save('mixed\")",      # Mixed quotes
-            "/command with spaces()", # Spaces in command name
-            "/ help()",             # Space after slash
+            "/",  # Just slash
+            "//help()",  # Double slash
+            "/help",  # Missing parentheses
+            "/help(())",  # Extra parentheses
+            "/help(unclosed",  # Unclosed parentheses
+            "/save(file.txt",  # Missing closing paren
+            "/save()file.txt)",  # Extra closing paren
+            '/save("unclosed)',  # Unclosed quote
+            "/save('mixed\")",  # Mixed quotes
+            "/command with spaces()",  # Spaces in command name
+            "/ help()",  # Space after slash
         ]
 
         for malformed_cmd in malformed_commands:
@@ -217,7 +220,9 @@ class TestEdgeCaseInputs:
                 pass
 
         # Session should still work after malformed commands
-        recovery_result = chat_session.send_message("Testing recovery after malformed commands")
+        recovery_result = chat_session.send_message(
+            "Testing recovery after malformed commands"
+        )
         assert recovery_result.success
 
     def test_extremely_nested_structures(self, chat_session):
@@ -237,15 +242,21 @@ class TestEdgeCaseInputs:
 
         with temporary_test_files({"deeply_nested.json": nested_json}) as temp_files:
             # Try to attach deeply nested file
-            attach_result = chat_session.execute_command(f"/attach({temp_files['deeply_nested.json']})")
+            attach_result = chat_session.execute_command(
+                f"/attach({temp_files['deeply_nested.json']})"
+            )
 
             if attach_result.success:
                 # Ask about the structure
-                structure_result = chat_session.send_message("Can you analyze the structure of this nested data?")
+                structure_result = chat_session.send_message(
+                    "Can you analyze the structure of this nested data?"
+                )
                 assert structure_result.success
             else:
                 # If attachment failed, continue with normal operation
-                normal_result = chat_session.send_message("Let's continue without the nested file")
+                normal_result = chat_session.send_message(
+                    "Let's continue without the nested file"
+                )
                 assert normal_result.success
 
     def test_binary_and_corrupted_data(self, chat_session):
@@ -254,27 +265,31 @@ class TestEdgeCaseInputs:
 
         # Create binary data file
         binary_data = bytes([i % 256 for i in range(1000)])  # Binary data
-        corrupted_json = '{"key": "value", "incomplete": '   # Corrupted JSON
+        corrupted_json = '{"key": "value", "incomplete": '  # Corrupted JSON
 
         test_files = {
             "binary.bin": binary_data,
             "corrupted.json": corrupted_json,
-            "mixed.txt": "Normal text\x00Binary\xFF\xFE\xFD",  # Mixed text/binary
+            "mixed.txt": "Normal text\x00Binary\xff\xfe\xfd",  # Mixed text/binary
         }
 
         temp_files = []
         try:
             for filename, content in test_files.items():
-                temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix=f'_{filename}', delete=False)
+                temp_file = tempfile.NamedTemporaryFile(
+                    mode="wb", suffix=f"_{filename}", delete=False
+                )
                 if isinstance(content, str):
-                    temp_file.write(content.encode('utf-8', errors='ignore'))
+                    temp_file.write(content.encode("utf-8", errors="ignore"))
                 else:
                     temp_file.write(content)
                 temp_file.close()
                 temp_files.append(temp_file.name)
 
                 # Try to attach each file
-                attach_result = chat_session.execute_command(f"/attach({temp_file.name})")
+                attach_result = chat_session.execute_command(
+                    f"/attach({temp_file.name})"
+                )
                 # Should handle gracefully - either process or reject with informative message
                 assert isinstance(attach_result, CommandResult)
 
@@ -283,7 +298,9 @@ class TestEdgeCaseInputs:
                 Path(temp_file).unlink(missing_ok=True)
 
         # Session should still be functional
-        recovery_result = chat_session.send_message("Testing after binary/corrupted data")
+        recovery_result = chat_session.send_message(
+            "Testing after binary/corrupted data"
+        )
         assert recovery_result.success
 
 
@@ -305,11 +322,15 @@ class TestResourceExhaustion:
 
         with temporary_test_files({"large_file.txt": large_content}) as temp_files:
             # Try to attach large file
-            large_file_result = chat_session.execute_command(f"/attach({temp_files['large_file.txt']})")
+            large_file_result = chat_session.execute_command(
+                f"/attach({temp_files['large_file.txt']})"
+            )
 
             if large_file_result.success:
                 # Ask for analysis of large content
-                analysis_result = chat_session.send_message("Can you summarize this large document?")
+                analysis_result = chat_session.send_message(
+                    "Can you summarize this large document?"
+                )
                 assert isinstance(analysis_result, CommandResult)
 
             # Test multiple large operations
@@ -347,14 +368,18 @@ class TestResourceExhaustion:
 
         # At least some operations should succeed
         successful_ops = sum(1 for r in results if r.success)
-        assert successful_ops >= len(operations) // 2, f"Expected at least half operations to succeed, got {successful_ops}/{len(operations)}"
+        assert successful_ops >= len(operations) // 2, (
+            f"Expected at least half operations to succeed, got {successful_ops}/{len(operations)}"
+        )
 
     def test_file_system_stress(self, chat_session):
         """Test file system stress scenarios."""
         chat_session.start_session()
 
         # Create multiple temporary files
-        file_contents = {f"stress_test_{i}.txt": f"Content for file {i}\n" * 100 for i in range(10)}
+        file_contents = {
+            f"stress_test_{i}.txt": f"Content for file {i}\n" * 100 for i in range(10)
+        }
 
         with temporary_test_files(file_contents) as temp_files:
             # Try to attach all files rapidly
@@ -365,7 +390,9 @@ class TestResourceExhaustion:
 
             # Process all attached files
             if any(r.success for r in attachment_results):
-                analysis_result = chat_session.send_message("Please analyze all the attached files together")
+                analysis_result = chat_session.send_message(
+                    "Please analyze all the attached files together"
+                )
                 assert isinstance(analysis_result, CommandResult)
 
             # Try to save conversation with all attachments
@@ -388,11 +415,11 @@ class TestErrorRecoveryAndResilience:
 
         # Create a series of operations that might fail
         error_prone_sequence = [
-            "/attach(/nonexistent/file1.txt)",      # File error
-            "/branch(invalid*branch*name)",         # Invalid branch name
-            "/set(invalid_parameter=bad_value)",    # Invalid parameter
-            "/save(/root/no_permission.txt)",       # Permission error
-            "/switch(nonexistent_branch)",          # Branch error
+            "/attach(/nonexistent/file1.txt)",  # File error
+            "/branch(invalid*branch*name)",  # Invalid branch name
+            "/set(invalid_parameter=bad_value)",  # Invalid parameter
+            "/save(/root/no_permission.txt)",  # Permission error
+            "/switch(nonexistent_branch)",  # Branch error
         ]
 
         error_count = 0
@@ -402,8 +429,12 @@ class TestErrorRecoveryAndResilience:
                 error_count += 1
 
                 # Test recovery with a simple message after each error
-                recovery_result = chat_session.send_message(f"Recovery test after error {error_count}")
-                assert recovery_result.success, f"Should recover after error {error_count}"
+                recovery_result = chat_session.send_message(
+                    f"Recovery test after error {error_count}"
+                )
+                assert recovery_result.success, (
+                    f"Should recover after error {error_count}"
+                )
 
         # Final comprehensive recovery test
         final_recovery_tests = [
@@ -426,10 +457,10 @@ class TestErrorRecoveryAndResilience:
 
         # Attempt operations that might corrupt state
         potentially_corrupting_ops = [
-            "/delete(999)",              # Delete invalid position
-            "/show(-1)",                 # Show negative position
-            "/branch_from(test, -5)",    # Branch from negative position
-            "/switch('')",               # Switch to empty branch name
+            "/delete(999)",  # Delete invalid position
+            "/show(-1)",  # Show negative position
+            "/branch_from(test, -5)",  # Branch from negative position
+            "/switch('')",  # Switch to empty branch name
         ]
 
         for op in potentially_corrupting_ops:
@@ -452,19 +483,27 @@ class TestErrorRecoveryAndResilience:
         temp_files = []
         try:
             for i in range(5):
-                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f'_cleanup_test_{i}.txt')
+                temp_file = tempfile.NamedTemporaryFile(
+                    delete=False, suffix=f"_cleanup_test_{i}.txt"
+                )
                 temp_file.write(b"Test content for cleanup")
                 temp_file.close()
                 temp_files.append(temp_file.name)
 
                 # Try to attach file and then cause an error
-                attach_result = chat_session.execute_command(f"/attach({temp_file.name})")
+                attach_result = chat_session.execute_command(
+                    f"/attach({temp_file.name})"
+                )
 
                 # Cause a potential error
-                error_result = chat_session.execute_command("/invalid_operation_after_attach()")
+                error_result = chat_session.execute_command(
+                    "/invalid_operation_after_attach()"
+                )
 
                 # Session should still be functional
-                function_test = chat_session.send_message(f"Function test after file {i}")
+                function_test = chat_session.send_message(
+                    f"Function test after file {i}"
+                )
                 assert function_test.success
 
         finally:
@@ -499,5 +538,7 @@ class TestErrorRecoveryAndResilience:
             assert elapsed < 30, f"Command took too long: {command} ({elapsed:.2f}s)"
 
         # Final functionality test
-        final_result = chat_session.send_message("Testing after potential loop scenarios")
+        final_result = chat_session.send_message(
+            "Testing after potential loop scenarios"
+        )
         assert final_result.success

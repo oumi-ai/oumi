@@ -18,15 +18,13 @@ import json
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
-from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,
-    get_sample_conversations,
     temporary_test_files,
 )
 
@@ -104,7 +102,9 @@ class TestBranchingWorkflows:
         assert conv is not None
 
         # Count messages in the branch - should be up to position 3
-        user_messages = [msg.content for msg in conv.messages if msg.role.value.lower() == "user"]
+        user_messages = [
+            msg.content for msg in conv.messages if msg.role.value.lower() == "user"
+        ]
 
         # Should have the first 3 user messages
         assert "Hello" in user_messages
@@ -168,28 +168,33 @@ class TestFileOperationWorkflows:
                 {"month": "Feb", "revenue": 12000, "customers": 180},
                 {"month": "Mar", "revenue": 15000, "customers": 220},
             ],
-            "summary": {
-                "total_revenue": 37000,
-                "avg_customers": 183
-            }
+            "summary": {"total_revenue": 37000, "avg_customers": 183},
         }
 
-        with temporary_test_files({"sales_data.json": json.dumps(test_data, indent=2)}) as temp_files:
+        with temporary_test_files(
+            {"sales_data.json": json.dumps(test_data, indent=2)}
+        ) as temp_files:
             # Step 1: Attach the file
-            attach_result = chat_session.execute_command(f"/attach({temp_files['sales_data.json']})")
+            attach_result = chat_session.execute_command(
+                f"/attach({temp_files['sales_data.json']})"
+            )
             if not attach_result.success:
                 pytest.skip("File attachment not implemented")
 
             # Step 2: Analyze the data
-            analysis_result = chat_session.send_message("Can you analyze the sales trends in this data?")
+            analysis_result = chat_session.send_message(
+                "Can you analyze the sales trends in this data?"
+            )
             assert analysis_result.success
 
             # Step 3: Ask for specific insights
-            insights_result = chat_session.send_message("What's the month-over-month growth rate?")
+            insights_result = chat_session.send_message(
+                "What's the month-over-month growth rate?"
+            )
             assert insights_result.success
 
             # Step 4: Save the analysis
-            with tempfile.NamedTemporaryFile(suffix='.md', delete=False) as temp_output:
+            with tempfile.NamedTemporaryFile(suffix=".md", delete=False) as temp_output:
                 save_result = chat_session.execute_command(f"/save({temp_output.name})")
 
                 if save_result.success:
@@ -227,15 +232,19 @@ class TestFileOperationWorkflows:
             pytest.skip(f"Web fetch not working: {fetch_result.message}")
 
         # Step 2: Request summary
-        summary_result = chat_session.send_message("Please provide a concise summary of the content")
+        summary_result = chat_session.send_message(
+            "Please provide a concise summary of the content"
+        )
         assert summary_result.success
 
         # Step 3: Ask for specific focus
-        focus_result = chat_session.send_message("What is the main purpose of this page?")
+        focus_result = chat_session.send_message(
+            "What is the main purpose of this page?"
+        )
         assert focus_result.success
 
         # Step 4: Save the conversation with analysis
-        with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as temp_output:
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as temp_output:
             save_result = chat_session.execute_command(f"/save({temp_output.name})")
 
             if save_result.success:
@@ -251,13 +260,11 @@ class TestFileOperationWorkflows:
 
         # Create multiple related files
         files_data = {
-            "config.json": json.dumps({
-                "model_name": "test-model",
-                "max_tokens": 2048,
-                "temperature": 0.7
-            }),
+            "config.json": json.dumps(
+                {"model_name": "test-model", "max_tokens": 2048, "temperature": 0.7}
+            ),
             "requirements.txt": "torch>=1.9.0\ntransformers>=4.0.0\nnumpy>=1.20.0",
-            "readme.md": "# Test Project\n\nThis is a machine learning project.\n\n## Setup\nInstall requirements and run config."
+            "readme.md": "# Test Project\n\nThis is a machine learning project.\n\n## Setup\nInstall requirements and run config.",
         }
 
         with temporary_test_files(files_data) as temp_files:
@@ -330,10 +337,14 @@ class TestConversationManagementWorkflows:
         messages_after = len(conv_after_delete.messages) if conv_after_delete else 0
 
         # Should have fewer messages now (deleted at least one turn)
-        assert messages_after < initial_message_count, "Delete command should have removed messages"
+        assert messages_after < initial_message_count, (
+            "Delete command should have removed messages"
+        )
 
         # Continue with conversation
-        followup_result = chat_session.send_message("Can you show me a simple function example?")
+        followup_result = chat_session.send_message(
+            "Can you show me a simple function example?"
+        )
         assert followup_result.success
 
         # Verify conversation continues to work after deletion
@@ -347,7 +358,7 @@ class TestConversationManagementWorkflows:
 
         # Create a very long conversation
         for i in range(20):
-            user_msg = f"Question {i+1}: " + "This is a long question. " * 10
+            user_msg = f"Question {i + 1}: " + "This is a long question. " * 10
             chat_session.send_message(user_msg)
 
         # Check conversation length
@@ -365,11 +376,15 @@ class TestConversationManagementWorkflows:
 
         # For mock implementation, compact command may not actually reduce messages
         # Just verify the command executed and conversation still exists
-        assert messages_after >= 0  # Should still have some content (may be same count in mock)
+        assert (
+            messages_after >= 0
+        )  # Should still have some content (may be same count in mock)
         assert conv_after is not None
 
         # Continue conversation after compaction
-        continue_result = chat_session.send_message("Can you still help me after compaction?")
+        continue_result = chat_session.send_message(
+            "Can you still help me after compaction?"
+        )
         assert continue_result.success
 
     def test_conversation_regeneration_workflow(self, chat_session):
@@ -425,7 +440,9 @@ class TestConversationManagementWorkflows:
         if clear_thoughts_result.success:
             # Verify thinking content was cleared
             conv_after = chat_session.get_conversation()
-            cleaned_response = conv_after.messages[-1].content if conv_after.messages else ""
+            cleaned_response = (
+                conv_after.messages[-1].content if conv_after.messages else ""
+            )
 
             # Should have some content remaining even after clearing thoughts
             assert len(cleaned_response) > 0
@@ -476,19 +493,27 @@ class TestAdvancedCommandCombinations:
 
             # Verify conversation grew
             conv_after_addition = chat_session.get_conversation()
-            messages_after_addition = len(conv_after_addition.messages) if conv_after_addition else 0
-            assert messages_after_addition > initial_message_count, "New message should have been added"
+            messages_after_addition = (
+                len(conv_after_addition.messages) if conv_after_addition else 0
+            )
+            assert messages_after_addition > initial_message_count, (
+                "New message should have been added"
+            )
 
             # Try to load previous state (if load command exists)
             # Note: Load might not actually restore state in mock implementation
             load_result = chat_session.execute_command(f"/load({test_filename})")
             if load_result.success:
                 # If load worked, verify we can still continue conversation
-                continue_result = chat_session.send_message("Let me try a different approach")
+                continue_result = chat_session.send_message(
+                    "Let me try a different approach"
+                )
                 assert continue_result.success
             else:
                 # If load didn't work, just verify save worked and conversation continues
-                continue_result = chat_session.send_message("Let me continue without loading")
+                continue_result = chat_session.send_message(
+                    "Let me continue without loading"
+                )
                 assert continue_result.success
 
             # Final verification - conversation should still be functional
@@ -505,7 +530,6 @@ class TestAdvancedCommandCombinations:
         chat_session.start_session()
 
         # Create a mock macro manager for testing
-        from unittest.mock import Mock
         mock_macro_manager = Mock()
 
         # Mock macro info (what would be returned by load_macro)
@@ -516,8 +540,13 @@ class TestAdvancedCommandCombinations:
 
         # Configure mock to return successful load and render
         mock_macro_manager.load_macro.return_value = (True, "", mock_macro_info)
-        mock_macro_manager.execute_macro.return_value = (True, "Hello! This is a test greeting from the macro system.")
-        mock_macro_manager.render_macro.return_value = "Hello! This is a simple greeting from a macro."
+        mock_macro_manager.execute_macro.return_value = (
+            True,
+            "Hello! This is a test greeting from the macro system.",
+        )
+        mock_macro_manager.render_macro.return_value = (
+            "Hello! This is a simple greeting from a macro."
+        )
 
         # Inject the mock macro manager into the command context
         chat_session.command_context._macro_manager = mock_macro_manager
@@ -547,7 +576,9 @@ class TestAdvancedCommandCombinations:
             pytest.skip("Parameter setting not implemented")
 
         # Continue with new parameters
-        creative_result = chat_session.send_message("Now tell me an even more creative story")
+        creative_result = chat_session.send_message(
+            "Now tell me an even more creative story"
+        )
         assert creative_result.success
 
         # Lower temperature for more focused responses
@@ -577,7 +608,9 @@ class TestAdvancedCommandCombinations:
         assert normal_result.success
 
         # Failed file operation
-        fail_file_result = chat_session.execute_command("/attach(/nonexistent/file.txt)")
+        fail_file_result = chat_session.execute_command(
+            "/attach(/nonexistent/file.txt)"
+        )
         assert not fail_file_result.success
 
         # Session should still be functional

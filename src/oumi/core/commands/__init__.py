@@ -25,5 +25,5 @@ __all__ = [
     "CommandParser",
     "ParsedCommand",
     "CommandRouter",
-    "CommandContext"
+    "CommandContext",
 ]

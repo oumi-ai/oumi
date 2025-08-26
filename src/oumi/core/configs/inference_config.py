@@ -19,7 +19,6 @@ from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
-from oumi.core.configs.params.style_params import StyleParams
 from oumi.core.configs.params.remote_params import RemoteParams
 from oumi.core.configs.params.style_params import StyleParams
 

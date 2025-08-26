@@ -20,7 +20,7 @@ import time
 import uuid
 from typing import Dict, Optional, Set
 
-from aiohttp import web, WSMsgType
+from aiohttp import WSMsgType, web
 from rich.console import Console
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -29,7 +29,6 @@ from oumi.core.commands.command_parser import CommandParser
 from oumi.core.commands.command_router import CommandRouter
 from oumi.core.commands.conversation_branches import ConversationBranchManager
 from oumi.core.configs import InferenceConfig, InferenceEngineType
-from oumi.core.input.enhanced_input import EnhancedInput
 from oumi.core.monitoring import SystemMonitor
 from oumi.core.thinking import ThinkingProcessor
 from oumi.server import OpenAICompatibleServer
@@ -79,7 +78,7 @@ class WebChatSession:
         self.command_router = CommandRouter(self.command_context)
 
         # WebSocket connections for this session
-        self.websockets: Set[web.WebSocketResponse] = set()
+        self.websockets: set[web.WebSocketResponse] = set()
 
         # Last activity timestamp for cleanup
         self.last_activity = time.time()
@@ -110,7 +109,6 @@ class WebChatSession:
         for ws in closed_sockets:
             self.websockets.discard(ws)
 
-
     def _build_inference_engine(self, config: InferenceConfig):
         """Build the inference engine for this session (same as oumi chat)."""
         try:
@@ -133,18 +131,18 @@ class WebChatSession:
         result = []
         for msg in self.conversation_history:
             if isinstance(msg, dict):
-                result.append({
-                    'role': msg.get('role', 'unknown'),
-                    'content': msg.get('content', ''),
-                    'timestamp': msg.get('timestamp', time.time())
-                })
+                result.append(
+                    {
+                        "role": msg.get("role", "unknown"),
+                        "content": msg.get("content", ""),
+                        "timestamp": msg.get("timestamp", time.time()),
+                    }
+                )
             else:
                 # Handle other message formats if needed
-                result.append({
-                    'role': 'unknown',
-                    'content': str(msg),
-                    'timestamp': time.time()
-                })
+                result.append(
+                    {"role": "unknown", "content": str(msg), "timestamp": time.time()}
+                )
         return result
 
 
@@ -177,7 +175,7 @@ class OumiWebServer(OpenAICompatibleServer):
         }
 
         # Session management
-        self.sessions: Dict[str, WebChatSession] = {}
+        self.sessions: dict[str, WebChatSession] = {}
         self.session_cleanup_interval = 3600  # 1 hour
         self.max_idle_time = 1800  # 30 minutes
 
@@ -188,6 +186,7 @@ class OumiWebServer(OpenAICompatibleServer):
         """Lazy initialization of inference engine."""
         if self.inference_engine is None:
             from oumi.infer import get_engine
+
             logger.info("🔄 Initializing inference engine...")
             self.inference_engine = get_engine(self.config)
             logger.info("✅ Inference engine initialized")
@@ -244,6 +243,7 @@ class OumiWebServer(OpenAICompatibleServer):
             # Add system prompt if provided
             if self.system_prompt:
                 from oumi.core.types.conversation import Message, Role
+
                 oumi_messages.append(
                     Message(role=Role.SYSTEM, content=self.system_prompt)
                 )
@@ -251,6 +251,7 @@ class OumiWebServer(OpenAICompatibleServer):
             # Convert messages
             for msg in messages:
                 from oumi.core.types.conversation import Message, Role
+
                 role_mapping = {
                     "system": Role.SYSTEM,
                     "user": Role.USER,
@@ -277,6 +278,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
             # Run inference (lazy-loaded)
             from oumi.infer import infer
+
             results = infer(
                 config=self.config,
                 inputs=[latest_user_content],
@@ -300,6 +302,7 @@ class OumiWebServer(OpenAICompatibleServer):
             conversation = results[0]  # Take first result
             for message in conversation.messages:
                 from oumi.core.types.conversation import Role
+
                 # Skip user messages and system messages, only get assistant responses
                 if message.role not in [Role.USER, Role.SYSTEM]:
                     if isinstance(message.content, str):
@@ -337,26 +340,34 @@ class OumiWebServer(OpenAICompatibleServer):
 
             # Update WebChat session if session_id provided
             if session_id:
-                logger.info(f"🔍 DEBUG: Updating WebChat session {session_id} from OpenAI API")
+                logger.info(
+                    f"🔍 DEBUG: Updating WebChat session {session_id} from OpenAI API"
+                )
                 session = await self.get_or_create_session(session_id)
 
                 # Add user message to session conversation history
-                session.conversation_history.append({
-                    'role': 'user',
-                    'content': latest_user_content,
-                    'timestamp': time.time()
-                })
+                session.conversation_history.append(
+                    {
+                        "role": "user",
+                        "content": latest_user_content,
+                        "timestamp": time.time(),
+                    }
+                )
 
                 # Add assistant response to session conversation history
-                session.conversation_history.append({
-                    'role': 'assistant',
-                    'content': response_content,
-                    'timestamp': time.time()
-                })
+                session.conversation_history.append(
+                    {
+                        "role": "assistant",
+                        "content": response_content,
+                        "timestamp": time.time(),
+                    }
+                )
 
                 # Update context usage
                 self._update_session_context_usage(session)
-                logger.info(f"🔍 DEBUG: WebChat session updated, conversation length: {len(session.conversation_history)}")
+                logger.info(
+                    f"🔍 DEBUG: WebChat session updated, conversation length: {len(session.conversation_history)}"
+                )
 
             # Handle streaming vs non-streaming
             if stream:
@@ -393,23 +404,27 @@ class OumiWebServer(OpenAICompatibleServer):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
-        session_id = request.query.get('session_id', str(uuid.uuid4()))
+        session_id = request.query.get("session_id", str(uuid.uuid4()))
         session = await self.get_or_create_session(session_id)
 
         await session.add_websocket(ws)
 
         # Send initial session state
-        await ws.send_str(json.dumps({
-            'type': 'session_init',
-            'session_id': session_id,
-            'conversation': session.serialize_conversation(),
-            'branches': session.branch_manager.list_branches(),
-            'current_branch': session.branch_manager.current_branch_id,
-            'model_info': {
-                'name': getattr(self.config.model, 'model_name', 'Unknown'),
-                'engine': str(self.config.engine)
-            }
-        }))
+        await ws.send_str(
+            json.dumps(
+                {
+                    "type": "session_init",
+                    "session_id": session_id,
+                    "conversation": session.serialize_conversation(),
+                    "branches": session.branch_manager.list_branches(),
+                    "current_branch": session.branch_manager.current_branch_id,
+                    "model_info": {
+                        "name": getattr(self.config.model, "model_name", "Unknown"),
+                        "engine": str(self.config.engine),
+                    },
+                }
+            )
+        )
 
         try:
             async for msg in ws:
@@ -418,12 +433,13 @@ class OumiWebServer(OpenAICompatibleServer):
                         data = json.loads(msg.data)
                         await self.handle_websocket_message(session, data, ws)
                     except json.JSONDecodeError:
-                        await ws.send_str(json.dumps({
-                            'type': 'error',
-                            'message': 'Invalid JSON format'
-                        }))
+                        await ws.send_str(
+                            json.dumps(
+                                {"type": "error", "message": "Invalid JSON format"}
+                            )
+                        )
                 elif msg.type == WSMsgType.ERROR:
-                    logger.error(f'WebSocket error: {ws.exception()}')
+                    logger.error(f"WebSocket error: {ws.exception()}")
 
         except asyncio.CancelledError:
             pass
@@ -433,77 +449,76 @@ class OumiWebServer(OpenAICompatibleServer):
         return ws
 
     async def handle_websocket_message(
-        self,
-        session: WebChatSession,
-        data: dict,
-        ws: web.WebSocketResponse
+        self, session: WebChatSession, data: dict, ws: web.WebSocketResponse
     ):
         """Handle individual WebSocket messages."""
-        msg_type = data.get('type')
+        msg_type = data.get("type")
 
-        if msg_type == 'ping':
-            await ws.send_str(json.dumps({'type': 'pong'}))
+        if msg_type == "ping":
+            await ws.send_str(json.dumps({"type": "pong"}))
 
-        elif msg_type == 'chat_message':
+        elif msg_type == "chat_message":
             await self.handle_chat_message(session, data, ws)
 
-        elif msg_type == 'command':
+        elif msg_type == "command":
             await self.handle_command_message(session, data, ws)
 
-        elif msg_type == 'get_branches':
-            await ws.send_str(json.dumps({
-                'type': 'branches_update',
-                'branches': session.branch_manager.list_branches(),
-                'current_branch': session.branch_manager.current_branch_id
-            }))
+        elif msg_type == "get_branches":
+            await ws.send_str(
+                json.dumps(
+                    {
+                        "type": "branches_update",
+                        "branches": session.branch_manager.list_branches(),
+                        "current_branch": session.branch_manager.current_branch_id,
+                    }
+                )
+            )
 
-        elif msg_type == 'system_monitor':
+        elif msg_type == "system_monitor":
             monitor_stats = session.system_monitor.get_stats()
-            await ws.send_str(json.dumps({
-                'type': 'system_update',
-                'data': {
-                    'cpu_percent': monitor_stats.cpu_percent,
-                    'ram_used_gb': monitor_stats.ram_used_gb,
-                    'ram_total_gb': monitor_stats.ram_total_gb,
-                    'ram_percent': monitor_stats.ram_percent,
-                    'gpu_vram_used_gb': monitor_stats.gpu_vram_used_gb,
-                    'gpu_vram_total_gb': monitor_stats.gpu_vram_total_gb,
-                    'gpu_vram_percent': monitor_stats.gpu_vram_percent,
-                    'context_used_tokens': monitor_stats.context_used_tokens,
-                    'context_max_tokens': monitor_stats.context_max_tokens,
-                    'context_percent': monitor_stats.context_percent,
-                    'conversation_turns': monitor_stats.conversation_turns
-                }
-            }))
+            await ws.send_str(
+                json.dumps(
+                    {
+                        "type": "system_update",
+                        "data": {
+                            "cpu_percent": monitor_stats.cpu_percent,
+                            "ram_used_gb": monitor_stats.ram_used_gb,
+                            "ram_total_gb": monitor_stats.ram_total_gb,
+                            "ram_percent": monitor_stats.ram_percent,
+                            "gpu_vram_used_gb": monitor_stats.gpu_vram_used_gb,
+                            "gpu_vram_total_gb": monitor_stats.gpu_vram_total_gb,
+                            "gpu_vram_percent": monitor_stats.gpu_vram_percent,
+                            "context_used_tokens": monitor_stats.context_used_tokens,
+                            "context_max_tokens": monitor_stats.context_max_tokens,
+                            "context_percent": monitor_stats.context_percent,
+                            "conversation_turns": monitor_stats.conversation_turns,
+                        },
+                    }
+                )
+            )
 
         else:
-            await ws.send_str(json.dumps({
-                'type': 'error',
-                'message': f'Unknown message type: {msg_type}'
-            }))
+            await ws.send_str(
+                json.dumps(
+                    {"type": "error", "message": f"Unknown message type: {msg_type}"}
+                )
+            )
 
     async def handle_chat_message(
-        self,
-        session: WebChatSession,
-        data: dict,
-        ws: web.WebSocketResponse
+        self, session: WebChatSession, data: dict, ws: web.WebSocketResponse
     ):
         """Handle regular chat messages."""
-        user_message = data.get('message', '')
+        user_message = data.get("message", "")
 
         # Add user message to conversation
-        session.conversation_history.append({
-            'role': 'user',
-            'content': user_message,
-            'timestamp': time.time()
-        })
+        session.conversation_history.append(
+            {"role": "user", "content": user_message, "timestamp": time.time()}
+        )
 
         # Broadcast user message to all clients
-        await session.broadcast_to_websockets({
-            'type': 'user_message',
-            'content': user_message,
-            'timestamp': time.time()
-        })
+        await session.broadcast_to_websockets(
+            {"type": "user_message", "content": user_message, "timestamp": time.time()}
+        )
 
         # Generate AI response using inference engine
         try:
@@ -514,18 +529,30 @@ class OumiWebServer(OpenAICompatibleServer):
                 session.command_context.inference_engine = self.get_inference_engine()
             else:
                 # Log current engine info for debugging swap issues
-                engine_info = getattr(session.command_context.inference_engine, 'model_name', 'Unknown')
+                engine_info = getattr(
+                    session.command_context.inference_engine, "model_name", "Unknown"
+                )
                 logger.debug(f"Using existing inference engine: {engine_info}")
 
                 # Validate that the existing engine is still usable
                 try:
                     # Check if engine has required methods (basic validation)
-                    if not hasattr(session.command_context.inference_engine, 'generate_response'):
-                        logger.warning("Swapped inference engine missing generate_response method, falling back to original")
-                        session.command_context.inference_engine = self.get_inference_engine()
+                    if not hasattr(
+                        session.command_context.inference_engine, "generate_response"
+                    ):
+                        logger.warning(
+                            "Swapped inference engine missing generate_response method, falling back to original"
+                        )
+                        session.command_context.inference_engine = (
+                            self.get_inference_engine()
+                        )
                 except Exception as e:
-                    logger.warning(f"Swapped inference engine validation failed: {e}, falling back to original")
-                    session.command_context.inference_engine = self.get_inference_engine()
+                    logger.warning(
+                        f"Swapped inference engine validation failed: {e}, falling back to original"
+                    )
+                    session.command_context.inference_engine = (
+                        self.get_inference_engine()
+                    )
 
             # Create conversation for inference
             from oumi.core.types.conversation import Conversation, Message, Role
@@ -535,17 +562,19 @@ class OumiWebServer(OpenAICompatibleServer):
 
             # Add system prompt if configured
             if self.system_prompt:
-                oumi_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
+                oumi_messages.append(
+                    Message(role=Role.SYSTEM, content=self.system_prompt)
+                )
 
             # Add conversation history
             for msg in session.conversation_history:
                 role_map = {
-                    'user': Role.USER,
-                    'assistant': Role.ASSISTANT,
-                    'system': Role.SYSTEM
+                    "user": Role.USER,
+                    "assistant": Role.ASSISTANT,
+                    "system": Role.SYSTEM,
                 }
-                role = role_map.get(msg.get('role'), Role.USER)
-                content = msg.get('content', '')
+                role = role_map.get(msg.get("role"), Role.USER)
+                content = msg.get("content", "")
 
                 if content:  # Skip empty messages
                     oumi_messages.append(Message(role=role, content=content))
@@ -554,13 +583,14 @@ class OumiWebServer(OpenAICompatibleServer):
             conversation = Conversation(messages=oumi_messages)
 
             # Send "thinking" indicator
-            await session.broadcast_to_websockets({
-                'type': 'assistant_thinking',
-                'timestamp': time.time()
-            })
+            await session.broadcast_to_websockets(
+                {"type": "assistant_thinking", "timestamp": time.time()}
+            )
 
             # Generate response
-            result = session.command_context.inference_engine.generate_response(conversation)
+            result = session.command_context.inference_engine.generate_response(
+                conversation
+            )
 
             # Extract response content
             response_content = ""
@@ -573,7 +603,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         # Handle list content by joining text parts
                         text_parts = []
                         for item in last_message.content:
-                            if hasattr(item, 'content') and item.content:
+                            if hasattr(item, "content") and item.content:
                                 text_parts.append(str(item.content))
                         response_content = " ".join(text_parts)
                     else:
@@ -584,18 +614,22 @@ class OumiWebServer(OpenAICompatibleServer):
                 response_content = "I'm sorry, I couldn't generate a response."
 
             # Add response to conversation history
-            session.conversation_history.append({
-                'role': 'assistant',
-                'content': response_content,
-                'timestamp': time.time()
-            })
+            session.conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": response_content,
+                    "timestamp": time.time(),
+                }
+            )
 
             # Broadcast assistant response
-            await session.broadcast_to_websockets({
-                'type': 'assistant_message',
-                'content': response_content,
-                'timestamp': time.time()
-            })
+            await session.broadcast_to_websockets(
+                {
+                    "type": "assistant_message",
+                    "content": response_content,
+                    "timestamp": time.time(),
+                }
+            )
 
             # Update context usage after successful message exchange
             self._update_session_context_usage(session)
@@ -605,31 +639,32 @@ class OumiWebServer(OpenAICompatibleServer):
             error_response = f"Error: {str(e)}"
 
             # Add error to conversation history
-            session.conversation_history.append({
-                'role': 'assistant',
-                'content': error_response,
-                'timestamp': time.time()
-            })
+            session.conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": error_response,
+                    "timestamp": time.time(),
+                }
+            )
 
             # Broadcast error response
-            await session.broadcast_to_websockets({
-                'type': 'assistant_message',
-                'content': error_response,
-                'timestamp': time.time(),
-                'is_error': True
-            })
+            await session.broadcast_to_websockets(
+                {
+                    "type": "assistant_message",
+                    "content": error_response,
+                    "timestamp": time.time(),
+                    "is_error": True,
+                }
+            )
 
             # Update context usage even after errors
             self._update_session_context_usage(session)
 
     async def handle_command_message(
-        self,
-        session: WebChatSession,
-        data: dict,
-        ws: web.WebSocketResponse
+        self, session: WebChatSession, data: dict, ws: web.WebSocketResponse
     ):
         """Handle command execution requests."""
-        command_str = data.get('command', '')
+        command_str = data.get("command", "")
 
         try:
             # Parse command
@@ -640,56 +675,69 @@ class OumiWebServer(OpenAICompatibleServer):
                 result = session.command_router.handle_command(parsed_command)
 
                 # Send result back
-                await ws.send_str(json.dumps({
-                    'type': 'command_result',
-                    'command': command_str,
-                    'success': result.success,
-                    'message': result.message,
-                    'should_continue': result.should_continue
-                }))
+                await ws.send_str(
+                    json.dumps(
+                        {
+                            "type": "command_result",
+                            "command": command_str,
+                            "success": result.success,
+                            "message": result.message,
+                            "should_continue": result.should_continue,
+                        }
+                    )
+                )
 
                 # If command affected conversation state, broadcast update
-                if parsed_command.command in ['clear', 'delete', 'switch', 'branch']:
-                    await session.broadcast_to_websockets({
-                        'type': 'conversation_update',
-                        'conversation': session.serialize_conversation(),
-                        'branches': session.branch_manager.list_branches(),
-                        'current_branch': session.branch_manager.current_branch_id
-                    })
+                if parsed_command.command in ["clear", "delete", "switch", "branch"]:
+                    await session.broadcast_to_websockets(
+                        {
+                            "type": "conversation_update",
+                            "conversation": session.serialize_conversation(),
+                            "branches": session.branch_manager.list_branches(),
+                            "current_branch": session.branch_manager.current_branch_id,
+                        }
+                    )
 
             else:
-                await ws.send_str(json.dumps({
-                    'type': 'command_result',
-                    'success': False,
-                    'message': f'Invalid command: {command_str}'
-                }))
+                await ws.send_str(
+                    json.dumps(
+                        {
+                            "type": "command_result",
+                            "success": False,
+                            "message": f"Invalid command: {command_str}",
+                        }
+                    )
+                )
 
         except Exception as e:
             logger.error(f"Command execution error: {e}")
-            await ws.send_str(json.dumps({
-                'type': 'command_result',
-                'success': False,
-                'message': f'Command failed: {str(e)}'
-            }))
+            await ws.send_str(
+                json.dumps(
+                    {
+                        "type": "command_result",
+                        "success": False,
+                        "message": f"Command failed: {str(e)}",
+                    }
+                )
+            )
 
     async def handle_command_api(self, request: web.Request) -> web.Response:
         """Handle command execution via REST API."""
         try:
             data = await request.json()
         except Exception:
-            return web.json_response(
-                {'error': 'Invalid JSON'}, status=400
-            )
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
-        session_id = data.get('session_id', 'default')
-        command = data.get('command', '')
-        args = data.get('args', [])
+        session_id = data.get("session_id", "default")
+        command = data.get("command", "")
+        args = data.get("args", [])
 
         session = await self.get_or_create_session(session_id)
 
         try:
             # Create a string buffer to capture console output
             import io
+
             from rich.console import Console
 
             # Create a temporary console that writes to string buffer
@@ -703,11 +751,12 @@ class OumiWebServer(OpenAICompatibleServer):
             try:
                 # Execute command via command router
                 from oumi.core.commands.command_parser import ParsedCommand
+
                 parsed_command = ParsedCommand(
                     command=command,
                     args=args,
                     kwargs={},
-                    raw_input=f"/{command}({','.join(args)})"
+                    raw_input=f"/{command}({','.join(args)})",
                 )
                 result = session.command_router.handle_command(parsed_command)
 
@@ -727,102 +776,117 @@ class OumiWebServer(OpenAICompatibleServer):
                 session.command_context.console = original_console
 
             response_data = {
-                'success': result.success,
-                'message': full_message,
-                'should_continue': result.should_continue
+                "success": result.success,
+                "message": full_message,
+                "should_continue": result.should_continue,
             }
 
             # Add specific data for certain commands
-            if command in ['branches', 'list_branches']:
-                response_data['branches'] = session.branch_manager.list_branches()
-                response_data['current_branch'] = session.branch_manager.current_branch_id
+            if command in ["branches", "list_branches"]:
+                response_data["branches"] = session.branch_manager.list_branches()
+                response_data["current_branch"] = (
+                    session.branch_manager.current_branch_id
+                )
 
-            elif command == 'show':
-                response_data['conversation'] = session.serialize_conversation()
+            elif command == "show":
+                response_data["conversation"] = session.serialize_conversation()
 
             return web.json_response(response_data)
 
         except Exception as e:
             import traceback
+
             logger.error(f"API command execution error: {e}")
             logger.error(f"Full traceback: {traceback.format_exc()}")
-            return web.json_response(
-                {'error': f'Command failed: {str(e)}'}, status=500
-            )
+            return web.json_response({"error": f"Command failed: {str(e)}"}, status=500)
 
     async def handle_branches_api(self, request: web.Request) -> web.Response:
         """Handle branch operations via REST API."""
-        session_id = request.query.get('session_id', 'default')
+        session_id = request.query.get("session_id", "default")
         session = await self.get_or_create_session(session_id)
 
-        if request.method == 'GET':
-            return web.json_response({
-                'branches': session.branch_manager.list_branches(),
-                'current_branch': session.branch_manager.current_branch_id
-            })
+        if request.method == "GET":
+            return web.json_response(
+                {
+                    "branches": session.branch_manager.list_branches(),
+                    "current_branch": session.branch_manager.current_branch_id,
+                }
+            )
 
-        elif request.method == 'POST':
+        elif request.method == "POST":
             try:
                 data = await request.json()
-                action = data.get('action')
+                action = data.get("action")
 
-                if action == 'switch':
-                    branch_id = data.get('branch_id')
-                    success, message, branch = session.branch_manager.switch_branch(branch_id)
+                if action == "switch":
+                    branch_id = data.get("branch_id")
+                    success, message, branch = session.branch_manager.switch_branch(
+                        branch_id
+                    )
 
                     if success and branch:
                         # Update conversation history
                         session.conversation_history.clear()
                         session.conversation_history.extend(branch.conversation_history)
 
-                    return web.json_response({
-                        'success': success,
-                        'message': message,
-                        'conversation': session.serialize_conversation(),
-                        'current_branch': session.branch_manager.current_branch_id
-                    })
+                    return web.json_response(
+                        {
+                            "success": success,
+                            "message": message,
+                            "conversation": session.serialize_conversation(),
+                            "current_branch": session.branch_manager.current_branch_id,
+                        }
+                    )
 
-                elif action == 'create':
-                    from_branch = data.get('from_branch', session.branch_manager.current_branch_id)
-                    name = data.get('name')
+                elif action == "create":
+                    from_branch = data.get(
+                        "from_branch", session.branch_manager.current_branch_id
+                    )
+                    name = data.get("name")
 
                     success, message, new_branch = session.branch_manager.create_branch(
                         from_branch_id=from_branch, name=name
                     )
 
-                    return web.json_response({
-                        'success': success,
-                        'message': message,
-                        'branches': session.branch_manager.list_branches()
-                    })
+                    return web.json_response(
+                        {
+                            "success": success,
+                            "message": message,
+                            "branches": session.branch_manager.list_branches(),
+                        }
+                    )
 
-                elif action == 'delete':
-                    branch_id = data.get('branch_id')
+                elif action == "delete":
+                    branch_id = data.get("branch_id")
                     success, message = session.branch_manager.delete_branch(branch_id)
 
-                    return web.json_response({
-                        'success': success,
-                        'message': message,
-                        'branches': session.branch_manager.list_branches(),
-                        'current_branch': session.branch_manager.current_branch_id
-                    })
+                    return web.json_response(
+                        {
+                            "success": success,
+                            "message": message,
+                            "branches": session.branch_manager.list_branches(),
+                            "current_branch": session.branch_manager.current_branch_id,
+                        }
+                    )
 
                 else:
-                    return web.json_response({'error': f'Unknown action: {action}'}, status=400)
+                    return web.json_response(
+                        {"error": f"Unknown action: {action}"}, status=400
+                    )
 
             except Exception as e:
                 logger.error(f"Branch API error: {e}")
-                return web.json_response({'error': str(e)}, status=500)
+                return web.json_response({"error": str(e)}, status=500)
 
     async def handle_sync_conversation_api(self, request: web.Request) -> web.Response:
         """Handle syncing conversation from frontend to backend session."""
         try:
             data = await request.json()
         except Exception:
-            return web.json_response({'error': 'Invalid JSON'}, status=400)
+            return web.json_response({"error": "Invalid JSON"}, status=400)
 
-        session_id = data.get('session_id', 'default')
-        conversation = data.get('conversation', [])
+        session_id = data.get("session_id", "default")
+        conversation = data.get("conversation", [])
 
         session = await self.get_or_create_session(session_id)
 
@@ -831,20 +895,18 @@ class OumiWebServer(OpenAICompatibleServer):
         session.conversation_history.extend(conversation)
         session.update_activity()
 
-        return web.json_response({'success': True})
+        return web.json_response({"success": True})
 
     async def handle_get_conversation_api(self, request: web.Request) -> web.Response:
         """Handle getting current conversation from backend session."""
-        session_id = request.query.get('session_id', 'default')
+        session_id = request.query.get("session_id", "default")
         session = await self.get_or_create_session(session_id)
 
-        return web.json_response({
-            'conversation': session.serialize_conversation()
-        })
+        return web.json_response({"conversation": session.serialize_conversation()})
 
     async def handle_system_stats_api(self, request: web.Request) -> web.Response:
         """Handle getting system stats from backend session."""
-        session_id = request.query.get('session_id', 'default')
+        session_id = request.query.get("session_id", "default")
         session = await self.get_or_create_session(session_id)
 
         logger.info(f"🔍 DEBUG: System stats request for session {session_id}")
@@ -856,17 +918,17 @@ class OumiWebServer(OpenAICompatibleServer):
         stats = session.system_monitor.get_stats()
 
         response_data = {
-            'cpu_percent': stats.cpu_percent,
-            'ram_used_gb': stats.ram_used_gb,
-            'ram_total_gb': stats.ram_total_gb,
-            'ram_percent': stats.ram_percent,
-            'gpu_vram_used_gb': stats.gpu_vram_used_gb,
-            'gpu_vram_total_gb': stats.gpu_vram_total_gb,
-            'gpu_vram_percent': stats.gpu_vram_percent,
-            'context_used_tokens': stats.context_used_tokens,
-            'context_max_tokens': stats.context_max_tokens,
-            'context_percent': stats.context_percent,
-            'conversation_turns': stats.conversation_turns
+            "cpu_percent": stats.cpu_percent,
+            "ram_used_gb": stats.ram_used_gb,
+            "ram_total_gb": stats.ram_total_gb,
+            "ram_percent": stats.ram_percent,
+            "gpu_vram_used_gb": stats.gpu_vram_used_gb,
+            "gpu_vram_total_gb": stats.gpu_vram_total_gb,
+            "gpu_vram_percent": stats.gpu_vram_percent,
+            "context_used_tokens": stats.context_used_tokens,
+            "context_max_tokens": stats.context_max_tokens,
+            "context_percent": stats.context_percent,
+            "conversation_turns": stats.conversation_turns,
         }
 
         logger.info(f"🔍 DEBUG: Returning system stats: {response_data}")
@@ -880,29 +942,42 @@ class OumiWebServer(OpenAICompatibleServer):
             context_manager = session.command_context.context_window_manager
             total_tokens = 0
 
-            logger.info(f"🔍 DEBUG: Updating context usage for session {session.session_id}")
-            logger.info(f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}")
+            logger.info(
+                f"🔍 DEBUG: Updating context usage for session {session.session_id}"
+            )
+            logger.info(
+                f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}"
+            )
 
             for i, msg in enumerate(session.conversation_history):
-                content = msg.get('content', '')
+                content = msg.get("content", "")
                 if content:
                     msg_tokens = context_manager.estimate_tokens(content)
                     total_tokens += msg_tokens
-                    logger.info(f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}...")
+                    logger.info(
+                        f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}..."
+                    )
 
             logger.info(f"🔍 DEBUG: Total tokens calculated: {total_tokens}")
-            logger.info(f"🔍 DEBUG: Max context tokens: {session.system_monitor.max_context_tokens}")
+            logger.info(
+                f"🔍 DEBUG: Max context tokens: {session.system_monitor.max_context_tokens}"
+            )
 
             session.system_monitor.update_context_usage(total_tokens)
-            session.system_monitor.update_conversation_turns(len(session.conversation_history) // 2)
+            session.system_monitor.update_conversation_turns(
+                len(session.conversation_history) // 2
+            )
 
             # Verify the update worked
             stats = session.system_monitor.get_stats()
-            logger.info(f"🔍 DEBUG: SystemMonitor stats after update - context_used: {stats.context_used_tokens}, context_max: {stats.context_max_tokens}, percent: {stats.context_percent}")
+            logger.info(
+                f"🔍 DEBUG: SystemMonitor stats after update - context_used: {stats.context_used_tokens}, context_max: {stats.context_max_tokens}, percent: {stats.context_percent}"
+            )
 
         except Exception as e:
             logger.warning(f"Failed to update context usage: {e}")
             import traceback
+
             logger.warning(f"Full traceback: {traceback.format_exc()}")
 
     async def cleanup_sessions(self):
@@ -929,7 +1004,6 @@ class OumiWebServer(OpenAICompatibleServer):
             except Exception as e:
                 logger.error(f"Session cleanup error: {e}")
 
-
     def create_app(self) -> web.Application:
         """Create and configure the aiohttp application with WebSocket support."""
         # Create base app without calling super() to avoid CORS middleware conflicts
@@ -950,7 +1024,9 @@ class OumiWebServer(OpenAICompatibleServer):
         app.router.add_post("/v1/oumi/command", self.handle_command_api)
         app.router.add_get("/v1/oumi/branches", self.handle_branches_api)
         app.router.add_post("/v1/oumi/branches", self.handle_branches_api)
-        app.router.add_post("/v1/oumi/sync_conversation", self.handle_sync_conversation_api)
+        app.router.add_post(
+            "/v1/oumi/sync_conversation", self.handle_sync_conversation_api
+        )
         app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
         app.router.add_get("/v1/oumi/system_stats", self.handle_system_stats_api)
 
@@ -1019,11 +1095,14 @@ def run_webchat_server(
             host=host,
             port=port,
             handle_signals=False,  # Safe for threads
-            print=lambda *args: logger.info(f"aiohttp: {' '.join(map(str, args))}")  # Custom print function
+            print=lambda *args: logger.info(
+                f"aiohttp: {' '.join(map(str, args))}"
+            ),  # Custom print function
         )
         logger.info("🔧 web.run_app returned")
     except Exception as e:
         logger.error(f"❌ Error in web.run_app: {e}")
         import traceback
+
         traceback.print_exc()
         raise

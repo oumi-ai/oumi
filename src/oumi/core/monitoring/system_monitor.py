@@ -267,17 +267,13 @@ class SystemMonitor:
         # Get style settings
         use_emoji = getattr(style_params, "use_emoji", True) if style_params else True
         border_style = (
-            getattr(style_params, "status_border_style", None)
-            if style_params
-            else None
+            getattr(style_params, "status_border_style", None) if style_params else None
         )
         if not border_style:
             border_style = "dim cyan"
 
         title_style = (
-            getattr(style_params, "status_title_style", None)
-            if style_params
-            else None
+            getattr(style_params, "status_title_style", None) if style_params else None
         )
         if not title_style:
             title_style = "bold cyan"

@@ -17,16 +17,13 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
 from oumi.core.commands import CommandResult
-from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,
-    get_sample_conversations,
     temporary_test_files,
 )
 
@@ -77,16 +74,16 @@ class TestSequentialCommandExecution:
 
         # Build up conversation
         for i in range(5):
-            chat_session.send_message(f"Message {i+1}: Building conversation history")
+            chat_session.send_message(f"Message {i + 1}: Building conversation history")
 
         # Execute management command sequence
         management_sequence = [
-            "/show(all)",      # Show entire conversation
-            "/show(3)",        # Show specific message
-            "/delete(2)",      # Delete a message
-            "/show(all)",      # Show conversation after deletion
-            "/compact()",      # Compact conversation
-            "/show(all)",      # Show after compaction
+            "/show(all)",  # Show entire conversation
+            "/show(3)",  # Show specific message
+            "/delete(2)",  # Delete a message
+            "/show(all)",  # Show conversation after deletion
+            "/compact()",  # Compact conversation
+            "/show(all)",  # Show after compaction
         ]
 
         for cmd in management_sequence:
@@ -95,7 +92,9 @@ class TestSequentialCommandExecution:
             assert isinstance(result, CommandResult)
 
             # Continue conversation after each command
-            cont_result = chat_session.send_message("Continuing after management command")
+            cont_result = chat_session.send_message(
+                "Continuing after management command"
+            )
             assert cont_result.success
 
     def test_branching_sequence_workflow(self, chat_session):
@@ -114,15 +113,15 @@ class TestSequentialCommandExecution:
 
         # Complex branching sequence
         branching_sequence = [
-            "/branch(ml_deep_dive)",           # Create branch 1
+            "/branch(ml_deep_dive)",  # Create branch 1
             "/send(How does deep learning work?)",  # Continue in branch 1
-            "/branch_from(nlp_branch, 2)",     # Create branch 2 from position 2
-            "/switch(nlp_branch)",             # Switch to branch 2
+            "/branch_from(nlp_branch, 2)",  # Create branch 2 from position 2
+            "/switch(nlp_branch)",  # Switch to branch 2
             "/send(What about natural language processing?)",  # Continue in branch 2
-            "/branches()",                     # List all branches
-            "/switch(main)",                   # Switch back to main
-            "/send(What's the future of AI?)", # Continue in main
-            "/switch(ml_deep_dive)",           # Switch to first branch
+            "/branches()",  # List all branches
+            "/switch(main)",  # Switch back to main
+            "/send(What's the future of AI?)",  # Continue in main
+            "/switch(ml_deep_dive)",  # Switch to first branch
             "/send(Can you explain neural networks?)",  # Continue in first branch
         ]
 
@@ -141,7 +140,9 @@ class TestSequentialCommandExecution:
         # If branching is implemented, should have some successful branch operations
         if successful_branches > 0:
             # Test branch cleanup
-            cleanup_result = chat_session.execute_command("/branch_delete(ml_deep_dive)")
+            cleanup_result = chat_session.execute_command(
+                "/branch_delete(ml_deep_dive)"
+            )
             # May or may not succeed depending on implementation
 
     def test_file_operations_sequence(self, chat_session):
@@ -180,8 +181,12 @@ class TestSequentialCommandExecution:
                             successful_attachments += 1
 
                 # Save conversation with all attachments
-                with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as save_temp:
-                    save_result = chat_session.execute_command(f"/save({save_temp.name})")
+                with tempfile.NamedTemporaryFile(
+                    suffix=".json", delete=False
+                ) as save_temp:
+                    save_result = chat_session.execute_command(
+                        f"/save({save_temp.name})"
+                    )
                     temp_files.append(save_temp.name)
 
                     if save_result.success:
@@ -209,17 +214,19 @@ class TestConditionalCommandFlows:
         # Intentionally failing command followed by recovery
         error_recovery_flow = [
             "/attach(/nonexistent/file.txt)",  # This should fail
-            "/help()",                         # Recover with help
-            "/send(Are you still working?)",   # Test normal operation
-            "/save(/invalid/path.json)",       # Another failure
-            "/send(Let's continue anyway)",    # Continue despite error
+            "/help()",  # Recover with help
+            "/send(Are you still working?)",  # Test normal operation
+            "/save(/invalid/path.json)",  # Another failure
+            "/send(Let's continue anyway)",  # Continue despite error
         ]
 
         for cmd in error_recovery_flow:
             if cmd.startswith("/send("):
                 message = cmd[6:-1]
                 result = chat_session.send_message(message)
-                assert result.success, "Normal messages should work even after command errors"
+                assert result.success, (
+                    "Normal messages should work even after command errors"
+                )
             else:
                 result = chat_session.execute_command(cmd)
                 # Don't assert success - errors are expected
@@ -227,7 +234,9 @@ class TestConditionalCommandFlows:
 
                 # Session should remain functional after any error
                 test_result = chat_session.send_message("Testing functionality")
-                assert test_result.success, "Session should remain functional after command error"
+                assert test_result.success, (
+                    "Session should remain functional after command error"
+                )
 
     def test_success_dependent_flow(self, chat_session):
         """Test command flow that depends on previous command success."""
@@ -238,16 +247,24 @@ class TestConditionalCommandFlows:
 
         with temporary_test_files({"test_data.txt": test_content}) as temp_files:
             # Try to attach file
-            attach_result = chat_session.execute_command(f"/attach({temp_files['test_data.txt']})")
+            attach_result = chat_session.execute_command(
+                f"/attach({temp_files['test_data.txt']})"
+            )
 
             if attach_result.success:
                 # Continue with analysis since attach succeeded
-                analysis_result = chat_session.send_message("Please analyze the attached file")
+                analysis_result = chat_session.send_message(
+                    "Please analyze the attached file"
+                )
                 assert analysis_result.success
 
                 # Try to save since analysis succeeded
-                with tempfile.NamedTemporaryFile(suffix='.md', delete=False) as save_temp:
-                    save_result = chat_session.execute_command(f"/save({save_temp.name})")
+                with tempfile.NamedTemporaryFile(
+                    suffix=".md", delete=False
+                ) as save_temp:
+                    save_result = chat_session.execute_command(
+                        f"/save({save_temp.name})"
+                    )
 
                     if save_result.success:
                         # Verify saved file
@@ -258,7 +275,9 @@ class TestConditionalCommandFlows:
                     Path(save_temp.name).unlink(missing_ok=True)
             else:
                 # Alternative flow if attach failed
-                alternative_result = chat_session.send_message("Let's work without file attachment")
+                alternative_result = chat_session.send_message(
+                    "Let's work without file attachment"
+                )
                 assert alternative_result.success
 
     def test_branching_conditional_flow(self, chat_session):
@@ -311,16 +330,36 @@ class TestComplexWorkflowComposition:
         # Create complex dataset
         sales_data = {
             "quarterly_sales": [
-                {"quarter": "Q1", "revenue": 125000, "customers": 450, "satisfaction": 4.2},
-                {"quarter": "Q2", "revenue": 142000, "customers": 520, "satisfaction": 4.1},
-                {"quarter": "Q3", "revenue": 168000, "customers": 610, "satisfaction": 4.3},
-                {"quarter": "Q4", "revenue": 195000, "customers": 720, "satisfaction": 4.4},
+                {
+                    "quarter": "Q1",
+                    "revenue": 125000,
+                    "customers": 450,
+                    "satisfaction": 4.2,
+                },
+                {
+                    "quarter": "Q2",
+                    "revenue": 142000,
+                    "customers": 520,
+                    "satisfaction": 4.1,
+                },
+                {
+                    "quarter": "Q3",
+                    "revenue": 168000,
+                    "customers": 610,
+                    "satisfaction": 4.3,
+                },
+                {
+                    "quarter": "Q4",
+                    "revenue": 195000,
+                    "customers": 720,
+                    "satisfaction": 4.4,
+                },
             ],
             "product_performance": {
                 "Product A": {"sales": 85000, "returns": 450},
                 "Product B": {"sales": 120000, "returns": 230},
                 "Product C": {"sales": 95000, "returns": 180},
-            }
+            },
         }
 
         market_report = """
@@ -342,33 +381,47 @@ class TestComplexWorkflowComposition:
         - Develop sustainable products
         """
 
-        with temporary_test_files({
-            "sales_data.json": json.dumps(sales_data, indent=2),
-            "market_report.md": market_report
-        }) as temp_files:
-
+        with temporary_test_files(
+            {
+                "sales_data.json": json.dumps(sales_data, indent=2),
+                "market_report.md": market_report,
+            }
+        ) as temp_files:
             # Complex workflow composition
             workflow_steps = [
                 # Step 1: Data ingestion
                 (f"/attach({temp_files['sales_data.json']})", "attach sales data"),
-                ("/send(Please analyze the quarterly sales trends)", "analyze sales trends"),
-
+                (
+                    "/send(Please analyze the quarterly sales trends)",
+                    "analyze sales trends",
+                ),
                 # Step 2: Additional context
                 (f"/attach({temp_files['market_report.md']})", "attach market report"),
-                ("/send(How do our sales trends compare to market conditions?)", "compare with market"),
-
+                (
+                    "/send(How do our sales trends compare to market conditions?)",
+                    "compare with market",
+                ),
                 # Step 3: Deep analysis
-                ("/send(Which product is performing best and why?)", "product analysis"),
-                ("/send(What should be our strategy for next quarter?)", "strategy recommendation"),
-
+                (
+                    "/send(Which product is performing best and why?)",
+                    "product analysis",
+                ),
+                (
+                    "/send(What should be our strategy for next quarter?)",
+                    "strategy recommendation",
+                ),
                 # Step 4: Branch for alternative analysis
                 ("/branch(alternative_analysis)", "create analysis branch"),
-                ("/send(What if we focused on customer satisfaction instead?)", "satisfaction focus"),
-
+                (
+                    "/send(What if we focused on customer satisfaction instead?)",
+                    "satisfaction focus",
+                ),
                 # Step 5: Switch back and synthesize
                 ("/switch(main)", "back to main analysis"),
-                ("/send(Can you provide an executive summary of all findings?)", "executive summary"),
-
+                (
+                    "/send(Can you provide an executive summary of all findings?)",
+                    "executive summary",
+                ),
                 # Step 6: Documentation
                 ("/save(analysis_report.md)", "save complete analysis"),
             ]
@@ -391,7 +444,9 @@ class TestComplexWorkflowComposition:
                     assert isinstance(result, CommandResult)
 
             # Verify we got through the workflow - count actual send_message calls
-            assert successful_messages >= 5, f"Should have successful analysis messages, got {successful_messages}"
+            assert successful_messages >= 5, (
+                f"Should have successful analysis messages, got {successful_messages}"
+            )
 
     def test_collaborative_workflow_composition(self, chat_session):
         """Test workflow simulating collaborative work."""
@@ -421,23 +476,30 @@ class TestComplexWorkflowComposition:
                 # Project setup
                 (f"/attach({temp_files['project_spec.md']})", "load project spec"),
                 ("/send(Let's break down this project into tasks)", "task breakdown"),
-
                 # Branch for different perspectives
                 ("/branch(technical_review)", "technical perspective"),
-                ("/send(What are the technical challenges for each requirement?)", "technical analysis"),
-
+                (
+                    "/send(What are the technical challenges for each requirement?)",
+                    "technical analysis",
+                ),
                 ("/branch_from(ux_review, 1)", "UX perspective from start"),
                 ("/switch(ux_review)", "switch to UX"),
-                ("/send(How will these features impact user experience?)", "UX analysis"),
-
+                (
+                    "/send(How will these features impact user experience?)",
+                    "UX analysis",
+                ),
                 ("/branch_from(timeline_review, 1)", "timeline perspective"),
                 ("/switch(timeline_review)", "switch to timeline"),
-                ("/send(Is this timeline realistic for the scope?)", "timeline analysis"),
-
+                (
+                    "/send(Is this timeline realistic for the scope?)",
+                    "timeline analysis",
+                ),
                 # Synthesis
                 ("/switch(main)", "back to main discussion"),
-                ("/send(Based on all perspectives, what's our implementation plan?)", "synthesis"),
-
+                (
+                    "/send(Based on all perspectives, what's our implementation plan?)",
+                    "synthesis",
+                ),
                 # Documentation
                 ("/branches()", "review all branches"),
                 ("/save(project_analysis.md)", "save comprehensive analysis"),
@@ -459,7 +521,9 @@ class TestComplexWorkflowComposition:
 
         # Start with initial concept
         initial_idea = "Create a recommendation system for e-commerce"
-        chat_session.send_message(f"I want to {initial_idea}. Can you help me design this?")
+        chat_session.send_message(
+            f"I want to {initial_idea}. Can you help me design this?"
+        )
 
         # Iterative refinement cycles
         refinement_cycles = [
@@ -469,29 +533,27 @@ class TestComplexWorkflowComposition:
                 "questions": [
                     "What are the core components needed?",
                     "How should data flow through the system?",
-                    "What algorithms would you recommend?"
-                ]
+                    "What algorithms would you recommend?",
+                ],
             },
-
             # Cycle 2: Detailed design
             {
                 "focus": "detailed implementation",
                 "questions": [
                     "Can you elaborate on the recommendation algorithms?",
                     "How do we handle cold start problems?",
-                    "What about scalability considerations?"
-                ]
+                    "What about scalability considerations?",
+                ],
             },
-
             # Cycle 3: Practical concerns
             {
                 "focus": "practical implementation",
                 "questions": [
                     "What technologies should we use?",
                     "How do we measure recommendation quality?",
-                    "What are potential privacy concerns?"
-                ]
-            }
+                    "What are potential privacy concerns?",
+                ],
+            },
         ]
 
         for cycle_num, cycle in enumerate(refinement_cycles):
@@ -536,20 +598,22 @@ class TestErrorHandlingInSequences:
 
         # Sequence with mix of working and failing commands
         mixed_sequence = [
-            ("/help()", True),                              # Should work
-            ("/nonexistent_command()", False),              # Should fail
-            ("/send(Still working after error?)", True),    # Should work
-            ("/attach(/nonexistent/file.txt)", False),      # Should fail
-            ("/send(Continuing despite file error)", True), # Should work
-            ("/invalid_branch_operation()", False),         # Should fail
-            ("/send(Final test message)", True),            # Should work
+            ("/help()", True),  # Should work
+            ("/nonexistent_command()", False),  # Should fail
+            ("/send(Still working after error?)", True),  # Should work
+            ("/attach(/nonexistent/file.txt)", False),  # Should fail
+            ("/send(Continuing despite file error)", True),  # Should work
+            ("/invalid_branch_operation()", False),  # Should fail
+            ("/send(Final test message)", True),  # Should work
         ]
 
         for command, should_succeed in mixed_sequence:
             if command.startswith("/send("):
                 message = command[6:-1]
                 result = chat_session.send_message(message)
-                assert result.success == should_succeed, f"Message expectation failed: {command}"
+                assert result.success == should_succeed, (
+                    f"Message expectation failed: {command}"
+                )
             else:
                 result = chat_session.execute_command(command)
                 # Don't assert specific success/failure - just that it doesn't crash
@@ -568,18 +632,18 @@ class TestErrorHandlingInSequences:
             {
                 "primary": "/branch(advanced_analysis)",
                 "fallback": "/send(Let's use linear analysis instead)",
-                "test": "/send(Testing primary strategy)"
+                "test": "/send(Testing primary strategy)",
             },
             {
                 "primary": "/attach(/some/advanced/file.txt)",
                 "fallback": "/send(Let's work without external files)",
-                "test": "/send(Testing file strategy)"
+                "test": "/send(Testing file strategy)",
             },
             {
                 "primary": "/complex_analysis_command()",
                 "fallback": "/send(Let's do manual analysis)",
-                "test": "/send(Testing analysis strategy)"
-            }
+                "test": "/send(Testing analysis strategy)",
+            },
         ]
 
         for strategy in recovery_strategies:
@@ -588,7 +652,9 @@ class TestErrorHandlingInSequences:
 
             if primary_result.success:
                 # Primary worked, continue with test
-                test_result = chat_session.send_message(strategy["test"][6:-1])  # Remove /send()
+                test_result = chat_session.send_message(
+                    strategy["test"][6:-1]
+                )  # Remove /send()
                 assert test_result.success
             else:
                 # Primary failed, use fallback
@@ -637,9 +703,13 @@ class TestErrorHandlingInSequences:
                     step_results.append(result.success)
 
             # Check if transaction completed successfully
-            all_messages_succeeded = all(step_results[i] for i in [1, 3, 5, 6])  # Message indices
+            all_messages_succeeded = all(
+                step_results[i] for i in [1, 3, 5, 6]
+            )  # Message indices
             assert all_messages_succeeded, "Core transaction messages should succeed"
 
             # Even if some commands failed, session should be in consistent state
-            consistency_test = chat_session.send_message("Transaction completed, testing consistency")
+            consistency_test = chat_session.send_message(
+                "Transaction completed, testing consistency"
+            )
             assert consistency_test.success

@@ -17,7 +17,9 @@
 from typing import Any, Dict, List, Tuple
 
 
-def format_conversation_for_gradio(conversation: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def format_conversation_for_gradio(
+    conversation: list[dict[str, Any]],
+) -> list[dict[str, str]]:
     """Convert conversation history to Gradio messages format.
 
     Args:
@@ -29,36 +31,30 @@ def format_conversation_for_gradio(conversation: List[Dict[str, Any]]) -> List[D
     gradio_messages = []
 
     for msg in conversation:
-        role = msg.get('role', 'unknown')
-        content = msg.get('content', '')
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
 
-        if role in ['user', 'assistant']:
+        if role in ["user", "assistant"]:
             # Add user and assistant messages directly
-            gradio_messages.append({
-                'role': role,
-                'content': content
-            })
+            gradio_messages.append({"role": role, "content": content})
 
-        elif role == 'system':
+        elif role == "system":
             # Skip system messages in chat display
             continue
 
-        elif role == 'attachment':
+        elif role == "attachment":
             # Format attachment info and add as user message
-            attachment_info = msg.get('attachment_info', {})
-            filename = attachment_info.get('filename', 'Unknown file')
-            file_type = attachment_info.get('type', 'file')
+            attachment_info = msg.get("attachment_info", {})
+            filename = attachment_info.get("filename", "Unknown file")
+            file_type = attachment_info.get("type", "file")
 
             attachment_text = f"📎 Attached {file_type}: {filename}"
-            gradio_messages.append({
-                'role': 'user',
-                'content': attachment_text
-            })
+            gradio_messages.append({"role": "user", "content": attachment_text})
 
     return gradio_messages
 
 
-def format_message_for_display(message: Dict[str, Any]) -> str:
+def format_message_for_display(message: dict[str, Any]) -> str:
     """Format a single message for display.
 
     Args:
@@ -67,19 +63,19 @@ def format_message_for_display(message: Dict[str, Any]) -> str:
     Returns:
         Formatted message string.
     """
-    role = message.get('role', 'unknown')
-    content = message.get('content', '')
-    timestamp = message.get('timestamp')
+    role = message.get("role", "unknown")
+    content = message.get("content", "")
+    timestamp = message.get("timestamp")
 
-    if role == 'user':
+    if role == "user":
         prefix = "👤 **You:**"
-    elif role == 'assistant':
+    elif role == "assistant":
         prefix = "🤖 **Assistant:**"
-    elif role == 'system':
+    elif role == "system":
         prefix = "⚙️ **System:**"
-    elif role == 'attachment':
-        attachment_info = message.get('attachment_info', {})
-        filename = attachment_info.get('filename', 'file')
+    elif role == "attachment":
+        attachment_info = message.get("attachment_info", {})
+        filename = attachment_info.get("filename", "file")
         return f"📎 **Attached:** {filename}"
     else:
         prefix = f"**{role.title()}:**"
@@ -88,13 +84,14 @@ def format_message_for_display(message: Dict[str, Any]) -> str:
     time_str = ""
     if timestamp:
         import datetime
+
         dt = datetime.datetime.fromtimestamp(timestamp)
         time_str = f" _{dt.strftime('%H:%M:%S')}_"
 
     return f"{prefix}{time_str}\n{content}"
 
 
-def extract_thinking_content(content: str) -> Tuple[str, str]:
+def extract_thinking_content(content: str) -> tuple[str, str]:
     """Extract thinking content from assistant messages.
 
     Args:
@@ -107,11 +104,11 @@ def extract_thinking_content(content: str) -> Tuple[str, str]:
 
     # Patterns for different thinking formats
     thinking_patterns = [
-        (r'<thinking>(.*?)</thinking>', re.DOTALL),
-        (r'<think>(.*?)</think>', re.DOTALL),
-        (r'<reasoning>(.*?)</reasoning>', re.DOTALL),
-        (r'<reflection>(.*?)</reflection>', re.DOTALL),
-        (r'<!-- thinking(.*?)-->', re.DOTALL),
+        (r"<thinking>(.*?)</thinking>", re.DOTALL),
+        (r"<think>(.*?)</think>", re.DOTALL),
+        (r"<reasoning>(.*?)</reasoning>", re.DOTALL),
+        (r"<reflection>(.*?)</reflection>", re.DOTALL),
+        (r"<!-- thinking(.*?)-->", re.DOTALL),
     ]
 
     thinking_content = ""
@@ -121,13 +118,13 @@ def extract_thinking_content(content: str) -> Tuple[str, str]:
         matches = re.findall(pattern, content, flags)
         if matches:
             thinking_content = matches[0].strip()
-            final_content = re.sub(pattern, '', content, flags=flags).strip()
+            final_content = re.sub(pattern, "", content, flags=flags).strip()
             break
 
     return thinking_content, final_content
 
 
-def format_branch_info(branch: Dict[str, Any]) -> str:
+def format_branch_info(branch: dict[str, Any]) -> str:
     """Format branch information for display.
 
     Args:
@@ -136,20 +133,21 @@ def format_branch_info(branch: Dict[str, Any]) -> str:
     Returns:
         Formatted branch info string.
     """
-    name = branch.get('name', 'Unknown')
-    message_count = branch.get('message_count', 0)
-    created_at = branch.get('created_at', '')
-    preview = branch.get('preview', 'No preview available')
-    is_current = branch.get('is_current', False)
+    name = branch.get("name", "Unknown")
+    message_count = branch.get("message_count", 0)
+    created_at = branch.get("created_at", "")
+    preview = branch.get("preview", "No preview available")
+    is_current = branch.get("is_current", False)
 
     # Format created time
     created_str = ""
     if created_at:
         try:
             import datetime
+
             if isinstance(created_at, str):
-                dt = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                created_str = dt.strftime('%m/%d %H:%M')
+                dt = datetime.datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                created_str = dt.strftime("%m/%d %H:%M")
         except:
             created_str = str(created_at)
 
@@ -159,7 +157,7 @@ def format_branch_info(branch: Dict[str, Any]) -> str:
     **{current_indicator}{name}**
     - Messages: {message_count}
     - Created: {created_str}
-    - Preview: {preview[:50]}{'...' if len(preview) > 50 else ''}
+    - Preview: {preview[:50]}{"..." if len(preview) > 50 else ""}
     """
 
 
@@ -172,21 +170,21 @@ def sanitize_filename(filename: str) -> str:
     Returns:
         Sanitized filename.
     """
-    import re
     import os
+    import re
 
     # Remove path components
     filename = os.path.basename(filename)
 
     # Replace unsafe characters
-    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
+    filename = re.sub(r'[<>:"/\\|?*]', "_", filename)
 
     # Remove multiple underscores
-    filename = re.sub(r'_+', '_', filename)
+    filename = re.sub(r"_+", "_", filename)
 
     # Ensure it's not empty
-    if not filename or filename == '_':
-        filename = 'untitled'
+    if not filename or filename == "_":
+        filename = "untitled"
 
     return filename
 
@@ -205,32 +203,32 @@ def get_file_type_emoji(filename: str) -> str:
     ext = os.path.splitext(filename.lower())[1]
 
     emoji_map = {
-        '.pdf': '📄',
-        '.txt': '📝',
-        '.md': '📝',
-        '.json': '🔧',
-        '.csv': '📊',
-        '.xlsx': '📊',
-        '.xls': '📊',
-        '.png': '🖼️',
-        '.jpg': '🖼️',
-        '.jpeg': '🖼️',
-        '.gif': '🖼️',
-        '.webp': '🖼️',
-        '.mp3': '🎵',
-        '.wav': '🎵',
-        '.mp4': '🎬',
-        '.mov': '🎬',
-        '.py': '🐍',
-        '.js': '📜',
-        '.html': '🌐',
-        '.css': '🎨',
-        '.zip': '📦',
-        '.tar': '📦',
-        '.gz': '📦',
+        ".pdf": "📄",
+        ".txt": "📝",
+        ".md": "📝",
+        ".json": "🔧",
+        ".csv": "📊",
+        ".xlsx": "📊",
+        ".xls": "📊",
+        ".png": "🖼️",
+        ".jpg": "🖼️",
+        ".jpeg": "🖼️",
+        ".gif": "🖼️",
+        ".webp": "🖼️",
+        ".mp3": "🎵",
+        ".wav": "🎵",
+        ".mp4": "🎬",
+        ".mov": "🎬",
+        ".py": "🐍",
+        ".js": "📜",
+        ".html": "🌐",
+        ".css": "🎨",
+        ".zip": "📦",
+        ".tar": "📦",
+        ".gz": "📦",
     }
 
-    return emoji_map.get(ext, '📎')
+    return emoji_map.get(ext, "📎")
 
 
 def format_error_message(error: Exception, context: str = "") -> str:
@@ -284,7 +282,7 @@ def create_progress_html(current: int, total: int, label: str = "Progress") -> s
     """
 
 
-def format_system_stats(stats: Dict[str, Any]) -> str:
+def format_system_stats(stats: dict[str, Any]) -> str:
     """Format system statistics for display.
 
     Args:
@@ -293,10 +291,10 @@ def format_system_stats(stats: Dict[str, Any]) -> str:
     Returns:
         Formatted HTML string.
     """
-    gpu_usage = stats.get('gpu_usage', 0)
-    memory_usage = stats.get('memory_usage', 0)
-    context_used = stats.get('context_used', 0)
-    context_total = stats.get('context_total', 4096)
+    gpu_usage = stats.get("gpu_usage", 0)
+    memory_usage = stats.get("memory_usage", 0)
+    context_used = stats.get("context_used", 0)
+    context_total = stats.get("context_total", 4096)
 
     return f"""
     <div class="system-stats" style="font-family: monospace; font-size: 12px; background: #1e1e1e; color: #00ff00; padding: 8px; border-radius: 4px;">
@@ -308,7 +306,7 @@ def format_system_stats(stats: Dict[str, Any]) -> str:
     """
 
 
-def validate_command_syntax(command: str) -> Tuple[bool, str]:
+def validate_command_syntax(command: str) -> tuple[bool, str]:
     """Validate command syntax.
 
     Args:
@@ -320,22 +318,40 @@ def validate_command_syntax(command: str) -> Tuple[bool, str]:
     if not command.strip():
         return False, "Command cannot be empty"
 
-    if not command.startswith('/'):
+    if not command.startswith("/"):
         return False, "Commands must start with '/'"
 
     # Basic syntax validation
-    if command.count('(') != command.count(')'):
+    if command.count("(") != command.count(")"):
         return False, "Mismatched parentheses"
 
     # Check for common command names
     valid_commands = {
-        'help', 'clear', 'delete', 'regen', 'attach', 'save', 'export',
-        'import', 'swap', 'set', 'branch', 'switch', 'branches',
-        'branch_delete', 'show', 'render', 'compact', 'full_thoughts',
-        'clear_thoughts', 'fetch', 'shell', 'list_engines'
+        "help",
+        "clear",
+        "delete",
+        "regen",
+        "attach",
+        "save",
+        "export",
+        "import",
+        "swap",
+        "set",
+        "branch",
+        "switch",
+        "branches",
+        "branch_delete",
+        "show",
+        "render",
+        "compact",
+        "full_thoughts",
+        "clear_thoughts",
+        "fetch",
+        "shell",
+        "list_engines",
     }
 
-    command_name = command[1:].split('(')[0].strip()
+    command_name = command[1:].split("(")[0].strip()
     if command_name not in valid_commands:
         return False, f"Unknown command: {command_name}"
 

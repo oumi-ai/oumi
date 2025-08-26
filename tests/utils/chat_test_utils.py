@@ -20,10 +20,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
-from rich.console import Console
+from unittest.mock import Mock, patch
 
 from oumi.core.commands import CommandParser, CommandResult, CommandRouter
 from oumi.core.commands.command_context import CommandContext
@@ -31,20 +28,19 @@ from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.io_utils import get_oumi_root_directory, load_json
-from oumi.utils.logging import logger
 
 
 class MockInputHandler:
     """Mock input handler for non-interactive testing."""
 
-    def __init__(self, inputs: List[str]):
+    def __init__(self, inputs: list[str]):
         """Initialize with predefined inputs.
 
         Args:
             inputs: List of input strings to return sequentially.
         """
         self.inputs = iter(inputs)
-        self.history: List[str] = []
+        self.history: list[str] = []
 
     def __call__(self, prompt: str = "") -> str:
         """Mock input function that returns next predefined input.
@@ -70,8 +66,8 @@ class MockOutputCapture:
     """Captures output for testing."""
 
     def __init__(self):
-        self.outputs: List[str] = []
-        self.console_output: List[str] = []
+        self.outputs: list[str] = []
+        self.console_output: list[str] = []
 
     def write(self, text: str) -> None:
         """Capture written text."""
@@ -89,7 +85,7 @@ class ChatTestSession:
     def __init__(
         self,
         config: InferenceConfig,
-        mock_inputs: Optional[List[str]] = None,
+        mock_inputs: Optional[list[str]] = None,
         capture_output: bool = True,
     ):
         """Initialize chat test session.
@@ -104,8 +100,8 @@ class ChatTestSession:
         self.capture_output = capture_output
 
         # Test state
-        self.conversation_history: List[Conversation] = []
-        self.command_history: List[Tuple[str, CommandResult]] = []
+        self.conversation_history: list[Conversation] = []
+        self.command_history: list[tuple[str, CommandResult]] = []
         self.output_capture = MockOutputCapture() if capture_output else None
         self.input_handler = MockInputHandler(mock_inputs) if mock_inputs else None
 
@@ -131,13 +127,13 @@ class ChatTestSession:
         try:
             # Mock input function
             if self.input_handler:
-                input_patch = patch('builtins.input', self.input_handler)
+                input_patch = patch("builtins.input", self.input_handler)
                 patches.append(input_patch)
                 input_patch.start()
 
             # Mock console output
             if self.capture_output:
-                console_patch = patch('rich.console.Console')
+                console_patch = patch("rich.console.Console")
                 patches.append(console_patch)
                 mock_console = console_patch.start()
                 mock_console.return_value.print.side_effect = self.output_capture.print
@@ -145,7 +141,9 @@ class ChatTestSession:
                 self.mock_console.print.side_effect = self.output_capture.print
 
             # Mock inference engine builder to return our existing mock
-            engine_patch = patch('oumi.builders.inference_engines.build_inference_engine')
+            engine_patch = patch(
+                "oumi.builders.inference_engines.build_inference_engine"
+            )
             patches.append(engine_patch)
             mock_engine_builder = engine_patch.start()
             mock_engine_builder.return_value = self.mock_engine
@@ -175,7 +173,9 @@ class ChatTestSession:
         # Parse the command
         parsed_command = parser.parse_command(command)
         if parsed_command is None:
-            result = CommandResult(success=False, message=f"Failed to parse command: {command}")
+            result = CommandResult(
+                success=False, message=f"Failed to parse command: {command}"
+            )
         else:
             # Execute the command
             result = router.handle_command(parsed_command)
@@ -225,11 +225,13 @@ class ChatTestSession:
         """Get the most recent conversation."""
         return self.conversation_history[-1] if self.conversation_history else None
 
-    def get_command_results(self) -> List[Tuple[str, CommandResult]]:
+    def get_command_results(self) -> list[tuple[str, CommandResult]]:
         """Get all command execution results."""
         return self.command_history.copy()
 
-    def assert_command_success(self, command: str, expected_message: Optional[str] = None):
+    def assert_command_success(
+        self, command: str, expected_message: Optional[str] = None
+    ):
         """Assert that a command executed successfully.
 
         Args:
@@ -250,7 +252,9 @@ class ChatTestSession:
 
         raise AssertionError(f"Command '{command}' was not executed")
 
-    def assert_command_failure(self, command: str, expected_error: Optional[str] = None):
+    def assert_command_failure(
+        self, command: str, expected_error: Optional[str] = None
+    ):
         """Assert that a command failed as expected.
 
         Args:
@@ -262,7 +266,9 @@ class ChatTestSession:
         """
         for cmd, result in self.command_history:
             if cmd == command:
-                assert not result.success, f"Command '{command}' unexpectedly succeeded: {result.message}"
+                assert not result.success, (
+                    f"Command '{command}' unexpectedly succeeded: {result.message}"
+                )
                 if expected_error:
                     assert expected_error in result.message, (
                         f"Expected error '{expected_error}' not found in '{result.message}'"
@@ -311,22 +317,19 @@ class ChatTestSession:
         if self._session_active:
             return CommandResult(
                 success=False,
-                message="Session is already active. End current session first."
+                message="Session is already active. End current session first.",
             )
 
         self._session_active = True
         # Use unique session ID based on object id and time to ensure uniqueness across sessions
         import time
+
         session_id = f"test_session_{id(self)}_{int(time.time() * 1000000)}"
         self._current_conversation = Conversation(
-            conversation_id=session_id,
-            messages=[]
+            conversation_id=session_id, messages=[]
         )
 
-        return CommandResult(
-            success=True,
-            message="Chat session started successfully"
-        )
+        return CommandResult(success=True, message="Chat session started successfully")
 
     def end_session(self) -> CommandResult:
         """End the current chat session.
@@ -335,10 +338,7 @@ class ChatTestSession:
             Command result indicating session end status.
         """
         if not self._session_active:
-            return CommandResult(
-                success=False,
-                message="No active session to end"
-            )
+            return CommandResult(success=False, message="No active session to end")
 
         if self._current_conversation and self._current_conversation.messages:
             self.conversation_history.append(self._current_conversation)
@@ -346,10 +346,7 @@ class ChatTestSession:
         self._session_active = False
         self._current_conversation = None
 
-        return CommandResult(
-            success=True,
-            message="Chat session ended successfully"
-        )
+        return CommandResult(success=True, message="Chat session ended successfully")
 
     def is_active(self) -> bool:
         """Check if the chat session is currently active.
@@ -370,17 +367,16 @@ class ChatTestSession:
         """
         if not self._session_active:
             return CommandResult(
-                success=False,
-                message="No active session. Start a session first."
+                success=False, message="No active session. Start a session first."
             )
 
         if not self._current_conversation:
             # Use unique conversation ID based on object id and time
             import time
+
             conv_id = f"conversation_{id(self)}_{int(time.time() * 1000000)}"
             self._current_conversation = Conversation(
-                conversation_id=conv_id,
-                messages=[]
+                conversation_id=conv_id, messages=[]
             )
 
         # Add user message
@@ -392,10 +388,7 @@ class ChatTestSession:
         assistant_message = Message(role=Role.ASSISTANT, content=assistant_response)
         self._current_conversation.messages.append(assistant_message)
 
-        return CommandResult(
-            success=True,
-            message=assistant_response
-        )
+        return CommandResult(success=True, message=assistant_response)
 
     def execute_command(self, command: str) -> CommandResult:
         """Execute a chat command.
@@ -415,10 +408,9 @@ class ChatTestSession:
             # Convert conversation messages to the format expected by command context
             context_messages = []
             for msg in self._current_conversation.messages:
-                context_messages.append({
-                    "role": msg.role.value.lower(),
-                    "content": msg.content
-                })
+                context_messages.append(
+                    {"role": msg.role.value.lower(), "content": msg.content}
+                )
             self.command_context.conversation_history.clear()
             self.command_context.conversation_history.extend(context_messages)
         else:
@@ -431,6 +423,7 @@ class ChatTestSession:
             # Convert context messages back to conversation format
             new_messages = []
             from oumi.core.types.conversation import Role
+
             for msg in self.command_context.conversation_history:
                 role_str = msg.get("role", "user")
                 if role_str.lower() == "assistant":
@@ -461,8 +454,7 @@ class ChatTestSession:
 
 
 def create_test_inference_config(
-    model_name: str = "HuggingFaceTB/SmolLM-135M-Instruct",
-    **kwargs
+    model_name: str = "HuggingFaceTB/SmolLM-135M-Instruct", **kwargs
 ) -> InferenceConfig:
     """Create optimized inference config for chat testing.
 
@@ -504,13 +496,12 @@ def create_vision_test_config(**kwargs) -> InferenceConfig:
         Vision-optimized inference configuration.
     """
     return create_test_inference_config(
-        model_name="HuggingFaceTB/SmolVLM-256M-Instruct",
-        **kwargs
+        model_name="HuggingFaceTB/SmolVLM-256M-Instruct", **kwargs
     )
 
 
 @contextmanager
-def temporary_test_files(file_contents: Dict[str, str]):
+def temporary_test_files(file_contents: dict[str, str]):
     """Create temporary files for testing file operations.
 
     Args:
@@ -525,9 +516,7 @@ def temporary_test_files(file_contents: Dict[str, str]):
     try:
         for filename, content in file_contents.items():
             with tempfile.NamedTemporaryFile(
-                mode='w',
-                suffix=Path(filename).suffix,
-                delete=False
+                mode="w", suffix=Path(filename).suffix, delete=False
             ) as f:
                 f.write(content)
                 temp_files[filename] = f.name
@@ -544,7 +533,7 @@ def temporary_test_files(file_contents: Dict[str, str]):
                 pass
 
 
-def mock_web_content(urls_to_content: Dict[str, str]):
+def mock_web_content(urls_to_content: dict[str, str]):
     """Mock web content for /fetch() command testing.
 
     Args:
@@ -553,24 +542,23 @@ def mock_web_content(urls_to_content: Dict[str, str]):
     Returns:
         Mock patch object for requests.get.
     """
+
     def mock_get(url, **kwargs):
         mock_response = Mock()
         if url in urls_to_content:
             mock_response.text = urls_to_content[url]
             mock_response.status_code = 200
-            mock_response.headers = {'content-type': 'text/html'}
+            mock_response.headers = {"content-type": "text/html"}
         else:
             mock_response.status_code = 404
             mock_response.text = "Not Found"
         return mock_response
 
-    return patch('requests.get', side_effect=mock_get)
+    return patch("requests.get", side_effect=mock_get)
 
 
 def assert_valid_conversation_export(
-    export_path: Union[str, Path],
-    expected_format: str,
-    min_messages: int = 1
+    export_path: Union[str, Path], expected_format: str, min_messages: int = 1
 ):
     """Assert that a conversation export file is valid.
 
@@ -583,22 +571,27 @@ def assert_valid_conversation_export(
     assert export_path.exists(), f"Export file does not exist: {export_path}"
     assert export_path.stat().st_size > 0, f"Export file is empty: {export_path}"
 
-    if expected_format.lower() == 'json':
+    if expected_format.lower() == "json":
         with open(export_path) as f:
             data = json.load(f)
             assert isinstance(data, (dict, list)), "Invalid JSON structure"
 
-    elif expected_format.lower() == 'csv':
+    elif expected_format.lower() == "csv":
         import csv
+
         with open(export_path) as f:
             reader = csv.reader(f)
             rows = list(reader)
-            assert len(rows) >= min_messages + 1, "Not enough CSV rows (including header)"
+            assert len(rows) >= min_messages + 1, (
+                "Not enough CSV rows (including header)"
+            )
 
-    elif expected_format.lower() == 'md':
+    elif expected_format.lower() == "md":
         content = export_path.read_text()
         assert len(content.strip()) > 0, "Markdown export is empty"
-        assert '**User:**' in content or '**Assistant:**' in content, "Missing conversation markers"
+        assert "**User:**" in content or "**Assistant:**" in content, (
+            "Missing conversation markers"
+        )
 
 
 def create_test_image_bytes() -> bytes:
@@ -632,7 +625,9 @@ class TestFileCleanupManager:
         """Clean up all registered files and directories."""
         self.cleanup_all()
 
-    def create_temp_file(self, suffix: str = '', content: str = '', mode: str = 'w') -> str:
+    def create_temp_file(
+        self, suffix: str = "", content: str = "", mode: str = "w"
+    ) -> str:
         """Create a temporary file and register it for cleanup.
 
         Args:
@@ -692,6 +687,7 @@ class TestFileCleanupManager:
         for dir_path in self.temp_dirs:
             try:
                 import shutil
+
                 shutil.rmtree(dir_path, ignore_errors=True)
             except Exception:
                 pass  # Ignore cleanup errors
@@ -709,15 +705,20 @@ def ensure_test_cleanup():
         def test_function():
             # Test code here
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             with TestFileCleanupManager():
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
-def cleanup_test_files_in_directory(directory: Union[str, Path], patterns: List[str] = None):
+def cleanup_test_files_in_directory(
+    directory: Union[str, Path], patterns: list[str] = None
+):
     """Clean up test files in a specific directory.
 
     Args:
@@ -726,11 +727,29 @@ def cleanup_test_files_in_directory(directory: Union[str, Path], patterns: List[
     """
     if patterns is None:
         patterns = [
-            "test_*.json", "test_*.txt", "test_*.pdf", "test_*.csv", "test_*.md",
-            "*_test_*", "stress_test_*", "analysis_report*", "project_analysis*",
-            "*_attachment*", "*_cleanup_test_*", "deeply_nested*", "sales_data*",
-            "*_report*", "file1.json", "file2.json", "output.json", "file.txt", "test.json",
-            "refinement_*.md", "demo.cast", "'mixed\"", "\"unclosed"
+            "test_*.json",
+            "test_*.txt",
+            "test_*.pdf",
+            "test_*.csv",
+            "test_*.md",
+            "*_test_*",
+            "stress_test_*",
+            "analysis_report*",
+            "project_analysis*",
+            "*_attachment*",
+            "*_cleanup_test_*",
+            "deeply_nested*",
+            "sales_data*",
+            "*_report*",
+            "file1.json",
+            "file2.json",
+            "output.json",
+            "file.txt",
+            "test.json",
+            "refinement_*.md",
+            "demo.cast",
+            "'mixed\"",
+            '"unclosed',
         ]
 
     directory = Path(directory)
@@ -751,20 +770,20 @@ class CommandSequenceBuilder:
 
     def __init__(self, session: ChatTestSession):
         self.session = session
-        self.commands: List[str] = []
+        self.commands: list[str] = []
 
-    def add_command(self, command: str) -> 'CommandSequenceBuilder':
+    def add_command(self, command: str) -> "CommandSequenceBuilder":
         """Add a command to the sequence."""
         self.commands.append(command)
         return self
 
-    def add_user_input(self, message: str) -> 'CommandSequenceBuilder':
+    def add_user_input(self, message: str) -> "CommandSequenceBuilder":
         """Add user input between commands."""
         # This will be handled by the session during execution
         self.commands.append(f"__USER_INPUT__{message}")
         return self
 
-    def execute_sequence(self) -> List[CommandResult]:
+    def execute_sequence(self) -> list[CommandResult]:
         """Execute the built command sequence."""
         results = []
 
@@ -789,7 +808,7 @@ class CommandSequenceBuilder:
             )
 
 
-def load_chat_test_data(filename: str) -> Dict[str, Any]:
+def load_chat_test_data(filename: str) -> dict[str, Any]:
     """Load test data from the chat test data directory.
 
     Args:
@@ -804,7 +823,7 @@ def load_chat_test_data(filename: str) -> Dict[str, Any]:
     return load_json(data_path)
 
 
-def get_sample_conversations() -> List[Dict[str, Any]]:
+def get_sample_conversations() -> list[dict[str, Any]]:
     """Load sample conversations for testing.
 
     Returns:
@@ -813,7 +832,7 @@ def get_sample_conversations() -> List[Dict[str, Any]]:
     return load_chat_test_data("sample_conversations.json")
 
 
-def get_web_content_mocks() -> Dict[str, Any]:
+def get_web_content_mocks() -> dict[str, Any]:
     """Load mock web content for /fetch() testing.
 
     Returns:
@@ -822,7 +841,7 @@ def get_web_content_mocks() -> Dict[str, Any]:
     return load_chat_test_data("web_content_mocks.json")
 
 
-def get_file_attachment_data() -> Dict[str, Any]:
+def get_file_attachment_data() -> dict[str, Any]:
     """Load test file content for /attach() testing.
 
     Returns:
@@ -844,7 +863,7 @@ def get_test_macro_template() -> str:
 
 
 # Utility functions for common test patterns
-def get_chat_test_models() -> Dict[str, ModelParams]:
+def get_chat_test_models() -> dict[str, ModelParams]:
     """Get model configurations optimized for chat testing.
 
     Returns:
@@ -875,8 +894,8 @@ def get_chat_test_models() -> Dict[str, ModelParams]:
 def validate_command_result(
     result: CommandResult,
     expect_success: bool = True,
-    expected_message_parts: Optional[List[str]] = None,
-    unexpected_message_parts: Optional[List[str]] = None,
+    expected_message_parts: Optional[list[str]] = None,
+    unexpected_message_parts: Optional[list[str]] = None,
 ):
     """Validate a command result against expectations.
 

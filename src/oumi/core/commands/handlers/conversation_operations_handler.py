@@ -196,8 +196,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
             # Allow compaction even for short conversations - let the user decide
 
             # Use compaction engine
-            compacted_history, summary_text = self.context.compaction_engine.compact_conversation(
-                self.conversation_history
+            compacted_history, summary_text = (
+                self.context.compaction_engine.compact_conversation(
+                    self.conversation_history
+                )
             )
 
             if compacted_history != self.conversation_history:

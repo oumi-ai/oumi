@@ -16,16 +16,15 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from oumi.core.commands import CommandResult
-from oumi.core.types.conversation import Conversation, Message, Role
+from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,
-    get_sample_conversations,
     temporary_test_files,
 )
 
@@ -45,7 +44,9 @@ class TestBasicChatSession:
 
         assert result.success
         if result.message:
-            assert "started" in result.message.lower() or "ready" in result.message.lower()
+            assert (
+                "started" in result.message.lower() or "ready" in result.message.lower()
+            )
         assert chat_session.is_active()
 
     def test_end_chat_session(self, chat_session):
@@ -66,8 +67,10 @@ class TestBasicChatSession:
 
         # Send user message
         user_input = "Hello, how are you today?"
-        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
-            mock_infer.return_value = "Hello! I'm doing well, thank you for asking. How can I help you today?"
+        with patch.object(chat_session.mock_engine, "infer") as mock_infer:
+            mock_infer.return_value = (
+                "Hello! I'm doing well, thank you for asking. How can I help you today?"
+            )
 
             result = chat_session.send_message(user_input)
 
@@ -91,7 +94,7 @@ class TestBasicChatSession:
             "How does machine learning work?",
         ]
 
-        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
+        with patch.object(chat_session.mock_engine, "infer") as mock_infer:
             mock_infer.side_effect = [
                 "AI is the simulation of human intelligence in machines.",
                 "An example is image recognition systems.",
@@ -147,12 +150,14 @@ class TestBasicChatSession:
         # Create a conversation with context that would exceed token limits
         long_context_messages = []
         for i in range(100):
-            long_context_messages.extend([
-                f"User message {i}: " + "This is a long message. " * 50,
-                f"Assistant response {i}: " + "This is a long response. " * 50,
-            ])
+            long_context_messages.extend(
+                [
+                    f"User message {i}: " + "This is a long message. " * 50,
+                    f"Assistant response {i}: " + "This is a long response. " * 50,
+                ]
+            )
 
-        with patch.object(chat_session.mock_engine, 'infer') as mock_infer:
+        with patch.object(chat_session.mock_engine, "infer") as mock_infer:
             mock_infer.return_value = "Response within context limits"
 
             # Send many messages to trigger context management
@@ -216,7 +221,9 @@ class TestChatSessionWithCommands:
 
         assert result.success
         if result.message:
-            assert "help" in result.message.lower() or "command" in result.message.lower()
+            assert (
+                "help" in result.message.lower() or "command" in result.message.lower()
+            )
 
     def test_save_command_in_session(self, chat_session):
         """Test executing save command within chat session."""
@@ -225,7 +232,7 @@ class TestChatSessionWithCommands:
         # Create some conversation history
         chat_session.send_message("Hello!")
 
-        with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_file:
             temp_path = temp_file.name
 
         try:
@@ -233,7 +240,10 @@ class TestChatSessionWithCommands:
 
             if result.success:
                 if result.message:
-                    assert "saved" in result.message.lower() or "exported" in result.message.lower()
+                    assert (
+                        "saved" in result.message.lower()
+                        or "exported" in result.message.lower()
+                    )
                 assert Path(temp_path).exists()
         finally:
             Path(temp_path).unlink(missing_ok=True)
@@ -298,7 +308,9 @@ class TestChatSessionWithCommands:
         test_content = "This is a test file for attachment."
 
         with temporary_test_files({"test_attachment.txt": test_content}) as temp_files:
-            result = chat_session.execute_command(f"/attach({temp_files['test_attachment.txt']})")
+            result = chat_session.execute_command(
+                f"/attach({temp_files['test_attachment.txt']})"
+            )
 
             if result.success:
                 if result.message:
@@ -318,10 +330,18 @@ class TestChatSessionWithCommands:
         if result.message:
             # Accept various error message formats
             error_indicators = [
-                "unknown", "not found", "failed to parse", "invalid",
-                "error", "cannot", "unable", "not recognized"
+                "unknown",
+                "not found",
+                "failed to parse",
+                "invalid",
+                "error",
+                "cannot",
+                "unable",
+                "not recognized",
             ]
-            assert any(indicator in result.message.lower() for indicator in error_indicators)
+            assert any(
+                indicator in result.message.lower() for indicator in error_indicators
+            )
 
         # Session should remain active after command error
         assert chat_session.is_active()
@@ -357,7 +377,11 @@ class TestChatSessionWithCommands:
         user_messages = [m.content for m in conv.messages if m.role == Role.USER]
 
         # Should have the regular messages (commands might not appear in conversation)
-        message_contents = [content for interaction_type, content in interactions if interaction_type == "message"]
+        message_contents = [
+            content
+            for interaction_type, content in interactions
+            if interaction_type == "message"
+        ]
         for msg_content in message_contents:
             assert any(msg_content in user_msg for user_msg in user_messages)
 

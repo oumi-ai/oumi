@@ -167,19 +167,34 @@ class BaseCommandHandler(ABC):
                 max_context = self._get_context_length_for_engine(current_config)
 
             # If still no max_context, try to get it from inference engine
-            if not max_context and hasattr(self.context, "inference_engine") and self.context.inference_engine:
-                engine_config = getattr(self.context.inference_engine, "model_config", None)
+            if (
+                not max_context
+                and hasattr(self.context, "inference_engine")
+                and self.context.inference_engine
+            ):
+                engine_config = getattr(
+                    self.context.inference_engine, "model_config", None
+                )
                 if engine_config:
                     # Check various possible attribute names for context length
-                    for attr in ["model_max_length", "max_model_len", "max_tokens", "context_length"]:
+                    for attr in [
+                        "model_max_length",
+                        "max_model_len",
+                        "max_tokens",
+                        "context_length",
+                    ]:
                         engine_context = getattr(engine_config, attr, None)
                         if engine_context and engine_context > 0:
                             max_context = engine_context
                             break
 
                 # Also check if the engine itself has a max_context attribute
-                if not max_context and hasattr(self.context.inference_engine, "max_context_length"):
-                    engine_max = getattr(self.context.inference_engine, "max_context_length", None)
+                if not max_context and hasattr(
+                    self.context.inference_engine, "max_context_length"
+                ):
+                    engine_max = getattr(
+                        self.context.inference_engine, "max_context_length", None
+                    )
                     if engine_max and engine_max > 0:
                         max_context = engine_max
 
@@ -194,7 +209,9 @@ class BaseCommandHandler(ABC):
             # Also update conversation turn count (matches main inference loop logic)
             if hasattr(self.system_monitor, "update_conversation_turns"):
                 assistant_messages = [
-                    msg for msg in self.conversation_history if msg.get("role") == "assistant"
+                    msg
+                    for msg in self.conversation_history
+                    if msg.get("role") == "assistant"
                 ]
                 self.system_monitor.update_conversation_turns(len(assistant_messages))
 
@@ -203,8 +220,10 @@ class BaseCommandHandler(ABC):
 
     def _get_context_length_for_engine(self, config) -> int:
         """Get the appropriate context length for the given engine configuration.
+
         Args:
             config: The inference configuration.
+
         Returns:
             Context length in tokens.
         """
@@ -252,7 +271,7 @@ class BaseCommandHandler(ABC):
                 elif any(x in model_name for x in ["70b", "8b"]):
                     return 131072  # Llama 3.1 70B/8B
                 else:
-                    return 32768   # Default Llama
+                    return 32768  # Default Llama
             elif "deepseek" in model_name:
                 return 32768  # DeepSeek models
             elif "qwen" in model_name:

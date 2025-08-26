@@ -23,7 +23,7 @@ import gradio as gr
 def create_branch_tree_component(
     session_id: str,
     server_url: str = "http://localhost:8000",
-    initial_branches: Optional[List[Dict[str, Any]]] = None
+    initial_branches: Optional[list[dict[str, Any]]] = None,
 ) -> gr.HTML:
     """Create an interactive branch tree visualization using D3.js.
 
@@ -35,7 +35,6 @@ def create_branch_tree_component(
     Returns:
         Gradio HTML component with embedded D3.js tree.
     """
-
     # Default branch data if not provided
     if initial_branches is None:
         initial_branches = [
@@ -46,7 +45,7 @@ def create_branch_tree_component(
                 "created_at": "2025-01-01T00:00:00",
                 "preview": "Empty branch",
                 "parent": None,
-                "is_current": True
+                "is_current": True,
             }
         ]
 

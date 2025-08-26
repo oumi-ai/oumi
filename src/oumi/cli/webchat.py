@@ -14,7 +14,6 @@
 
 """WebChat CLI command for launching the web interface."""
 
-import asyncio
 import os
 import socket
 import subprocess
@@ -41,29 +40,29 @@ def check_port_availability(port: int) -> tuple[bool, str]:
     try:
         # Check if port is already in use
         result = subprocess.run(
-            ["lsof", "-i", f":{port}"],
-            capture_output=True,
-            text=True,
-            timeout=5
+            ["lsof", "-i", f":{port}"], capture_output=True, text=True, timeout=5
         )
 
         if result.returncode == 0 and result.stdout.strip():
             # Port is in use - extract process info
-            lines = result.stdout.strip().split('\n')
+            lines = result.stdout.strip().split("\n")
             if len(lines) > 1:  # Skip header line
                 process_line = lines[1].split()
                 if len(process_line) >= 2:
                     command = process_line[0]
                     pid = process_line[1]
-                    return False, f"Port {port} is already in use by {command} (PID {pid})"
+                    return (
+                        False,
+                        f"Port {port} is already in use by {command} (PID {pid})",
+                    )
             return False, f"Port {port} is already in use"
 
         # Try to bind to the port to confirm availability
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.bind(('', port))
+            sock.bind(("", port))
             return True, ""
-        except socket.error as e:
+        except OSError as e:
             return False, f"Cannot bind to port {port}: {e}"
         finally:
             sock.close()
@@ -100,7 +99,9 @@ def find_available_port(start_port: int = 9000, max_attempts: int = 100) -> int:
     )
 
 
-def wait_for_backend_health(backend_url: str, timeout: int, check_interval: float = 2.0) -> bool:
+def wait_for_backend_health(
+    backend_url: str, timeout: int, check_interval: float = 2.0
+) -> bool:
     """Wait for backend to become healthy with async polling.
 
     Args:
@@ -114,8 +115,9 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
     Raises:
         Exception: If backend startup fails definitively.
     """
-    import requests
     import time
+
+    import requests
 
     start_time = time.time()
     # Try multiple endpoints to determine if backend is ready
@@ -140,10 +142,12 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
                     if response.status_code == 200:
                         health_data = response.json()
                         logger.info(f"✅ Backend is healthy! (attempt {attempt})")
-                        logger.info(f"📊 Health status: {health_data.get('status', 'unknown')}")
+                        logger.info(
+                            f"📊 Health status: {health_data.get('status', 'unknown')}"
+                        )
                         return True
                     elif response.status_code == 500:
-                        logger.debug(f"⚠️  Health endpoint error, trying fallback...")
+                        logger.debug("⚠️  Health endpoint error, trying fallback...")
                         continue
                 else:
                     # Try chat completions endpoint with a test payload
@@ -152,16 +156,20 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
                         json={
                             "messages": [{"role": "user", "content": "test"}],
                             "max_tokens": 1,
-                            "stream": False
+                            "stream": False,
                         },
-                        timeout=10.0
+                        timeout=10.0,
                     )
                     # Accept any response that's not a connection error
                     if response.status_code in [200, 400, 422]:  # API is responding
-                        logger.info(f"✅ Backend API is responding! (attempt {attempt}, {elapsed:.1f}s)")
+                        logger.info(
+                            f"✅ Backend API is responding! (attempt {attempt}, {elapsed:.1f}s)"
+                        )
                         return True
                     else:
-                        logger.debug(f"❌ API check failed: HTTP {response.status_code}")
+                        logger.debug(
+                            f"❌ API check failed: HTTP {response.status_code}"
+                        )
 
             except requests.exceptions.ConnectionError:
                 # Backend not ready yet - this is expected during startup
@@ -179,7 +187,9 @@ def wait_for_backend_health(backend_url: str, timeout: int, check_interval: floa
 
     # Timeout reached
     elapsed = time.time() - start_time
-    logger.error(f"💥 Backend failed to start within {timeout}s (elapsed: {elapsed:.1f}s)")
+    logger.error(
+        f"💥 Backend failed to start within {timeout}s (elapsed: {elapsed:.1f}s)"
+    )
     return False
 
 
@@ -217,7 +227,9 @@ def webchat(
     ] = None,
     backend_timeout: Annotated[
         int,
-        typer.Option("--backend-timeout", help="Timeout in seconds to wait for backend startup."),
+        typer.Option(
+            "--backend-timeout", help="Timeout in seconds to wait for backend startup."
+        ),
     ] = 120,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):
@@ -376,11 +388,16 @@ def webchat_server(
     ] = None,
     wait_healthy: Annotated[
         bool,
-        typer.Option("--wait-healthy", help="Wait for server to become healthy before returning."),
+        typer.Option(
+            "--wait-healthy", help="Wait for server to become healthy before returning."
+        ),
     ] = False,
     health_timeout: Annotated[
         int,
-        typer.Option("--health-timeout", help="Timeout for health check when --wait-healthy is used."),
+        typer.Option(
+            "--health-timeout",
+            help="Timeout for health check when --wait-healthy is used.",
+        ),
     ] = 60,
     level: cli_utils.LOG_LEVEL_TYPE = None,
 ):

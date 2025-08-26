@@ -14,20 +14,16 @@
 
 """Integration tests for multimodal chat workflows with vision and text."""
 
-import base64
 import io
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 from PIL import Image
 
-from oumi.core.types.conversation import Role
 from tests.utils.chat_test_utils import (
     ChatTestSession,
     create_test_inference_config,
-    temporary_test_files,
 )
 
 
@@ -43,9 +39,9 @@ class TestVisionLanguageWorkflows:
 
     def create_test_image(self, width=100, height=100, color=(255, 0, 0)):
         """Create a simple test image."""
-        image = Image.new('RGB', (width, height), color)
+        image = Image.new("RGB", (width, height), color)
         img_buffer = io.BytesIO()
-        image.save(img_buffer, format='PNG')
+        image.save(img_buffer, format="PNG")
         return img_buffer.getvalue()
 
     def test_image_analysis_workflow(self, vlm_session):
@@ -55,7 +51,7 @@ class TestVisionLanguageWorkflows:
         # Create test image
         test_image = self.create_test_image(color=(0, 255, 0))  # Green image
 
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_img:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_img:
             temp_img.write(test_image)
             temp_img.flush()
 
@@ -66,15 +62,21 @@ class TestVisionLanguageWorkflows:
                     pytest.skip("Image attachment not supported")
 
                 # Analyze the image
-                analysis_result = vlm_session.send_message("What do you see in this image?")
+                analysis_result = vlm_session.send_message(
+                    "What do you see in this image?"
+                )
                 assert analysis_result.success
 
                 # Ask specific questions about the image
-                color_result = vlm_session.send_message("What color is predominant in this image?")
+                color_result = vlm_session.send_message(
+                    "What color is predominant in this image?"
+                )
                 assert color_result.success
 
                 # Request detailed description
-                detail_result = vlm_session.send_message("Can you provide a detailed description?")
+                detail_result = vlm_session.send_message(
+                    "Can you provide a detailed description?"
+                )
                 assert detail_result.success
             finally:
                 Path(temp_img.name).unlink(missing_ok=True)
@@ -91,7 +93,9 @@ class TestVisionLanguageWorkflows:
         try:
             # Save images
             for i, img_data in enumerate([red_image, blue_image]):
-                temp_file = tempfile.NamedTemporaryFile(suffix=f'_image_{i}.png', delete=False)
+                temp_file = tempfile.NamedTemporaryFile(
+                    suffix=f"_image_{i}.png", delete=False
+                )
                 temp_file.write(img_data)
                 temp_file.close()
                 temp_files.append(temp_file.name)
@@ -128,7 +132,9 @@ class TestVisionLanguageWorkflows:
         vlm_session.start_session()
 
         # Create test image
-        chart_image = self.create_test_image(width=200, height=150, color=(100, 150, 200))
+        chart_image = self.create_test_image(
+            width=200, height=150, color=(100, 150, 200)
+        )
 
         # Create related text document
         report_text = """
@@ -149,13 +155,15 @@ class TestVisionLanguageWorkflows:
         temp_files = []
         try:
             # Save image
-            img_temp = tempfile.NamedTemporaryFile(suffix='_chart.png', delete=False)
+            img_temp = tempfile.NamedTemporaryFile(suffix="_chart.png", delete=False)
             img_temp.write(chart_image)
             img_temp.close()
             temp_files.append(img_temp.name)
 
             # Save text document
-            with tempfile.NamedTemporaryFile(mode='w', suffix='_report.md', delete=False) as text_temp:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix="_report.md", delete=False
+            ) as text_temp:
                 text_temp.write(report_text)
                 temp_files.append(text_temp.name)
 
@@ -164,7 +172,9 @@ class TestVisionLanguageWorkflows:
             if not img_attach_result.success:
                 pytest.skip("Image attachment not supported")
 
-            text_attach_result = vlm_session.execute_command(f"/attach({text_temp.name})")
+            text_attach_result = vlm_session.execute_command(
+                f"/attach({text_temp.name})"
+            )
             assert text_attach_result.success
 
             # Request combined analysis
@@ -189,9 +199,13 @@ class TestVisionLanguageWorkflows:
         vlm_session.start_session()
 
         # Create test image
-        original_image = self.create_test_image(width=300, height=200, color=(128, 128, 128))
+        original_image = self.create_test_image(
+            width=300, height=200, color=(128, 128, 128)
+        )
 
-        with tempfile.NamedTemporaryFile(suffix='_original.png', delete=False) as temp_img:
+        with tempfile.NamedTemporaryFile(
+            suffix="_original.png", delete=False
+        ) as temp_img:
             temp_img.write(original_image)
             temp_img.flush()
 
@@ -238,15 +252,21 @@ class TestCodeVisualizationWorkflows:
         code_vlm_session.start_session()
 
         # Create a simple colored image representing a flowchart
-        flowchart_image = self.create_test_image(width=400, height=300, color=(240, 240, 240))
+        flowchart_image = self.create_test_image(
+            width=400, height=300, color=(240, 240, 240)
+        )
 
-        with tempfile.NamedTemporaryFile(suffix='_flowchart.png', delete=False) as temp_img:
+        with tempfile.NamedTemporaryFile(
+            suffix="_flowchart.png", delete=False
+        ) as temp_img:
             temp_img.write(flowchart_image)
             temp_img.flush()
 
             try:
                 # Attach flowchart
-                attach_result = code_vlm_session.execute_command(f"/attach({temp_img.name})")
+                attach_result = code_vlm_session.execute_command(
+                    f"/attach({temp_img.name})"
+                )
                 if not attach_result.success:
                     pytest.skip("Image attachment not supported")
 
@@ -276,7 +296,9 @@ class TestCodeVisualizationWorkflows:
         code_vlm_session.start_session()
 
         # Create test diagram image
-        diagram_image = self.create_test_image(width=500, height=400, color=(200, 220, 255))
+        diagram_image = self.create_test_image(
+            width=500, height=400, color=(200, 220, 255)
+        )
 
         # Create accompanying specification
         spec_text = """
@@ -299,13 +321,17 @@ class TestCodeVisualizationWorkflows:
         temp_files = []
         try:
             # Save diagram image
-            img_temp = tempfile.NamedTemporaryFile(suffix='_architecture.png', delete=False)
+            img_temp = tempfile.NamedTemporaryFile(
+                suffix="_architecture.png", delete=False
+            )
             img_temp.write(diagram_image)
             img_temp.close()
             temp_files.append(img_temp.name)
 
             # Save specification
-            with tempfile.NamedTemporaryFile(mode='w', suffix='_spec.md', delete=False) as spec_temp:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix="_spec.md", delete=False
+            ) as spec_temp:
                 spec_temp.write(spec_text)
                 temp_files.append(spec_temp.name)
 
@@ -336,9 +362,9 @@ class TestCodeVisualizationWorkflows:
 
     def create_test_image(self, width=100, height=100, color=(255, 0, 0)):
         """Create a simple test image."""
-        image = Image.new('RGB', (width, height), color)
+        image = Image.new("RGB", (width, height), color)
         img_buffer = io.BytesIO()
-        image.save(img_buffer, format='PNG')
+        image.save(img_buffer, format="PNG")
         return img_buffer.getvalue()
 
 
@@ -354,9 +380,9 @@ class TestScreenshotAnalysisWorkflows:
 
     def create_test_image(self, width=100, height=100, color=(255, 0, 0)):
         """Create a simple test image."""
-        image = Image.new('RGB', (width, height), color)
+        image = Image.new("RGB", (width, height), color)
         img_buffer = io.BytesIO()
-        image.save(img_buffer, format='PNG')
+        image.save(img_buffer, format="PNG")
         return img_buffer.getvalue()
 
     def test_ui_analysis_workflow(self, ui_vlm_session):
@@ -364,15 +390,21 @@ class TestScreenshotAnalysisWorkflows:
         ui_vlm_session.start_session()
 
         # Create test UI screenshot
-        ui_screenshot = self.create_test_image(width=800, height=600, color=(245, 245, 245))
+        ui_screenshot = self.create_test_image(
+            width=800, height=600, color=(245, 245, 245)
+        )
 
-        with tempfile.NamedTemporaryFile(suffix='_ui_screenshot.png', delete=False) as temp_img:
+        with tempfile.NamedTemporaryFile(
+            suffix="_ui_screenshot.png", delete=False
+        ) as temp_img:
             temp_img.write(ui_screenshot)
             temp_img.flush()
 
             try:
                 # Attach screenshot
-                attach_result = ui_vlm_session.execute_command(f"/attach({temp_img.name})")
+                attach_result = ui_vlm_session.execute_command(
+                    f"/attach({temp_img.name})"
+                )
                 if not attach_result.success:
                     pytest.skip("Image attachment not supported")
 
@@ -402,7 +434,9 @@ class TestScreenshotAnalysisWorkflows:
         ui_vlm_session.start_session()
 
         # Create test error screenshot
-        error_screenshot = self.create_test_image(width=600, height=400, color=(255, 200, 200))
+        error_screenshot = self.create_test_image(
+            width=600, height=400, color=(255, 200, 200)
+        )
 
         # Create error log
         error_log = """
@@ -420,13 +454,15 @@ class TestScreenshotAnalysisWorkflows:
         temp_files = []
         try:
             # Save error screenshot
-            img_temp = tempfile.NamedTemporaryFile(suffix='_error.png', delete=False)
+            img_temp = tempfile.NamedTemporaryFile(suffix="_error.png", delete=False)
             img_temp.write(error_screenshot)
             img_temp.close()
             temp_files.append(img_temp.name)
 
             # Save error log
-            with tempfile.NamedTemporaryFile(mode='w', suffix='_error_log.txt', delete=False) as log_temp:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix="_error_log.txt", delete=False
+            ) as log_temp:
                 log_temp.write(error_log)
                 temp_files.append(log_temp.name)
 
@@ -471,18 +507,22 @@ class TestScreenshotAnalysisWorkflows:
         temp_files = []
         try:
             # Save images
-            before_temp = tempfile.NamedTemporaryFile(suffix='_before.png', delete=False)
+            before_temp = tempfile.NamedTemporaryFile(
+                suffix="_before.png", delete=False
+            )
             before_temp.write(before_ui)
             before_temp.close()
             temp_files.append(before_temp.name)
 
-            after_temp = tempfile.NamedTemporaryFile(suffix='_after.png', delete=False)
+            after_temp = tempfile.NamedTemporaryFile(suffix="_after.png", delete=False)
             after_temp.write(after_ui)
             after_temp.close()
             temp_files.append(after_temp.name)
 
             # Attach before image
-            before_result = ui_vlm_session.execute_command(f"/attach({before_temp.name})")
+            before_result = ui_vlm_session.execute_command(
+                f"/attach({before_temp.name})"
+            )
             if not before_result.success:
                 pytest.skip("Image attachment not supported")
 

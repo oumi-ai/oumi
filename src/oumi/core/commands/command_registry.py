@@ -19,7 +19,6 @@ across command parsing, completion, and help systems.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List
 
 
 @dataclass

@@ -159,19 +159,43 @@ def cleanup_test_files(request):
     def _cleanup_test_files():
         """Clean up test files in the current working directory."""
         test_file_patterns = [
-            "test_output*.json", "test_*.json", "test_*.txt", "test_*.pdf",
-            "test_*.csv", "test_*.md", "test_*.cast", "test_*.bin",
-            "*_test_*.json", "*_test_*.txt", "*_test_*.pdf", "*_test_*.csv",
-            "*_test_*.md", "*_test_*.cast", "*_test_*.bin",
-            "stress_test_output*.json", "analysis_report*.md", "project_analysis*.md",
-            "*_attachment*.txt", "*_cleanup_test_*.txt", "deeply_nested*.json",
-            "sales_data*.json", "config*.json", "requirements*.txt", "readme*.md",
+            "test_output*.json",
+            "test_*.json",
+            "test_*.txt",
+            "test_*.pdf",
+            "test_*.csv",
+            "test_*.md",
+            "test_*.cast",
+            "test_*.bin",
+            "*_test_*.json",
+            "*_test_*.txt",
+            "*_test_*.pdf",
+            "*_test_*.csv",
+            "*_test_*.md",
+            "*_test_*.cast",
+            "*_test_*.bin",
+            "stress_test_output*.json",
+            "analysis_report*.md",
+            "project_analysis*.md",
+            "*_attachment*.txt",
+            "*_cleanup_test_*.txt",
+            "deeply_nested*.json",
+            "sales_data*.json",
+            "config*.json",
+            "requirements*.txt",
+            "readme*.md",
             "*_report*.md",
             # Command router test files
-            "file1.json", "file2.json", "output.json", "file.txt", "test.json",
-            "refinement_*.md", "demo.cast",
+            "file1.json",
+            "file2.json",
+            "output.json",
+            "file.txt",
+            "test.json",
+            "refinement_*.md",
+            "demo.cast",
             # Malformed command test artifacts (these shouldn't be created!)
-            "'mixed\"", "\"unclosed"
+            "'mixed\"",
+            '"unclosed',
         ]
 
         for pattern in test_file_patterns:
@@ -190,6 +214,7 @@ def cleanup_test_files(request):
                     if file_path.is_file():
                         # Clean up files that are recent (from the current test session)
                         import time
+
                         current_time = time.time()
                         file_age = current_time - file_path.stat().st_mtime
                         if file_age < 3600:  # Files created in the last hour
