@@ -655,9 +655,17 @@ class ChatPerformanceMonitor:
         session_duration = time.time() - self.current_session_start
         performance_summary = session.get_performance_summary()
         
+        # Count exchanges from both conversation history and current active conversation
+        total_exchanges = len(session.conversation_history)
+        if hasattr(session, '_current_conversation') and session._current_conversation:
+            # Count user/assistant message pairs in the current conversation
+            messages = session._current_conversation.messages
+            user_messages = sum(1 for msg in messages if msg.role.value == 'user')
+            total_exchanges += user_messages
+        
         metrics = {
             "session_duration": session_duration,
-            "total_exchanges": len(session.conversation_history),
+            "total_exchanges": total_exchanges,
             **performance_summary
         }
         

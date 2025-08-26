@@ -295,9 +295,9 @@ class AbstractRealModelChatTest(ABC):
             {
                 "prompt": "What is 5 + 5? Give a short answer with the number.",
                 "expected_keywords": ["10", "ten"],
-                "min_length": 3,
+                "min_length": 2,  # "10" is only 2 characters
                 "max_length": 100,
-                "require_sentences": True
+                "require_sentences": False  # Math answers don't need sentence terminators
             }
         ]
         
