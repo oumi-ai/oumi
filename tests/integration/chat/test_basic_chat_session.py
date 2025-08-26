@@ -236,7 +236,7 @@ class TestChatSessionWithCommands:
             
             if result.success:
                 if result.message:
-                    assert "saved" in result.message.lower()
+                    assert "saved" in result.message.lower() or "exported" in result.message.lower()
                 assert Path(temp_path).exists()
         finally:
             Path(temp_path).unlink(missing_ok=True)

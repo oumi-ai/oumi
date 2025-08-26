@@ -72,6 +72,34 @@ coverage.xml
 cover/
 .ruff_cache/
 
+# Test-generated files
+test_output*.json
+test_*.json
+test_*.txt
+test_*.pdf
+test_*.csv
+test_*.md
+test_*.cast
+test_*.bin
+*_test_*.json
+*_test_*.txt
+*_test_*.pdf
+*_test_*.csv
+*_test_*.md
+*_test_*.cast
+*_test_*.bin
+stress_test_output*.json
+analysis_report*.md
+project_analysis*.md
+*_attachment*.txt
+*_cleanup_test_*.txt
+deeply_nested*.json
+sales_data*.json
+config*.json
+requirements*.txt
+readme*.md
+*_report*.md
+
 # Translations
 *.mo
 *.pot

@@ -574,6 +574,133 @@ def create_test_image_bytes() -> bytes:
     return base64.b64decode(png_data)
 
 
+class TestFileCleanupManager:
+    """Context manager for ensuring test files are cleaned up."""
+    
+    def __init__(self):
+        self.temp_files = []
+        self.temp_dirs = []
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Clean up all registered files and directories."""
+        self.cleanup_all()
+    
+    def create_temp_file(self, suffix: str = '', content: str = '', mode: str = 'w') -> str:
+        """Create a temporary file and register it for cleanup.
+        
+        Args:
+            suffix: File suffix/extension.
+            content: Initial file content.
+            mode: File open mode.
+            
+        Returns:
+            Path to the created temporary file.
+        """
+        temp_file = tempfile.NamedTemporaryFile(mode=mode, suffix=suffix, delete=False)
+        if content:
+            temp_file.write(content)
+        temp_file.close()
+        
+        self.temp_files.append(temp_file.name)
+        return temp_file.name
+    
+    def create_temp_dir(self) -> str:
+        """Create a temporary directory and register it for cleanup.
+        
+        Returns:
+            Path to the created temporary directory.
+        """
+        temp_dir = tempfile.mkdtemp()
+        self.temp_dirs.append(temp_dir)
+        return temp_dir
+    
+    def register_file(self, file_path: str):
+        """Register an existing file for cleanup.
+        
+        Args:
+            file_path: Path to file to be cleaned up.
+        """
+        if file_path not in self.temp_files:
+            self.temp_files.append(file_path)
+    
+    def register_dir(self, dir_path: str):
+        """Register an existing directory for cleanup.
+        
+        Args:
+            dir_path: Path to directory to be cleaned up.
+        """
+        if dir_path not in self.temp_dirs:
+            self.temp_dirs.append(dir_path)
+    
+    def cleanup_all(self):
+        """Clean up all registered files and directories."""
+        # Clean up files first
+        for file_path in self.temp_files:
+            try:
+                Path(file_path).unlink(missing_ok=True)
+            except Exception:
+                pass  # Ignore cleanup errors
+        
+        # Clean up directories
+        for dir_path in self.temp_dirs:
+            try:
+                import shutil
+                shutil.rmtree(dir_path, ignore_errors=True)
+            except Exception:
+                pass  # Ignore cleanup errors
+        
+        # Clear the lists
+        self.temp_files.clear()
+        self.temp_dirs.clear()
+
+
+def ensure_test_cleanup():
+    """Decorator to ensure test cleanup even if tests fail.
+    
+    Usage:
+        @ensure_test_cleanup()
+        def test_function():
+            # Test code here
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            with TestFileCleanupManager():
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def cleanup_test_files_in_directory(directory: Union[str, Path], patterns: List[str] = None):
+    """Clean up test files in a specific directory.
+    
+    Args:
+        directory: Directory to clean.
+        patterns: List of glob patterns to match. If None, uses default test patterns.
+    """
+    if patterns is None:
+        patterns = [
+            "test_*.json", "test_*.txt", "test_*.pdf", "test_*.csv", "test_*.md",
+            "*_test_*", "stress_test_*", "analysis_report*", "project_analysis*",
+            "*_attachment*", "*_cleanup_test_*", "deeply_nested*", "sales_data*",
+            "*_report*"
+        ]
+    
+    directory = Path(directory)
+    if not directory.exists():
+        return
+    
+    for pattern in patterns:
+        for file_path in directory.glob(pattern):
+            try:
+                if file_path.is_file():
+                    file_path.unlink()
+            except Exception:
+                pass  # Ignore cleanup errors
+
+
 class CommandSequenceBuilder:
     """Builder for creating complex command sequences for testing."""
 
