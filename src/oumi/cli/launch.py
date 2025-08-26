@@ -214,7 +214,7 @@ def _poll_job(
             f"Tailing logs for job [yellow]{job_status.id}[/yellow]..."
         )
         running_cluster.tail_logs(job_status.id, job_status.cluster)
-    except NotImplementedError:
+    except Exception:
         _print_and_wait(
             f"Running job [yellow]{job_status.id}[/yellow]",
             _is_job_done,
