@@ -318,3 +318,4 @@ class SlurmCluster(BaseCluster):
             cluster_name,
             job_info.stdout_filename,
         )
+        self.jobs_info.pop(job_id, None)
