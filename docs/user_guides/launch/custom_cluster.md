@@ -35,7 +35,7 @@ from enum import Enum
 from typing import Optional
 
 from oumi.core.configs import JobConfig
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobStatus, JobState
 
 
 class _JobState(Enum):
@@ -68,6 +68,7 @@ class CustomClient:
             cluster="",
             metadata="",
             done=False,
+            state=JobState.PENDING,
         )
         self._jobs.append(job_status)
         return job_status
