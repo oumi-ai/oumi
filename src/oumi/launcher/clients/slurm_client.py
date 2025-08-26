@@ -499,7 +499,7 @@ class SlurmClient:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
     def tail_job(
-        self, working_dir: str, job_id: str, cluster_name: str, stdout_file: str
+        self, working_dir: str, job_id: str, cluster_name: str, stdout_filename: str
     ) -> int:
         """Tails the Slurm job output file in the current terminal.
 
@@ -515,19 +515,19 @@ class SlurmClient:
             working_dir: Remote working directory where the job was submitted.
             job_id: The Slurm job ID whose output file to follow.
             cluster_name: The name of the cluster the job was run in.
-            stdout_file: The name of the stdout file to tail.
+            stdout_filename: The name of the stdout file to tail.
 
         Returns:
             The SSH command's exit code. This is a blocking call.
         """
         tail_cmd = (
             f"ssh {_CTRL_PATH} -tt {cluster_name} "
-            f'"cd {working_dir} && tail -n +1 -F {stdout_file}"'
+            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
         )
         cli_utils.CONSOLE.print(
             f"Tailing logs of job {job_id} on cluster '{cluster_name}'..."
         )
-        cli_utils.CONSOLE.print(f"└── Following output file: {stdout_file}")
+        cli_utils.CONSOLE.print(f"└── Following output file: {stdout_filename}")
         cli_utils.CONSOLE.print(
             "Press Ctrl-C to exit log streaming; job will not be killed."
         )
@@ -539,7 +539,7 @@ class SlurmClient:
         with cli_utils.CONSOLE.status("Waiting for log file to appear..."):
             for attempt in range(max_attempts):
                 preflight = self.run_commands(
-                    [f"cd {working_dir}", f"test -f {stdout_file}"]
+                    [f"cd {working_dir}", f"test -f {stdout_filename}"]
                 )
                 if preflight.exit_code == 0:
                     break
@@ -550,7 +550,7 @@ class SlurmClient:
                 else:
                     raise FileNotFoundError(
                         f"Log file not found after {max_attempts} attempts: "
-                        f"{working_dir}/{stdout_file}. "
+                        f"{working_dir}/{stdout_filename}. "
                         "The job may not have started."
                     )
         proc = None

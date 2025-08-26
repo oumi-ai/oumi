@@ -159,8 +159,8 @@ class SlurmCluster(BaseCluster):
         """Information about a submitted job."""
 
         working_dir: Path  # Path to the working directory on the remote cluster.
-        stdout_file: str  # Path to the remote cluster's stdout file.
-        stderr_file: str  # Path to the remote cluster's stderr file.
+        stdout_filename: str  # Name of the remote cluster's stdout file.
+        stderr_filename: str  # Name of the remote cluster's stderr file.
 
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
@@ -280,8 +280,8 @@ class SlurmCluster(BaseCluster):
         # By default, Slurm writes to slurm-<job_id>.out.
         self.jobs_info[job_id] = SlurmCluster.JobInfo(
             working_dir=remote_working_dir,
-            stdout_file=f"slurm-{job_id}.out",
-            stderr_file=f"slurm-{job_id}.out",
+            stdout_filename=f"slurm-{job_id}.out",
+            stderr_filename=f"slurm-{job_id}.out",
         )
         max_retries = 3
         wait_time = 5
@@ -318,5 +318,5 @@ class SlurmCluster(BaseCluster):
             str(job_info.working_dir),
             job_id,
             cluster_name,
-            job_info.stdout_file,
+            job_info.stdout_filename,
         )
