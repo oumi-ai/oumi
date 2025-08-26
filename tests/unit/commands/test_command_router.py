@@ -52,7 +52,7 @@ class TestCommandRouter:
         
     def test_execute_help_command(self):
         """Test executing the help command."""
-        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()")
+        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help(")
         
         with patch('oumi.core.commands.handlers.help_handler.HelpHandler') as mock_handler_class:
             mock_handler = Mock()
@@ -67,7 +67,7 @@ class TestCommandRouter:
 
     def test_execute_save_command(self):
         """Test executing the save command."""
-        parsed_cmd = ParsedCommand(command="save", args=["test_output.json"], kwargs={}, raw_input="/save(...)")
+        parsed_cmd = ParsedCommand(command="save", args=["test_output.json"], kwargs={}, raw_input="/save(...")
         
         with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
             mock_handler = Mock()
@@ -87,7 +87,7 @@ class TestCommandRouter:
 
     def test_execute_unknown_command(self):
         """Test executing an unknown command."""
-        parsed_cmd = ParsedCommand(command="unknown_command", args=[], kwargs={}, raw_input="/unknown_command()")
+        parsed_cmd = ParsedCommand(command="unknown_command", args=[], kwargs={}, raw_input="/unknown_command(")
         
         result = self.router.handle_command(parsed_cmd)
         
@@ -97,7 +97,7 @@ class TestCommandRouter:
 
     def test_execute_command_with_handler_error(self):
         """Test executing a command when handler raises an exception."""
-        parsed_cmd = ParsedCommand(command="save", args=["test.json"], kwargs={}, raw_input="/save(...)")
+        parsed_cmd = ParsedCommand(command="save", args=["test.json"], kwargs={}, raw_input="/save(...")
         
         with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
             mock_handler = Mock()
@@ -114,23 +114,23 @@ class TestCommandRouter:
         """Test executing commands with various argument patterns."""
         test_cases = [
             # Command with no arguments
-            ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()"),
+            ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help("),
             
             # Command with positional arguments
-            ParsedCommand(command="save", args=["output.json"], kwargs={}, raw_input="/save(...)"),
+            ParsedCommand(command="save", args=["output.json"], kwargs={}, raw_input="/save(..."),
             
             # Command with keyword arguments
-            ParsedCommand(command="set", args=[], kwargs={"temperature": "0.8"}, raw_input="/set(...)"),
+            ParsedCommand(command="set", args=[], kwargs={"temperature": "0.8"}, raw_input="/set(..."),
             
             # Command with both types of arguments
-            ParsedCommand(command="branch_from", args=["main"], kwargs={"position": "5"}, raw_input="/branch_from(...)"),
+            ParsedCommand(command="branch_from", args=["main"], kwargs={"position": "5"}, raw_input="/branch_from(..."),
             
             # Command with multiple arguments
             ParsedCommand(command="set", args=[], kwargs={
                 "temperature": "0.8", 
                 "top_p": "0.9", 
                 "max_tokens": "100"
-            }, raw_input="/set(...)"),
+            }, raw_input="/set(..."),
         ]
         
         for parsed_cmd in test_cases:
@@ -154,7 +154,7 @@ class TestCommandRouter:
 
     def test_router_context_validation(self):
         """Test that router validates command context properly."""
-        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()")
+        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help(")
         
         # Test with None context
         # Test with None context by creating a new router with None
@@ -196,7 +196,7 @@ class TestCommandRouter:
         }
         
         for command_name, expected_handler_type in command_to_handler_mapping.items():
-            parsed_cmd = ParsedCommand(command=command_name, args=[], kwargs={}, raw_input="/command_name()")
+            parsed_cmd = ParsedCommand(command=command_name, args=[], kwargs={}, raw_input="/command_name(, raw_input=f"/{command_name}(...)")")
             
             with patch('oumi.core.commands.handlers') as mock_handlers:
                 # Set up mock to track which handler type would be selected
@@ -213,7 +213,7 @@ class TestCommandRouter:
 
     def test_router_error_recovery(self):
         """Test router error recovery mechanisms."""
-        parsed_cmd = ParsedCommand(command="save", args=["test.json"], kwargs={}, raw_input="/save(...)")
+        parsed_cmd = ParsedCommand(command="save", args=["test.json"], kwargs={}, raw_input="/save(...")
         
         # Test handler instantiation failure
         with patch('oumi.core.commands.handlers.file_operations_handler.FileOperationsHandler') as mock_handler_class:
@@ -231,7 +231,7 @@ class TestCommandRouter:
         import threading
         import time
         
-        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()")
+        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help(")
         results = []
         errors = []
         
@@ -264,7 +264,7 @@ class TestCommandRouter:
         """Test router performance with rapid command execution."""
         import time
         
-        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()")
+        parsed_cmd = ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help(")
         
         start_time = time.time()
         
@@ -281,9 +281,9 @@ class TestCommandRouter:
     def test_command_result_consistency(self):
         """Test that command results are consistent and well-formed."""
         test_commands = [
-            ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()"),
-            ParsedCommand(command="unknown", args=[], kwargs={}, raw_input="/unknown()"),
-            ParsedCommand(command="save", args=["test.json"], kwargs={}, raw_input="/save(...)"),
+            ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help("),
+            ParsedCommand(command="unknown", args=[], kwargs={}, raw_input="/unknown("),
+            ParsedCommand(command="save", args=["test.json"], kwargs={}, raw_input="/save(..."),
         ]
         
         for parsed_cmd in test_commands:
@@ -306,9 +306,9 @@ class TestCommandRouter:
         """Test that router maintains proper state isolation between commands."""
         # Execute multiple different commands
         commands = [
-            ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help()"),
-            ParsedCommand(command="save", args=["file1.json"], kwargs={}, raw_input="/save(...)"), 
-            ParsedCommand(command="save", args=["file2.json"], kwargs={}, raw_input="/save(...)"),
+            ParsedCommand(command="help", args=[], kwargs={}, raw_input="/help("),
+            ParsedCommand(command="save", args=["file1.json"], kwargs={}, raw_input="/save(..."), 
+            ParsedCommand(command="save", args=["file2.json"], kwargs={}, raw_input="/save(..."),
         ]
         
         results = []

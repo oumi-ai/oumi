@@ -62,7 +62,7 @@ class TestDeleteCommand:
 
     def test_delete_last_turn(self, mock_handler):
         """Test deleting the last conversation turn."""
-        parsed_cmd = ParsedCommand(command="delete", args=[], kwargs={}, raw_input="/delete()")
+        parsed_cmd = ParsedCommand(command="delete", args=[], kwargs={}, raw_input="/delete(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -79,7 +79,7 @@ class TestDeleteCommand:
 
     def test_delete_specific_position(self, mock_handler):
         """Test deleting a specific conversation position."""
-        parsed_cmd = ParsedCommand(command="delete", args=["2"], kwargs={}, raw_input="/delete(...)")
+        parsed_cmd = ParsedCommand(command="delete", args=["2"], kwargs={}, raw_input="/delete(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -100,7 +100,7 @@ class TestDeleteCommand:
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
         
-        parsed_cmd = ParsedCommand(command="delete", args=[], kwargs={}, raw_input="/delete()")
+        parsed_cmd = ParsedCommand(command="delete", args=[], kwargs={}, raw_input="/delete(")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -117,7 +117,7 @@ class TestDeleteCommand:
 
     def test_delete_invalid_position(self, mock_handler):
         """Test deleting invalid position."""
-        parsed_cmd = ParsedCommand(command="delete", args=["99"], kwargs={}, raw_input="/delete(...)")
+        parsed_cmd = ParsedCommand(command="delete", args=["99"], kwargs={}, raw_input="/delete(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -168,7 +168,7 @@ class TestRegenCommand:
 
     def test_regen_last_response(self, mock_handler):
         """Test regenerating the last assistant response."""
-        parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen()")
+        parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -192,7 +192,7 @@ class TestRegenCommand:
         )
         self.command_context.current_conversation = user_only_conversation
         
-        parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen()")
+        parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen(")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -209,7 +209,7 @@ class TestRegenCommand:
 
     def test_regen_with_inference_error(self, mock_handler):
         """Test regeneration when inference fails."""
-        parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen()")
+        parsed_cmd = ParsedCommand(command="regen", args=[], kwargs={}, raw_input="/regen(")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -262,7 +262,7 @@ class TestClearCommand:
 
     def test_clear_conversation(self, mock_handler):
         """Test clearing the entire conversation."""
-        parsed_cmd = ParsedCommand(command="clear", args=[], kwargs={}, raw_input="/clear()")
+        parsed_cmd = ParsedCommand(command="clear", args=[], kwargs={}, raw_input="/clear(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -282,7 +282,7 @@ class TestClearCommand:
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
         
-        parsed_cmd = ParsedCommand(command="clear", args=[], kwargs={}, raw_input="/clear()")
+        parsed_cmd = ParsedCommand(command="clear", args=[], kwargs={}, raw_input="/clear(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -331,7 +331,7 @@ class TestShowCommand:
 
     def test_show_specific_position(self, mock_handler):
         """Test showing a specific conversation position."""
-        parsed_cmd = ParsedCommand(command="show", args=["2"], kwargs={}, raw_input="/show(...)")
+        parsed_cmd = ParsedCommand(command="show", args=["2"], kwargs={}, raw_input="/show(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -348,7 +348,7 @@ class TestShowCommand:
 
     def test_show_invalid_position(self, mock_handler):
         """Test showing invalid position."""
-        parsed_cmd = ParsedCommand(command="show", args=["99"], kwargs={}, raw_input="/show(...)")
+        parsed_cmd = ParsedCommand(command="show", args=["99"], kwargs={}, raw_input="/show(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -365,7 +365,7 @@ class TestShowCommand:
 
     def test_show_without_position(self, mock_handler):
         """Test show command without position argument."""
-        parsed_cmd = ParsedCommand(command="show", args=[], kwargs={}, raw_input="/show()")
+        parsed_cmd = ParsedCommand(command="show", args=[], kwargs={}, raw_input="/show(")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -382,7 +382,7 @@ class TestShowCommand:
 
     def test_show_all_messages(self, mock_handler):
         """Test showing all messages with 'all' argument."""
-        parsed_cmd = ParsedCommand(command="show", args=["all"], kwargs={}, raw_input="/show(...)")
+        parsed_cmd = ParsedCommand(command="show", args=["all"], kwargs={}, raw_input="/show(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -438,7 +438,7 @@ class TestCompactCommand:
 
     def test_compact_long_conversation(self, mock_handler):
         """Test compacting a long conversation."""
-        parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact()")
+        parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -464,7 +464,7 @@ class TestCompactCommand:
         )
         self.command_context.current_conversation = short_conversation
         
-        parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact()")
+        parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -484,7 +484,7 @@ class TestCompactCommand:
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
         
-        parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact()")
+        parsed_cmd = ParsedCommand(command="compact", args=[], kwargs={}, raw_input="/compact(")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -537,7 +537,7 @@ class TestRenderCommand:
 
     def test_render_conversation(self, mock_handler):
         """Test rendering conversation to asciinema format."""
-        parsed_cmd = ParsedCommand(command="render", args=["chat.cast"], kwargs={}, raw_input="/render(...)")
+        parsed_cmd = ParsedCommand(command="render", args=["chat.cast"], kwargs={}, raw_input="/render(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -554,7 +554,7 @@ class TestRenderCommand:
 
     def test_render_without_filename(self, mock_handler):
         """Test render command without filename argument."""
-        parsed_cmd = ParsedCommand(command="render", args=[], kwargs={}, raw_input="/render()")
+        parsed_cmd = ParsedCommand(command="render", args=[], kwargs={}, raw_input="/render(")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -574,7 +574,7 @@ class TestRenderCommand:
         empty_conversation = Conversation(conversation_id="empty", messages=[])
         self.command_context.current_conversation = empty_conversation
         
-        parsed_cmd = ParsedCommand(command="render", args=["empty.cast"], kwargs={}, raw_input="/render(...)")
+        parsed_cmd = ParsedCommand(command="render", args=["empty.cast"], kwargs={}, raw_input="/render(...")
         
         mock_handler.handle.return_value = CommandResult(
             success=False,
@@ -626,7 +626,7 @@ class TestThinkingCommands:
 
     def test_clear_thoughts(self, mock_handler):
         """Test clearing thinking content from responses."""
-        parsed_cmd = ParsedCommand(command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts()")
+        parsed_cmd = ParsedCommand(command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -643,7 +643,7 @@ class TestThinkingCommands:
 
     def test_full_thoughts_toggle(self, mock_handler):
         """Test toggling full thoughts display mode."""
-        parsed_cmd = ParsedCommand(command="full_thoughts", args=[], kwargs={}, raw_input="/full_thoughts()")
+        parsed_cmd = ParsedCommand(command="full_thoughts", args=[], kwargs={}, raw_input="/full_thoughts(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,
@@ -669,7 +669,7 @@ class TestThinkingCommands:
         )
         self.command_context.current_conversation = simple_conversation
         
-        parsed_cmd = ParsedCommand(command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts()")
+        parsed_cmd = ParsedCommand(command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts(")
         
         mock_handler.handle.return_value = CommandResult(
             success=True,

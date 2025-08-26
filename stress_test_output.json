@@ -1,0 +1,109 @@
+{
+  "export_info": {
+    "timestamp": "2025-08-26T07:41:09.022493",
+    "format": "json",
+    "version": "1.0"
+  },
+  "conversation": [
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmpj1d24mur.txt**\n\n```\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file 0\nContent for file \n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmpj1d24mur.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmpj1d24mur.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmp_ttrvzi2.txt**\n\n```\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file 1\nContent for file\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmp_ttrvzi2.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmp_ttrvzi2.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmp61favozb.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmp61favozb.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmp61favozb.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmpr5j8l28y.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmpr5j8l28y.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmpr5j8l28y.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmptqzkvat6.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmptqzkvat6.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmptqzkvat6.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmpt50xw0dx.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmpt50xw0dx.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmpt50xw0dx.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmp2i9r688f.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmp2i9r688f.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmp2i9r688f.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmpef3_4_93.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmpef3_4_93.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmpef3_4_93.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmpc0fasrlk.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmpc0fasrlk.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmpc0fasrlk.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    },
+    {
+      "role": "attachment",
+      "text_content": "📄 **Attached Text: tmpapp03imw.txt**\n\n```\n\n\n[Content truncated due to length...]\n```",
+      "file_info": {
+        "name": "tmpapp03imw.txt",
+        "path": "/var/folders/nh/rgvpvzyd32d9v1gwjtp7_brr0000gn/T/tmpapp03imw.txt",
+        "size_bytes": 1900,
+        "file_type": "FileType.TEXT"
+      }
+    }
+  ]
+}
