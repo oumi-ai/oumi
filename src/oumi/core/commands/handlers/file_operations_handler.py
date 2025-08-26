@@ -39,6 +39,63 @@ class FileOperationsHandler(BaseCommandHandler):
         self._auto_save = True
         self._setup_chat_cache()
 
+    def _validate_and_sanitize_file_path(self, file_path: str) -> tuple[bool, str, str]:
+        """Validate and sanitize a file path for security and safety using pathvalidate.
+        
+        Args:
+            file_path: The file path to validate
+            
+        Returns:
+            Tuple of (is_valid, sanitized_path, error_message)
+        """
+        try:
+            from pathvalidate import ValidationError, sanitize_filepath, is_valid_filepath
+        except ImportError:
+            return False, "", "pathvalidate library is required for file path validation"
+        
+        if not file_path:
+            return False, "", "File path cannot be empty"
+        
+        # Check for unmatched quotes before sanitizing (pathvalidate doesn't handle this)
+        stripped = file_path.strip()
+        quote_chars = ["'", '"']
+        for quote in quote_chars:
+            if stripped.startswith(quote) and not stripped.endswith(quote):
+                return False, "", f"Unmatched quote in file path: {quote}"
+            if stripped.endswith(quote) and not stripped.startswith(quote):
+                return False, "", f"Unmatched quote in file path: {quote}"
+        
+        # Strip whitespace and quotes
+        cleaned_path = file_path.strip().strip("\"'")
+        
+        # Check if the cleaned path is effectively empty
+        if not cleaned_path or cleaned_path.isspace():
+            return False, "", "File path is empty or contains only whitespace"
+        
+        # Use pathvalidate to sanitize the file path
+        try:
+            sanitized = sanitize_filepath(
+                cleaned_path,
+                platform="universal",  # Works on all platforms
+                max_len=255  # Standard filesystem limit
+            )
+        except ValidationError as e:
+            return False, "", f"Invalid file path: {str(e)}"
+        
+        # Verify the sanitized path is valid
+        if not is_valid_filepath(sanitized, platform="universal"):
+            return False, "", "File path contains invalid characters or format"
+        
+        # Additional security check - prevent path traversal
+        if '..' in sanitized or sanitized.startswith('/'):
+            return False, "", "File path contains potential security risks (path traversal)"
+        
+        # Check if the path would create a file with quotes in the name
+        if any(quote in Path(sanitized).name for quote in ["'", '"']):
+            return False, "", "File name cannot contain quote characters"
+        
+        return True, sanitized, ""
+
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
         return [
@@ -141,7 +198,15 @@ class FileOperationsHandler(BaseCommandHandler):
                 should_continue=False,
             )
 
-        file_path = command.args[0].strip()
+        # Validate and sanitize the file path
+        raw_path = command.args[0]
+        is_valid, file_path, error_msg = self._validate_and_sanitize_file_path(raw_path)
+        if not is_valid:
+            return CommandResult(
+                success=False,
+                message=f"Invalid file path: {error_msg}",
+                should_continue=False,
+            )
 
         # Check for explicit format specification
         format_override = None
@@ -435,7 +500,15 @@ class FileOperationsHandler(BaseCommandHandler):
                 should_continue=False,
             )
 
-        file_path = command.args[0].strip()
+        # Validate and sanitize the file path
+        raw_path = command.args[0]
+        is_valid, file_path, error_msg = self._validate_and_sanitize_file_path(raw_path)
+        if not is_valid:
+            return CommandResult(
+                success=False,
+                message=f"Invalid file path: {error_msg}",
+                should_continue=False,
+            )
 
         try:
             # Build comprehensive history data

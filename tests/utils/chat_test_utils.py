@@ -685,7 +685,8 @@ def cleanup_test_files_in_directory(directory: Union[str, Path], patterns: List[
             "test_*.json", "test_*.txt", "test_*.pdf", "test_*.csv", "test_*.md",
             "*_test_*", "stress_test_*", "analysis_report*", "project_analysis*",
             "*_attachment*", "*_cleanup_test_*", "deeply_nested*", "sales_data*",
-            "*_report*"
+            "*_report*", "file1.json", "file2.json", "output.json", "file.txt", "test.json",
+            "refinement_*.md", "demo.cast", "'mixed\"", "\"unclosed"
         ]
     
     directory = Path(directory)

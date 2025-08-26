@@ -166,7 +166,12 @@ def cleanup_test_files(request):
             "stress_test_output*.json", "analysis_report*.md", "project_analysis*.md",
             "*_attachment*.txt", "*_cleanup_test_*.txt", "deeply_nested*.json",
             "sales_data*.json", "config*.json", "requirements*.txt", "readme*.md",
-            "*_report*.md"
+            "*_report*.md",
+            # Command router test files
+            "file1.json", "file2.json", "output.json", "file.txt", "test.json", 
+            "refinement_*.md", "demo.cast",
+            # Malformed command test artifacts (these shouldn't be created!)
+            "'mixed\"", "\"unclosed"
         ]
         
         for pattern in test_file_patterns:
