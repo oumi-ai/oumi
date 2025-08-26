@@ -87,6 +87,6 @@ class BaseCluster(ABC):
 
         Args:
             job_id: The ID of the job to tail the logs of.
-            cluster_name: The name of the cluster to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
         """
         raise NotImplementedError
