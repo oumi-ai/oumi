@@ -121,9 +121,9 @@ class PerlmutterCloud(BaseCloud):
         """Creates a cluster and starts the provided Job."""
         if not job.user:
             raise ValueError("User must be provided in the job config.")
-        # The default queue is BATCH.
+        # The default queue is REGULAR.
         cluster_info = _ClusterInfo(
-            PerlmutterCluster.SupportedQueues.BATCH.value, job.user
+            PerlmutterCluster.SupportedQueues.REGULAR.value, job.user
         )
         if name:
             cluster_info = self._parse_cluster_name(name)
@@ -135,7 +135,7 @@ class PerlmutterCloud(BaseCloud):
         else:
             logger.warning(
                 "No cluster name provided. Using default queue: "
-                f"{PerlmutterCluster.SupportedQueues.BATCH.value}."
+                f"{PerlmutterCluster.SupportedQueues.REGULAR.value}."
             )
         cluster = self._get_or_create_cluster(cluster_info.name)
         job_status = cluster.run_job(job)

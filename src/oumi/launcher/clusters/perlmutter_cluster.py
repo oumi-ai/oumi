@@ -101,7 +101,7 @@ def _create_job_script(job: JobConfig) -> str:
     """
     setup_lines = [] if not job.setup else job.setup.strip().split("\n")
     run_lines = job.run.strip().split("\n")
-    # Find the last SBATCH instruction line.
+    # Find the last SBATCH instruction lines.
     last_run_sbatch = _last_sbatch_line(run_lines) + 1
     last_setup_sbatch = _last_sbatch_line(setup_lines) + 1
     # Inject environment variables into the script after SBATCH instructions.
@@ -173,10 +173,12 @@ class PerlmutterCluster(BaseCluster):
     """A cluster implementation backed by NERSC Perlmutter."""
 
     class SupportedQueues(Enum):
-        """Enum representing the supported quality of service (QoS) on Perlmutter.
+        """Enum representing the supported queues on Perlmutter.
 
+        Unlike most other research clusters, Perlmutter calls queues quality of service
+        (QoS). We use the term queue for consistency with other clusters.
         For more details, see:
-        https://docs.nersc.gov/jobs/policy/#perlmutter-gpu
+        https://docs.nersc.gov/jobs/policy/#perlmutter-gpu.
         """
 
         REGULAR = "regular"
@@ -213,12 +215,11 @@ class PerlmutterCluster(BaseCluster):
                 "A queue name should be of the form: `queue.user`."
             )
         queue = splits[0].lower()
-        if queue == PerlmutterCluster.SupportedQueues.BATCH.value:
-            return PerlmutterCluster.SupportedQueues.BATCH
-        elif queue == PerlmutterCluster.SupportedQueues.EXTENDED.value:
-            return PerlmutterCluster.SupportedQueues.EXTENDED
+        for supported_queue in PerlmutterCluster.SupportedQueues:
+            if queue == supported_queue.value:
+                return supported_queue
 
-        raise ValueError(f"Unsupported partition: {queue}")
+        raise ValueError(f"Unsupported queue: {queue}")
 
     def name(self) -> str:
         """Gets the name of the cluster."""
@@ -251,11 +252,8 @@ class PerlmutterCluster(BaseCluster):
 
         For Perlmutter this method consists of 5 parts:
 
-        1. Copy the working directory to
-           /lustre/orion/lrn081/scratch/$USER/oumi_launcher/$JOB_NAME.
-        2. Check if there is a conda installation at
-           /lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi.
-           If not, install it.
+        1. Copy the working directory to $HOME/oumi_launcher/$JOB_NAME.
+        2. Check if there is a conda installation. If not, install it.
         3. Copy all file mounts.
         4. Create a job script with all env vars, setup, and run commands.
         5. CD into the working directory and submit the job.
@@ -268,34 +266,24 @@ class PerlmutterCluster(BaseCluster):
         """
         _validate_job_config(job)
         job_name = job.name or uuid.uuid1().hex
-        user = str(job.user)
         submission_time = _format_date(datetime.now())
-        remote_working_dir = Path(
-            f"/lustre/orion/lrn081/scratch/{user}/oumi_launcher/{submission_time}"
-        )
+        remote_working_dir = Path(f"$HOME/oumi_launcher/{submission_time}")
         # Copy the working directory to Perlmutter user's scratch directory.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
-        # Check if Oumi is installed in a conda env. If not, install it.
-        oumi_env_path = Path("/lustre/orion/lrn081/scratch/$USER/miniconda3/envs/oumi")
+        # In the oumi Conda env, install the working dir in editable mode.
         install_cmds = [
-            f"cd {remote_working_dir}",
             "module load conda",
-            f"if [ ! -d {oumi_env_path} ]; then",
-            'echo "Creating Oumi Conda environment... ---------------------------"',
-            f"conda create -y python=3.10 -c conda-forge --prefix {oumi_env_path}",
-            "fi",
             'if [ ! -z "$CONDA_DEFAULT_ENV" ]; then',
             # Deactivate the previous env (stacked env-s cause `pip install` problems).
             "conda deactivate",
             "fi",
             'echo "Installing packages... ---------------------------------------"',
-            f"source activate {oumi_env_path}",
+            "conda activate oumi",
             "if ! command -v uv >/dev/null 2>&1; then",
             "pip install -U uv",
             "fi",
-            "pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.2",
-            "pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
-            "pip uninstall nvidia-smi",  # TODO Re-enable uv OPE-670
+            f"cd {remote_working_dir}",
+            "uv pip install -e '.[gpu]' 'huggingface_hub[cli]' hf_transfer",
         ]
         self._client.run_commands(install_cmds)
         # Copy all file mounts.
@@ -318,23 +306,16 @@ class PerlmutterCluster(BaseCluster):
         job_id = self._client.submit_job(
             str(script_path),
             str(remote_working_dir),
-            node_count=job.num_nodes,
             name=job_name,
-            export="NONE",
-            account="lrn081",
+            node_count=job.num_nodes,
             ntasks=job.num_nodes,
             threads_per_core=1,
-            distribution="block:cyclic",
-            partition=self._queue.value,
+            qos=self._queue.value,
             stdout_file=(
-                str(stdout_file)
-                if stdout_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.OU"
+                str(stdout_file) if stdout_file else "$CFS/$USER/jobs/logs/%j.OU"
             ),
             stderr_file=(
-                str(stderr_file)
-                if stderr_file
-                else "/lustre/orion/lrn081/scratch/$USER/jobs/logs/%j.ER"
+                str(stderr_file) if stderr_file else "$CFS/$USER/jobs/logs/%j.ER"
             ),
         )
         job_status = self.get_job(job_id)

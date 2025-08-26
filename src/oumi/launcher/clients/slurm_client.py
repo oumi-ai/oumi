@@ -327,6 +327,7 @@ class SlurmClient:
         threads_per_core: Optional[int] = None,
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
+        qos: Optional[str] = None,
         stdout_file: Optional[str] = None,
         stderr_file: Optional[str] = None,
     ) -> str:
@@ -347,6 +348,7 @@ class SlurmClient:
             distribution: Distribution method for processes to nodes
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
+            qos: QoS (aka the queue on Perlmutter) requested.
             stdout_file: File for batch script's standard output.
             stderr_file: File for batch script's standard error.
 
@@ -374,6 +376,8 @@ class SlurmClient:
             cmd_parts.append(f"--distribution={distribution}")
         if partition:
             cmd_parts.append(f"--partition={partition}")
+        if qos:
+            cmd_parts.append(f"--qos={qos}")
         if stdout_file:
             cmd_parts.append(f"--output={stdout_file}")
         if stderr_file:
