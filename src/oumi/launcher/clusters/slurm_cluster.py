@@ -158,9 +158,9 @@ class SlurmCluster(BaseCluster):
     class JobInfo:
         """Information about a submitted job."""
 
-        working_dir: Path
-        stdout_file: str
-        stderr_file: str
+        working_dir: Path  # Path to the working directory on the remote cluster.
+        stdout_file: str  # Path to the remote cluster's stdout file.
+        stderr_file: str  # Path to the remote cluster's stderr file.
 
     def __init__(self, name: str, client: SlurmClient) -> None:
         """Initializes a new instance of the SlurmCluster class."""
@@ -309,7 +309,7 @@ class SlurmCluster(BaseCluster):
 
         Args:
             job_id: The ID of the job to tail the logs of.
-            cluster_name: The name of the cluster to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
         """
         if job_id not in self.jobs_info:
             raise ValueError(f"Job {job_id} not found in jobs_info")

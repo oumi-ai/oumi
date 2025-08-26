@@ -514,7 +514,7 @@ class SlurmClient:
         Args:
             working_dir: Remote working directory where the job was submitted.
             job_id: The Slurm job ID whose output file to follow.
-            cluster_name: The name of the cluster to tail the logs of.
+            cluster_name: The name of the cluster the job was run in.
             stdout_file: The name of the stdout file to tail.
 
         Returns:
