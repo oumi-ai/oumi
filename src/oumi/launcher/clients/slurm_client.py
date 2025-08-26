@@ -530,9 +530,9 @@ class SlurmClient:
             "Press Ctrl-C to exit log streaming; job will not be killed."
         )
 
-        max_attempts = 3
-        base_delay = 0.5
-        max_delay = 5.0
+        max_attempts = 4
+        base_delay = 5
+        max_delay = 20
 
         with cli_utils.CONSOLE.status("Waiting for log file to appear..."):
             for attempt in range(max_attempts):
@@ -579,7 +579,6 @@ class SlurmClient:
             logger.info("Stopped tailing logs for job %s", job_id)
             if proc and proc.poll() is None:
                 os.killpg(proc.pid, signal.SIGINT)
-                proc.wait(timeout=5)
             return 130  # Exit code for Ctrl-C
         except Exception:
             logger.exception("Failed while tailing logs for job %s", job_id)
