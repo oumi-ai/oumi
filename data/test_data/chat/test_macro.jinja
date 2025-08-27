@@ -1,0 +1,43 @@
+# Test Macro Template
+
+Hello! This is a test macro for the `/macro()` command.
+
+## Context Information
+- Current date: {{ current_date | default('2025-01-01') }}
+- User name: {{ user_name | default('Test User') }}
+- Topic: {{ topic | default('General Discussion') }}
+
+## Generated Content
+
+{% if topic == 'code_review' %}
+Let's review the code you've shared:
+
+1. **Code Quality**: Please share your code and I'll review it
+2. **Best Practices**: I'll check for adherence to coding standards
+3. **Suggestions**: I'll provide specific improvement recommendations
+4. **Testing**: I'll suggest test cases if applicable
+
+{% elif topic == 'creative_writing' %}
+I'm ready to help with your creative writing project!
+
+**Writing prompts:**
+- What genre are you interested in?
+- Do you have characters in mind?
+- What's the setting or time period?
+- Any specific themes you want to explore?
+
+{% else %}
+I'm here to help with {{ topic }}. What specific questions do you have?
+
+**How I can assist:**
+- Answer questions
+- Provide explanations
+- Help with problem-solving
+- Offer suggestions and alternatives
+{% endif %}
+
+## Next Steps
+Please let me know what you'd like to focus on first, and we can dive deeper into {{ topic | default('your topic of interest') }}.
+
+---
+*This response was generated using a test macro template.*

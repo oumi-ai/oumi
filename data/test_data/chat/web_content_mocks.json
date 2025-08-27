@@ -1,0 +1,29 @@
+{
+  "mock_urls": {
+    "https://example.com/article1": {
+      "content": "# Test Article 1\n\nThis is a sample article for testing the /fetch() command. It contains information about machine learning basics.\n\n## Introduction\n\nMachine learning is a subset of artificial intelligence that focuses on algorithms that can learn from data.\n\n## Key Concepts\n\n- Supervised learning\n- Unsupervised learning  \n- Deep learning\n- Neural networks\n\nThis content should be useful for testing content extraction and analysis.",
+      "content_type": "text/html",
+      "status_code": 200
+    },
+    "https://example.com/json-api": {
+      "content": "{\"status\": \"success\", \"data\": {\"message\": \"This is test JSON data\", \"timestamp\": \"2025-01-01T00:00:00Z\", \"items\": [\"item1\", \"item2\", \"item3\"]}}",
+      "content_type": "application/json",
+      "status_code": 200
+    },
+    "https://example.com/markdown-doc": {
+      "content": "# Documentation Sample\n\n## Commands Overview\n\nThis document explains various commands:\n\n### File Operations\n- `/save()` - Save conversation\n- `/load()` - Load conversation\n- `/attach()` - Attach files\n\n### Conversation Management\n- `/clear()` - Clear history\n- `/branch()` - Create branch\n- `/delete()` - Delete last turn\n\n**Note**: This is mock content for testing purposes.",
+      "content_type": "text/markdown",
+      "status_code": 200
+    },
+    "https://example.com/not-found": {
+      "content": "404 Not Found",
+      "content_type": "text/html",
+      "status_code": 404
+    },
+    "https://example.com/server-error": {
+      "content": "Internal Server Error",
+      "content_type": "text/html",
+      "status_code": 500
+    }
+  }
+}
