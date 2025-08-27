@@ -25,6 +25,7 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
     setLoading,
     setTyping,
     setMessages,
+    setBranches,
     generationParams,
   } = useChatStore();
 
@@ -32,6 +33,30 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
   React.useEffect(() => {
     loadConversation();
   }, [currentBranchId]);
+
+  const refreshBranches = async () => {
+    try {
+      const response = await apiClient.getBranches('default');
+      if (response.success && response.data) {
+        const { branches } = response.data;
+        
+        // Transform backend branches to frontend format
+        const transformedBranches = branches.map((branch: any) => ({
+          id: branch.id,
+          name: branch.name,
+          isActive: branch.id === currentBranchId,
+          messageCount: branch.message_count || 0,
+          createdAt: branch.created_at,
+          lastActive: branch.last_active || branch.created_at,
+          preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
+        }));
+        
+        setBranches(transformedBranches);
+      }
+    } catch (error) {
+      console.error('Failed to refresh branches:', error);
+    }
+  };
 
   const loadConversation = async () => {
     try {
@@ -162,6 +187,9 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
           timestamp: Date.now(),
         };
         addMessage(assistantMessage);
+        
+        // Refresh branch data after successful chat exchange
+        await refreshBranches();
       } else {
         throw new Error(response.message || 'Failed to get response');
       }

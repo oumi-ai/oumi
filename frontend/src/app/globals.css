@@ -146,3 +146,86 @@ body {
   transform: scale(1.1);
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
+
+/* Prose (Markdown) styling for dark/light themes */
+.prose {
+  color: var(--foreground);
+  max-width: none;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.prose strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.prose code {
+  color: var(--foreground);
+  background-color: var(--muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.prose pre {
+  background-color: var(--muted);
+  color: var(--foreground);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.prose blockquote {
+  border-left-color: var(--primary);
+  color: var(--muted-foreground);
+}
+
+.prose a {
+  color: var(--primary);
+}
+
+.prose a:hover {
+  color: var(--primary);
+  opacity: 0.8;
+}
+
+.prose table {
+  color: var(--foreground);
+}
+
+.prose th {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+.prose td {
+  border-color: var(--border);
+}
+
+.prose th {
+  border-color: var(--border);
+}
+
+/* Syntax highlighting override for dark theme */
+.prose pre code.hljs {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+/* Math display styling */
+.katex-display {
+  margin: 1rem 0;
+}
+
+.katex {
+  color: var(--foreground) !important;
+}

@@ -7,6 +7,7 @@
 import React from 'react';
 import { Message } from '@/lib/types';
 import { User, Bot, Copy, Check } from 'lucide-react';
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 
 interface ChatMessageProps {
   message: Message;
@@ -61,10 +62,14 @@ export default function ChatMessage({ message, isLatest = false }: ChatMessagePr
         </div>
 
         {/* Message text */}
-        <div
-          className="prose prose-sm max-w-none text-foreground leading-relaxed whitespace-pre-wrap break-words"
-        >
-          {message.content}
+        <div className="text-foreground leading-relaxed break-words">
+          {isUser ? (
+            // User messages - render as plain text with line breaks
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          ) : (
+            // Assistant messages - render as markdown
+            <MarkdownRenderer content={message.content} />
+          )}
         </div>
 
         {/* Attachments */}

@@ -430,6 +430,12 @@ class OumiWebServer(OpenAICompatibleServer):
                     }
                 )
 
+                # CRITICAL: Sync conversation to current branch after each exchange
+                session.branch_manager.sync_conversation_history(session.conversation_history)
+                logger.info(
+                    f"🔄 DEBUG: Synced conversation to branch '{session.branch_manager.current_branch_id}' - {len(session.conversation_history)} messages"
+                )
+
                 # Update context usage
                 self._update_session_context_usage(session)
                 logger.info(
@@ -1145,6 +1151,80 @@ class OumiWebServer(OpenAICompatibleServer):
 
         return web.json_response(response_data)
 
+    async def handle_get_configs_api(self, request: web.Request) -> web.Response:
+        """Handle getting available inference configuration files."""
+        try:
+            configs = self._scan_inference_config_files()
+            return web.json_response({"configs": configs})
+        except Exception as e:
+            logger.error(f"Error getting configs: {e}")
+            return web.json_response(
+                {"error": "Failed to scan configuration files"}, status=500
+            )
+
+    def _scan_inference_config_files(self):
+        """Scan the configs directory for inference YAML files (*_infer.yaml)."""
+        import os
+        from pathlib import Path
+        import yaml
+
+        configs = []
+        
+        # Get the configs directory relative to this file
+        current_dir = Path(__file__).parent.parent.parent.parent  # Go up to oumi root
+        configs_dir = current_dir / "configs" / "recipes"
+        
+        if not configs_dir.exists():
+            logger.warning(f"Configs directory not found: {configs_dir}")
+            return configs
+            
+        logger.info(f"📁 Scanning configs directory: {configs_dir}")
+        
+        # Walk through all subdirectories looking for *_infer.yaml files
+        for root, dirs, files in os.walk(configs_dir):
+            for file in files:
+                if file.endswith("_infer.yaml"):
+                    file_path = Path(root) / file
+                    relative_path = file_path.relative_to(configs_dir)
+                    
+                    try:
+                        # Read the YAML to extract model information
+                        with open(file_path, 'r') as f:
+                            config_data = yaml.safe_load(f)
+                        
+                        # Extract key information
+                        model_name = config_data.get('model', {}).get('model_name', 'Unknown')
+                        engine = config_data.get('engine', 'UNKNOWN')
+                        context_length = config_data.get('model', {}).get('model_max_length', 4096)
+                        
+                        # Determine category based on path or model name
+                        path_parts = str(relative_path).split('/')
+                        model_family = path_parts[0] if path_parts else 'unknown'
+                        
+                        # Create a display name from the file path
+                        display_name = str(relative_path).replace('/', ' > ').replace('_infer.yaml', '')
+                        
+                        config_info = {
+                            'id': str(relative_path),
+                            'config_path': str(file_path),
+                            'relative_path': str(relative_path),
+                            'display_name': display_name,
+                            'model_name': model_name,
+                            'engine': engine,
+                            'context_length': context_length,
+                            'model_family': model_family,
+                            'filename': file,
+                        }
+                        
+                        configs.append(config_info)
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to parse config {file_path}: {e}")
+                        continue
+        
+        logger.info(f"📋 Found {len(configs)} inference configurations")
+        return sorted(configs, key=lambda x: (x['model_family'], x['display_name']))
+
     def _update_session_context_usage(self, session):
         """Update SystemMonitor with current conversation context usage."""
         try:
@@ -1400,6 +1480,7 @@ class OumiWebServer(OpenAICompatibleServer):
         )
         app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
         app.router.add_get("/v1/oumi/system_stats", self.handle_system_stats_api)
+        app.router.add_get("/v1/oumi/configs", self.handle_get_configs_api)
 
         # Add CORS OPTIONS handlers for all endpoints that need preflight
         cors_endpoints = [
@@ -1410,6 +1491,7 @@ class OumiWebServer(OpenAICompatibleServer):
             "/v1/oumi/command",
             "/v1/oumi/sync_conversation",
             "/v1/oumi/system_stats",  # Add system stats endpoint
+            "/v1/oumi/configs",  # Add configs endpoint
         ]
         
         if ENHANCED_FEATURES_AVAILABLE:
