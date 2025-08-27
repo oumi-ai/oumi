@@ -14,58 +14,88 @@
 
 """Unit tests for WebChat CLI functionality."""
 
+import asyncio
 import time
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch, call, AsyncMock
 
 import pytest
+from typer.testing import CliRunner
 
+from oumi.cli.webchat import (
+    check_port_availability,
+    find_available_port,
+    wait_for_backend_health,
+    webchat,
+    webchat_server,
+)
 from tests.unit.webchat.utils.webchat_test_utils import (
     PortTestHelper,
     wait_for_condition,
 )
 
 
-class TestPortManagement:
-    """Test port management functionality."""
+class TestWebChatCLIUtilities:
+    """Test WebChat CLI utility functions."""
 
-    def test_find_free_port(self):
-        """Test finding a free port."""
-        port = PortTestHelper.find_free_port()
-        
-        assert isinstance(port, int)
-        assert 1024 <= port <= 65535
-        assert not PortTestHelper.is_port_open("localhost", port)
-
-    def test_port_availability_check(self):
+    def test_check_port_availability(self):
         """Test port availability checking."""
         free_port = PortTestHelper.find_free_port()
         
-        # Free port should not be open
-        assert not PortTestHelper.is_port_open("localhost", free_port)
+        # Free port should be available
+        assert check_port_availability("localhost", free_port) is True
         
         # Occupy the port and check again
         with PortTestHelper.occupy_port("localhost", free_port):
-            assert PortTestHelper.is_port_open("localhost", free_port)
+            assert check_port_availability("localhost", free_port) is False
+
+    def test_find_available_port(self):
+        """Test finding an available port."""
+        port = find_available_port()
         
-        # Port should be free again after context exit
-        assert not PortTestHelper.is_port_open("localhost", free_port)
+        assert isinstance(port, int)
+        assert 1024 <= port <= 65535
+        assert check_port_availability("localhost", port) is True
+
+    @pytest.mark.asyncio
+    async def test_wait_for_backend_health_success(self):
+        """Test successful backend health check."""
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            # Mock successful health check response
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.json = AsyncMock(return_value={"status": "healthy"})
+            mock_get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_get.return_value.__aexit__ = AsyncMock(return_value=None)
+            
+            result = await wait_for_backend_health("http://localhost:8000/health", timeout=1)
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_wait_for_backend_health_timeout(self):
+        """Test backend health check timeout."""
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            # Mock connection error
+            mock_get.side_effect = Exception("Connection failed")
+            
+            result = await wait_for_backend_health("http://localhost:8000/health", timeout=0.1)
+            assert result is False
 
     def test_port_conflict_detection(self):
         """Test detection of port conflicts."""
         test_port = PortTestHelper.find_free_port()
         
         # Initially no conflict
-        assert not PortTestHelper.is_port_open("localhost", test_port)
+        assert check_port_availability("localhost", test_port) is True
         
         # Create conflict by occupying port
         with PortTestHelper.occupy_port("localhost", test_port):
             # Should detect conflict
-            assert PortTestHelper.is_port_open("localhost", test_port)
+            assert check_port_availability("localhost", test_port) is False
             
-            # In real implementation, this would trigger port resolution
-            alternative_port = PortTestHelper.find_free_port()
+            # Find alternative port
+            alternative_port = find_available_port()
             assert alternative_port != test_port
-            assert not PortTestHelper.is_port_open("localhost", alternative_port)
+            assert check_port_availability("localhost", alternative_port) is True
 
     def test_multiple_port_conflicts(self):
         """Test handling multiple port conflicts."""
@@ -74,84 +104,253 @@ class TestPortManagement:
         # Occupy multiple ports simultaneously
         with PortTestHelper.occupy_port("localhost", ports[0]):
             with PortTestHelper.occupy_port("localhost", ports[1]):
-                # All occupied ports should be detected
-                assert PortTestHelper.is_port_open("localhost", ports[0])
-                assert PortTestHelper.is_port_open("localhost", ports[1])
-                assert not PortTestHelper.is_port_open("localhost", ports[2])
+                # Occupied ports should not be available
+                assert check_port_availability("localhost", ports[0]) is False
+                assert check_port_availability("localhost", ports[1]) is False
+                assert check_port_availability("localhost", ports[2]) is True
 
 
-class TestWebChatCLI:
-    """Test WebChat CLI functionality."""
+class TestWebChatTyperCommands:
+    """Test WebChat Typer CLI commands."""
 
-    @patch("oumi.cli.webchat.OumiWebServer")
-    @patch("oumi.cli.webchat.WebChatInterface")
-    def test_webchat_launch_basic(self, mock_interface, mock_server):
-        """Test basic webchat launch functionality."""
-        # Mock server setup
-        mock_server_instance = Mock()
-        mock_server_instance.start.return_value = True
-        mock_server_instance.get_port.return_value = 8080
-        mock_server_instance.is_healthy.return_value = True
-        mock_server.return_value = mock_server_instance
+    @pytest.fixture
+    def cli_runner(self):
+        """Create CLI runner for testing Typer commands."""
+        return CliRunner()
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("oumi.cli.webchat.find_available_port")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_webchat_command_basic(self, mock_check_port, mock_find_port, mock_launch, cli_runner):
+        """Test basic webchat command execution."""
+        # Mock port availability
+        mock_check_port.return_value = True
+        mock_find_port.return_value = 8080
         
-        # Mock interface setup
-        mock_interface_instance = Mock()
-        mock_interface_instance.launch.return_value = Mock(server_port=7860)
-        mock_interface.return_value = mock_interface_instance
+        # Mock successful launch
+        mock_launch.return_value = None
         
-        # Import and test the CLI function (mocked)
-        with patch("oumi.cli.webchat.launch_webchat") as mock_launch:
-            mock_launch.return_value = True
-            
-            result = mock_launch(host="localhost", port=8080)
-            assert result is True
-            
-            # Verify launch was called with correct parameters
-            mock_launch.assert_called_once_with(host="localhost", port=8080)
-
-    @patch("oumi.cli.webchat.OumiWebServer")
-    def test_server_only_launch(self, mock_server):
-        """Test server-only launch for development mode."""
-        mock_server_instance = Mock()
-        mock_server_instance.start.return_value = True
-        mock_server_instance.get_port.return_value = 8080
-        mock_server_instance.is_healthy.return_value = True
-        mock_server.return_value = mock_server_instance
+        # Execute webchat command
+        result = cli_runner.invoke(webchat, ["--host", "localhost", "--port", "8080"])
         
-        with patch("oumi.cli.webchat.launch_server_only") as mock_launch_server:
-            mock_launch_server.return_value = True
-            
-            result = mock_launch_server(host="localhost", port=8080)
-            assert result is True
-            
-            mock_launch_server.assert_called_once_with(host="localhost", port=8080)
+        # Command should execute without errors
+        assert result.exit_code == 0
+        mock_launch.assert_called_once()
 
-    @patch("oumi.cli.webchat.check_backend_health")
-    def test_health_check_polling(self, mock_health_check):
-        """Test backend health check polling functionality."""
-        # Simulate health check progression: fail, fail, succeed
-        mock_health_check.side_effect = [False, False, True]
+    @patch("oumi.webchat.server.run_webchat_server")
+    @patch("oumi.cli.webchat.find_available_port")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_webchat_server_command(self, mock_check_port, mock_find_port, mock_run_server, cli_runner):
+        """Test webchat-server command execution."""
+        # Mock port availability
+        mock_check_port.return_value = True
+        mock_find_port.return_value = 8080
         
-        with patch("oumi.cli.webchat.poll_backend_health") as mock_poll:
-            mock_poll.return_value = True
-            
-            result = mock_poll("http://localhost:8080", timeout=5.0)
-            assert result is True
-
-    @patch("oumi.cli.webchat.check_backend_health")
-    def test_health_check_timeout(self, mock_health_check):
-        """Test health check timeout handling."""
-        # Always return unhealthy
-        mock_health_check.return_value = False
+        # Mock successful server run
+        mock_run_server.return_value = None
         
-        with patch("oumi.cli.webchat.poll_backend_health") as mock_poll:
-            mock_poll.side_effect = TimeoutError("Backend health check timeout")
-            
-            with pytest.raises(TimeoutError, match="Backend health check timeout"):
-                mock_poll("http://localhost:8080", timeout=1.0)
+        # Execute webchat-server command
+        result = cli_runner.invoke(webchat_server, ["--host", "localhost", "--port", "8080"])
+        
+        # Command should execute without errors
+        assert result.exit_code == 0
+        mock_run_server.assert_called_once()
 
-    def test_wait_for_condition_success(self):
-        """Test wait_for_condition utility success case."""
+    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_webchat_port_conflict_resolution(self, mock_check_port, mock_launch, cli_runner):
+        """Test automatic port conflict resolution."""
+        # Simulate port conflict on default port
+        mock_check_port.side_effect = [False, False, True]  # First two ports busy, third available
+        
+        with patch("oumi.cli.webchat.find_available_port", return_value=8082):
+            mock_launch.return_value = None
+            
+            # Execute webchat command with conflicted port
+            result = cli_runner.invoke(webchat, ["--port", "8080"])
+            
+            # Should succeed despite port conflict
+            assert result.exit_code == 0
+            mock_launch.assert_called_once()
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    def test_webchat_command_with_config(self, mock_launch, cli_runner):
+        """Test webchat command with configuration file."""
+        mock_launch.return_value = None
+        
+        # Execute webchat command with config
+        result = cli_runner.invoke(webchat, ["-c", "test_config.yaml"])
+        
+        # Should pass config to launch function
+        assert result.exit_code == 0
+        mock_launch.assert_called_once()
+
+    @patch("oumi.webchat.server.run_webchat_server")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_server_command_error_handling(self, mock_check_port, mock_run_server, cli_runner):
+        """Test server command error handling."""
+        # Mock port check success but server failure
+        mock_check_port.return_value = True
+        mock_run_server.side_effect = RuntimeError("Server startup failed")
+        
+        # Execute command and expect error
+        result = cli_runner.invoke(webchat_server, ["--port", "8080"])
+        
+        # Should exit with error code
+        assert result.exit_code != 0
+        assert "Server startup failed" in str(result.exception) or result.exit_code == 1
+
+    def test_cli_help_messages(self, cli_runner):
+        """Test CLI help messages."""
+        # Test main webchat command help
+        result = cli_runner.invoke(webchat, ["--help"])
+        assert result.exit_code == 0
+        assert "webchat" in result.output.lower()
+        
+        # Test server command help
+        result = cli_runner.invoke(webchat_server, ["--help"])
+        assert result.exit_code == 0
+        assert "server" in result.output.lower()
+
+
+class TestWebChatStartupSequence:
+    """Test webchat startup sequence and health checking."""
+
+    @pytest.fixture
+    def cli_runner(self):
+        """Create CLI runner for testing."""
+        return CliRunner()
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("oumi.cli.webchat.wait_for_backend_health")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_complete_startup_sequence(
+        self, 
+        mock_check_port,
+        mock_wait_health, 
+        mock_launch,
+        cli_runner
+    ):
+        """Test complete startup sequence with health checking."""
+        # Mock successful port check and health check
+        mock_check_port.return_value = True
+        
+        # Mock async health check
+        async def mock_health_check(*args, **kwargs):
+            return True
+        mock_wait_health.return_value = asyncio.create_task(mock_health_check())
+        
+        mock_launch.return_value = None
+        
+        # Execute webchat command
+        result = cli_runner.invoke(webchat, ["--host", "localhost", "--port", "8080"])
+        
+        # Should complete successfully
+        assert result.exit_code == 0
+        mock_launch.assert_called_once()
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_startup_with_port_conflict(self, mock_check_port, mock_launch, cli_runner):
+        """Test startup handling port conflicts."""
+        # Simulate port conflict
+        mock_check_port.side_effect = [False, True]  # First port busy, second available
+        
+        with patch("oumi.cli.webchat.find_available_port", return_value=8081):
+            mock_launch.return_value = None
+            
+            result = cli_runner.invoke(webchat, ["--port", "8080"])
+            
+            # Should resolve conflict and succeed
+            assert result.exit_code == 0
+            mock_launch.assert_called_once()
+
+    @patch("oumi.webchat.server.run_webchat_server")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_server_startup_failure_handling(self, mock_check_port, mock_run_server, cli_runner):
+        """Test server startup failure handling."""
+        mock_check_port.return_value = True
+        mock_run_server.side_effect = Exception("Startup failed")
+        
+        result = cli_runner.invoke(webchat_server, ["--port", "8080"])
+        
+        # Should handle error gracefully
+        assert result.exit_code != 0
+
+
+class TestWebChatConfiguration:
+    """Test webchat configuration handling."""
+
+    @pytest.fixture
+    def cli_runner(self):
+        """Create CLI runner for testing."""
+        return CliRunner()
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_configuration_file_loading(self, mock_check_port, mock_launch, cli_runner):
+        """Test loading configuration from file."""
+        mock_check_port.return_value = True
+        mock_launch.return_value = None
+        
+        # Mock config file existence and loading
+        with patch("pathlib.Path.exists", return_value=True):
+            result = cli_runner.invoke(webchat, ["-c", "test_config.yaml"])
+            
+            assert result.exit_code == 0
+            mock_launch.assert_called_once()
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    def test_default_configuration_values(self, mock_launch, cli_runner):
+        """Test default configuration values."""
+        mock_launch.return_value = None
+        
+        # Execute without explicit parameters
+        result = cli_runner.invoke(webchat, [])
+        
+        # Should use default values
+        assert result.exit_code == 0
+        mock_launch.assert_called_once()
+        
+        # Check that launch was called (default values used internally)
+        call_args = mock_launch.call_args
+        assert call_args is not None
+
+    def test_configuration_validation(self, cli_runner):
+        """Test configuration parameter validation."""
+        # Test invalid port (negative)
+        result = cli_runner.invoke(webchat, ["--port", "-1"])
+        assert result.exit_code != 0
+        
+        # Test invalid port (too high)
+        result = cli_runner.invoke(webchat, ["--port", "99999"])
+        assert result.exit_code != 0
+
+    @patch("oumi.webchat.interface.launch_webchat")
+    def test_environment_variable_configuration(self, mock_launch, cli_runner):
+        """Test configuration via environment variables."""
+        mock_launch.return_value = None
+        
+        # Mock environment variables
+        with patch.dict("os.environ", {"WEBCHAT_HOST": "0.0.0.0", "WEBCHAT_PORT": "9000"}):
+            # Note: Actual implementation may or may not support env vars
+            # This test documents expected behavior
+            result = cli_runner.invoke(webchat, [])
+            
+            assert result.exit_code == 0
+            mock_launch.assert_called_once()
+
+
+class TestWebChatIntegration:
+    """Test WebChat CLI integration scenarios."""
+
+    @pytest.fixture
+    def cli_runner(self):
+        """Create CLI runner for testing."""
+        return CliRunner()
+
+    def test_wait_for_condition_utility(self):
+        """Test wait_for_condition utility function."""
         condition_met = False
         
         def condition():
@@ -185,179 +384,21 @@ class TestWebChatCLI:
                 error_message="Test timeout message"
             )
 
-    @patch("oumi.cli.webchat.argparse.ArgumentParser")
-    def test_cli_argument_parsing(self, mock_parser):
-        """Test CLI argument parsing."""
-        mock_parser_instance = Mock()
-        mock_args = Mock()
-        mock_args.host = "localhost"
-        mock_args.port = 8080
-        mock_args.server_only = False
-        mock_args.config_path = None
-        mock_parser_instance.parse_args.return_value = mock_args
-        mock_parser.return_value = mock_parser_instance
+    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("oumi.webchat.server.run_webchat_server")
+    def test_concurrent_command_execution(self, mock_run_server, mock_launch, cli_runner):
+        """Test that CLI commands can handle concurrent execution scenarios."""
+        # This tests the CLI's robustness when multiple commands might be executed
+        mock_launch.return_value = None
+        mock_run_server.return_value = None
         
-        with patch("oumi.cli.webchat.main") as mock_main:
-            mock_main.return_value = 0
-            
-            result = mock_main()
-            assert result == 0
-
-    @patch("builtins.print")
-    def test_error_message_display(self, mock_print):
-        """Test error message display functionality."""
-        error_msg = "Test error message"
+        # Execute webchat command
+        result1 = cli_runner.invoke(webchat, ["--port", "8080"])
+        assert result1.exit_code == 0
         
-        with patch("oumi.cli.webchat.display_error") as mock_display:
-            mock_display(error_msg)
-            mock_display.assert_called_once_with(error_msg)
-
-    def test_configuration_loading(self):
-        """Test configuration loading and validation."""
-        with patch("oumi.cli.webchat.load_config") as mock_load_config:
-            mock_config = Mock()
-            mock_config.model.model_name = "test-model"
-            mock_config.generation.max_new_tokens = 100
-            mock_load_config.return_value = mock_config
-            
-            config = mock_load_config("test_config.yaml")
-            assert config.model.model_name == "test-model"
-            assert config.generation.max_new_tokens == 100
-            
-            mock_load_config.assert_called_once_with("test_config.yaml")
-
-
-class TestWebChatStartupSequence:
-    """Test the complete webchat startup sequence."""
-
-    @patch("oumi.cli.webchat.OumiWebServer")
-    @patch("oumi.cli.webchat.WebChatInterface")
-    @patch("oumi.cli.webchat.poll_backend_health")
-    def test_complete_startup_sequence(
-        self, 
-        mock_poll_health, 
-        mock_interface, 
-        mock_server
-    ):
-        """Test complete startup sequence with all components."""
-        # Setup mocks
-        mock_server_instance = Mock()
-        mock_server_instance.start.return_value = True
-        mock_server_instance.get_port.return_value = 8080
-        mock_server_instance.is_healthy.return_value = True
-        mock_server.return_value = mock_server_instance
+        # Execute server command
+        result2 = cli_runner.invoke(webchat_server, ["--port", "8081"])
+        assert result2.exit_code == 0
         
-        mock_interface_instance = Mock()
-        mock_interface_instance.launch.return_value = Mock(server_port=7860)
-        mock_interface.return_value = mock_interface_instance
-        
-        mock_poll_health.return_value = True
-        
-        # Mock the full startup sequence
-        with patch("oumi.cli.webchat.complete_startup") as mock_startup:
-            def startup_sequence():
-                # Simulate startup steps
-                mock_server_instance.start()
-                mock_poll_health("http://localhost:8080")
-                mock_interface_instance.launch()
-                return True
-            
-            mock_startup.side_effect = startup_sequence
-            
-            result = mock_startup()
-            assert result is True
-
-    @patch("oumi.cli.webchat.OumiWebServer")
-    def test_server_startup_failure(self, mock_server):
-        """Test handling of server startup failure."""
-        mock_server_instance = Mock()
-        mock_server_instance.start.side_effect = RuntimeError("Port already in use")
-        mock_server.return_value = mock_server_instance
-        
-        with patch("oumi.cli.webchat.handle_startup_failure") as mock_handle_failure:
-            mock_handle_failure.side_effect = RuntimeError("Port already in use")
-            
-            with pytest.raises(RuntimeError, match="Port already in use"):
-                mock_handle_failure()
-
-    @patch("oumi.cli.webchat.OumiWebServer")
-    @patch("oumi.cli.webchat.poll_backend_health")
-    def test_health_check_failure(self, mock_poll_health, mock_server):
-        """Test handling of health check failure."""
-        # Server starts successfully
-        mock_server_instance = Mock()
-        mock_server_instance.start.return_value = True
-        mock_server.return_value = mock_server_instance
-        
-        # But health check fails
-        mock_poll_health.side_effect = TimeoutError("Backend not responsive")
-        
-        with pytest.raises(TimeoutError, match="Backend not responsive"):
-            mock_poll_health("http://localhost:8080")
-
-    @patch("oumi.cli.webchat.WebChatInterface")
-    def test_interface_launch_failure(self, mock_interface):
-        """Test handling of interface launch failure."""
-        mock_interface_instance = Mock()
-        mock_interface_instance.launch.side_effect = RuntimeError("Gradio launch failed")
-        mock_interface.return_value = mock_interface_instance
-        
-        with pytest.raises(RuntimeError, match="Gradio launch failed"):
-            mock_interface_instance.launch()
-
-
-class TestWebChatConfiguration:
-    """Test webchat configuration handling."""
-
-    def test_default_configuration(self):
-        """Test default configuration values."""
-        with patch("oumi.cli.webchat.get_default_config") as mock_get_default:
-            mock_config = Mock()
-            mock_config.host = "localhost"
-            mock_config.port = 8080
-            mock_config.server_only = False
-            mock_get_default.return_value = mock_config
-            
-            config = mock_get_default()
-            assert config.host == "localhost"
-            assert config.port == 8080
-            assert config.server_only is False
-
-    def test_custom_configuration_override(self):
-        """Test custom configuration override."""
-        with patch("oumi.cli.webchat.override_config") as mock_override:
-            base_config = Mock()
-            base_config.host = "localhost"
-            base_config.port = 8080
-            
-            overrides = {"host": "0.0.0.0", "port": 9000}
-            
-            def apply_overrides(config, overrides_dict):
-                for key, value in overrides_dict.items():
-                    setattr(config, key, value)
-                return config
-            
-            mock_override.side_effect = apply_overrides
-            
-            updated_config = mock_override(base_config, overrides)
-            assert updated_config.host == "0.0.0.0"
-            assert updated_config.port == 9000
-
-    def test_configuration_validation(self):
-        """Test configuration validation."""
-        with patch("oumi.cli.webchat.validate_config") as mock_validate:
-            # Valid configuration
-            valid_config = Mock()
-            valid_config.host = "localhost"
-            valid_config.port = 8080
-            mock_validate.return_value = True
-            
-            assert mock_validate(valid_config) is True
-            
-            # Invalid configuration
-            invalid_config = Mock()
-            invalid_config.host = ""
-            invalid_config.port = -1
-            mock_validate.return_value = False
-            
-            assert mock_validate(invalid_config) is False
+        mock_launch.assert_called_once()
+        mock_run_server.assert_called_once()

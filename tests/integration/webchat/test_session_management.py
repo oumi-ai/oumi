@@ -285,8 +285,9 @@ class TestSessionExpiration:
                 session_ids.append(session_id)
                 
                 session = server.get_session(session_id)
-                session.last_activity = last_activity
                 session.add_message("user", f"Test message from {session_name}")
+                # Set activity time AFTER adding message to prevent update_activity() from overriding it
+                session.last_activity = last_activity
             
             # Verify all sessions were created
             assert len(server.sessions) == 5

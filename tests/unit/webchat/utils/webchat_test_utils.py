@@ -211,15 +211,28 @@ class WebChatTestServer:
         
         # Mock responses for common endpoints
         if path.startswith("/branches"):
-            return {"branches": ["main"], "current": "main"}
+            if method == "POST":
+                # Branch creation/modification requests
+                return {"status": "ok", "branches": ["main"], "current": "main", "message": "Branch operation completed"}
+            else:
+                # Branch listing requests
+                return {"status": "ok", "branches": ["main"], "current": "main"}
         elif path.startswith("/system"):
-            return {"gpu": {"usage": 0.5}, "cpu": {"usage": 0.3}, "memory": {"usage": 0.4}}
+            return {"status": "ok", "gpu": {"usage": 0.5}, "cpu": {"usage": 0.3}, "memory": {"usage": 0.4}}
+        elif path.startswith("/files"):
+            return {"status": "ok", "message": "File operation completed"}
+        elif path.startswith("/settings"):
+            return {"status": "ok", "message": "Settings updated"}
+        elif path.startswith("/commands"):
+            return {"status": "ok", "message": "Command executed"}
+        elif path.startswith("/performance"):
+            return {"status": "ok", "inference_time": 0.5, "tokens_per_second": 20.0}
         elif path.startswith("/sessions") and method == "POST":
             return {"status": "ok", "message": "Session created"}
         elif path.startswith("/sessions"):
             if method == "GET" and len(path.split("/")) > 2:  # /sessions/{session_id}
                 return {"status": "ok", "session_id": path.split("/")[-1]}
-            return {"sessions": list(self.sessions.keys())}
+            return {"status": "ok", "sessions": list(self.sessions.keys())}
         else:
             return {"status": "ok", "message": f"Mock response for {method} {path}"}
 
