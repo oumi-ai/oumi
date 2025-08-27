@@ -548,7 +548,7 @@ class SlurmClient:
             f"Tailing logs of job {job_id} on cluster '{cluster_name}'..."
         )
         cli_utils.CONSOLE.print(
-            f"└── Following output file: {working_dir}/{stdout_filename}"
+            f"└── Following output file: {Path(working_dir) / stdout_filename}"
         )
         cli_utils.CONSOLE.print(
             "Press Ctrl-C to exit log streaming; job will not be killed."
@@ -572,7 +572,7 @@ class SlurmClient:
                 else:
                     raise FileNotFoundError(
                         f"Log file not found after {max_attempts} attempts: "
-                        f"{working_dir}/{stdout_filename}. "
+                        f"{Path(working_dir) / stdout_filename}. "
                         "The job may not have started."
                     )
         tail_cmd = (
