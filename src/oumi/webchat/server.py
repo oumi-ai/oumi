@@ -398,9 +398,27 @@ class OumiWebServer(OpenAICompatibleServer):
         """Get existing session or create new one."""
         if session_id not in self.sessions:
             self.sessions[session_id] = WebChatSession(session_id, self.config)
-            logger.info(f"Created new webchat session: {session_id}")
+            logger.info(f"🆕 DEBUG: Created new webchat session: {session_id}")
+            logger.info(f"🆕 DEBUG: New session object ID: {id(self.sessions[session_id])}")
+            logger.info(f"🆕 DEBUG: New session branch manager ID: {id(self.sessions[session_id].branch_manager)}")
+            logger.info(f"🆕 DEBUG: New session branches: {list(self.sessions[session_id].branch_manager.branches.keys())}")
+        else:
+            logger.info(f"🔄 DEBUG: Using existing session: {session_id}")
+            logger.info(f"🔄 DEBUG: Existing session object ID: {id(self.sessions[session_id])}")
+            logger.info(f"🔄 DEBUG: Existing session branch manager ID: {id(self.sessions[session_id].branch_manager)}")
+            logger.info(f"🔄 DEBUG: Existing branches: {list(self.sessions[session_id].branch_manager.branches.keys())}")
+            logger.info(f"🔄 DEBUG: Session dict size: {len(self.sessions)}")
 
         session = self.sessions[session_id]
+        
+        # CRITICAL FIX: Add session integrity validation
+        if not hasattr(session, 'branch_manager') or session.branch_manager is None:
+            logger.error(f"🚨 CRITICAL: Session {session_id} has corrupted branch_manager! Recreating...")
+            session.branch_manager = ConversationBranchManager(session.conversation_history)
+            # Re-sync main branch
+            if "main" in session.branch_manager.branches:
+                session.branch_manager.branches["main"].conversation_history = session.conversation_history
+        
         session.update_activity()
         return session
 
@@ -812,9 +830,17 @@ class OumiWebServer(OpenAICompatibleServer):
     async def handle_branches_api(self, request: web.Request) -> web.Response:
         """Handle branch operations via REST API."""
         session_id = request.query.get("session_id", "default")
+        logger.info(f"🌐 DEBUG: Branch API called with session_id: '{session_id}'")
         session = await self.get_or_create_session(session_id)
 
         if request.method == "GET":
+            # DEBUG: Check raw branch storage
+            logger.info(f"📋 DEBUG: GET branches request - session_id: '{session_id}'")
+            logger.info(f"📋 DEBUG: Session object ID: {id(session)}")
+            logger.info(f"📋 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
+            logger.info(f"📋 DEBUG: Raw branches dict: {list(session.branch_manager.branches.keys())}")
+            logger.info(f"📋 DEBUG: Branch counter: {session.branch_manager._branch_counter}")
+            
             branches = session.branch_manager.list_branches()
             current_branch = session.branch_manager.current_branch_id
             logger.info(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
@@ -830,6 +856,13 @@ class OumiWebServer(OpenAICompatibleServer):
             try:
                 data = await request.json()
                 action = data.get("action")
+                
+                # Check if session_id is also in POST data (for consistency)
+                post_session_id = data.get("session_id")
+                if post_session_id and post_session_id != session_id:
+                    logger.warning(f"⚠️  Session ID mismatch: query='{session_id}', post='{post_session_id}' - using POST value")
+                    session_id = post_session_id
+                    session = await self.get_or_create_session(session_id)
 
                 if action == "switch":
                     branch_id = data.get("branch_id")
@@ -876,24 +909,69 @@ class OumiWebServer(OpenAICompatibleServer):
                     )
                     name = data.get("name")
                     logger.info(f"🌿 DEBUG: Branch create requested - name: '{name}', from_branch: '{from_branch}'")
+                    logger.info(f"🌿 DEBUG: Session object ID: {id(session)}")
+                    logger.info(f"🌿 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
                     logger.info(f"🌿 DEBUG: Current conversation length at branch point: {len(session.conversation_history)}")
+                    logger.info(f"🌿 DEBUG: Branches before create: {list(session.branch_manager.branches.keys())}")
+                    logger.info(f"🌿 DEBUG: Branch counter before create: {session.branch_manager._branch_counter}")
                     
                     # Log conversation at branch point
                     for i, msg in enumerate(session.conversation_history):
                         role = msg.get('role', 'unknown')
                         content = str(msg.get('content', ''))[:50]
                         logger.info(f"🌿 DEBUG: Branch-point Message {i}: [{role}] {content}...")
+                    
+                    # CRITICAL DEBUG: Check source branch conversation before creating new branch
+                    source_branch = session.branch_manager.branches.get(from_branch)
+                    if source_branch:
+                        logger.info(f"🌿 DEBUG: Source branch '{from_branch}' conversation length: {len(source_branch.conversation_history)}")
+                        for i, msg in enumerate(source_branch.conversation_history):
+                            role = msg.get('role', 'unknown')
+                            content = str(msg.get('content', ''))[:50]
+                            logger.info(f"🌿 DEBUG: Source branch Message {i}: [{role}] {content}...")
+                    else:
+                        logger.error(f"🚨 Source branch '{from_branch}' not found in branches!")
+
+                    # CRITICAL FIX: Sync main branch conversation before creating new branch
+                    if from_branch == "main":
+                        logger.info(f"🔄 DEBUG: Syncing main branch conversation history before branch creation")
+                        session.branch_manager.sync_conversation_history(session.conversation_history)
+                        # Re-check source branch after sync
+                        main_branch = session.branch_manager.branches.get("main")
+                        if main_branch:
+                            logger.info(f"🔄 DEBUG: Main branch conversation after sync: {len(main_branch.conversation_history)} messages")
 
                     success, message, new_branch = session.branch_manager.create_branch(
                         from_branch_id=from_branch, name=name
                     )
+                    
+                    # DEBUG: Verify new branch conversation inheritance
+                    if success and new_branch:
+                        logger.info(f"🌿 DEBUG: New branch '{new_branch.id}' conversation length: {len(new_branch.conversation_history)}")
+                        for i, msg in enumerate(new_branch.conversation_history):
+                            role = msg.get('role', 'unknown')
+                            content = str(msg.get('content', ''))[:50]
+                            logger.info(f"🌿 DEBUG: New branch Message {i}: [{role}] {content}...")
                     logger.info(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.id if new_branch else None}'")
+                    logger.info(f"🌿 DEBUG: Branches after create: {list(session.branch_manager.branches.keys())}")
+                    logger.info(f"🌿 DEBUG: Branch counter after create: {session.branch_manager._branch_counter}")
+
+                    # CRITICAL FIX: Validate branch was actually created and stored
+                    if success and new_branch:
+                        if new_branch.id not in session.branch_manager.branches:
+                            logger.error(f"🚨 CRITICAL: Branch {new_branch.id} was created but not found in storage!")
+                            logger.error(f"🚨 Branch manager state: {vars(session.branch_manager)}")
+                        else:
+                            logger.info(f"✅ Branch {new_branch.id} successfully stored and verified")
+
+                    branch_list = session.branch_manager.list_branches()
+                    logger.info(f"🌿 DEBUG: Returning branch list with {len(branch_list)} branches: {[b['id'] for b in branch_list]}")
 
                     return web.json_response(
                         {
                             "success": success,
                             "message": message,
-                            "branches": session.branch_manager.list_branches(),
+                            "branches": branch_list,
                         }
                     )
 

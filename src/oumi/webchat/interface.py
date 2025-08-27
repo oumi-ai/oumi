@@ -41,7 +41,8 @@ class WebChatInterface:
         """
         self.config = config
         self.server_url = server_url
-        self.session_id = str(uuid.uuid4())
+        # CRITICAL FIX: Use consistent session ID that matches backend default
+        self.session_id = "default"  # Use backend default to avoid session mismatches
         self.console = Console()
 
         # API endpoints
@@ -175,21 +176,23 @@ class WebChatInterface:
                 with gr.Column(scale=1):
                     # Branch tree visualization
                     with gr.Accordion("Conversation Branches", open=True):
-                        branch_tree = create_branch_tree_component(
-                            session_id=self.session_id, server_url=self.server_url
+                        # Fetch initial branch data and create tree component  
+                        initial_branches = self._get_initial_branch_data(self.session_id)
+                        branch_tree, js_trigger = create_branch_tree_component(
+                            session_id=self.session_id, 
+                            server_url=self.server_url,
+                            initial_branches=initial_branches
                         )
+                        
+                        # Auto-trigger the JavaScript initialization
+                        js_trigger.click()
 
-                        # Branch controls
+                        # Branch controls  
                         with gr.Row():
                             new_branch_btn = gr.Button(
                                 "New Branch", size="sm", variant="secondary"
                             )
-                            switch_branch_input = gr.Textbox(
-                                placeholder="Branch name to switch...",
-                                scale=2,
-                                show_label=False,
-                            )
-                            switch_btn = gr.Button("Switch", size="sm")
+                            gr.Markdown("*Click branch nodes above to switch branches*", elem_classes=["branch-help"])
 
                     # System monitor
                     with gr.Accordion("System Monitor", open=False):
@@ -337,7 +340,7 @@ class WebChatInterface:
                 return message, state
 
             # Branch operations
-            def create_new_branch(state: dict) -> tuple[gr.HTML, dict]:
+            def create_new_branch(state: dict) -> tuple:
                 """Create a new conversation branch."""
                 branch_name = f"branch_{int(time.time())}"
 
@@ -354,11 +357,23 @@ class WebChatInterface:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
-                        # Refresh branch tree
-                        return self._update_branch_tree(state["session_id"]), state
+                        # Get updated branch data and recreate component
+                        updated_branches = self._get_initial_branch_data(state["session_id"])
+                        new_tree, new_js_trigger = create_branch_tree_component(
+                            session_id=state["session_id"],
+                            server_url=self.server_url,
+                            initial_branches=updated_branches
+                        )
+                        # Trigger JavaScript initialization for new component
+                        new_js_trigger.click()
+                        
+                        print(f"✅ Created branch '{branch_name}' - component refreshed")
+                        return new_tree, new_js_trigger, state
 
-                return gr.HTML("❌ Failed to create branch"), state
+                print(f"❌ Failed to create branch '{branch_name}'")
+                return branch_tree, js_trigger, state
 
+            # DEPRECATED: switch_branch function - D3.js component handles branch switching 
             def switch_branch(
                 branch_name: str, state: dict
             ) -> tuple[list, gr.HTML, dict]:
@@ -622,14 +637,10 @@ class WebChatInterface:
             new_branch_btn.click(
                 create_new_branch,
                 inputs=[session_state],
-                outputs=[branch_tree, session_state],
+                outputs=[branch_tree, js_trigger, session_state],
             )
 
-            switch_btn.click(
-                switch_branch,
-                inputs=[switch_branch_input, session_state],
-                outputs=[chatbot, branch_tree, session_state],
-            )
+# Removed switch_btn - users should click D3.js branch nodes instead
 
             # File attachment
             attach_btn.upload(

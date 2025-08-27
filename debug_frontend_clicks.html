@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Frontend Branch Clicks</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <h1>Branch Click Debug Test</h1>
+    <p>Open browser console to see debug messages</p>
+    
+    <div id="branch-tree-test" style="width: 100%; height: 300px; border: 1px solid #ccc; background: #f9f9f9;">
+        <!-- D3.js will render here -->
+    </div>
+    
+    <script>
+        console.log("🔧 Starting branch click debug test");
+        console.log("🔧 D3.js version:", d3.version);
+        
+        // Test if D3.js is working
+        const container = d3.select("#branch-tree-test");
+        console.log("🔧 Container selected:", container);
+        console.log("🔧 Container node:", container.node());
+        console.log("🔧 Container empty?", container.empty());
+        
+        // Create simple test SVG with clickable elements
+        const svg = container
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "300")
+            .style("background", "#ffffff");
+            
+        console.log("🔧 SVG created:", svg);
+        
+        // Add test circles
+        const testData = [
+            { name: "Main", x: 100, y: 100, color: "#007bff" },
+            { name: "Branch1", x: 200, y: 150, color: "#6c757d" }
+        ];
+        
+        const nodes = svg.selectAll(".test-node")
+            .data(testData)
+            .enter().append("g")
+            .attr("class", "test-node")
+            .attr("transform", d => `translate(${d.x}, ${d.y})`)
+            .style("cursor", "pointer")
+            .style("pointer-events", "all");
+            
+        console.log("🔧 Node groups created:", nodes.size());
+        
+        // Add circles
+        nodes.append("circle")
+            .attr("r", 20)
+            .style("fill", d => d.color)
+            .style("stroke", "#333")
+            .style("stroke-width", "2px")
+            .style("cursor", "pointer")
+            .style("pointer-events", "all");
+            
+        // Add labels
+        nodes.append("text")
+            .attr("text-anchor", "middle")
+            .attr("dy", ".35em")
+            .style("font-size", "12px")
+            .style("fill", "white")
+            .style("cursor", "pointer")
+            .style("pointer-events", "all")
+            .text(d => d.name);
+            
+        // Add click handlers
+        nodes.on("click", function(event, d) {
+            console.log(`🖱️ TEST CLICK: ${d.name}`);
+            console.log(`🖱️ Event:`, event);
+            console.log(`🖱️ Target:`, event.target);
+            console.log(`🖱️ This:`, this);
+            alert(`Clicked on ${d.name}!`);
+        });
+        
+        // Add hover handlers
+        nodes.on("mouseover", function(event, d) {
+            console.log(`🐭 TEST HOVER: ${d.name}`);
+            d3.select(this).select("circle").attr("r", 25);
+        });
+        
+        nodes.on("mouseout", function(event, d) {
+            d3.select(this).select("circle").attr("r", 20);
+        });
+        
+        console.log("🔧 Test setup complete - try clicking the circles!");
+        console.log("🔧 If clicks work here but not in WebChat, it's a container/selector issue");
+    </script>
+</body>
+</html>
