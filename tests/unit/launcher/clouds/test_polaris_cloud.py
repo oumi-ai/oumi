@@ -3,7 +3,7 @@ from unittest.mock import Mock, call, patch
 import pytest
 
 from oumi.core.configs import JobConfig, JobResources, StorageMount
-from oumi.core.launcher import JobStatus
+from oumi.core.launcher import JobState, JobStatus
 from oumi.core.registry import REGISTRY, RegistryType
 from oumi.launcher.clients.polaris_client import PolarisClient
 from oumi.launcher.clouds.polaris_cloud import PolarisCloud
@@ -73,6 +73,7 @@ def test_polaris_cloud_up_cluster_debug(mock_polaris_client, mock_polaris_cluste
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -95,6 +96,7 @@ def test_polaris_cloud_up_cluster_demand(mock_polaris_client, mock_polaris_clust
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -119,6 +121,7 @@ def test_polaris_cloud_up_cluster_debug_scaling(
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -143,6 +146,7 @@ def test_polaris_cloud_up_cluster_preemptable(
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -165,6 +169,7 @@ def test_polaris_cloud_up_cluster_prod(mock_polaris_client, mock_polaris_cluster
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")
@@ -197,6 +202,7 @@ def test_polaris_cloud_up_cluster_default_queue(
         status="running",
         metadata="bar",
         done=False,
+        state=JobState.PENDING,
     )
     mock_cluster.run_job.return_value = expected_job_status
     job = _get_default_job("polaris")

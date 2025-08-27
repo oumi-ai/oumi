@@ -18,7 +18,7 @@ import os
 import random
 from contextlib import contextmanager
 from datetime import timedelta
-from typing import NamedTuple, Optional, TypeVar, cast
+from typing import NamedTuple, Optional, TypeVar, Union, cast
 
 import numpy as np
 import torch
@@ -316,7 +316,7 @@ def prepare_model_for_distributed(
     config: TrainingConfig,
     ddp_find_unused_parameters: Optional[bool] = None,
 ) -> torch.nn.Module:
-    """Wrap the model for distributed training (DDP or FSDP).
+    """Wrap the model for distributed training (DDP, FSDP, or DeepSpeed).
 
     Args:
         model: The model to be wrapped.
@@ -336,6 +336,14 @@ def prepare_model_for_distributed(
 
     device_rank_info = get_device_rank_info()
     fsdp_params = config.fsdp
+    deepspeed_params = config.deepspeed
+
+    # Check for DeepSpeed first since it takes precedence
+    if deepspeed_params.enable_deepspeed:
+        logger.info("Using DeepSpeed for distributed training.")
+        # DeepSpeed model wrapping is handled by the DeepSpeed engine during training
+        # We return the model as-is here since DeepSpeed wrapping happens in the trainer
+        return model
 
     if fsdp_params is None or not fsdp_params.enable_fsdp:
         logger.info("Using DistributedDataParallel (DDP) for distributed training.")
@@ -435,6 +443,36 @@ def prepare_model_for_distributed(
     )
 
     return model
+
+
+#
+# DeepSpeed utilities
+#
+def is_deepspeed_zero3_enabled(config: TrainingConfig) -> bool:
+    """Check if DeepSpeed ZeRO-3 is enabled in the configuration.
+
+    Args:
+        config: The training configuration.
+
+    Returns:
+        bool: True if DeepSpeed ZeRO-3 is enabled, False otherwise.
+    """
+    return config.deepspeed.is_zero3_enabled()
+
+
+def get_deepspeed_config_path_or_dict(config: TrainingConfig) -> Union[str, dict]:
+    """Get DeepSpeed configuration as file path or dictionary.
+
+    Args:
+        config: The training configuration.
+
+    Returns:
+        Union[str, dict]: Path to config file if specified, otherwise config dict.
+    """
+    if config.deepspeed.deepspeed_config_path is not None:
+        return str(config.deepspeed.deepspeed_config_path)
+    else:
+        return config.deepspeed.to_deepspeed()
 
 
 def get_accelerate_env_vars(config: TrainingConfig) -> dict[str, str]:

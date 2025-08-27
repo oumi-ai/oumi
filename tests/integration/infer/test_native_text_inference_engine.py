@@ -15,7 +15,7 @@ from oumi.core.types.conversation import (
 from oumi.inference import NativeTextInferenceEngine
 from oumi.utils.image_utils import load_image_png_bytes_from_path
 from tests.integration.infer import get_default_device_map_for_inference
-from tests.markers import requires_cuda_initialized
+from tests.markers import requires_cuda_initialized, requires_gpus
 
 
 def _get_default_text_model_params() -> ModelParams:
@@ -61,6 +61,7 @@ def _setup_input_conversations(filepath: str, conversations: list[Conversation])
 #
 # Tests
 #
+@requires_gpus()
 def test_infer_online():
     engine = NativeTextInferenceEngine(_get_default_text_model_params())
     conversation = Conversation(
