@@ -1,10 +1,10 @@
-# NATIVE Inference config for Qwen2.5-3B-Instruct.
+# vLLM Inference config for Qwen2.5-3B-Instruct.
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[gpu]`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_infer.yaml
+#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_vllm_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -27,4 +27,4 @@ generation:
   use_sampling: True
   presence_penalty: 0.0
 
-engine: NATIVE
+engine: VLLM

@@ -14,7 +14,6 @@
 
 """Oumi WebChat - Web-based interface for interactive chat with full command support."""
 
-from oumi.webchat.interface import create_webchat_interface
 from oumi.webchat.server import OumiWebServer
 
-__all__ = ["create_webchat_interface", "OumiWebServer"]
+__all__ = ["OumiWebServer"]

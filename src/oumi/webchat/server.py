@@ -226,7 +226,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
     async def handle_cors_preflight(self, request: web.Request) -> web.Response:
         """Handle CORS preflight OPTIONS requests."""
-        logger.info(f"🔗 CORS preflight request for {request.path}")
+        logger.debug(f"🔗 CORS preflight request for {request.path}")
         
         response = web.Response(
             status=204,  # No Content for OPTIONS
@@ -241,7 +241,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
     async def handle_health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
-        logger.info("🔍 Health endpoint called!")
+        logger.debug("🔍 Health endpoint called!")
         
         if ENHANCED_FEATURES_AVAILABLE and self.response_formatter:
             return create_json_response(
@@ -276,10 +276,10 @@ class OumiWebServer(OpenAICompatibleServer):
             if (hasattr(session.command_context, 'config') and 
                 session.command_context.config is not None):
                 active_config = session.command_context.config
-                logger.info(f"🔄 Using session's swapped config for /v1/models")
+                logger.debug(f"🔄 Using session's swapped config for /v1/models")
             else:
                 active_config = self.config
-                logger.info(f"🔄 Using server's initial config for /v1/models")
+                logger.debug(f"🔄 Using server's initial config for /v1/models")
             
             # Extract complete model metadata from active config
             model_name = getattr(active_config.model, "model_name", "oumi-model")
@@ -304,7 +304,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 }
             }
             
-            logger.info(f"📋 Returning enhanced model info: {enhanced_model_info['config_metadata']['display_name']}")
+            logger.debug(f"📋 Returning enhanced model info: {enhanced_model_info['config_metadata']['display_name']}")
             return web.json_response({"object": "list", "data": [enhanced_model_info]})
             
         except Exception as e:
@@ -438,14 +438,14 @@ class OumiWebServer(OpenAICompatibleServer):
                 if (hasattr(session.command_context, 'config') and 
                     session.command_context.config is not None):
                     session_config = session.command_context.config
-                    logger.info(f"🔄 Using session's swapped config: {getattr(session_config.model, 'model_name', 'Unknown')}")
+                    logger.debug(f"🔄 Using session's swapped config: {getattr(session_config.model, 'model_name', 'Unknown')}")
                 
                 if (hasattr(session.command_context, 'inference_engine') and 
                     session.command_context.inference_engine is not None):
                     session_engine = session.command_context.inference_engine
-                    logger.info(f"🔄 Using session's swapped inference engine")
+                    logger.debug(f"🔄 Using session's swapped inference engine")
                 else:
-                    logger.info(f"🔄 Using server's default inference engine")
+                    logger.debug(f"🔄 Using server's default inference engine")
                     
                 # CRITICAL: Use the proper oumi.infer function with Conversation format
                 # Instead of using just the latest user content, pass the full conversation
@@ -468,7 +468,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         }
                         role = role_mapping.get(msg.get("role"), Role.USER)
                         conversation_messages.append(Message(role=role, content=msg.get("content", "")))
-                    logger.info(f"🧠 Added {len(session.conversation_history)} messages from conversation history")
+                    logger.debug(f"🧠 Added {len(session.conversation_history)} messages from conversation history")
                 
                 # Add the new user message
                 conversation_messages.append(Message(role=Role.USER, content=latest_user_content))
@@ -476,7 +476,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 # Create the conversation object
                 full_conversation = Conversation(messages=conversation_messages)
                 
-                logger.info(f"🧠 Using full conversation with {len(conversation_messages)} total messages for context")
+                logger.debug(f"🧠 Using full conversation with {len(conversation_messages)} total messages for context")
             else:
                 # Fallback: create a simple conversation with just the latest message
                 from oumi.core.types.conversation import Conversation, Message, Role
@@ -488,12 +488,12 @@ class OumiWebServer(OpenAICompatibleServer):
                 
                 conversation_messages.append(Message(role=Role.USER, content=latest_user_content))
                 full_conversation = Conversation(messages=conversation_messages)
-                logger.info(f"🧠 No session context, using single message conversation")
+                logger.debug(f"🧠 No session context, using single message conversation")
 
             # CRITICAL FIX: Use inference engine directly with full conversation like oumi infer does
             # This ensures proper context preservation across model swaps
             try:
-                logger.info(f"🧠 Calling inference engine with conversation containing {len(full_conversation.messages)} messages")
+                logger.debug(f"🧠 Calling inference engine with conversation containing {len(full_conversation.messages)} messages")
                 
                 # Use inference engine directly instead of the infer() wrapper function
                 # This is the same pattern used in oumi.infer.infer_interactive()
@@ -515,7 +515,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 else:
                     response_content = "No response generated"
                     
-                logger.info(f"✅ Got response from inference engine: {len(response_content)} chars")
+                logger.debug(f"✅ Got response from inference engine: {len(response_content)} chars")
                 
             except Exception as e:
                 logger.error(f"❌ Direct inference engine call failed: {e}")
@@ -539,7 +539,7 @@ class OumiWebServer(OpenAICompatibleServer):
                     else:
                         response_content = "No response generated"
                         
-                    logger.info(f"✅ Fallback infer() succeeded: {len(response_content)} chars")
+                    logger.debug(f"✅ Fallback infer() succeeded: {len(response_content)} chars")
                 except Exception as fallback_error:
                     logger.error(f"❌ Fallback infer() also failed: {fallback_error}")
                     response_content = f"Inference failed: {str(e)}"
@@ -638,16 +638,9 @@ class OumiWebServer(OpenAICompatibleServer):
         """Get existing session or create new one."""
         if session_id not in self.sessions:
             self.sessions[session_id] = WebChatSession(session_id, self.config)
-            logger.info(f"🆕 DEBUG: Created new webchat session: {session_id}")
-            logger.info(f"🆕 DEBUG: New session object ID: {id(self.sessions[session_id])}")
-            logger.info(f"🆕 DEBUG: New session branch manager ID: {id(self.sessions[session_id].branch_manager)}")
-            logger.info(f"🆕 DEBUG: New session branches: {list(self.sessions[session_id].branch_manager.branches.keys())}")
+            logger.debug(f"🆕 Created new webchat session: {session_id}")
         else:
-            logger.info(f"🔄 DEBUG: Using existing session: {session_id}")
-            logger.info(f"🔄 DEBUG: Existing session object ID: {id(self.sessions[session_id])}")
-            logger.info(f"🔄 DEBUG: Existing session branch manager ID: {id(self.sessions[session_id].branch_manager)}")
-            logger.info(f"🔄 DEBUG: Existing branches: {list(self.sessions[session_id].branch_manager.branches.keys())}")
-            logger.info(f"🔄 DEBUG: Session dict size: {len(self.sessions)}")
+            logger.debug(f"🔄 Using existing session: {session_id}")
 
         session = self.sessions[session_id]
         
@@ -729,8 +722,8 @@ class OumiWebServer(OpenAICompatibleServer):
         elif msg_type == "get_branches":
             branches = session.branch_manager.list_branches()
             current_branch = session.branch_manager.current_branch_id
-            logger.info(f"📋 DEBUG: Get branches WS request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
-            logger.info(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
+            logger.debug(f"📋 DEBUG: Get branches WS request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
+            logger.debug(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
             await ws.send_str(
                 json.dumps(
                     {
@@ -1089,21 +1082,21 @@ class OumiWebServer(OpenAICompatibleServer):
     async def handle_branches_api(self, request: web.Request) -> web.Response:
         """Handle branch operations via REST API."""
         session_id = request.query.get("session_id", "default")
-        logger.info(f"🌐 DEBUG: Branch API called with session_id: '{session_id}'")
+        logger.debug(f"🌐 DEBUG: Branch API called with session_id: '{session_id}'")
         session = await self.get_or_create_session(session_id)
 
         if request.method == "GET":
             # DEBUG: Check raw branch storage
-            logger.info(f"📋 DEBUG: GET branches request - session_id: '{session_id}'")
-            logger.info(f"📋 DEBUG: Session object ID: {id(session)}")
-            logger.info(f"📋 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
-            logger.info(f"📋 DEBUG: Raw branches dict: {list(session.branch_manager.branches.keys())}")
-            logger.info(f"📋 DEBUG: Branch counter: {session.branch_manager._branch_counter}")
+            logger.debug(f"📋 DEBUG: GET branches request - session_id: '{session_id}'")
+            logger.debug(f"📋 DEBUG: Session object ID: {id(session)}")
+            logger.debug(f"📋 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
+            logger.debug(f"📋 DEBUG: Raw branches dict: {list(session.branch_manager.branches.keys())}")
+            logger.debug(f"📋 DEBUG: Branch counter: {session.branch_manager._branch_counter}")
             
             branches = session.branch_manager.list_branches()
             current_branch = session.branch_manager.current_branch_id
-            logger.info(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
-            logger.info(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
+            logger.debug(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
+            logger.debug(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
             return web.json_response(
                 {
                     "branches": branches,
@@ -1125,14 +1118,14 @@ class OumiWebServer(OpenAICompatibleServer):
 
                 if action == "switch":
                     branch_id = data.get("branch_id")
-                    logger.info(f"🔀 DEBUG: Branch switch requested - from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
-                    logger.info(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
+                    logger.debug(f"🔀 DEBUG: Branch switch requested - from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
+                    logger.debug(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
                     
                     # Log current conversation state
                     for i, msg in enumerate(session.conversation_history):
                         role = msg.get('role', 'unknown')
                         content = str(msg.get('content', ''))[:50]
-                        logger.info(f"🔀 DEBUG: Pre-switch Message {i}: [{role}] {content}...")
+                        logger.debug(f"🔀 DEBUG: Pre-switch Message {i}: [{role}] {content}...")
                     
                     # CRITICAL FIX: Save current conversation to current branch before switching
                     current_branch_id = session.branch_manager.current_branch_id
@@ -1141,26 +1134,26 @@ class OumiWebServer(OpenAICompatibleServer):
                         # Save current conversation history to current branch
                         current_branch.conversation_history = copy.deepcopy(session.conversation_history)
                         current_branch.last_active = datetime.now()
-                        logger.info(f"🔀 DEBUG: Saved {len(session.conversation_history)} messages to current branch '{current_branch_id}'")
+                        logger.debug(f"🔀 DEBUG: Saved {len(session.conversation_history)} messages to current branch '{current_branch_id}'")
                     
                     success, message, branch = session.branch_manager.switch_branch(
                         branch_id
                     )
-                    logger.info(f"🔀 DEBUG: Branch switch result - success: {success}, message: '{message}'")
+                    logger.debug(f"🔀 DEBUG: Branch switch result - success: {success}, message: '{message}'")
 
                     if success and branch:
-                        logger.info(f"🔀 DEBUG: Branch '{branch_id}' conversation length: {len(branch.conversation_history)}")
+                        logger.debug(f"🔀 DEBUG: Branch '{branch_id}' conversation length: {len(branch.conversation_history)}")
                         # Log branch conversation before clearing current history
                         for i, msg in enumerate(branch.conversation_history):
                             role = msg.get('role', 'unknown')
                             content = str(msg.get('content', ''))[:50]
-                            logger.info(f"🔀 DEBUG: Branch Message {i}: [{role}] {content}...")
+                            logger.debug(f"🔀 DEBUG: Branch Message {i}: [{role}] {content}...")
                             
                         # Update conversation history
-                        logger.info(f"🔀 DEBUG: Clearing current conversation ({len(session.conversation_history)} messages) and loading branch conversation ({len(branch.conversation_history)} messages)")
+                        logger.debug(f"🔀 DEBUG: Clearing current conversation ({len(session.conversation_history)} messages) and loading branch conversation ({len(branch.conversation_history)} messages)")
                         session.conversation_history.clear()
                         session.conversation_history.extend(branch.conversation_history)
-                        logger.info(f"🔀 DEBUG: Post-switch conversation length: {len(session.conversation_history)}")
+                        logger.debug(f"🔀 DEBUG: Post-switch conversation length: {len(session.conversation_history)}")
 
                     return web.json_response(
                         {
@@ -1176,38 +1169,38 @@ class OumiWebServer(OpenAICompatibleServer):
                         "from_branch", session.branch_manager.current_branch_id
                     )
                     name = data.get("name")
-                    logger.info(f"🌿 DEBUG: Branch create requested - name: '{name}', from_branch: '{from_branch}'")
-                    logger.info(f"🌿 DEBUG: Session object ID: {id(session)}")
-                    logger.info(f"🌿 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
-                    logger.info(f"🌿 DEBUG: Current conversation length at branch point: {len(session.conversation_history)}")
-                    logger.info(f"🌿 DEBUG: Branches before create: {list(session.branch_manager.branches.keys())}")
-                    logger.info(f"🌿 DEBUG: Branch counter before create: {session.branch_manager._branch_counter}")
+                    logger.debug(f"🌿 DEBUG: Branch create requested - name: '{name}', from_branch: '{from_branch}'")
+                    logger.debug(f"🌿 DEBUG: Session object ID: {id(session)}")
+                    logger.debug(f"🌿 DEBUG: Branch manager object ID: {id(session.branch_manager)}")
+                    logger.debug(f"🌿 DEBUG: Current conversation length at branch point: {len(session.conversation_history)}")
+                    logger.debug(f"🌿 DEBUG: Branches before create: {list(session.branch_manager.branches.keys())}")
+                    logger.debug(f"🌿 DEBUG: Branch counter before create: {session.branch_manager._branch_counter}")
                     
                     # Log conversation at branch point
                     for i, msg in enumerate(session.conversation_history):
                         role = msg.get('role', 'unknown')
                         content = str(msg.get('content', ''))[:50]
-                        logger.info(f"🌿 DEBUG: Branch-point Message {i}: [{role}] {content}...")
+                        logger.debug(f"🌿 DEBUG: Branch-point Message {i}: [{role}] {content}...")
                     
                     # CRITICAL DEBUG: Check source branch conversation before creating new branch
                     source_branch = session.branch_manager.branches.get(from_branch)
                     if source_branch:
-                        logger.info(f"🌿 DEBUG: Source branch '{from_branch}' conversation length: {len(source_branch.conversation_history)}")
+                        logger.debug(f"🌿 DEBUG: Source branch '{from_branch}' conversation length: {len(source_branch.conversation_history)}")
                         for i, msg in enumerate(source_branch.conversation_history):
                             role = msg.get('role', 'unknown')
                             content = str(msg.get('content', ''))[:50]
-                            logger.info(f"🌿 DEBUG: Source branch Message {i}: [{role}] {content}...")
+                            logger.debug(f"🌿 DEBUG: Source branch Message {i}: [{role}] {content}...")
                     else:
                         logger.error(f"🚨 Source branch '{from_branch}' not found in branches!")
 
                     # CRITICAL FIX: Sync main branch conversation before creating new branch
                     if from_branch == "main":
-                        logger.info(f"🔄 DEBUG: Syncing main branch conversation history before branch creation")
+                        logger.debug(f"🔄 DEBUG: Syncing main branch conversation history before branch creation")
                         session.branch_manager.sync_conversation_history(session.conversation_history)
                         # Re-check source branch after sync
                         main_branch = session.branch_manager.branches.get("main")
                         if main_branch:
-                            logger.info(f"🔄 DEBUG: Main branch conversation after sync: {len(main_branch.conversation_history)} messages")
+                            logger.debug(f"🔄 DEBUG: Main branch conversation after sync: {len(main_branch.conversation_history)} messages")
 
                     success, message, new_branch = session.branch_manager.create_branch(
                         from_branch_id=from_branch, name=name
@@ -1215,14 +1208,14 @@ class OumiWebServer(OpenAICompatibleServer):
                     
                     # DEBUG: Verify new branch conversation inheritance
                     if success and new_branch:
-                        logger.info(f"🌿 DEBUG: New branch '{new_branch.id}' conversation length: {len(new_branch.conversation_history)}")
+                        logger.debug(f"🌿 DEBUG: New branch '{new_branch.id}' conversation length: {len(new_branch.conversation_history)}")
                         for i, msg in enumerate(new_branch.conversation_history):
                             role = msg.get('role', 'unknown')
                             content = str(msg.get('content', ''))[:50]
-                            logger.info(f"🌿 DEBUG: New branch Message {i}: [{role}] {content}...")
-                    logger.info(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.id if new_branch else None}'")
-                    logger.info(f"🌿 DEBUG: Branches after create: {list(session.branch_manager.branches.keys())}")
-                    logger.info(f"🌿 DEBUG: Branch counter after create: {session.branch_manager._branch_counter}")
+                            logger.debug(f"🌿 DEBUG: New branch Message {i}: [{role}] {content}...")
+                    logger.debug(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.id if new_branch else None}'")
+                    logger.debug(f"🌿 DEBUG: Branches after create: {list(session.branch_manager.branches.keys())}")
+                    logger.debug(f"🌿 DEBUG: Branch counter after create: {session.branch_manager._branch_counter}")
 
                     # CRITICAL FIX: Validate branch was actually created and stored
                     if success and new_branch:
@@ -1230,7 +1223,7 @@ class OumiWebServer(OpenAICompatibleServer):
                             logger.error(f"🚨 CRITICAL: Branch {new_branch.id} was created but not found in storage!")
                             logger.error(f"🚨 Branch manager state: {vars(session.branch_manager)}")
                         else:
-                            logger.info(f"✅ Branch {new_branch.id} successfully stored and verified")
+                            logger.debug(f"✅ Branch {new_branch.id} successfully stored and verified")
 
                     if success and new_branch:
                         # Return the created branch in the expected format
@@ -1242,7 +1235,7 @@ class OumiWebServer(OpenAICompatibleServer):
                             "last_active": new_branch.last_active.isoformat() if hasattr(new_branch.last_active, 'isoformat') else str(new_branch.last_active),
                             "is_active": new_branch.id == session.branch_manager.current_branch_id
                         }
-                        logger.info(f"🌿 DEBUG: Returning created branch: {branch_data}")
+                        logger.debug(f"🌿 DEBUG: Returning created branch: {branch_data}")
                         
                         return web.json_response(
                             {
@@ -1261,11 +1254,11 @@ class OumiWebServer(OpenAICompatibleServer):
 
                 elif action == "delete":
                     branch_id = data.get("branch_id")
-                    logger.info(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
-                    logger.info(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                    logger.debug(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
+                    logger.debug(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
                     success, message = session.branch_manager.delete_branch(branch_id)
-                    logger.info(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
-                    logger.info(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                    logger.debug(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
+                    logger.debug(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
 
                     return web.json_response(
                         {
@@ -1316,8 +1309,6 @@ class OumiWebServer(OpenAICompatibleServer):
         session_id = request.query.get("session_id", "default")
         session = await self.get_or_create_session(session_id)
 
-        logger.info(f"🔍 DEBUG: System stats request for session {session_id}")
-
         # Update context usage based on current conversation
         self._update_session_context_usage(session)
 
@@ -1338,7 +1329,7 @@ class OumiWebServer(OpenAICompatibleServer):
             "conversation_turns": stats.conversation_turns,
         }
 
-        logger.info(f"🔍 DEBUG: Returning system stats: {response_data}")
+        logger.debug(f"System stats for session {session_id}: {stats.context_used_tokens}/{stats.context_max_tokens} tokens, {stats.conversation_turns} turns")
 
         return web.json_response(response_data)
 
@@ -1369,7 +1360,7 @@ class OumiWebServer(OpenAICompatibleServer):
             logger.warning(f"Configs directory not found: {configs_dir}")
             return configs
             
-        logger.info(f"📁 Scanning configs directory: {configs_dir}")
+        logger.debug(f"📁 Scanning configs directory: {configs_dir}")
         
         # Walk through all subdirectories looking for *_infer.yaml files
         for root, dirs, files in os.walk(configs_dir):
@@ -1413,7 +1404,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         logger.warning(f"Failed to parse config {file_path}: {e}")
                         continue
         
-        logger.info(f"📋 Found {len(configs)} inference configurations")
+        logger.debug(f"📋 Found {len(configs)} inference configurations")
         return sorted(configs, key=lambda x: (x['model_family'], x['display_name']))
 
     def _update_session_context_usage(self, session):
@@ -1439,8 +1430,8 @@ class OumiWebServer(OpenAICompatibleServer):
                         f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}..."
                     )
 
-            logger.info(f"🔍 DEBUG: Total tokens calculated: {total_tokens}")
-            logger.info(
+            logger.debug(f"🔍 DEBUG: Total tokens calculated: {total_tokens}")
+            logger.debug(
                 f"🔍 DEBUG: Max context tokens: {session.system_monitor.max_context_tokens}"
             )
 
@@ -1628,7 +1619,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         expired_sessions.append(session_id)
 
                 for session_id in expired_sessions:
-                    logger.info(f"Cleaning up expired session: {session_id}")
+                    logger.debug(f"Cleaning up expired session: {session_id}")
                     session = self.sessions.pop(session_id)
 
                     # Close any remaining WebSocket connections
@@ -1645,7 +1636,7 @@ class OumiWebServer(OpenAICompatibleServer):
 
         # Test with simple function-based handler to debug binding issue
         async def simple_health(request):
-            logger.info("🔍 Simple health handler called!")
+            logger.debug("🔍 Simple health handler called!")
             return web.json_response({"status": "simple_ok"})
 
         # Add base routes from OpenAICompatibleServer manually
@@ -1677,6 +1668,7 @@ class OumiWebServer(OpenAICompatibleServer):
         cors_endpoints = [
             "/health",  # Add health endpoint for connection testing
             "/v1/chat/completions",
+            "/v1/models",  # Add models endpoint for CORS
             "/v1/oumi/branches", 
             "/v1/oumi/conversation",
             "/v1/oumi/command",
@@ -1701,13 +1693,13 @@ class OumiWebServer(OpenAICompatibleServer):
             start_time = time.time()
             client_ip = request.headers.get('X-Forwarded-For', request.remote)
             
-            logger.info(f"🌐 {request.method} {request.path} from {client_ip}")
+            logger.debug(f"🌐 {request.method} {request.path} from {client_ip}")
             
             # Log request headers for debugging CORS/connection issues
             if request.headers.get('Origin'):
-                logger.info(f"🔍 Origin: {request.headers.get('Origin')}")
+                logger.debug(f"🔍 Origin: {request.headers.get('Origin')}")
             if request.headers.get('User-Agent'):
-                logger.info(f"🔍 User-Agent: {request.headers.get('User-Agent')}")
+                logger.debug(f"🔍 User-Agent: {request.headers.get('User-Agent')}")
             
             # Note: Don't log request body in middleware as it consumes the stream
             # and prevents handlers from reading it. Body logging can be added
@@ -1716,7 +1708,7 @@ class OumiWebServer(OpenAICompatibleServer):
             try:
                 response = await handler(request)
                 elapsed = (time.time() - start_time) * 1000
-                logger.info(f"✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
+                logger.debug(f"✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
                 return response
             except Exception as e:
                 elapsed = (time.time() - start_time) * 1000

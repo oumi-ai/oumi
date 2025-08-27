@@ -1,10 +1,10 @@
-# NATIVE Inference config for Qwen2.5-3B-Instruct.
+# NATIVE Inference config for Qwen2.5-Coder-32B-Instruct.
 #
 # Requirements:
 #   - Run `pip install oumi`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_infer.yaml
+#   oumi infer -i -c configs/recipes/qwen2_5/inference/32b_coder_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -13,16 +13,16 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "Qwen/Qwen2.5-3B-Instruct"
-  model_max_length: 16384
+  model_name: "Qwen/Qwen2.5-Coder-32B-Instruct"
+  model_max_length: 131072
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
   trust_remote_code: True
 
 generation:
-  max_new_tokens: 2048
-  temperature: 0.7
-  top_p: 0.9
+  max_new_tokens: 8192
+  temperature: 0.6
+  top_p: 0.95
   min_p: 0.0
   use_sampling: True
   presence_penalty: 0.0

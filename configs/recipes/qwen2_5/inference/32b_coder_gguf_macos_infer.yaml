@@ -1,0 +1,29 @@
+# LlamaCPP + GGUF Inference config for Qwen2.5-Coder-32B-Instruct (macOS optimized).
+#
+# Requirements:
+#   - Run `pip install oumi[llama_cpp]`
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/qwen2_5/inference/32b_coder_gguf_macos_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "unsloth/Qwen2.5-Coder-32B-Instruct-128K-GGUF"
+  tokenizer_name: "Qwen/Qwen2.5-Coder-32B-Instruct"
+  model_max_length: 131072
+  torch_dtype_str: "float16"
+  trust_remote_code: True
+  model_kwargs:
+    filename: "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"
+
+generation:
+  max_new_tokens: 8192
+  temperature: 0.6
+  top_p: 0.95
+
+engine: LLAMACPP

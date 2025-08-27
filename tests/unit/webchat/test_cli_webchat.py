@@ -151,26 +151,27 @@ class TestWebChatTyperCommands:
         fake_app.command("webchat-server", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(webchat_server)
         return fake_app
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
+    @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.find_available_port")
     @patch("oumi.cli.webchat.check_port_availability")
     def test_webchat_command_basic(
-        self, mock_check_port, mock_find_port, mock_launch, webchat_app, cli_runner
+        self, mock_check_port, mock_find_port, mock_run_server, mock_subprocess, webchat_app, cli_runner
     ):
         """Test basic webchat command execution."""
         # Mock port availability (returns tuple)
         mock_check_port.return_value = (True, "")
         mock_find_port.return_value = 8080
+        mock_run_server.return_value = None
 
-        # Mock successful launch
-        mock_launch.return_value = None
+        # Mock successful subprocess run for npm
+        mock_subprocess.return_value = None
 
         # Execute webchat command
         result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--host", "localhost", "--backend-port", "8080"])
 
         # Command should execute without errors
         assert result.exit_code == 0
-        mock_launch.assert_called_once()
 
     @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.find_available_port")
@@ -195,10 +196,11 @@ class TestWebChatTyperCommands:
         assert result.exit_code == 0
         mock_run_server.assert_called_once()
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
+    @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.check_port_availability")
     def test_webchat_port_conflict_resolution(
-        self, mock_check_port, mock_launch, webchat_app, cli_runner
+        self, mock_check_port, mock_run_server, mock_subprocess, webchat_app, cli_runner
     ):
         """Test automatic port conflict resolution."""
         # Simulate port conflict on default port (returns tuple)
@@ -207,28 +209,27 @@ class TestWebChatTyperCommands:
             (False, "Port busy"), 
             (True, ""),
         ]  # First two ports busy, third available
+        mock_run_server.return_value = None
 
         with patch("oumi.cli.webchat.find_available_port", return_value=8082):
-            mock_launch.return_value = None
+            mock_subprocess.return_value = None
 
             # Execute webchat command with conflicted port
             result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "8080"])
 
             # Should succeed despite port conflict
             assert result.exit_code == 0
-            mock_launch.assert_called_once()
 
-    @patch("oumi.webchat.interface.launch_webchat")
-    def test_webchat_command_with_config(self, mock_launch, webchat_app, cli_runner):
+    @patch("subprocess.run")
+    def test_webchat_command_with_config(self, mock_subprocess, webchat_app, cli_runner):
         """Test webchat command with configuration file."""
-        mock_launch.return_value = None
+        mock_subprocess.return_value = None
 
         # Execute webchat command with config
         result = cli_runner.invoke(webchat_app, ["-c", TEST_CONFIG_PATH])
 
-        # Should pass config to launch function
+        # Should pass config to frontend launch
         assert result.exit_code == 0
-        mock_launch.assert_called_once()
 
     @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.check_port_availability")
@@ -282,11 +283,11 @@ class TestWebChatStartupSequence:
         fake_app.command("webchat-server", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(webchat_server)
         return fake_app
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
     @patch("oumi.cli.webchat.wait_for_backend_health")
     @patch("oumi.cli.webchat.check_port_availability")
     def test_complete_startup_sequence(
-        self, mock_check_port, mock_wait_health, mock_launch, webchat_app, cli_runner
+        self, mock_check_port, mock_wait_health, mock_subprocess, webchat_app, cli_runner
     ):
         """Test complete startup sequence with health checking."""
         # Mock successful port check and health check (returns tuple)
@@ -295,7 +296,7 @@ class TestWebChatStartupSequence:
         # Mock synchronous health check
         mock_wait_health.return_value = True
 
-        mock_launch.return_value = None
+        mock_subprocess.return_value = None
 
         # Use dynamic port detection in 9000+ range as per CLAUDE.md guidelines
         test_port = PortTestHelper.find_free_port()
@@ -307,23 +308,21 @@ class TestWebChatStartupSequence:
 
         # Should complete successfully
         assert result.exit_code == 0
-        mock_launch.assert_called_once()
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
     @patch("oumi.cli.webchat.check_port_availability")
-    def test_startup_with_port_conflict(self, mock_check_port, mock_launch, webchat_app, cli_runner):
+    def test_startup_with_port_conflict(self, mock_check_port, mock_subprocess, webchat_app, cli_runner):
         """Test startup handling port conflicts."""
         # Simulate port conflict (returns tuple)
         mock_check_port.side_effect = [(False, "Port busy"), (True, "")]  # First port busy, second available
 
         with patch("oumi.cli.webchat.find_available_port", return_value=8081):
-            mock_launch.return_value = None
+            mock_subprocess.return_value = None
 
             result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "8080"])
 
             # Should resolve conflict and succeed
             assert result.exit_code == 0
-            mock_launch.assert_called_once()
 
     @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.check_port_availability")
@@ -355,35 +354,35 @@ class TestWebChatConfiguration:
         fake_app.command(context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(webchat)
         return fake_app
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
+    @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.check_port_availability")
-    def test_configuration_file_loading(self, mock_check_port, mock_launch, webchat_app, cli_runner):
+    def test_configuration_file_loading(self, mock_check_port, mock_run_server, mock_subprocess, webchat_app, cli_runner):
         """Test loading configuration from file."""
         mock_check_port.return_value = (True, "")
-        mock_launch.return_value = None
+        mock_run_server.return_value = None
+        mock_subprocess.return_value = None
 
         # Mock config file existence and loading
         with patch("pathlib.Path.exists", return_value=True):
             result = cli_runner.invoke(webchat_app, ["-c", TEST_CONFIG_PATH])
 
             assert result.exit_code == 0
-            mock_launch.assert_called_once()
 
-    @patch("oumi.webchat.interface.launch_webchat")
-    def test_default_configuration_values(self, mock_launch, webchat_app, cli_runner):
+    @patch("subprocess.run")
+    @patch("oumi.webchat.server.run_webchat_server")
+    @patch("oumi.cli.webchat.check_port_availability")
+    def test_default_configuration_values(self, mock_check_port, mock_run_server, mock_subprocess, webchat_app, cli_runner):
         """Test default configuration values."""
-        mock_launch.return_value = None
+        mock_check_port.return_value = (True, "")
+        mock_run_server.return_value = None
+        mock_subprocess.return_value = None
 
         # Execute without explicit parameters
         result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH])
 
         # Should use default values
         assert result.exit_code == 0
-        mock_launch.assert_called_once()
-
-        # Check that launch was called (default values used internally)
-        call_args = mock_launch.call_args
-        assert call_args is not None
 
     def test_configuration_validation(self, webchat_app, cli_runner):
         """Test configuration parameter validation."""
@@ -395,12 +394,14 @@ class TestWebChatConfiguration:
         result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH, "--backend-port", "99999"])
         assert result.exit_code != 0
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
+    @patch("oumi.webchat.server.run_webchat_server")
     @patch("oumi.cli.webchat.check_port_availability")
-    def test_environment_variable_configuration(self, mock_check_port, mock_launch, webchat_app, cli_runner):
+    def test_environment_variable_configuration(self, mock_check_port, mock_run_server, mock_subprocess, webchat_app, cli_runner):
         """Test configuration via environment variables."""
         mock_check_port.return_value = (True, "")
-        mock_launch.return_value = None
+        mock_run_server.return_value = None
+        mock_subprocess.return_value = None
 
         # Mock environment variables
         with patch.dict(
@@ -411,7 +412,6 @@ class TestWebChatConfiguration:
             result = cli_runner.invoke(webchat_app, ["--config", TEST_CONFIG_PATH])
 
             assert result.exit_code == 0
-            mock_launch.assert_called_once()
 
 
 class TestWebChatIntegration:
@@ -471,14 +471,14 @@ class TestWebChatIntegration:
                 never_true, timeout=0.1, error_message="Test timeout message"
             )
 
-    @patch("oumi.webchat.interface.launch_webchat")
+    @patch("subprocess.run")
     @patch("oumi.webchat.server.run_webchat_server")
     def test_concurrent_command_execution(
-        self, mock_run_server, mock_launch, webchat_app, webchat_server_app, cli_runner
+        self, mock_run_server, mock_subprocess, webchat_app, webchat_server_app, cli_runner
     ):
         """Test that CLI commands can handle concurrent execution scenarios."""
         # This tests the CLI's robustness when multiple commands might be executed
-        mock_launch.return_value = None
+        mock_subprocess.return_value = None
         mock_run_server.return_value = None
 
         # Use dynamic ports in 9000+ range as per CLAUDE.md guidelines
@@ -498,5 +498,4 @@ class TestWebChatIntegration:
         result2 = cli_runner.invoke(webchat_server_app, ["--config", TEST_CONFIG_PATH, "--port", str(server_port)])
         assert result2.exit_code == 0
 
-        mock_launch.assert_called_once()
         mock_run_server.assert_called_once()

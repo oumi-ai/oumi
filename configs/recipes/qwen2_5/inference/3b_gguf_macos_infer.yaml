@@ -1,10 +1,10 @@
-# NATIVE Inference config for Qwen2.5-3B-Instruct.
+# LlamaCPP + GGUF Inference config for Qwen2.5-3B-Instruct (macOS optimized).
 #
 # Requirements:
-#   - Run `pip install oumi`
+#   - Run `pip install oumi[llama_cpp]`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_infer.yaml
+#   oumi infer -i -c configs/recipes/qwen2_5/inference/3b_gguf_macos_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -13,18 +13,17 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "Qwen/Qwen2.5-3B-Instruct"
+  model_name: "Qwen/Qwen2.5-3B-Instruct-GGUF"
+  tokenizer_name: "Qwen/Qwen2.5-3B-Instruct"
   model_max_length: 16384
-  torch_dtype_str: "bfloat16"
-  attn_implementation: "sdpa"
+  torch_dtype_str: "float16"
   trust_remote_code: True
+  model_kwargs:
+    filename: "qwen2.5-3b-instruct-q4_k_m.gguf"
 
 generation:
   max_new_tokens: 2048
   temperature: 0.7
   top_p: 0.9
-  min_p: 0.0
-  use_sampling: True
-  presence_penalty: 0.0
 
-engine: NATIVE
+engine: LLAMACPP
