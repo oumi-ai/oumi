@@ -490,40 +490,43 @@ class OumiWebServer(OpenAICompatibleServer):
                 full_conversation = Conversation(messages=conversation_messages)
                 logger.debug(f"🧠 No session context, using single message conversation")
 
-            # CRITICAL FIX: Use inference engine directly with full conversation like oumi infer does
-            # This ensures proper context preservation across model swaps
+            # CRITICAL FIX: Use the SAME proven logic as "oumi chat" command
+            # This is the battle-tested approach that works with all engine types
             try:
-                logger.debug(f"🧠 Calling inference engine with conversation containing {len(full_conversation.messages)} messages")
+                logger.debug(f"🧠 Using proven oumi chat logic with conversation containing {len(full_conversation.messages)} messages")
                 
-                # Use inference engine directly instead of the infer() wrapper function
-                # This is the same pattern used in oumi.infer.infer_interactive()
+                # Use the same inference engine interface as oumi chat command
+                # ALL engines implement: inference_engine.infer(input=[conversations], inference_config=config)
                 model_response = session_engine.infer(
-                    input=[full_conversation],
+                    input=[full_conversation],  # List containing one conversation object
                     inference_config=session_config,
                 )
                 
-                # Extract the response from inference engine output
-                if model_response and len(model_response) > 0:
-                    response_conversation = model_response[0]
-                    # Get the last assistant message
-                    for msg in reversed(response_conversation.messages):
-                        if msg.role == Role.ASSISTANT:
-                            response_content = str(msg.content)
+                # Extract the response using the same logic as oumi chat
+                response_content = ""
+                if model_response:
+                    # Get the last conversation from the response
+                    last_conversation = model_response[-1] if isinstance(model_response, list) else model_response
+                    
+                    # Find the assistant's response in reverse order (most recent first)
+                    for message in reversed(last_conversation.messages):
+                        if message.role == Role.ASSISTANT and isinstance(message.content, str):
+                            response_content = message.content
                             break
-                    else:
-                        response_content = "No response generated"
-                else:
+                
+                if not response_content:
                     response_content = "No response generated"
                     
                 logger.debug(f"✅ Got response from inference engine: {len(response_content)} chars")
                 
             except Exception as e:
-                logger.error(f"❌ Direct inference engine call failed: {e}")
-                # Fallback to the original infer() function
+                logger.error(f"❌ Inference engine call failed: {e}")
+                # Fallback to the unified infer() wrapper function
                 try:
+                    logger.info(f"🔄 Falling back to unified infer() function")
                     results = infer(
                         config=session_config,
-                        inputs=[latest_user_content],
+                        inputs=[latest_user_content],  # Simple string input fallback
                         system_prompt=self.system_prompt,
                         inference_engine=session_engine,
                     )
