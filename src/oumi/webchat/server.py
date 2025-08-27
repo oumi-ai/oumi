@@ -1030,8 +1030,8 @@ class OumiWebServer(OpenAICompatibleServer):
                             "id": new_branch.id,
                             "name": new_branch.name,
                             "message_count": len(new_branch.conversation_history),
-                            "created_at": new_branch.created_at,
-                            "last_active": new_branch.last_active,
+                            "created_at": new_branch.created_at.isoformat() if hasattr(new_branch.created_at, 'isoformat') else str(new_branch.created_at),
+                            "last_active": new_branch.last_active.isoformat() if hasattr(new_branch.last_active, 'isoformat') else str(new_branch.last_active),
                             "is_active": new_branch.id == session.branch_manager.current_branch_id
                         }
                         logger.info(f"🌿 DEBUG: Returning created branch: {branch_data}")
