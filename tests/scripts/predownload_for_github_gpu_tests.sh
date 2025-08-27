@@ -42,11 +42,6 @@ download_with_retry "HuggingFaceTB/SmolLM2-135M-Instruct" --exclude "onnx/*" "ru
 # Add delay between downloads to avoid rate limiting
 sleep 10
 
-download_with_retry "HuggingFaceTB/SmolVLM-256M-Instruct"
-
-# Add delay between downloads to avoid rate limiting
-sleep 10
-
 download_with_retry "Qwen/Qwen2-VL-2B-Instruct"
 
 # Add delay between downloads to avoid rate limiting

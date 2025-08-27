@@ -5,14 +5,10 @@ wandb/
 output/
 # test coverage report
 coverage_html/
-# Local pyright config for development (overrides pyproject.toml)
-pyrightconfig.json
 # Notebook tutorial working files/directories
 notebooks/*tutorial*
 # Evaluation results
 results/
-# Local model checkpoints
-models/
 
 # Pyright Config
 pyrightconfig.json
@@ -71,45 +67,6 @@ coverage.xml
 .pytest_cache/
 cover/
 .ruff_cache/
-
-# Test-generated files
-test_output*.json
-test_*.json
-test_*.txt
-test_*.pdf
-test_*.csv
-test_*.md
-test_*.cast
-test_*.bin
-*_test_*.json
-*_test_*.txt
-*_test_*.pdf
-*_test_*.csv
-*_test_*.md
-*_test_*.cast
-*_test_*.bin
-stress_test_output*.json
-analysis_report*.md
-project_analysis*.md
-*_attachment*.txt
-*_cleanup_test_*.txt
-deeply_nested*.json
-sales_data*.json
-config*.json
-requirements*.txt
-readme*.md
-*_report*.md
-# Command router test files
-file1.json
-file2.json
-output.json
-file.txt
-test.json
-refinement_*.md
-demo.cast
-# Malformed command test artifacts (these shouldn't be created!)
-'mixed"
-"unclosed
 
 # Translations
 *.mo
@@ -225,15 +182,3 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
-
-# Node.js / Frontend
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.npm
-.npm-cache/
-frontend/.npm-cache/
-.next/
-out/
-.vercel/

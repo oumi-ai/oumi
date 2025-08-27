@@ -13,7 +13,7 @@ from oumi.core.configs.params.model_params import ModelParams
     [
         ("llava-hf/llava-1.5-7b-hf", False),
         ("microsoft/Phi-3-vision-128k-instruct", True),
-        ("HuggingFaceTB/SmolVLM-256M-Instruct", True),
+        ("Qwen/Qwen2-VL-2B-Instruct", True),
         ("Salesforce/blip2-opt-2.7b", False),
         # Access is restricted (gated repo):
         # ("meta-llama/Llama-3.2-11B-Vision-Instruct", False),

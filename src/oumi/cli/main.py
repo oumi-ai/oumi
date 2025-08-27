@@ -38,7 +38,6 @@ from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
-from oumi.cli.webchat import webchat, webchat_server
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -109,15 +108,6 @@ def get_app() -> typer.Typer:
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
         help="Quantize a model.",
     )(quantize)
-    app.command(
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Launch Oumi WebChat - web-based interface for interactive chat.",
-    )(webchat)
-    app.command(
-        name="webchat-server",
-        context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Launch only the WebChat backend server (no frontend).",
-    )(webchat_server)
     judge_app = typer.Typer(pretty_exceptions_enable=False)
     judge_app.command(name="dataset", context_settings=CONTEXT_ALLOW_EXTRA_ARGS)(
         judge_dataset_file

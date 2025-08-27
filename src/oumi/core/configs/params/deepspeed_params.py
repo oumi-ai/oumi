@@ -114,11 +114,8 @@ class DeepSpeedParams(BaseParams):
     deepspeed_config_path: Optional[Union[str, Path]] = None
     """Path to a DeepSpeed JSON configuration file.
 
-    If this parameter is not None, all other Deepspeed user-specified fields in
-    the Oumi YAML as well as any Deepspeed default values will be overridden
-    by settings in the config file passed in this param, Unspecified parameters
-    will use DeepSpeed's internal defaults (not Oumi's defaults), where
-    they are available.
+    If this parameter is not None, all following fields in this class are ignored.
+    Unspecified parameters will use DeepSpeed's internal defaults (not Oumi's defaults).
     """
 
     zero_stage: ZeRORuntimeStage = ZeRORuntimeStage.ZERO_0
@@ -178,6 +175,15 @@ class DeepSpeedParams(BaseParams):
     allgather_bucket_size: int = int(5e8)
     """Bucket size for allgather operations (ZeRO stages 1 and 2)."""
 
+    allgather_partitions: bool = True
+    """Enable allgather partitions for ZeRO-2."""
+
+    reduce_scatter: bool = True
+    """Enable reduce scatter for ZeRO-2."""
+
+    round_robin_gradients: bool = False
+    """Enable round robin gradients (ZeRO stages 1 and 2)."""
+
     # ZeRO-3 specific parameters
     stage3_prefetch_bucket_size: Union[int, str] = int(5e7)
     """Bucket size for parameter prefetching in ZeRO-3."""
@@ -205,19 +211,30 @@ class DeepSpeedParams(BaseParams):
     train_batch_size: Union[int, str] = "auto"
     """Total training batch size across all GPUs.
 
-    Can be an integer or "auto" for automatic configuration by HuggingFace.
+    Can be an integer, or "auto" for automatic configuration by HuggingFace.
     When using TRL trainers, this should remain "auto" to allow proper batch size
     management.
     """
 
-    train_micro_batch_size_per_gpu: str = "auto"
-    """Micro batch size per GPU."""
+    train_micro_batch_size_per_gpu: Union[int, str] = "auto"
+    """Micro batch size per GPU.
 
-    gradient_accumulation_steps: str = "auto"
-    """Number of gradient accumulation steps."""
+    Can be an integer, or "auto" for automatic configuration by HuggingFace.
+    When using TRL trainers, this should remain "auto" to allow proper batch size
+    management.
+    """
 
-    gradient_clipping: str = "auto"
-    """Gradient clipping value."""
+    gradient_accumulation_steps: Union[int, str] = "auto"
+    """Number of gradient accumulation steps.
+
+    Can be an integer, or "auto" for automatic configuration by HuggingFace.
+    """
+
+    gradient_clipping: Union[int, str] = "auto"
+    """Gradient clipping value.
+
+    Can be an integer, or "auto" for automatic configuration by HuggingFace.
+    """
 
     # Advanced options
     zero_allow_untested_optimizer: bool = True
@@ -225,16 +242,6 @@ class DeepSpeedParams(BaseParams):
 
     zero_force_ds_cpu_optimizer: bool = True
     """Force DeepSpeed CPU optimizer when CPU offloading is enabled."""
-
-    # ZeRO-2 specific communication parameters
-    allgather_partitions: bool = True
-    """Enable allgather partitions for ZeRO-2."""
-
-    reduce_scatter: bool = True
-    """Enable reduce scatter for ZeRO-2."""
-
-    round_robin_gradients: bool = False
-    """Enable round robin gradients for ZeRO-2."""
 
     # Activation checkpointing
     activation_checkpointing: dict[str, Any] = field(default_factory=dict)

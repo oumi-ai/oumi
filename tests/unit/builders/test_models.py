@@ -136,7 +136,7 @@ def test_build_chat_template_removes_indentation_and_newlines():
         ("llava-hf/llava-1.5-7b-hf", False, True),
         ("Salesforce/blip2-opt-2.7b", False, True),
         ("microsoft/Phi-3-vision-128k-instruct", True, True),
-        ("HuggingFaceTB/SmolVLM-256M-Instruct", False, True),
+        ("HuggingFaceTB/SmolVLM-Instruct", False, True),
     ],
 )
 def test_is_image_text_llm(
@@ -157,7 +157,7 @@ def test_is_image_text_llm(
         ("HuggingFaceTB/SmolLM2-135M-Instruct", False, None, "right"),
         ("llava-hf/llava-1.5-7b-hf", False, "llava", "left"),
         ("microsoft/Phi-3-vision-128k-instruct", True, "phi3-instruct", "right"),
-        ("HuggingFaceTB/SmolVLM-256M-Instruct", True, None, "right"),
+        ("Qwen/Qwen2-VL-2B-Instruct", True, "qwen2-vl-instruct", "left"),
         # These models require allowlisting:
         # ("meta-llama/Llama-3.2-3B-Instruct", False, None, "right"),
     ],
