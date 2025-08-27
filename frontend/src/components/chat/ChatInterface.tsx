@@ -198,7 +198,7 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
   };
 
   return (
-    <div className={`flex flex-col h-full bg-white ${className}`}>
+    <div className={`flex flex-col h-full bg-background ${className}`}>
       {/* Chat history */}
       <div className="flex-1 relative">
         <ChatHistory

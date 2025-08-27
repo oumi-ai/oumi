@@ -67,13 +67,13 @@ export default function ChatHistory({
           <div className="flex items-center justify-center h-full text-center p-8">
             <div className="max-w-md space-y-4">
               <div className="text-6xl">💬</div>
-              <h3 className="text-lg font-semibold text-gray-700">
+              <h3 className="text-lg font-semibold text-foreground">
                 Start a conversation
               </h3>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 Ask a question, give a command, or just say hello!
               </p>
-              <div className="text-sm text-gray-400 space-y-1">
+              <div className="text-sm text-muted-foreground space-y-1">
                 <p>You can use commands like:</p>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {['/help', '/clear', '/regen'].map((cmd) => (

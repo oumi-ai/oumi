@@ -373,7 +373,7 @@ def webchat(
             
         # Start Next.js frontend only (backend is already running)
         result = subprocess.run(
-            ["npm", "run", "dev"],
+            ["npm", "run", "dev", "--", "-p", str(frontend_port)],
             cwd=frontend_dir,
             env=env,
             check=True

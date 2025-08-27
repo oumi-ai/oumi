@@ -222,6 +222,21 @@ class OumiWebServer(OpenAICompatibleServer):
             logger.info("✅ Inference engine initialized")
         return self.inference_engine
 
+    async def handle_cors_preflight(self, request: web.Request) -> web.Response:
+        """Handle CORS preflight OPTIONS requests."""
+        logger.info(f"🔗 CORS preflight request for {request.path}")
+        
+        response = web.Response(
+            status=204,  # No Content for OPTIONS
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, DELETE",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Session-ID, X-Requested-With",
+                "Access-Control-Max-Age": "86400",  # Cache preflight for 24 hours
+            }
+        )
+        return response
+
     async def handle_health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
         logger.info("🔍 Health endpoint called!")
@@ -1009,16 +1024,32 @@ class OumiWebServer(OpenAICompatibleServer):
                         else:
                             logger.info(f"✅ Branch {new_branch.id} successfully stored and verified")
 
-                    branch_list = session.branch_manager.list_branches()
-                    logger.info(f"🌿 DEBUG: Returning branch list with {len(branch_list)} branches: {[b['id'] for b in branch_list]}")
-
-                    return web.json_response(
-                        {
-                            "success": success,
-                            "message": message,
-                            "branches": branch_list,
+                    if success and new_branch:
+                        # Return the created branch in the expected format
+                        branch_data = {
+                            "id": new_branch.id,
+                            "name": new_branch.name,
+                            "message_count": len(new_branch.conversation_history),
+                            "created_at": new_branch.created_at,
+                            "last_active": new_branch.last_active,
+                            "is_active": new_branch.id == session.branch_manager.current_branch_id
                         }
-                    )
+                        logger.info(f"🌿 DEBUG: Returning created branch: {branch_data}")
+                        
+                        return web.json_response(
+                            {
+                                "success": success,
+                                "message": message,
+                                "branch": branch_data,
+                            }
+                        )
+                    else:
+                        return web.json_response(
+                            {
+                                "success": success,
+                                "message": message,
+                            }
+                        )
 
                 elif action == "delete":
                     branch_id = data.get("branch_id")
@@ -1359,6 +1390,27 @@ class OumiWebServer(OpenAICompatibleServer):
         app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
         app.router.add_get("/v1/oumi/system_stats", self.handle_system_stats_api)
 
+        # Add CORS OPTIONS handlers for all endpoints that need preflight
+        cors_endpoints = [
+            "/health",  # Add health endpoint for connection testing
+            "/v1/chat/completions",
+            "/v1/oumi/branches", 
+            "/v1/oumi/conversation",
+            "/v1/oumi/command",
+            "/v1/oumi/sync_conversation",
+            "/v1/oumi/system_stats",  # Add system stats endpoint
+        ]
+        
+        if ENHANCED_FEATURES_AVAILABLE:
+            cors_endpoints.extend([
+                "/v1/chat/completions/enhanced",
+                "/v1/oumi/sse/chat",
+                "/v1/oumi/sse/events"
+            ])
+            
+        for endpoint in cors_endpoints:
+            app.router.add_options(endpoint, self.handle_cors_preflight)
+
         # Add enhanced request logging middleware
         @web.middleware
         async def logging_middleware(request, handler):
@@ -1373,16 +1425,9 @@ class OumiWebServer(OpenAICompatibleServer):
             if request.headers.get('User-Agent'):
                 logger.info(f"🔍 User-Agent: {request.headers.get('User-Agent')}")
             
-            # Log request body for POST requests (first 200 chars)
-            if request.method == 'POST':
-                try:
-                    body = await request.text()
-                    body_preview = body[:200] + "..." if len(body) > 200 else body
-                    logger.info(f"📝 Request body: {body_preview}")
-                    # Recreate request with body for handler
-                    request = request.clone(body=body.encode())
-                except Exception as e:
-                    logger.warning(f"⚠️  Could not read request body: {e}")
+            # Note: Don't log request body in middleware as it consumes the stream
+            # and prevents handlers from reading it. Body logging can be added
+            # in individual handlers if needed.
             
             try:
                 response = await handler(request)
@@ -1395,6 +1440,20 @@ class OumiWebServer(OpenAICompatibleServer):
                 raise
 
         app.middlewares.append(logging_middleware)
+        
+        # Add CORS middleware to ensure all responses include CORS headers
+        @web.middleware
+        async def cors_middleware(request, handler):
+            response = await handler(request)
+            
+            # Add CORS headers to all responses (not just preflight OPTIONS)
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Session-ID, X-Requested-With"
+            
+            return response
+            
+        app.middlewares.append(cors_middleware)
 
         return app
 

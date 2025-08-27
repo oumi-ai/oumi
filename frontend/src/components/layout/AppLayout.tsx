@@ -8,18 +8,75 @@ import React from 'react';
 import ChatInterface from '@/components/chat/ChatInterface';
 import BranchTree from '@/components/branches/BranchTree';
 import { useChatStore } from '@/lib/store';
+import apiClient from '@/lib/api';
 import { Maximize2, Minimize2, Settings, RotateCcw } from 'lucide-react';
 
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
-  const { clearMessages, currentBranchId, generationParams } = useChatStore();
+  const [isInitialized, setIsInitialized] = React.useState(false);
+  const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
+
+  // Initialize app state from backend on first load
+  React.useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        console.log('🔄 Initializing app state from backend...');
+        
+        // Load branches to get the current branch
+        const branchesResponse = await apiClient.getBranches('default');
+        if (branchesResponse.success && branchesResponse.data) {
+          const { branches, current_branch } = branchesResponse.data;
+          
+          // Transform backend branches to frontend format
+          const transformedBranches = branches.map((branch: any) => ({
+            id: branch.id,
+            name: branch.name,
+            isActive: branch.id === current_branch,
+            messageCount: branch.message_count || 0,
+            createdAt: branch.created_at,
+            lastActive: branch.last_active || branch.created_at,
+            preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
+          }));
+          
+          console.log(`📋 Loaded ${transformedBranches.length} branches, current: ${current_branch}`);
+          setBranches(transformedBranches);
+          if (current_branch && current_branch !== currentBranchId) {
+            setCurrentBranch(current_branch);
+          }
+        }
+        
+        setIsInitialized(true);
+        console.log('✅ App state initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize app state:', error);
+        // Still mark as initialized to prevent infinite loading
+        setIsInitialized(true);
+      }
+    };
+
+    if (!isInitialized) {
+      initializeApp();
+    }
+  }, [isInitialized, currentBranchId, setBranches, setCurrentBranch]);
 
   const handleClearConversation = () => {
     if (confirm('Are you sure you want to clear this conversation? This action cannot be undone.')) {
       clearMessages();
     }
   };
+
+  // Show loading state during initialization
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen bg-background items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading conversation...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">

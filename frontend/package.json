@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:backend": "cd .. && source ~/.zshrc && conda activate oumi && python -m oumi.webchat.server --port 9000",
-    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\" --names \"backend,frontend\" --prefix-colors \"blue,green\"",
+    "dev:full": "concurrently \"npm run dev:backend\" \"NEXT_PUBLIC_BACKEND_URL=http://localhost:9000 npm run dev -- -p 7860\" --names \"backend,frontend\" --prefix-colors \"blue,green\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

@@ -42,9 +42,29 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     targetBranch: ConversationBranch;
   } | null>(null);
 
-  // Load branches on component mount
+  // Load branches on component mount with retry mechanism
   React.useEffect(() => {
-    loadBranches();
+    let retryTimeout: NodeJS.Timeout;
+    
+    const loadWithRetry = async () => {
+      // First attempt immediately
+      await loadBranches();
+      
+      // Retry after 2 seconds in case backend is starting up
+      retryTimeout = setTimeout(async () => {
+        console.log('Retrying branch load after backend startup delay...');
+        await loadBranches();
+      }, 2000);
+    };
+    
+    loadWithRetry();
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+    };
   }, []);
 
   const loadBranches = async () => {
@@ -63,9 +83,35 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         }));
         setBranches(formattedBranches);
         setCurrentBranch(response.data?.current_branch || 'main');
+      } else if (!response.success) {
+        // Backend may not be ready yet, set up default branch
+        console.warn('Backend not ready, setting up default branch:', response.message);
+        setBranches([{
+          id: 'main',
+          name: 'main',
+          isActive: true,
+          messageCount: 0,
+          createdAt: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+          preview: 'Empty branch',
+          parentId: null,
+        }]);
+        setCurrentBranch('main');
       }
     } catch (error) {
-      console.error('Failed to load branches:', error);
+      console.warn('Backend connection failed, setting up default branch:', error);
+      // Set up default state when backend is not available
+      setBranches([{
+        id: 'main',
+        name: 'main',
+        isActive: true,
+        messageCount: 0,
+        createdAt: new Date().toISOString(),
+        lastActive: new Date().toISOString(),
+        preview: 'Empty branch',
+        parentId: null,
+      }]);
+      setCurrentBranch('main');
     }
   };
 

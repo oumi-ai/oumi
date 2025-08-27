@@ -38,8 +38,8 @@ export default function ChatMessage({ message, isLatest = false }: ChatMessagePr
     <div
       className={`group flex gap-3 px-4 py-6 ${
         isUser 
-          ? 'bg-gray-50' 
-          : 'bg-white'
+          ? 'bg-muted' 
+          : 'bg-card'
       } ${isLatest ? 'border-b border-blue-200' : ''}`}
     >
       {/* Avatar */}
@@ -56,13 +56,13 @@ export default function ChatMessage({ message, isLatest = false }: ChatMessagePr
       {/* Message content */}
       <div className="flex-1 space-y-2 overflow-hidden">
         {/* Role label */}
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           {isUser ? 'You' : 'Assistant'}
         </div>
 
         {/* Message text */}
         <div
-          className="prose prose-sm max-w-none text-gray-800 leading-relaxed whitespace-pre-wrap break-words"
+          className="prose prose-sm max-w-none text-foreground leading-relaxed whitespace-pre-wrap break-words"
         >
           {message.content}
         </div>
