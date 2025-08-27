@@ -15,9 +15,11 @@
 """Extended Oumi server with WebSocket and interactive command support."""
 
 import asyncio
+import copy
 import json
 import time
 import uuid
+from datetime import datetime
 from typing import Dict, Optional, Set
 
 from aiohttp import WSMsgType, web
@@ -934,6 +936,15 @@ class OumiWebServer(OpenAICompatibleServer):
                         role = msg.get('role', 'unknown')
                         content = str(msg.get('content', ''))[:50]
                         logger.info(f"🔀 DEBUG: Pre-switch Message {i}: [{role}] {content}...")
+                    
+                    # CRITICAL FIX: Save current conversation to current branch before switching
+                    current_branch_id = session.branch_manager.current_branch_id
+                    if current_branch_id in session.branch_manager.branches:
+                        current_branch = session.branch_manager.branches[current_branch_id]
+                        # Save current conversation history to current branch
+                        current_branch.conversation_history = copy.deepcopy(session.conversation_history)
+                        current_branch.last_active = datetime.now()
+                        logger.info(f"🔀 DEBUG: Saved {len(session.conversation_history)} messages to current branch '{current_branch_id}'")
                     
                     success, message, branch = session.branch_manager.switch_branch(
                         branch_id

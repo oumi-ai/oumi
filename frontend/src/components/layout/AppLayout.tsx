@@ -7,13 +7,14 @@
 import React from 'react';
 import ChatInterface from '@/components/chat/ChatInterface';
 import BranchTree from '@/components/branches/BranchTree';
+import ControlPanel from '@/components/layout/ControlPanel';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/api';
-import { Maximize2, Minimize2, Settings, RotateCcw } from 'lucide-react';
+import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose } from 'lucide-react';
 
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
-  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const [isControlPanelExpanded, setIsControlPanelExpanded] = React.useState(true);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
 
@@ -104,15 +105,15 @@ export default function AppLayout() {
               <RotateCcw size={18} />
             </button>
 
-            {/* Settings */}
+            {/* Control panel toggle */}
             <button
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              onClick={() => setIsControlPanelExpanded(!isControlPanelExpanded)}
               className={`p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground ${
-                isSettingsOpen ? 'bg-accent' : ''
+                isControlPanelExpanded ? 'bg-accent' : ''
               }`}
-              title="Settings"
+              title={isControlPanelExpanded ? 'Hide control panel' : 'Show control panel'}
             >
-              <Settings size={18} />
+              {isControlPanelExpanded ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
             </button>
 
             {/* Branch tree toggle */}
@@ -126,75 +127,21 @@ export default function AppLayout() {
           </div>
         </div>
 
-        {/* Settings panel */}
-        {isSettingsOpen && (
-          <div className="absolute right-4 top-full mt-2 w-80 bg-card border border-border rounded-lg shadow-lg p-4 z-20">
-            <h3 className="font-semibold text-foreground mb-3">Generation Settings</h3>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Temperature: {generationParams.temperature}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={generationParams.temperature}
-                  onChange={(e) => {
-                    useChatStore.getState().setGenerationParams({
-                      temperature: parseFloat(e.target.value),
-                    });
-                  }}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Max Tokens: {generationParams.maxTokens}
-                </label>
-                <input
-                  type="range"
-                  min="100"
-                  max="4096"
-                  step="100"
-                  value={generationParams.maxTokens}
-                  onChange={(e) => {
-                    useChatStore.getState().setGenerationParams({
-                      maxTokens: parseInt(e.target.value),
-                    });
-                  }}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Top P: {generationParams.topP}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={generationParams.topP}
-                  onChange={(e) => {
-                    useChatStore.getState().setGenerationParams({
-                      topP: parseFloat(e.target.value),
-                    });
-                  }}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Main content */}
       <div className="flex flex-1 pt-16">
+        {/* Control panel sidebar */}
+        <div className={`transition-all duration-200 ${
+          isControlPanelExpanded ? 'w-80' : 'w-16'
+        }`}>
+          <ControlPanel 
+            className="h-full" 
+            isCollapsed={!isControlPanelExpanded}
+            onToggleCollapse={() => setIsControlPanelExpanded(!isControlPanelExpanded)}
+          />
+        </div>
+
         {/* Chat interface */}
         <div className={`flex-1 transition-all duration-200 ${
           isBranchTreeExpanded ? 'mr-80' : ''
@@ -209,14 +156,6 @@ export default function AppLayout() {
           <BranchTree className="h-full" />
         </div>
       </div>
-
-      {/* Settings overlay backdrop */}
-      {isSettingsOpen && (
-        <div
-          className="fixed inset-0 z-10"
-          onClick={() => setIsSettingsOpen(false)}
-        />
-      )}
     </div>
   );
 }

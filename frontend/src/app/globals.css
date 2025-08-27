@@ -101,3 +101,48 @@ body {
 .border-border {
   border-color: var(--border);
 }
+
+/* Custom slider styling */
+.slider::-webkit-slider-track {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+.slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  background: var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
