@@ -493,7 +493,17 @@ class OumiWebServer(OpenAICompatibleServer):
             # CRITICAL FIX: Use the SAME proven logic as "oumi chat" command
             # This is the battle-tested approach that works with all engine types
             try:
-                logger.debug(f"🧠 Using proven oumi chat logic with conversation containing {len(full_conversation.messages)} messages")
+                logger.info(f"🧠 Starting inference with {session_config.engine} engine")
+                logger.info(f"🧠 Conversation has {len(full_conversation.messages)} messages")
+                logger.info(f"🧠 Model: {getattr(session_config.model, 'model_name', 'Unknown')}")
+                
+                # Log conversation content for debugging
+                for i, msg in enumerate(full_conversation.messages):
+                    logger.debug(f"Message {i}: {msg.role} - {str(msg.content)[:100]}...")
+                
+                logger.info(f"🚀 Calling inference_engine.infer() with {session_config.engine} engine")
+                import time
+                start_time = time.time()
                 
                 # Use the same inference engine interface as oumi chat command
                 # ALL engines implement: inference_engine.infer(input=[conversations], inference_config=config)
@@ -501,6 +511,9 @@ class OumiWebServer(OpenAICompatibleServer):
                     input=[full_conversation],  # List containing one conversation object
                     inference_config=session_config,
                 )
+                
+                elapsed = time.time() - start_time
+                logger.info(f"✅ inference_engine.infer() completed in {elapsed:.2f} seconds")
                 
                 # Extract the response using the same logic as oumi chat
                 response_content = ""
