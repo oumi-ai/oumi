@@ -23,6 +23,21 @@ from typing import Dict, Optional, Set
 from aiohttp import WSMsgType, web
 from rich.console import Console
 
+# Import new enhanced components
+try:
+    from .sse_handler import SSEHandler
+    from .api_responses import (
+        ResponseFormatter,
+        RequestValidator, 
+        create_json_response,
+        handle_api_errors,
+        ErrorType
+    )
+    ENHANCED_FEATURES_AVAILABLE = True
+except ImportError:
+    logger.warning("Enhanced API features not available - missing dependencies")
+    ENHANCED_FEATURES_AVAILABLE = False
+
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.command_parser import CommandParser
@@ -184,6 +199,16 @@ class OumiWebServer(OpenAICompatibleServer):
         self.session_cleanup_interval = 3600  # 1 hour
         self.max_idle_time = 1800  # 30 minutes
 
+        # Enhanced components (optional)
+        if ENHANCED_FEATURES_AVAILABLE:
+            self.sse_handler = SSEHandler()
+            self.request_validator = RequestValidator()
+            self.response_formatter = ResponseFormatter()
+        else:
+            self.sse_handler = None
+            self.request_validator = None
+            self.response_formatter = None
+
         # Start cleanup task
         self._cleanup_task = None
 
@@ -200,7 +225,27 @@ class OumiWebServer(OpenAICompatibleServer):
     async def handle_health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
         logger.info("🔍 Health endpoint called!")
-        return web.json_response({"status": "ok"})
+        
+        if ENHANCED_FEATURES_AVAILABLE and self.response_formatter:
+            return create_json_response(
+                self.response_formatter.success({
+                    "status": "healthy",
+                    "server": "oumi-webchat",
+                    "version": "1.0.0",
+                    "features": ["websocket", "sse", "chat", "branches", "commands"],
+                    "enhanced_features": True,
+                    "timestamp": time.time()
+                })
+            )
+        else:
+            return web.json_response({
+                "status": "healthy",
+                "server": "oumi-webchat",
+                "version": "1.0.0",
+                "features": ["websocket", "chat", "branches", "commands"],
+                "enhanced_features": False,
+                "timestamp": time.time()
+            })
 
     async def handle_models(self, request: web.Request) -> web.Response:
         """List available models endpoint."""
@@ -1103,6 +1148,159 @@ class OumiWebServer(OpenAICompatibleServer):
 
             logger.warning(f"Full traceback: {traceback.format_exc()}")
 
+    async def handle_sse_chat(self, request: web.Request) -> web.StreamResponse:
+        """Handle Server-Sent Events for streaming chat responses."""
+        if not ENHANCED_FEATURES_AVAILABLE or not self.sse_handler:
+            return web.json_response(
+                {"error": "SSE features not available"}, 
+                status=501
+            )
+        return await self.sse_handler.handle_sse_chat(request)
+
+    async def handle_sse_events(self, request: web.Request) -> web.StreamResponse:
+        """Handle general Server-Sent Events endpoint."""
+        if not ENHANCED_FEATURES_AVAILABLE or not self.sse_handler:
+            return web.json_response(
+                {"error": "SSE features not available"}, 
+                status=501
+            )
+        return await self.sse_handler.handle_sse_events(request)
+
+    async def handle_enhanced_chat_completions(self, request: web.Request) -> web.Response:
+        """Enhanced chat completions with better validation and error handling."""
+        if not ENHANCED_FEATURES_AVAILABLE or not self.request_validator:
+            return web.json_response(
+                {"error": "Enhanced features not available"}, 
+                status=501
+            )
+        try:
+            # Validate request
+            chat_request = await self.request_validator.validate_chat_request(request)
+            
+            # Extract required fields
+            messages = chat_request.messages
+            session_id = chat_request.session_id
+            temperature = chat_request.temperature
+            max_tokens = chat_request.max_tokens
+            stream = chat_request.stream
+
+            # Get or create session
+            session = await self.get_or_create_session(session_id)
+
+            # Convert OpenAI format messages to Oumi conversation format
+            oumi_messages = []
+
+            # Add system prompt if provided
+            if self.system_prompt:
+                from oumi.core.types.conversation import Message, Role
+                oumi_messages.append(
+                    Message(role=Role.SYSTEM, content=self.system_prompt)
+                )
+
+            # Convert messages
+            for msg in messages:
+                from oumi.core.types.conversation import Message, Role
+                role_mapping = {
+                    "system": Role.SYSTEM,
+                    "user": Role.USER,
+                    "assistant": Role.ASSISTANT,
+                }
+                role = role_mapping.get(msg.get("role"), Role.USER)
+                content = msg.get("content", "")
+                oumi_messages.append(Message(role=role, content=content))
+
+            # Get the latest user message for inference
+            user_messages = [msg for msg in messages if msg.get("role") == "user"]
+            if not user_messages:
+                response_data, status_code = self.response_formatter.error(
+                    ErrorType.VALIDATION_ERROR,
+                    "No user message found in request"
+                )
+                return create_json_response(response_data, status_code)
+
+            latest_user_content = user_messages[-1].get("content", "")
+
+            # Run inference (lazy-loaded)
+            from oumi.infer import infer
+
+            results = infer(
+                config=self.config,
+                inputs=[latest_user_content],
+                system_prompt=self.system_prompt,
+                inference_engine=self.get_inference_engine(),
+            )
+
+            if not results:
+                response_data, status_code = self.response_formatter.error(
+                    ErrorType.INTERNAL_ERROR,
+                    "No response generated from inference engine"
+                )
+                return create_json_response(response_data, status_code)
+
+            # Extract response content
+            response_content = ""
+            conversation = results[0]
+            for message in conversation.messages:
+                from oumi.core.types.conversation import Role
+                if message.role not in [Role.USER, Role.SYSTEM]:
+                    if isinstance(message.content, str):
+                        response_content = message.content
+                        break
+                    elif isinstance(message.content, list):
+                        for item in message.content:
+                            if hasattr(item, "content") and item.content:
+                                response_content = str(item.content)
+                                break
+
+            if not response_content:
+                response_content = str(conversation)
+
+            # Format response in OpenAI format
+            response_data = {
+                "id": f"chatcmpl-{int(time.time())}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": getattr(self.config.model, "model_name", "oumi-model"),
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": response_content},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": len(latest_user_content.split()),
+                    "completion_tokens": len(response_content.split()),
+                    "total_tokens": len(latest_user_content.split()) + len(response_content.split()),
+                },
+            }
+
+            # Update WebChat session
+            session.conversation_history.extend([
+                {
+                    "role": "user",
+                    "content": latest_user_content,
+                    "timestamp": time.time(),
+                },
+                {
+                    "role": "assistant",
+                    "content": response_content,
+                    "timestamp": time.time(),
+                }
+            ])
+
+            # Update context usage
+            self._update_session_context_usage(session)
+
+            return create_json_response(response_data)
+
+        except Exception as e:
+            logger.error(f"Enhanced chat completion error: {e}")
+            response_data, status_code = self.response_formatter.internal_error(
+                message=f"Chat completion failed: {str(e)}"
+            )
+            return create_json_response(response_data, status_code)
+
     async def cleanup_sessions(self):
         """Clean up inactive sessions."""
         while True:
@@ -1138,9 +1336,17 @@ class OumiWebServer(OpenAICompatibleServer):
             return web.json_response({"status": "simple_ok"})
 
         # Add base routes from OpenAICompatibleServer manually
-        app.router.add_get("/health", simple_health)  # Test simple function
+        app.router.add_get("/health", self.handle_health)
         app.router.add_get("/v1/models", self.handle_models)
         app.router.add_post("/v1/chat/completions", self.handle_chat_completions)
+        
+        # Enhanced endpoints (conditional)
+        if ENHANCED_FEATURES_AVAILABLE:
+            app.router.add_post("/v1/chat/completions/enhanced", self.handle_enhanced_chat_completions)
+            
+            # Server-Sent Events endpoints
+            app.router.add_get("/v1/oumi/sse/chat", self.handle_sse_chat)
+            app.router.add_get("/v1/oumi/sse/events", self.handle_sse_events)
 
         # Add new WebChat endpoints
         app.router.add_get("/v1/oumi/ws", self.handle_websocket)
@@ -1153,18 +1359,42 @@ class OumiWebServer(OpenAICompatibleServer):
         app.router.add_get("/v1/oumi/conversation", self.handle_get_conversation_api)
         app.router.add_get("/v1/oumi/system_stats", self.handle_system_stats_api)
 
-        # Add debug middleware (disabled for now due to parameter issues)
-        # async def debug_middleware(request, handler):
-        #     logger.info(f"🔍 Request received: {request.method} {request.path}")
-        #     try:
-        #         response = await handler(request)
-        #         logger.info(f"🔍 Response sent: {response.status}")
-        #         return response
-        #     except Exception as e:
-        #         logger.error(f"🔍 Handler error: {e}")
-        #         raise
-        #
-        # app.middlewares.append(debug_middleware)
+        # Add enhanced request logging middleware
+        @web.middleware
+        async def logging_middleware(request, handler):
+            start_time = time.time()
+            client_ip = request.headers.get('X-Forwarded-For', request.remote)
+            
+            logger.info(f"🌐 {request.method} {request.path} from {client_ip}")
+            
+            # Log request headers for debugging CORS/connection issues
+            if request.headers.get('Origin'):
+                logger.info(f"🔍 Origin: {request.headers.get('Origin')}")
+            if request.headers.get('User-Agent'):
+                logger.info(f"🔍 User-Agent: {request.headers.get('User-Agent')}")
+            
+            # Log request body for POST requests (first 200 chars)
+            if request.method == 'POST':
+                try:
+                    body = await request.text()
+                    body_preview = body[:200] + "..." if len(body) > 200 else body
+                    logger.info(f"📝 Request body: {body_preview}")
+                    # Recreate request with body for handler
+                    request = request.clone(body=body.encode())
+                except Exception as e:
+                    logger.warning(f"⚠️  Could not read request body: {e}")
+            
+            try:
+                response = await handler(request)
+                elapsed = (time.time() - start_time) * 1000
+                logger.info(f"✅ {request.method} {request.path} -> {response.status} ({elapsed:.1f}ms)")
+                return response
+            except Exception as e:
+                elapsed = (time.time() - start_time) * 1000
+                logger.error(f"❌ {request.method} {request.path} -> ERROR: {e} ({elapsed:.1f}ms)")
+                raise
+
+        app.middlewares.append(logging_middleware)
 
         return app
 
@@ -1198,11 +1428,22 @@ def run_webchat_server(
 
     logger.info("🚀 Starting Oumi WebChat server")
     logger.info(f"📍 Server URL: http://{host}:{port}")
-    logger.info("🌐 WebSocket endpoint: ws://{host}:{port}/v1/oumi/ws")
+    logger.info("🌐 Real-time endpoints:")
+    logger.info(f"   • WebSocket: ws://{host}:{port}/v1/oumi/ws")
+    if ENHANCED_FEATURES_AVAILABLE:
+        logger.info(f"   • SSE Chat: http://{host}:{port}/v1/oumi/sse/chat")
+        logger.info(f"   • SSE Events: http://{host}:{port}/v1/oumi/sse/events")
     logger.info("🔗 API endpoints:")
     logger.info(f"   • Chat: http://{host}:{port}/v1/chat/completions")
+    if ENHANCED_FEATURES_AVAILABLE:
+        logger.info(f"   • Enhanced Chat: http://{host}:{port}/v1/chat/completions/enhanced")
     logger.info(f"   • Commands: http://{host}:{port}/v1/oumi/command")
     logger.info(f"   • Branches: http://{host}:{port}/v1/oumi/branches")
+    logger.info(f"   • System Stats: http://{host}:{port}/v1/oumi/system_stats")
+    if ENHANCED_FEATURES_AVAILABLE:
+        logger.info("✨ Enhanced features enabled (SSE, validation, structured responses)")
+    else:
+        logger.info("ℹ️  Enhanced features disabled (missing dependencies)")
     logger.info("🛑 Press Ctrl+C to stop")
 
     # Debug: Check routes before starting

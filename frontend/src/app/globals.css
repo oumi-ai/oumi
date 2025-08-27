@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #111111;
+  --card-foreground: #ededed;
+  --border: #262626;
+  --input: #1a1a1a;
+  --input-foreground: #ffffff;
+  --muted: #171717;
+  --muted-foreground: #a1a1aa;
+  --accent: #262626;
+  --accent-foreground: #fafafa;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+    --card: #ffffff;
+    --card-foreground: #171717;
+    --border: #e5e7eb;
+    --input: #ffffff;
+    --input-foreground: #171717;
+    --muted: #f9fafb;
+    --muted-foreground: #6b7280;
+    --accent: #f1f5f9;
+    --accent-foreground: #0f172a;
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar for chat - Dark mode */
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* D3 Tree customization - Dark mode */
+.rd3t-tree-container .rd3t-link {
+  stroke: var(--border) !important;
+  stroke-width: 2 !important;
+  fill: none !important;
+}
+
+.rd3t-tree-container .rd3t-node {
+  cursor: pointer;
+}
+
+/* Dark mode utilities */
+.bg-background {
+  background-color: var(--background);
+}
+
+.bg-card {
+  background-color: var(--card);
+}
+
+.bg-input {
+  background-color: var(--input);
+}
+
+.text-foreground {
+  color: var(--foreground);
+}
+
+.text-input {
+  color: var(--input-foreground);
+}
+
+.border-border {
+  border-color: var(--border);
+}

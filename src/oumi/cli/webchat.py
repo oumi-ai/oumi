@@ -259,7 +259,6 @@ def webchat(
 
     # Delayed imports to avoid loading heavy dependencies unless needed
     from oumi.core.configs import InferenceConfig
-    from oumi.webchat.interface import launch_webchat
     from oumi.webchat.server import run_webchat_server
     # End imports
 
@@ -343,20 +342,53 @@ def webchat(
                 "Try increasing --backend-timeout or check server logs for errors."
             )
 
-    # Launch frontend interface (backend is confirmed healthy)
-    logger.info(f"🌐 Launching WebChat interface at http://{host}:{frontend_port}")
+    # Launch React frontend (backend is confirmed healthy)
+    logger.info(f"🌐 Launching React WebChat frontend at http://{host}:{frontend_port}")
     logger.info(f"🔗 Connected to backend: {backend_url}")
-
+    
+    # Get the path to the frontend directory
+    
+    # Find the oumi root directory
+    current_file = os.path.abspath(__file__)
+    oumi_src_dir = os.path.dirname(os.path.dirname(current_file))  # src/oumi/
+    oumi_root_dir = os.path.dirname(os.path.dirname(oumi_src_dir))  # oumi/
+    frontend_dir = os.path.join(oumi_root_dir, "frontend")
+    
+    if not os.path.exists(frontend_dir):
+        logger.error(f"❌ Frontend directory not found: {frontend_dir}")
+        logger.info("💡 Make sure the Next.js frontend is set up in frontend/")
+        raise typer.Exit(1)
+    
+    # Launch Next.js development server
     try:
-        launch_webchat(
-            config=parsed_config,
-            server_url=backend_url,
-            share=share,
-            server_name=host,
-            server_port=frontend_port,
+        
+        env = os.environ.copy()
+        env["NEXT_PUBLIC_BACKEND_URL"] = backend_url
+        
+        logger.info(f"🚀 Starting Next.js development server in: {frontend_dir}")
+        
+        # Use the npm run dev:full command which starts both backend and frontend
+        if share:
+            logger.warning("⚠️  --share option not supported with React frontend yet")
+            
+        # Start Next.js frontend only (backend is already running)
+        result = subprocess.run(
+            ["npm", "run", "dev"],
+            cwd=frontend_dir,
+            env=env,
+            check=True
         )
+        
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Failed to start React frontend: {e}")
+        logger.info("💡 Make sure to run 'npm install' in the frontend directory first")
+        raise typer.Exit(1)
     except KeyboardInterrupt:
         logger.info("🛑 WebChat stopped by user")
+    except FileNotFoundError:
+        logger.error("❌ npm not found. Please install Node.js and npm")
+        logger.info("💡 Visit: https://nodejs.org/ to install Node.js")
+        raise typer.Exit(1)
     except Exception as e:
         logger.error(f"Frontend error: {e}")
         raise
