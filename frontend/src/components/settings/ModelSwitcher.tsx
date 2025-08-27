@@ -67,6 +67,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   const [availableConfigs, setAvailableConfigs] = React.useState<ConfigOption[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [loadingMessage, setLoadingMessage] = React.useState<string>('');
   const [error, setError] = React.useState<string | null>(null);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -176,6 +177,22 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
 
     setIsLoading(true);
     setError(null);
+    setIsDropdownOpen(false);
+    
+    // Show descriptive loading messages
+    const selectedConfig = availableConfigs.find(config => config.config_path === configPath);
+    if (selectedConfig) {
+      setLoadingMessage(`Switching to ${selectedConfig.display_name}...`);
+    } else {
+      setLoadingMessage('Loading model from path...');
+    }
+    
+    // Add a short delay to show loading message, then update for potential downloading
+    setTimeout(() => {
+      if (isLoading) {
+        setLoadingMessage('Downloading model if needed... This may take several minutes.');
+      }
+    }, 2000);
 
     try {
       // Use the command API to switch models using config path
@@ -227,6 +244,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       setError(err instanceof Error ? err.message : 'Failed to switch model');
     } finally {
       setIsLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -339,10 +357,10 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
                   {getFamilyIcon(currentModelInfo.modelFamily)}
                   <div className="text-left">
                     <div className="font-medium text-sm text-foreground">
-                      {currentModelInfo.displayName}
+                      {isLoading ? 'Switching Model...' : currentModelInfo.displayName}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {currentModelInfo.description}
+                      {isLoading ? loadingMessage : currentModelInfo.description}
                     </div>
                   </div>
                 </div>
@@ -353,8 +371,8 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {isLoading && <RefreshCw size={14} className="animate-spin" />}
-                <ChevronDown size={16} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                {isLoading && <RefreshCw size={14} className="animate-spin text-primary" />}
+                <ChevronDown size={16} className={`transition-transform ${isDropdownOpen && !isLoading ? 'rotate-180' : ''} ${isLoading ? 'opacity-50' : ''}`} />
               </div>
             </button>
 
