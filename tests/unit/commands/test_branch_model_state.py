@@ -18,9 +18,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.oumi.core.commands.command_handler import CommandHandler
-from src.oumi.core.commands.command_parser import ParsedCommand
-from src.oumi.core.configs import InferenceConfig
+from oumi.core.commands.base_handler import BaseCommandHandler
+from oumi.core.commands.command_parser import ParsedCommand
+from oumi.core.configs import InferenceConfig
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def mock_inference_engine():
 @pytest.fixture
 def command_handler(mock_inference_config, mock_inference_engine):
     """Command handler with mocked dependencies."""
-    handler = CommandHandler(
+    handler = BaseCommandHandler(
         console=MagicMock(),
         config=mock_inference_config,
         inference_engine=mock_inference_engine,

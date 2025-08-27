@@ -4,26 +4,26 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from src.oumi.core.attachments.file_handler import (
+from oumi.core.attachments.file_handler import (
     AttachmentResult,
     FileInfo,
     FileType,
     ProcessingStrategy,
 )
-from src.oumi.core.commands.command_context import CommandContext
-from src.oumi.core.commands.command_parser import CommandParser
-from src.oumi.core.commands.handlers.branch_operations_handler import (
+from oumi.core.commands.command_context import CommandContext
+from oumi.core.commands.command_parser import CommandParser
+from oumi.core.commands.handlers.branch_operations_handler import (
     BranchOperationsHandler,
 )
-from src.oumi.core.commands.handlers.conversation_operations_handler import (
+from oumi.core.commands.handlers.conversation_operations_handler import (
     ConversationOperationsHandler,
 )
-from src.oumi.core.commands.handlers.file_operations_handler import (
+from oumi.core.commands.handlers.file_operations_handler import (
     FileOperationsHandler,
 )
-from src.oumi.core.commands.handlers.model_swap_handler import ModelSwapHandler
-from src.oumi.core.commands.handlers.parameter_handler import ParameterHandler
-from src.oumi.core.configs.inference_config import InferenceConfig
+from oumi.core.commands.handlers.model_management_handler import ModelManagementHandler
+from oumi.core.commands.handlers.parameter_management_handler import ParameterManagementHandler
+from oumi.core.configs.inference_config import InferenceConfig
 
 
 @pytest.fixture
@@ -406,13 +406,13 @@ class TestFileOperationsHandler:
         assert len(handler.conversation_history) > 0
 
 
-class TestModelSwapHandler:
+class TestModelManagementHandler:
     """Test suite for model swap commands."""
 
     @pytest.fixture
     def handler(self, command_context):
         """Create model swap handler."""
-        return ModelSwapHandler(command_context)
+        return ModelManagementHandler(command_context)
 
     def test_swap_model_success(self, handler, command_parser):
         """Test successful model swap."""
@@ -451,13 +451,13 @@ class TestModelSwapHandler:
         assert "engines" in result.message.lower()
 
 
-class TestParameterHandler:
+class TestParameterManagementHandler:
     """Test suite for parameter adjustment commands."""
 
     @pytest.fixture
     def handler(self, command_context):
         """Create parameter handler."""
-        return ParameterHandler(command_context)
+        return ParameterManagementHandler(command_context)
 
     def test_set_temperature(self, handler, command_parser):
         """Test /set(temperature=0.8) command."""
