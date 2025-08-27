@@ -9,7 +9,6 @@ import { PanelLeft, PanelLeftClose } from 'lucide-react';
 import SystemMonitor from '@/components/monitoring/SystemMonitor';
 import ModelSettings from '@/components/settings/ModelSettings';
 import ModelSwitcher from '@/components/settings/ModelSwitcher';
-import BranchManager from '@/components/branches/BranchManager';
 
 interface ControlPanelProps {
   className?: string;
@@ -68,9 +67,6 @@ export default function ControlPanel({
         
         {/* Model Settings */}
         <ModelSettings />
-        
-        {/* Branch Management */}
-        <BranchManager />
       </div>
     </div>
   );
