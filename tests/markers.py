@@ -87,7 +87,7 @@ def requires_inference_backend(backend: str = "NATIVE") -> pytest.MarkDecorator:
         reason = "vLLM not available"
     elif backend == "LLAMACPP":
         available = find_spec("llama_cpp") is not None
-        reason = "LlamaCPP not available"
+        reason = "LlamaCPP not available"  
     elif backend == "NATIVE":
         available = True  # NATIVE backend is always available
         reason = ""
