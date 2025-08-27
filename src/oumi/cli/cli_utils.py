@@ -227,7 +227,7 @@ def resolve_and_fetch_config(
 
         # Fetch from GitHub
         github_url = f"{OUMI_GITHUB_RAW}/{new_config_path.lstrip('/')}"
-        response = requests.get(github_url)
+        response = requests.get(github_url, timeout=15)
         response.raise_for_status()
         config_content = response.text
 
@@ -239,7 +239,7 @@ def resolve_and_fetch_config(
             logger.warning(f"Overwriting existing config at {local_path}")
         local_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(local_path, "w") as f:
+        with open(local_path, "w", encoding="utf-8") as f:
             f.write(config_content)
         logger.info(f"Successfully downloaded config to {local_path}")
     except RequestException as e:

@@ -121,9 +121,9 @@ def load_pil_image_from_path(
         )
 
     try:
-        pil_image = convert_pil_image_mode(
-            PIL.Image.open(input_image_filepath), mode=mode
-        )
+        # Ensure file handle is closed promptly to avoid descriptor leaks
+        with PIL.Image.open(input_image_filepath) as opened_image:
+            pil_image = convert_pil_image_mode(opened_image, mode=mode)
     except Exception:
         logger.error(f"Failed to load an image from path: {input_image_filepath}")
         raise
@@ -148,12 +148,13 @@ def load_pil_image_from_url(
         raise ValueError("Empty image URL!")
 
     try:
-        response = requests.get(input_image_url, stream=True)
-        response.raise_for_status()
+        with requests.get(input_image_url, stream=True, timeout=15) as response:
+            response.raise_for_status()
+            content = response.content
     except requests.exceptions.RequestException:
         logger.exception(f"Failed to download image: '{input_image_url}'")
         raise
-    return load_pil_image_from_bytes(response.content, mode=mode)
+    return load_pil_image_from_bytes(content, mode=mode)
 
 
 def load_pil_image_from_bytes(
@@ -305,12 +306,13 @@ def load_pdf_pages_from_url(
         raise ValueError("Empty PDF URL!")
 
     try:
-        response = requests.get(pdf_url, stream=True)
-        response.raise_for_status()
+        with requests.get(pdf_url, stream=True, timeout=30) as response:
+            response.raise_for_status()
+            content = response.content
     except requests.exceptions.RequestException:
         logger.exception(f"Failed to download PDF: '{pdf_url}'")
         raise
-    return load_pdf_pages_from_bytes(response.content, dpi=dpi, mode=mode)
+    return load_pdf_pages_from_bytes(content, dpi=dpi, mode=mode)
 
 
 def create_png_bytes_from_image_bytes(
