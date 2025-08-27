@@ -8,6 +8,7 @@ import React from 'react';
 import { Bot, ChevronDown, RefreshCw, Check, AlertTriangle, Search, X, Zap, Brain, Cpu, Gem, Waves, FlaskConical, Building2 } from 'lucide-react';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/api';
+import { ModelConfigMetadata } from '@/lib/types';
 
 interface ConfigOption {
   id: string;
@@ -69,6 +70,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   const [error, setError] = React.useState<string | null>(null);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [currentModelConfigMetadata, setCurrentModelConfigMetadata] = React.useState<ModelConfigMetadata | null>(null);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -83,12 +85,20 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
           console.log(`📋 Loaded ${configsResponse.data.configs.length} inference configurations`);
         }
 
-        // Then load current model
+        // Then load current model with enhanced config metadata
         const modelResponse = await apiClient.getModels();
         if (modelResponse.success && modelResponse.data?.data?.[0]) {
           const model = modelResponse.data.data[0];
           setCurrentModel(model.id);
-          console.log(`🎯 Current model: ${model.id}`);
+          
+          // CRITICAL FIX: Extract and cache config metadata from server
+          if (model.config_metadata) {
+            setCurrentModelConfigMetadata(model.config_metadata);
+            console.log(`🎯 Current model with metadata: ${model.id}`, model.config_metadata);
+          } else {
+            setCurrentModelConfigMetadata(null);
+            console.log(`🎯 Current model (no metadata): ${model.id}`);
+          }
         }
 
         setIsInitialized(true);
@@ -181,16 +191,26 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
           if (modelResponse.success && modelResponse.data?.data?.[0]) {
             const model = modelResponse.data.data[0];
             setCurrentModel(model.id);
-            console.log(`🔄 Updated current model from server: ${model.id}`);
+            
+            // Extract and cache updated config metadata after swap
+            if (model.config_metadata) {
+              setCurrentModelConfigMetadata(model.config_metadata);
+              console.log(`🔄 Updated model with metadata: ${model.id}`, model.config_metadata);
+            } else {
+              setCurrentModelConfigMetadata(null);
+              console.log(`🔄 Updated model (no metadata): ${model.id}`);
+            }
           } else {
             // Fallback to config path if server response fails
             setCurrentModel(configPath);
+            setCurrentModelConfigMetadata(null);
             console.warn('⚠️ Could not refresh model info from server, using config path');
           }
         } catch (refreshError) {
           console.error('❌ Error refreshing model info:', refreshError);
           // Fallback to config path if refresh fails
           setCurrentModel(configPath);
+          setCurrentModelConfigMetadata(null);
         }
         
         setIsDropdownOpen(false);
@@ -233,7 +253,19 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       };
     }
 
-    // Find matching config by trying different match strategies
+    // CRITICAL FIX: Use cached config metadata from server if available
+    if (currentModelConfigMetadata) {
+      console.log(`✅ Using server's active config metadata:`, currentModelConfigMetadata);
+      return {
+        displayName: currentModelConfigMetadata.display_name,
+        description: currentModelConfigMetadata.description,
+        engine: currentModelConfigMetadata.engine,
+        contextLength: currentModelConfigMetadata.context_length,
+        modelFamily: currentModelConfigMetadata.model_family,
+      };
+    }
+
+    // Fallback: try to find matching config from scanned configs
     let matchingConfig = availableConfigs.find(config => 
       config.config_path === currentModel || 
       config.relative_path === currentModel ||
@@ -261,7 +293,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       };
     }
 
-    // Fallback for unknown models
+    // Final fallback for unknown models
     console.log(`⚠️ No matching config found for model: ${currentModel}`);
     const fallbackName = currentModel.split('/').pop() || currentModel;
     return {

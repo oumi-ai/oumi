@@ -265,8 +265,89 @@ class OumiWebServer(OpenAICompatibleServer):
             })
 
     async def handle_models(self, request: web.Request) -> web.Response:
-        """List available models endpoint."""
-        return web.json_response({"object": "list", "data": [self.model_info]})
+        """List available models endpoint with enhanced config metadata."""
+        # Get session-specific model info if available
+        session_id = request.query.get("session_id", "default")
+        
+        try:
+            session = await self.get_or_create_session(session_id)
+            
+            # Check if session has a swapped model
+            if (hasattr(session.command_context, 'config') and 
+                session.command_context.config is not None):
+                active_config = session.command_context.config
+                logger.info(f"🔄 Using session's swapped config for /v1/models")
+            else:
+                active_config = self.config
+                logger.info(f"🔄 Using server's initial config for /v1/models")
+            
+            # Extract complete model metadata from active config
+            model_name = getattr(active_config.model, "model_name", "oumi-model")
+            engine = str(active_config.engine) if active_config.engine else "NATIVE"
+            context_length = getattr(active_config.model, "model_max_length", 4096)
+            
+            # Create enhanced model info with config metadata
+            enhanced_model_info = {
+                "id": model_name,
+                "object": "model", 
+                "created": int(time.time()),
+                "owned_by": "oumi",
+                # Add config metadata for frontend display
+                "config_metadata": {
+                    "model_name": model_name,
+                    "engine": engine,
+                    "context_length": context_length,
+                    "display_name": model_name.split('/')[-1] if '/' in model_name else model_name,
+                    "description": f"{model_name} ({engine} engine)",
+                    "model_family": self._extract_model_family(model_name),
+                    "is_active_config": True  # Flag to indicate this is the active config
+                }
+            }
+            
+            logger.info(f"📋 Returning enhanced model info: {enhanced_model_info['config_metadata']['display_name']}")
+            return web.json_response({"object": "list", "data": [enhanced_model_info]})
+            
+        except Exception as e:
+            logger.error(f"Error getting enhanced model info: {e}")
+            # Fallback to basic model info
+            return web.json_response({"object": "list", "data": [self.model_info]})
+    
+    def _extract_model_family(self, model_name: str) -> str:
+        """Extract model family from model name for UI categorization."""
+        model_lower = model_name.lower()
+        
+        # Extract family based on common patterns
+        if 'llama' in model_lower:
+            if '3.1' in model_lower:
+                return 'llama3_1'
+            elif '3.2' in model_lower:
+                return 'llama3_2' 
+            elif '3.3' in model_lower:
+                return 'llama3_3'
+            elif '4' in model_lower:
+                return 'llama4'
+            else:
+                return 'llama'
+        elif 'qwen' in model_lower:
+            if '2.5' in model_lower:
+                return 'qwen2_5'
+            elif '3' in model_lower:
+                return 'qwen3'
+            else:
+                return 'qwen'
+        elif 'gemma' in model_lower:
+            return 'gemma3'
+        elif 'phi' in model_lower:
+            if '4' in model_lower:
+                return 'phi4'
+            else:
+                return 'phi3'
+        elif 'deepseek' in model_lower:
+            return 'deepseek_r1'
+        elif 'gpt' in model_lower:
+            return 'gpt_oss'
+        else:
+            return 'unknown'
 
     async def handle_chat_completions(self, request: web.Request) -> web.Response:
         """Handle chat completions requests in OpenAI format."""
@@ -343,46 +424,137 @@ class OumiWebServer(OpenAICompatibleServer):
 
             latest_user_content = user_messages[-1].get("content", "")
 
+            # CRITICAL FIX: Use session-specific inference engine and config after model swaps
             # Run inference (lazy-loaded)
             from oumi.infer import infer
+            
+            # Determine which config and engine to use
+            session_config = self.config  # Default to server config
+            session_engine = self.get_inference_engine()  # Default to server engine
+            
+            # If we have a session_id, check if the session has a swapped model
+            if session_id:
+                session = await self.get_or_create_session(session_id)
+                if (hasattr(session.command_context, 'config') and 
+                    session.command_context.config is not None):
+                    session_config = session.command_context.config
+                    logger.info(f"🔄 Using session's swapped config: {getattr(session_config.model, 'model_name', 'Unknown')}")
+                
+                if (hasattr(session.command_context, 'inference_engine') and 
+                    session.command_context.inference_engine is not None):
+                    session_engine = session.command_context.inference_engine
+                    logger.info(f"🔄 Using session's swapped inference engine")
+                else:
+                    logger.info(f"🔄 Using server's default inference engine")
+                    
+                # CRITICAL: Use the proper oumi.infer function with Conversation format
+                # Instead of using just the latest user content, pass the full conversation
+                from oumi.core.types.conversation import Conversation, Message, Role
+                
+                # Build the full conversation with history
+                conversation_messages = []
+                
+                # Add system prompt if provided
+                if self.system_prompt:
+                    conversation_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
+                
+                # Add conversation history
+                if session.conversation_history:
+                    for msg in session.conversation_history:
+                        role_mapping = {
+                            "system": Role.SYSTEM,
+                            "user": Role.USER, 
+                            "assistant": Role.ASSISTANT,
+                        }
+                        role = role_mapping.get(msg.get("role"), Role.USER)
+                        conversation_messages.append(Message(role=role, content=msg.get("content", "")))
+                    logger.info(f"🧠 Added {len(session.conversation_history)} messages from conversation history")
+                
+                # Add the new user message
+                conversation_messages.append(Message(role=Role.USER, content=latest_user_content))
+                
+                # Create the conversation object
+                full_conversation = Conversation(messages=conversation_messages)
+                
+                logger.info(f"🧠 Using full conversation with {len(conversation_messages)} total messages for context")
+            else:
+                # Fallback: create a simple conversation with just the latest message
+                from oumi.core.types.conversation import Conversation, Message, Role
+                conversation_messages = []
+                
+                # Add system prompt if provided
+                if self.system_prompt:
+                    conversation_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
+                
+                conversation_messages.append(Message(role=Role.USER, content=latest_user_content))
+                full_conversation = Conversation(messages=conversation_messages)
+                logger.info(f"🧠 No session context, using single message conversation")
 
-            results = infer(
-                config=self.config,
-                inputs=[latest_user_content],
-                system_prompt=self.system_prompt,
-                inference_engine=self.get_inference_engine(),  # Lazy initialization
-            )
+            # CRITICAL FIX: Use inference engine directly with full conversation like oumi infer does
+            # This ensures proper context preservation across model swaps
+            try:
+                logger.info(f"🧠 Calling inference engine with conversation containing {len(full_conversation.messages)} messages")
+                
+                # Use inference engine directly instead of the infer() wrapper function
+                # This is the same pattern used in oumi.infer.infer_interactive()
+                model_response = session_engine.infer(
+                    input=[full_conversation],
+                    inference_config=session_config,
+                )
+                
+                # Extract the response from inference engine output
+                if model_response and len(model_response) > 0:
+                    response_conversation = model_response[0]
+                    # Get the last assistant message
+                    for msg in reversed(response_conversation.messages):
+                        if msg.role == Role.ASSISTANT:
+                            response_content = str(msg.content)
+                            break
+                    else:
+                        response_content = "No response generated"
+                else:
+                    response_content = "No response generated"
+                    
+                logger.info(f"✅ Got response from inference engine: {len(response_content)} chars")
+                
+            except Exception as e:
+                logger.error(f"❌ Direct inference engine call failed: {e}")
+                # Fallback to the original infer() function
+                try:
+                    results = infer(
+                        config=session_config,
+                        inputs=[latest_user_content],
+                        system_prompt=self.system_prompt,
+                        inference_engine=session_engine,
+                    )
+                    
+                    if results and len(results) > 0:
+                        response_conversation = results[0]
+                        for msg in reversed(response_conversation.messages):
+                            if msg.role not in [Role.USER, Role.SYSTEM]:
+                                response_content = str(msg.content)
+                                break
+                        else:
+                            response_content = "No response generated"
+                    else:
+                        response_content = "No response generated"
+                        
+                    logger.info(f"✅ Fallback infer() succeeded: {len(response_content)} chars")
+                except Exception as fallback_error:
+                    logger.error(f"❌ Fallback infer() also failed: {fallback_error}")
+                    response_content = f"Inference failed: {str(e)}"
 
-            if not results:
+            # Check if we have a valid response
+            if not response_content or response_content.startswith("Inference failed:"):
                 return web.json_response(
                     {
                         "error": {
-                            "message": "No response generated",
+                            "message": response_content or "No response generated",
                             "type": "server_error",
                         }
                     },
                     status=500,
                 )
-
-            # Extract response content
-            response_content = ""
-            conversation = results[0]  # Take first result
-            for message in conversation.messages:
-                from oumi.core.types.conversation import Role
-
-                # Skip user messages and system messages, only get assistant responses
-                if message.role not in [Role.USER, Role.SYSTEM]:
-                    if isinstance(message.content, str):
-                        response_content = message.content
-                        break
-                    elif isinstance(message.content, list):
-                        for item in message.content:
-                            if hasattr(item, "content") and item.content:
-                                response_content = str(item.content)
-                                break
-
-            if not response_content:
-                response_content = str(conversation)
 
             # Format response in OpenAI format
             response_data = {
