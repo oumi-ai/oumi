@@ -189,6 +189,7 @@ llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 webchat = [
     "gradio>=5.0.0,<6.0",    # Web-based UI framework for chat interface
     "aiohttp-cors>=0.7.0",  # CORS support for WebSocket connections
+    "websockets>=13.0,<14.0", # WebSocket client/server for real-time communication
 ]
 
 # CI targets

@@ -1,0 +1,18 @@
+# Test inference config for WebChat CLI testing
+# Using Gemma 270M GGUF for minimal resource requirements and fast loading
+
+model:
+  model_name: "unsloth/gemma-3-270m-it-GGUF"
+  tokenizer_name: "google/gemma-3-2b-it"
+  model_max_length: 512
+  torch_dtype_str: "float16"
+  trust_remote_code: True
+  model_kwargs:
+    filename: "gemma-3-270m-it-UD-Q6_K_XL.gguf"
+
+generation:
+  max_new_tokens: 50
+  batch_size: 1
+  temperature: 0.7
+
+engine: LLAMACPP

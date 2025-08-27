@@ -53,6 +53,11 @@ class WebChatSession:
         self.console = Console()
         self.thinking_processor = ThinkingProcessor()
         self.branch_manager = ConversationBranchManager(self.conversation_history)
+        
+        # CRITICAL FIX: Ensure main branch shares the same conversation history reference
+        # This fixes the core issue where branch manager's main branch gets out of sync
+        if "main" in self.branch_manager.branches:
+            self.branch_manager.branches["main"].conversation_history = self.conversation_history
 
         # Initialize SystemMonitor with proper context length (same as oumi chat)
         max_context_tokens = getattr(config.model, "model_max_length", None) or 4096
@@ -464,12 +469,16 @@ class OumiWebServer(OpenAICompatibleServer):
             await self.handle_command_message(session, data, ws)
 
         elif msg_type == "get_branches":
+            branches = session.branch_manager.list_branches()
+            current_branch = session.branch_manager.current_branch_id
+            logger.info(f"📋 DEBUG: Get branches WS request - current: '{current_branch}', available: {[b.branch_id for b in branches]}")
+            logger.info(f"📋 DEBUG: Branch details: {[(b.branch_id, len(b.conversation_history), b.created_at) for b in branches]}")
             await ws.send_str(
                 json.dumps(
                     {
                         "type": "branches_update",
-                        "branches": session.branch_manager.list_branches(),
-                        "current_branch": session.branch_manager.current_branch_id,
+                        "branches": branches,
+                        "current_branch": current_branch,
                     }
                 )
             )
@@ -806,10 +815,14 @@ class OumiWebServer(OpenAICompatibleServer):
         session = await self.get_or_create_session(session_id)
 
         if request.method == "GET":
+            branches = session.branch_manager.list_branches()
+            current_branch = session.branch_manager.current_branch_id
+            logger.info(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b.branch_id for b in branches]}")
+            logger.info(f"📋 DEBUG: Branch details: {[(b.branch_id, len(b.conversation_history), b.created_at) for b in branches]}")
             return web.json_response(
                 {
-                    "branches": session.branch_manager.list_branches(),
-                    "current_branch": session.branch_manager.current_branch_id,
+                    "branches": branches,
+                    "current_branch": current_branch,
                 }
             )
 
@@ -820,14 +833,33 @@ class OumiWebServer(OpenAICompatibleServer):
 
                 if action == "switch":
                     branch_id = data.get("branch_id")
+                    logger.info(f"🔀 DEBUG: Branch switch requested - from '{session.branch_manager.current_branch_id}' to '{branch_id}'")
+                    logger.info(f"🔀 DEBUG: Current conversation length before switch: {len(session.conversation_history)}")
+                    
+                    # Log current conversation state
+                    for i, msg in enumerate(session.conversation_history):
+                        role = msg.get('role', 'unknown')
+                        content = str(msg.get('content', ''))[:50]
+                        logger.info(f"🔀 DEBUG: Pre-switch Message {i}: [{role}] {content}...")
+                    
                     success, message, branch = session.branch_manager.switch_branch(
                         branch_id
                     )
+                    logger.info(f"🔀 DEBUG: Branch switch result - success: {success}, message: '{message}'")
 
                     if success and branch:
+                        logger.info(f"🔀 DEBUG: Branch '{branch_id}' conversation length: {len(branch.conversation_history)}")
+                        # Log branch conversation before clearing current history
+                        for i, msg in enumerate(branch.conversation_history):
+                            role = msg.get('role', 'unknown')
+                            content = str(msg.get('content', ''))[:50]
+                            logger.info(f"🔀 DEBUG: Branch Message {i}: [{role}] {content}...")
+                            
                         # Update conversation history
+                        logger.info(f"🔀 DEBUG: Clearing current conversation ({len(session.conversation_history)} messages) and loading branch conversation ({len(branch.conversation_history)} messages)")
                         session.conversation_history.clear()
                         session.conversation_history.extend(branch.conversation_history)
+                        logger.info(f"🔀 DEBUG: Post-switch conversation length: {len(session.conversation_history)}")
 
                     return web.json_response(
                         {
@@ -843,10 +875,19 @@ class OumiWebServer(OpenAICompatibleServer):
                         "from_branch", session.branch_manager.current_branch_id
                     )
                     name = data.get("name")
+                    logger.info(f"🌿 DEBUG: Branch create requested - name: '{name}', from_branch: '{from_branch}'")
+                    logger.info(f"🌿 DEBUG: Current conversation length at branch point: {len(session.conversation_history)}")
+                    
+                    # Log conversation at branch point
+                    for i, msg in enumerate(session.conversation_history):
+                        role = msg.get('role', 'unknown')
+                        content = str(msg.get('content', ''))[:50]
+                        logger.info(f"🌿 DEBUG: Branch-point Message {i}: [{role}] {content}...")
 
                     success, message, new_branch = session.branch_manager.create_branch(
                         from_branch_id=from_branch, name=name
                     )
+                    logger.info(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.branch_id if new_branch else None}'")
 
                     return web.json_response(
                         {
@@ -858,7 +899,11 @@ class OumiWebServer(OpenAICompatibleServer):
 
                 elif action == "delete":
                     branch_id = data.get("branch_id")
+                    logger.info(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
+                    logger.info(f"🗑️  DEBUG: Available branches before delete: {[b.branch_id for b in session.branch_manager.list_branches()]}")
                     success, message = session.branch_manager.delete_branch(branch_id)
+                    logger.info(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
+                    logger.info(f"🗑️  DEBUG: Available branches after delete: {[b.branch_id for b in session.branch_manager.list_branches()]}")
 
                     return web.json_response(
                         {
