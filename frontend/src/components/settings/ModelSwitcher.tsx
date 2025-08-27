@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { Bot, ChevronDown, RefreshCw, Check, AlertTriangle, Search, X } from 'lucide-react';
+import { Bot, ChevronDown, RefreshCw, Check, AlertTriangle, Search, X, Zap, Brain, Cpu, Gem, Waves, FlaskConical, Building2 } from 'lucide-react';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/api';
 
@@ -37,15 +37,22 @@ const getFamilyIcon = (family: string) => {
     case 'llama3_1':
     case 'llama3_2': 
     case 'llama3_3':
-    case 'llama4': return '🦙';
+    case 'llama4': 
+      return <Building2 size={16} className="text-orange-500" />; // Meta
     case 'qwen3':
-    case 'qwen2_5': return '🐧';
-    case 'gemma3': return '💎';
+    case 'qwen2_5': 
+      return <Zap size={16} className="text-red-500" />; // Alibaba/Qwen
+    case 'gemma3': 
+      return <Gem size={16} className="text-blue-500" />; // Google
     case 'phi3':
-    case 'phi4': return '🔷';
-    case 'deepseek_r1': return '🌊';
-    case 'gpt_oss': return '🔬';
-    default: return '🤖';
+    case 'phi4': 
+      return <Brain size={16} className="text-green-500" />; // Microsoft
+    case 'deepseek_r1': 
+      return <Waves size={16} className="text-cyan-500" />; // DeepSeek
+    case 'gpt_oss': 
+      return <FlaskConical size={16} className="text-purple-500" />; // Research/OSS
+    default: 
+      return <Cpu size={16} className="text-gray-500" />; // Generic
   }
 };
 
@@ -69,22 +76,19 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   React.useEffect(() => {
     const loadData = async () => {
       try {
-        // Load current model and available configs in parallel
-        const [modelResponse, configsResponse] = await Promise.all([
-          apiClient.getModels(),
-          apiClient.getConfigs(),
-        ]);
-
-        // Set current model
-        if (modelResponse.success && modelResponse.data?.data?.[0]) {
-          const model = modelResponse.data.data[0];
-          setCurrentModel(model.id);
-        }
-
-        // Set available configs
+        // Load available configs first
+        const configsResponse = await apiClient.getConfigs();
         if (configsResponse.success && configsResponse.data?.configs) {
           setAvailableConfigs(configsResponse.data.configs);
           console.log(`📋 Loaded ${configsResponse.data.configs.length} inference configurations`);
+        }
+
+        // Then load current model
+        const modelResponse = await apiClient.getModels();
+        if (modelResponse.success && modelResponse.data?.data?.[0]) {
+          const model = modelResponse.data.data[0];
+          setCurrentModel(model.id);
+          console.log(`🎯 Current model: ${model.id}`);
         }
 
         setIsInitialized(true);
@@ -97,6 +101,15 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
 
     loadData();
   }, []);
+
+  // Refresh model info when currentModel changes
+  React.useEffect(() => {
+    if (currentModel && availableConfigs.length > 0) {
+      console.log(`🔄 Updating model info for: ${currentModel}`);
+      // Force re-render by updating the key or triggering state update
+      setIsInitialized(true);
+    }
+  }, [currentModel, availableConfigs]);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -162,7 +175,24 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       console.log('🔄 Model switch response:', response);
       
       if (response.success) {
-        setCurrentModel(configPath);
+        // CRITICAL FIX: Reload model information from server after successful swap
+        try {
+          const modelResponse = await apiClient.getModels();
+          if (modelResponse.success && modelResponse.data?.data?.[0]) {
+            const model = modelResponse.data.data[0];
+            setCurrentModel(model.id);
+            console.log(`🔄 Updated current model from server: ${model.id}`);
+          } else {
+            // Fallback to config path if server response fails
+            setCurrentModel(configPath);
+            console.warn('⚠️ Could not refresh model info from server, using config path');
+          }
+        } catch (refreshError) {
+          console.error('❌ Error refreshing model info:', refreshError);
+          // Fallback to config path if refresh fails
+          setCurrentModel(configPath);
+        }
+        
         setIsDropdownOpen(false);
         setSearchTerm('');
         console.log(`✅ Successfully switched to config: ${configPath}`);
@@ -181,7 +211,9 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
   };
 
   const getCurrentModelInfo = () => {
-    if (!isInitialized || !currentModel) {
+    console.log(`🔍 Getting model info - isInitialized: ${isInitialized}, currentModel: ${currentModel}, configsCount: ${availableConfigs.length}`);
+    
+    if (!isInitialized) {
       return {
         displayName: 'Loading...',
         description: 'Loading model information',
@@ -191,14 +223,35 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
       };
     }
 
-    // Find matching config
-    const matchingConfig = availableConfigs.find(config => 
+    if (!currentModel) {
+      return {
+        displayName: 'No Model Selected',
+        description: 'No model currently loaded',
+        engine: 'NONE',
+        contextLength: 0,
+        modelFamily: 'unknown',
+      };
+    }
+
+    // Find matching config by trying different match strategies
+    let matchingConfig = availableConfigs.find(config => 
       config.config_path === currentModel || 
       config.relative_path === currentModel ||
-      config.model_name === currentModel
+      config.model_name === currentModel ||
+      config.id === currentModel
     );
 
+    // If no exact match, try partial matching on model name
+    if (!matchingConfig && currentModel.includes('/')) {
+      const modelName = currentModel.split('/').pop() || currentModel;
+      matchingConfig = availableConfigs.find(config => 
+        config.model_name.includes(modelName) ||
+        config.display_name.toLowerCase().includes(modelName.toLowerCase())
+      );
+    }
+
     if (matchingConfig) {
+      console.log(`✅ Found matching config:`, matchingConfig);
       return {
         displayName: matchingConfig.display_name,
         description: `${matchingConfig.model_name} (${matchingConfig.filename})`,
@@ -209,11 +262,13 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
     }
 
     // Fallback for unknown models
+    console.log(`⚠️ No matching config found for model: ${currentModel}`);
+    const fallbackName = currentModel.split('/').pop() || currentModel;
     return {
-      displayName: currentModel.split('/').pop() || currentModel,
-      description: 'Loaded from configuration',
-      engine: 'LLAMACPP', // Default based on the config we're testing with
-      contextLength: 16384, // Based on Gemma config
+      displayName: fallbackName,
+      description: 'Custom model (not in config list)',
+      engine: 'NATIVE', // Conservative default
+      contextLength: 8192, // Conservative default
       modelFamily: 'unknown',
     };
   };
@@ -249,7 +304,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
             >
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{getFamilyIcon(currentModelInfo.modelFamily)}</span>
+                  {getFamilyIcon(currentModelInfo.modelFamily)}
                   <div className="text-left">
                     <div className="font-medium text-sm text-foreground">
                       {currentModelInfo.displayName}
@@ -273,9 +328,9 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
 
             {/* Dropdown */}
             {isDropdownOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg z-50 max-h-96 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[60] max-h-96 overflow-hidden backdrop-blur-sm">
                 {/* Search input */}
-                <div className="sticky top-0 bg-popover border-b p-3">
+                <div className="sticky top-0 bg-card border-b border-border p-3">
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                     <input
@@ -349,7 +404,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
                   ) : (
                     Object.entries(groupedFilteredConfigs).map(([family, configs]) => (
                     <div key={family} className="mb-4 last:mb-0">
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                         {getFamilyIcon(family)} {family} Models
                       </div>
                       <div className="space-y-1">

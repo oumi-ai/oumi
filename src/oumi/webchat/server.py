@@ -885,6 +885,25 @@ class OumiWebServer(OpenAICompatibleServer):
 
             elif command == "show":
                 response_data["conversation"] = session.serialize_conversation()
+            
+            elif command == "swap" and result.success:
+                # CRITICAL FIX: Update server's model_info when model swap is successful
+                # This ensures the /v1/models endpoint returns the new model information
+                try:
+                    if hasattr(session.command_context, 'config') and session.command_context.config:
+                        new_config = session.command_context.config
+                        # Update the server's model_info to reflect the swapped model
+                        self.model_info = {
+                            "id": getattr(new_config.model, "model_name", "oumi-model"),
+                            "object": "model", 
+                            "created": int(time.time()),
+                            "owned_by": "oumi"
+                        }
+                        logger.info(f"✅ Updated server model_info after swap: {self.model_info['id']}")
+                    else:
+                        logger.warning("⚠️ Cannot update model_info: session config not available")
+                except Exception as e:
+                    logger.error(f"❌ Error updating model_info after swap: {e}")
 
             return web.json_response(response_data)
 
