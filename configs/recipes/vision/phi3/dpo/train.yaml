@@ -1,0 +1,55 @@
+# Phi3-Vision DPO train config.
+#
+# Usage:
+#   oumi train -c configs/recipes/vision/phi3/dpo/train.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/train/train.html
+#   - Config class: oumi.core.configs.TrainingConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/training_config.py
+#   - Other training configs: configs/**/*train.yaml
+
+model:
+  model_name: "microsoft/Phi-3-vision-128k-instruct"
+  tokenizer_name: "microsoft/Phi-3-vision-128k-instruct"
+  trust_remote_code: True
+  attn_implementation: "eager"
+  chat_template: "phi3-instruct"
+  model_max_length: 3072
+
+data:
+  train:
+    datasets:
+      - dataset_name: "vision_dpo_jsonl"
+        dataset_path: "data/dataset_examples/vision_language_dpo_format.jsonl"
+        dataset_kwargs:
+          processor_name: "microsoft/Phi-3-vision-128k-instruct"
+          return_tensors: True
+
+training:
+  optimizer: "adamw_torch"
+  use_peft: true
+  output_dir: "output/phi3_vision.vision_dpo"
+  trainer_type: "TRL_DPO"
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+  learning_rate: 5e-6
+  warmup_steps: 100
+  max_steps: 1000
+  logging_steps: 10
+  save_steps: 500
+  eval_steps: 500
+
+peft:
+  q_lora: False
+  lora_target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.1
