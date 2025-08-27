@@ -52,6 +52,14 @@ class BaseDpoDataset(BaseMapDataset):
                 "chosen": [{"role": "assistant", "content": "It's sunny and warm."}],
                 "rejected": [{"role": "assistant", "content": "It's rainy and cold."}]
             }
+
+            OR
+
+            {
+                "prompt": "How is the weather in Tokyo?",
+                "chosen": "preferred response",
+                "rejected": "rejected response"
+            }
         """
         super().__init__(
             dataset_name=dataset_name,
@@ -72,9 +80,9 @@ class BaseDpoDataset(BaseMapDataset):
         rejected_chat = samples[_REJECTED_KEY]
 
         return {
-            _PROMPT_KEY: self._to_conversation_dict(prompt, Role.USER),
-            _CHOSEN_KEY: self._to_conversation_dict(chosen_chat, Role.ASSISTANT),
-            _REJECTED_KEY: self._to_conversation_dict(rejected_chat, Role.ASSISTANT),
+            _PROMPT_KEY: self._to_messages_list(prompt, Role.USER),
+            _CHOSEN_KEY: self._to_messages_list(chosen_chat, Role.ASSISTANT),
+            _REJECTED_KEY: self._to_messages_list(rejected_chat, Role.ASSISTANT),
         }
 
     def _process_sample(
@@ -144,7 +152,7 @@ class BaseDpoDataset(BaseMapDataset):
         """Transform the samples to the Oumi format."""
         return self._process_sample(self.transform_preference(sample))
 
-    def _to_conversation_dict(
+    def _to_messages_list(
         self, turn: Union[str, dict, list[dict]], role: Role
     ) -> list[dict]:
         """Convert a turn to a conversation dictionary."""

@@ -152,13 +152,11 @@ class VisionLanguageDpoDataset(BaseDpoDataset):
             Dict with prompt, chosen, and rejected conversations or features
         """
         # First, convert the prompt, chosen, and rejected to conversation dictionaries.
-        prompt_chat = self._to_conversation_dict(
-            sample[self._input_prompt_key], Role.USER
-        )
-        chosen_chat = self._to_conversation_dict(
+        prompt_chat = self._to_messages_list(sample[self._input_prompt_key], Role.USER)
+        chosen_chat = self._to_messages_list(
             sample[self._input_chosen_key], Role.ASSISTANT
         )
-        rejected_chat = self._to_conversation_dict(
+        rejected_chat = self._to_messages_list(
             sample[self._input_rejected_key], Role.ASSISTANT
         )
         images = sample[self._input_images_key] or []
