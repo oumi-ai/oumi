@@ -186,6 +186,7 @@ def create_branch_tree_component(
 
                 const root = d3.hierarchy(hierarchyRoot);
                 const treeData = this.tree(root);
+                console.log(`🌳 Rendering tree with ${{treeData.descendants().length}} nodes`);
 
                 // Draw links
                 this.g.selectAll(".link")
@@ -209,7 +210,8 @@ def create_branch_tree_component(
                     .enter().append("g")
                     .attr("class", "node")
                     .attr("transform", d => `translate(${{d.y}},${{d.x}})`)
-                    .style("cursor", "pointer");
+                    .style("cursor", "pointer")
+                    .style("pointer-events", "all");
 
                 // Add node circles
                 node.append("circle")
@@ -252,6 +254,7 @@ def create_branch_tree_component(
 
                 // Add event handlers
                 this.addNodeEventHandlers(node);
+                console.log(`🖱️  Added event handlers to ${{node.size()}} branch nodes`);
             }}
 
             addNodeEventHandlers(node) {{
@@ -259,6 +262,7 @@ def create_branch_tree_component(
 
                 // Click handler
                 node.on("click", function(event, d) {{
+                    console.log(`🖱️  Branch node clicked: ${{d.data.name}} (${{d.data.id}})`);
                     event.stopPropagation();
                     self.handleNodeClick(d);
                 }});
@@ -288,12 +292,16 @@ def create_branch_tree_component(
             }}
 
             handleNodeClick(d) {{
+                console.log(`📋 Handling click for branch: ${{d.data.name}} (current: ${{d.data.is_current}})`);
                 this.selectedBranch = d.data;
                 this.showBranchPreview(d.data);
 
                 // If not current branch, ask to switch
                 if (!d.data.is_current) {{
+                    console.log(`🔀 Attempting to switch to branch: ${{d.data.name}}`);
                     this.switchToBranch(d.data.id, d.data.name);
+                }} else {{
+                    console.log(`ℹ️  Branch ${{d.data.name}} is already current`);
                 }}
             }}
 
@@ -353,6 +361,7 @@ def create_branch_tree_component(
             // API interaction methods
             async switchToBranch(branchId, branchName) {{
                 try {{
+                    console.log(`🔀 Making API call to switch to branch: ${{branchName}} (${{branchId}})`);
                     const response = await fetch(`${{serverUrl}}/v1/oumi/branches`, {{
                         method: 'POST',
                         headers: {{ 'Content-Type': 'application/json' }},
@@ -365,6 +374,7 @@ def create_branch_tree_component(
 
                     if (response.ok) {{
                         const result = await response.json();
+                        console.log(`📡 Switch API response:`, result);
                         if (result.success) {{
                             // Update current branch
                             branchData = branchData.map(b => ({{
@@ -379,13 +389,43 @@ def create_branch_tree_component(
                             // Show success message
                             this.showMessage(`Switched to branch: ${{branchName}}`, 'success');
 
-                            // Trigger conversation update in parent interface
+                            // Trigger conversation update with new conversation data
+                            if (result.conversation) {{
+                                console.log(`💬 Triggering conversation update with ${{result.conversation.length}} messages`);
+                                
+                                // Dispatch custom event for Gradio interface to pick up
+                                const conversationUpdateEvent = new CustomEvent('oumiConversationUpdate', {{
+                                    detail: {{
+                                        conversation: result.conversation,
+                                        branchId: branchId,
+                                        branchName: branchName,
+                                        type: 'branch_switch'
+                                    }}
+                                }});
+                                window.dispatchEvent(conversationUpdateEvent);
+                                console.log(`📡 Dispatched conversation update event`);
+                            }} else {{
+                                console.warn(`⚠️  No conversation data in switch response`);
+                            }}
+
+                            // Also try Gradio API as fallback
                             if (window.gradio_api) {{
-                                window.gradio_api.refresh_conversation();
+                                console.log(`🔄 Also triggering Gradio conversation refresh as fallback...`);
+                                try {{
+                                    window.gradio_api.refresh_conversation();
+                                }} catch (gradio_error) {{
+                                    console.warn(`⚠️  Gradio refresh failed:`, gradio_error);
+                                }}
                             }}
                         }} else {{
+                            console.error(`❌ Switch failed:`, result);
                             this.showMessage(`Failed to switch: ${{result.message}}`, 'error');
                         }}
+                    }} else {{
+                        console.error(`❌ Switch API returned HTTP ${{response.status}}`);
+                        const errorText = await response.text();
+                        console.error(`❌ Error response:`, errorText);
+                        this.showMessage(`Failed to switch: HTTP ${{response.status}}`, 'error');
                     }}
                 }} catch (error) {{
                     console.error('Error switching branch:', error);

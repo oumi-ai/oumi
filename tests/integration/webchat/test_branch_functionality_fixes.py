@@ -474,6 +474,65 @@ class TestRegenerationFunctionality:
         assert response["new_content"] == "Regenerated response"
 
 
+class TestBranchDataFormatCompatibility:
+    """Test branch data format compatibility between frontend and backend."""
+
+    def test_branch_list_api_data_format(self):
+        """Test that branch list API returns data in the format expected by frontend."""
+        config = create_test_inference_config()
+        session = WebChatSession(session_id="format_test", config=config)
+        
+        # Add test conversation
+        test_messages = [
+            {"role": "user", "content": "Hello!"},
+            {"role": "assistant", "content": "Hi there!"},
+        ]
+        
+        for msg in test_messages:
+            session.conversation_history.append({
+                "role": msg["role"],
+                "content": msg["content"],
+                "timestamp": time.time()
+            })
+        
+        # Get branch list (simulates API response)
+        branches = session.branch_manager.list_branches()
+        
+        # Verify API response structure
+        assert isinstance(branches, list), "branches should be a list"
+        assert len(branches) > 0, "branches list should not be empty"
+        
+        # Check branch data structure matches frontend expectations
+        main_branch = branches[0]
+        expected_fields = ["id", "name", "is_current", "message_count", "created_at", "preview", "parent"]
+        
+        for field in expected_fields:
+            assert field in main_branch, f"Missing required field in branch data: {field}"
+        
+        # Test with multiple branches
+        success1, _, branch1 = session.branch_manager.create_branch("main", name="test_branch_1", branch_point=1)
+        success2, _, branch2 = session.branch_manager.create_branch("main", name="test_branch_2", branch_point=2)
+        
+        assert success1 and success2, "Failed to create test branches"
+        
+        updated_branches = session.branch_manager.list_branches()
+        assert len(updated_branches) == 3, f"Expected 3 branches, got {len(updated_branches)}"
+        
+        # Verify D3.js hierarchy building requirements
+        branch_ids = [b["id"] for b in updated_branches]
+        expected_ids = ["main", branch1.id, branch2.id]
+        for expected_id in expected_ids:
+            assert expected_id in branch_ids, f"Missing branch ID: {expected_id}"
+        
+        # Test branch switching data consistency
+        success, _, switched_branch = session.branch_manager.switch_branch(branch1.id)
+        assert success, f"Failed to switch branch"
+        
+        switched_branches = session.branch_manager.list_branches()
+        current_from_flags = [b["id"] for b in switched_branches if b["is_current"]]
+        assert len(current_from_flags) == 1, f"Expected exactly 1 current branch in flags"
+        assert current_from_flags[0] == branch1.id, f"is_current flag incorrect"
+
 class TestBranchDebugLogging:
     """Test debug logging functionality for branch operations."""
 

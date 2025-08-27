@@ -746,6 +746,95 @@ class WebChatInterface:
                 outputs=[message_input, session_state, chatbot, model_info],
             )
 
+            # Hidden components for branch switching communication
+            branch_switch_data = gr.Textbox(visible=False, elem_id="branch-switch-data")
+            branch_switch_trigger = gr.Button(visible=False, elem_id="branch-switch-trigger")
+            
+            def handle_d3_branch_switch(switch_data_json: str, state: dict):
+                """Handle branch switch triggered from D3.js component."""
+                try:
+                    import json as json_module
+                    switch_data = json_module.loads(switch_data_json)
+                    conversation = switch_data.get("conversation", [])
+                    branch_name = switch_data.get("branchName", "Unknown")
+                    
+                    if conversation:
+                        # Format conversation for Gradio
+                        formatted_conversation = []
+                        for msg in conversation:
+                            if msg.get("role") == "user":
+                                formatted_conversation.append([msg.get("content", ""), None])
+                            elif msg.get("role") == "assistant":
+                                if formatted_conversation:
+                                    # Add to last user message
+                                    formatted_conversation[-1][1] = msg.get("content", "")
+                                else:
+                                    # Assistant message without user message
+                                    formatted_conversation.append([None, msg.get("content", "")])
+                        
+                        # Update state
+                        state["conversation"] = conversation
+                        state["current_branch"] = switch_data.get("branchId", "main")
+                        
+                        print(f"🔄 Branch switched via D3.js to '{branch_name}' with {len(conversation)} messages")
+                        return formatted_conversation, state
+                    
+                except Exception as e:
+                    print(f"❌ Error processing D3.js branch switch: {e}")
+                
+                return None, state
+            
+            # Wire up the hidden trigger
+            branch_switch_trigger.click(
+                handle_d3_branch_switch,
+                inputs=[branch_switch_data, session_state],
+                outputs=[chatbot, session_state]
+            )
+            
+            # JavaScript to bridge D3.js events to Gradio
+            branch_sync_js = gr.HTML(
+                """
+                <script>
+                // Add event listener for branch switching from D3.js component
+                window.addEventListener('oumiConversationUpdate', function(event) {
+                    console.log('🔄 Received conversation update event:', event.detail);
+                    
+                    const { conversation, branchId, branchName, type } = event.detail;
+                    
+                    if (type === 'branch_switch' && conversation) {
+                        console.log(`💬 Updating conversation for branch ${branchName} with ${conversation.length} messages`);
+                        
+                        // Find the hidden Gradio components
+                        const switchDataElement = document.getElementById('branch-switch-data').querySelector('textarea, input');
+                        const triggerElement = document.getElementById('branch-switch-trigger');
+                        
+                        if (switchDataElement && triggerElement) {
+                            // Pass data to Gradio
+                            const switchData = JSON.stringify({
+                                conversation: conversation,
+                                branchId: branchId,
+                                branchName: branchName,
+                                type: type
+                            });
+                            
+                            switchDataElement.value = switchData;
+                            
+                            // Trigger the Gradio event
+                            triggerElement.click();
+                            console.log('📡 Triggered Gradio branch switch update');
+                        } else {
+                            console.warn('⚠️ Could not find hidden Gradio components for branch switch');
+                        }
+                    }
+                });
+                
+                console.log('✅ Branch conversation sync event listener registered');
+                </script>
+                """,
+                visible=False,
+                elem_id="branch-sync-handler"
+            )
+
         return interface
 
     def _execute_command(self, command: str, session_id: str) -> dict[str, Any]:
