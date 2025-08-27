@@ -463,15 +463,19 @@ def create_branch_tree_component(
 
             async refreshBranches() {{
                 try {{
+                    console.log(`🔄 Fetching branches for session: ${{sessionId}}`);
                     const response = await fetch(`${{serverUrl}}/v1/oumi/branches?session_id=${{sessionId}}`);
                     if (response.ok) {{
                         const result = await response.json();
                         branchData = result.branches || [];
                         currentBranch = result.current_branch || "main";
+                        console.log(`📋 Received ${{branchData.length}} branches:`, branchData.map(b => `${{b.name}} (${{b.id}})`));
                         this.render();
+                    }} else {{
+                        console.error(`❌ Failed to fetch branches: HTTP ${{response.status}}`);
                     }}
                 }} catch (error) {{
-                    console.error('Error refreshing branches:', error);
+                    console.error('❌ Error refreshing branches:', error);
                 }}
             }}
 
@@ -514,6 +518,12 @@ def create_branch_tree_component(
             if (container && !treeViz) {{
                 treeViz = new BranchTreeVisualization();
                 setupControls();
+                
+                // Auto-refresh branches on initialization if using default data
+                if (branchData.length <= 1 && branchData[0]?.preview === "Empty branch") {{
+                    console.log("🔄 Auto-refreshing branches on initialization...");
+                    treeViz.refreshBranches();
+                }}
             }}
         }}
 

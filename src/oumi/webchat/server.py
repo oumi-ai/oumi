@@ -471,8 +471,8 @@ class OumiWebServer(OpenAICompatibleServer):
         elif msg_type == "get_branches":
             branches = session.branch_manager.list_branches()
             current_branch = session.branch_manager.current_branch_id
-            logger.info(f"📋 DEBUG: Get branches WS request - current: '{current_branch}', available: {[b.branch_id for b in branches]}")
-            logger.info(f"📋 DEBUG: Branch details: {[(b.branch_id, len(b.conversation_history), b.created_at) for b in branches]}")
+            logger.info(f"📋 DEBUG: Get branches WS request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
+            logger.info(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
             await ws.send_str(
                 json.dumps(
                     {
@@ -817,8 +817,8 @@ class OumiWebServer(OpenAICompatibleServer):
         if request.method == "GET":
             branches = session.branch_manager.list_branches()
             current_branch = session.branch_manager.current_branch_id
-            logger.info(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b.branch_id for b in branches]}")
-            logger.info(f"📋 DEBUG: Branch details: {[(b.branch_id, len(b.conversation_history), b.created_at) for b in branches]}")
+            logger.info(f"📋 DEBUG: Get branches HTTP request - current: '{current_branch}', available: {[b['id'] for b in branches]}")
+            logger.info(f"📋 DEBUG: Branch details: {[(b['id'], b['message_count'], b['created_at']) for b in branches]}")
             return web.json_response(
                 {
                     "branches": branches,
@@ -887,7 +887,7 @@ class OumiWebServer(OpenAICompatibleServer):
                     success, message, new_branch = session.branch_manager.create_branch(
                         from_branch_id=from_branch, name=name
                     )
-                    logger.info(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.branch_id if new_branch else None}'")
+                    logger.info(f"🌿 DEBUG: Branch create result - success: {success}, message: '{message}', new_branch_id: '{new_branch.id if new_branch else None}'")
 
                     return web.json_response(
                         {
@@ -900,10 +900,10 @@ class OumiWebServer(OpenAICompatibleServer):
                 elif action == "delete":
                     branch_id = data.get("branch_id")
                     logger.info(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
-                    logger.info(f"🗑️  DEBUG: Available branches before delete: {[b.branch_id for b in session.branch_manager.list_branches()]}")
+                    logger.info(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
                     success, message = session.branch_manager.delete_branch(branch_id)
                     logger.info(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
-                    logger.info(f"🗑️  DEBUG: Available branches after delete: {[b.branch_id for b in session.branch_manager.list_branches()]}")
+                    logger.info(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
 
                     return web.json_response(
                         {

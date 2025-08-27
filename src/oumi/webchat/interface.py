@@ -968,6 +968,36 @@ class WebChatInterface:
             print(f"Failed to get conversation: {e}")
         return []
 
+    def _get_initial_branch_data(self, session_id: str) -> list[dict]:
+        """Fetch initial branch data for the D3.js component."""
+        try:
+            response = requests.get(
+                self.branches_endpoint, params={"session_id": session_id}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                branches = data.get("branches", [])
+                return branches
+            else:
+                print(f"⚠️ Failed to fetch initial branch data: HTTP {response.status_code}")
+                return []
+                
+        except Exception as e:
+            print(f"⚠️ Error fetching initial branch data: {e}")
+            # Return default main branch data as fallback
+            return [
+                {
+                    "id": "main",
+                    "name": "Main",
+                    "message_count": 0,
+                    "created_at": "2025-01-01T00:00:00",
+                    "preview": "Empty branch",
+                    "parent": None,
+                    "is_current": True,
+                }
+            ]
+
     def _update_branch_tree(self, session_id: str) -> gr.HTML:
         """Update the branch tree display."""
         try:
