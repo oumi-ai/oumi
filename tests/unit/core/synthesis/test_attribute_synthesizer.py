@@ -24,8 +24,8 @@ from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
     GeneratedAttribute,
     GeneratedAttributePostprocessingParams,
-    PermutableAttribute,
-    PermutableAttributeValue,
+    SampledAttribute,
+    SampledAttributeValue,
     TextMessage,
 )
 from oumi.core.synthesis.attribute_synthesizer import AttributeSynthesizer
@@ -46,36 +46,36 @@ def mock_inference_config():
 def mock_permutable_attributes():
     """Create mock permutable attributes for testing."""
     return [
-        PermutableAttribute(
+        SampledAttribute(
             id="style",
-            attribute="Writing Style",
+            name="Writing Style",
             description="The style of writing to use",
             possible_values=[
-                PermutableAttributeValue(
+                SampledAttributeValue(
                     id="formal",
-                    value="Formal",
+                    name="Formal",
                     description="A formal writing style",
                 ),
-                PermutableAttributeValue(
+                SampledAttributeValue(
                     id="casual",
-                    value="Casual",
+                    name="Casual",
                     description="A casual writing style",
                 ),
             ],
         ),
-        PermutableAttribute(
+        SampledAttribute(
             id="topic",
-            attribute="Topic",
+            name="Topic",
             description="The topic to write about",
             possible_values=[
-                PermutableAttributeValue(
+                SampledAttributeValue(
                     id="tech",
-                    value="Technology",
+                    name="Technology",
                     description="Technology topics",
                 ),
-                PermutableAttributeValue(
+                SampledAttributeValue(
                     id="science",
-                    value="Science",
+                    name="Science",
                     description="Science topics",
                 ),
             ],
@@ -87,7 +87,7 @@ def mock_permutable_attributes():
 def mock_general_synthesis_params(mock_permutable_attributes):
     """Create mock GeneralSynthesisParams for testing."""
     return GeneralSynthesisParams(
-        permutable_attributes=mock_permutable_attributes,
+        sampled_attributes=mock_permutable_attributes,
     )
 
 
@@ -103,7 +103,7 @@ def mock_generated_attribute():
             ),
             TextMessage(
                 role=Role.USER,
-                content="Write a {style.value} paragraph about {topic.value}.",
+                content="Write a {style} paragraph about {topic}.",
             ),
         ],
     )

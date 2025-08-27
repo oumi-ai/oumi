@@ -16,62 +16,62 @@ import pytest
 
 from oumi.core.configs.params.synthesis_params import (
     GeneralSynthesisParams,
-    PermutableAttribute,
-    PermutableAttributeValue,
+    SampledAttribute,
+    SampledAttributeValue,
 )
 from oumi.core.synthesis.attribute_formatter import AttributeFormatter
 
 
-def test_format_with_permutable_attributes():
-    """Test formatting with permutable attributes."""
-    # Setup permutable attributes
+def test_format_with_sampled_attributes():
+    """Test formatting with sampled attributes."""
+    # Setup sampled attributes
     tone_values = [
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="formal",
-            value="Formal",
+            name="Formal",
             description="A formal tone of voice",
         ),
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="casual",
-            value="Casual",
+            name="Casual",
             description="A casual tone of voice",
         ),
     ]
 
     style_values = [
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="concise",
-            value="Concise",
+            name="Concise",
             description="Brief and to the point",
         ),
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="detailed",
-            value="Detailed",
+            name="Detailed",
             description="Comprehensive and thorough",
         ),
     ]
 
-    permutable_attrs = [
-        PermutableAttribute(
+    sampled_attrs = [
+        SampledAttribute(
             id="tone",
-            attribute="Tone",
+            name="Tone",
             description="The tone of voice to use",
             possible_values=tone_values,
         ),
-        PermutableAttribute(
+        SampledAttribute(
             id="style",
-            attribute="Style",
+            name="Style",
             description="The writing style to use",
             possible_values=style_values,
         ),
     ]
 
-    params = GeneralSynthesisParams(permutable_attributes=permutable_attrs)
+    params = GeneralSynthesisParams(sampled_attributes=sampled_attrs)
     formatter = AttributeFormatter(params)
 
     # Test formatting
     sample = {"tone": "formal", "style": "concise"}
-    format_string = "Use {tone.value} tone and {style.value} style"
+    format_string = "Use {tone} tone and {style} style"
 
     result = formatter.format(sample, format_string)
     expected = "Use Formal tone and Concise style"
@@ -80,29 +80,29 @@ def test_format_with_permutable_attributes():
 
 
 def test_format_with_mixed_attributes():
-    """Test formatting with both permutable and non-permutable attributes."""
+    """Test formatting with both sampled and non-sampled attributes."""
     tone_values = [
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="friendly",
-            value="Friendly",
+            name="Friendly",
             description="A friendly tone",
         ),
     ]
 
-    permutable_attrs = [
-        PermutableAttribute(
+    sampled_attrs = [
+        SampledAttribute(
             id="tone",
-            attribute="Tone",
+            name="Tone",
             description="The tone to use",
             possible_values=tone_values,
         ),
     ]
 
-    params = GeneralSynthesisParams(permutable_attributes=permutable_attrs)
+    params = GeneralSynthesisParams(sampled_attributes=sampled_attrs)
     formatter = AttributeFormatter(params)
 
     sample = {"tone": "friendly", "name": "Alice"}
-    format_string = "Use {tone.value} tone when talking to {name}"
+    format_string = "Use {tone} tone when talking to {name}"
 
     result = formatter.format(sample, format_string)
     expected = "Use Friendly tone when talking to Alice"
@@ -127,26 +127,26 @@ def test_format_with_missing_values():
         formatter.format(sample, format_string, missing_values_allowed=False)
 
 
-def test_format_with_invalid_permutable_attribute_value():
-    """Test formatting with invalid permutable attribute value."""
+def test_format_with_invalid_sampled_attribute_value():
+    """Test formatting with invalid sampled attribute value."""
     tone_values = [
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="formal",
-            value="Formal",
+            name="Formal",
             description="A formal tone",
         ),
     ]
 
-    permutable_attrs = [
-        PermutableAttribute(
+    sampled_attrs = [
+        SampledAttribute(
             id="tone",
-            attribute="Tone",
+            name="Tone",
             description="The tone to use",
             possible_values=tone_values,
         ),
     ]
 
-    params = GeneralSynthesisParams(permutable_attributes=permutable_attrs)
+    params = GeneralSynthesisParams(sampled_attributes=sampled_attrs)
     formatter = AttributeFormatter(params)
 
     sample = {"tone": "invalid_value"}
@@ -189,27 +189,27 @@ def test_format_with_empty_format_string():
 def test_format_with_multiple_same_placeholder():
     """Test formatting with the same placeholder used multiple times."""
     tone_values = [
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="excited",
-            value="Excited",
+            name="Excited",
             description="An excited tone",
         ),
     ]
 
-    permutable_attrs = [
-        PermutableAttribute(
+    sampled_attrs = [
+        SampledAttribute(
             id="tone",
-            attribute="Tone",
+            name="Tone",
             description="The tone to use",
             possible_values=tone_values,
         ),
     ]
 
-    params = GeneralSynthesisParams(permutable_attributes=permutable_attrs)
+    params = GeneralSynthesisParams(sampled_attributes=sampled_attrs)
     formatter = AttributeFormatter(params)
 
     sample = {"tone": "excited"}
-    format_string = "Use {tone.value} tone! Yes, {tone.value} tone!"
+    format_string = "Use {tone} tone! Yes, {tone} tone!"
 
     result = formatter.format(sample, format_string)
     expected = "Use Excited tone! Yes, Excited tone!"
@@ -220,55 +220,55 @@ def test_format_with_multiple_same_placeholder():
 def test_format_with_attribute_name_vs_value():
     """Test the difference between {attribute} and {attribute.value}."""
     tone_values = [
-        PermutableAttributeValue(
+        SampledAttributeValue(
             id="polite",
-            value="Polite",
+            name="Polite",
             description="A polite tone",
         ),
     ]
 
-    permutable_attrs = [
-        PermutableAttribute(
+    sampled_attrs = [
+        SampledAttribute(
             id="tone",
-            attribute="Tone",
+            name="Tone",
             description="The tone to use",
             possible_values=tone_values,
         ),
     ]
 
-    params = GeneralSynthesisParams(permutable_attributes=permutable_attrs)
+    params = GeneralSynthesisParams(sampled_attributes=sampled_attrs)
     formatter = AttributeFormatter(params)
 
     sample = {"tone": "polite"}
 
     # Test attribute name
-    format_string = "The {tone} should be polite"
+    format_string = "The {tone.parent} should be polite"
     result = formatter.format(sample, format_string)
     expected = "The Tone should be polite"
     assert result == expected
 
     # Test attribute value
-    format_string = "The tone should be {tone.value}"
+    format_string = "The tone should be {tone}"
     result = formatter.format(sample, format_string)
     expected = "The tone should be Polite"
     assert result == expected
 
     # Test attribute description
-    format_string = "The tone should be {tone.description}"
+    format_string = "The tone should be {tone.parent.description}"
     result = formatter.format(sample, format_string)
     expected = "The tone should be The tone to use"
     assert result == expected
 
     # Test value description
-    format_string = "The tone should be {tone.value.description}"
+    format_string = "The tone should be {tone.description}"
     result = formatter.format(sample, format_string)
     expected = "The tone should be A polite tone"
     assert result == expected
 
 
-def test_format_with_none_permutable_attributes():
-    """Test formatting when permutable_attributes is None."""
-    params = GeneralSynthesisParams(permutable_attributes=None)
+def test_format_with_none_sampled_attributes():
+    """Test formatting when sampled_attributes is None."""
+    params = GeneralSynthesisParams(sampled_attributes=None)
     formatter = AttributeFormatter(params)
 
     sample = {"name": "Bob"}
