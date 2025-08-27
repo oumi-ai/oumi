@@ -225,3 +225,15 @@ cython_debug/
 
 # VS Code Workspace
 oumi.code-workspace
+
+# Node.js / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.npm-cache/
+frontend/.npm-cache/
+.next/
+out/
+.vercel/
