@@ -13,13 +13,14 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 from oumi.core.configs.base_config import BaseConfig
 from oumi.core.configs.inference_engine_type import InferenceEngineType
 from oumi.core.configs.params.generation_params import GenerationParams
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.configs.params.remote_params import RemoteParams
+from oumi.core.configs.params.style_params import StyleParams
 
 
 @dataclass
@@ -60,10 +61,5 @@ class InferenceConfig(BaseConfig):
     remote_params: Optional[RemoteParams] = None
     """Parameters for running inference against a remote API."""
 
-    style: Optional[dict[str, Any]] = None
-    """Optional style configuration for interactive inference UI theming.
-
-    This parameter allows customization of the visual appearance of the
-    interactive inference interface, including colors, fonts, and layout
-    preferences. Used primarily with themed inference configurations.
-    """
+    style: StyleParams = field(default_factory=StyleParams)
+    """Parameters for customizing console styling in interactive inference."""
