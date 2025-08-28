@@ -59,8 +59,8 @@ def get_test_models() -> dict[str, ModelParams]:
     """
     config_path = (
         get_oumi_root_directory().parent.parent
-        / "data"
-        / "test_data"
+        / "tests"
+        / "testdata"
         / "inference"
         / "model_configs.json"
     )
@@ -89,8 +89,8 @@ def get_test_generation_params() -> GenerationParams:
     """
     params_path = (
         get_oumi_root_directory().parent.parent
-        / "data"
-        / "test_data"
+        / "tests"
+        / "testdata"
         / "inference"
         / "generation_params.json"
     )
@@ -111,8 +111,8 @@ def create_test_conversations() -> list[Conversation]:
     """
     conversations_path = (
         get_oumi_root_directory().parent.parent
-        / "data"
-        / "test_data"
+        / "tests"
+        / "testdata"
         / "inference"
         / "test_conversations.json"
     )
@@ -294,14 +294,18 @@ def validate_response_properties(
                 # Check for reasonable content - but be more permissive for mathematical expressions
                 tokens = response_clean.split()
                 avg_char_per_token = len(response_clean) / max(word_count, 1)
-                
+
                 # Allow mathematical expressions and short but meaningful content
                 # Check if response contains mathematical operators or numbers
-                has_math_content = any(token in "+-*/=<>()[]{}0123456789" for token in tokens)
+                has_math_content = any(
+                    token in "+-*/=<>()[]{}0123456789" for token in tokens
+                )
                 has_reasonable_words = any(len(token) >= 2 for token in tokens)
-                
+
                 # Pass if: average >= 2 chars per token, OR has math content, OR has some reasonable words
-                if not (avg_char_per_token >= 2 or has_math_content or has_reasonable_words):
+                if not (
+                    avg_char_per_token >= 2 or has_math_content or has_reasonable_words
+                ):
                     results["reasonable_content"] = False
 
         # Keyword presence check (only applied to the LAST assistant response in multi-turn conversations)
@@ -313,7 +317,7 @@ def validate_response_properties(
                 keyword.lower().strip() in response_normalized
                 for keyword in expected_keywords
             )
-            
+
             if not found_keywords:
                 results["contains_keywords"] = False
 

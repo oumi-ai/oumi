@@ -477,7 +477,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             return CommandResult(
                 success=True,
-                message=f"Displayed conversation position {position_text}",
+                message=f"Message {position}: {display_content}",
                 should_continue=False,
             )
 

@@ -19,7 +19,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 from unittest.mock import Mock, patch
 
 from oumi.core.commands import CommandParser, CommandResult, CommandRouter
@@ -819,7 +819,7 @@ def load_chat_test_data(filename: str) -> dict[str, Any]:
     """
     # Get the project root directory (go up from src/oumi to the project root)
     project_root = get_oumi_root_directory().parent.parent
-    data_path = project_root / "data" / "test_data" / "chat" / filename
+    data_path = project_root / "tests" / "testdata" / "chat" / filename
     return load_json(data_path)
 
 
@@ -857,7 +857,7 @@ def get_test_macro_template() -> str:
         Jinja template content for macro testing.
     """
     template_path = (
-        get_oumi_root_directory() / "data" / "test_data" / "chat" / "test_macro.jinja"
+        get_oumi_root_directory().parent.parent / "tests" / "testdata" / "chat" / "test_macro.jinja"
     )
     return template_path.read_text()
 

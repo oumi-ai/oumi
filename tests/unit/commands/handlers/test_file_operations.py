@@ -62,7 +62,7 @@ class TestAttachCommand:
     def test_attach_text_file(self, mock_handler):
         """Test attaching a text file."""
         file_data = get_file_attachment_data()
-        test_content = file_data["test_files"]["sample_text.txt"]
+        test_content = file_data["test_files"]["sample.txt"]
 
         with temporary_test_files({"test.txt": test_content}) as temp_files:
             parsed_cmd = ParsedCommand(
@@ -86,7 +86,7 @@ class TestAttachCommand:
     def test_attach_csv_file(self, mock_handler):
         """Test attaching a CSV file."""
         file_data = get_file_attachment_data()
-        csv_content = file_data["test_files"]["sample_data.csv"]
+        csv_content = file_data["test_files"]["sample.csv"]
 
         with temporary_test_files({"data.csv": csv_content}) as temp_files:
             parsed_cmd = ParsedCommand(
@@ -109,7 +109,7 @@ class TestAttachCommand:
     def test_attach_json_file(self, mock_handler):
         """Test attaching a JSON file."""
         file_data = get_file_attachment_data()
-        json_content = file_data["test_files"]["sample_config.json"]
+        json_content = file_data["test_files"]["sample.json"]
 
         with temporary_test_files({"config.json": json_content}) as temp_files:
             parsed_cmd = ParsedCommand(

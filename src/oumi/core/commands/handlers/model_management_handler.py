@@ -57,12 +57,16 @@ class ModelManagementHandler(BaseCommandHandler):
             target = command.args[0].strip()
 
             # Check if this is a config-based swap
-            # Support both "config:" prefix and direct config file paths  
+            # Support both "config:" prefix and direct config file paths
             if target.startswith("config:"):
                 config_path = target[7:]  # Remove "config:" prefix
                 return self._handle_config_swap(config_path)
-            elif (target.endswith(".yaml") or target.endswith(".yml") or 
-                  "/" in target or "\\" in target):
+            elif (
+                target.endswith(".yaml")
+                or target.endswith(".yml")
+                or "/" in target
+                or "\\" in target
+            ):
                 # Auto-detect config files by extension or path structure
                 return self._handle_config_swap(target)
 

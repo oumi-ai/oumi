@@ -73,26 +73,26 @@ def requires_pdf_support():
 
 def requires_inference_backend(backend: str = "NATIVE") -> pytest.MarkDecorator:
     """Decorator to skip a test if the specified inference backend is not available.
-    
+
     Args:
         backend: The inference backend required (NATIVE, VLLM, LLAMACPP, etc.)
-        
+
     Returns:
         pytest.MarkDecorator: A decorator that skips the test if the backend is not available.
     """
     from importlib.util import find_spec
-    
+
     if backend == "VLLM":
         available = find_spec("vllm") is not None
         reason = "vLLM not available"
     elif backend == "LLAMACPP":
         available = find_spec("llama_cpp") is not None
-        reason = "LlamaCPP not available"  
+        reason = "LlamaCPP not available"
     elif backend == "NATIVE":
         available = True  # NATIVE backend is always available
         reason = ""
     else:
         available = True  # Assume other backends are available
         reason = ""
-    
+
     return pytest.mark.skipif(not available, reason=reason)
