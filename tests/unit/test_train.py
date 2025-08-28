@@ -11,6 +11,7 @@ from oumi.core.configs import (
     TrainingParams,
 )
 from oumi.core.tokenizers.base_tokenizer import BaseTokenizer
+from oumi.train import train
 
 
 @pytest.fixture
@@ -50,21 +51,58 @@ def debug_training_config(base_training_config):
     return config
 
 
-@patch("oumi.train.log_number_of_model_parameters")
-@patch("oumi.train.build_collator_from_config")
-@patch("oumi.train.build_model")
-@patch("oumi.train.build_dataset_mixture")
-@patch("oumi.train.build_trainer")
+@pytest.fixture
+def mock_log_params():
+    """Mock for log_number_of_model_parameters function."""
+    with patch("oumi.train.log_number_of_model_parameters") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_build_collator():
+    """Mock for build_collator_from_config function."""
+    with patch("oumi.train.build_collator_from_config") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_build_model():
+    """Mock for build_model function."""
+    with patch("oumi.train.build_model") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_build_dataset_mixture():
+    """Mock for build_dataset_mixture function."""
+    with patch("oumi.train.build_dataset_mixture") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_build_trainer():
+    """Mock for build_trainer function."""
+    with patch("oumi.train.build_trainer") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_configure_logger():
+    """Mock for configure_logger function."""
+    with patch("oumi.train.configure_logger") as mock:
+        yield mock
+
+
 def test_train_function_passes_debug_flag_correctly(
     mock_build_trainer,
     mock_build_dataset_mixture,
     mock_build_model,
     mock_build_collator,
     mock_log_params,
+    mock_configure_logger,
     debug_training_config,
 ):
     """Test that train function passes log_examples to build_collator_from_config."""
-    from oumi.train import train
 
     # Setup mocks to avoid actual training
     mock_model = Mock()
