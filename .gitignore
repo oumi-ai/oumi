@@ -183,16 +183,5 @@ cython_debug/
 # VS Code Workspace
 oumi.code-workspace
 
-# Generated test and analysis files
-analysis_report.md
-file.txt
-file1.json
-file2.json
-output.json
-project_analysis.md
-refinement_1.md
-refinement_2.md
-refinement_3.md
-stress_test_output.json
-test.json
-test_output.json
+# Generated test files directory
+generated_test_files/

@@ -22,12 +22,46 @@ from pathlib import Path
 from typing import Any, Optional, Union
 from unittest.mock import Mock, patch
 
+try:
+    import pytest
+except ImportError:
+    pytest = None
+
 from oumi.core.commands import CommandParser, CommandResult, CommandRouter
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from oumi.utils.io_utils import get_oumi_root_directory, load_json
+
+
+def get_generated_test_files_dir() -> Path:
+    """Get the path to the generated test files directory.
+
+    Returns:
+        Path to the generated_test_files directory.
+    """
+    # Get the project root directory
+    project_root = get_oumi_root_directory().parent.parent
+    test_files_dir = project_root / "generated_test_files"
+
+    # Ensure directory exists
+    test_files_dir.mkdir(exist_ok=True)
+
+    return test_files_dir
+
+
+def ensure_test_file_in_generated_dir(filename: str) -> str:
+    """Ensure a test file is created in the generated_test_files directory.
+
+    Args:
+        filename: Name of the file to create in the generated directory.
+
+    Returns:
+        Full path to the file in the generated_test_files directory.
+    """
+    test_dir = get_generated_test_files_dir()
+    return str(test_dir / filename)
 
 
 class MockInputHandler:
@@ -630,9 +664,15 @@ def create_test_image_bytes() -> bytes:
 class TestFileCleanupManager:
     """Context manager for ensuring test files are cleaned up."""
 
-    def __init__(self):
+    def __init__(self, use_generated_dir: bool = True):
+        """Initialize cleanup manager.
+
+        Args:
+            use_generated_dir: If True, create files in generated_test_files directory.
+        """
         self.temp_files = []
         self.temp_dirs = []
+        self.use_generated_dir = use_generated_dir
 
     def __enter__(self):
         return self
@@ -640,9 +680,16 @@ class TestFileCleanupManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Clean up all registered files and directories."""
         self.cleanup_all()
+        # Also clean the generated test files directory
+        if self.use_generated_dir:
+            cleanup_generated_test_files()
 
     def create_temp_file(
-        self, suffix: str = "", content: str = "", mode: str = "w"
+        self,
+        suffix: str = "",
+        content: str = "",
+        mode: str = "w",
+        filename: Optional[str] = None,
     ) -> str:
         """Create a temporary file and register it for cleanup.
 
@@ -650,17 +697,39 @@ class TestFileCleanupManager:
             suffix: File suffix/extension.
             content: Initial file content.
             mode: File open mode.
+            filename: Optional specific filename to use in generated_test_files dir.
 
         Returns:
             Path to the created temporary file.
         """
-        temp_file = tempfile.NamedTemporaryFile(mode=mode, suffix=suffix, delete=False)
-        if content:
-            temp_file.write(content)
-        temp_file.close()
+        if self.use_generated_dir and filename:
+            # Create file in generated_test_files directory with specific name
+            file_path = ensure_test_file_in_generated_dir(filename)
+            with open(file_path, mode) as f:
+                if content:
+                    f.write(content)
+            self.temp_files.append(file_path)
+            return file_path
+        else:
+            # Use system temporary file
+            if self.use_generated_dir:
+                # Create in generated_test_files directory
+                test_dir = get_generated_test_files_dir()
+                temp_file = tempfile.NamedTemporaryFile(
+                    mode=mode, suffix=suffix, delete=False, dir=str(test_dir)
+                )
+            else:
+                # Use system temp directory
+                temp_file = tempfile.NamedTemporaryFile(
+                    mode=mode, suffix=suffix, delete=False
+                )
 
-        self.temp_files.append(temp_file.name)
-        return temp_file.name
+            if content:
+                temp_file.write(content)
+            temp_file.close()
+
+            self.temp_files.append(temp_file.name)
+            return temp_file.name
 
     def create_temp_dir(self) -> str:
         """Create a temporary directory and register it for cleanup.
@@ -713,8 +782,11 @@ class TestFileCleanupManager:
         self.temp_dirs.clear()
 
 
-def ensure_test_cleanup():
+def ensure_test_cleanup(use_generated_dir: bool = True):
     """Decorator to ensure test cleanup even if tests fail.
+
+    Args:
+        use_generated_dir: If True, use the generated_test_files directory for cleanup.
 
     Usage:
         @ensure_test_cleanup()
@@ -724,7 +796,7 @@ def ensure_test_cleanup():
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            with TestFileCleanupManager():
+            with TestFileCleanupManager(use_generated_dir=use_generated_dir):
                 return func(*args, **kwargs)
 
         return wrapper
@@ -779,6 +851,27 @@ def cleanup_test_files_in_directory(
                     file_path.unlink()
             except Exception:
                 pass  # Ignore cleanup errors
+
+
+def cleanup_generated_test_files():
+    """Clean up all files in the generated_test_files directory.
+
+    This function ensures all test-generated files are removed after tests complete,
+    even if the tests fail. It should be called in test teardown or cleanup fixtures.
+    """
+    test_dir = get_generated_test_files_dir()
+
+    # Remove all files in the generated test files directory
+    for file_path in test_dir.iterdir():
+        try:
+            if file_path.is_file():
+                file_path.unlink()
+            elif file_path.is_dir():
+                import shutil
+
+                shutil.rmtree(file_path, ignore_errors=True)
+        except Exception:
+            pass  # Ignore cleanup errors
 
 
 class CommandSequenceBuilder:
@@ -913,6 +1006,40 @@ def get_chat_test_models() -> dict[str, ModelParams]:
             torch_dtype_str="float16",
         ),
     }
+
+
+# Pytest fixtures - only define if pytest is available
+if pytest is not None:
+
+    @pytest.fixture
+    def test_files_cleanup():
+        """Pytest fixture that automatically cleans up generated test files.
+
+        Usage:
+            def test_my_function(test_files_cleanup):
+                # Create test files using the utilities
+                file_path = ensure_test_file_in_generated_dir("my_test_file.json")
+                # Test code here
+                # Files will be automatically cleaned up after the test
+        """
+        yield
+        cleanup_generated_test_files()
+
+    @pytest.fixture
+    def test_file_manager():
+        """Pytest fixture that provides a TestFileCleanupManager.
+
+        Usage:
+            def test_my_function(test_file_manager):
+                temp_file = test_file_manager.create_temp_file(
+                    filename="test_output.json",
+                    content='{"test": true}'
+                )
+                # Test code here
+                # Files will be automatically cleaned up after the test
+        """
+        with TestFileCleanupManager() as manager:
+            yield manager
 
 
 def validate_command_result(
