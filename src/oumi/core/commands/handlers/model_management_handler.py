@@ -176,8 +176,10 @@ class ModelManagementHandler(BaseCommandHandler):
                         new_config.model, "model_name", "Unknown"
                     )
 
-                # Save current model state to current branch before swapping
-                self._save_current_model_state_to_branch()
+                # Model swaps only change current context - state is saved during branch transitions
+                
+                # Dispose of old engine to free memory
+                self._dispose_old_engine()
 
                 # Replace the current inference engine and config
                 self.context.inference_engine = new_engine
@@ -639,3 +641,36 @@ class ModelManagementHandler(BaseCommandHandler):
             # Don't fail the model swap if monitor refresh fails
             from oumi.utils.logging import logger
             logger.warning(f"Failed to refresh system monitor after model swap: {e}")
+
+    def _dispose_old_engine(self):
+        """Dispose of the old inference engine to free memory, including CUDA cleanup."""
+        try:
+            if hasattr(self.context, 'inference_engine') and self.context.inference_engine:
+                old_engine = self.context.inference_engine
+                
+                # Try to call cleanup methods if available
+                if hasattr(old_engine, 'cleanup'):
+                    old_engine.cleanup()
+                elif hasattr(old_engine, 'close'):
+                    old_engine.close()
+                
+                # Clear CUDA cache if available
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                except ImportError:
+                    pass  # PyTorch not available
+                
+                # Clear the reference
+                self.context.inference_engine = None
+                
+                # Force garbage collection to free memory immediately
+                import gc
+                gc.collect()
+                
+        except Exception as e:
+            # Don't fail the swap if cleanup fails
+            from oumi.utils.logging import logger
+            logger.warning(f"Failed to dispose of old engine: {e}")

@@ -54,10 +54,13 @@ class BranchOperationsHandler(BaseCommandHandler):
         try:
             branch_manager = self.context.branch_manager
 
-            # Save current conversation history before creating new branch
+            # Save current conversation history AND model state before creating new branch
             # Use defensive copying to prevent shared reference issues
             current_history_snapshot = copy.deepcopy(self.conversation_history)
             branch_manager.sync_conversation_history(current_history_snapshot)
+            
+            # Save current model state to current branch before creating new branch
+            self._save_current_model_state_to_branch()
 
             # Get branch name from arguments or generate one
             branch_name = None
@@ -128,10 +131,13 @@ class BranchOperationsHandler(BaseCommandHandler):
             branch_name = command.args[0].strip()
             branch_manager = self.context.branch_manager
 
-            # Save current conversation history to the current branch before switching
+            # Save current conversation history AND model state to current branch before switching
             # Use copy to ensure we don't get affected by subsequent list modifications
             current_history_snapshot = copy.deepcopy(self.conversation_history)
             branch_manager.sync_conversation_history(current_history_snapshot)
+            
+            # Save current model state to current branch before switching
+            self._save_current_model_state_to_branch()
 
             # Switch to the branch
             success, message, branch = branch_manager.switch_branch(branch_name)
@@ -411,6 +417,9 @@ class BranchOperationsHandler(BaseCommandHandler):
                     branch.model_name != current_model
                     or branch.engine_type != current_engine
                 ):
+                    # Dispose old engine to free memory before loading new model
+                    self._dispose_old_engine()
+                    
                     # Create new config with branch's model state
                     self._restore_model_from_branch_state(branch)
                     return True
@@ -709,3 +718,106 @@ class BranchOperationsHandler(BaseCommandHandler):
             self.console.print(
                 Text("Could not display conversation history.", style="dim yellow")
             )
+
+    def _save_current_model_state_to_branch(self):
+        """Save current model configuration to the current branch."""
+        try:
+            if hasattr(self.context, "branch_manager") and self.context.branch_manager:
+                current_branch = self.context.branch_manager.get_current_branch()
+                if current_branch:
+                    # Save model name and engine type
+                    current_branch.model_name = getattr(
+                        self.context.config.model, "model_name", None
+                    )
+                    current_branch.engine_type = (
+                        self.context.config.engine.value
+                        if self.context.config.engine
+                        else None
+                    )
+
+                    # Save serialized model and generation configs
+                    current_branch.model_config = self._serialize_model_config(
+                        self.context.config.model
+                    )
+                    current_branch.generation_config = (
+                        self._serialize_generation_config(
+                            self.context.config.generation
+                        )
+                    )
+        except Exception:
+            # Silently fail to avoid disrupting user experience
+            pass
+
+    def _serialize_model_config(self, model_config):
+        """Serialize model config to a dictionary."""
+        config_dict = {}
+        for attr in [
+            "model_name",
+            "model_max_length",
+            "torch_dtype_str",
+            "attn_implementation",
+            "trust_remote_code",
+            "device_map",
+            "model_kwargs",
+        ]:
+            if hasattr(model_config, attr):
+                value = getattr(model_config, attr)
+                if value is not None:
+                    config_dict[attr] = value
+        return config_dict
+
+    def _serialize_generation_config(self, generation_config):
+        """Serialize generation config to a dictionary."""
+        config_dict = {}
+        for attr in [
+            "max_new_tokens",
+            "temperature",
+            "top_p",
+            "top_k",
+            "repetition_penalty",
+            "do_sample",
+            "seed",
+            "exclude_prompt_from_response",
+            "logit_bias",
+            "min_p",
+            "use_cache",
+            "num_beams",
+            "use_sampling",
+        ]:
+            if hasattr(generation_config, attr):
+                value = getattr(generation_config, attr)
+                if value is not None:
+                    config_dict[attr] = value
+        return config_dict
+    def _dispose_old_engine(self):
+        """Dispose of the old inference engine to free memory, including CUDA cleanup."""
+        try:
+            if hasattr(self.context, 'inference_engine') and self.context.inference_engine:
+                old_engine = self.context.inference_engine
+                
+                # Try to call cleanup methods if available
+                if hasattr(old_engine, 'cleanup'):
+                    old_engine.cleanup()
+                elif hasattr(old_engine, 'close'):
+                    old_engine.close()
+                
+                # Clear CUDA cache if available
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                except ImportError:
+                    pass  # PyTorch not available
+                
+                # Clear the reference
+                self.context.inference_engine = None
+                
+                # Force garbage collection to free memory immediately
+                import gc
+                gc.collect()
+                
+        except Exception as e:
+            # Don't fail the branch operation if cleanup fails
+            from oumi.utils.logging import logger
+            logger.warning(f"Failed to dispose of old engine during branch operation: {e}")
