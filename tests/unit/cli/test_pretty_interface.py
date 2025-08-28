@@ -18,7 +18,7 @@ class TestPrettyInterfaceRegression:
         """Create a mock inference config for testing."""
         return InferenceConfig(
             model=ModelParams(
-                model_name="microsoft/DialoGPT-medium",  # Use an actual model for testing
+                model_name="microsoft/DialoGPT-medium",  # Use an actual model
                 trust_remote_code=True,
             ),
             generation=GenerationParams(max_new_tokens=10),
@@ -53,7 +53,8 @@ class TestPrettyInterfaceRegression:
                         # Verify Rich Console was initialized
                         mock_console_class.assert_called_once()
 
-                        # Verify console methods were called (indicating pretty interface)
+                        # Verify console methods were called (indicating pretty
+                        # interface)
                         assert mock_console.print.called
 
     def test_infer_interactive_has_system_monitor(self, mock_config):
@@ -94,12 +95,21 @@ class TestPrettyInterfaceRegression:
                         # Mock engine to return a simple response
                         mock_engine = MagicMock()
                         mock_get_engine.return_value = mock_engine
-                        
+
                         # Mock a simple conversation response
-                        from oumi.core.types.conversation import Conversation, Message, Role
-                        mock_response = [Conversation(messages=[
-                            Message(role=Role.ASSISTANT, content="Hello!")
-                        ])]
+                        from oumi.core.types.conversation import (
+                            Conversation,
+                            Message,
+                            Role,
+                        )
+
+                        mock_response = [
+                            Conversation(
+                                messages=[
+                                    Message(role=Role.ASSISTANT, content="Hello!")
+                                ]
+                            )
+                        ]
                         mock_engine.infer.return_value = mock_response
 
                         # Mock input to provide one message then exit
@@ -108,7 +118,7 @@ class TestPrettyInterfaceRegression:
                             mock_enhanced_input.return_value = (
                                 mock_enhanced_input_instance
                             )
-                            
+
                             # Provide one input, then EOF
                             input_results = [
                                 InputResult(
@@ -116,17 +126,19 @@ class TestPrettyInterfaceRegression:
                                     action=InputAction.SUBMIT,
                                     cancelled=False,
                                     should_exit=False,
-                                    multiline_toggled=False
+                                    multiline_toggled=False,
                                 ),
                                 InputResult(
                                     text="",
                                     action=InputAction.EXIT,
                                     cancelled=False,
                                     should_exit=True,
-                                    multiline_toggled=False
-                                )
+                                    multiline_toggled=False,
+                                ),
                             ]
-                            mock_enhanced_input_instance.get_input.side_effect = input_results
+                            mock_enhanced_input_instance.get_input.side_effect = (
+                                input_results
+                            )
 
                             try:
                                 infer_interactive(mock_config)
@@ -134,7 +146,8 @@ class TestPrettyInterfaceRegression:
                                 pass  # Expected from input mock
 
                         # Verify Live context manager was used (for thinking animation)
-                        # Note: Live is used in the thinking_with_monitor context manager
+                        # Note: Live is used in the thinking_with_monitor context
+                        # manager
                         mock_live_class.assert_called()
 
     def test_infer_interactive_has_command_parsing(self, mock_config):
@@ -150,8 +163,12 @@ class TestPrettyInterfaceRegression:
                             mock_router_class.return_value = mock_router
 
                             mock_enhanced_input_instance = MagicMock()
-                            mock_enhanced_input.return_value = mock_enhanced_input_instance
-                            mock_enhanced_input_instance.get_input.side_effect = EOFError
+                            mock_enhanced_input.return_value = (
+                                mock_enhanced_input_instance
+                            )
+                            mock_enhanced_input_instance.get_input.side_effect = (
+                                EOFError
+                            )
 
                             try:
                                 infer_interactive(mock_config)
@@ -168,8 +185,8 @@ class TestPrettyInterfaceRegression:
             Console,  # Rich console
             Live,  # Thinking animation
             Panel,  # UI panels
-            Text,  # Text rendering
             Spinner,  # Spinner animation
+            Text,  # Text rendering
         )
 
         # If we get here without ImportError, the pretty interface imports are available

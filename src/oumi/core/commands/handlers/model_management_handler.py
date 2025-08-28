@@ -146,11 +146,15 @@ class ModelManagementHandler(BaseCommandHandler):
                     should_continue=False,
                 )
 
-            # Load and parse the new config
-            from oumi.core.configs import InferenceConfig
+            # Load and parse the new config, preserving UI and remote settings
+            from oumi.core.commands.config_utils import (
+                load_config_from_yaml_preserving_settings,
+            )
 
             try:
-                new_config = InferenceConfig.from_yaml(str(full_path))
+                new_config = load_config_from_yaml_preserving_settings(
+                    str(full_path), self.context.config
+                )
             except Exception as e:
                 return CommandResult(
                     success=False,
@@ -458,15 +462,23 @@ class ModelManagementHandler(BaseCommandHandler):
                 current_branch = self.context.branch_manager.get_current_branch()
                 if current_branch:
                     # Save model name and engine type
-                    current_branch.model_name = getattr(self.context.config.model, 'model_name', None)
-                    current_branch.engine_type = self.context.config.engine.value if self.context.config.engine else None
-                    
+                    current_branch.model_name = getattr(
+                        self.context.config.model, "model_name", None
+                    )
+                    current_branch.engine_type = (
+                        self.context.config.engine.value
+                        if self.context.config.engine
+                        else None
+                    )
+
                     # Save serialized model and generation configs
                     current_branch.model_config = self._serialize_model_config(
                         self.context.config.model
                     )
-                    current_branch.generation_config = self._serialize_generation_config(
-                        self.context.config.generation
+                    current_branch.generation_config = (
+                        self._serialize_generation_config(
+                            self.context.config.generation
+                        )
                     )
         except Exception:
             # Silently fail to avoid disrupting user experience
@@ -492,7 +504,7 @@ class ModelManagementHandler(BaseCommandHandler):
         for attr in [
             "model_name",
             "model_max_length",
-            "torch_dtype_str", 
+            "torch_dtype_str",
             "attn_implementation",
             "trust_remote_code",
             "tokenizer_name",
@@ -585,7 +597,7 @@ class ModelManagementHandler(BaseCommandHandler):
         # Include all actual GenerationParams fields
         for attr in [
             "max_new_tokens",
-            "batch_size", 
+            "batch_size",
             "temperature",
             "top_p",
             "frequency_penalty",

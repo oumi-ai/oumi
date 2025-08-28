@@ -306,7 +306,7 @@ def _process_latex_expressions(content: str) -> str:
 
 def _initialize_main_branch_model_state(command_context):
     """Initialize the main branch with the starting model configuration.
-    
+
     Args:
         command_context: CommandContext object with configuration and branch manager.
     """
@@ -314,16 +314,26 @@ def _initialize_main_branch_model_state(command_context):
         # Get the main branch and save initial model state
         branch_manager = command_context.branch_manager
         main_branch = branch_manager.get_current_branch()  # Should be main
-        
+
         if main_branch and main_branch.id == "main":
             # Save initial model configuration to main branch
-            main_branch.model_name = getattr(command_context.config.model, 'model_name', None)
-            main_branch.engine_type = command_context.config.engine.value if command_context.config.engine else None
-            
+            main_branch.model_name = getattr(
+                command_context.config.model, "model_name", None
+            )
+            main_branch.engine_type = (
+                command_context.config.engine.value
+                if command_context.config.engine
+                else None
+            )
+
             # Serialize model and generation configs
-            main_branch.model_config = _serialize_model_config(command_context.config.model)
-            main_branch.generation_config = _serialize_generation_config(command_context.config.generation)
-            
+            main_branch.model_config = _serialize_model_config(
+                command_context.config.model
+            )
+            main_branch.generation_config = _serialize_generation_config(
+                command_context.config.generation
+            )
+
     except Exception as e:
         # Don't fail startup if this fails, just log
         logger.warning(f"Failed to initialize main branch model state: {e}")
@@ -337,7 +347,7 @@ def _serialize_model_config(model_config) -> dict:
     config_dict = {}
     for attr in [
         "model_name",
-        "model_max_length", 
+        "model_max_length",
         "torch_dtype_str",
         "attn_implementation",
         "trust_remote_code",
@@ -365,7 +375,7 @@ def _serialize_generation_config(generation_config) -> dict:
     config_dict = {}
     for attr in [
         "max_new_tokens",
-        "batch_size", 
+        "batch_size",
         "temperature",
         "top_p",
         "frequency_penalty",
