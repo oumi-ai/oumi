@@ -61,6 +61,7 @@ dependencies = [
     "pillow>=11.3,<11.4",      # Used by image datasets
     "protobuf>=6.32",
     "pydantic>=2.11,<2.12",
+    "reportlab>=4.0.0",           # PDF generation for /save() command in interactive inference
     "responses>=0.25,<0.26",
     "safetensors>=0.6,<0.7",
     "skypilot>=0.7,<0.8",      #  Used by launcher
@@ -176,7 +177,14 @@ cambrian = [
 
 file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
+interactive = [
+    "asciinema>=2.4.0",    # Terminal recording for /render() command
+    "requests>=2.31.0",    # Web requests for /fetch() command
+    "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
+]
+
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
+
 
 # CI targets
 ci_cpu = [
@@ -286,4 +294,8 @@ markers = [
     "e2e_eternal: Extremely slow e2e integration tests (for manual/selective runs)",
     "single_gpu: The test uses max 1 GPU (can be potentially skipped on multi-GPU machine to conserve GPU resources)",
     "multi_gpu: The test should run on a machine with multiple GPU-s",
+    "real_model_chat: Chat tests using actual model inference (slower than mocked tests)",
+    "chat_fuzzing: Stress/fuzzing tests with extended runtime for chat functionality",
+    "chat_journey: Complete end-to-end user workflow integration tests",
+    "chat_performance: Performance and resource usage tests for chat functionality",
 ]

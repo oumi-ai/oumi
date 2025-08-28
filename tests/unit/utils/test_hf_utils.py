@@ -3,8 +3,12 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-import datasets
 import pytest
+
+try:
+    from datasets import Dataset
+except ImportError:
+    Dataset = None
 
 from oumi.utils.hf_utils import (
     find_hf_token,
@@ -15,7 +19,7 @@ from oumi.utils.hf_utils import (
 
 def test_is_saved_to_disk_hf_dataset():
     with tempfile.TemporaryDirectory() as output_temp_dir:
-        ds = datasets.Dataset.from_dict(
+        ds = Dataset.from_dict(
             {"pokemon": ["bulbasaur", "squirtle"], "type": ["grass", "water"]}
         )
         ds_dir = Path(output_temp_dir) / "toy_dataset"
