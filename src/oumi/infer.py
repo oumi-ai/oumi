@@ -13,17 +13,13 @@
 # limitations under the License.
 
 import re
-import threading
 import time
 from contextlib import contextmanager
 from typing import Optional
 
 from rich.console import Console
-from rich.layout import Layout
-from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
-from rich.spinner import Spinner
 from rich.text import Text
 
 from oumi.builders.inference_engines import build_inference_engine
@@ -77,7 +73,7 @@ def thinking_with_monitor(
     style_params=None,
 ):
     """Context manager that shows thinking animation with live system monitor updates.
-    
+
     Uses a scrollback-friendly approach that doesn't interfere with terminal history.
 
     Args:
@@ -88,18 +84,15 @@ def thinking_with_monitor(
         update_interval: Seconds between system monitor updates.
         style_params: Optional style parameters for system monitor theming.
     """
-    from rich.spinner import Spinner
-    from rich.status import Status
-    
     # Create a simple status display that doesn't break scrollback
     spinner_text = f"[{style}]{status_message}[/{style}]"
-    
+
     # Display initial system monitor info inline (compact format)
     compact_stats = system_monitor.format_compact_stats(style_params=style_params)
-    
+
     # Show thinking status with compact system info
     status_line = f"{spinner_text} {compact_stats}"
-    
+
     with console.status(status_line, spinner="dots"):
         try:
             yield
@@ -108,9 +101,11 @@ def thinking_with_monitor(
             pass
 
 
-def _display_user_message(console: Console, user_text: str, style_params=None, is_command: bool = False) -> None:
+def _display_user_message(
+    console: Console, user_text: str, style_params=None, is_command: bool = False
+) -> None:
     """Display a user message in the chat interface.
-    
+
     Args:
         console: Rich console for output.
         user_text: The user's input text.
@@ -119,7 +114,7 @@ def _display_user_message(console: Console, user_text: str, style_params=None, i
     """
     from rich.panel import Panel
     from rich.text import Text
-    
+
     # Set default style values if not provided
     if style_params is None:
         user_title_style = "bold blue"
@@ -133,7 +128,7 @@ def _display_user_message(console: Console, user_text: str, style_params=None, i
         user_text_style = getattr(style_params, "user_text_style", "white")
         user_padding = getattr(style_params, "user_padding", (0, 1))
         expand_panels = getattr(style_params, "expand_panels", False)
-    
+
     # Choose title and styling based on whether it's a command
     if is_command:
         title = "You (command)"
@@ -142,7 +137,7 @@ def _display_user_message(console: Console, user_text: str, style_params=None, i
     else:
         title = "You"
         title_style = user_title_style
-    
+
     # Display the user message
     console.print(
         Panel(
@@ -929,10 +924,10 @@ def infer_interactive(
 
             # Display user message so it appears in scrollback
             _display_user_message(
-                console=console, 
-                user_text=input_text, 
+                console=console,
+                user_text=input_text,
                 style_params=config.style,
-                is_command=input_text.strip().startswith('/')
+                is_command=input_text.strip().startswith("/"),
             )
 
             # Check for commands first

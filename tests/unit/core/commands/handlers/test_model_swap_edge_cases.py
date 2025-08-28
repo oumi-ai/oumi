@@ -456,4 +456,3 @@ class TestModelSwapEdgeCases:
             assert result.success
             # Verify context window manager was reset
             assert handler.context._context_window_manager is None
-

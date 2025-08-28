@@ -176,8 +176,9 @@ class ModelManagementHandler(BaseCommandHandler):
                         new_config.model, "model_name", "Unknown"
                     )
 
-                # Model swaps only change current context - state is saved during branch transitions
-                
+                # Model swaps only change current context - state is saved during
+                # branch transitions
+
                 # Dispose of old engine to free memory
                 self._dispose_old_engine()
 
@@ -616,7 +617,7 @@ class ModelManagementHandler(BaseCommandHandler):
 
     def _force_complete_monitor_refresh(self):
         """Force a comprehensive refresh of the system monitor after model swap.
-        
+
         This ensures all model-related metrics are updated immediately to provide
         instant visual feedback to the user after a model change.
         """
@@ -624,53 +625,64 @@ class ModelManagementHandler(BaseCommandHandler):
             if hasattr(self.context, "system_monitor") and self.context.system_monitor:
                 # Force immediate refresh by resetting last update time
                 self.context.system_monitor._last_update_time = 0
-                
+
                 # Update all relevant metrics
                 if hasattr(self.context.system_monitor, "update_conversation_turns"):
                     turns = len(self.context.conversation_history) // 2
                     self.context.system_monitor.update_conversation_turns(turns)
-                
+
                 # Force refresh of system stats to reflect any new memory usage
                 if hasattr(self.context.system_monitor, "get_stats"):
                     self.context.system_monitor.get_stats()
-                    
+
                 from oumi.utils.logging import logger
+
                 logger.info("System monitor refreshed after model swap")
-                
+
         except Exception as e:
             # Don't fail the model swap if monitor refresh fails
             from oumi.utils.logging import logger
+
             logger.warning(f"Failed to refresh system monitor after model swap: {e}")
 
     def _dispose_old_engine(self):
-        """Dispose of the old inference engine to free memory, including CUDA cleanup."""
+        """Dispose of the old inference engine to free memory.
+
+        Including CUDA cleanup.
+        """
         try:
-            if hasattr(self.context, 'inference_engine') and self.context.inference_engine:
+            if (
+                hasattr(self.context, "inference_engine")
+                and self.context.inference_engine
+            ):
                 old_engine = self.context.inference_engine
-                
+
                 # Try to call cleanup methods if available
-                if hasattr(old_engine, 'cleanup'):
+                if hasattr(old_engine, "cleanup"):
                     old_engine.cleanup()
-                elif hasattr(old_engine, 'close'):
+                elif hasattr(old_engine, "close"):
                     old_engine.close()
-                
+
                 # Clear CUDA cache if available
                 try:
                     import torch
+
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
                         torch.cuda.synchronize()
                 except ImportError:
                     pass  # PyTorch not available
-                
+
                 # Clear the reference
                 self.context.inference_engine = None
-                
+
                 # Force garbage collection to free memory immediately
                 import gc
+
                 gc.collect()
-                
+
         except Exception as e:
             # Don't fail the swap if cleanup fails
             from oumi.utils.logging import logger
+
             logger.warning(f"Failed to dispose of old engine: {e}")

@@ -19,8 +19,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 
 
 @dataclass
@@ -188,7 +186,6 @@ class SystemMonitor:
             return True
         return False
 
-
     def display_hud(self, console: Console, style_params=None):
         """Display the HUD if update interval has passed.
 
@@ -202,13 +199,13 @@ class SystemMonitor:
 
     def format_compact_stats(self, stats=None, style_params=None) -> str:
         """Format system stats in a compact single-line format with colors.
-        
+
         This is the centralized utility for all compact system stat displays.
-        
+
         Args:
             stats: SystemStats object. If None, will call get_stats().
             style_params: Optional style parameters for color theming.
-            
+
         Returns:
             Compact string representation of system stats with Rich color formatting.
         """
@@ -216,9 +213,10 @@ class SystemMonitor:
             # Get stats if not provided
             if stats is None:
                 stats = self.get_stats()
-            
-            # Handle both SystemStats objects and dictionaries for backward compatibility
-            if hasattr(stats, 'cpu_percent'):
+
+            # Handle both SystemStats objects and dictionaries for backward
+            # compatibility
+            if hasattr(stats, "cpu_percent"):
                 # SystemStats object (preferred)
                 cpu_percent = stats.cpu_percent
                 memory_used = stats.ram_used_gb
@@ -234,19 +232,33 @@ class SystemMonitor:
                 memory_percent = stats.get("memory_percent", 0)
                 context_used = stats.get("context_used", 0)
                 context_total = stats.get("context_total", 0)
-            
+
             # Get colors based on usage levels
             cpu_color = self._get_usage_color(cpu_percent, style_params)
             ram_color = self._get_usage_color(memory_percent, style_params)
-            context_color = self._get_usage_color((context_used / context_total * 100) if context_total > 0 else 0, style_params)
-            
+            context_color = self._get_usage_color(
+                (context_used / context_total * 100) if context_total > 0 else 0,
+                style_params,
+            )
+
             # Format context info if available
             context_info = ""
             if context_total and context_total > 0:
                 context_free = context_total - context_used
-                context_info = f" | [bold cyan]Context:[/bold cyan] [{context_color}]{context_used}/{context_total}[/{context_color}] ({context_free} free)"
-                
-            return f"[bold cyan]CPU:[/bold cyan] [{cpu_color}]{cpu_percent:.1f}%[/{cpu_color}] | [bold cyan]RAM:[/bold cyan] [{ram_color}]{memory_used:.1f}/{memory_total:.1f}GB ({memory_percent:.1f}%)[/{ram_color}]{context_info}"
+                context_info = (
+                    f" | [bold cyan]Context:[/bold cyan] "
+                    f"[{context_color}]{context_used}/{context_total}"
+                    f"[/{context_color}] "
+                    f"({context_free} free)"
+                )
+
+            return (
+                f"[bold cyan]CPU:[/bold cyan] [{cpu_color}]{cpu_percent:.1f}%"
+                f"[/{cpu_color}] | "
+                f"[bold cyan]RAM:[/bold cyan] [{ram_color}]{memory_used:.1f}/"
+                f"{memory_total:.1f}GB "
+                f"({memory_percent:.1f}%)[/{ram_color}]{context_info}"
+            )
         except Exception as e:
             return f"System stats unavailable ({e})"
 

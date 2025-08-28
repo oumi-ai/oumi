@@ -428,8 +428,9 @@ class TestBranchModelStateConservation:
             mock_get_engine.return_value = mock_engine
 
             # Update context to simulate being on branch_1
-            (branch_ops_handler.context.branch_manager
-             .get_current_branch.return_value) = branch_1
+            (
+                branch_ops_handler.context.branch_manager.get_current_branch.return_value
+            ) = branch_1
 
             # Swap to Gemma config
             result = model_mgmt_handler._handle_config_swap("configs/gemma.yaml")
@@ -493,4 +494,3 @@ class TestBranchModelStateConservation:
             )
             # Verify force refresh was triggered
             assert handler.context.system_monitor._last_update_time == 0
-

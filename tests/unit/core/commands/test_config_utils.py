@@ -119,4 +119,3 @@ class TestConfigUtils:
         # None settings preserved
         assert result_config.style is None
         assert result_config.remote_params is None
-
