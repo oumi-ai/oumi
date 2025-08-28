@@ -172,6 +172,9 @@ class ModelManagementHandler(BaseCommandHandler):
                         new_config.model, "model_name", "Unknown"
                     )
 
+                # Save current model state to current branch before swapping
+                self._save_current_model_state_to_branch()
+
                 # Replace the current inference engine and config
                 self.context.inference_engine = new_engine
                 self.context.config = new_config
@@ -448,18 +451,22 @@ class ModelManagementHandler(BaseCommandHandler):
 
         return engines
 
-    def _save_current_model_state_to_branch(self, branch_id: str):
-        """Save current model configuration to a branch."""
+    def _save_current_model_state_to_branch(self):
+        """Save current model configuration to the current branch."""
         try:
             if hasattr(self.context, "branch_manager") and self.context.branch_manager:
-                if branch_id in self.context.branch_manager.branches:
-                    branch = self.context.branch_manager.branches[branch_id]
-                    # Save model and generation configs
-                    branch.model_config = self._serialize_model_config(
-                        self.config.model
+                current_branch = self.context.branch_manager.get_current_branch()
+                if current_branch:
+                    # Save model name and engine type
+                    current_branch.model_name = getattr(self.context.config.model, 'model_name', None)
+                    current_branch.engine_type = self.context.config.engine.value if self.context.config.engine else None
+                    
+                    # Save serialized model and generation configs
+                    current_branch.model_config = self._serialize_model_config(
+                        self.context.config.model
                     )
-                    branch.generation_config = self._serialize_generation_config(
-                        self.config.generation
+                    current_branch.generation_config = self._serialize_generation_config(
+                        self.context.config.generation
                     )
         except Exception:
             # Silently fail to avoid disrupting user experience
@@ -485,13 +492,21 @@ class ModelManagementHandler(BaseCommandHandler):
         for attr in [
             "model_name",
             "model_max_length",
-            "torch_dtype_str",
+            "torch_dtype_str", 
             "attn_implementation",
+            "trust_remote_code",
+            "tokenizer_name",
+            "model_kwargs",  # Critical for GGUF filename
+            "adapter_model",
+            "device_map",
+            "load_in_8bit",
+            "load_in_4bit",
+            "quantization_config",
         ]:
             if hasattr(model_config, attr):
                 value = getattr(model_config, attr)
                 if value is not None:
-                    config_dict[attr] = str(value)
+                    config_dict[attr] = value  # Keep original types (dict, list, etc.)
 
         return config_dict
 
@@ -570,15 +585,15 @@ class ModelManagementHandler(BaseCommandHandler):
         # Include all actual GenerationParams fields
         for attr in [
             "max_new_tokens",
-            "batch_size",
-            "exclude_prompt_from_response",
-            "seed",
+            "batch_size", 
             "temperature",
             "top_p",
             "frequency_penalty",
             "presence_penalty",
             "stop_strings",
             "stop_token_ids",
+            "seed",
+            "exclude_prompt_from_response",
             "logit_bias",
             "min_p",
             "use_cache",

@@ -304,6 +304,84 @@ def _process_latex_expressions(content: str) -> str:
     return content
 
 
+def _initialize_main_branch_model_state(command_context):
+    """Initialize the main branch with the starting model configuration.
+    
+    Args:
+        command_context: CommandContext object with configuration and branch manager.
+    """
+    try:
+        # Get the main branch and save initial model state
+        branch_manager = command_context.branch_manager
+        main_branch = branch_manager.get_current_branch()  # Should be main
+        
+        if main_branch and main_branch.id == "main":
+            # Save initial model configuration to main branch
+            main_branch.model_name = getattr(command_context.config.model, 'model_name', None)
+            main_branch.engine_type = command_context.config.engine.value if command_context.config.engine else None
+            
+            # Serialize model and generation configs
+            main_branch.model_config = _serialize_model_config(command_context.config.model)
+            main_branch.generation_config = _serialize_generation_config(command_context.config.generation)
+            
+    except Exception as e:
+        # Don't fail startup if this fails, just log
+        logger.warning(f"Failed to initialize main branch model state: {e}")
+
+
+def _serialize_model_config(model_config) -> dict:
+    """Serialize model config to dictionary."""
+    if model_config is None:
+        return {}
+
+    config_dict = {}
+    for attr in [
+        "model_name",
+        "model_max_length", 
+        "torch_dtype_str",
+        "attn_implementation",
+        "trust_remote_code",
+        "tokenizer_name",
+        "model_kwargs",  # Critical for GGUF filename
+        "adapter_model",
+        "device_map",
+        "load_in_8bit",
+        "load_in_4bit",
+        "quantization_config",
+    ]:
+        if hasattr(model_config, attr):
+            value = getattr(model_config, attr)
+            if value is not None:
+                config_dict[attr] = value  # Keep original types (dict, list, etc.)
+
+    return config_dict
+
+
+def _serialize_generation_config(generation_config) -> dict:
+    """Serialize generation config to dictionary."""
+    if generation_config is None:
+        return {}
+
+    config_dict = {}
+    for attr in [
+        "max_new_tokens",
+        "batch_size", 
+        "temperature",
+        "top_p",
+        "frequency_penalty",
+        "presence_penalty",
+        "stop_strings",
+        "stop_token_ids",
+        "seed",
+    ]:
+        if hasattr(generation_config, attr):
+            value = getattr(generation_config, attr)
+            if value is not None:
+                config_dict[attr] = value
+
+    return config_dict
+
+
 def _is_gpt_oss_model(model_name: str) -> bool:
     """Check if the model is a GPT-OSS model that requires Harmony format.
 
@@ -774,6 +852,9 @@ def infer_interactive(
     )
     command_router = CommandRouter(command_context)
     command_context.set_command_router(command_router)
+
+    # Initialize main branch with starting model state
+    _initialize_main_branch_model_state(command_context)
 
     # Note: After this point, use command_context.inference_engine and
     # command_context.config
