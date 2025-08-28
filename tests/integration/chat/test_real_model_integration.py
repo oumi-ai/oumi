@@ -374,6 +374,7 @@ class TestVllmChatEngine(AbstractRealModelChatTest):
         """Check if vLLM tests should be skipped."""
         try:
             from importlib.util import find_spec
+
             return None if find_spec("vllm") is not None else "vLLM not available"
         except ImportError:
             return "vLLM not available"
@@ -400,6 +401,7 @@ class TestLlamaCppChatEngine(AbstractRealModelChatTest):
         """Check if LlamaCPP tests should be skipped."""
         try:
             from importlib.util import find_spec
+
             return (
                 None
                 if find_spec("llama_cpp") is not None

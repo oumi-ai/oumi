@@ -23,7 +23,9 @@ from oumi.core.types.conversation import Conversation, Message, Role
 class CompactionEngine:
     """Engine for compacting conversation history to reduce token usage."""
 
-    COMPACT_PROMPT = """You are a conversation summarizer. Your task is to create a concise summary of the conversation history provided below, preserving the most important information, context, and any key decisions or conclusions.
+    COMPACT_PROMPT = """You are a conversation summarizer. Your task is to create a
+concise summary of the conversation history provided below, preserving the most
+important information, context, and any key decisions or conclusions.
 
 Important guidelines:
 1. Maintain factual accuracy

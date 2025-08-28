@@ -143,7 +143,7 @@ class TestCommandRouter:
         ]
 
         for parsed_cmd in test_cases:
-            with patch("oumi.core.commands.handlers") as mock_handlers:
+            with patch("oumi.core.commands.handlers"):
                 # Mock any handler that might be called
                 mock_handler = Mock()
                 mock_handler.handle.return_value = CommandResult(
@@ -209,7 +209,7 @@ class TestCommandRouter:
                 raw_input=f"/{command_name}(...)",
             )
 
-            with patch("oumi.core.commands.handlers") as mock_handlers:
+            with patch("oumi.core.commands.handlers"):
                 # Set up mock to track which handler type would be selected
                 mock_handler = Mock()
                 mock_handler.handle.return_value = CommandResult(

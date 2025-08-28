@@ -120,7 +120,7 @@ class CommandRouter:
         )
 
     def _generate_help_content(self) -> str:
-        """Generate comprehensive help content using the centralized command registry."""
+        """Generate comprehensive help content using centralized command registry."""
         # Get all commands from the registry
         all_commands = COMMAND_REGISTRY.get_all_commands()
         total_commands = len(all_commands)
@@ -276,7 +276,11 @@ class CommandRouter:
 /macro(judge.jinja)        # Execute a judgment/evaluation macro
 ```
 
-{"🎨 **Tip**: Customize appearance with style themes!" if getattr(self.context._style, "use_emoji", True) else "Tip: Customize appearance with style themes!"}
+{
+            "🎨 **Tip**: Customize appearance with style themes!"
+            if getattr(self.context._style, "use_emoji", True)
+            else "Tip: Customize appearance with style themes!"
+        }
         """
 
         return help_content.strip()

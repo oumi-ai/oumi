@@ -27,8 +27,10 @@ class ParsedCommand:
 
     Examples:
         /help() -> command="help", args=[], kwargs={}, raw_input="/help()"
-        /attach(image.jpg) -> command="attach", args=["image.jpg"], kwargs={}, raw_input="/attach(image.jpg)"
-        /set(temperature=0.8) -> command="set", args=[], kwargs={"temperature": "0.8"}, raw_input="/set(temperature=0.8)"
+        /attach(image.jpg) -> command="attach", args=["image.jpg"], kwargs={},
+                              raw_input="/attach(image.jpg)"
+        /set(temperature=0.8) -> command="set", args=[], kwargs={"temperature": "0.8"},
+                                 raw_input="/set(temperature=0.8)"
     """
 
     command: str
@@ -162,7 +164,8 @@ class CommandParser:
         if args_str.strip():
             # Find all argument matches
             for arg_match in self.ARG_PATTERN.finditer(args_str):
-                # Groups: 1=key, 2=quoted_value, 3=single_quoted_value, 4=unquoted_value,
+                # Groups: 1=key, 2=quoted_value, 3=single_quoted_value,
+                # 4=unquoted_value,
                 #         5=quoted_pos, 6=single_quoted_pos, 7=unquoted_pos
                 key = arg_match.group(1)
 
@@ -257,7 +260,9 @@ class CommandParser:
             if not parsed_command.args:
                 return (
                     False,
-                    "swap command requires a model name or config path (e.g., model_name, engine:model_name, or config:path/to/config.yaml)",
+                    "swap command requires a model name or config path "
+                    "(e.g., model_name, engine:model_name, or "
+                    "config:path/to/config.yaml)",
                 )
         elif parsed_command.command == "set":
             if not parsed_command.kwargs:

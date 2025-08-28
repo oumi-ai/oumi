@@ -207,7 +207,10 @@ class ContextWindowManager:
 
         return {
             "strategy": "chunk_processing",
-            "reason": f"Content ({total_tokens} tokens) exceeds available space ({available_tokens} tokens)",
+            "reason": (
+                f"Content ({total_tokens} tokens) exceeds available space "
+                f"({available_tokens} tokens)"
+            ),
             "chunk_size": chunk_size,
             "estimated_chunks": num_chunks,
             "recommendation": (

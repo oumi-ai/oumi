@@ -16,7 +16,6 @@
 
 import json
 import mimetypes
-import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -270,7 +269,8 @@ File type: {file_info.file_type.value}
 Size: {size_mb:.2f} MB
 Path: {file_info.path}
 
-Note: This is an image file that has been attached to the conversation. The actual image content is not displayed as text, but you can reference it in your response.
+Note: This is an image file that has been attached to the conversation. The actual
+image content is not displayed as text, but you can reference it in your response.
 """
 
             return AttachmentResult(
@@ -296,10 +296,16 @@ Note: This is an image file that has been attached to the conversation. The actu
             text_content += (
                 "⚠️ PDF is too large for full processing. Showing file info only.\n\n"
             )
-            text_content += "**Recommendation**: Use a PDF reader to extract specific sections you'd like to discuss."
+            text_content += (
+                "**Recommendation**: Use a PDF reader to extract specific sections "
+                "you'd like to discuss."
+            )
         else:
             text_content += "📝 PDF processing will be enhanced in a future update.\n"
-            text_content += "For now, please extract the text you'd like to discuss and paste it directly."
+            text_content += (
+                "For now, please extract the text you'd like to discuss and "
+                "paste it directly."
+            )
 
         warning_message = None
         if file_info.processing_strategy == ProcessingStrategy.PREVIEW_ONLY:
@@ -349,7 +355,10 @@ Note: This is an image file that has been attached to the conversation. The actu
                 content, budget.available_for_content
             )
             processed_content = self._format_text_content(file_info, truncated_content)
-            context_info = f"Content truncated to fit context ({budget.available_for_content:,} tokens)"
+            context_info = (
+                f"Content truncated to fit context "
+                f"({budget.available_for_content:,} tokens)"
+            )
 
         else:
             # Preview only
@@ -357,7 +366,10 @@ Note: This is an image file that has been attached to the conversation. The actu
             processed_content = self._format_text_content(
                 file_info, preview, is_preview=True
             )
-            context_info = f"Preview only - file too large ({token_estimate.estimated_tokens:,} tokens)"
+            context_info = (
+                f"Preview only - file too large "
+                f"({token_estimate.estimated_tokens:,} tokens)"
+            )
 
         # Prepare warning message if needed
         warning_message = None
@@ -368,7 +380,10 @@ Note: This is an image file that has been attached to the conversation. The actu
                 )
                 warning_message = chunk_info["recommendation"]
             else:
-                warning_message = f"File truncated - original size: {token_estimate.estimated_tokens:,} tokens"
+                warning_message = (
+                    f"File truncated - original size: "
+                    f"{token_estimate.estimated_tokens:,} tokens"
+                )
 
         return AttachmentResult(
             file_info=file_info,
@@ -408,7 +423,10 @@ Note: This is an image file that has been attached to the conversation. The actu
 
             if file_info.processing_strategy == ProcessingStrategy.PREVIEW_ONLY:
                 text_content += "⚠️ CSV is large. Showing preview only.\n"
-                text_content += "**Tip**: Ask specific questions about the data structure or request analysis of particular columns."
+                text_content += (
+                    "**Tip**: Ask specific questions about the data structure or "
+                    "request analysis of particular columns."
+                )
 
             warning_message = None
             if file_info.processing_strategy == ProcessingStrategy.PREVIEW_ONLY:
@@ -457,7 +475,10 @@ Note: This is an image file that has been attached to the conversation. The actu
                     "Ask about specific keys or sections you're interested in."
                 )
 
-                context_info = f"JSON structure summary ({token_estimate.estimated_tokens:,} tokens total)"
+                context_info = (
+                    f"JSON structure summary "
+                    f"({token_estimate.estimated_tokens:,} tokens total)"
+                )
                 warning_message = (
                     "Large JSON file truncated - use specific queries for detailed data"
                 )
@@ -483,8 +504,14 @@ Note: This is an image file that has been attached to the conversation. The actu
         text_content += f"Size: {size_mb:.2f} MB\n"
         text_content += f"Type: {file_info.mime_type or 'Unknown'}\n\n"
         text_content += "⚠️ File type not recognized for automatic processing.\n\n"
-        text_content += "**Supported formats**: Images (JPG, PNG, etc.), PDF, Text files, CSV, JSON, Markdown, Code files\n\n"
-        text_content += "**Suggestion**: If this is a text file, try renaming with a `.txt` extension."
+        text_content += (
+            "**Supported formats**: Images (JPG, PNG, etc.), PDF, Text files, "
+            "CSV, JSON, Markdown, Code files\n\n"
+        )
+        text_content += (
+            "**Suggestion**: If this is a text file, try renaming with a "
+            "`.txt` extension."
+        )
 
         return AttachmentResult(
             file_info=file_info,
@@ -506,7 +533,10 @@ Note: This is an image file that has been attached to the conversation. The actu
 
         preview_note = " (Preview)" if is_preview else ""
 
-        result = f"{icon} **Attached {file_info.file_type.value.title()}: {file_info.name}**{preview_note}\n\n"
+        result = (
+            f"{icon} **Attached {file_info.file_type.value.title()}: "
+            f"{file_info.name}**{preview_note}\n\n"
+        )
 
         # Determine appropriate code block language
         lang = ""
@@ -565,7 +595,8 @@ Note: This is an image file that has been attached to the conversation. The actu
                     result += f"{indent}  Item type: {type(value[0]).__name__}\n"
                 return result
             else:
-                return f"{indent}{type(value).__name__}: {str(value)[:50]}{'...' if len(str(value)) > 50 else ''}\n"
+                suffix = "..." if len(str(value)) > 50 else ""
+                return f"{indent}{type(value).__name__}: {str(value)[:50]}{suffix}\n"
 
         return analyze_value(data)
 
@@ -575,7 +606,7 @@ Note: This is an image file that has been attached to the conversation. The actu
         """Create an error result for failed file processing."""
         file_info = FileInfo(
             path=file_path,
-            name=os.path.basename(file_path),
+            name=Path(file_path).name,
             size_bytes=0,
             file_type=FileType.UNKNOWN,
             mime_type=None,

@@ -15,7 +15,6 @@
 """Chat browser for browsing and playing back recent conversations."""
 
 import json
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +34,7 @@ class ChatBrowser:
     """Browser for recent chat conversations with playback support."""
 
     def __init__(self, console: Console = None, config: InferenceConfig = None):
+        """Initialize chat browser with console and config."""
         # Support both old signature (config) and new signature (console)
         if console is not None:
             self.console = console
@@ -44,10 +44,8 @@ class ChatBrowser:
             self.config = console if console is not None else config
             self.console = Console()
 
-        self.cache_dir = Path(os.path.expanduser("~")) / ".oumi" / "chat_cache"
+        self.cache_dir = Path.home() / ".oumi" / "chat_cache"
         self.metadata_file = self.cache_dir / "metadata.json"
-        self.tts_enabled = False
-        self.tts_engine = None
 
     def browse_recent_chats(self) -> Optional[str]:
         """Browse recent chats and return selected chat ID for command integration."""
@@ -62,7 +60,7 @@ class ChatBrowser:
 
         # Get user selection
         choice = self._get_user_choice(recent_chats)
-        if choice is None or choice in ["refresh", "tts", "invalid"]:
+        if choice is None or choice in ["refresh", "invalid"]:
             return None
         elif isinstance(choice, int):
             # Return the chat ID for the selected chat
@@ -99,9 +97,6 @@ class ChatBrowser:
                 break
             elif choice == "refresh":
                 recent_chats = self._load_recent_chats()
-                continue
-            elif choice == "tts":
-                self._toggle_tts()
                 continue
             elif isinstance(choice, int):
                 # Load and play back selected chat
@@ -236,13 +231,6 @@ class ChatBrowser:
 
         self.console.print(table)
 
-        # Show TTS status
-        tts_status = "🔊 ON" if self.tts_enabled else "🔇 OFF"
-        if self.config.style.use_emoji:
-            self.console.print(f"TTS: {tts_status}")
-        else:
-            status_text = "ON" if self.tts_enabled else "OFF"
-            self.console.print(f"TTS: {status_text}")
 
     def _get_user_choice(self, chats: list[dict[str, Any]]) -> Optional[Any]:
         """Get user's menu choice."""
@@ -250,7 +238,6 @@ class ChatBrowser:
         self.console.print("[dim]Commands:[/dim]")
         self.console.print(f"[dim]  1-{len(chats)}: Select chat to play back[/dim]")
         self.console.print("[dim]  r: Refresh chat list[/dim]")
-        self.console.print("[dim]  t: Toggle text-to-speech[/dim]")
         self.console.print("[dim]  q: Quit browser[/dim]")
 
         choice = Prompt.ask("Select option", default="q").strip().lower()
@@ -259,8 +246,6 @@ class ChatBrowser:
             return None
         elif choice in ["r", "refresh"]:
             return "refresh"
-        elif choice in ["t", "tts", "toggle"]:
-            return "tts"
         else:
             try:
                 chat_num = int(choice)
@@ -273,60 +258,6 @@ class ChatBrowser:
                 self.console.print("[red]Invalid choice.[/red]")
                 return "invalid"
 
-    def _toggle_tts(self) -> None:
-        """Toggle text-to-speech functionality."""
-        try:
-            if not self.tts_enabled:
-                # Try to initialize TTS
-                self.console.print("[yellow]Initializing TTS engine...[/yellow]")
-                self._init_tts()
-                if self.tts_engine:
-                    self.tts_enabled = True
-                    self.console.print("[green]TTS enabled.[/green]")
-                else:
-                    self.console.print("[red]Failed to initialize TTS.[/red]")
-            else:
-                self.tts_enabled = False
-                self.tts_engine = None
-                self.console.print("[yellow]TTS disabled.[/yellow]")
-        except Exception as e:
-            self.console.print(f"[red]TTS error: {e}[/red]")
-            self.tts_enabled = False
-
-    def _init_tts(self) -> None:
-        """Initialize KittenTTS engine."""
-        try:
-            # Try to import and initialize KittenTTS
-            import torch
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-
-            # Load KittenTTS nano model (small enough for CPU)
-            model_name = "KittenML/kitten-tts-nano-0.1"
-
-            self.console.print(f"[dim]Loading {model_name}...[/dim]")
-
-            # Use CPU for TTS to avoid GPU memory conflicts
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch.float32,  # Use float32 for CPU
-                device_map="cpu",
-                trust_remote_code=True,
-            )
-
-            self.tts_engine = {
-                "tokenizer": tokenizer,
-                "model": model,
-            }
-
-        except ImportError:
-            self.console.print(
-                "[red]TTS dependencies not available. Install transformers and torch.[/red]"
-            )
-            self.tts_engine = None
-        except Exception as e:
-            self.console.print(f"[red]Failed to load TTS model: {e}[/red]")
-            self.tts_engine = None
 
     def _play_chat(self, chat_metadata: dict[str, Any]) -> None:
         """Play back a selected chat conversation."""
@@ -423,9 +354,6 @@ class ChatBrowser:
                     )
                     self._display_message(display_name, content, "cyan")
 
-                    # Use TTS for assistant messages if enabled
-                    if self.tts_enabled and self.tts_engine:
-                        self._speak_text(content)
 
                 # Add delay between messages (except for last message)
                 if i < len(conversation) - 1:
@@ -456,9 +384,6 @@ class ChatBrowser:
                 )
                 self._display_message(display_name, content, "cyan")
 
-                # Use TTS for assistant messages if enabled
-                if self.tts_enabled and self.tts_engine:
-                    self._speak_text(content)
 
             # Wait for user input (except for last message)
             if i < len(conversation) - 1:
@@ -509,49 +434,3 @@ class ChatBrowser:
             )
         )
 
-    def _speak_text(self, text: str) -> None:
-        """Convert text to speech using TTS engine."""
-        if not self.tts_engine:
-            return
-
-        try:
-            # Simple TTS implementation
-            # Note: KittenTTS might have specific API requirements
-            # This is a placeholder implementation
-
-            # Clean text for TTS (remove markdown, thinking tags, etc.)
-            clean_text = self._clean_text_for_tts(text)
-
-            # Limit text length for TTS
-            if len(clean_text) > 200:
-                clean_text = clean_text[:197] + "..."
-
-            if clean_text.strip():
-                # Basic TTS placeholder - actual implementation would depend on KittenTTS API
-                self.console.print(f"[dim]🔊 Speaking: {clean_text[:50]}...[/dim]")
-
-                # Here you would implement actual TTS generation and playback
-                # For now, just add a small delay to simulate speech time
-                time.sleep(min(len(clean_text) * 0.05, 3.0))  # Max 3 seconds
-
-        except Exception as e:
-            logger.debug(f"TTS error: {e}")
-
-    def _clean_text_for_tts(self, text: str) -> str:
-        """Clean text for text-to-speech processing."""
-        import re
-
-        # Remove markdown formatting
-        text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)  # Bold
-        text = re.sub(r"\*([^*]+)\*", r"\1", text)  # Italic
-        text = re.sub(r"`([^`]+)`", r"\1", text)  # Code
-        text = re.sub(r"```[^`]*```", "", text)  # Code blocks
-        text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)  # Links
-
-        # Remove special characters that don't read well
-        text = re.sub(r"[#|>]", "", text)
-
-        # Clean up whitespace
-        text = re.sub(r"\s+", " ", text)
-
-        return text.strip()
