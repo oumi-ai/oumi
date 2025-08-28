@@ -1,0 +1,57 @@
+{
+  "export_info": {
+    "timestamp": "2025-08-27T20:05:40.372382",
+    "format": "json",
+    "version": "1.0"
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": ""
+    },
+    {
+      "role": "user",
+      "content": "Please analyze all the attached files together"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock assistant response to: Please analyze all the attached files together..."
+    }
+  ]
+}

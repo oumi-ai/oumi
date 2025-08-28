@@ -38,6 +38,7 @@ from oumi.cli.launch import run as launcher_run
 from oumi.cli.quantize import quantize
 from oumi.cli.synth import synth
 from oumi.cli.train import train
+from oumi.cli.webchat import webchat
 from oumi.utils.logging import should_use_rich_logging
 
 _ASCII_LOGO = r"""
@@ -142,6 +143,10 @@ def get_app() -> typer.Typer:
     app.command(
         help="Fetch configuration files from the oumi GitHub repository.",
     )(fetch)
+
+    app.command(
+        help="Launch WebChat interface for interactive chat with models.",
+    )(webchat)
 
     cache_app = typer.Typer(pretty_exceptions_enable=False)
     cache_app.command(name="ls", help="List locally cached items.")(cache_ls)

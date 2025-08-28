@@ -1,0 +1,33 @@
+{
+  "export_info": {
+    "timestamp": "2025-08-27T20:05:40.364908",
+    "format": "json",
+    "version": "1.0"
+  },
+  "conversation": [
+    {
+      "role": "user",
+      "content": "Message 1"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock assistant response to: Message 1..."
+    },
+    {
+      "role": "user",
+      "content": "Message 2"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock assistant response to: Message 2..."
+    },
+    {
+      "role": "user",
+      "content": "Message 3"
+    },
+    {
+      "role": "assistant",
+      "content": "Mock assistant response to: Message 3..."
+    }
+  ]
+}
