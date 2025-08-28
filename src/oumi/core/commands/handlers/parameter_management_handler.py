@@ -146,7 +146,14 @@ class ParameterManagementHandler(BaseCommandHandler):
         # Update the parameter in generation config
         try:
             if hasattr(self.config, "generation") and self.config.generation:
-                setattr(self.config.generation, param, parsed_value)
+                # Map parameter names to actual attribute names
+                param_mapping = {
+                    "sampling": "use_sampling",
+                    "max_tokens": "max_new_tokens",  # Alias for consistency
+                }
+                actual_param = param_mapping.get(param, param)
+
+                setattr(self.config.generation, actual_param, parsed_value)
                 return True, ""
             else:
                 return False, "Generation config not available"

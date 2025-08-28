@@ -14,14 +14,11 @@
 
 """Unit tests for macro operations command handlers."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import pytest
-
-from oumi.core.commands import CommandResult, ParsedCommand
+from oumi.core.commands import ParsedCommand
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.handlers.macro_operations_handler import MacroOperationsHandler
-from oumi.core.input.multiline_input import InputAction, InputResult
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,
@@ -31,7 +28,9 @@ from tests.utils.chat_test_utils import (
 class MockMacroInfo:
     """Mock macro info class for testing."""
 
-    def __init__(self, name="test_macro", description="Test description", turns=1, fields=None):
+    def __init__(
+        self, name="test_macro", description="Test description", turns=1, fields=None
+    ):
         self.name = name
         self.description = description
         self.turns = turns
@@ -41,7 +40,13 @@ class MockMacroInfo:
 class MockMacroField:
     """Mock macro field class for testing."""
 
-    def __init__(self, name="test_field", description="Test field", required=False, placeholder=None):
+    def __init__(
+        self,
+        name="test_field",
+        description="Test field",
+        required=False,
+        placeholder=None,
+    ):
         self.name = name
         self.description = description
         self.required = required
@@ -66,8 +71,11 @@ class TestMacroCommand:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        # Since macro_manager is a property, use object.__setattr__ to bypass the setter restriction
-        object.__setattr__(self.command_context, '_macro_manager', self.mock_macro_manager)
+        # Since macro_manager is a property, use object.__setattr__ to bypass
+        # the setter restriction
+        object.__setattr__(
+            self.command_context, "_macro_manager", self.mock_macro_manager
+        )
 
         self.handler = MacroOperationsHandler(context=self.command_context)
 

@@ -758,22 +758,31 @@ class TestConversationOperationsHandlerReal:
 
         # Create conversation history with thinking content for testing
         self.conversation_history = [
-            {
-                "role": "user", 
-                "content": "Explain quantum computing"
-            },
-            {
-                "role": "assistant", 
-                "content": "<think>\nThis is a complex topic. I should start with basics:\n- Quantum bits (qubits) vs classical bits\n- Superposition principle\n- Entanglement\n- Quantum algorithms\n</think>\n\nQuantum computing is a revolutionary approach to computation that leverages quantum mechanics principles."
-            },
-            {
-                "role": "user",
-                "content": "How does it differ from classical computing?"
-            },
+            {"role": "user", "content": "Explain quantum computing"},
             {
                 "role": "assistant",
-                "content": "<reasoning>\nKey differences to explain:\n1. Information storage: bits vs qubits\n2. Processing: sequential vs parallel \n3. Algorithms: deterministic vs probabilistic\n4. Applications: specific use cases\n</reasoning>\n\nClassical computers use bits (0 or 1), while quantum computers use qubits that can exist in superposition."
-            }
+                "content": (
+                    "<think>\nThis is a complex topic. I should start with basics:\n"
+                    "- Quantum bits (qubits) vs classical bits\n"
+                    "- Superposition principle\n- Entanglement\n"
+                    "- Quantum algorithms\n</think>\n\n"
+                    "Quantum computing is a revolutionary approach to computation "
+                    "that leverages quantum mechanics principles."
+                ),
+            },
+            {"role": "user", "content": "How does it differ from classical computing?"},
+            {
+                "role": "assistant",
+                "content": (
+                    "<reasoning>\nKey differences to explain:\n"
+                    "1. Information storage: bits vs qubits\n"
+                    "2. Processing: sequential vs parallel \n"
+                    "3. Algorithms: deterministic vs probabilistic\n"
+                    "4. Applications: specific use cases\n</reasoning>\n\n"
+                    "Classical computers use bits (0 or 1), while quantum computers "
+                    "use qubits that can exist in superposition."
+                ),
+            },
         ]
 
         self.command_context = CommandContext(
@@ -784,15 +793,24 @@ class TestConversationOperationsHandlerReal:
         )
 
         # Import the actual handler
-        from oumi.core.commands.handlers.conversation_operations_handler import ConversationOperationsHandler
+        from oumi.core.commands.handlers.conversation_operations_handler import (
+            ConversationOperationsHandler,
+        )
+
         self.handler = ConversationOperationsHandler(context=self.command_context)
 
     def test_get_supported_commands_real(self):
         """Test that handler returns correct supported commands."""
         supported = self.handler.get_supported_commands()
         expected_commands = {
-            "delete", "regen", "clear", "compact", 
-            "full_thoughts", "clear_thoughts", "show", "render"
+            "delete",
+            "regen",
+            "clear",
+            "compact",
+            "full_thoughts",
+            "clear_thoughts",
+            "show",
+            "render",
         }
         assert set(supported) == expected_commands
 
@@ -836,11 +854,14 @@ class TestFullThoughtsCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        # Mock thinking processor 
+        # Mock thinking processor
         self.mock_thinking_processor = Mock()
         self.command_context._thinking_processor = self.mock_thinking_processor
 
-        from oumi.core.commands.handlers.conversation_operations_handler import ConversationOperationsHandler
+        from oumi.core.commands.handlers.conversation_operations_handler import (
+            ConversationOperationsHandler,
+        )
+
         self.handler = ConversationOperationsHandler(context=self.command_context)
 
     def test_full_thoughts_toggle_to_full_real(self):
@@ -920,14 +941,24 @@ class TestClearThoughtsCommandReal:
         self.conversation_history = [
             {"role": "user", "content": "What is machine learning?"},
             {
-                "role": "assistant", 
-                "content": "<think>\nI should explain ML concepts clearly:\n- Supervised learning\n- Unsupervised learning\n- Neural networks\n</think>\n\nMachine learning is a subset of artificial intelligence."
+                "role": "assistant",
+                "content": (
+                    "<think>\nI should explain ML concepts clearly:\n"
+                    "- Supervised learning\n- Unsupervised learning\n"
+                    "- Neural networks\n</think>\n\n"
+                    "Machine learning is a subset of artificial intelligence."
+                ),
             },
             {"role": "user", "content": "Give me an example"},
             {
                 "role": "assistant",
-                "content": "<reasoning>\nGood examples would be:\n- Image recognition\n- Recommendation systems\n- Natural language processing\n</reasoning>\n\nA common example is email spam detection."
-            }
+                "content": (
+                    "<reasoning>\nGood examples would be:\n"
+                    "- Image recognition\n- Recommendation systems\n"
+                    "- Natural language processing\n</reasoning>\n\n"
+                    "A common example is email spam detection."
+                ),
+            },
         ]
 
         self.command_context = CommandContext(
@@ -941,11 +972,15 @@ class TestClearThoughtsCommandReal:
         self.mock_thinking_processor = Mock()
         self.command_context._thinking_processor = self.mock_thinking_processor
 
-        from oumi.core.commands.handlers.conversation_operations_handler import ConversationOperationsHandler
+        from oumi.core.commands.handlers.conversation_operations_handler import (
+            ConversationOperationsHandler,
+        )
+
         self.handler = ConversationOperationsHandler(context=self.command_context)
 
     def test_clear_thoughts_removes_thinking_content_real(self):
         """Test that clear_thoughts removes thinking content from messages."""
+
         # Mock clean_thinking_content to return cleaned versions
         def mock_clean_thinking_content(content):
             if "<think>" in content:
@@ -954,7 +989,9 @@ class TestClearThoughtsCommandReal:
                 return "A common example is email spam detection."
             return content
 
-        self.mock_thinking_processor.clean_thinking_content.side_effect = mock_clean_thinking_content
+        self.mock_thinking_processor.clean_thinking_content.side_effect = (
+            mock_clean_thinking_content
+        )
 
         command = ParsedCommand(
             command="clear_thoughts",
@@ -968,14 +1005,20 @@ class TestClearThoughtsCommandReal:
         validate_command_result(
             result,
             expect_success=True,
-            expected_message_parts=["removed thinking content", "2", "assistant message(s)"],
+            expected_message_parts=[
+                "removed thinking content",
+                "2",
+                "assistant message(s)",
+            ],
         )
 
         # Verify processor was called for assistant messages
         assert self.mock_thinking_processor.clean_thinking_content.call_count == 2
 
         # Verify conversation history was actually modified
-        assistant_messages = [msg for msg in self.conversation_history if msg["role"] == "assistant"]
+        assistant_messages = [
+            msg for msg in self.conversation_history if msg["role"] == "assistant"
+        ]
         assert "<think>" not in assistant_messages[0]["content"]
         assert "<reasoning>" not in assistant_messages[1]["content"]
 
@@ -986,7 +1029,7 @@ class TestClearThoughtsCommandReal:
             {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi there!"},
             {"role": "user", "content": "How are you?"},
-            {"role": "assistant", "content": "I'm doing well, thank you!"}
+            {"role": "assistant", "content": "I'm doing well, thank you!"},
         ]
 
         self.command_context.conversation_history = simple_history
@@ -1034,20 +1077,25 @@ class TestClearThoughtsCommandReal:
         # Mix of user and assistant messages
         mixed_history = [
             {"role": "user", "content": "<think>User thinking</think>Question?"},
-            {"role": "assistant", "content": "<think>Assistant thinking</think>Answer."},
+            {
+                "role": "assistant",
+                "content": "<think>Assistant thinking</think>Answer.",
+            },
         ]
 
         self.command_context.conversation_history.clear()
         self.command_context.conversation_history.extend(mixed_history)
         self.mock_thinking_processor.reset_mock()
 
-        # Mock to clean only assistant content  
+        # Mock to clean only assistant content
         def selective_clean(content):
             if "Assistant thinking" in content:
                 return "Answer."
             return content
 
-        self.mock_thinking_processor.clean_thinking_content.side_effect = selective_clean
+        self.mock_thinking_processor.clean_thinking_content.side_effect = (
+            selective_clean
+        )
 
         command = ParsedCommand(
             command="clear_thoughts",
@@ -1062,7 +1110,7 @@ class TestClearThoughtsCommandReal:
 
         # Should only have processed the assistant message (1 call)
         assert self.mock_thinking_processor.clean_thinking_content.call_count == 1
-        
+
         # User message should remain unchanged
         assert "<think>User thinking</think>" in mixed_history[0]["content"]
         # Assistant message should be cleaned
@@ -1081,9 +1129,18 @@ class TestRenderCommandReal:
         # Create conversation history for rendering
         self.conversation_history = [
             {"role": "user", "content": "Hello, how are you?"},
-            {"role": "assistant", "content": "I'm doing great! How can I help you today?"},
+            {
+                "role": "assistant",
+                "content": "I'm doing great! How can I help you today?",
+            },
             {"role": "user", "content": "Can you explain Python?"},
-            {"role": "assistant", "content": "Python is a high-level programming language known for its simplicity."},
+            {
+                "role": "assistant",
+                "content": (
+                    "Python is a high-level programming language "
+                    "known for its simplicity."
+                ),
+            },
         ]
 
         self.command_context = CommandContext(
@@ -1093,16 +1150,24 @@ class TestRenderCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.conversation_operations_handler import ConversationOperationsHandler
+        from oumi.core.commands.handlers.conversation_operations_handler import (
+            ConversationOperationsHandler,
+        )
+
         self.handler = ConversationOperationsHandler(context=self.command_context)
 
-    @patch('oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer')
+    @patch(
+        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+    )
     def test_render_conversation_real(self, mock_renderer_class):
         """Test rendering conversation to asciinema format."""
         # Mock the renderer
         mock_renderer = Mock()
         mock_renderer_class.return_value = mock_renderer
-        mock_renderer.render_to_asciinema.return_value = (True, "✅ Successfully recorded conversation to conversation.cast (1,024 bytes)")
+        mock_renderer.render_to_asciinema.return_value = (
+            True,
+            "✅ Successfully recorded conversation to conversation.cast (1,024 bytes)",
+        )
 
         import tempfile
         from pathlib import Path
@@ -1130,7 +1195,7 @@ class TestRenderCommandReal:
                 conversation_history=self.conversation_history,
                 console=self.mock_console,
                 config=self.test_config,
-                thinking_processor=self.command_context.thinking_processor
+                thinking_processor=self.command_context.thinking_processor,
             )
             mock_renderer.render_to_asciinema.assert_called_once_with(output_path)
 
@@ -1168,12 +1233,17 @@ class TestRenderCommandReal:
             expected_message_parts=["error rendering conversation"],
         )
 
-    @patch('oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer')
+    @patch(
+        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+    )
     def test_render_auto_extension_real(self, mock_renderer_class):
         """Test that render automatically adds .cast extension."""
         mock_renderer = Mock()
         mock_renderer_class.return_value = mock_renderer
-        mock_renderer.render_to_asciinema.return_value = (True, "Successfully recorded conversation to conversation.cast (1,024 bytes)")
+        mock_renderer.render_to_asciinema.return_value = (
+            True,
+            "Successfully recorded conversation to conversation.cast (1,024 bytes)",
+        )
 
         command = ParsedCommand(
             command="render",
@@ -1191,15 +1261,21 @@ class TestRenderCommandReal:
         call_args = mock_renderer.render_to_asciinema.call_args[0]
         assert call_args[0].endswith(".cast")
 
-    @patch('oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer')
+    @patch(
+        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+    )
     def test_render_failure_handling_real(self, mock_renderer_class):
         """Test render command when rendering fails."""
         mock_renderer = Mock()
         mock_renderer_class.return_value = mock_renderer
-        mock_renderer.render_to_asciinema.return_value = (False, "Error rendering conversation: Rendering failed")
+        mock_renderer.render_to_asciinema.return_value = (
+            False,
+            "Error rendering conversation: Rendering failed",
+        )
 
         # Use generated_test_files directory for proper test file management
         from tests.utils.chat_test_utils import ensure_test_file_in_generated_dir
+
         output_path = ensure_test_file_in_generated_dir("conversation.cast")
 
         command = ParsedCommand(
@@ -1227,11 +1303,15 @@ class TestRenderCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.conversation_operations_handler import ConversationOperationsHandler
+        from oumi.core.commands.handlers.conversation_operations_handler import (
+            ConversationOperationsHandler,
+        )
+
         handler = ConversationOperationsHandler(context=empty_context)
 
         # Use generated_test_files directory for proper test file management
         from tests.utils.chat_test_utils import ensure_test_file_in_generated_dir
+
         output_path = ensure_test_file_in_generated_dir("empty.cast")
 
         command = ParsedCommand(
@@ -1260,14 +1340,28 @@ class TestConversationOperationsIntegration:
         self.conversation_history = [
             {"role": "user", "content": "Explain deep learning"},
             {
-                "role": "assistant", 
-                "content": "<think>\nDeep learning is complex, I should cover:\n1. Neural networks basics\n2. Multiple layers\n3. Applications\n4. Differences from ML\n</think>\n\nDeep learning is a subset of machine learning that uses neural networks with multiple layers."
+                "role": "assistant",
+                "content": (
+                    "<think>\nDeep learning is complex, I should cover:\n"
+                    "1. Neural networks basics\n2. Multiple layers\n"
+                    "3. Applications\n4. Differences from ML\n</think>\n\n"
+                    "Deep learning is a subset of machine learning that uses "
+                    "neural networks with multiple layers."
+                ),
             },
             {"role": "user", "content": "How is it different from machine learning?"},
             {
                 "role": "assistant",
-                "content": "<reasoning>\nKey differences:\n- Depth: Multiple hidden layers vs fewer layers\n- Feature extraction: Automatic vs manual\n- Data requirements: Large datasets vs smaller\n- Computational needs: High vs moderate\n</reasoning>\n\nThe main difference is that deep learning automatically extracts features from raw data."
-            }
+                "content": (
+                    "<reasoning>\nKey differences:\n"
+                    "- Depth: Multiple hidden layers vs fewer layers\n"
+                    "- Feature extraction: Automatic vs manual\n"
+                    "- Data requirements: Large datasets vs smaller\n"
+                    "- Computational needs: High vs moderate\n</reasoning>\n\n"
+                    "The main difference is that deep learning automatically "
+                    "extracts features from raw data."
+                ),
+            },
         ]
 
         self.command_context = CommandContext(
@@ -1281,7 +1375,10 @@ class TestConversationOperationsIntegration:
         self.mock_thinking_processor = Mock()
         self.command_context._thinking_processor = self.mock_thinking_processor
 
-        from oumi.core.commands.handlers.conversation_operations_handler import ConversationOperationsHandler
+        from oumi.core.commands.handlers.conversation_operations_handler import (
+            ConversationOperationsHandler,
+        )
+
         self.handler = ConversationOperationsHandler(context=self.command_context)
 
     def test_full_thoughts_then_clear_thoughts_workflow(self):
@@ -1303,8 +1400,11 @@ class TestConversationOperationsIntegration:
         def mock_clean(content):
             # Remove thinking tags for testing
             import re
-            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-            content = re.sub(r'<reasoning>.*?</reasoning>', '', content, flags=re.DOTALL)
+
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL)
+            content = re.sub(
+                r"<reasoning>.*?</reasoning>", "", content, flags=re.DOTALL
+            )
             return content.strip()
 
         self.mock_thinking_processor.clean_thinking_content.side_effect = mock_clean
@@ -1322,13 +1422,17 @@ class TestConversationOperationsIntegration:
         # Verify both operations completed successfully
         assert result1.success and result2.success
 
-    @patch('oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer')
+    @patch(
+        "oumi.core.commands.handlers.conversation_operations_handler.ConversationRenderer"
+    )
     def test_clear_thoughts_then_render_workflow(self, mock_renderer_class):
         """Test workflow: clear thoughts, then render conversation."""
+
         # First clear thoughts
         def mock_clean(content):
             import re
-            return re.sub(r'<[^>]+>.*?</[^>]+>', '', content, flags=re.DOTALL).strip()
+
+            return re.sub(r"<[^>]+>.*?</[^>]+>", "", content, flags=re.DOTALL).strip()
 
         self.mock_thinking_processor.clean_thinking_content.side_effect = mock_clean
 
@@ -1345,12 +1449,16 @@ class TestConversationOperationsIntegration:
         # Then render the cleaned conversation
         mock_renderer = Mock()
         mock_renderer_class.return_value = mock_renderer
-        mock_renderer.render_to_asciinema.return_value = (True, "Successfully rendered conversation to clean_conversation.cast")
+        mock_renderer.render_to_asciinema.return_value = (
+            True,
+            "Successfully rendered conversation to clean_conversation.cast",
+        )
 
         import tempfile
+
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = f"{temp_dir}/clean_conversation.cast"
-            
+
             render_cmd = ParsedCommand(
                 command="render",
                 args=[output_path],

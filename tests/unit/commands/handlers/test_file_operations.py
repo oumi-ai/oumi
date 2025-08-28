@@ -627,15 +627,24 @@ class TestFileOperationsHandler:
         )
 
         # Import the actual handler
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         self.handler = FileOperationsHandler(context=self.command_context)
 
     def test_get_supported_commands(self):
         """Test that handler returns correct supported commands."""
         supported = self.handler.get_supported_commands()
         expected_commands = {
-            "attach", "save", "import", "load", 
-            "save_history", "import_history", "fetch", "shell"
+            "attach",
+            "save",
+            "import",
+            "load",
+            "save_history",
+            "import_history",
+            "fetch",
+            "shell",
         }
         assert set(supported) == expected_commands
 
@@ -669,7 +678,10 @@ class TestSaveCommandReal:
         # Create test conversation history
         self.conversation_history = [
             {"role": "user", "content": "What is Python?"},
-            {"role": "assistant", "content": "Python is a high-level programming language."},
+            {
+                "role": "assistant",
+                "content": "Python is a high-level programming language.",
+            },
             {"role": "user", "content": "Can you show me a simple example?"},
             {"role": "assistant", "content": "```python\nprint('Hello, World!')\n```"},
         ]
@@ -681,14 +693,17 @@ class TestSaveCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         self.handler = FileOperationsHandler(context=self.command_context)
 
     def test_save_json_format_real(self):
         """Test saving conversation in JSON format with real implementation."""
         with tempfile.TemporaryDirectory() as temp_dir:
             save_path = Path(temp_dir) / "conversation.json"
-            
+
             command = ParsedCommand(
                 command="save",
                 args=[str(save_path)],
@@ -708,7 +723,7 @@ class TestSaveCommandReal:
             assert save_path.exists()
             with open(save_path) as f:
                 data = json.load(f)
-            
+
             # Verify structure
             assert "conversation" in data
             assert len(data["conversation"]) == 4  # 4 messages in history
@@ -717,7 +732,7 @@ class TestSaveCommandReal:
         """Test saving conversation in Markdown format with real implementation."""
         with tempfile.TemporaryDirectory() as temp_dir:
             save_path = Path(temp_dir) / "conversation.md"
-            
+
             command = ParsedCommand(
                 command="save",
                 args=[str(save_path)],
@@ -732,7 +747,7 @@ class TestSaveCommandReal:
             # Verify file was created
             assert save_path.exists()
             content = save_path.read_text()
-            
+
             # Verify Markdown structure (actual format uses emojis)
             assert "# Oumi" in content or "👤 User" in content
             assert "Python" in content  # Content from our test messages
@@ -746,13 +761,16 @@ class TestSaveCommandReal:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         handler = FileOperationsHandler(context=empty_context)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             save_path = Path(temp_dir) / "empty.json"
-            
+
             command = ParsedCommand(
                 command="save",
                 args=[str(save_path)],
@@ -769,7 +787,7 @@ class TestSaveCommandReal:
         """Test save with invalid file path."""
         # Try to save to a path that should fail
         invalid_path = "/invalid/nonexistent/path/conversation.json"
-        
+
         command = ParsedCommand(
             command="save",
             args=[invalid_path],
@@ -817,16 +835,21 @@ class TestFetchCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         self.handler = FileOperationsHandler(context=self.command_context)
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_fetch_successful_web_content(self, mock_get):
         """Test fetching web content successfully."""
         # Mock successful HTTP response
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.text = "<html><body><h1>Test Page</h1><p>Test content</p></body></html>"
+        mock_response.text = (
+            "<html><body><h1>Test Page</h1><p>Test content</p></body></html>"
+        )
         mock_response.headers = {"content-type": "text/html"}
         mock_get.return_value = mock_response
 
@@ -845,7 +868,7 @@ class TestFetchCommandReal:
             expected_message_parts=["fetched"],
         )
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_fetch_404_error_real(self, mock_get):
         """Test handling 404 error with real implementation."""
         # Mock 404 response
@@ -919,7 +942,10 @@ class TestShellCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         self.handler = FileOperationsHandler(context=self.command_context)
 
     def test_shell_simple_command(self):
@@ -967,7 +993,7 @@ class TestShellCommandReal:
         # Shell handler reports success even for commands with non-zero exit codes
         validate_command_result(result, expect_success=True)
         # But should mention exit code in message
-        assert "exit code" in result.message
+        assert result.message is not None and "exit code" in result.message
 
     def test_shell_no_arguments(self):
         """Test shell command without arguments."""
@@ -1018,8 +1044,8 @@ class TestShellCommandReal:
             expect_success=True,
         )
         # Should mention the command was executed
-        assert "Executed command" in result.message
-        assert "pwd" in result.message
+        assert result.message is not None and "Executed command" in result.message
+        assert result.message is not None and "pwd" in result.message
 
 
 class TestImportExportCommands:
@@ -1041,14 +1067,17 @@ class TestImportExportCommands:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         self.handler = FileOperationsHandler(context=self.command_context)
 
     def test_save_history_command(self):
         """Test save_history command."""
         with tempfile.TemporaryDirectory() as temp_dir:
             save_path = Path(temp_dir) / "history.json"
-            
+
             command = ParsedCommand(
                 command="save_history",
                 args=[str(save_path)],
@@ -1066,12 +1095,12 @@ class TestImportExportCommands:
         # Create a temporary file to import from
         with tempfile.TemporaryDirectory() as temp_dir:
             import_path = Path(temp_dir) / "import.json"
-            
+
             # Create a simple JSON file to import
             test_data = {"conversation": [{"role": "user", "content": "Test"}]}
             with open(import_path, "w") as f:
                 json.dump(test_data, f)
-            
+
             command = ParsedCommand(
                 command="import_history",
                 args=[str(import_path)],
@@ -1090,7 +1119,7 @@ class TestImportExportCommands:
         with tempfile.TemporaryDirectory() as temp_dir:
             load_path = Path(temp_dir) / "load.txt"
             load_path.write_text("Test content to load")
-            
+
             command = ParsedCommand(
                 command="load",
                 args=[str(load_path)],
@@ -1109,7 +1138,7 @@ class TestImportExportCommands:
         with tempfile.TemporaryDirectory() as temp_dir:
             import_path = Path(temp_dir) / "import.txt"
             import_path.write_text("Test content to import")
-            
+
             command = ParsedCommand(
                 command="import",
                 args=[str(import_path)],
@@ -1139,7 +1168,10 @@ class TestAttachCommandReal:
             inference_engine=self.mock_engine,
         )
 
-        from oumi.core.commands.handlers.file_operations_handler import FileOperationsHandler
+        from oumi.core.commands.handlers.file_operations_handler import (
+            FileOperationsHandler,
+        )
+
         self.handler = FileOperationsHandler(context=self.command_context)
 
     def test_attach_text_file_real(self):
@@ -1148,7 +1180,7 @@ class TestAttachCommandReal:
             test_file = Path(temp_dir) / "test.txt"
             test_content = "This is a test file\nwith multiple lines\nof content."
             test_file.write_text(test_content)
-            
+
             command = ParsedCommand(
                 command="attach",
                 args=[str(test_file)],

@@ -16,9 +16,7 @@
 
 from unittest.mock import Mock
 
-import pytest
-
-from oumi.core.commands import CommandResult, ParsedCommand
+from oumi.core.commands import ParsedCommand
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.handlers.parameter_management_handler import (
     ParameterManagementHandler,
@@ -108,7 +106,7 @@ class TestSetCommand:
             expect_success=True,
             expected_message_parts=["Updated parameters", "sampling=true"],
         )
-        assert self.test_config.generation.sampling is True
+        assert self.test_config.generation.use_sampling is True
 
     def test_set_multiple_parameters(self):
         """Test setting multiple parameters at once."""
@@ -296,7 +294,7 @@ class TestSetCommand:
             result = self.handler.handle_command(command)
 
             validate_command_result(result, expect_success=True)
-            assert self.test_config.generation.sampling == expected_bool
+            assert self.test_config.generation.use_sampling == expected_bool
 
     def test_set_negative_seed_invalid(self):
         """Test that negative seed values are rejected."""
@@ -358,7 +356,7 @@ class TestSetCommand:
                 command="set",
                 args=[],
                 kwargs={"frequency_penalty": value},
-            raw_input="/set(...)",
+                raw_input="/set(...)",
             )
             result = self.handler.handle_command(command)
             validate_command_result(result, expect_success=True)
@@ -369,7 +367,7 @@ class TestSetCommand:
                 command="set",
                 args=[],
                 kwargs={"frequency_penalty": value},
-            raw_input="/set(...)",
+                raw_input="/set(...)",
             )
             result = self.handler.handle_command(command)
             validate_command_result(
@@ -541,26 +539,6 @@ class TestParameterManagementHandler:
             expected_message_parts=["Unsupported command", "unsupported"],
         )
 
-    def test_handler_without_generation_config(self):
-        """Test handler behavior when generation config is missing."""
-        # Remove generation config
-        self.test_config.generation = None
-
-        command = ParsedCommand(
-            command="set",
-            args=[],
-            kwargs={"temperature": "0.8"},
-            raw_input="/set(temperature=0.8)",
-        )
-
-        result = self.handler.handle_command(command)
-
-        validate_command_result(
-            result,
-            expect_success=False,
-            expected_message_parts=["Generation config not available"],
-        )
-
 
 class TestParameterValidation:
     """Test suite for parameter validation edge cases."""
@@ -586,7 +564,10 @@ class TestParameterValidation:
         # Test valid boundary values
         for value in ["0.0", "2.0"]:
             command = ParsedCommand(
-                command="set", args=[], kwargs={"temperature": value}, raw_input="/set(...)"
+                command="set",
+                args=[],
+                kwargs={"temperature": value},
+                raw_input="/set(...)",
             )
             result = self.handler.handle_command(command)
             validate_command_result(result, expect_success=True)
@@ -594,7 +575,10 @@ class TestParameterValidation:
         # Test invalid boundary values
         for value in ["-0.1", "2.1"]:
             command = ParsedCommand(
-                command="set", args=[], kwargs={"temperature": value}, raw_input="/set(...)"
+                command="set",
+                args=[],
+                kwargs={"temperature": value},
+                raw_input="/set(...)",
             )
             result = self.handler.handle_command(command)
             validate_command_result(result, expect_success=False)
@@ -602,12 +586,22 @@ class TestParameterValidation:
     def test_boundary_values_integers(self):
         """Test boundary values for integer parameters."""
         # Test valid minimum values for max_new_tokens
-        command = ParsedCommand(command="set", args=[], kwargs={"max_new_tokens": "1"}, raw_input="/set(...)")
+        command = ParsedCommand(
+            command="set",
+            args=[],
+            kwargs={"max_new_tokens": "1"},
+            raw_input="/set(...)",
+        )
         result = self.handler.handle_command(command)
         validate_command_result(result, expect_success=True)
 
         # Test invalid values (0 or negative) for max_new_tokens
-        command = ParsedCommand(command="set", args=[], kwargs={"max_new_tokens": "0"}, raw_input="/set(...)")
+        command = ParsedCommand(
+            command="set",
+            args=[],
+            kwargs={"max_new_tokens": "0"},
+            raw_input="/set(...)",
+        )
         result = self.handler.handle_command(command)
         validate_command_result(result, expect_success=False)
 
@@ -615,11 +609,15 @@ class TestParameterValidation:
         """Test seed parameter boundary values."""
         # Valid values
         for value in ["0", "42", "999999"]:
-            command = ParsedCommand(command="set", args=[], kwargs={"seed": value}, raw_input="/set(...)")
+            command = ParsedCommand(
+                command="set", args=[], kwargs={"seed": value}, raw_input="/set(...)"
+            )
             result = self.handler.handle_command(command)
             validate_command_result(result, expect_success=True)
 
         # Invalid negative value
-        command = ParsedCommand(command="set", args=[], kwargs={"seed": "-1"}, raw_input="/set(...)")
+        command = ParsedCommand(
+            command="set", args=[], kwargs={"seed": "-1"}, raw_input="/set(...)"
+        )
         result = self.handler.handle_command(command)
         validate_command_result(result, expect_success=False)

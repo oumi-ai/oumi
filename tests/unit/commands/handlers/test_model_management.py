@@ -15,17 +15,15 @@
 """Unit tests for model management command handlers."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import pytest
-
-from oumi.core.commands import CommandResult, ParsedCommand
+from oumi.core.commands import ParsedCommand
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.handlers.model_management_handler import ModelManagementHandler
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
+from oumi.core.configs.params.base_engine_params import InferenceEngineType
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
-    test_file_manager,
     validate_command_result,
 )
 
@@ -49,7 +47,8 @@ class TestSwapCommand:
         self.handler = ModelManagementHandler(context=self.command_context)
 
     def test_swap_model_name_treated_as_config_file(self):
-        """Test that model name is treated as config file path and fails when file doesn't exist."""
+        """Test that model name is treated as config file path and fails when file
+        doesn't exist."""
         command = ParsedCommand(
             command="swap",
             args=["meta-llama/Llama-3.1-8B-Instruct"],
@@ -88,7 +87,8 @@ class TestSwapCommand:
         )
 
     def test_swap_whitespace_only_argument(self):
-        """Test swap command with whitespace-only argument (becomes empty after strip)."""
+        """Test swap command with whitespace-only argument (becomes empty after
+        strip)."""
         command = ParsedCommand(
             command="swap",
             args=["  "],  # Whitespace only
@@ -101,12 +101,16 @@ class TestSwapCommand:
         validate_command_result(
             result,
             expect_success=False,
-            expected_message_parts=["swap command requires a model name or config path argument"],
+            expected_message_parts=[
+                "swap command requires a model name or config path argument"
+            ],
         )
 
     @patch("oumi.core.configs.InferenceConfig.from_yaml")
     @patch("oumi.infer.get_engine")
-    def test_swap_config_file_success(self, mock_get_engine, mock_from_yaml, test_file_manager):
+    def test_swap_config_file_success(
+        self, mock_get_engine, mock_from_yaml, test_file_manager
+    ):
         """Test successful config-based model swap."""
         # Create a temporary config file
         config_content = """
@@ -128,7 +132,7 @@ engine: NATIVE
         mock_new_config = InferenceConfig(
             model=ModelParams(model_name="test-model", model_max_length=2048),
             generation=GenerationParams(temperature=0.8, top_p=0.9),
-            engine="NATIVE",
+            engine=InferenceEngineType.NATIVE,
         )
         mock_from_yaml.return_value = mock_new_config
 
@@ -221,10 +225,10 @@ engine: INVALID_ENGINE
             filename="test_config.yaml", content=config_content
         )
 
-        # Mock successful config loading
+        # Mock successful config loading  
         mock_new_config = InferenceConfig(
             model=ModelParams(model_name="invalid-model"),
-            engine="INVALID_ENGINE",
+            engine=InferenceEngineType.NATIVE,
         )
         mock_from_yaml.return_value = mock_new_config
 
@@ -243,7 +247,10 @@ engine: INVALID_ENGINE
         validate_command_result(
             result,
             expect_success=False,
-            expected_message_parts=["Error creating inference engine", "Invalid engine"],
+            expected_message_parts=[
+                "Error creating inference engine",
+                "Invalid engine",
+            ],
         )
 
     def test_swap_config_prefix_detection(self, test_file_manager):
@@ -260,7 +267,8 @@ engine: INVALID_ENGINE
             kwargs={},
         )
 
-        # Should attempt config-based swap (will fail due to mocking, but that's expected)
+        # Should attempt config-based swap (will fail due to mocking, but that's
+        # expected)
         result = self.handler.handle_command(command)
 
         # Since we're not mocking the full chain, expect it to fail at config loading
@@ -278,7 +286,7 @@ engine: INVALID_ENGINE
             )
 
             command = ParsedCommand(
-            raw_input="/swap(...)",
+                raw_input="/swap(...)",
                 command="swap",
                 args=[config_file],
                 kwargs={},
@@ -292,12 +300,12 @@ engine: INVALID_ENGINE
     def test_swap_path_detection(self, test_file_manager):
         """Test that paths with slashes are detected as config files."""
         config_content = "model:\n  model_name: test"
-        
+
         # Create a config file in a subdirectory-like path
         config_file = test_file_manager.create_temp_file(
             filename="subdir_config.yaml", content=config_content
         )
-        
+
         # Modify the path to include a slash (simulate subdirectory)
         config_path = str(Path(config_file).parent / "subdir" / Path(config_file).name)
 
@@ -318,7 +326,8 @@ engine: INVALID_ENGINE
         )
 
     def test_swap_invalid_model_name(self):
-        """Test swap command with invalid model name (no slashes, no config extension)."""
+        """Test swap command with invalid model name (no slashes, no config
+        extension)."""
         command = ParsedCommand(
             raw_input="/swap(...)",
             command="swap",
@@ -451,7 +460,10 @@ class TestListEnginesCommand:
 
     def test_list_engines_without_emoji(self):
         """Test list_engines with emoji disabled."""
-        self.handler._style.use_emoji = False
+        # Mock the style object with use_emoji disabled
+        mock_style = Mock()
+        mock_style.use_emoji = False
+        self.handler._style = mock_style
 
         command = ParsedCommand(
             raw_input="/list_engines()",
@@ -472,7 +484,7 @@ class TestListEnginesCommand:
             self.handler, "_get_engines_info", side_effect=Exception("Test error")
         ):
             command = ParsedCommand(
-            raw_input="/list_engines()",
+                raw_input="/list_engines()",
                 command="list_engines",
                 args=[],
                 kwargs={},
@@ -611,14 +623,14 @@ class TestHelperMethods:
         """Test context length calculation for local engines."""
         config = InferenceConfig(
             model=ModelParams(model_max_length=4096),
-            engine="NATIVE",
+            engine=InferenceEngineType.NATIVE,
         )
 
         context_length = self.handler._get_context_length_for_engine(config)
         assert context_length == 4096
 
         # Test VLLM engine
-        config.engine = "VLLM"
+        config.engine = InferenceEngineType.VLLM
         context_length = self.handler._get_context_length_for_engine(config)
         assert context_length == 4096
 
@@ -626,7 +638,7 @@ class TestHelperMethods:
         """Test context length calculation for Anthropic models."""
         config = InferenceConfig(
             model=ModelParams(model_name="claude-3-5-sonnet-20241022"),
-            engine="ANTHROPIC",
+            engine=InferenceEngineType.ANTHROPIC,
         )
 
         context_length = self.handler._get_context_length_for_engine(config)
@@ -636,7 +648,7 @@ class TestHelperMethods:
         """Test context length calculation for OpenAI models."""
         config = InferenceConfig(
             model=ModelParams(model_name="gpt-4o"),
-            engine="OPENAI",
+            engine=InferenceEngineType.OPENAI,
         )
 
         context_length = self.handler._get_context_length_for_engine(config)
@@ -651,7 +663,7 @@ class TestHelperMethods:
         """Test context length calculation for Together AI models."""
         config = InferenceConfig(
             model=ModelParams(model_name="meta-llama/Llama-3.1-405B-Instruct"),
-            engine="TOGETHER",
+            engine=InferenceEngineType.TOGETHER,
         )
 
         context_length = self.handler._get_context_length_for_engine(config)
@@ -661,17 +673,17 @@ class TestHelperMethods:
         """Test context length calculation for DeepSeek models."""
         config = InferenceConfig(
             model=ModelParams(model_name="deepseek-chat"),
-            engine="DEEPSEEK",
+            engine=InferenceEngineType.DEEPSEEK,
         )
 
         context_length = self.handler._get_context_length_for_engine(config)
         assert context_length == 32768  # DeepSeek models
 
     def test_get_context_length_for_engine_default(self):
-        """Test context length calculation with unknown engine."""
+        """Test context length calculation with default fallback."""
         config = InferenceConfig(
-            model=ModelParams(model_name="unknown-model"),
-            engine="UNKNOWN_ENGINE",
+            model=ModelParams(model_name="unknown-model", model_max_length=None),
+            engine=InferenceEngineType.NATIVE,
         )
 
         context_length = self.handler._get_context_length_for_engine(config)
