@@ -58,11 +58,25 @@ class ModelManagementHandler(BaseCommandHandler):
                 )
 
             target = command.args[0].strip()
+            
+            # Check for empty target after stripping whitespace
+            if not target:
+                return CommandResult(
+                    success=False,
+                    message="swap command requires a model name or config path argument",
+                    should_continue=False,
+                )
 
             # Check if this is a config-based swap
             # Support both "config:" prefix and direct config file paths
             if target.startswith("config:"):
                 config_path = target[7:]  # Remove "config:" prefix
+                if not config_path.strip():
+                    return CommandResult(
+                        success=False,
+                        message="config: prefix requires a path to a configuration file",
+                        should_continue=False,
+                    )
                 return self._handle_config_swap(config_path)
             elif (
                 target.endswith(".yaml")
@@ -73,21 +87,16 @@ class ModelManagementHandler(BaseCommandHandler):
                 # Auto-detect config files by extension or path structure
                 return self._handle_config_swap(target)
 
-            # Regular model swap
-            # Save current model state to branch if branch manager available
-            if hasattr(self.context, "branch_manager") and self.context.branch_manager:
-                current_branch = self.context.branch_manager.get_current_branch()
-                if current_branch:
-                    self._save_current_model_state_to_branch(current_branch.id)
-
-            # For now, return a placeholder message since actual model swapping
-            # requires infrastructure changes
+            # If we get here, target doesn't match config file patterns
+            # Provide clear guidance on valid formats
             return CommandResult(
                 success=False,
                 message=(
-                    f"Model swapping to '{target}' is not yet implemented. "
-                    "This feature requires infrastructure support for dynamic "
-                    "model loading."
+                    f"Invalid swap target: '{target}'. "
+                    "Please provide either:\n"
+                    "  • A config file path (e.g., 'configs/model.yaml' or 'config:model.yaml')\n"
+                    "  • A model path with slashes (e.g., 'meta-llama/Llama-3.1-8B')\n"
+                    "  • A HuggingFace model ID with organization (e.g., 'microsoft/DialoGPT-large')"
                 ),
                 should_continue=False,
             )
@@ -552,7 +561,24 @@ class ModelManagementHandler(BaseCommandHandler):
             return {}
 
         config_dict = {}
-        for attr in ["max_new_tokens", "temperature", "top_p", "top_k", "sampling"]:
+        # Include all actual GenerationParams fields
+        for attr in [
+            "max_new_tokens", 
+            "batch_size",
+            "exclude_prompt_from_response",
+            "seed",
+            "temperature", 
+            "top_p", 
+            "frequency_penalty",
+            "presence_penalty",
+            "stop_strings",
+            "stop_token_ids",
+            "logit_bias",
+            "min_p",
+            "use_cache",
+            "num_beams",
+            "use_sampling"
+        ]:
             if hasattr(generation_config, attr):
                 value = getattr(generation_config, attr)
                 if value is not None:

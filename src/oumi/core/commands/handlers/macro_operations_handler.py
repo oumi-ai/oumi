@@ -318,7 +318,7 @@ class MacroOperationsHandler(BaseCommandHandler):
         current_turn = ""
         in_user_section = False
 
-        lines = rendered_content.split("\\n")
+        lines = rendered_content.split("\n")
         for line in lines:
             line = line.strip()
 
@@ -330,7 +330,7 @@ class MacroOperationsHandler(BaseCommandHandler):
 
                 # Start new user turn
                 current_turn = re.sub(
-                    r"^(User|Human):\\s*", "", line, flags=re.IGNORECASE
+                    r"^(User|Human):\s*", "", line, flags=re.IGNORECASE
                 )
                 in_user_section = True
 
@@ -347,7 +347,7 @@ class MacroOperationsHandler(BaseCommandHandler):
                 # Continue current section
                 if in_user_section and line:
                     if current_turn:
-                        current_turn += "\\n" + line
+                        current_turn += "\n" + line
                     else:
                         current_turn = line
 
