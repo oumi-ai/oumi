@@ -14,7 +14,6 @@
 
 """Model management command handler."""
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -45,12 +44,16 @@ class ModelManagementHandler(BaseCommandHandler):
             )
 
     def _handle_swap(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /swap(model_name) or /swap(config:path) command to switch models while preserving conversation."""
+        """Handle the /swap(model_name) or /swap(config:path) command to switch models.
+
+        Preserves conversation while switching models.
+        """
         try:
             if not command.args:
                 return CommandResult(
                     success=False,
-                    message="swap command requires a model name or config path argument",
+                    message="swap command requires a model name or config path "
+                    "argument",
                     should_continue=False,
                 )
 
@@ -75,7 +78,7 @@ class ModelManagementHandler(BaseCommandHandler):
             if hasattr(self.context, "branch_manager") and self.context.branch_manager:
                 current_branch = self.context.branch_manager.get_current_branch()
                 if current_branch:
-                    self._save_current_model_state_to_branch(current_branch["id"])
+                    self._save_current_model_state_to_branch(current_branch.id)
 
             # For now, return a placeholder message since actual model swapping
             # requires infrastructure changes
@@ -83,7 +86,8 @@ class ModelManagementHandler(BaseCommandHandler):
                 success=False,
                 message=(
                     f"Model swapping to '{target}' is not yet implemented. "
-                    "This feature requires infrastructure support for dynamic model loading."
+                    "This feature requires infrastructure support for dynamic "
+                    "model loading."
                 ),
                 should_continue=False,
             )
@@ -99,7 +103,7 @@ class ModelManagementHandler(BaseCommandHandler):
         """Handle config-based model swapping by loading an Oumi YAML config."""
         try:
             # Resolve config path
-            if not os.path.isabs(config_path):
+            if not Path(config_path).is_absolute():
                 # Try relative to current directory first
                 full_path = Path.cwd() / config_path
                 if not full_path.exists():
@@ -210,11 +214,14 @@ class ModelManagementHandler(BaseCommandHandler):
             )
 
     def _handle_list_engines(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /list_engines() command to list available inference engines and sample models."""
+        """Handle the /list_engines() command to list available engines.
+
+        Lists available inference engines and sample models.
+        """
         try:
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
-            title_style = getattr(self._style, "assistant_title_style", "bold cyan")
+            # title_style = getattr(self._style, "assistant_title_style", "bold cyan")
 
             # Get engines information
             engines_info = self._get_engines_info()
@@ -430,13 +437,13 @@ class ModelManagementHandler(BaseCommandHandler):
         """Save current model configuration to a branch."""
         try:
             if hasattr(self.context, "branch_manager") and self.context.branch_manager:
-                branch = self.context.branch_manager.get_branch_by_id(branch_id)
-                if branch:
+                if branch_id in self.context.branch_manager.branches:
+                    branch = self.context.branch_manager.branches[branch_id]
                     # Save model and generation configs
-                    branch["model_config"] = self._serialize_model_config(
+                    branch.model_config = self._serialize_model_config(
                         self.config.model
                     )
-                    branch["generation_config"] = self._serialize_generation_config(
+                    branch.generation_config = self._serialize_generation_config(
                         self.config.generation
                     )
         except Exception:

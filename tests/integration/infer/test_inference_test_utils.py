@@ -245,7 +245,8 @@ def validate_response_properties(
             results["valid_structure"] = False
             continue
 
-        # Get the assistant's response - use only the LAST assistant response for keyword checking
+        # Get the assistant's response - use only the LAST assistant response
+        # for keyword checking
         assistant_responses = [
             msg.compute_flattened_text_content()
             for msg in conversation.messages
@@ -291,7 +292,8 @@ def validate_response_properties(
             if word_count == 0:
                 results["reasonable_content"] = False
             else:
-                # Check for reasonable content - but be more permissive for mathematical expressions
+                # Check for reasonable content - but be more permissive for
+                # mathematical expressions
                 tokens = response_clean.split()
                 avg_char_per_token = len(response_clean) / max(word_count, 1)
 
@@ -302,13 +304,15 @@ def validate_response_properties(
                 )
                 has_reasonable_words = any(len(token) >= 2 for token in tokens)
 
-                # Pass if: average >= 2 chars per token, OR has math content, OR has some reasonable words
+                # Pass if: average >= 2 chars per token, OR has math content, OR
+                # has some reasonable words
                 if not (
                     avg_char_per_token >= 2 or has_math_content or has_reasonable_words
                 ):
                     results["reasonable_content"] = False
 
-        # Keyword presence check (only applied to the LAST assistant response in multi-turn conversations)
+        # Keyword presence check (only applied to the LAST assistant response
+        # in multi-turn conversations)
         if expected_keywords and assistant_responses:
             last_response = assistant_responses[-1].strip()
             # Normalize response: lowercase and collapse whitespace

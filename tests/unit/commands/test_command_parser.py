@@ -220,7 +220,8 @@ class TestCommandParser:
             assert self.parser.is_command("/save(file.json)")
             assert not self.parser.is_command("Regular text")
 
-            # These depend on implementation - some parsers accept commands without parentheses
+            # These depend on implementation - some parsers accept commands without
+            # parentheses
             help_without_parens = self.parser.is_command("/help")
             if help_without_parens:
                 assert help_without_parens  # Accept if implementation supports it

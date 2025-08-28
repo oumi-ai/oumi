@@ -365,11 +365,9 @@ class TestSaveCommand:
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
-            conversation_history=[],
+            conversation_history=self.mock_conversation.messages,
             inference_engine=self.mock_engine,
         )
-        # Add conversation to context
-        self.command_context.current_conversation = self.mock_conversation
 
     @pytest.fixture
     def mock_handler(self):
@@ -466,7 +464,8 @@ class TestSaveCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Unsupported format: .xyz. Supported formats: json, csv, md, pdf, txt",
+            message="Unsupported format: .xyz. Supported formats: json, csv, md, "
+            "pdf, txt",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -532,7 +531,8 @@ class TestShellCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=True,
-            message="Command executed successfully:\ntotal 8\ndrwxr-xr-x  2 user user 4096 Jan  1 00:00 .",
+            message="Command executed successfully:\ntotal 8\n"
+            "drwxr-xr-x  2 user user 4096 Jan  1 00:00 .",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)

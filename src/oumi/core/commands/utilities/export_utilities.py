@@ -72,12 +72,11 @@ class ExportUtilities:
         """Export conversation to PDF format."""
         try:
             from reportlab.lib.colors import HexColor
-            from reportlab.lib.enums import TA_LEFT, TA_RIGHT
+            from reportlab.lib.enums import TA_LEFT
             from reportlab.lib.pagesizes import letter
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
             from reportlab.lib.units import inch
             from reportlab.platypus import (
-                PageBreak,
                 Paragraph,
                 SimpleDocTemplate,
                 Spacer,
@@ -204,7 +203,8 @@ class ExportUtilities:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write("# Oumi Conversation Export\\n")
                 f.write(
-                    f"# Exported on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
+                    f"# Exported on: "
+                    f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
                 )
 
                 for i, msg in enumerate(conversation_history):
@@ -240,7 +240,8 @@ class ExportUtilities:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write("# Oumi Conversation Export\\n\\n")
                 f.write(
-                    f"**Exported on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
+                    f"**Exported on:** "
+                    f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n"
                 )
                 f.write("---\\n\\n")
 
@@ -332,7 +333,8 @@ class ExportUtilities:
     <title>Oumi Conversation Export</title>
     <style>
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                sans-serif;
             line-height: 1.6;
             color: #333;
             max-width: 900px;

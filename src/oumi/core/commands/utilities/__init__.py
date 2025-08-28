@@ -14,6 +14,6 @@
 
 """Command utilities package."""
 
-from .input_sanitization import make_safe
+from oumi.core.commands.utilities.input_sanitization import make_safe
 
 __all__ = ["make_safe"]

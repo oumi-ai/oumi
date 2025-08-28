@@ -50,10 +50,9 @@ class TestDeleteCommand:
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
-            conversation_history=[],
+            conversation_history=self.mock_conversation.messages.copy(),
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
 
     @pytest.fixture
     def mock_handler(self):
@@ -103,7 +102,8 @@ class TestDeleteCommand:
         """Test deleting from empty conversation."""
         # Set up empty conversation
         empty_conversation = Conversation(conversation_id="empty", messages=[])
-        self.command_context.current_conversation = empty_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(empty_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="delete", args=[], kwargs={}, raw_input="/delete("
@@ -161,7 +161,8 @@ class TestRegenCommand:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(self.mock_conversation.messages)
 
     @pytest.fixture
     def mock_handler(self):
@@ -196,7 +197,8 @@ class TestRegenCommand:
             conversation_id="user_only",
             messages=[Message(role=Role.USER, content="Hello")],
         )
-        self.command_context.current_conversation = user_only_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(user_only_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="regen", args=[], kwargs={}, raw_input="/regen("
@@ -256,7 +258,8 @@ class TestClearCommand:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(self.mock_conversation.messages)
 
     @pytest.fixture
     def mock_handler(self):
@@ -287,7 +290,8 @@ class TestClearCommand:
     def test_clear_already_empty(self, mock_handler):
         """Test clearing an already empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
-        self.command_context.current_conversation = empty_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(empty_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="clear", args=[], kwargs={}, raw_input="/clear("
@@ -327,7 +331,8 @@ class TestShowCommand:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(self.mock_conversation.messages)
 
     @pytest.fixture
     def mock_handler(self):
@@ -401,7 +406,9 @@ class TestShowCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=True,
-            message="Conversation (4 messages):\n1. User: First question\n2. Assistant: First answer\n3. User: Second question\n4. Assistant: Second answer",
+            message="Conversation (4 messages):\n1. User: First question\n"
+            "2. Assistant: First answer\n3. User: Second question\n"
+            "4. Assistant: Second answer",
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -448,7 +455,8 @@ class TestCompactCommand:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(self.mock_conversation.messages)
 
     @pytest.fixture
     def mock_handler(self):
@@ -488,7 +496,8 @@ class TestCompactCommand:
                 Message(role=Role.ASSISTANT, content="Hello!"),
             ],
         )
-        self.command_context.current_conversation = short_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(short_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="compact", args=[], kwargs={}, raw_input="/compact("
@@ -507,7 +516,8 @@ class TestCompactCommand:
     def test_compact_empty_conversation(self, mock_handler):
         """Test compacting an empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
-        self.command_context.current_conversation = empty_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(empty_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="compact", args=[], kwargs={}, raw_input="/compact("
@@ -549,7 +559,8 @@ class TestRenderCommand:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(self.mock_conversation.messages)
 
     @pytest.fixture
     def mock_handler(self):
@@ -600,7 +611,8 @@ class TestRenderCommand:
     def test_render_empty_conversation(self, mock_handler):
         """Test rendering empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
-        self.command_context.current_conversation = empty_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(empty_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="render", args=["empty.cast"], kwargs={}, raw_input="/render(..."
@@ -633,7 +645,8 @@ class TestThinkingCommands:
                 Message(role=Role.USER, content="Solve this math problem: 2+2"),
                 Message(
                     role=Role.ASSISTANT,
-                    content="<thinking>Let me think... 2 + 2 = 4</thinking>\n\nThe answer is 4.",
+                    content="<thinking>Let me think... 2 + 2 = 4</thinking>\n\n"
+                    "The answer is 4.",
                 ),
             ],
         )
@@ -644,7 +657,8 @@ class TestThinkingCommands:
             conversation_history=[],
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(self.mock_conversation.messages)
 
     @pytest.fixture
     def mock_handler(self):
@@ -701,7 +715,8 @@ class TestThinkingCommands:
                 Message(role=Role.ASSISTANT, content="Hi there!"),
             ],
         )
-        self.command_context.current_conversation = simple_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(simple_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="clear_thoughts", args=[], kwargs={}, raw_input="/clear_thoughts("

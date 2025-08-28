@@ -18,6 +18,7 @@ import json
 import tempfile
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -85,7 +86,7 @@ class TestConversationLimits:
         """Test sending many messages rapidly."""
         chat_session.start_session()
 
-        start_time = time.time()
+        # start_time = time.time()
         successful_messages = 0
 
         # Send 50 messages as quickly as possible
@@ -94,7 +95,7 @@ class TestConversationLimits:
             if result.success:
                 successful_messages += 1
 
-        elapsed_time = time.time() - start_time
+        # elapsed_time = time.time() - start_time
 
         assert successful_messages > 25, (
             f"Should handle rapid messages (got {successful_messages}/50)"
@@ -159,7 +160,8 @@ class TestEdgeCaseInputs:
 
         for input_text in edge_case_inputs:
             result = chat_session.send_message(input_text)
-            # Should handle gracefully - either accept or reject with informative message
+            # Should handle gracefully - either accept or reject with
+            # informative message
             assert isinstance(result, CommandResult)
 
         # Session should still be functional
@@ -230,13 +232,14 @@ class TestEdgeCaseInputs:
         chat_session.start_session()
 
         # Create deeply nested JSON structure
-        nested_data = {"level": 0}
-        current_level = nested_data
+        nested_data: dict[str, Any] = {"level": 0}
+        current_level: dict[str, Any] = nested_data
 
         # Create 50 levels of nesting
         for i in range(1, 50):
-            current_level["next"] = {"level": i, "data": f"Level {i} data"}
-            current_level = current_level["next"]
+            next_level: dict[str, Any] = {"level": i, "data": f"Level {i} data"}
+            current_level["next"] = next_level
+            current_level = next_level
 
         nested_json = json.dumps(nested_data)
 
@@ -290,7 +293,8 @@ class TestEdgeCaseInputs:
                 attach_result = chat_session.execute_command(
                     f"/attach({temp_file.name})"
                 )
-                # Should handle gracefully - either process or reject with informative message
+                # Should handle gracefully - either process or reject with
+                # informative message
                 assert isinstance(attach_result, CommandResult)
 
         finally:
@@ -369,7 +373,8 @@ class TestResourceExhaustion:
         # At least some operations should succeed
         successful_ops = sum(1 for r in results if r.success)
         assert successful_ops >= len(operations) // 2, (
-            f"Expected at least half operations to succeed, got {successful_ops}/{len(operations)}"
+            f"Expected at least half operations to succeed, got "
+            f"{successful_ops}/{len(operations)}"
         )
 
     def test_file_system_stress(self, chat_session):
@@ -464,7 +469,7 @@ class TestErrorRecoveryAndResilience:
         ]
 
         for op in potentially_corrupting_ops:
-            result = chat_session.execute_command(op)
+            chat_session.execute_command(op)
             # Command may fail, but should not corrupt session
 
             # Verify state is still intact
@@ -491,14 +496,10 @@ class TestErrorRecoveryAndResilience:
                 temp_files.append(temp_file.name)
 
                 # Try to attach file and then cause an error
-                attach_result = chat_session.execute_command(
-                    f"/attach({temp_file.name})"
-                )
+                chat_session.execute_command(f"/attach({temp_file.name})")
 
                 # Cause a potential error
-                error_result = chat_session.execute_command(
-                    "/invalid_operation_after_attach()"
-                )
+                chat_session.execute_command("/invalid_operation_after_attach()")
 
                 # Session should still be functional
                 function_test = chat_session.send_message(
@@ -532,7 +533,7 @@ class TestErrorRecoveryAndResilience:
         start_time = time.time()
 
         for command in potential_loop_commands:
-            result = chat_session.execute_command(command)
+            chat_session.execute_command(command)
             # Should complete quickly without hanging
             elapsed = time.time() - start_time
             assert elapsed < 30, f"Command took too long: {command} ({elapsed:.2f}s)"

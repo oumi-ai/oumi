@@ -209,9 +209,9 @@ class TestFileOperationWorkflows:
         """Test workflow: fetch web content → summarize → save summary."""
         chat_session.start_session()
 
-        # Mock web content
-        mock_url = "https://example.com/article"
-        mock_content = """
+        # Mock web content (variables used for test context)
+        _ = "https://example.com/article"  # mock_url - kept for reference
+        _ = """
         # Artificial Intelligence Trends 2025
 
         AI technology continues to evolve rapidly. Key trends include:
@@ -221,7 +221,7 @@ class TestFileOperationWorkflows:
         - Edge computing for AI deployment
 
         These developments promise to transform industries.
-        """
+        """  # mock_content - kept for reference
 
         # Step 1: Fetch web content (use real web request since fetch command works)
         # We'll use a real, stable URL for testing
@@ -264,7 +264,10 @@ class TestFileOperationWorkflows:
                 {"model_name": "test-model", "max_tokens": 2048, "temperature": 0.7}
             ),
             "requirements.txt": "torch>=1.9.0\ntransformers>=4.0.0\nnumpy>=1.20.0",
-            "readme.md": "# Test Project\n\nThis is a machine learning project.\n\n## Setup\nInstall requirements and run config.",
+            "readme.md": (
+                "# Test Project\n\nThis is a machine learning project.\n\n"
+                "## Setup\nInstall requirements and run config."
+            ),
         }
 
         with temporary_test_files(files_data) as temp_files:
@@ -276,7 +279,8 @@ class TestFileOperationWorkflows:
 
             # Request cross-file analysis
             analysis_result = chat_session.send_message(
-                "Based on all the attached files, can you explain what this project does and how to set it up?"
+                "Based on all the attached files, can you explain what this project "
+                "does and how to set it up?"
             )
             assert analysis_result.success
 
@@ -363,7 +367,7 @@ class TestConversationManagementWorkflows:
 
         # Check conversation length
         conv_before = chat_session.get_conversation()
-        messages_before = len(conv_before.messages)
+        _ = len(conv_before.messages)  # messages_before - kept for test context
 
         # Compact the conversation
         compact_result = chat_session.execute_command("/compact()")
@@ -396,7 +400,7 @@ class TestConversationManagementWorkflows:
 
         # Get the response
         conv1 = chat_session.get_conversation()
-        original_response = conv1.messages[-1].content if conv1.messages else ""
+        _ = conv1.messages[-1].content if conv1.messages else ""  # original_response
 
         # Reinfer the last response
         regen_result = chat_session.execute_command("/regen()")
@@ -425,15 +429,16 @@ class TestConversationManagementWorkflows:
 
         # Send a complex question that would benefit from thinking
         thinking_result = chat_session.send_message(
-            "Solve this step by step: If a train leaves station A at 2 PM traveling at 60 mph, "
-            "and another train leaves station B at 3 PM traveling at 80 mph toward station A, "
-            "and the stations are 350 miles apart, when will they meet?"
+            "Solve this step by step: If a train leaves station A at 2 PM traveling at "
+            "60 mph, and another train leaves station B at 3 PM traveling at 80 mph "
+            "toward station A, and the stations are 350 miles apart, when will they "
+            "meet?"
         )
         assert thinking_result.success
 
         # The response should include thinking content (if implemented)
         conv = chat_session.get_conversation()
-        last_response = conv.messages[-1].content if conv.messages else ""
+        _ = conv.messages[-1].content if conv.messages else ""  # last_response
 
         # Clear thinking content
         clear_thoughts_result = chat_session.execute_command("/clear_thoughts()")
@@ -510,7 +515,8 @@ class TestAdvancedCommandCombinations:
                 )
                 assert continue_result.success
             else:
-                # If load didn't work, just verify save worked and conversation continues
+                # If load didn't work, just verify save worked and conversation
+                # continues
                 continue_result = chat_session.send_message(
                     "Let me continue without loading"
                 )

@@ -47,8 +47,10 @@ class TestResearchWorkflow:
         research_docs = {
             "paper1.txt": """
             Artificial Intelligence Research Paper
-            Abstract: This paper explores machine learning techniques for natural language processing.
-            The study shows that transformer architectures achieve state-of-the-art results on various benchmarks.
+            Abstract: This paper explores machine learning techniques for natural
+            language processing.
+            The study shows that transformer architectures achieve state-of-the-art
+            results on various benchmarks.
             Keywords: transformers, NLP, machine learning, deep learning
             """,
             "notes.md": """
@@ -90,8 +92,9 @@ class TestResearchWorkflow:
 
                 if attach_result.success:
                     analysis_result = chat_session.send_message_with_real_inference(
-                        "Based on the attached paper, what are the key findings about AI? "
-                        "Please mention 'transformer' or 'learning' in your response."
+                        "Based on the attached paper, what are the key findings about "
+                        "AI? Please mention 'transformer' or 'learning' in your "
+                        "response."
                     )
                     research_results.append(("analyze_paper", analysis_result.success))
                     if analysis_result.success:
@@ -118,8 +121,9 @@ class TestResearchWorkflow:
 
                 if attach_result.success:
                     data_result = chat_session.send_message_with_real_inference(
-                        "Based on the experimental data, how well did the model perform? "
-                        "Please mention 'accuracy' or 'performance' in your response."
+                        "Based on the experimental data, how well did the model "
+                        "perform? Please mention 'accuracy' or 'performance' in your "
+                        "response."
                     )
                     research_results.append(("analyze_data", data_result.success))
 
@@ -180,7 +184,8 @@ class TestResearchWorkflow:
 
             # Stage 1: Initial exploration
             initial_result = chat_session.send_message_with_real_inference(
-                f"Tell me about {research_topic}. Please mention 'applications' in your response."
+                f"Tell me about {research_topic}. Please mention 'applications' in "
+                f"your response."
             )
             refinement_stages.append(("initial", initial_result.success))
 
@@ -265,9 +270,7 @@ class TestCreativeWorkflow:
             branch_results = []
             for topic, keyword in branch_topics:
                 # Attempt to create branch (may not be implemented)
-                branch_cmd_result = chat_session.inject_command(
-                    f"/branch({topic.replace(' ', '_')})"
-                )
+                _ = chat_session.inject_command(f"/branch({topic.replace(' ', '_')})")
 
                 # Explore the topic regardless of branching success
                 explore_result = chat_session.send_message_with_real_inference(
@@ -282,7 +285,8 @@ class TestCreativeWorkflow:
                             expected_keywords=[keyword]
                         )
                     except AssertionError:
-                        # Keyword might not appear, which is acceptable in creative context
+                        # Keyword might not appear, which is acceptable in creative
+                        # context
                         pass
 
             # Phase 4: Synthesis and documentation
@@ -437,9 +441,12 @@ Analysis Notes:
                 analysis_steps.append(("load_stats", attach_result.success))
 
                 if attach_result.success:
-                    stats_analysis_result = chat_session.send_message_with_real_inference(
-                        "Based on the summary statistics, what insights can you provide? "
-                        "Please include 'statistics' or 'insights' in your response."
+                    stats_analysis_result = (
+                        chat_session.send_message_with_real_inference(
+                            "Based on the summary statistics, what insights can you "
+                            "provide? Please include 'statistics' or 'insights' in "
+                            "your response."
+                        )
                     )
                     analysis_steps.append(
                         ("analyze_stats", stats_analysis_result.success)

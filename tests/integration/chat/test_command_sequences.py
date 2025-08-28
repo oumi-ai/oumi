@@ -65,7 +65,7 @@ class TestSequentialCommandExecution:
             pytest.skip("Parameter setting not implemented")
 
         # Final parameter check
-        final_result = chat_session.execute_command("/show_config()")
+        chat_session.execute_command("/show_config()")
         # Command might not exist, but session should still be functional
 
     def test_conversation_management_sequence(self, chat_session):
@@ -140,9 +140,7 @@ class TestSequentialCommandExecution:
         # If branching is implemented, should have some successful branch operations
         if successful_branches > 0:
             # Test branch cleanup
-            cleanup_result = chat_session.execute_command(
-                "/branch_delete(ml_deep_dive)"
-            )
+            chat_session.execute_command("/branch_delete(ml_deep_dive)")
             # May or may not succeed depending on implementation
 
     def test_file_operations_sequence(self, chat_session):
@@ -559,7 +557,7 @@ class TestComplexWorkflowComposition:
         for cycle_num, cycle in enumerate(refinement_cycles):
             # Create branch for this refinement cycle
             branch_name = f"refinement_cycle_{cycle_num + 1}"
-            branch_result = chat_session.execute_command(f"/branch({branch_name})")
+            chat_session.execute_command(f"/branch({branch_name})")
 
             # Ask focused questions for this cycle
             for question in cycle["questions"]:
@@ -568,17 +566,18 @@ class TestComplexWorkflowComposition:
 
             # Save progress for this cycle
             save_file = f"refinement_{cycle_num + 1}.md"
-            save_result = chat_session.execute_command(f"/save({save_file})")
+            chat_session.execute_command(f"/save({save_file})")
             # May not be implemented, but should not crash
 
             # Switch back to main for next cycle
             if cycle_num < len(refinement_cycles) - 1:
-                switch_result = chat_session.execute_command("/switch(main)")
+                chat_session.execute_command("/switch(main)")
 
         # Final synthesis
         chat_session.execute_command("/switch(main)")
         final_result = chat_session.send_message(
-            "Based on all our refinement cycles, can you provide a comprehensive implementation plan?"
+            "Based on all our refinement cycles, can you provide a comprehensive "
+            "implementation plan?"
         )
         assert final_result.success
 

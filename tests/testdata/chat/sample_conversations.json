@@ -101,7 +101,7 @@
       },
       {
         "role": "assistant",
-        "content": "If you try to load a non-existent file, I'll show you an error message and suggest checking the filename or using /load() without arguments to browse available saved conversations."
+        "content": "If you try to load a non-existent file, I'll show you an error message and suggest checking the filename or providing a valid chat ID."
       }
     ]
   }

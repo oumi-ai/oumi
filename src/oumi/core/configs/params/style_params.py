@@ -283,6 +283,8 @@ class StyleParams(BaseParams):
                 "monitor_values": "#ffffff",
             },
         }
+        if self.theme_name is None:
+            return None
         return themes.get(self.theme_name)
 
     def __post_init__(self):

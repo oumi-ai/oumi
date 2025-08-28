@@ -16,7 +16,7 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -82,7 +82,7 @@ class ThinkingProcessor:
     """Processor for extracting and rendering thinking content from various formats."""
 
     # Pattern definitions for different thinking formats
-    PATTERNS = {
+    PATTERNS: ClassVar[dict[str, Any]] = {
         "gpt_oss": {
             # Updated pattern to handle OpenAI Harmony format
             "pattern": (

@@ -113,7 +113,9 @@ class TestVisionLanguageWorkflows:
 
             # Compare images
             compare_result = vlm_session.send_message(
-                "Now I've shown you two images. Can you compare them and tell me the main differences?"
+                "Now I've shown you two images. Can you compare them and tell me the "
+                "main "
+                "differences?"
             )
             assert compare_result.success
 
@@ -186,7 +188,9 @@ class TestVisionLanguageWorkflows:
 
             # Ask for insights
             insight_result = vlm_session.send_message(
-                "Based on both the image and text, what insights can you provide about the business performance?"
+                "Based on both the image and text, what insights can you provide about "
+                "the "
+                "business performance?"
             )
             assert insight_result.success
 
@@ -217,19 +221,22 @@ class TestVisionLanguageWorkflows:
 
                 # Request editing suggestions
                 edit_result = vlm_session.send_message(
-                    "Looking at this image, what editing improvements would you suggest?"
+                    "Looking at this image, what editing improvements would you "
+                    "suggest?"
                 )
                 assert edit_result.success
 
                 # Ask for specific editing steps
                 steps_result = vlm_session.send_message(
-                    "Can you provide step-by-step instructions to make this image more visually appealing?"
+                    "Can you provide step-by-step instructions to make this image more "
+                    "visually appealing?"
                 )
                 assert steps_result.success
 
                 # Request technical editing advice
                 tech_result = vlm_session.send_message(
-                    "What technical parameters (brightness, contrast, saturation) would you adjust?"
+                    "What technical parameters (brightness, contrast, saturation) "
+                    "would you adjust?"
                 )
                 assert tech_result.success
 
@@ -272,13 +279,15 @@ class TestCodeVisualizationWorkflows:
 
                 # Analyze the flowchart
                 analysis_result = code_vlm_session.send_message(
-                    "This is a flowchart diagram. Can you describe the logic flow you see?"
+                    "This is a flowchart diagram. Can you describe the logic flow you "
+                    "see?"
                 )
                 assert analysis_result.success
 
                 # Request code generation
                 code_result = code_vlm_session.send_message(
-                    "Based on this flowchart, can you generate Python code that implements this logic?"
+                    "Based on this flowchart, can you generate Python code that "
+                    "implements this logic?"
                 )
                 assert code_result.success
 
@@ -410,13 +419,15 @@ class TestScreenshotAnalysisWorkflows:
 
                 # Analyze UI design
                 ui_result = ui_vlm_session.send_message(
-                    "This is a screenshot of a user interface. What elements do you see and how would you improve the design?"
+                    "This is a screenshot of a user interface. What elements do you "
+                    "see and how would you improve the design?"
                 )
                 assert ui_result.success
 
                 # Ask for accessibility feedback
                 a11y_result = ui_vlm_session.send_message(
-                    "From an accessibility perspective, what improvements would you suggest?"
+                    "From an accessibility perspective, what improvements would you "
+                    "suggest?"
                 )
                 assert a11y_result.success
 
@@ -476,7 +487,8 @@ class TestScreenshotAnalysisWorkflows:
 
             # Request debugging help
             debug_result = ui_vlm_session.send_message(
-                "I have an error screenshot and error log. Can you help me understand what went wrong?"
+                "I have an error screenshot and error log. Can you help me understand "
+                "what went wrong?"
             )
             assert debug_result.success
 
@@ -534,7 +546,8 @@ class TestScreenshotAnalysisWorkflows:
 
             # Request comparison
             compare_result = ui_vlm_session.send_message(
-                "Now I've shown you the after state. Can you compare the two versions and tell me what changed?"
+                "Now I've shown you the after state. Can you compare the two versions "
+                "and tell me what changed?"
             )
             assert compare_result.success
 

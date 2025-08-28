@@ -220,7 +220,7 @@ class BaseCommandHandler(ABC):
         # Auto-save after context updates (conversation modifications)
         self._auto_save_if_enabled()
 
-    def _get_context_length_for_engine(self, config) -> int:
+    def _get_context_length_for_engine(self, config) -> Optional[int]:
         """Get the appropriate context length for the given engine configuration.
 
         Args:

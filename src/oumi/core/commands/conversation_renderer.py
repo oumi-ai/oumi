@@ -15,7 +15,6 @@
 """Conversation renderer for creating asciinema recordings of chat playback."""
 
 import json
-import os
 import subprocess
 import tempfile
 import time
@@ -28,7 +27,7 @@ from rich.text import Text
 
 
 class ConversationRenderer:
-    """Renders conversation history as asciinema recording with step-by-step playback."""
+    """Renders conversation history as asciinema recording with playback."""
 
     def __init__(
         self,
@@ -43,7 +42,8 @@ class ConversationRenderer:
             conversation_history: List of conversation messages.
             console: Rich console for output.
             config: Configuration object with style settings.
-            thinking_processor: Optional thinking processor for rendering thinking content.
+            thinking_processor: Optional thinking processor for rendering thinking
+                content.
         """
         self.conversation_history = conversation_history
         self.console = console
@@ -88,7 +88,7 @@ class ConversationRenderer:
 
             # Clean up temporary script
             try:
-                os.unlink(temp_script)
+                Path(temp_script).unlink()
             except OSError:
                 pass
 
@@ -96,7 +96,8 @@ class ConversationRenderer:
                 file_size = Path(output_path).stat().st_size
                 return (
                     True,
-                    f"✅ Successfully recorded conversation to {output_path} ({file_size:,} bytes)",
+                    f"✅ Successfully recorded conversation to {output_path} "
+                    f"({file_size:,} bytes)",
                 )
             else:
                 error_msg = result.stderr or result.stdout or "Unknown error"
@@ -154,14 +155,14 @@ def ensure_dependencies():
             missing_packages.append(package)
 
     if missing_packages:
-        print(f"Installing required dependencies: {", ".join(missing_packages)}")
+        print("Installing required dependencies: " + ", ".join(missing_packages))
         try:
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "--quiet"
             ] + missing_packages)
             print("Dependencies installed successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to install dependencies: {e}")
+        except subprocess.CalledProcessError as install_error:
+            print("Failed to install dependencies: " + str(install_error))
             print("Falling back to basic text rendering...")
             return False
 
@@ -219,7 +220,9 @@ def process_thinking_content(content):
         matches = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
         if matches:
             thinking_content = matches[0].strip()
-            final_content = re.sub(pattern, '', content, flags=re.DOTALL | re.IGNORECASE).strip()
+            final_content = re.sub(
+                pattern, '', content, flags=re.DOTALL | re.IGNORECASE
+            ).strip()
             break
 
     return thinking_content, final_content
@@ -231,9 +234,9 @@ def display_message(role, content, position=None):
         title_rich = "[bold blue]You[/bold blue]"
         border_style = "blue"
     else:
-        pos_text = f" (#{position})" if position else ""
-        title = f"Assistant{pos_text}"
-        title_rich = f"[bold cyan]Assistant{pos_text}[/bold cyan]"
+        pos_text = f" (#{{position}})" if position else ""
+        title = f"Assistant{{pos_text}}"
+        title_rich = f"[bold cyan]Assistant{{pos_text}}[/bold cyan]"
         border_style = "cyan"
 
         # Process thinking content for assistant messages
@@ -273,7 +276,7 @@ def display_message(role, content, position=None):
     else:
         # Fallback display
         print("\\n" + "="*60)
-        print(f"{title}:")
+        print(title + ":")
         print("-"*60)
         print(content)
         print("="*60 + "\\n")
@@ -313,7 +316,11 @@ def main():
     # Show completion message
     console.print()
     completion = Panel(
-        Text("✅ Conversation playback complete!", style="bold green", justify="center"),
+        Text(
+            "✅ Conversation playback complete!",
+            style="bold green",
+            justify="center"
+        ),
         border_style="green",
         padding=(0, 1)
     )

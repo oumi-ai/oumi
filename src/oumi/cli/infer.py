@@ -38,12 +38,6 @@ def infer(
         bool,
         typer.Option("-i", "--interactive", help="Run in an interactive session."),
     ] = False,
-    browse: Annotated[
-        bool,
-        typer.Option(
-            "-b", "--browse", help="Browse and play back recent chat conversations."
-        ),
-    ] = False,
     server_mode: Annotated[
         bool,
         typer.Option(
@@ -91,7 +85,6 @@ def infer(
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
         interactive: Whether to run in an interactive session.
-        browse: Whether to browse and play back recent chat conversations.
         server_mode: Run as HTTP server compatible with OpenAI API.
         host: Host address for server mode.
         port: Port for server mode.
@@ -183,13 +176,6 @@ def infer(
             system_prompt=system_prompt,
         )
 
-    # Handle browse mode
-    if browse:
-        from oumi.core.commands.chat_browser import ChatBrowser
-
-        browser = ChatBrowser(parsed_config)
-        return browser.run()
-
     if not interactive:
         logger.warning(
             "No input path provided, running in interactive mode. "
@@ -211,12 +197,6 @@ def chat(
             help="Path to the configuration file for inference.",
         ),
     ],
-    browse: Annotated[
-        bool,
-        typer.Option(
-            "-b", "--browse", help="Browse and play back recent chat conversations."
-        ),
-    ] = False,
     image: Annotated[
         Optional[str],
         typer.Option(
@@ -246,7 +226,6 @@ def chat(
     Args:
         ctx: The Typer context object.
         config: Path to the configuration file for inference.
-        browse: Whether to browse and play back recent chat conversations.
         image: Path to the input image for `image+text` VLLMs.
         system_prompt: System prompt for task-specific instructions.
         level: The logging level for the specified command.
@@ -256,7 +235,6 @@ def chat(
         ctx=ctx,
         config=config,
         interactive=True,  # Always interactive for chat
-        browse=browse,
         server_mode=False,
         host="0.0.0.0",
         port=8000,

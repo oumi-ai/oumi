@@ -271,7 +271,8 @@ class BranchOperationsHandler(BaseCommandHandler):
             if len(command.args) < 2:
                 return CommandResult(
                     success=False,
-                    message="branch_from command requires two arguments: branch_name and position",
+                    message="branch_from command requires two arguments: "
+                    "branch_name and position",
                     should_continue=False,
                 )
 
@@ -306,11 +307,13 @@ class BranchOperationsHandler(BaseCommandHandler):
             if position > len(assistant_messages):
                 return CommandResult(
                     success=False,
-                    message=f"Position {position} exceeds number of assistant messages ({len(assistant_messages)})",
+                    message=f"Position {position} exceeds number of assistant "
+                    f"messages ({len(assistant_messages)})",
                     should_continue=False,
                 )
 
-            # Get the actual index in conversation history for the specified assistant message
+            # Get the actual index in conversation history for the specified
+            # assistant message
             branch_point_index = (
                 assistant_messages[position - 1][0] + 1
             )  # +1 to branch after the assistant message
@@ -335,7 +338,8 @@ class BranchOperationsHandler(BaseCommandHandler):
 
                 return CommandResult(
                     success=True,
-                    message=f"Created and switched to branch '{branch_name}' from assistant message {position}",
+                    message=f"Created and switched to branch '{branch_name}' from "
+                    f"assistant message {position}",
                     should_continue=False,
                 )
             else:

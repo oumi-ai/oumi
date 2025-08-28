@@ -126,8 +126,7 @@ class CommandRegistry:
             "load": CommandInfo(
                 name="load",
                 description=(
-                    "Load a previously saved chat from cache by ID or browse recent "
-                    "chats"
+                    "Load a previously saved chat from cache by ID"
                 ),
                 examples=[
                     "/load(chat_id)",

@@ -96,7 +96,8 @@ class ImportUtilities:
                 elif "history" in data:
                     messages = data["history"]
                 else:
-                    # Assume the dict itself is a single message or contains message fields
+                    # Assume the dict itself is a single message or contains
+                    # message fields
                     if "role" in data and "content" in data:
                         messages = [data]
                     else:
@@ -217,26 +218,26 @@ class ImportUtilities:
         except ImportError:
             return (
                 False,
-                "Excel import requires pandas. Install with: pip install pandas openpyxl",
+                "Excel import requires pandas. Install with: "
+                "pip install pandas openpyxl",
                 [],
             )
 
         try:
             # Read Excel file
-            df = pd.read_excel(file_path)
+            dataframe = pd.read_excel(file_path)
 
             # Convert to list of dictionaries
-            data = df.to_dict("records")
+            data = dataframe.to_dict("records")
 
             # Process similar to CSV
             messages = []
 
             # Look for common column names (case-insensitive)
-            columns = [col.lower().strip() for col in df.columns]
             role_col = None
             content_col = None
 
-            for col in df.columns:
+            for col in dataframe.columns:
                 col_lower = col.lower().strip()
                 if col_lower in ["role", "speaker", "author", "from", "type"]:
                     role_col = col
@@ -301,7 +302,6 @@ class ImportUtilities:
             for i in range(
                 1, len(parts), 3
             ):  # Skip first empty part, then take header+content pairs
-                header_level = parts[i] if i < len(parts) else ""
                 header_text = parts[i + 1] if i + 1 < len(parts) else ""
                 section_content = parts[i + 2] if i + 2 < len(parts) else ""
 
@@ -369,7 +369,10 @@ class ImportUtilities:
             # Try different text formats
 
             # Format 1: "Role: content" pattern
-            role_pattern = r"^(User|Assistant|System|Human|AI|Bot):\\s*(.+?)(?=^(?:User|Assistant|System|Human|AI|Bot):|$)"
+            role_pattern = (
+                r"^(User|Assistant|System|Human|AI|Bot):"
+                r"\\s*(.+?)(?=^(?:User|Assistant|System|Human|AI|Bot):|$)"
+            )
             matches = re.findall(
                 role_pattern, content, re.MULTILINE | re.DOTALL | re.IGNORECASE
             )

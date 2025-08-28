@@ -51,10 +51,9 @@ class TestBranchCommand:
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
-            conversation_history=[],
+            conversation_history=self.mock_conversation.messages,
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
 
     @pytest.fixture
     def mock_handler(self):
@@ -109,7 +108,8 @@ class TestBranchCommand:
     def test_create_branch_empty_conversation(self, mock_handler):
         """Test creating a branch from an empty conversation."""
         empty_conversation = Conversation(conversation_id="empty", messages=[])
-        self.command_context.current_conversation = empty_conversation
+        self.command_context.conversation_history.clear()
+        self.command_context.conversation_history.extend(empty_conversation.messages)
 
         parsed_cmd = ParsedCommand(
             command="branch", args=[], kwargs={}, raw_input="/branch("
@@ -174,10 +174,9 @@ class TestBranchFromCommand:
         self.command_context = CommandContext(
             console=self.mock_console,
             config=self.test_config,
-            conversation_history=[],
+            conversation_history=self.mock_conversation.messages,
             inference_engine=self.mock_engine,
         )
-        self.command_context.current_conversation = self.mock_conversation
 
     @pytest.fixture
     def mock_handler(self):
@@ -243,7 +242,9 @@ class TestBranchFromCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Usage: /branch_from(branch_name, position) - Missing position argument",
+            message=(
+                "Usage: /branch_from(branch_name, position) - Missing position argument"
+            ),
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -335,7 +336,10 @@ class TestSwitchCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Branch 'nonexistent' not found. Available branches: main, experiment1, experiment2",
+            message=(
+                "Branch 'nonexistent' not found. Available branches: "
+                "main, experiment1, experiment2"
+            ),
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -400,7 +404,10 @@ class TestBranchesCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=True,
-            message="Available branches:\n• main* (4 messages) - current\n• experiment1 (2 messages)\n• experiment2 (3 messages)",
+            message=(
+                "Available branches:\n• main* (4 messages) - current\n"
+                "• experiment1 (2 messages)\n• experiment2 (3 messages)"
+            ),
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -548,7 +555,10 @@ class TestBranchDeleteCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Cannot delete currently active branch 'current_branch'. Switch to another branch first.",
+            message=(
+                "Cannot delete currently active branch 'current_branch'. "
+                "Switch to another branch first."
+            ),
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -567,7 +577,9 @@ class TestBranchDeleteCommand:
 
         mock_handler.handle.return_value = CommandResult(
             success=False,
-            message="Usage: /branch_delete(branch_name) - Please specify a branch to delete",
+            message=(
+                "Usage: /branch_delete(branch_name) - Please specify a branch to delete"
+            ),
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)
@@ -607,7 +619,8 @@ class TestBranchingWorkflows:
 
     def test_create_switch_delete_workflow(self, mock_handler):
         """Test a complete workflow: create → switch → delete."""
-        # This would normally be multiple commands, but we're testing the handler's ability
+        # This would normally be multiple commands, but we're testing the handler's
+        # ability
         # to maintain state across operations
 
         commands_and_results = [
@@ -640,7 +653,10 @@ class TestBranchingWorkflows:
 
         mock_handler.handle.return_value = CommandResult(
             success=True,
-            message="Branch isolation maintained: each branch has independent message history",
+            message=(
+                "Branch isolation maintained: each branch has independent "
+                "message history"
+            ),
         )
 
         result = mock_handler.handle(parsed_cmd, self.command_context)

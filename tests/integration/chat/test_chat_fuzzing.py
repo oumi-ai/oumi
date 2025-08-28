@@ -124,9 +124,9 @@ class TestChatFuzzingBasic:
                 final_result = chat_session.send_message_with_real_inference(
                     "Final test message"
                 )
-                assert (
-                    final_result.success
-                    or "no active session" in final_result.message.lower()
+                assert final_result.success or (
+                    final_result.message
+                    and "no active session" in final_result.message.lower()
                 )
 
                 # Check that we had a good mix of actions
@@ -204,9 +204,7 @@ class TestChatFuzzingBasic:
                     branch_results.append(branch_result.success)
 
                     # Send a message in this context
-                    msg_result = chat_session.send_message_with_real_inference(
-                        f"Branch {i} message"
-                    )
+                    chat_session.send_message_with_real_inference(f"Branch {i} message")
 
                     time.sleep(0.05)
                 except Exception:
@@ -238,7 +236,7 @@ class TestChatFuzzingGPU:
 
         try:
             # Skip if vLLM not available
-            import vllm
+            import vllm  # noqa: F401
         except ImportError:
             pytest.skip("vLLM not available for extended stress testing")
 
@@ -420,7 +418,7 @@ class TestChatFuzzingExtreme:
 
             for i, prompt in enumerate(prompts[:300]):  # Up to 300 turns
                 try:
-                    result = chat_session.send_message_with_real_inference(
+                    chat_session.send_message_with_real_inference(
                         f"Turn {i + 1}: {prompt[:50]}"  # Truncate prompts
                     )
 
@@ -452,7 +450,7 @@ class TestChatFuzzingExtreme:
                         # For other errors, continue
                         continue
 
-            metrics = monitor.end_session_monitoring(chat_session)
+            monitor.end_session_monitoring(chat_session)
 
             # Verify we reached significant milestones
             assert len(milestones_reached) >= 2, (
@@ -463,7 +461,9 @@ class TestChatFuzzingExtreme:
             final_result = chat_session.send_message_with_real_inference(
                 "Final health check"
             )
-            assert final_result.success or "memory" in final_result.message.lower()
+            assert final_result.success or (
+                final_result.message and "memory" in final_result.message.lower()
+            )
 
     def test_chaos_monkey_simulation(self):
         """Simulate chaotic user behavior with random actions."""
@@ -551,7 +551,9 @@ class TestChatFuzzingExtreme:
                 final_result = chat_session.send_message_with_real_inference(
                     "Chaos test complete"
                 )
-                assert final_result.success or "session" in final_result.message.lower()
+                assert final_result.success or (
+                    final_result.message and "session" in final_result.message.lower()
+                )
 
 
 class TestFuzzingUtilities:

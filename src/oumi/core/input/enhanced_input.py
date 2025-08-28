@@ -75,7 +75,9 @@ class CommandCompleter(Completer):
 
 
 class EnhancedInput:
-    """Enhanced input handler with prompt_toolkit for arrow keys, history, and completion.
+    """Enhanced input handler with prompt_toolkit.
+
+    Provides arrow keys, history, and completion support.
 
     Features:
     - Arrow key navigation (up/down for history, left/right for cursor)
@@ -206,7 +208,8 @@ class EnhancedInput:
         """Get multi-line input with enhanced editing."""
         try:
             self.console.print(
-                "[dim]📝 Multi-line mode: Enter for new line, Ctrl+D to submit, /sl to switch[/dim]"
+                "[dim]📝 Multi-line mode: Enter for new line, Ctrl+D to submit, "
+                "/sl to switch[/dim]"
             )
 
             # Create styled prompt for multi-line

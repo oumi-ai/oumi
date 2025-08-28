@@ -254,7 +254,7 @@ class CommandParser:
             if not parsed_command.args:
                 return False, "import command requires an input file path"
         elif parsed_command.command == "load":
-            # load command can be used without arguments to browse recent chats
+            # load command requires arguments with chat ID
             pass
         elif parsed_command.command == "swap":
             if not parsed_command.args:

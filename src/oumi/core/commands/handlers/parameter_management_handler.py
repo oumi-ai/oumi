@@ -43,7 +43,8 @@ class ParameterManagementHandler(BaseCommandHandler):
         if not command.kwargs and not command.args:
             return CommandResult(
                 success=False,
-                message="set command requires parameter=value arguments (e.g., /set(temperature=0.8, top_p=0.9))",
+                message="set command requires parameter=value arguments "
+                "(e.g., /set(temperature=0.8, top_p=0.9))",
                 should_continue=False,
             )
 
@@ -127,7 +128,8 @@ class ParameterManagementHandler(BaseCommandHandler):
         if param not in valid_params:
             return (
                 False,
-                f"Unknown parameter '{param}'. Valid parameters: {', '.join(sorted(valid_params))}",
+                f"Unknown parameter '{param}'. Valid parameters: "
+                f"{', '.join(sorted(valid_params))}",
             )
 
         # Parse and validate value

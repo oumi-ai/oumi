@@ -19,7 +19,7 @@ import mimetypes
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import ClassVar, Optional
 
 from oumi.core.attachments.context_manager import ContextWindowManager
 
@@ -82,8 +82,16 @@ class FileHandler:
     LARGE_FILE_THRESHOLD = 1024 * 1024  # 1MB
 
     # File type mappings
-    TEXT_EXTENSIONS = {".txt", ".md", ".rst", ".log", ".cfg", ".ini", ".conf"}
-    CODE_EXTENSIONS = {
+    TEXT_EXTENSIONS: ClassVar[set[str]] = {
+        ".txt",
+        ".md",
+        ".rst",
+        ".log",
+        ".cfg",
+        ".ini",
+        ".conf",
+    }
+    CODE_EXTENSIONS: ClassVar[set[str]] = {
         ".py",
         ".js",
         ".ts",
@@ -104,7 +112,7 @@ class FileHandler:
         ".yaml",
         ".yml",
     }
-    IMAGE_EXTENSIONS = {
+    IMAGE_EXTENSIONS: ClassVar[set[str]] = {
         ".jpg",
         ".jpeg",
         ".png",

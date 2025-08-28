@@ -263,7 +263,8 @@ class TestChatSessionWithCommands:
         # Clear conversation
         result = chat_session.execute_command("/clear()")
 
-        # Accept various results - clear might not be implemented or might work differently
+        # Accept various results - clear might not be implemented or might work
+        # differently
         if result.success:
             conv_after = chat_session.get_conversation()
             messages_after = len(conv_after.messages) if conv_after else 0
@@ -316,7 +317,6 @@ class TestChatSessionWithCommands:
                 if result.message:
                     assert "attach" in result.message.lower()
                 # File content should be available to the session
-                conv = chat_session.get_conversation()
                 # Check if attachment is reflected in conversation context
 
     def test_command_error_handling_in_session(self, chat_session):

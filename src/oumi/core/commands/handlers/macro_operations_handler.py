@@ -48,7 +48,10 @@ class MacroOperationsHandler(BaseCommandHandler):
             if not self.context.macro_manager:
                 return CommandResult(
                     success=False,
-                    message="Macro functionality not available. Install jinja2: pip install jinja2",
+                    message=(
+                        "Macro functionality not available. "
+                        "Install jinja2: pip install jinja2"
+                    ),
                     should_continue=False,
                 )
 
@@ -82,14 +85,15 @@ class MacroOperationsHandler(BaseCommandHandler):
                     "\n📝 Please provide values for the following fields:\n"
                 )
                 self.console.print(
-                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, "
-                    "or paste content directly.[/dim]\n"
+                    "[dim]Tip: For multiline input, type /ml to switch to "
+                    "multi-line mode, or paste content directly.[/dim]\n"
                 )
 
                 for field in macro_info.fields:
                     field_value = self._collect_field_value(field)
 
-                    # Check if user cancelled (empty return from required field cancellation)
+                    # Check if user cancelled (empty return from required field
+                    # cancellation)
                     if field.required and not field_value:
                         return CommandResult(
                             success=False,
@@ -124,12 +128,16 @@ class MacroOperationsHandler(BaseCommandHandler):
                     current_tokens + estimated_tokens > max_context * 0.9
                 ):  # Use 90% threshold
                     validation_error = (
-                        f"Rendered macro content (~{estimated_tokens} tokens) would exceed "
-                        f"context window limit. Current: {current_tokens}, Max: {max_context}"
+                        f"Rendered macro content (~{estimated_tokens} tokens) "
+                        f"would exceed context window limit. "
+                        f"Current: {current_tokens}, Max: {max_context}"
                     )
                     return CommandResult(
                         success=False,
-                        message=f"Rendered macro exceeds context window:\\n{validation_error}",
+                        message=(
+                            f"Rendered macro exceeds context window:\\n"
+                            f"{validation_error}"
+                        ),
                         should_continue=False,
                     )
 
@@ -207,7 +215,8 @@ class MacroOperationsHandler(BaseCommandHandler):
         """Interactively collect a value for a macro field using EnhancedInput.
 
         This method uses the same input system as the main chat loop to ensure
-        consistent handling of complex multiline content and avoid terminal state conflicts.
+        consistent handling of complex multiline content and avoid terminal state
+        conflicts.
         """
         # Use local import to avoid circular dependency
         from oumi.core.input.enhanced_input import EnhancedInput
@@ -283,11 +292,7 @@ class MacroOperationsHandler(BaseCommandHandler):
         # Try to detect conversation structure
         # Look for patterns like "User:", "Human:", etc.
 
-        # Split by common role indicators
-        role_patterns = [
-            r"^(User|Human):\\s*(.+?)(?=^(?:Assistant|AI|Bot|User|Human):|$)",
-            r"^(Assistant|AI|Bot):\\s*(.+?)(?=^(?:User|Human|Assistant|AI|Bot):|$)",
-        ]
+        # Split by common role indicators (unused patterns for future enhancement)
 
         current_turn = ""
         in_user_section = False
@@ -350,6 +355,8 @@ class MacroOperationsHandler(BaseCommandHandler):
             return f"Executed macro '{macro_info.name}' with 1 conversation turn"
         else:
             return (
-                f"Executing macro '{macro_info.name}' - starting with turn 1 of {turns_count}.\\n"
-                f"Note: Multi-turn macros require manual continuation for subsequent turns."
+                f"Executing macro '{macro_info.name}' - starting with turn 1 of "
+                f"{turns_count}.\\n"
+                f"Note: Multi-turn macros require manual continuation for "
+                f"subsequent turns."
             )
