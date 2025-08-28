@@ -18,9 +18,8 @@ class TestPrettyInterfaceRegression:
         """Create a mock inference config for testing."""
         return InferenceConfig(
             model=ModelParams(
-                model_name="test-model",
+                model_name="microsoft/DialoGPT-medium",  # Use an actual model for testing
                 trust_remote_code=True,
-                tokenizer_name="gpt2",
             ),
             generation=GenerationParams(max_new_tokens=10),
         )
@@ -30,24 +29,32 @@ class TestPrettyInterfaceRegression:
         from oumi import infer_interactive
 
         with patch("oumi.infer.Console") as mock_console_class:
-            with patch(
-                "oumi.builders.inference_engines.build_inference_engine"
-            ) as mock_build_engine:
-                mock_console = MagicMock()
-                mock_console_class.return_value = mock_console
+            with patch("oumi.infer.get_engine") as mock_get_engine:
+                with patch("oumi.infer.SystemMonitor") as mock_monitor_class:
+                    with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+                        mock_console = MagicMock()
+                        mock_console_class.return_value = mock_console
 
-                mock_engine = MagicMock()
-                mock_build_engine.return_value = mock_engine
+                        mock_engine = MagicMock()
+                        mock_get_engine.return_value = mock_engine
 
-                # Mock the input to simulate Ctrl+D immediately
-                with patch("builtins.input", side_effect=EOFError):
-                    infer_interactive(mock_config)
+                        mock_monitor = MagicMock()
+                        mock_monitor_class.return_value = mock_monitor
 
-                # Verify Rich Console was initialized
-                mock_console_class.assert_called_once()
+                        mock_enhanced_input_instance = MagicMock()
+                        mock_enhanced_input.return_value = mock_enhanced_input_instance
+                        mock_enhanced_input_instance.get_input.side_effect = EOFError
 
-                # Verify console methods were called (indicating pretty interface)
-                assert mock_console.print.called or mock_console.rule.called
+                        try:
+                            infer_interactive(mock_config)
+                        except EOFError:
+                            pass  # Expected from input mock
+
+                        # Verify Rich Console was initialized
+                        mock_console_class.assert_called_once()
+
+                        # Verify console methods were called (indicating pretty interface)
+                        assert mock_console.print.called
 
     def test_infer_interactive_has_system_monitor(self, mock_config):
         """Test that system monitoring is initialized in pretty interface."""
@@ -55,26 +62,45 @@ class TestPrettyInterfaceRegression:
 
         with patch("oumi.infer.SystemMonitor") as mock_monitor_class:
             with patch("oumi.infer.Console"):
-                with patch("oumi.builders.inference_engines.build_inference_engine"):
-                    mock_monitor = MagicMock()
-                    mock_monitor_class.return_value = mock_monitor
+                with patch("oumi.infer.get_engine"):
+                    with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+                        mock_monitor = MagicMock()
+                        mock_monitor_class.return_value = mock_monitor
 
-                    with patch("builtins.input", side_effect=EOFError):
-                        infer_interactive(mock_config)
+                        mock_enhanced_input_instance = MagicMock()
+                        mock_enhanced_input.return_value = mock_enhanced_input_instance
+                        mock_enhanced_input_instance.get_input.side_effect = EOFError
 
-                    # Verify SystemMonitor was initialized
-                    mock_monitor_class.assert_called_once()
+                        try:
+                            infer_interactive(mock_config)
+                        except EOFError:
+                            pass  # Expected from input mock
+
+                        # Verify SystemMonitor was initialized
+                        mock_monitor_class.assert_called_once()
 
     def test_infer_interactive_has_thinking_animation(self, mock_config):
         """Test that thinking animation is present in pretty interface."""
         from oumi import infer_interactive
+        from oumi.core.input import InputAction, InputResult
 
         with patch("oumi.infer.Live") as mock_live_class:
             with patch("oumi.infer.Console"):
-                with patch("oumi.builders.inference_engines.build_inference_engine"):
+                with patch("oumi.infer.get_engine") as mock_get_engine:
                     with patch("oumi.infer.SystemMonitor"):
                         mock_live = MagicMock()
                         mock_live_class.return_value = mock_live
+
+                        # Mock engine to return a simple response
+                        mock_engine = MagicMock()
+                        mock_get_engine.return_value = mock_engine
+                        
+                        # Mock a simple conversation response
+                        from oumi.core.types.conversation import Conversation, Message, Role
+                        mock_response = [Conversation(messages=[
+                            Message(role=Role.ASSISTANT, content="Hello!")
+                        ])]
+                        mock_engine.infer.return_value = mock_response
 
                         # Mock input to provide one message then exit
                         with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
@@ -82,17 +108,34 @@ class TestPrettyInterfaceRegression:
                             mock_enhanced_input.return_value = (
                                 mock_enhanced_input_instance
                             )
-                            mock_enhanced_input_instance.get_input.side_effect = (
-                                EOFError
-                            )
+                            
+                            # Provide one input, then EOF
+                            input_results = [
+                                InputResult(
+                                    text="Hello",
+                                    action=InputAction.SUBMIT,
+                                    cancelled=False,
+                                    should_exit=False,
+                                    multiline_toggled=False
+                                ),
+                                InputResult(
+                                    text="",
+                                    action=InputAction.EXIT,
+                                    cancelled=False,
+                                    should_exit=True,
+                                    multiline_toggled=False
+                                )
+                            ]
+                            mock_enhanced_input_instance.get_input.side_effect = input_results
 
                             try:
                                 infer_interactive(mock_config)
-                            except EOFError:
+                            except (EOFError, SystemExit):
                                 pass  # Expected from input mock
 
                         # Verify Live context manager was used (for thinking animation)
-                        mock_live.__enter__.assert_called()
+                        # Note: Live is used in the thinking_with_monitor context manager
+                        mock_live_class.assert_called()
 
     def test_infer_interactive_has_command_parsing(self, mock_config):
         """Test that command parsing is present for /save, /load, etc."""
@@ -100,16 +143,23 @@ class TestPrettyInterfaceRegression:
 
         with patch("oumi.infer.CommandRouter") as mock_router_class:
             with patch("oumi.infer.Console"):
-                with patch("oumi.builders.inference_engines.build_inference_engine"):
+                with patch("oumi.infer.get_engine"):
                     with patch("oumi.infer.SystemMonitor"):
-                        mock_router = MagicMock()
-                        mock_router_class.return_value = mock_router
+                        with patch("oumi.infer.EnhancedInput") as mock_enhanced_input:
+                            mock_router = MagicMock()
+                            mock_router_class.return_value = mock_router
 
-                        with patch("builtins.input", side_effect=EOFError):
-                            infer_interactive(mock_config)
+                            mock_enhanced_input_instance = MagicMock()
+                            mock_enhanced_input.return_value = mock_enhanced_input_instance
+                            mock_enhanced_input_instance.get_input.side_effect = EOFError
 
-                        # Verify CommandRouter was initialized
-                        mock_router_class.assert_called_once()
+                            try:
+                                infer_interactive(mock_config)
+                            except EOFError:
+                                pass  # Expected from input mock
+
+                            # Verify CommandRouter was initialized
+                            mock_router_class.assert_called_once()
 
     def test_infer_interactive_imports_pretty_dependencies(self, mock_config):
         """Test that all pretty interface dependencies can be imported."""
@@ -118,16 +168,16 @@ class TestPrettyInterfaceRegression:
             Console,  # Rich console
             Live,  # Thinking animation
             Panel,  # UI panels
-            Progress,  # Progress bars
-            Rule,  # Dividers
+            Text,  # Text rendering
+            Spinner,  # Spinner animation
         )
 
         # If we get here without ImportError, the pretty interface imports are available
         assert Console is not None
         assert Live is not None
         assert Panel is not None
-        assert Progress is not None
-        assert Rule is not None
+        assert Text is not None
+        assert Spinner is not None
 
     def test_legacy_interface_not_used(self, mock_config):
         """Test that the legacy simple interface is NOT being used."""

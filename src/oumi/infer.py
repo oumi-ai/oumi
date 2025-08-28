@@ -934,7 +934,7 @@ def infer_interactive(
                             content = msg["content"]
                             if is_gpt_oss and "<|channel|>" in content:
                                 # Extract only the final content for conversation
-                        # history
+                                # history
                                 harmony_fields = _convert_to_harmony_format(content)
                                 content = harmony_fields.get("content", content)
 
@@ -1030,7 +1030,7 @@ def infer_interactive(
                             content = msg["content"]
                             if is_gpt_oss and "<|channel|>" in content:
                                 # Extract only the final content for conversation
-                        # history
+                                # history
                                 harmony_fields = _convert_to_harmony_format(content)
                                 content = harmony_fields.get("content", content)
 
