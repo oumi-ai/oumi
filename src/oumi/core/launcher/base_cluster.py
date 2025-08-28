@@ -98,7 +98,7 @@ class BaseCluster(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_tailed_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
+    def get_logs_stream(self, job_id: str, cluster_name: str) -> io.TextIOBase:
         """Gets a stream that tails the logs of the target job.
 
         Args:

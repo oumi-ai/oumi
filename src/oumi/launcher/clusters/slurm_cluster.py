@@ -302,7 +302,7 @@ class SlurmCluster(BaseCluster):
         """This is a no-op for Slurm clusters."""
         pass
 
-    def get_tailed_stream(self, job_id: str, cluster_name: str) -> SlurmLogStream:
+    def get_logs_stream(self, job_id: str, cluster_name: str) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.
 
         Args:
@@ -315,7 +315,7 @@ class SlurmCluster(BaseCluster):
         if job_id not in self.jobs_info:
             raise RuntimeError(f"Job {job_id} not found in jobs_info")
         job_info = self.jobs_info[job_id]
-        return self._client.get_tailed_stream(
+        return self._client.get_logs_stream(
             str(job_info.working_dir),
             job_id,
             cluster_name,

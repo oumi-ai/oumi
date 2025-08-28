@@ -718,7 +718,7 @@ class SlurmClient:
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
-    def get_tailed_stream(
+    def get_logs_stream(
         self, working_dir: str, job_id: str, cluster_name: str, stdout_filename: str
     ) -> SlurmLogStream:
         """Gets a stream that tails the logs of the target job.

@@ -69,6 +69,8 @@ class SkyLogStream(io.TextIOBase):
     def __init__(self, iterator: Iterator[Optional[str]]):
         """Initializes a new instance of the SkyLogStream class."""
         self.iterator = iterator
+        # We want to remove ANSI escape codes from the log stream since
+        # colors are returned such as `\x1b[32m` for green text.
         self.ansi_pattern = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
         self._buffer = ""
 
@@ -300,7 +302,7 @@ class SkyClient:
         """
         self._sky_lib.down(cluster_name)
 
-    def get_tailed_stream(self, job_id: str, cluster_name: str) -> SkyLogStream:
+    def get_logs_stream(self, job_id: str, cluster_name: str) -> SkyLogStream:
         """Gets a stream that tails the logs of the target job.
 
         Args:

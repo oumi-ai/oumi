@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import time
 from collections import defaultdict
 from multiprocessing.pool import Pool
@@ -101,7 +102,9 @@ def _cancel_worker(id: str, cloud: str, cluster: str) -> bool:
     return True  # Always return true to indicate that the task is done.
 
 
-def _tail_logs(log_stream, job_id: str, output_filepath: Optional[str] = None) -> None:
+def _tail_logs(
+    log_stream: io.TextIOBase, job_id: str, output_filepath: Optional[str] = None
+) -> None:
     """Tails logs with pretty CLI output.
 
     This function reads from a log stream and displays the output with rich formatting
@@ -250,9 +253,7 @@ def _poll_job(
     assert running_cluster
 
     try:
-        log_stream = running_cluster.get_tailed_stream(
-            job_status.id, job_status.cluster
-        )
+        log_stream = running_cluster.get_logs_stream(job_status.id, job_status.cluster)
         _tail_logs(log_stream, job_status.id, output_filepath)
     except Exception:
         _print_and_wait(
