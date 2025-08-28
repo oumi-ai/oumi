@@ -178,7 +178,7 @@ class AbstractRealModelChatTest(ABC):
 
         chat_session = self.create_chat_session()
 
-        with temporary_chat_files({"test.txt": "This is test content"}) as temp_files:
+        with temporary_chat_files({"test.txt": "This is test content"}):
             with chat_session.real_inference_session():
                 chat_session.start_session()
 
@@ -187,7 +187,8 @@ class AbstractRealModelChatTest(ABC):
                     "Tell me about science. Please mention the word 'knowledge'."
                 )
                 assert result.success
-                chat_session.assert_response_quality()  # Remove keyword requirement for small model
+                # Remove keyword requirement for small model
+                chat_session.assert_response_quality()
 
                 # Test save command with real conversation
                 temp_save_path = "test_conversation.json"
@@ -291,7 +292,8 @@ class AbstractRealModelChatTest(ABC):
                 "expected_keywords": ["10", "ten"],
                 "min_length": 1,  # Very lenient for math answers
                 "max_length": 200,  # Higher max for flexibility
-                "require_sentences": False,  # Math answers don't need sentence terminators
+                # Math answers don't need sentence terminators
+                "require_sentences": False,
             },
         ]
 
@@ -371,9 +373,8 @@ class TestVllmChatEngine(AbstractRealModelChatTest):
     def should_skip_test(self) -> Optional[str]:
         """Check if vLLM tests should be skipped."""
         try:
-            import vllm
-
-            return None
+            from importlib.util import find_spec
+            return None if find_spec("vllm") is not None else "vLLM not available"
         except ImportError:
             return "vLLM not available"
 
@@ -398,9 +399,12 @@ class TestLlamaCppChatEngine(AbstractRealModelChatTest):
     def should_skip_test(self) -> Optional[str]:
         """Check if LlamaCPP tests should be skipped."""
         try:
-            import llama_cpp
-
-            return None
+            from importlib.util import find_spec
+            return (
+                None
+                if find_spec("llama_cpp") is not None
+                else "llama-cpp-python not available"
+            )
         except ImportError:
             return "llama-cpp-python not available"
 

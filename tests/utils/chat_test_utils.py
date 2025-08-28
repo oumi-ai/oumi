@@ -136,9 +136,13 @@ class ChatTestSession:
                 console_patch = patch("rich.console.Console")
                 patches.append(console_patch)
                 mock_console = console_patch.start()
-                mock_console.return_value.print.side_effect = self.output_capture.print
+                if mock_console.return_value is not None:
+                    mock_console.return_value.print.side_effect = (
+                        self.output_capture.print
+                    )
                 # Update the existing mock console with capture behavior
-                self.mock_console.print.side_effect = self.output_capture.print
+                if self.mock_console is not None:
+                    self.mock_console.print.side_effect = self.output_capture.print
 
             # Mock inference engine builder to return our existing mock
             engine_patch = patch(
@@ -244,9 +248,10 @@ class ChatTestSession:
         for cmd, result in self.command_history:
             if cmd == command:
                 assert result.success, f"Command '{command}' failed: {result.message}"
-                if expected_message:
+                if expected_message and result.message:
                     assert expected_message in result.message, (
-                        f"Expected message '{expected_message}' not found in '{result.message}'"
+                        f"Expected message '{expected_message}' not found in "
+                        f"'{result.message}'"
                     )
                 return
 
@@ -269,9 +274,10 @@ class ChatTestSession:
                 assert not result.success, (
                     f"Command '{command}' unexpectedly succeeded: {result.message}"
                 )
-                if expected_error:
+                if expected_error and result.message:
                     assert expected_error in result.message, (
-                        f"Expected error '{expected_error}' not found in '{result.message}'"
+                        f"Expected error '{expected_error}' not found in "
+                        f"'{result.message}'"
                     )
                 return
 
@@ -321,7 +327,8 @@ class ChatTestSession:
             )
 
         self._session_active = True
-        # Use unique session ID based on object id and time to ensure uniqueness across sessions
+        # Use unique session ID based on object id and time to ensure uniqueness
+        # across sessions
         import time
 
         session_id = f"test_session_{id(self)}_{int(time.time() * 1000000)}"
@@ -717,7 +724,7 @@ def ensure_test_cleanup():
 
 
 def cleanup_test_files_in_directory(
-    directory: Union[str, Path], patterns: list[str] = None
+    directory: Union[str, Path], patterns: Optional[list[str]] = None
 ):
     """Clean up test files in a specific directory.
 
@@ -829,7 +836,11 @@ def get_sample_conversations() -> list[dict[str, Any]]:
     Returns:
         List of sample conversation data.
     """
-    return load_chat_test_data("sample_conversations.json")
+    data = load_chat_test_data("sample_conversations.json")
+    if isinstance(data, list):
+        return data
+    # Handle case where data is wrapped in a dict
+    return data.get("conversations", [data]) if isinstance(data, dict) else []
 
 
 def get_web_content_mocks() -> dict[str, Any]:
@@ -857,7 +868,11 @@ def get_test_macro_template() -> str:
         Jinja template content for macro testing.
     """
     template_path = (
-        get_oumi_root_directory().parent.parent / "tests" / "testdata" / "chat" / "test_macro.jinja"
+        get_oumi_root_directory().parent.parent
+        / "tests"
+        / "testdata"
+        / "chat"
+        / "test_macro.jinja"
     )
     return template_path.read_text()
 
@@ -912,13 +927,15 @@ def validate_command_result(
 
     if expected_message_parts:
         for part in expected_message_parts:
-            assert part.lower() in result.message.lower(), (
+            message = result.message or ""
+            assert part.lower() in message.lower(), (
                 f"Expected message part '{part}' not found in: {result.message}"
             )
 
     if unexpected_message_parts:
         for part in unexpected_message_parts:
-            assert part.lower() not in result.message.lower(), (
+            message = result.message or ""
+            assert part.lower() not in message.lower(), (
                 f"Unexpected message part '{part}' found in: {result.message}"
             )
 

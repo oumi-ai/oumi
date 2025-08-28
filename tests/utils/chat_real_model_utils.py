@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 from oumi.builders.inference_engines import build_inference_engine
 from oumi.core.commands import CommandResult
-from oumi.core.configs import InferenceConfig
+from oumi.core.configs import InferenceConfig, InferenceEngineType
 from oumi.core.inference import BaseInferenceEngine
 from oumi.core.types.conversation import Conversation, Message, Role
 from tests.integration.infer.test_inference_test_utils import (
@@ -194,7 +194,7 @@ class RealModelChatSession(ChatTestSession):
                     fallback_config = InferenceConfig(
                         model=model_params,
                         generation=self.config.generation,
-                        engine="LLAMACPP",  # Force LlamaCPP engine
+                        engine=InferenceEngineType.LLAMACPP,  # Force LlamaCPP engine
                     )
 
                     return fallback_config
@@ -230,8 +230,9 @@ class RealModelChatSession(ChatTestSession):
         if self.real_engine:
             try:
                 # Attempt to cleanup if method exists
-                if hasattr(self.real_engine, "cleanup"):
-                    self.real_engine.cleanup()
+                cleanup_method = getattr(self.real_engine, "cleanup", None)
+                if cleanup_method is not None:
+                    cleanup_method()
                 del self.real_engine
             except Exception:
                 pass  # Ignore cleanup errors
@@ -484,7 +485,9 @@ def create_real_model_inference_config(
             setattr(generation_params, key, value)
 
     return InferenceConfig(
-        model=model_params, generation=generation_params, engine=engine_type
+        model=model_params,
+        generation=generation_params,
+        engine=InferenceEngineType(engine_type),
     )
 
 
@@ -504,7 +507,10 @@ def create_real_model_chat_conversations() -> list[Conversation]:
             messages=[
                 Message(
                     role=Role.USER,
-                    content="Hello! Can you have a friendly conversation with me? Please say hello back.",
+                    content=(
+                        "Hello! Can you have a friendly conversation with me? "
+                        "Please say hello back."
+                    ),
                 )
             ],
         ),
@@ -513,7 +519,10 @@ def create_real_model_chat_conversations() -> list[Conversation]:
             messages=[
                 Message(
                     role=Role.USER,
-                    content="I need help with a task. Can you assist me? Please mention the word 'help' in your response.",
+                    content=(
+                        "I need help with a task. Can you assist me? "
+                        "Please mention the word 'help' in your response."
+                    ),
                 )
             ],
         ),
@@ -523,11 +532,17 @@ def create_real_model_chat_conversations() -> list[Conversation]:
                 Message(role=Role.USER, content="What's the weather like?"),
                 Message(
                     role=Role.ASSISTANT,
-                    content="I don't have access to current weather data, but I can help you think about weather-related topics.",
+                    content=(
+                        "I don't have access to current weather data, but I can "
+                        "help you think about weather-related topics."
+                    ),
                 ),
                 Message(
                     role=Role.USER,
-                    content="That's okay. Can you tell me about different types of weather? Please mention 'rain' or 'sun'.",
+                    content=(
+                        "That's okay. Can you tell me about different types of "
+                        "weather? Please mention 'rain' or 'sun'."
+                    ),
                 ),
             ],
         ),

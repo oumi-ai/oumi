@@ -78,7 +78,8 @@ def requires_inference_backend(backend: str = "NATIVE") -> pytest.MarkDecorator:
         backend: The inference backend required (NATIVE, VLLM, LLAMACPP, etc.)
 
     Returns:
-        pytest.MarkDecorator: A decorator that skips the test if the backend is not available.
+        pytest.MarkDecorator: A decorator that skips the test if the backend
+            is not available.
     """
     from importlib.util import find_spec
 
