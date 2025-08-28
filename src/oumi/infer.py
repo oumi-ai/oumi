@@ -180,7 +180,7 @@ def _process_thinking_tags(
 
 
 def _process_latex_expressions(content: str) -> str:
-    """Process LaTeX expressions in content and convert them to ASCII art using sympy."""
+    """Process LaTeX expressions in content and convert them to ASCII art."""
     try:
         from sympy.parsing.latex import parse_latex
         from sympy.printing.pretty import pretty
@@ -197,7 +197,8 @@ def _process_latex_expressions(content: str) -> str:
         try:
             # Check if the expression contains \text{} commands
             if r"\text{" in latex_expr:
-                # For expressions with \text{}, skip SymPy parsing and use manual processing
+                # For expressions with \text{}, skip SymPy parsing and use manual
+                # processing
                 raise Exception("Contains \\text{}, use manual processing")
             else:
                 # Use SymPy's built-in LaTeX parser on expressions without \text{}
@@ -249,7 +250,10 @@ def _process_latex_expressions(content: str) -> str:
                         # Create a proper fraction display
                         max_width = max(len(numerator), len(denominator)) + 2
                         line = "─" * max_width
-                        return f"\n{numerator.center(max_width)}\n{line}\n{denominator.center(max_width)}\n"
+                        return (
+                            f"\n{numerator.center(max_width)}\n{line}\n"
+                            f"{denominator.center(max_width)}\n"
+                        )
                     else:
                         # For inline, use simple division notation
                         return f"({numerator})/({denominator})"
@@ -355,9 +359,11 @@ def _convert_conversation_for_harmony(
                     )
 
                     # If there's thinking content, we could store it as metadata
-                    # or handle it according to the specific inference engine requirements
+                    # or handle it according to the specific inference engine
+                    # requirements
                     if "thinking" in harmony_fields:
-                        # For display purposes, we might want to show both thinking and content
+                        # For display purposes, we might want to show both thinking
+                        # and content
                         # but for the inference engine, we follow the Harmony format
                         pass
 
@@ -431,10 +437,12 @@ def _format_conversation_response(
             content, console, style_params, command_context
         )
         if has_thinking:
-            # Thinking content was processed and rendered, now use the cleaned final content
+            # Thinking content was processed and rendered, now use the cleaned
+            # final content
             content = final_content
 
-        # Additional safety cleanup: remove any remaining harmony tags from display content
+        # Additional safety cleanup: remove any remaining harmony tags from
+        # display content
         if "<|" in content and "|>" in content:
             from oumi.core.thinking.thinking_processor import ThinkingProcessor
 
@@ -510,20 +518,26 @@ def _format_conversation_response(
             logger.debug(f"Markdown detected in content: {content[:100]}...")
             try:
                 # Normalize content for better markdown compatibility
-                # Replace non-standard dash characters that might interfere with table parsing
+                # Replace non-standard dash characters that might interfere with
+                # table parsing
                 normalized_content = (
                     content.replace("‑", "-").replace("–", "-").replace("—", "-")
                 )
 
                 # Simple table formatting improvement for better readability
                 def improve_table_readability(text):
-                    """Add line breaks around table-like content for better markdown parsing."""
-                    # Only add line breaks around obvious table patterns, don't try to parse them
+                    """Add line breaks around table-like content.
+
+                    For better markdown parsing.
+                    """
+                    # Only add line breaks around obvious table patterns, don't try
+                    # to parse them
                     lines = text.split("\n")
                     improved_lines = []
 
                     for line in lines:
-                        # If line has lots of pipes and looks like a table row, add line breaks
+                        # If line has lots of pipes and looks like a table row,
+                        # add line breaks
                         if "|" in line and line.count("|") >= 4:
                             # Add the line as-is but with some spacing
                             improved_lines.append("")  # Empty line before
@@ -663,7 +677,8 @@ def _validate_context_usage(
 
         # Simple check: does current conversation + new input fit in total context?
         total_tokens_needed = conversation_tokens + user_input_tokens
-        available_for_input = max_context - conversation_tokens
+        available_for_input = max_context
+        # conversation_tokens
 
         # If user input exceeds available space
         if total_tokens_needed > max_context:
@@ -687,9 +702,8 @@ def _validate_context_usage(
 
     except Exception as e:
         # If validation fails, log but allow input (fallback to existing behavior)
-        import logging
 
-        logging.warning(f"Context validation failed: {e}")
+        logger.warning(f"Context validation failed: {e}")
         return True, ""
 
 
@@ -761,7 +775,8 @@ def infer_interactive(
     command_router = CommandRouter(command_context)
     command_context.set_command_router(command_router)
 
-    # Note: After this point, use command_context.inference_engine and command_context.config
+    # Note: After this point, use command_context.inference_engine and
+    # command_context.config
     # instead of local variables to ensure model swapping works properly
     input_handler = EnhancedInput(console, config.style.user_prompt_style)
 
@@ -795,7 +810,8 @@ def infer_interactive(
             # Add all input to history for arrow key recall (commands and regular input)
             input_handler.add_to_history(input_text.strip())
 
-            # Check for commands first - sanitize input to prevent false positives
+            # Check for commands first
+            # sanitize input to prevent false positives
             # from multi-line content or complex file paths
             safe_input = make_safe(input_text)
             if command_parser.is_command(safe_input):
@@ -829,7 +845,8 @@ def infer_interactive(
                     console.print()  # Add spacing
                     continue
 
-                # If command provided input override (e.g., from /regen or /macro), use that
+                # If command provided input override (e.g., from /regen or
+                # /macro), use that
                 if (
                     hasattr(command_result, "user_input_override")
                     and command_result.user_input_override
@@ -901,7 +918,8 @@ def infer_interactive(
                     for msg in conversation_history:
                         if msg["role"] == "user":
                             if msg.get("content_type") == "multimodal":
-                                # This is a message with attachments - content is already ContentItems
+                                # This is a message with attachments
+                                # content is already ContentItems
                                 history_messages.append(
                                     Message(role=Role.USER, content=msg["content"])
                                 )
@@ -911,10 +929,12 @@ def infer_interactive(
                                     Message(role=Role.USER, content=msg["content"])
                                 )
                         elif msg["role"] == "assistant":
-                            # For GPT-OSS models, clean up any channel tags from previous responses
+                            # For GPT-OSS models, clean up any channel tags from
+                            # previous responses
                             content = msg["content"]
                             if is_gpt_oss and "<|channel|>" in content:
-                                # Extract only the final content for conversation history
+                                # Extract only the final content for conversation
+                        # history
                                 harmony_fields = _convert_to_harmony_format(content)
                                 content = harmony_fields.get("content", content)
 
@@ -934,7 +954,8 @@ def infer_interactive(
 
                     # Create the current user message
                     if current_user_content:
-                        # We have pending attachments, combine them with the user input as text
+                        # We have pending attachments, combine them with the
+                        # user input as text
                         full_content = (
                             "\n\n".join(current_user_content) + "\n\n" + input_text
                         )
@@ -948,7 +969,8 @@ def infer_interactive(
                         )
 
                     # Create conversation with full history
-                    # For regen operations, don't add current_user_message since it's already in history
+                    # For regen operations, don't add current_user_message since
+                    # it's already in history
                     if is_from_override:
                         user_messages = []
                     else:
@@ -969,11 +991,13 @@ def infer_interactive(
                         console.print(f"[red]Inference error: {str(e)}[/red]")
                         raise
 
-                    # Record time to first token (approximation - when inference returns)
+                    # Record time to first token (approximation
+                    # when inference returns)
                     if first_token_time is None:
                         first_token_time = time.time()
                 else:
-                    # For VLLM and other engines, build full conversation including history
+                    # For VLLM and other engines, build full conversation
+                    # including history
                     system_messages = (
                         [Message(role=Role.SYSTEM, content=system_prompt)]
                         if system_prompt
@@ -990,7 +1014,8 @@ def infer_interactive(
                     for msg in conversation_history:
                         if msg["role"] == "user":
                             if msg.get("content_type") == "multimodal":
-                                # This is a message with attachments - content is already ContentItems
+                                # This is a message with attachments
+                                # content is already ContentItems
                                 history_messages.append(
                                     Message(role=Role.USER, content=msg["content"])
                                 )
@@ -1000,10 +1025,12 @@ def infer_interactive(
                                     Message(role=Role.USER, content=msg["content"])
                                 )
                         elif msg["role"] == "assistant":
-                            # For GPT-OSS models, clean up any channel tags from previous responses
+                            # For GPT-OSS models, clean up any channel tags from
+                            # previous responses
                             content = msg["content"]
                             if is_gpt_oss and "<|channel|>" in content:
-                                # Extract only the final content for conversation history
+                                # Extract only the final content for conversation
+                        # history
                                 harmony_fields = _convert_to_harmony_format(content)
                                 content = harmony_fields.get("content", content)
 
@@ -1023,7 +1050,8 @@ def infer_interactive(
 
                     # Create the current user message
                     if current_user_content:
-                        # We have pending attachments, combine them with the user input as text
+                        # We have pending attachments, combine them with the
+                        # user input as text
                         full_content = (
                             "\n\n".join(current_user_content) + "\n\n" + input_text
                         )
@@ -1037,7 +1065,8 @@ def infer_interactive(
                         )
 
                     # Create conversation with full history for VLLM
-                    # For regen operations, don't add current_user_message since it's already in history
+                    # For regen operations, don't add current_user_message since
+                    # it's already in history
                     if is_from_override:
                         user_messages = []
                     else:
@@ -1058,7 +1087,8 @@ def infer_interactive(
                         console.print(f"[red]Inference error: {str(e)}[/red]")
                         raise
 
-                    # Record time to first token (approximation - when inference returns)
+                    # Record time to first token (approximation
+                    # when inference returns)
                     if first_token_time is None:
                         first_token_time = time.time()
 
@@ -1126,7 +1156,8 @@ def infer_interactive(
                 )
 
             # Store conversation history for all engines
-            # Remove any pending attachment markers since they're now incorporated into the message
+            # Remove any pending attachment markers since they're now
+            # incorporated into the message
             # Use slice assignment to modify list in-place, preserving the reference
             conversation_history[:] = [
                 msg for msg in conversation_history if msg.get("role") != "attachment"
@@ -1141,18 +1172,21 @@ def infer_interactive(
                         {"role": "user", "content": current_user_message.content}
                     )
                 else:
-                    # Fallback - shouldn't happen but just in case
+                    # Fallback
+                    # shouldn't happen but just in case
                     conversation_history.append({"role": "user", "content": input_text})
             else:
                 # Skip user message addition during regeneration operations
                 pass
 
             # Store assistant response in history
-            # Check if this is a GPT-OSS model for response cleaning (use current model name)
+            # Check if this is a GPT-OSS model for response cleaning (use
+            # current model name)
             current_model_name_for_cleaning = getattr(config.model, "model_name", "")
             is_gpt_oss = _is_gpt_oss_model(current_model_name_for_cleaning)
 
-            # Store only the latest assistant response to avoid duplicates and role alternation issues
+            # Store only the latest assistant response to avoid duplicates
+            # and role alternation issues
             # Get the last conversation and its last assistant message
             if model_response:
                 last_conversation = model_response[-1]  # Get most recent conversation
@@ -1172,7 +1206,8 @@ def infer_interactive(
                     # For GPT-OSS models, clean up channel tags when storing in history
                     # This prevents the raw tags from being sent back to the model
                     if is_gpt_oss and "<|channel|>" in content:
-                        # Extract only the final content for conversation history
+                        # Extract only the final content for conversation
+                        # history
                         harmony_fields = _convert_to_harmony_format(content)
                         stored_content = harmony_fields.get("content", content)
 
@@ -1211,7 +1246,8 @@ def infer_interactive(
             estimated_context_tokens = len(total_text) / chars_per_token
             system_monitor.update_context_usage(int(estimated_context_tokens))
 
-            # Count conversation turns (each complete user+assistant exchange is one turn)
+            # Count conversation turns (each complete user+assistant exchange
+            # is one turn)
             assistant_messages = [
                 msg for msg in conversation_history if msg.get("role") == "assistant"
             ]
@@ -1222,7 +1258,10 @@ def infer_interactive(
         except Exception as e:
             console.print(
                 Panel(
-                    f"[{config.style.error_style}]Error: {str(e)}[/{config.style.error_style}]",
+                    (
+                        f"[{config.style.error_style}]Error: {str(e)}"
+                        f"[/{config.style.error_style}]"
+                    ),
                     title=f"[{config.style.error_title_style}]Error[/{config.style.error_title_style}]",
                     border_style=config.style.error_border_style,
                     expand=config.style.expand_panels,
