@@ -4,7 +4,11 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from datasets import Dataset
+
+try:
+    from datasets import Dataset
+except ImportError:
+    Dataset = None
 
 from oumi.utils.hf_utils import (
     find_hf_token,
