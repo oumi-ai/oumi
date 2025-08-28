@@ -202,15 +202,8 @@ class ModelManagementHandler(BaseCommandHandler):
                     # Update context and conversation turns properly (preserves history)
                     self._update_context_in_monitor()
 
-                    # Force refresh the system monitor display to show updated values
-                    if (
-                        hasattr(self.context, "system_monitor")
-                        and self.context.system_monitor
-                    ):
-                        # Trigger an immediate update of the system monitor display
-                        self.context.system_monitor._last_update_time = (
-                            0  # Force refresh
-                        )
+                    # Force comprehensive system monitor refresh after model swap
+                    self._force_complete_monitor_refresh()
 
                 model_name = getattr(new_config.model, "model_name", "Unknown model")
                 engine_type = getattr(new_config, "engine", "Unknown engine")
@@ -618,3 +611,31 @@ class ModelManagementHandler(BaseCommandHandler):
                     config_dict[attr] = value
 
         return config_dict
+
+    def _force_complete_monitor_refresh(self):
+        """Force a comprehensive refresh of the system monitor after model swap.
+        
+        This ensures all model-related metrics are updated immediately to provide
+        instant visual feedback to the user after a model change.
+        """
+        try:
+            if hasattr(self.context, "system_monitor") and self.context.system_monitor:
+                # Force immediate refresh by resetting last update time
+                self.context.system_monitor._last_update_time = 0
+                
+                # Update all relevant metrics
+                if hasattr(self.context.system_monitor, "update_conversation_turns"):
+                    turns = len(self.context.conversation_history) // 2
+                    self.context.system_monitor.update_conversation_turns(turns)
+                
+                # Force refresh of system stats to reflect any new memory usage
+                if hasattr(self.context.system_monitor, "get_stats"):
+                    self.context.system_monitor.get_stats()
+                    
+                from oumi.utils.logging import logger
+                logger.info("System monitor refreshed after model swap")
+                
+        except Exception as e:
+            # Don't fail the model swap if monitor refresh fails
+            from oumi.utils.logging import logger
+            logger.warning(f"Failed to refresh system monitor after model swap: {e}")

@@ -88,6 +88,9 @@ class BranchOperationsHandler(BaseCommandHandler):
                 # Update context monitor
                 self._update_context_in_monitor()
 
+                # Create tmux-like experience: clear terminal and refresh conversation history
+                self._clear_and_refresh_conversation_display(new_branch)
+
                 # Update message to indicate both creation and switching
                 updated_message = message.replace(
                     "Created branch", "✅ Created and switched to branch"
@@ -146,6 +149,9 @@ class BranchOperationsHandler(BaseCommandHandler):
 
                 # Update context monitor
                 self._update_context_in_monitor()
+
+                # Create tmux-like experience: clear terminal and refresh conversation history
+                self._clear_and_refresh_conversation_display(branch)
 
                 # Add model restoration info to message if it happened
                 final_message = message
@@ -608,3 +614,98 @@ class BranchOperationsHandler(BaseCommandHandler):
         # Default fallback
         else:
             return 4096
+
+    def _clear_and_refresh_conversation_display(self, branch):
+        """Clear terminal and refresh conversation display for tmux-like experience.
+        
+        Args:
+            branch: The branch that was switched to.
+        """
+        try:
+            # Clear the terminal for a clean transition
+            self.console.clear()
+            
+            # Show branch switch header
+            from rich.panel import Panel
+            from rich.text import Text
+            
+            branch_name = getattr(branch, 'name', 'Unknown Branch')
+            header_text = f"🌿 Switched to branch: {branch_name}"
+            if not getattr(self._style, 'use_emoji', True):
+                header_text = f"Switched to branch: {branch_name}"
+                
+            header = Panel(
+                Text(header_text, style="bold cyan", justify="center"),
+                border_style="cyan",
+                padding=(0, 1)
+            )
+            self.console.print(header)
+            self.console.print()
+            
+            # Redisplay conversation history if it exists
+            if self.conversation_history and len(self.conversation_history) > 0:
+                self._render_conversation_history()
+            else:
+                # Show message for empty branch
+                from rich.text import Text
+                self.console.print(
+                    Text("No conversation history on this branch yet.", 
+                         style="dim", justify="center")
+                )
+                self.console.print()
+                
+        except Exception as e:
+            # Don't fail the branch switch if display fails
+            from oumi.utils.logging import logger
+            logger.warning(f"Failed to refresh conversation display: {e}")
+
+    def _render_conversation_history(self):
+        """Render the conversation history for the current branch."""
+        try:
+            from unittest.mock import MagicMock
+            from oumi.core.types.conversation import Role, Message, Conversation
+            from oumi.infer import _display_user_message, _format_conversation_response
+            
+            # Group consecutive messages by role and display them
+            for i, msg in enumerate(self.conversation_history):
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                
+                if role == "user":
+                    # Display user message using our existing function
+                    is_command = content.strip().startswith('/')
+                    _display_user_message(
+                        console=self.console,
+                        user_text=content,
+                        style_params=getattr(self.context, 'config', MagicMock()).style if hasattr(self.context, 'config') else None,
+                        is_command=is_command
+                    )
+                elif role == "assistant":
+                    # Display assistant message using existing formatter
+                    # Convert dict message to Conversation format
+                    message_obj = Message(role=Role.ASSISTANT, content=content)
+                    conversation = Conversation(messages=[message_obj])
+                    
+                    # Get current model name if available
+                    model_name = "Assistant"
+                    if hasattr(self.context, 'config') and hasattr(self.context.config, 'model'):
+                        model_name = getattr(self.context.config.model, 'model_name', 'Assistant')
+                        # Make model name more user-friendly
+                        if '/' in model_name:
+                            model_name = model_name.split('/')[-1]
+                    
+                    _format_conversation_response(
+                        conversation=conversation,
+                        console=self.console,
+                        model_name=model_name,
+                        style_params=self._style,
+                        command_context=self.context
+                    )
+                    
+        except Exception as e:
+            # Don't fail if history rendering fails
+            from oumi.utils.logging import logger
+            logger.warning(f"Failed to render conversation history: {e}")
+            self.console.print(
+                Text("Could not display conversation history.", style="dim yellow")
+            )

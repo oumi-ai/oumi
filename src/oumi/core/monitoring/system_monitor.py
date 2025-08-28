@@ -188,105 +188,6 @@ class SystemMonitor:
             return True
         return False
 
-    def format_hud(self, stats: SystemStats, style_params=None) -> Panel:
-        """Format system stats as a Rich panel for display.
-
-        Args:
-            stats: System statistics to display.
-            style_params: Optional style parameters.
-
-        Returns:
-            Rich Panel object for display.
-        """
-        # Create a table for neat alignment
-        table = Table(show_header=False, box=None, padding=(0, 1))
-
-        # Get label and value styles from style parameters
-        label_style = self._get_monitor_style(
-            style_params, "monitor_labels", "bold cyan"
-        )
-
-        # Add columns
-        table.add_column(style=label_style, min_width=15)
-        table.add_column()
-
-        # CPU row
-        cpu_color = self._get_usage_color(stats.cpu_percent, style_params)
-        table.add_row("CPU:", f"[{cpu_color}]{stats.cpu_percent:.1f}%[/{cpu_color}]")
-
-        # RAM row
-        ram_color = self._get_usage_color(stats.ram_percent, style_params)
-        table.add_row(
-            "RAM:",
-            (
-                f"[{ram_color}]{stats.ram_used_gb:.1f}/{stats.ram_total_gb:.1f} GB"
-                f" ({stats.ram_percent:.1f}%)[/{ram_color}]"
-            ),
-        )
-
-        # GPU rows (if available)
-        if stats.gpu_vram_percent is not None:
-            gpu_mem_color = self._get_usage_color(stats.gpu_vram_percent, style_params)
-            table.add_row(
-                "GPU VRAM:",
-                (
-                    f"[{gpu_mem_color}]{stats.gpu_vram_used_gb:.1f}/"
-                    f"{stats.gpu_vram_total_gb:.1f} GB "
-                    f"({stats.gpu_vram_percent:.1f}%)[/{gpu_mem_color}]"
-                ),
-            )
-
-        if stats.gpu_compute_percent is not None:
-            gpu_compute_color = self._get_usage_color(
-                stats.gpu_compute_percent, style_params
-            )
-            table.add_row(
-                "GPU Compute:",
-                f"[{gpu_compute_color}]{stats.gpu_compute_percent:.1f}%[/{gpu_compute_color}]",
-            )
-
-        # Context window row
-        context_color = self._get_usage_color(stats.context_percent, style_params)
-        remaining_tokens = stats.context_max_tokens - stats.context_used_tokens
-        table.add_row(
-            "Context:",
-            (
-                f"[{context_color}]{stats.context_used_tokens}/"
-                f"{stats.context_max_tokens} tokens "
-                f"({remaining_tokens} free)[/{context_color}]"
-            ),
-        )
-
-        # Conversation turns row
-        value_style = self._get_monitor_style(style_params, "monitor_values", "cyan")
-        table.add_row(
-            "Turns:",
-            f"[{value_style}]{stats.conversation_turns} exchanges[/{value_style}]",
-        )
-
-        # Get style settings
-        use_emoji = getattr(style_params, "use_emoji", True) if style_params else True
-        border_style = (
-            getattr(style_params, "status_border_style", None) if style_params else None
-        )
-        if not border_style:
-            border_style = "dim cyan"
-
-        title_style = (
-            getattr(style_params, "status_title_style", None) if style_params else None
-        )
-        if not title_style:
-            title_style = "bold cyan"
-
-        emoji = "📊 " if use_emoji else ""
-
-        return Panel(
-            table,
-            title=f"[{title_style}]{emoji}System Monitor[/{title_style}]",
-            border_style=border_style,
-            padding=(0, 1),
-            expand=False,
-        )
 
     def display_hud(self, console: Console, style_params=None):
         """Display the HUD if update interval has passed.
@@ -296,9 +197,58 @@ class SystemMonitor:
             style_params: Optional style parameters.
         """
         if self.should_update():
-            stats = self.get_stats()
-            hud_panel = self.format_hud(stats, style_params)
-            console.print(hud_panel)
+            compact_stats = self.format_compact_stats(style_params=style_params)
+            console.print(f"📊 {compact_stats}")
+
+    def format_compact_stats(self, stats=None, style_params=None) -> str:
+        """Format system stats in a compact single-line format with colors.
+        
+        This is the centralized utility for all compact system stat displays.
+        
+        Args:
+            stats: SystemStats object. If None, will call get_stats().
+            style_params: Optional style parameters for color theming.
+            
+        Returns:
+            Compact string representation of system stats with Rich color formatting.
+        """
+        try:
+            # Get stats if not provided
+            if stats is None:
+                stats = self.get_stats()
+            
+            # Handle both SystemStats objects and dictionaries for backward compatibility
+            if hasattr(stats, 'cpu_percent'):
+                # SystemStats object (preferred)
+                cpu_percent = stats.cpu_percent
+                memory_used = stats.ram_used_gb
+                memory_total = stats.ram_total_gb
+                memory_percent = stats.ram_percent
+                context_used = stats.context_used_tokens
+                context_total = stats.context_max_tokens
+            else:
+                # Dictionary fallback
+                cpu_percent = stats.get("cpu_percent", 0)
+                memory_used = stats.get("memory_used_gb", 0)
+                memory_total = stats.get("memory_total_gb", 0)
+                memory_percent = stats.get("memory_percent", 0)
+                context_used = stats.get("context_used", 0)
+                context_total = stats.get("context_total", 0)
+            
+            # Get colors based on usage levels
+            cpu_color = self._get_usage_color(cpu_percent, style_params)
+            ram_color = self._get_usage_color(memory_percent, style_params)
+            context_color = self._get_usage_color((context_used / context_total * 100) if context_total > 0 else 0, style_params)
+            
+            # Format context info if available
+            context_info = ""
+            if context_total and context_total > 0:
+                context_free = context_total - context_used
+                context_info = f" | [bold cyan]Context:[/bold cyan] [{context_color}]{context_used}/{context_total}[/{context_color}] ({context_free} free)"
+                
+            return f"[bold cyan]CPU:[/bold cyan] [{cpu_color}]{cpu_percent:.1f}%[/{cpu_color}] | [bold cyan]RAM:[/bold cyan] [{ram_color}]{memory_used:.1f}/{memory_total:.1f}GB ({memory_percent:.1f}%)[/{ram_color}]{context_info}"
+        except Exception as e:
+            return f"System stats unavailable ({e})"
 
     def _get_usage_color(self, percent: float, style_params=None) -> str:
         """Get color based on usage percentage, respecting theme settings.

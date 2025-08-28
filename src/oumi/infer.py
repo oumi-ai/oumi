@@ -74,8 +74,11 @@ def thinking_with_monitor(
     status_message: str = "Thinking...",
     style: str = "cyan",
     update_interval: float = 2.0,
+    style_params=None,
 ):
     """Context manager that shows thinking animation with live system monitor updates.
+    
+    Uses a scrollback-friendly approach that doesn't interfere with terminal history.
 
     Args:
         console: Rich console for output.
@@ -83,50 +86,73 @@ def thinking_with_monitor(
         status_message: Message to display with spinner.
         style: Style for the status message.
         update_interval: Seconds between system monitor updates.
+        style_params: Optional style parameters for system monitor theming.
     """
-    # Create layout with spinner and system monitor
-    layout = Layout()
-    layout.split_column(Layout(name="status", size=3), Layout(name="monitor", size=8))
-
-    # Initialize spinner and system stats
-    spinner = Spinner("dots", text=f"[{style}]{status_message}[/{style}]")
-
-    # Flag to stop the update thread
-    stop_updating = threading.Event()
-
-    def update_display():
-        """Update the system monitor display in a separate thread."""
-        while not stop_updating.is_set():
-            try:
-                # Force update of system stats
-                system_monitor.last_update_time = 0  # Force update
-                stats = system_monitor.get_stats()
-                monitor_panel = system_monitor.format_hud(stats)
-
-                # Update layout
-                layout["status"].update(spinner)
-                layout["monitor"].update(monitor_panel)
-
-                time.sleep(update_interval)
-            except Exception as e:
-                # Log the exception for debugging instead of silently passing
-                logger.warning(f"Display update failed: {e}")
-                # Continue anyway to avoid crashing the display thread
-                pass
-
-    # Start the update thread
-    update_thread = threading.Thread(target=update_display, daemon=True)
-    update_thread.start()
-
-    # Use Live to display the animated layout
-    with Live(layout, console=console, refresh_per_second=4):
+    from rich.spinner import Spinner
+    from rich.status import Status
+    
+    # Create a simple status display that doesn't break scrollback
+    spinner_text = f"[{style}]{status_message}[/{style}]"
+    
+    # Display initial system monitor info inline (compact format)
+    compact_stats = system_monitor.format_compact_stats(style_params=style_params)
+    
+    # Show thinking status with compact system info
+    status_line = f"{spinner_text} {compact_stats}"
+    
+    with console.status(status_line, spinner="dots"):
         try:
             yield
         finally:
-            # Stop the update thread
-            stop_updating.set()
-            # Wait briefly for thread to finish
-            update_thread.join(timeout=0.5)
+            # Clear the status line by printing a space and moving cursor up
+            pass
+
+
+def _display_user_message(console: Console, user_text: str, style_params=None, is_command: bool = False) -> None:
+    """Display a user message in the chat interface.
+    
+    Args:
+        console: Rich console for output.
+        user_text: The user's input text.
+        style_params: Style configuration parameters.
+        is_command: Whether this is a command or regular message.
+    """
+    from rich.panel import Panel
+    from rich.text import Text
+    
+    # Set default style values if not provided
+    if style_params is None:
+        user_title_style = "bold blue"
+        user_border_style = "blue"
+        user_text_style = "white"
+        user_padding = (0, 1)
+        expand_panels = False
+    else:
+        user_title_style = getattr(style_params, "user_title_style", "bold blue")
+        user_border_style = getattr(style_params, "user_border_style", "blue")
+        user_text_style = getattr(style_params, "user_text_style", "white")
+        user_padding = getattr(style_params, "user_padding", (0, 1))
+        expand_panels = getattr(style_params, "expand_panels", False)
+    
+    # Choose title and styling based on whether it's a command
+    if is_command:
+        title = "You (command)"
+        # Slightly different styling for commands
+        title_style = f"bold {user_title_style}"
+    else:
+        title = "You"
+        title_style = user_title_style
+    
+    # Display the user message
+    console.print(
+        Panel(
+            Text(user_text, style=user_text_style),
+            title=f"[{title_style}]{title}[/{title_style}]",
+            border_style=user_border_style,
+            padding=user_padding,
+            expand=expand_panels,
+        )
+    )
 
 
 def _convert_to_harmony_format(content: str) -> dict:
@@ -901,6 +927,14 @@ def infer_interactive(
             # Add all input to history for arrow key recall (commands and regular input)
             input_handler.add_to_history(input_text.strip())
 
+            # Display user message so it appears in scrollback
+            _display_user_message(
+                console=console, 
+                user_text=input_text, 
+                style_params=config.style,
+                is_command=input_text.strip().startswith('/')
+            )
+
             # Check for commands first
             # sanitize input to prevent false positives
             # from multi-line content or complex file paths
@@ -983,6 +1017,7 @@ def infer_interactive(
                 status_message="Thinking...",
                 style=config.style.status_style,
                 update_interval=2.0,
+                style_params=config.style,
             ):
                 # Check if this is a NATIVE engine that supports conversation history
                 from oumi.core.configs import InferenceEngineType
