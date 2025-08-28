@@ -167,7 +167,7 @@ class MacroManager:
         """
         # Validate path
         is_valid, error, full_path = self.validate_macro_path(macro_path)
-        if not is_valid:
+        if not is_valid or full_path is None:
             return False, error, None
 
         try:

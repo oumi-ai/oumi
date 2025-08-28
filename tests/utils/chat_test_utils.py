@@ -141,13 +141,10 @@ class ChatTestSession:
                         self.output_capture.print
                     )
                 # Update the existing mock console with capture behavior
-                if (
-                    self.mock_console is not None
-                    and hasattr(self.mock_console, "print")
+                if self.mock_console is not None and hasattr(
+                    self.mock_console, "print"
                 ):
-                    self.mock_console.print.side_effect = (
-                        self.output_capture.print
-                    )
+                    self.mock_console.print.side_effect = self.output_capture.print
 
             # Mock inference engine builder to return our existing mock
             engine_patch = patch(
@@ -420,8 +417,15 @@ class ChatTestSession:
             # Convert conversation messages to the format expected by command context
             context_messages = []
             for msg in self._current_conversation.messages:
+                # Extract text content properly from Message objects
+                if isinstance(msg.content, str):
+                    content = msg.content
+                else:
+                    # For multi-modal messages, use the flattened text content
+                    content = msg.compute_flattened_text_content()
+
                 context_messages.append(
-                    {"role": msg.role.value.lower(), "content": msg.content}
+                    {"role": msg.role.value.lower(), "content": content}
                 )
             self.command_context.conversation_history.clear()
             self.command_context.conversation_history.extend(context_messages)

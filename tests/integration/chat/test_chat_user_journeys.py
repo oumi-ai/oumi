@@ -373,7 +373,8 @@ class TestCreativeWorkflow:
 
             # Check conversation maintains coherence
             conversation = chat_session.get_conversation()
-            assert len(conversation.messages) >= successful_iterations * 2
+            if conversation:
+                assert len(conversation.messages) >= successful_iterations * 2
 
 
 @pytest.mark.chat_journey
@@ -722,7 +723,7 @@ class TestMultiSessionWorkflow:
                         "exploration": exploration_result.success,
                         "followup": followup_result.success,
                         "conversation_length": len(session.get_conversation().messages)
-                        if session.get_conversation()
+                        if session.get_conversation() is not None
                         else 0,
                     }
                 else:

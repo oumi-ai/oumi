@@ -195,8 +195,12 @@ class TestBasicChatSession:
         # If either is None, that's also acceptable isolation
 
         # Messages should be different
-        conv1_user_msgs = [m.content for m in conv1.messages if m.role == Role.USER]
-        conv2_user_msgs = [m.content for m in conv2.messages if m.role == Role.USER]
+        conv1_user_msgs = (
+            [m.content for m in conv1.messages if m.role == Role.USER] if conv1 else []
+        )
+        conv2_user_msgs = (
+            [m.content for m in conv2.messages if m.role == Role.USER] if conv2 else []
+        )
 
         assert "First session message" in conv1_user_msgs
         assert "Second session message" in conv2_user_msgs

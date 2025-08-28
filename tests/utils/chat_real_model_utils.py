@@ -313,6 +313,9 @@ class RealModelChatSession(ChatTestSession):
                     self._current_conversation.messages.append(user_message)
                     self._current_conversation.messages.append(assistant_messages[-1])
 
+                    # Sync conversation to command context so commands can access it
+                    self._sync_to_command_context()
+
                     # Track performance if enabled
                     if self.enable_performance_monitoring:
                         token_count = count_response_tokens([conversations[0]])

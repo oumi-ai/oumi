@@ -82,21 +82,26 @@ class FileOperationsHandler(BaseCommandHandler):
             return False, "", "File path is empty or contains only whitespace"
 
         # Use pathvalidate to sanitize the file path
+        # Detect platform to use appropriate validation
+        import os
+
+        platform_type = "windows" if os.name == "nt" else "posix"
+
         try:
             sanitized = sanitize_filepath(
                 cleaned_path,
-                platform="universal",  # Works on all platforms
+                platform=platform_type,  # Use appropriate platform
                 max_len=255,  # Standard filesystem limit
             )
         except ValidationError as e:
             return False, "", f"Invalid file path: {str(e)}"
 
         # Verify the sanitized path is valid
-        if not is_valid_filepath(sanitized, platform="universal"):
+        if not is_valid_filepath(sanitized, platform=platform_type):
             return False, "", "File path contains invalid characters or format"
 
         # Additional security check - prevent path traversal
-        if ".." in sanitized or sanitized.startswith("/"):
+        if ".." in sanitized:
             return (
                 False,
                 "",

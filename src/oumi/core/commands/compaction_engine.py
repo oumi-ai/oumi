@@ -105,7 +105,7 @@ Please provide a concise summary that captures the essence of this conversation:
 
     def estimate_token_reduction(
         self, original_history: list[dict], compacted_history: list[dict]
-    ) -> dict[str, int]:
+    ) -> dict[str, int | float]:
         """Estimate the token reduction from compaction.
 
         Args:
