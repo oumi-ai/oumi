@@ -55,6 +55,16 @@ jobs:
         # Install in system python as we're in a sandbox env
         # Install in verbose mode to see what's going on
         uv pip install -e '.[ci_gpu]' hf_transfer --system
+      env:
+        # Disable Triton flash attention at runtime for T4 compatibility
+        VLLM_USE_TRITON_FLASH_ATTN: "False"
+
+    - name: Install VLLM for CPU (VLLM tests are CPU-only)
+      run: |
+        # Uninstall GPU VLLM and install CPU version for integration tests
+        # Active VLLM tests are CPU-only to avoid CUDA compatibility issues
+        uv pip uninstall vllm --system
+        VLLM_TARGET_DEVICE=cpu uv pip install vllm==0.10.1.1 --no-cache --system
 
     - name: Download Test Data
       run: |
@@ -85,3 +95,6 @@ jobs:
       run: |
         cd ./tests/integration/
         pytest -s -m "not e2e and not e2e_eternal and not multi_gpu" --durations=50 --timeout=300
+      env:
+        # Force VLLM to use CPU backend despite GPU availability
+        VLLM_TARGET_DEVICE: cpu
