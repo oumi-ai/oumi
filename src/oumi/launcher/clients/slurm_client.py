@@ -13,16 +13,17 @@
 # limitations under the License.
 
 import functools
+import io
 import os
 import re
 import signal
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from oumi.cli import cli_utils
 from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
 
@@ -178,6 +179,201 @@ def retry_auth(user_function: Callable) -> Callable:
         return user_function(self, *args, **kwargs)
 
     return wrapper
+
+
+class SlurmLogStream(io.TextIOBase):
+    """A stream that provides access to job logs.
+
+    This class inherits from io.TextIOBase to provide a file-like interface
+    for reading job logs.
+    """
+
+    def __init__(
+        self,
+        working_dir: str,
+        job_id: str,
+        cluster_name: str,
+        stdout_filename: str,
+        client,
+    ):
+        """Initialize the log stream.
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            job_id: The Slurm job ID whose output file to follow.
+            cluster_name: The name of the cluster the job was run in.
+            stdout_filename: The name of the stdout file to tail.
+            client: The SlurmClient instance.
+        """
+        self.working_dir = working_dir
+        self.job_id = job_id
+        self.cluster_name = cluster_name
+        self.stdout_filename = stdout_filename
+        self._client = client
+        self._job_done = False
+        self._job_check_thread = None
+        self._proc = self._start_tail_process(
+            working_dir, cluster_name, stdout_filename
+        )
+        self._buffer = ""
+        self._process_ended = False
+
+    def readline(self) -> Optional[str]:
+        """Read available lines from the stream.
+
+        Returns:
+            The line read from the stream.
+        """
+        if self._proc is None:
+            return ""
+
+        if self._process_ended:
+            return self._read_from_buffer()
+
+        # Check if the job is done (using background flag)
+        if self._job_done:
+            return self._handle_process_end()
+
+        # Process is still running, try to read from stdout
+        if self._proc.stdout:
+            return self._proc.stdout.readline()
+        return ""
+
+    def close(self) -> None:
+        """Close the stream and clean up resources."""
+        if self._proc and self._proc.poll() is None:
+            os.killpg(self._proc.pid, signal.SIGINT)
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
+
+    def _handle_process_end(self):
+        """Handle the end of the process by reading any remaining data into the buffer.
+
+        Returns:
+            The next line from the buffer if available, otherwise None.
+        """
+        if self._process_ended:
+            return None
+
+        # Check if data is ready before reading to avoid blocking
+        if self._proc.stdout:
+            remaining = self._proc.stdout.read()
+            if remaining:
+                self._buffer += remaining
+
+        self._process_ended = True
+
+        # Return the next line if available
+        return self._read_from_buffer()
+
+    def _read_from_buffer(self) -> Optional[str]:
+        """Read the next line from the buffer.
+
+        Returns:
+            The next line from the buffer if available, otherwise None.
+        """
+        if "\n" in self._buffer:
+            line, self._buffer = self._buffer.split("\n", 1)
+            return line + "\n"
+        elif self._buffer:
+            # Return remaining buffer content (no newline)
+            line = self._buffer
+            self._buffer = ""
+            return line
+
+        return ""
+
+    def _start_tail_process(
+        self, working_dir: str, cluster_name: str, stdout_filename: str
+    ) -> subprocess.Popen:
+        """Starts a tail process for the specified job.
+
+        This is an internal method that starts the SSH tail process and returns
+        the subprocess object for the LogStream to read from.
+
+        Args:
+            working_dir: Remote working directory where the job was submitted.
+            cluster_name: The name of the cluster the job was run in.
+            stdout_filename: The name of the stdout file to tail.
+
+        Returns:
+            A subprocess.Popen object that can be read from.
+        """
+        max_attempts = 4
+        base_delay = 5
+        max_delay = 20
+
+        # Wait for log file to appear
+        for attempt in range(max_attempts):
+            # Use direct SSH command to avoid pseudo-terminal issues
+            check_cmd = (
+                f"ssh {_CTRL_PATH} {cluster_name} "
+                f'"cd {working_dir} && test -f {stdout_filename}"'
+            )
+            preflight = subprocess.run(
+                check_cmd,
+                shell=True,
+                capture_output=True,
+                timeout=30,
+            )
+            if preflight.returncode == 0:
+                break
+
+            if attempt < max_attempts - 1:
+                delay = min(base_delay * (2**attempt), max_delay)
+                time.sleep(delay)
+            else:
+                raise FileNotFoundError(
+                    f"Log file not found after {max_attempts} attempts: "
+                    f"{Path(working_dir) / stdout_filename}. "
+                    "The job may not have started."
+                )
+
+        tail_cmd = (
+            f"ssh {_CTRL_PATH} {cluster_name} "
+            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
+        )
+
+        proc = subprocess.Popen(
+            tail_cmd,
+            shell=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+            text=True,
+            bufsize=1,
+        )
+
+        self._start_job_checking(proc)
+
+        return proc
+
+    def _start_job_checking(self, proc: subprocess.Popen):
+        """Start background thread to check job status."""
+
+        def check_job_status():
+            while not self._job_done:
+                try:
+                    if self._client:
+                        job = self._client.get_job(self.job_id)
+                        if job is None or job.done:
+                            self._job_done = True
+                            proc.terminate()
+                            proc.wait()
+                            break
+                    time.sleep(2)
+                except Exception:
+                    break
+
+        self._job_check_thread = threading.Thread(target=check_job_status, daemon=True)
+        self._job_check_thread.start()
 
 
 class SlurmClient:
@@ -522,90 +718,21 @@ class SlurmClient:
         if result.exit_code != 0:
             raise RuntimeError(f"Failed to write file. stderr: {result.stderr}")
 
-    def tail_job(
+    def get_tailed_stream(
         self, working_dir: str, job_id: str, cluster_name: str, stdout_filename: str
-    ) -> int:
-        """Tails the Slurm job output file in the current terminal.
-
-        Opens an interactive SSH session and tails the specified stdout file.
-
-        Behavior:
-        - Uses a double TTY allocation (-tt) for unbuffered interactive output.
-        - Disables stdin (DEVNULL) to avoid terminal corruption in multi-proc contexts.
-        - Blocks until the remote tail exits or the user presses Ctrl-C.
-        - On Ctrl-C, sends SIGINT to the child process group and returns 130.
+    ) -> SlurmLogStream:
+        """Gets a stream that tails the logs of the target job.
 
         Args:
             working_dir: Remote working directory where the job was submitted.
-            job_id: The Slurm job ID whose output file to follow.
+            job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
             stdout_filename: The name of the stdout file to tail.
-
-        Returns:
-            The SSH command's exit code. This is a blocking call.
         """
-        cli_utils.CONSOLE.print(
-            f"Tailing logs of job {job_id} on cluster '{cluster_name}'..."
+        return SlurmLogStream(
+            working_dir,
+            job_id,
+            cluster_name,
+            stdout_filename,
+            client=self,
         )
-        cli_utils.CONSOLE.print(
-            f"└── Following output file: {Path(working_dir) / stdout_filename}"
-        )
-        cli_utils.CONSOLE.print(
-            "Press Ctrl-C to exit log streaming; job will not be killed."
-        )
-
-        max_attempts = 4
-        base_delay = 5
-        max_delay = 20
-
-        with cli_utils.CONSOLE.status("Waiting for log file to appear..."):
-            for attempt in range(max_attempts):
-                preflight = self.run_commands(
-                    [f"cd {working_dir}", f"test -f {stdout_filename}"]
-                )
-                if preflight.exit_code == 0:
-                    break
-
-                if attempt < max_attempts - 1:
-                    delay = min(base_delay * (2**attempt), max_delay)
-                    time.sleep(delay)
-                else:
-                    raise FileNotFoundError(
-                        f"Log file not found after {max_attempts} attempts: "
-                        f"{Path(working_dir) / stdout_filename}. "
-                        "The job may not have started."
-                    )
-        tail_cmd = (
-            f"ssh {_CTRL_PATH} -tt {cluster_name} "
-            f'"cd {working_dir} && tail -n +1 -F {stdout_filename}"'
-        )
-        proc = None
-        try:
-            proc = subprocess.Popen(
-                tail_cmd,
-                shell=True,
-                stdin=subprocess.DEVNULL,
-                start_new_session=True,
-            )
-            # Poll job status in parallel while tail runs.
-            poll_interval_sec = 2.0
-            while True:
-                # If tail ended on its own, propagate its return code.
-                if proc.poll() is not None:
-                    return int(proc.returncode)
-                job = self.get_job(job_id)
-                # If job is missing or done, stop tail.
-                if job is None or job.done:
-                    os.killpg(proc.pid, signal.SIGINT)
-                    return int(proc.wait(timeout=5))
-                time.sleep(poll_interval_sec)
-        except KeyboardInterrupt:
-            logger.info("Stopped tailing logs for job %s", job_id)
-            if proc and proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGINT)
-            return 130  # Exit code for Ctrl-C
-        except Exception:
-            logger.exception("Failed while tailing logs for job %s", job_id)
-            if proc and proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGTERM)
-            raise

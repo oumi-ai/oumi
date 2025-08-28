@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobState, JobStatus
-from oumi.launcher.clients.sky_client import SkyClient
+from oumi.launcher.clients.sky_client import SkyClient, SkyLogStream
 
 
 class SkyCluster(BaseCluster):
@@ -122,17 +122,11 @@ class SkyCluster(BaseCluster):
         """Tears down the current cluster."""
         self._client.down(self.name())
 
-    def tail_logs(self, job_id: str, cluster_name: str) -> None:
-        """Tails the logs of the target job.
+    def get_tailed_stream(self, job_id: str, cluster_name: str) -> SkyLogStream:
+        """Gets a stream that tails the logs of the target job.
 
         Args:
             job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
         """
-        # Delay sky import: https://github.com/oumi-ai/oumi/issues/1605
-        import sky
-
-        sky.tail_logs(
-            cluster_name=cluster_name,
-            job_id=job_id,
-        )
+        return self._client.get_tailed_stream(job_id, cluster_name)

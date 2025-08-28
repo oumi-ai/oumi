@@ -24,7 +24,7 @@ from typing import Any, Optional
 
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import BaseCluster, JobStatus
-from oumi.launcher.clients.slurm_client import SlurmClient
+from oumi.launcher.clients.slurm_client import SlurmClient, SlurmLogStream
 from oumi.utils.logging import logger
 
 _OUMI_SLURM_CONNECTIONS = "OUMI_SLURM_CONNECTIONS"
@@ -302,17 +302,20 @@ class SlurmCluster(BaseCluster):
         """This is a no-op for Slurm clusters."""
         pass
 
-    def tail_logs(self, job_id: str, cluster_name: str) -> None:
-        """Tails the logs of the target job.
+    def get_tailed_stream(self, job_id: str, cluster_name: str) -> SlurmLogStream:
+        """Gets a stream that tails the logs of the target job.
 
         Args:
             job_id: The ID of the job to tail the logs of.
             cluster_name: The name of the cluster the job was run in.
+
+        Returns:
+            A SlurmLogStream object that can be used to read the logs.
         """
         if job_id not in self.jobs_info:
             raise RuntimeError(f"Job {job_id} not found in jobs_info")
         job_info = self.jobs_info[job_id]
-        self._client.tail_job(
+        return self._client.get_tailed_stream(
             str(job_info.working_dir),
             job_id,
             cluster_name,
