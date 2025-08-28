@@ -235,14 +235,19 @@ class SlurmLogStream(io.TextIOBase):
             return self._handle_process_end()
 
         # Process is still running, try to read from stdout
-        if self._proc.stdout:
+        if self._proc and self._proc.stdout:
             return self._proc.stdout.readline()
         return ""
 
     def close(self) -> None:
         """Close the stream and clean up resources."""
-        if self._proc and self._proc.poll() is None:
-            os.killpg(self._proc.pid, signal.SIGINT)
+        if self._proc:
+            try:
+                os.killpg(self._proc.pid, signal.SIGINT)
+            except ProcessLookupError:
+                pass  # process already gone and can happen due to race conditions
+            finally:
+                self._proc = None
 
     def __enter__(self):
         """Context manager entry."""
@@ -262,7 +267,7 @@ class SlurmLogStream(io.TextIOBase):
             return None
 
         # Check if data is ready before reading to avoid blocking
-        if self._proc.stdout:
+        if self._proc and self._proc.stdout:
             remaining = self._proc.stdout.read()
             if remaining:
                 self._buffer += remaining
