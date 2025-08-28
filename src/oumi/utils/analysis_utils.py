@@ -21,8 +21,6 @@ from oumi.core.configs.analyze_config import AnalyzeConfig
 from oumi.core.configs.params.model_params import ModelParams
 from oumi.core.datasets.base_map_dataset import BaseMapDataset
 from oumi.core.registry.registry import REGISTRY
-from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
-from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +155,10 @@ def _load_custom_dataset_from_path(
     Returns:
         Loaded dataset (TextSftJsonLinesDataset or VLJsonlinesDataset)
     """
+    # Import here to avoid circular imports
+    from oumi.datasets.sft.sft_jsonlines import TextSftJsonLinesDataset
+    from oumi.datasets.vision_language.vision_jsonlines import VLJsonlinesDataset
+
     path = Path(dataset_path)
 
     if not path.exists():

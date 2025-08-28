@@ -20,7 +20,10 @@ from unittest.mock import Mock, patch
 import jsonlines
 import pytest
 
-from oumi.core.configs import AnalyzeConfig
+from oumi.core.configs.analyze_config import (
+    AnalyzeConfig,
+    DatasetSource,
+)
 from oumi.core.datasets import BaseMapDataset
 from oumi.datasets import TextSftJsonLinesDataset, VLJsonlinesDataset
 from oumi.utils.analysis_utils import (
@@ -182,9 +185,12 @@ def test_load_dataset_from_config_success(
 def test_load_dataset_from_config_missing_dataset_name():
     """Test error handling when dataset_name is not provided."""
     with pytest.raises(
-        ValueError, match="Either 'dataset_name' or 'dataset_path' must be provided"
+        ValueError,
+        match="Either 'dataset_name' or 'dataset_path' must be provided when "
+        "dataset_source=DatasetSource.CONFIG",
     ):
         AnalyzeConfig(
+            dataset_source=DatasetSource.CONFIG,  # Required field
             dataset_name=None,
             dataset_path=None,
             split="train",
