@@ -88,7 +88,7 @@ def get_app() -> typer.Typer:
     )(infer)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,
-        help="Start an interactive chat session with a model.",
+        help="Start interactive chat. Use /help() once in chat for available commands.",
     )(chat)
     app.command(
         context_settings=CONTEXT_ALLOW_EXTRA_ARGS,

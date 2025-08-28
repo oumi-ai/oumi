@@ -440,7 +440,7 @@ class TestChatSessionConfigurationHandling:
         """Test session behavior with invalid configurations."""
         # Test with missing model name
         config = create_test_inference_config()
-        config.model.model_name = None
+        config.model.model_name = ""  # Empty string instead of None
 
         session = ChatTestSession(config)
         result = session.start_session()

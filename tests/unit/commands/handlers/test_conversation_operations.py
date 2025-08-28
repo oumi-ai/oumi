@@ -162,7 +162,9 @@ class TestRegenCommand:
             inference_engine=self.mock_engine,
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(self.mock_conversation.messages)
+        self.command_context.conversation_history.extend(
+            self.mock_conversation.messages
+        )
 
     @pytest.fixture
     def mock_handler(self):
@@ -198,7 +200,9 @@ class TestRegenCommand:
             messages=[Message(role=Role.USER, content="Hello")],
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(user_only_conversation.messages)
+        self.command_context.conversation_history.extend(
+            user_only_conversation.messages
+        )
 
         parsed_cmd = ParsedCommand(
             command="regen", args=[], kwargs={}, raw_input="/regen("
@@ -259,7 +263,9 @@ class TestClearCommand:
             inference_engine=self.mock_engine,
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(self.mock_conversation.messages)
+        self.command_context.conversation_history.extend(
+            self.mock_conversation.messages
+        )
 
     @pytest.fixture
     def mock_handler(self):
@@ -332,7 +338,9 @@ class TestShowCommand:
             inference_engine=self.mock_engine,
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(self.mock_conversation.messages)
+        self.command_context.conversation_history.extend(
+            self.mock_conversation.messages
+        )
 
     @pytest.fixture
     def mock_handler(self):
@@ -456,7 +464,9 @@ class TestCompactCommand:
             inference_engine=self.mock_engine,
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(self.mock_conversation.messages)
+        self.command_context.conversation_history.extend(
+            self.mock_conversation.messages
+        )
 
     @pytest.fixture
     def mock_handler(self):
@@ -560,7 +570,9 @@ class TestRenderCommand:
             inference_engine=self.mock_engine,
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(self.mock_conversation.messages)
+        self.command_context.conversation_history.extend(
+            self.mock_conversation.messages
+        )
 
     @pytest.fixture
     def mock_handler(self):
@@ -658,7 +670,9 @@ class TestThinkingCommands:
             inference_engine=self.mock_engine,
         )
         self.command_context.conversation_history.clear()
-        self.command_context.conversation_history.extend(self.mock_conversation.messages)
+        self.command_context.conversation_history.extend(
+            self.mock_conversation.messages
+        )
 
     @pytest.fixture
     def mock_handler(self):

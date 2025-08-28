@@ -141,8 +141,13 @@ class ChatTestSession:
                         self.output_capture.print
                     )
                 # Update the existing mock console with capture behavior
-                if self.mock_console is not None:
-                    self.mock_console.print.side_effect = self.output_capture.print
+                if (
+                    self.mock_console is not None
+                    and hasattr(self.mock_console, "print")
+                ):
+                    self.mock_console.print.side_effect = (
+                        self.output_capture.print
+                    )
 
             # Mock inference engine builder to return our existing mock
             engine_patch = patch(
