@@ -21,7 +21,7 @@ from oumi.core.commands import ParsedCommand
 from oumi.core.commands.command_context import CommandContext
 from oumi.core.commands.handlers.model_management_handler import ModelManagementHandler
 from oumi.core.configs import GenerationParams, InferenceConfig, ModelParams
-from oumi.core.configs.params.base_engine_params import InferenceEngineType
+from oumi.core.configs.inference_engine_type import InferenceEngineType
 from tests.utils.chat_test_utils import (
     create_test_inference_config,
     validate_command_result,
@@ -225,7 +225,7 @@ engine: INVALID_ENGINE
             filename="test_config.yaml", content=config_content
         )
 
-        # Mock successful config loading  
+        # Mock successful config loading
         mock_new_config = InferenceConfig(
             model=ModelParams(model_name="invalid-model"),
             engine=InferenceEngineType.NATIVE,
