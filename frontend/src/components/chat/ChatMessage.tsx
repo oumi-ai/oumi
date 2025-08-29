@@ -175,17 +175,14 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
 
         {/* Message text */}
         <div className="text-foreground leading-relaxed break-words">
-          {isUser ? (
-            // User messages - render as plain text with line breaks
-            <div className="whitespace-pre-wrap">{message.content}</div>
-          ) : isEditing ? (
-            // Assistant message editing mode
+          {isEditing ? (
+            // Editing mode for both user and assistant messages
             <div className="space-y-3">
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 className="w-full h-32 p-3 border border-border bg-input text-foreground placeholder:text-muted-foreground rounded-md resize-vertical focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                placeholder="Edit the assistant's response..."
+                placeholder={isUser ? "Edit your message..." : "Edit the assistant's response..."}
                 disabled={actionInProgress === 'save'}
               />
               <div className="flex gap-2">
@@ -206,6 +203,9 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                 </button>
               </div>
             </div>
+          ) : isUser ? (
+            // User messages - render as plain text with line breaks
+            <div className="whitespace-pre-wrap">{message.content}</div>
           ) : (
             // Assistant messages - render as markdown
             <MarkdownRenderer content={message.content} />
@@ -254,10 +254,10 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
               )}
             </button>
 
-            {/* Assistant-only actions */}
-            {!isUser && !isEditing && (
+            {/* Message actions for all types */}
+            {!isEditing && (
               <>
-                {/* Delete button */}
+                {/* Delete button - for all messages */}
                 <button
                   onClick={handleDelete}
                   className="p-1 rounded hover:bg-red-100"
@@ -267,25 +267,30 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                   <Trash2 size={14} className={actionInProgress === 'delete' ? 'text-gray-400' : 'text-red-600'} />
                 </button>
 
-                {/* Regenerate button */}
-                <button
-                  onClick={handleRegen}
-                  className="p-1 rounded hover:bg-blue-100"
-                  title="Regenerate response"
-                  disabled={actionInProgress === 'regen'}
-                >
-                  <RefreshCw size={14} className={actionInProgress === 'regen' ? 'text-gray-400 animate-spin' : 'text-blue-600'} />
-                </button>
-
-                {/* Edit button */}
+                {/* Edit button - for all messages */}
                 <button
                   onClick={handleEdit}
                   className="p-1 rounded hover:bg-yellow-100"
-                  title="Edit this response"
+                  title="Edit this message"
                   disabled={!!actionInProgress}
                 >
                   <Edit3 size={14} className="text-yellow-600" />
                 </button>
+
+                {/* Assistant-only actions */}
+                {!isUser && (
+                  <>
+                    {/* Regenerate button */}
+                    <button
+                      onClick={handleRegen}
+                      className="p-1 rounded hover:bg-blue-100"
+                      title="Regenerate response"
+                      disabled={actionInProgress === 'regen'}
+                    >
+                      <RefreshCw size={14} className={actionInProgress === 'regen' ? 'text-gray-400 animate-spin' : 'text-blue-600'} />
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
