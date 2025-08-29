@@ -12,7 +12,7 @@
     "lint": "next lint",
     "generate-configs": "node scripts/generate-configs.js",
     "electron:compile": "tsc electron/*.ts --outDir dist/electron --target es2020 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
-    "electron:dev": "npm run generate-configs && npm run electron:compile && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron dist/electron/main.js\"",
+    "electron:dev": "npm run generate-configs && npm run electron:compile && concurrently \"npm run dev\" \"node scripts/wait-for-next.js\"",
     "electron:pack": "npm run build:electron && npm run electron:compile && electron-builder",
     "electron:dist": "npm run build:electron && npm run electron:compile && electron-builder --publish=never",
     "electron:publish": "npm run build:electron && npm run electron:compile && electron-builder --publish=always",

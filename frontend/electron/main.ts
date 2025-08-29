@@ -117,7 +117,8 @@ class OumiChatApp {
     let startUrl: string;
     
     if (this.isDevelopment) {
-      startUrl = 'http://localhost:3000';
+      const nextPort = process.env.NEXT_DEV_PORT || '3000';
+      startUrl = `http://localhost:${nextPort}`;
     } else {
       // In production, look for the Next.js static export
       const indexPath = path.join(__dirname, '../../out/index.html');
