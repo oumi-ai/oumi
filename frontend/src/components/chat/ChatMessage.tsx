@@ -41,14 +41,22 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     try {
       // Use position-specific delete if messageIndex is available
       const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
+      console.log(`🗑️  Frontend: Sending delete command with args:`, args, `for messageIndex:`, messageIndex);
       const response = await apiClient.executeCommand('delete', args);
+      console.log(`🗑️  Frontend: Delete response:`, response);
       if (response.success) {
-        deleteMessage(message.id);
-        // Refresh the conversation to show updated state
-        setTimeout(() => window.location.reload(), 500);
+        // Reload the page to sync with backend conversation state
+        setTimeout(() => window.location.reload(), 300);
       } else {
         console.error('Failed to delete message:', response.message);
-        alert('Failed to delete message: ' + (response.message || 'Unknown error'));
+        // If it's an index error, the conversation state is out of sync
+        if (response.message && (response.message.includes('out of bounds') || response.message.includes('Invalid message index'))) {
+          console.warn('Message index out of sync with backend - refreshing page to sync state');
+          alert('The conversation has changed since this page was loaded. Refreshing to show current state...');
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          alert('Failed to delete message: ' + (response.message || 'Unknown error'));
+        }
       }
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -63,10 +71,17 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     try {
       // Use position-specific regeneration if messageIndex is available
       const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
+      console.log(`🔄 Frontend: Sending regen command with args:`, args, `for messageIndex:`, messageIndex);
       const response = await apiClient.executeCommand('regen', args);
+      console.log(`🔄 Frontend: Regen response:`, response);
       if (response.success) {
-        // The backend will handle regeneration, refresh to show new response
-        setTimeout(() => window.location.reload(), 1000);
+        // The backend will handle regeneration and continue conversation
+        // Give it time to complete generation, then reload to show the new response
+        console.log(`🔄 Frontend: Regen initiated successfully, waiting for completion...`);
+        setTimeout(() => {
+          console.log(`🔄 Frontend: Reloading to show regenerated response`);
+          window.location.reload();
+        }, 3000); // Increased timeout for generation
       } else {
         console.error('Failed to regenerate message:', response.message);
         alert('Failed to regenerate message: ' + (response.message || 'Unknown error'));
@@ -92,12 +107,24 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
 
     setActionInProgress('save');
     try {
-      // Update message locally for now
-      updateMessage(message.id, { content: editContent });
-      setIsEditing(false);
-      
-      // TODO: Send update to backend to persist the change
-      console.log('WYSIWYG edit saved locally. Backend persistence not yet implemented.');
+      // Send edit command to backend with message index and new content
+      if (messageIndex !== undefined) {
+        const response = await apiClient.executeCommand('edit', [messageIndex.toString(), editContent.trim()]);
+        if (response.success) {
+          // Update local state after successful backend update
+          updateMessage(message.id, { content: editContent });
+          setIsEditing(false);
+          console.log('Message edited and persisted to backend');
+        } else {
+          console.error('Failed to save edit:', response.message);
+          alert('Failed to save edit: ' + (response.message || 'Unknown error'));
+        }
+      } else {
+        // Fallback: update locally if no messageIndex
+        updateMessage(message.id, { content: editContent });
+        setIsEditing(false);
+        console.warn('Message edited locally only (no messageIndex provided)');
+      }
     } catch (error) {
       console.error('Error saving edit:', error);
       alert('Error saving edit');
@@ -157,7 +184,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full h-32 p-3 border border-gray-300 rounded-md resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full h-32 p-3 border border-border bg-input text-foreground placeholder:text-muted-foreground rounded-md resize-vertical focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 placeholder="Edit the assistant's response..."
                 disabled={actionInProgress === 'save'}
               />
@@ -165,7 +192,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                 <button
                   onClick={handleSaveEdit}
                   disabled={actionInProgress === 'save'}
-                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm flex items-center gap-1"
+                  className="px-3 py-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground rounded text-sm flex items-center gap-1 transition-colors"
                 >
                   <Save size={12} />
                   {actionInProgress === 'save' ? 'Saving...' : 'Save'}
@@ -173,7 +200,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                 <button
                   onClick={handleCancelEdit}
                   disabled={actionInProgress === 'save'}
-                  className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50 text-sm"
+                  className="px-3 py-1 bg-muted hover:bg-muted/80 disabled:opacity-50 text-muted-foreground rounded text-sm transition-colors"
                 >
                   Cancel
                 </button>

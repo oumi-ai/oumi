@@ -240,10 +240,13 @@ class ApiClient {
     command: string,
     args: string[] = []
   ): Promise<ApiResponse> {
-    return this.fetchApi('/v1/oumi/command', {
+    console.log(`🌐 API Client: Executing command '${command}' with args:`, args);
+    const response = await this.fetchApi('/v1/oumi/command', {
       method: 'POST',
       body: JSON.stringify({ command, args }),
     });
+    console.log(`🌐 API Client: Command '${command}' response:`, response);
+    return response;
   }
 
   // System monitoring

@@ -19,12 +19,13 @@ from typing import Optional
 from oumi.core.commands.base_handler import BaseCommandHandler, CommandResult
 from oumi.core.commands.command_parser import ParsedCommand
 from oumi.core.commands.conversation_renderer import ConversationRenderer
+from oumi.utils.logging import logger
 
 
 class ConversationOperationsHandler(BaseCommandHandler):
     """Handles conversation manipulation commands.
 
-    Supported commands: delete, regen, clear, compact, full_thoughts, clear_thoughts.
+    Supported commands: delete, regen, clear, compact, full_thoughts, clear_thoughts, edit.
     """
 
     def get_supported_commands(self) -> list[str]:
@@ -38,10 +39,14 @@ class ConversationOperationsHandler(BaseCommandHandler):
             "clear_thoughts",
             "show",
             "render",
+            "edit",
         ]
 
     def handle_command(self, command: ParsedCommand) -> CommandResult:
         """Handle a conversation operations command."""
+        logger.info(f"🎯 ConversationOperationsHandler: Received command '{command.command}' with args: {command.args}")
+        logger.info(f"🎯 Current conversation length: {len(self.conversation_history) if hasattr(self, 'conversation_history') and self.conversation_history else 0}")
+        
         if command.command == "delete":
             return self._handle_delete(command)
         elif command.command == "regen":
@@ -58,6 +63,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
             return self._handle_show(command)
         elif command.command == "render":
             return self._handle_render(command)
+        elif command.command == "edit":
+            return self._handle_edit(command)
         else:
             return CommandResult(
                 success=False,
@@ -73,6 +80,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     - No args: Delete last turn (original behavior)
                     - With index: Delete message at specified position
         """
+        logger.info(f"🗑️  DELETE: Starting delete operation with args: {command.args}")
         try:
             if not self.conversation_history:
                 return CommandResult(
@@ -85,8 +93,22 @@ class ConversationOperationsHandler(BaseCommandHandler):
             if command.args and len(command.args) > 0:
                 try:
                     index = int(command.args[0])
+                    logger.info(f"🗑️  DELETE: Deleting message at index {index}")
+                    
+                    # Validate index bounds (conversation might have changed since UI was rendered)
+                    if index < 0 or index >= len(self.conversation_history):
+                        logger.error(f"🗑️  DELETE: Index {index} out of bounds (conversation has {len(self.conversation_history)} messages)")
+                        return CommandResult(
+                            success=False,
+                            message=f"Message index {index} is out of bounds. Conversation has {len(self.conversation_history)} messages (indices 0-{len(self.conversation_history)-1}). Please refresh the page to sync with current conversation state.",
+                            should_continue=False,
+                        )
+                    
                     deleted_count = self._delete_at_index(index)
+                    logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) at index {index}")
+                        
                 except (ValueError, IndexError):
+                    logger.error(f"🗑️  DELETE: Error deleting at index {command.args[0]}")
                     return CommandResult(
                         success=False,
                         message=f"Invalid message index: {command.args[0]}",
@@ -94,7 +116,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     )
             else:
                 # Delete the last turn (could be user+assistant or just user)
+                logger.info(f"🗑️  DELETE: Deleting last turn")
                 deleted_count = self._delete_last_turn()
+                logger.info(f"🗑️  DELETE: Successfully deleted {deleted_count} message(s) from last turn")
 
             if deleted_count > 0:
                 self._update_context_in_monitor()
@@ -125,6 +149,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     - No args: Regenerate last assistant response (original behavior)
                     - With index: Regenerate response at specified message position
         """
+        logger.info(f"🔄 REGEN: Starting regeneration with args: {command.args}")
         try:
             if not self.conversation_history:
                 return CommandResult(
@@ -137,8 +162,12 @@ class ConversationOperationsHandler(BaseCommandHandler):
             if command.args and len(command.args) > 0:
                 try:
                     index = int(command.args[0])
-                    return self._regen_at_index(index)
+                    logger.info(f"🔄 REGEN: Regenerating message at index {index}")
+                    result = self._regen_at_index(index)
+                    logger.info(f"🔄 REGEN: Index-based regeneration result: {result.success} - {result.message}")
+                    return result
                 except (ValueError, IndexError) as e:
+                    logger.error(f"🔄 REGEN: Error regenerating at index {command.args[0]}: {e}")
                     return CommandResult(
                         success=False,
                         message=f"Invalid message index: {command.args[0]} - {str(e)}",
@@ -146,7 +175,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     )
             else:
                 # Original behavior: regenerate last response
-                return self._regen_last_response()
+                logger.info(f"🔄 REGEN: Regenerating last response")
+                result = self._regen_last_response()
+                logger.info(f"🔄 REGEN: Last response regeneration result: {result.success} - {result.message}")
+                return result
 
         except Exception as e:
             return CommandResult(
@@ -242,7 +274,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
         # Remove the target assistant message and all messages after it
         # This ensures a clean regeneration from the target point
+        logger.info(f"🔄 REGEN: Truncating conversation from {len(self.conversation_history)} to {index} messages")
         self.conversation_history = self.conversation_history[:index]
+        logger.info(f"🔄 REGEN: Conversation now has {len(self.conversation_history)} messages")
 
         # Update context monitor
         self._update_context_in_monitor()
@@ -687,5 +721,67 @@ class ConversationOperationsHandler(BaseCommandHandler):
             return CommandResult(
                 success=False,
                 message=f"Error rendering conversation: {str(e)}",
+                should_continue=False,
+            )
+
+    def _handle_edit(self, command: ParsedCommand) -> CommandResult:
+        """Handle the /edit(index, new_content) command to edit a message.
+        
+        Args:
+            command: Parsed command with index and new content arguments
+                    - First arg: Message index (required)
+                    - Second arg: New content (required)
+        """
+        try:
+            if not self.conversation_history:
+                return CommandResult(
+                    success=False,
+                    message="No conversation history to edit",
+                    should_continue=False,
+                )
+
+            # Validate arguments
+            if not command.args or len(command.args) < 2:
+                return CommandResult(
+                    success=False,
+                    message="Edit command requires index and new content: /edit(index, 'new content')",
+                    should_continue=False,
+                )
+
+            try:
+                index = int(command.args[0])
+                new_content = command.args[1]
+            except (ValueError, IndexError):
+                return CommandResult(
+                    success=False,
+                    message=f"Invalid arguments: index must be a number, content must be provided",
+                    should_continue=False,
+                )
+
+            # Validate index
+            if index < 0 or index >= len(self.conversation_history):
+                return CommandResult(
+                    success=False,
+                    message=f"Message index {index} out of range (0-{len(self.conversation_history)-1})",
+                    should_continue=False,
+                )
+
+            # Update the message content
+            old_content = self.conversation_history[index].get("content", "")
+            self.conversation_history[index]["content"] = new_content
+
+            # Update context monitor
+            self._update_context_in_monitor()
+
+            return CommandResult(
+                success=True,
+                message=f"Updated message at index {index}",
+                should_continue=False,
+            )
+
+        except Exception as e:
+            return CommandResult(
+                success=False,
+                message=f"Error editing message: {str(e)}",
                 should_continue=False,
             )

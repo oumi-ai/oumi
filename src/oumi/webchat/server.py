@@ -967,7 +967,7 @@ class OumiWebServer(OpenAICompatibleServer):
                 )
 
                 # If command affected conversation state, broadcast update
-                if parsed_command.command in ["clear", "delete", "switch", "branch"]:
+                if parsed_command.command in ["clear", "delete", "switch", "branch", "regen", "edit"]:
                     await session.broadcast_to_websockets(
                         {
                             "type": "conversation_update",
@@ -1011,6 +1011,8 @@ class OumiWebServer(OpenAICompatibleServer):
         command = data.get("command", "")
         args = data.get("args", [])
 
+        logger.info(f"🌐 API: Received command '{command}' with args: {args} for session: {session_id}")
+
         session = await self.get_or_create_session(session_id)
 
         try:
@@ -1037,7 +1039,9 @@ class OumiWebServer(OpenAICompatibleServer):
                     kwargs={},
                     raw_input=f"/{command}({','.join(args)})",
                 )
+                logger.info(f"🌐 API: Executing command '{command}' via command router...")
                 result = session.command_router.handle_command(parsed_command)
+                logger.info(f"🌐 API: Command '{command}' result: success={result.success}, message='{result.message}', should_continue={result.should_continue}")
 
                 # Capture the console output
                 console_output = string_buffer.getvalue()
