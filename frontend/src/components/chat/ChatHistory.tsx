@@ -86,6 +86,7 @@ export default function ChatHistory({
                 key={message.id}
                 message={message}
                 isLatest={index === messages.length - 1}
+                messageIndex={index}
               />
             ))}
             

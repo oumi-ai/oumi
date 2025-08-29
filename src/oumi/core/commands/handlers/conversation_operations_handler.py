@@ -66,7 +66,13 @@ class ConversationOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_delete(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /delete() command to remove the last conversation turn."""
+        """Handle the /delete([index]) command to remove conversation messages.
+        
+        Args:
+            command: Parsed command, optionally with index argument
+                    - No args: Delete last turn (original behavior)
+                    - With index: Delete message at specified position
+        """
         try:
             if not self.conversation_history:
                 return CommandResult(
@@ -75,8 +81,20 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     should_continue=False,
                 )
 
-            # Delete the last turn (could be user+assistant or just user)
-            deleted_count = self._delete_last_turn()
+            # Check if index is provided
+            if command.args and len(command.args) > 0:
+                try:
+                    index = int(command.args[0])
+                    deleted_count = self._delete_at_index(index)
+                except (ValueError, IndexError):
+                    return CommandResult(
+                        success=False,
+                        message=f"Invalid message index: {command.args[0]}",
+                        should_continue=False,
+                    )
+            else:
+                # Delete the last turn (could be user+assistant or just user)
+                deleted_count = self._delete_last_turn()
 
             if deleted_count > 0:
                 self._update_context_in_monitor()
@@ -100,7 +118,13 @@ class ConversationOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_regen(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /regen() command to regenerate the last assistant response."""
+        """Handle the /regen([index]) command to regenerate assistant responses.
+        
+        Args:
+            command: Parsed command, optionally with index argument
+                    - No args: Regenerate last assistant response (original behavior)
+                    - With index: Regenerate response at specified message position
+        """
         try:
             if not self.conversation_history:
                 return CommandResult(
@@ -109,53 +133,128 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     should_continue=False,
                 )
 
-            # Find the last user message
-            last_user_input = self._get_last_user_input()
-
-            if not last_user_input:
-                return CommandResult(
-                    success=False,
-                    message="No user message found to regenerate response for",
-                    should_continue=False,
-                )
-
-            # Remove the last assistant response if it exists
-            removed_assistant = False
-            if (
-                self.conversation_history
-                and self.conversation_history[-1].get("role") == "assistant"
-            ):
-                self.conversation_history.pop()
-                removed_assistant = True
-
-            # If we didn't remove an assistant response, and the last message is already
-            # a user message, we need to remove it too to avoid duplicate user messages
-            if (
-                not removed_assistant
-                and self.conversation_history
-                and self.conversation_history[-1].get("role") == "user"
-                and self.conversation_history[-1].get("content") == last_user_input
-            ):
-                self.conversation_history.pop()
-
-            # Update context monitor
-            self._update_context_in_monitor()
-
-            # Return with user input override to regenerate
-            return CommandResult(
-                success=True,
-                message="Regenerating last response...",
-                should_continue=True,
-                user_input_override=last_user_input,
-                is_regeneration=True,
-            )
+            # Check if index is provided
+            if command.args and len(command.args) > 0:
+                try:
+                    index = int(command.args[0])
+                    return self._regen_at_index(index)
+                except (ValueError, IndexError) as e:
+                    return CommandResult(
+                        success=False,
+                        message=f"Invalid message index: {command.args[0]} - {str(e)}",
+                        should_continue=False,
+                    )
+            else:
+                # Original behavior: regenerate last response
+                return self._regen_last_response()
 
         except Exception as e:
             return CommandResult(
                 success=False,
-                message=f"Error regenerating response: {str(e)}",
+                message=f"Error regenerating message: {str(e)}",
                 should_continue=False,
             )
+
+    def _regen_last_response(self) -> CommandResult:
+        """Regenerate the last assistant response (original regen behavior)."""
+        # Find the last user message
+        last_user_input = self._get_last_user_input()
+
+        if not last_user_input:
+            return CommandResult(
+                success=False,
+                message="No user message found to regenerate response for",
+                should_continue=False,
+            )
+
+        # Remove the last assistant response if it exists
+        removed_assistant = False
+        if (
+            self.conversation_history
+            and self.conversation_history[-1].get("role") == "assistant"
+        ):
+            self.conversation_history.pop()
+            removed_assistant = True
+
+        # If we didn't remove an assistant response, and the last message is already
+        # a user message, we need to remove it too to avoid duplicate user messages
+        if (
+            not removed_assistant
+            and self.conversation_history
+            and self.conversation_history[-1].get("role") == "user"
+            and self.conversation_history[-1].get("content") == last_user_input
+        ):
+            self.conversation_history.pop()
+
+        # Update context monitor
+        self._update_context_in_monitor()
+
+        # Return with user input override to regenerate
+        return CommandResult(
+            success=True,
+            message="Regenerating last response...",
+            should_continue=True,
+            user_input_override=last_user_input,
+            is_regeneration=True,
+        )
+
+    def _regen_at_index(self, index: int) -> CommandResult:
+        """Regenerate response at specific index.
+
+        Args:
+            index: Zero-based index of assistant message to regenerate
+
+        Returns:
+            CommandResult with regeneration request
+        """
+        if not self.conversation_history:
+            return CommandResult(
+                success=False,
+                message="No conversation history to regenerate from",
+                should_continue=False,
+            )
+
+        if index < 0 or index >= len(self.conversation_history):
+            raise IndexError(f"Message index {index} out of range (0-{len(self.conversation_history)-1})")
+
+        # Check if the message at index is an assistant message
+        target_message = self.conversation_history[index]
+        if target_message.get("role") != "assistant":
+            return CommandResult(
+                success=False,
+                message=f"Message at index {index} is not an assistant response",
+                should_continue=False,
+            )
+
+        # Find the preceding user message to regenerate from
+        user_input = None
+        for i in range(index - 1, -1, -1):
+            if self.conversation_history[i].get("role") == "user":
+                user_input = self.conversation_history[i].get("content")
+                break
+
+        if not user_input:
+            return CommandResult(
+                success=False,
+                message=f"No user message found before assistant message at index {index}",
+                should_continue=False,
+            )
+
+        # Remove the target assistant message and all messages after it
+        # This ensures a clean regeneration from the target point
+        self.conversation_history = self.conversation_history[:index]
+
+        # Update context monitor
+        self._update_context_in_monitor()
+
+        # Return with user input override to regenerate
+        return CommandResult(
+            success=True,
+            message=f"Regenerating response at position {index}...",
+            should_continue=True,
+            user_input_override=user_input,
+            is_regeneration=True,
+        )
 
     def _handle_clear(self, command: ParsedCommand) -> CommandResult:
         """Handle the /clear() command to clear entire conversation history."""
@@ -350,6 +449,28 @@ class ConversationOperationsHandler(BaseCommandHandler):
             deleted_count += 1
 
         return deleted_count
+
+    def _delete_at_index(self, index: int) -> int:
+        """Delete message at specific index and return number of messages deleted.
+
+        Args:
+            index: Zero-based index of message to delete
+
+        Returns:
+            Number of messages deleted (1 if successful, 0 if index invalid)
+
+        Raises:
+            IndexError: If index is out of range
+        """
+        if not self.conversation_history:
+            return 0
+
+        if index < 0 or index >= len(self.conversation_history):
+            raise IndexError(f"Message index {index} out of range (0-{len(self.conversation_history)-1})")
+
+        # Remove the message at the specified index
+        self.conversation_history.pop(index)
+        return 1
 
     def _get_last_user_input(self) -> Optional[str]:
         """Get the content of the last user message.
