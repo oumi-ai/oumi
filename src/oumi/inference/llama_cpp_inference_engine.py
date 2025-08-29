@@ -152,10 +152,15 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
     ) -> list[dict[str, str]]:
         """Converts a conversation to a list of llama.cpp input messages."""
         # FIXME Handle multimodal e.g., raise an error.
+        role_mapping = {
+            Role.SYSTEM: "system",
+            Role.USER: "user", 
+            Role.ASSISTANT: "assistant",
+        }
         return [
             {
                 "content": message.compute_flattened_text_content(),
-                "role": "user" if message.role == Role.USER else "assistant",
+                "role": role_mapping.get(message.role, "assistant"),
             }
             for message in conversation.messages
         ]
