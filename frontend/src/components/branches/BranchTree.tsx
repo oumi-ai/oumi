@@ -94,7 +94,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
           createdAt: new Date().toISOString(),
           lastActive: new Date().toISOString(),
           preview: 'Empty branch',
-          parentId: null,
+          parentId: undefined,
         }]);
         setCurrentBranch('main');
       }
@@ -109,7 +109,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         createdAt: new Date().toISOString(),
         lastActive: new Date().toISOString(),
         preview: 'Empty branch',
-        parentId: null,
+        parentId: undefined,
       }]);
       setCurrentBranch('main');
     }
@@ -125,8 +125,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
       
       if (response.success && response.data) {
         const newBranch: ConversationBranch = {
-          id: response.data.branch.id || `branch_${Date.now()}`,
-          name: response.data.branch.name || name,
+          id: response.data.id || `branch_${Date.now()}`,
+          name: response.data.name || name,
           isActive: false,
           messageCount: 0,
           createdAt: new Date().toISOString(),
@@ -154,7 +154,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     if (branchId === currentBranchId) return;
 
     try {
-      const response = await apiClient.switchBranch(branchId);
+      const response = await apiClient.switchBranch('default', branchId);
       
       if (response.success && response.data) {
         setCurrentBranch(branchId);
@@ -194,7 +194,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     }
 
     try {
-      const response = await apiClient.deleteBranch(branchId);
+      const response = await apiClient.deleteBranch('default', branchId);
       
       if (response.success) {
         deleteBranch(branchId);

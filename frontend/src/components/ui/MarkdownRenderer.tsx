@@ -20,7 +20,8 @@ import 'highlight.js/styles/github-dark.css';
 interface CodeBlockProps {
   inline?: boolean;
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  [key: string]: any;
 }
 
 const CodeBlock = ({ inline, className, children, ...props }: CodeBlockProps) => {

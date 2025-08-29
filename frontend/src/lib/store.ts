@@ -28,6 +28,7 @@ interface ChatStore {
   setLoading: (loading: boolean) => void;
   setTyping: (typing: boolean) => void;
   setGenerationParams: (params: Partial<GenerationParams>) => void;
+  updateGenerationParam: (key: keyof GenerationParams, value: any) => void;
   
   // Utility actions
   clearMessages: () => void;
@@ -53,8 +54,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   isTyping: false,
   generationParams: {
     temperature: 0.7,
-    max_tokens: 2048,
-    top_p: 0.9,
+    maxTokens: 2048,
+    topP: 0.9,
     stream: false,
   },
 
@@ -114,6 +115,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       generationParams: { ...state.generationParams, ...params },
     })),
 
+  updateGenerationParam: (key: keyof GenerationParams, value: any) =>
+    set((state) => ({
+      generationParams: { ...state.generationParams, [key]: value },
+    })),
+
   // Utility actions
   clearMessages: () =>
     set({ messages: [] }),
@@ -137,8 +143,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       isTyping: false,
       generationParams: {
         temperature: 0.7,
-        max_tokens: 2048,
-        top_p: 0.9,
+        maxTokens: 2048,
+        topP: 0.9,
         stream: false,
       },
     }),

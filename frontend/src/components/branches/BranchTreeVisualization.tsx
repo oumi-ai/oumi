@@ -89,7 +89,7 @@ export default function BranchTreeVisualization({
           id: branch.id,
           messageCount: branch.messageCount,
           lastActive: lastActiveDate,
-          preview: branch.preview,
+          preview: branch.preview || 'No preview',
           isActive: branch.isActive,
         },
         children: children.map((child) => buildNode(child.id)),

@@ -55,7 +55,7 @@ export default function BranchInheritanceView({
       
       while (current) {
         path.unshift(current.id);
-        current = current.parentId ? branchMap.get(current.parentId) : null;
+        current = current.parentId ? branchMap.get(current.parentId) : undefined;
       }
       
       return path;

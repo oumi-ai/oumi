@@ -119,7 +119,7 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
         {/* Temperature Slider */}
         <Slider
           label="Temperature"
-          value={generationParams.temperature}
+          value={generationParams.temperature ?? 0.7}
           min={0.0}
           max={2.0}
           step={0.1}
@@ -132,7 +132,7 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
         {/* Max Tokens Slider */}
         <Slider
           label="Max Tokens"
-          value={generationParams.maxTokens}
+          value={generationParams.maxTokens ?? 2048}
           min={1}
           max={8192}
           step={32}
@@ -145,7 +145,7 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
         {/* Top-p Slider */}
         <Slider
           label="Top-p (Nucleus Sampling)"
-          value={generationParams.topP}
+          value={generationParams.topP ?? 0.9}
           min={0.0}
           max={1.0}
           step={0.05}
@@ -203,15 +203,15 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
           <h4 className="text-xs font-medium text-foreground mb-2">Current Settings</h4>
           <div className="grid grid-cols-3 gap-3 text-xs">
             <div className="text-center p-2 bg-muted rounded">
-              <div className="font-mono text-foreground">{generationParams.temperature.toFixed(1)}</div>
+              <div className="font-mono text-foreground">{(generationParams.temperature ?? 0.7).toFixed(1)}</div>
               <div className="text-muted-foreground">Temp</div>
             </div>
             <div className="text-center p-2 bg-muted rounded">
-              <div className="font-mono text-foreground">{generationParams.maxTokens.toLocaleString()}</div>
+              <div className="font-mono text-foreground">{(generationParams.maxTokens ?? 2048).toLocaleString()}</div>
               <div className="text-muted-foreground">Tokens</div>
             </div>
             <div className="text-center p-2 bg-muted rounded">
-              <div className="font-mono text-foreground">{generationParams.topP.toFixed(2)}</div>
+              <div className="font-mono text-foreground">{(generationParams.topP ?? 0.9).toFixed(2)}</div>
               <div className="text-muted-foreground">Top-p</div>
             </div>
           </div>

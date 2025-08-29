@@ -35,9 +35,9 @@ export interface ModelConfigMetadata {
 
 export interface GenerationParams {
   temperature?: number;
-  max_tokens?: number;
-  top_p?: number;
-  top_k?: number;
+  maxTokens?: number;
+  topP?: number;
+  topK?: number;
   stream?: boolean;
 }
 

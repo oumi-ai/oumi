@@ -172,10 +172,13 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
       apiMessages.push({ role: 'user', content });
 
       // Send to chat API
-      const response = await apiClient.sendMessage(apiMessages, 'default', {
+      const response = await apiClient.chatCompletion({
+        messages: apiMessages,
+        session_id: 'default',
+        branch_id: currentBranchId,
         temperature: generationParams.temperature,
-        maxTokens: generationParams.maxTokens,
-        topP: generationParams.topP,
+        max_tokens: generationParams.maxTokens,
+        top_p: generationParams.topP,
       });
 
       if (response.success && response.data) {
@@ -183,7 +186,7 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
         const assistantMessage: Message = {
           id: `assistant-${Date.now()}`,
           role: 'assistant',
-          content: response.data.content || 'No response generated',
+          content: response.data.choices?.[0]?.message?.content || 'No response generated',
           timestamp: Date.now(),
         };
         addMessage(assistantMessage);
