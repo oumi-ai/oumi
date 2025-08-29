@@ -163,7 +163,7 @@ export class PythonServerManager {
     const oumiArgs = [
       'webchat',
       '--host', this.config.host,
-      '--port', this.config.port.toString()
+      '--backend-port', this.config.port.toString()
     ];
 
     // Add config path if specified
