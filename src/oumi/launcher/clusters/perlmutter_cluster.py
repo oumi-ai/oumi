@@ -252,7 +252,7 @@ class PerlmutterCluster(BaseCluster):
 
         For Perlmutter this method consists of 5 parts:
 
-        1. Copy the working directory to $HOME/oumi_launcher/$JOB_NAME.
+        1. Copy the working directory to remote's $HOME/oumi_launcher/$JOB_NAME.
         2. Check if there is a conda installation. If not, install it.
         3. Copy all file mounts.
         4. Create a job script with all env vars, setup, and run commands.
@@ -267,8 +267,8 @@ class PerlmutterCluster(BaseCluster):
         _validate_job_config(job)
         job_name = job.name or uuid.uuid1().hex
         submission_time = _format_date(datetime.now())
-        remote_working_dir = Path(f"$HOME/oumi_launcher/{submission_time}")
-        # Copy the working directory to Perlmutter user's scratch directory.
+        remote_working_dir = Path(f"~/oumi_launcher/{submission_time}")
+        # Copy the working directory to Perlmutter user's home directory.
         self._client.put_recursive(job.working_dir, str(remote_working_dir))
         # In the oumi Conda env, install the working dir in editable mode.
         install_cmds = [

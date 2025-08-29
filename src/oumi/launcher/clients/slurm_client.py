@@ -398,11 +398,18 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        # Forcibly list all jobs since Jan 1, 2025.
+        # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
+
+        from datetime import datetime, timedelta
+
+        current_date = datetime.now()
+        one_month_ago = current_date - timedelta(days=30)
+        start_date = one_month_ago.strftime("%Y-%m-%d")
+
         command = (
             f"sacct --user={self._user} --format='{response_format}' -X "
-            "--starttime 2025-01-01"
+            f"--starttime {start_date}"
         )
         result = self.run_commands([command])
         if result.exit_code != 0:

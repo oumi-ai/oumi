@@ -31,9 +31,12 @@ envs:
 
 setup: |
   #SBATCH -N 1
+  #SBATCH -n 1
   #SBATCH -J qwen3_8b_fft
-  #SBATCH -o $CFS/$USER/jobs/logs/%j.OU
-  #SBATCH -e $CFS/$USER/jobs/logs/%j.ER
+  #SBATCH -C gpu
+  #SBATCH --gpus-per-node 4
+  #SBATCH -o $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.OU
+  #SBATCH -e $CFS/$SBATCH_ACCOUNT/$USER/jobs/logs/%j.ER
   #SBATCH -t 01:00:00
 
 run: |
@@ -79,6 +82,7 @@ run: |
   oumi distributed torchrun \
     -m oumi train \
     -c configs/recipes/qwen3/sft/8b_full/train.yaml \
+    --training.output_dir="$CFS/$SBATCH_ACCOUNT/$USER/jobs/${SLURM_JOBID}/qwen3_8b.fft" \
     --training.run_name="qwen3.8b.fft.${SLURM_JOBID}" \
     --training.max_steps=50 \
     --training.dataloader_num_workers=2 \
