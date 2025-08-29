@@ -16,7 +16,7 @@
 
 
 def make_safe(input_text: str) -> str:
-    """Sanitize input text to prevent false positive command detection.
+    r"""Sanitize input text to prevent false positive command detection.
 
     This function ensures that only the first line of input is considered
     for command parsing, preventing complex multi-line content (like file paths,

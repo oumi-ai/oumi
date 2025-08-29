@@ -14,7 +14,6 @@
 
 """Model management command handler."""
 
-import os
 from pathlib import Path
 from typing import Any
 
@@ -45,41 +44,65 @@ class ModelManagementHandler(BaseCommandHandler):
             )
 
     def _handle_swap(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /swap(model_name) or /swap(config:path) command to switch models while preserving conversation."""
+        """Handle the /swap(model_name) or /swap(config:path) command to switch models.
+
+        Preserves conversation while switching models.
+        """
         try:
             if not command.args:
                 return CommandResult(
                     success=False,
-                    message="swap command requires a model name or config path argument",
+                    message="swap command requires a model name or config path "
+                    "argument",
                     should_continue=False,
                 )
 
             target = command.args[0].strip()
 
+            # Check for empty target after stripping whitespace
+            if not target:
+                return CommandResult(
+                    success=False,
+                    message=(
+                        "swap command requires a model name or config path argument"
+                    ),
+                    should_continue=False,
+                )
+
             # Check if this is a config-based swap
-            # Support both "config:" prefix and direct config file paths  
+            # Support both "config:" prefix and direct config file paths
             if target.startswith("config:"):
                 config_path = target[7:]  # Remove "config:" prefix
+                if not config_path.strip():
+                    return CommandResult(
+                        success=False,
+                        message=(
+                            "config: prefix requires a path to a configuration file"
+                        ),
+                        should_continue=False,
+                    )
                 return self._handle_config_swap(config_path)
-            elif (target.endswith(".yaml") or target.endswith(".yml") or 
-                  "/" in target or "\\" in target):
+            elif (
+                target.endswith(".yaml")
+                or target.endswith(".yml")
+                or "/" in target
+                or "\\" in target
+            ):
                 # Auto-detect config files by extension or path structure
                 return self._handle_config_swap(target)
 
-            # Regular model swap
-            # Save current model state to branch if branch manager available
-            if hasattr(self.context, "branch_manager") and self.context.branch_manager:
-                current_branch = self.context.branch_manager.get_current_branch()
-                if current_branch:
-                    self._save_current_model_state_to_branch(current_branch["id"])
-
-            # For now, return a placeholder message since actual model swapping
-            # requires infrastructure changes
+            # If we get here, target doesn't match config file patterns
+            # Provide clear guidance on valid formats
             return CommandResult(
                 success=False,
                 message=(
-                    f"Model swapping to '{target}' is not yet implemented. "
-                    "This feature requires infrastructure support for dynamic model loading."
+                    f"Invalid swap target: '{target}'. "
+                    "Please provide either:\n"
+                    "  • A config file path (e.g., 'configs/model.yaml' or "
+                    "'config:model.yaml')\n"
+                    "  • A model path with slashes (e.g., 'meta-llama/Llama-3.1-8B')\n"
+                    "  • A HuggingFace model ID with organization "
+                    "(e.g., 'microsoft/DialoGPT-large')"
                 ),
                 should_continue=False,
             )
@@ -95,7 +118,7 @@ class ModelManagementHandler(BaseCommandHandler):
         """Handle config-based model swapping by loading an Oumi YAML config."""
         try:
             # Resolve config path
-            if not os.path.isabs(config_path):
+            if not Path(config_path).is_absolute():
                 # Try relative to current directory first
                 full_path = Path.cwd() / config_path
                 if not full_path.exists():
@@ -123,11 +146,15 @@ class ModelManagementHandler(BaseCommandHandler):
                     should_continue=False,
                 )
 
-            # Load and parse the new config
-            from oumi.core.configs import InferenceConfig
+            # Load and parse the new config, preserving UI and remote settings
+            from oumi.core.commands.config_utils import (
+                load_config_from_yaml_preserving_settings,
+            )
 
             try:
-                new_config = InferenceConfig.from_yaml(str(full_path))
+                new_config = load_config_from_yaml_preserving_settings(
+                    str(full_path), self.context.config
+                )
             except Exception as e:
                 return CommandResult(
                     success=False,
@@ -148,6 +175,12 @@ class ModelManagementHandler(BaseCommandHandler):
                     model_name = getattr(new_engine, "model_name", None) or getattr(
                         new_config.model, "model_name", "Unknown"
                     )
+
+                # Model swaps only change current context - state is saved during
+                # branch transitions
+
+                # Dispose of old engine to free memory
+                self._dispose_old_engine()
 
                 # Replace the current inference engine and config
                 self.context.inference_engine = new_engine
@@ -172,15 +205,8 @@ class ModelManagementHandler(BaseCommandHandler):
                     # Update context and conversation turns properly (preserves history)
                     self._update_context_in_monitor()
 
-                    # Force refresh the system monitor display to show updated values
-                    if (
-                        hasattr(self.context, "system_monitor")
-                        and self.context.system_monitor
-                    ):
-                        # Trigger an immediate update of the system monitor display
-                        self.context.system_monitor._last_update_time = (
-                            0  # Force refresh
-                        )
+                    # Force comprehensive system monitor refresh after model swap
+                    self._force_complete_monitor_refresh()
 
                 model_name = getattr(new_config.model, "model_name", "Unknown model")
                 engine_type = getattr(new_config, "engine", "Unknown engine")
@@ -206,11 +232,14 @@ class ModelManagementHandler(BaseCommandHandler):
             )
 
     def _handle_list_engines(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /list_engines() command to list available inference engines and sample models."""
+        """Handle the /list_engines() command to list available engines.
+
+        Lists available inference engines and sample models.
+        """
         try:
             # Get style attributes
             use_emoji = getattr(self._style, "use_emoji", True)
-            title_style = getattr(self._style, "assistant_title_style", "bold cyan")
+            # title_style = getattr(self._style, "assistant_title_style", "bold cyan")
 
             # Get engines information
             engines_info = self._get_engines_info()
@@ -422,18 +451,30 @@ class ModelManagementHandler(BaseCommandHandler):
 
         return engines
 
-    def _save_current_model_state_to_branch(self, branch_id: str):
-        """Save current model configuration to a branch."""
+    def _save_current_model_state_to_branch(self):
+        """Save current model configuration to the current branch."""
         try:
             if hasattr(self.context, "branch_manager") and self.context.branch_manager:
-                branch = self.context.branch_manager.get_branch_by_id(branch_id)
-                if branch:
-                    # Save model and generation configs
-                    branch["model_config"] = self._serialize_model_config(
-                        self.config.model
+                current_branch = self.context.branch_manager.get_current_branch()
+                if current_branch:
+                    # Save model name and engine type
+                    current_branch.model_name = getattr(
+                        self.context.config.model, "model_name", None
                     )
-                    branch["generation_config"] = self._serialize_generation_config(
-                        self.config.generation
+                    current_branch.engine_type = (
+                        self.context.config.engine.value
+                        if self.context.config.engine
+                        else None
+                    )
+
+                    # Save serialized model and generation configs
+                    current_branch.model_config = self._serialize_model_config(
+                        self.context.config.model
+                    )
+                    current_branch.generation_config = (
+                        self._serialize_generation_config(
+                            self.context.config.generation
+                        )
                     )
         except Exception:
             # Silently fail to avoid disrupting user experience
@@ -461,11 +502,19 @@ class ModelManagementHandler(BaseCommandHandler):
             "model_max_length",
             "torch_dtype_str",
             "attn_implementation",
+            "trust_remote_code",
+            "tokenizer_name",
+            "model_kwargs",  # Critical for GGUF filename
+            "adapter_model",
+            "device_map",
+            "load_in_8bit",
+            "load_in_4bit",
+            "quantization_config",
         ]:
             if hasattr(model_config, attr):
                 value = getattr(model_config, attr)
                 if value is not None:
-                    config_dict[attr] = str(value)
+                    config_dict[attr] = value  # Keep original types (dict, list, etc.)
 
         return config_dict
 
@@ -541,10 +590,99 @@ class ModelManagementHandler(BaseCommandHandler):
             return {}
 
         config_dict = {}
-        for attr in ["max_new_tokens", "temperature", "top_p", "top_k", "sampling"]:
+        # Include all actual GenerationParams fields
+        for attr in [
+            "max_new_tokens",
+            "batch_size",
+            "temperature",
+            "top_p",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop_strings",
+            "stop_token_ids",
+            "seed",
+            "exclude_prompt_from_response",
+            "logit_bias",
+            "min_p",
+            "use_cache",
+            "num_beams",
+            "use_sampling",
+        ]:
             if hasattr(generation_config, attr):
                 value = getattr(generation_config, attr)
                 if value is not None:
                     config_dict[attr] = value
 
         return config_dict
+
+    def _force_complete_monitor_refresh(self):
+        """Force a comprehensive refresh of the system monitor after model swap.
+
+        This ensures all model-related metrics are updated immediately to provide
+        instant visual feedback to the user after a model change.
+        """
+        try:
+            if hasattr(self.context, "system_monitor") and self.context.system_monitor:
+                # Force immediate refresh by resetting last update time
+                self.context.system_monitor._last_update_time = 0
+
+                # Update all relevant metrics
+                if hasattr(self.context.system_monitor, "update_conversation_turns"):
+                    turns = len(self.context.conversation_history) // 2
+                    self.context.system_monitor.update_conversation_turns(turns)
+
+                # Force refresh of system stats to reflect any new memory usage
+                if hasattr(self.context.system_monitor, "get_stats"):
+                    self.context.system_monitor.get_stats()
+
+                from oumi.utils.logging import logger
+
+                logger.info("System monitor refreshed after model swap")
+
+        except Exception as e:
+            # Don't fail the model swap if monitor refresh fails
+            from oumi.utils.logging import logger
+
+            logger.warning(f"Failed to refresh system monitor after model swap: {e}")
+
+    def _dispose_old_engine(self):
+        """Dispose of the old inference engine to free memory.
+
+        Including CUDA cleanup.
+        """
+        try:
+            if (
+                hasattr(self.context, "inference_engine")
+                and self.context.inference_engine
+            ):
+                old_engine = self.context.inference_engine
+
+                # Try to call cleanup methods if available
+                if hasattr(old_engine, "cleanup"):
+                    old_engine.cleanup()
+                elif hasattr(old_engine, "close"):
+                    old_engine.close()
+
+                # Clear CUDA cache if available
+                try:
+                    import torch
+
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                except ImportError:
+                    pass  # PyTorch not available
+
+                # Clear the reference
+                self.context.inference_engine = None
+
+                # Force garbage collection to free memory immediately
+                import gc
+
+                gc.collect()
+
+        except Exception as e:
+            # Don't fail the swap if cleanup fails
+            from oumi.utils.logging import logger
+
+            logger.warning(f"Failed to dispose of old engine: {e}")

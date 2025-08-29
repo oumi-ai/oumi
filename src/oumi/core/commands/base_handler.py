@@ -153,16 +153,18 @@ class BaseCommandHandler(ABC):
         return total_chars // 4
 
     def _update_context_in_monitor(self):
-        """Update context usage and conversation turns in system monitor if available."""
+        """Update context usage and conversation turns in system monitor."""
         if self.system_monitor and hasattr(self.system_monitor, "update_context_usage"):
             estimated_tokens = self._get_conversation_tokens()
 
-            # Get max context from current config (which gets updated during model swaps)
+            # Get max context from current config
+            # (which gets updated during model swaps)
             # Use context.config to ensure we get the most up-to-date config
             current_config = getattr(self.context, "config", self.config)
             max_context = getattr(current_config.model, "model_max_length", None)
 
-            # If no max_context found in config, try to get it using the engine-specific logic
+            # If no max_context found in config, try to get it using the
+            # engine-specific logic
             if not max_context:
                 max_context = self._get_context_length_for_engine(current_config)
 
@@ -218,7 +220,7 @@ class BaseCommandHandler(ABC):
         # Auto-save after context updates (conversation modifications)
         self._auto_save_if_enabled()
 
-    def _get_context_length_for_engine(self, config) -> int:
+    def _get_context_length_for_engine(self, config) -> Optional[int]:
         """Get the appropriate context length for the given engine configuration.
 
         Args:

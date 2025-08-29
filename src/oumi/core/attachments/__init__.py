@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Command utilities package."""
+"""File attachment system for Oumi interactive inference."""
 
-from oumi.core.commands.utilities.input_sanitization import make_safe
+from oumi.core.attachments.context_manager import ContextWindowManager
+from oumi.core.attachments.file_handler import AttachmentResult, FileHandler, FileInfo
 
-__all__ = ["make_safe"]
+__all__ = ["FileHandler", "AttachmentResult", "FileInfo", "ContextWindowManager"]

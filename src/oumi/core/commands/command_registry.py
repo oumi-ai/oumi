@@ -55,7 +55,9 @@ class CommandRegistry:
             # File operations
             "attach": CommandInfo(
                 name="attach",
-                description="Attach a file to the conversation (images, PDFs, text, etc.)",
+                description=(
+                    "Attach a file to the conversation (images, PDFs, text, etc.)"
+                ),
                 examples=[
                     "/attach(file_path)",
                     "/attach(document.pdf)",
@@ -123,7 +125,7 @@ class CommandRegistry:
             ),
             "load": CommandInfo(
                 name="load",
-                description="Load a previously saved chat from cache by ID or browse recent chats",
+                description=("Load a previously saved chat from cache by ID"),
                 examples=[
                     "/load(chat_id)",
                     "/load(recent)",
@@ -148,12 +150,17 @@ class CommandRegistry:
             ),
             "clear_thoughts": CommandInfo(
                 name="clear_thoughts",
-                description="Remove thinking content from conversation history while preserving responses",
+                description=(
+                    "Remove thinking content from conversation history while "
+                    "preserving responses"
+                ),
                 examples=["/clear_thoughts()"],
             ),
             "compact": CommandInfo(
                 name="compact",
-                description="Compress conversation history to save context window space",
+                description=(
+                    "Compress conversation history to save context window space"
+                ),
                 examples=["/compact()"],
             ),
             "show": CommandInfo(
@@ -178,7 +185,10 @@ class CommandRegistry:
             # Generation parameters
             "set": CommandInfo(
                 name="set",
-                description="Adjust generation parameters (temperature, top_p, max_tokens, etc.)",
+                description=(
+                    "Adjust generation parameters (temperature, top_p, max_tokens, "
+                    "etc.)"
+                ),
                 examples=[
                     "/set(temperature=0.7)",
                     "/set(top_p=0.9)",
@@ -226,7 +236,10 @@ class CommandRegistry:
             # Model management
             "swap": CommandInfo(
                 name="swap",
-                description="Switch to a different model or config for inference while preserving conversation history",
+                description=(
+                    "Switch to a different model or config for inference while "
+                    "preserving conversation history"
+                ),
                 examples=[
                     "/swap(model_name)",
                     "/swap(engine:model_name)",
@@ -235,7 +248,10 @@ class CommandRegistry:
             ),
             "list_engines": CommandInfo(
                 name="list_engines",
-                description="List available inference engines and their supported model examples",
+                description=(
+                    "List available inference engines and their supported model "
+                    "examples"
+                ),
                 examples=["/list_engines()"],
             ),
             # Macro system

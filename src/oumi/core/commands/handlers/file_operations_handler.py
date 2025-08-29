@@ -15,7 +15,6 @@
 """File operations command handler."""
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -31,6 +30,7 @@ class FileOperationsHandler(BaseCommandHandler):
     """Handles file-related commands: attach, save, import, load."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize the file operations handler."""
         super().__init__(*args, **kwargs)
         self.export_utilities = ExportUtilities(self.context)
         self.import_utilities = ImportUtilities(self.context)
@@ -64,7 +64,8 @@ class FileOperationsHandler(BaseCommandHandler):
         if not file_path:
             return False, "", "File path cannot be empty"
 
-        # Check for unmatched quotes before sanitizing (pathvalidate doesn't handle this)
+        # Check for unmatched quotes before sanitizing
+        # (pathvalidate doesn't handle this)
         stripped = file_path.strip()
         quote_chars = ["'", '"']
         for quote in quote_chars:
@@ -81,21 +82,26 @@ class FileOperationsHandler(BaseCommandHandler):
             return False, "", "File path is empty or contains only whitespace"
 
         # Use pathvalidate to sanitize the file path
+        # Detect platform to use appropriate validation
+        import os
+
+        platform_type = "windows" if os.name == "nt" else "posix"
+
         try:
             sanitized = sanitize_filepath(
                 cleaned_path,
-                platform="universal",  # Works on all platforms
+                platform=platform_type,  # Use appropriate platform
                 max_len=255,  # Standard filesystem limit
             )
         except ValidationError as e:
             return False, "", f"Invalid file path: {str(e)}"
 
         # Verify the sanitized path is valid
-        if not is_valid_filepath(sanitized, platform="universal"):
+        if not is_valid_filepath(sanitized, platform=platform_type):
             return False, "", "File path contains invalid characters or format"
 
         # Additional security check - prevent path traversal
-        if ".." in sanitized or sanitized.startswith("/"):
+        if ".." in sanitized:
             return (
                 False,
                 "",
@@ -197,7 +203,9 @@ class FileOperationsHandler(BaseCommandHandler):
             error_details = traceback.format_exc()
             return CommandResult(
                 success=False,
-                message=f"Error attaching file: {str(e)}\\n\\nTraceback:\\n{error_details}",
+                message=(
+                    f"Error attaching file: {str(e)}\\n\\nTraceback:\\n{error_details}"
+                ),
                 should_continue=False,
             )
 
@@ -259,7 +267,7 @@ class FileOperationsHandler(BaseCommandHandler):
         )
 
     def _handle_import(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /import() command to import conversation data from supported formats."""
+        """Handle /import() command to import conversation data."""
         try:
             if not command.args:
                 return CommandResult(
@@ -282,7 +290,9 @@ class FileOperationsHandler(BaseCommandHandler):
 
                 return CommandResult(
                     success=True,
-                    message=f"Imported {len(imported_messages)} messages from {file_path}",
+                    message=(
+                        f"Imported {len(imported_messages)} messages from {file_path}"
+                    ),
                     should_continue=False,
                 )
             else:
@@ -300,23 +310,15 @@ class FileOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_load(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /load() command to load a chat from cache or browse recent chats."""
+        """Handle /load() command to load a chat from cache."""
         try:
-            # If no arguments, show recent chats for browsing
+            # If no arguments, return error message
             if not command.args:
-                from oumi.core.commands.chat_browser import ChatBrowser
-
-                browser = ChatBrowser(self.console)
-                selected_chat_id = browser.browse_recent_chats()
-
-                if selected_chat_id:
-                    return self._load_chat_by_id(selected_chat_id)
-                else:
-                    return CommandResult(
-                        success=False,
-                        message="No chat selected",
-                        should_continue=False,
-                    )
+                return CommandResult(
+                    success=False,
+                    message="Please provide a chat ID to load. Usage: /load(chat_id)",
+                    should_continue=False,
+                )
 
             # Load specific chat by ID
             chat_id = command.args[0].strip()
@@ -402,7 +404,10 @@ class FileOperationsHandler(BaseCommandHandler):
 
                 return CommandResult(
                     success=True,
-                    message=f"Loaded chat '{chat_id}' ({message_count} messages, {timestamp})",
+                    message=(
+                        f"Loaded chat '{chat_id}' "
+                        f"({message_count} messages, {timestamp})"
+                    ),
                     should_continue=False,
                 )
             else:
@@ -504,7 +509,7 @@ class FileOperationsHandler(BaseCommandHandler):
         return config_dict
 
     def _handle_save_history(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /save_history(path) command to save complete conversation state."""
+        """Handle /save_history(path) command to save complete conversation state."""
         if not command.args:
             return CommandResult(
                 success=False,
@@ -561,7 +566,7 @@ class FileOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_import_history(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /import_history(path) command to restore complete conversation state."""
+        """Handle /import_history(path) command to restore conversation state."""
         if not command.args:
             return CommandResult(
                 success=False,
@@ -580,7 +585,10 @@ class FileOperationsHandler(BaseCommandHandler):
             if not self._validate_history_schema(history_data):
                 return CommandResult(
                     success=False,
-                    message="Invalid history file format - see Oumi history schema documentation",
+                    message=(
+                        "Invalid history file format - "
+                        "see Oumi history schema documentation"
+                    ),
                     should_continue=False,
                 )
 
@@ -600,7 +608,8 @@ class FileOperationsHandler(BaseCommandHandler):
                     success=True,
                     message=(
                         f"Restored conversation history from {file_path}\n"
-                        f"📊 Restored: {branch_count} branches, {total_messages} messages, "
+                        f"📊 Restored: {branch_count} branches, "
+                        f"{total_messages} messages, "
                         f"{command_count} commands, config & metadata"
                     ),
                     should_continue=False,
@@ -694,7 +703,8 @@ class FileOperationsHandler(BaseCommandHandler):
                     f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 ),
                 "current_branch_id": current_branch_id,
-                "total_session_time": None,  # Could be calculated if we track start time
+                "total_session_time": None,
+                # Could be calculated if we track start time
                 "oumi_version": "latest",  # Could get actual version
             },
             # Model and configuration
@@ -942,7 +952,10 @@ class FileOperationsHandler(BaseCommandHandler):
             except ImportError:
                 return CommandResult(
                     success=False,
-                    message="Web fetching requires additional dependencies. Install with: pip install 'oumi[interactive]'",
+                    message=(
+                        "Web fetching requires additional dependencies. "
+                        "Install with: pip install 'oumi[interactive]'"
+                    ),
                     should_continue=False,
                 )
 
@@ -1011,9 +1024,11 @@ class FileOperationsHandler(BaseCommandHandler):
                     else:
                         right = mid - 1
 
-                content = (
-                    truncated_content
-                    + f"\n\n[Content truncated from {content_tokens:,} to {context_manager.estimate_tokens(truncated_content):,} tokens due to context window limits]"
+                content = truncated_content + (
+                    f"\n\n[Content truncated from {content_tokens:,} to "
+                    f"{context_manager.estimate_tokens(truncated_content):,} "
+                    "tokens "
+                    "due to context window limits]"
                 )
 
             # Create attachment-style message for the conversation
@@ -1038,7 +1053,10 @@ class FileOperationsHandler(BaseCommandHandler):
             # Display success with content info
             from rich.panel import Panel
 
-            info_content = f"**URL:** {url}\n**Type:** {content_type}\n**Size:** {len(content):,} characters"
+            info_content = (
+                f"**URL:** {url}\n**Type:** {content_type}\n"
+                f"**Size:** {len(content):,} characters"
+            )
 
             if len(content) > 500:
                 info_content += f"\n**Preview:** {content[:200]}..."
@@ -1133,7 +1151,10 @@ class FileOperationsHandler(BaseCommandHandler):
             if pattern in shell_lower:
                 return CommandResult(
                     success=False,
-                    message=f"Command blocked for security: contains '{pattern}'. Shell commands are restricted to safe, read-only operations.",
+                    message=(
+                        f"Command blocked for security: contains '{pattern}'. "
+                        "Shell commands are restricted to safe, read-only operations."
+                    ),
                     should_continue=False,
                 )
 
@@ -1141,7 +1162,9 @@ class FileOperationsHandler(BaseCommandHandler):
         if len(shell_command) > 200:
             return CommandResult(
                 success=False,
-                message="Command too long. Maximum 200 characters allowed for security.",
+                message=(
+                    "Command too long. Maximum 200 characters allowed for security."
+                ),
                 should_continue=False,
             )
 
@@ -1177,7 +1200,7 @@ class FileOperationsHandler(BaseCommandHandler):
                 capture_output=True,
                 text=True,
                 timeout=30,
-                cwd=os.getcwd(),  # Execute in current directory
+                cwd=Path.cwd(),  # Execute in current directory
             )
 
             # Combine stdout and stderr
@@ -1213,9 +1236,10 @@ class FileOperationsHandler(BaseCommandHandler):
                     else:
                         right = mid - 1
 
-                output = (
-                    truncated_output
-                    + f"\n\n[Output truncated from {output_tokens:,} to {context_manager.estimate_tokens(truncated_output):,} tokens due to context window limits]"
+                output = truncated_output + (
+                    f"\n\n[Output truncated from {output_tokens:,} to "
+                    f"{context_manager.estimate_tokens(truncated_output):,} tokens "
+                    "due to context window limits]"
                 )
 
             # Create attachment-style message for the conversation
@@ -1247,7 +1271,10 @@ class FileOperationsHandler(BaseCommandHandler):
                 else f"❌ Failed (code {result.returncode})"
             )
 
-            info_content = f"**Command:** {shell_command}\n**Status:** {status_text}\n**Output Size:** {len(output):,} characters"
+            info_content = (
+                f"**Command:** {shell_command}\n**Status:** {status_text}\n"
+                f"**Output Size:** {len(output):,} characters"
+            )
 
             # Show preview of output
             preview_length = 300
@@ -1266,14 +1293,19 @@ class FileOperationsHandler(BaseCommandHandler):
 
             return CommandResult(
                 success=True,
-                message=f"Executed command '{shell_command}' (exit code: {result.returncode})",
+                message=(
+                    f"Executed command '{shell_command}' "
+                    f"(exit code: {result.returncode})"
+                ),
                 should_continue=False,
             )
 
         except subprocess.TimeoutExpired:
             return CommandResult(
                 success=False,
-                message=f"Command timeout: '{shell_command}' took longer than 30 seconds",
+                message=(
+                    f"Command timeout: '{shell_command}' took longer than 30 seconds"
+                ),
                 should_continue=False,
             )
         except subprocess.SubprocessError as e:

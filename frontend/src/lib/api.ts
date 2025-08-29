@@ -180,9 +180,10 @@ class ApiClient {
     return this.fetchApi(`/v1/oumi/branches`, {
       method: 'POST',
       body: JSON.stringify({ 
+        action: "create",                    // Required by backend
         session_id: sessionId,
         name, 
-        parent_branch_id: parentBranchId 
+        from_branch: parentBranchId          // Backend expects 'from_branch' not 'parent_branch_id'
       }),
     });
   }

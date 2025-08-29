@@ -22,7 +22,10 @@ from oumi.core.commands.conversation_renderer import ConversationRenderer
 
 
 class ConversationOperationsHandler(BaseCommandHandler):
-    """Handles conversation manipulation commands: delete, regen, clear, compact, full_thoughts, clear_thoughts."""
+    """Handles conversation manipulation commands.
+
+    Supported commands: delete, regen, clear, compact, full_thoughts, clear_thoughts.
+    """
 
     def get_supported_commands(self) -> list[str]:
         """Get list of commands this handler supports."""
@@ -214,20 +217,22 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 new_count = len(self.conversation_history)
 
                 savings_tokens = original_tokens - new_tokens
-                savings_messages = original_count - new_count
 
                 return CommandResult(
                     success=True,
                     message=(
-                        f"Compacted conversation: {original_count} → {new_count} messages, "
-                        f"~{original_tokens} → ~{new_tokens} tokens (saved ~{savings_tokens} tokens)"
+                        f"Compacted conversation: {original_count} → {new_count} msgs,"
+                        f"~{original_tokens} → ~{new_tokens} tokens "
+                        f"(saved ~{savings_tokens} tokens)"
                     ),
                     should_continue=False,
                 )
             else:
                 return CommandResult(
                     success=True,
-                    message="Conversation is already compact (too few messages to compress)",
+                    message=(
+                        "Conversation is already compact (too few messages to compress)"
+                    ),
                     should_continue=False,
                 )
 
@@ -256,7 +261,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             return CommandResult(
                 success=True,
-                message=f"Thinking display mode set to '{new_mode}' - showing {description}",
+                message=(
+                    f"Thinking display mode set to '{new_mode}' - showing {description}"
+                ),
                 should_continue=False,
             )
 
@@ -268,7 +275,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_clear_thoughts(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /clear_thoughts() command to remove thinking content from conversation history."""
+        """Handle the /clear_thoughts() command.
+
+        Removes thinking content from conversation history.
+        """
         try:
             # Track how many messages we process and clean
             processed_count = 0
@@ -295,8 +305,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 return CommandResult(
                     success=True,
                     message=(
-                        f"Removed thinking content from {cleaned_count} assistant message(s). "
-                        "Responses preserved while reasoning sections cleaned up."
+                        f"Removed thinking content from {cleaned_count} "
+                        "assistant message(s). Responses preserved while "
+                        "reasoning sections cleaned up."
                     ),
                     should_continue=False,
                 )
@@ -356,7 +367,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
     def _handle_show(self, command: ParsedCommand) -> CommandResult:
         """Handle the /show(pos) command to view a specific conversation position."""
         try:
-            # Default to showing the most recent assistant message if no position specified
+            # Default to showing the most recent assistant message if no position
+            # specified
             position = None
             if command.args:
                 try:
@@ -391,7 +403,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 if position < 1 or position > len(assistant_messages):
                     return CommandResult(
                         success=False,
-                        message=f"Position {position} is out of range (1-{len(assistant_messages)})",
+                        message=(
+                            f"Position {position} is out of range "
+                            f"(1-{len(assistant_messages)})"
+                        ),
                         should_continue=False,
                     )
 
@@ -458,7 +473,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 markdown_content = Markdown(display_content)
                 assistant_panel = Panel(
                     markdown_content,
-                    title=f"[bold cyan]{display_model_name} ({position_text})[/bold cyan]",
+                    title=(
+                        f"[bold cyan]{display_model_name} ({position_text})[/bold cyan]"
+                    ),
                     border_style="cyan",
                     padding=(1, 2),
                     expand=getattr(self.config.style, "expand_panels", False),
@@ -467,7 +484,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
                 # Fallback to plain text if markdown fails
                 assistant_panel = Panel(
                     Text(display_content, style="white"),
-                    title=f"[bold cyan]{display_model_name} ({position_text})[/bold cyan]",
+                    title=(
+                        f"[bold cyan]{display_model_name} ({position_text})[/bold cyan]"
+                    ),
                     border_style="cyan",
                     padding=(1, 2),
                     expand=getattr(self.config.style, "expand_panels", False),
@@ -477,7 +496,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             return CommandResult(
                 success=True,
-                message=f"Displayed conversation position {position_text}",
+                message=f"Message {position}: {display_content}",
                 should_continue=False,
             )
 
@@ -489,12 +508,18 @@ class ConversationOperationsHandler(BaseCommandHandler):
             )
 
     def _handle_render(self, command: ParsedCommand) -> CommandResult:
-        """Handle the /render(path) command to record conversation playback with asciinema."""
+        """Handle the /render(path) command.
+
+        Records conversation playback with asciinema.
+        """
         try:
             if not command.args:
                 return CommandResult(
                     success=False,
-                    message="render command requires a file path argument (e.g., /render(conversation.cast))",
+                    message=(
+                        "render command requires a file path argument "
+                        "(e.g., /render(conversation.cast))"
+                    ),
                     should_continue=False,
                 )
 
@@ -513,7 +538,10 @@ class ConversationOperationsHandler(BaseCommandHandler):
             if not shutil.which("asciinema"):
                 return CommandResult(
                     success=False,
-                    message="asciinema is not installed. Install with: pip install asciinema",
+                    message=(
+                        "asciinema is not installed. "
+                        "Install with: pip install asciinema"
+                    ),
                     should_continue=False,
                 )
 

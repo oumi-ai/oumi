@@ -18,7 +18,7 @@ import copy
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -85,7 +85,7 @@ class ConversationBranchManager:
 
     MAX_BRANCHES = 5
 
-    def __init__(self, conversation_history: list | None = None):
+    def __init__(self, conversation_history: Optional[list] = None):
         """Initialize the branch manager."""
         # Create main branch
         self.branches: dict[str, ConversationBranch] = {}
@@ -311,7 +311,7 @@ class ConversationBranchManager:
         current_branch.conversation_history = copy.deepcopy(conversation_history)
         current_branch.last_active = datetime.now()
 
-    def list_branches(self) -> list[dict[str, any]]:
+    def list_branches(self) -> list[dict[str, Any]]:
         """List all branches with their information.
 
         Returns:

@@ -43,7 +43,8 @@ class ParameterManagementHandler(BaseCommandHandler):
         if not command.kwargs and not command.args:
             return CommandResult(
                 success=False,
-                message="set command requires parameter=value arguments (e.g., /set(temperature=0.8, top_p=0.9))",
+                message="set command requires parameter=value arguments "
+                "(e.g., /set(temperature=0.8, top_p=0.9))",
                 should_continue=False,
             )
 
@@ -127,7 +128,8 @@ class ParameterManagementHandler(BaseCommandHandler):
         if param not in valid_params:
             return (
                 False,
-                f"Unknown parameter '{param}'. Valid parameters: {', '.join(sorted(valid_params))}",
+                f"Unknown parameter '{param}'. Valid parameters: "
+                f"{', '.join(sorted(valid_params))}",
             )
 
         # Parse and validate value
@@ -144,7 +146,14 @@ class ParameterManagementHandler(BaseCommandHandler):
         # Update the parameter in generation config
         try:
             if hasattr(self.config, "generation") and self.config.generation:
-                setattr(self.config.generation, param, parsed_value)
+                # Map parameter names to actual attribute names
+                param_mapping = {
+                    "sampling": "use_sampling",
+                    "max_tokens": "max_new_tokens",  # Alias for consistency
+                }
+                actual_param = param_mapping.get(param, param)
+
+                setattr(self.config.generation, actual_param, parsed_value)
                 return True, ""
             else:
                 return False, "Generation config not available"

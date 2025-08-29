@@ -123,15 +123,16 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     try {
       const response = await apiClient.createBranch('default', name, parentId);
       
-      if (response.success && response.data) {
+      if (response.success && response.data && response.data.branch) {
+        const branchData = response.data.branch;
         const newBranch: ConversationBranch = {
-          id: response.data.id || `branch_${Date.now()}`,
-          name: response.data.name || name,
-          isActive: false,
-          messageCount: 0,
-          createdAt: new Date().toISOString(),
-          lastActive: new Date().toISOString(),
-          preview: 'Empty branch',
+          id: branchData.id || `branch_${Date.now()}`,
+          name: branchData.name || name,
+          isActive: branchData.is_active || false,
+          messageCount: branchData.message_count || 0,
+          createdAt: branchData.created_at || new Date().toISOString(),
+          lastActive: branchData.last_active || new Date().toISOString(),
+          preview: branchData.message_count > 0 ? `${branchData.message_count} messages` : 'Empty branch',
           parentId: parentId,
         };
         
@@ -142,6 +143,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         
         // Reload branches to get accurate data
         await loadBranches();
+      } else {
+        console.error('Failed to create branch:', response.message || 'Unknown error');
       }
     } catch (error) {
       console.error('Failed to create branch:', error);

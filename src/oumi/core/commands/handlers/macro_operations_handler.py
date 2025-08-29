@@ -15,6 +15,7 @@
 """Macro operations command handler."""
 
 import re
+from typing import Any
 
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -48,7 +49,10 @@ class MacroOperationsHandler(BaseCommandHandler):
             if not self.context.macro_manager:
                 return CommandResult(
                     success=False,
-                    message="Macro functionality not available. Install jinja2: pip install jinja2",
+                    message=(
+                        "Macro functionality not available. "
+                        "Install jinja2: pip install jinja2"
+                    ),
                     should_continue=False,
                 )
 
@@ -77,34 +81,44 @@ class MacroOperationsHandler(BaseCommandHandler):
 
             # Collect field values if needed
             field_values = {}
-            if macro_info.fields:
+            if macro_info and hasattr(macro_info, "fields") and macro_info.fields:
                 self.console.print(
                     "\n📝 Please provide values for the following fields:\n"
                 )
                 self.console.print(
-                    "[dim]Tip: For multiline input, type /ml to switch to multi-line mode, "
-                    "or paste content directly.[/dim]\n"
+                    "[dim]Tip: For multiline input, type /ml to switch to "
+                    "multi-line mode, or paste content directly.[/dim]\n"
                 )
 
                 for field in macro_info.fields:
                     field_value = self._collect_field_value(field)
 
-                    # Check if user cancelled (empty return from required field cancellation)
-                    if field.required and not field_value:
+                    # Check if user cancelled (empty return from required field
+                    # cancellation)
+                    field_required = getattr(field, "required", False)
+                    if field_required and not field_value:
                         return CommandResult(
                             success=False,
                             message="Macro execution cancelled by user",
                             should_continue=False,
                         )
 
-                    field_values[field.name] = field_value
+                    field_name = getattr(field, "name", str(field))
+                    field_values[field_name] = field_value
                     self.console.print()  # Add spacing between fields
 
             # Render macro
             try:
-                rendered_content = self.context.macro_manager.render_macro(
-                    macro_info, field_values
-                )
+                if macro_info is not None:
+                    rendered_content = self.context.macro_manager.render_macro(
+                        macro_info, field_values
+                    )
+                else:
+                    return CommandResult(
+                        success=False,
+                        message="Macro information not available",
+                        should_continue=False,
+                    )
 
                 # Validate rendered content doesn't exceed context window
                 if hasattr(self.context, "context_window_manager"):
@@ -124,12 +138,16 @@ class MacroOperationsHandler(BaseCommandHandler):
                     current_tokens + estimated_tokens > max_context * 0.9
                 ):  # Use 90% threshold
                     validation_error = (
-                        f"Rendered macro content (~{estimated_tokens} tokens) would exceed "
-                        f"context window limit. Current: {current_tokens}, Max: {max_context}"
+                        f"Rendered macro content (~{estimated_tokens} tokens) "
+                        f"would exceed context window limit. "
+                        f"Current: {current_tokens}, Max: {max_context}"
                     )
                     return CommandResult(
                         success=False,
-                        message=f"Rendered macro exceeds context window:\\n{validation_error}",
+                        message=(
+                            f"Rendered macro exceeds context window:\\n"
+                            f"{validation_error}"
+                        ),
                         should_continue=False,
                     )
 
@@ -164,29 +182,36 @@ class MacroOperationsHandler(BaseCommandHandler):
                 should_continue=False,
             )
 
-    def _display_macro_summary(self, macro_info) -> None:
+    def _display_macro_summary(self, macro_info: Any) -> None:
         """Display a summary of the loaded macro."""
         use_emoji = getattr(self._style, "use_emoji", True)
 
         # Create summary content formatted for markdown
+        name = getattr(macro_info, "name", "Unknown")
+        description = getattr(macro_info, "description", "No description")
+        turns = getattr(macro_info, "turns", "Unknown")
+        fields = getattr(macro_info, "fields", [])
+
         summary_lines = [
-            f"**Name:** {macro_info.name}",
+            f"**Name:** {name}",
             "",
-            f"**Description:** {macro_info.description}",
+            f"**Description:** {description}",
             "",
-            f"**Estimated turns:** {macro_info.turns}",
+            f"**Estimated turns:** {turns}",
             "",
-            f"**Fields to fill:** {len(macro_info.fields)}",
+            f"**Fields to fill:** {len(fields)}",
         ]
 
-        if macro_info.fields:
+        if fields:
             summary_lines.append("")  # Empty line for spacing
             summary_lines.append("**Field Details:**")
-            for field in macro_info.fields:
-                field_desc = field.description or "No description"
-                required_text = "Required" if field.required else "Optional"
+            for field in fields:
+                field_name = getattr(field, "name", str(field))
+                field_desc = getattr(field, "description", None) or "No description"
+                required = getattr(field, "required", False)
+                required_text = "Required" if required else "Optional"
                 summary_lines.append(
-                    f"- `{field.name}`: {field_desc} ({required_text})"
+                    f"- `{field_name}`: {field_desc} ({required_text})"
                 )
 
         # Display the macro summary with markdown formatting
@@ -207,7 +232,8 @@ class MacroOperationsHandler(BaseCommandHandler):
         """Interactively collect a value for a macro field using EnhancedInput.
 
         This method uses the same input system as the main chat loop to ensure
-        consistent handling of complex multiline content and avoid terminal state conflicts.
+        consistent handling of complex multiline content and avoid terminal state
+        conflicts.
         """
         # Use local import to avoid circular dependency
         from oumi.core.input.enhanced_input import EnhancedInput
@@ -220,15 +246,17 @@ class MacroOperationsHandler(BaseCommandHandler):
 
         # Build simple prompt text for field name
         # EnhancedInput will handle the styling and display
-        prompt_text = field.name
+        prompt_text = getattr(field, "name", str(field))
 
         # Display field description and placeholder info above the prompt
-        if field.description or field.placeholder:
+        field_description = getattr(field, "description", None)
+        field_placeholder = getattr(field, "placeholder", None)
+        if field_description or field_placeholder:
             info_parts = []
-            if field.description:
-                info_parts.append(f"[dim]{field.description}[/dim]")
-            if field.placeholder:
-                info_parts.append(f"[dim]Example: {field.placeholder}[/dim]")
+            if field_description:
+                info_parts.append(f"[dim]{field_description}[/dim]")
+            if field_placeholder:
+                info_parts.append(f"[dim]Example: {field_placeholder}[/dim]")
             self.console.print(" - ".join(info_parts))
 
         while True:
@@ -258,12 +286,14 @@ class MacroOperationsHandler(BaseCommandHandler):
                 value = input_result.text.strip() if input_result.text else ""
 
                 # Handle empty input for optional fields with placeholder
-                if not value and not field.required and field.placeholder:
-                    value = field.placeholder
+                field_required = getattr(field, "required", False)
+                field_placeholder = getattr(field, "placeholder", None)
+                if not value and not field_required and field_placeholder:
+                    value = field_placeholder
                     self.console.print(f"[dim]Using default: {value}[/dim]")
 
                 # Validate required fields
-                if field.required and not value:
+                if field_required and not value:
                     self.console.print(
                         "[red]This field is required! Please enter a value.[/red]"
                     )
@@ -283,16 +313,12 @@ class MacroOperationsHandler(BaseCommandHandler):
         # Try to detect conversation structure
         # Look for patterns like "User:", "Human:", etc.
 
-        # Split by common role indicators
-        role_patterns = [
-            r"^(User|Human):\\s*(.+?)(?=^(?:Assistant|AI|Bot|User|Human):|$)",
-            r"^(Assistant|AI|Bot):\\s*(.+?)(?=^(?:User|Human|Assistant|AI|Bot):|$)",
-        ]
+        # Split by common role indicators (unused patterns for future enhancement)
 
         current_turn = ""
         in_user_section = False
 
-        lines = rendered_content.split("\\n")
+        lines = rendered_content.split("\n")
         for line in lines:
             line = line.strip()
 
@@ -304,7 +330,7 @@ class MacroOperationsHandler(BaseCommandHandler):
 
                 # Start new user turn
                 current_turn = re.sub(
-                    r"^(User|Human):\\s*", "", line, flags=re.IGNORECASE
+                    r"^(User|Human):\s*", "", line, flags=re.IGNORECASE
                 )
                 in_user_section = True
 
@@ -321,7 +347,7 @@ class MacroOperationsHandler(BaseCommandHandler):
                 # Continue current section
                 if in_user_section and line:
                     if current_turn:
-                        current_turn += "\\n" + line
+                        current_turn += "\n" + line
                     else:
                         current_turn = line
 
@@ -336,7 +362,7 @@ class MacroOperationsHandler(BaseCommandHandler):
         return turns
 
     def _execute_macro_conversation(
-        self, conversation_turns: list[str], macro_info
+        self, conversation_turns: list[str], macro_info: Any
     ) -> str:
         """Execute a multi-turn macro conversation."""
         if not conversation_turns:
@@ -346,10 +372,13 @@ class MacroOperationsHandler(BaseCommandHandler):
         # Multi-turn execution would require more complex state management
 
         turns_count = len(conversation_turns)
+        macro_name = getattr(macro_info, "name", "Unknown")
         if turns_count == 1:
-            return f"Executed macro '{macro_info.name}' with 1 conversation turn"
+            return f"Executed macro '{macro_name}' with 1 conversation turn"
         else:
             return (
-                f"Executing macro '{macro_info.name}' - starting with turn 1 of {turns_count}.\\n"
-                f"Note: Multi-turn macros require manual continuation for subsequent turns."
+                f"Executing macro '{macro_name}' - starting with turn 1 of "
+                f"{turns_count}.\\n"
+                f"Note: Multi-turn macros require manual continuation for "
+                f"subsequent turns."
             )
