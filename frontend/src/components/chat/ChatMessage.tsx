@@ -6,10 +6,10 @@
 
 import React from 'react';
 import { Message } from '@/lib/types';
-import { User, Bot, Copy, Check, Trash2, RefreshCw, Edit3 } from 'lucide-react';
+import { User, Bot, Copy, Check, Trash2, RefreshCw, Edit3, Save } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
-import { useMessageStore } from '@/lib/store';
-import { apiClient } from '@/lib/api';
+import { useChatStore } from '@/lib/store';
+import apiClient from '@/lib/api';
 
 interface ChatMessageProps {
   message: Message;
@@ -22,7 +22,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const [isEditing, setIsEditing] = React.useState(false);
   const [editContent, setEditContent] = React.useState(message.content);
   const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
-  const { updateMessage, deleteMessage, addMessage } = useMessageStore();
+  const { updateMessage, deleteMessage, addMessage } = useChatStore();
 
   const handleCopy = async () => {
     try {

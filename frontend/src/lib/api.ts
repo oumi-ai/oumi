@@ -176,7 +176,7 @@ class ApiClient {
     sessionId: string = 'default',
     name: string,
     parentBranchId?: string
-  ): Promise<ApiResponse<ConversationBranch>> {
+  ): Promise<ApiResponse<{ branch: ConversationBranch }>> {
     return this.fetchApi(`/v1/oumi/branches`, {
       method: 'POST',
       body: JSON.stringify({ 

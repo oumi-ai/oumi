@@ -129,11 +129,11 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         const newBranch: ConversationBranch = {
           id: branchData.id || `branch_${Date.now()}`,
           name: branchData.name || name,
-          isActive: branchData.is_active || false,
-          messageCount: branchData.message_count || 0,
-          createdAt: branchData.created_at || new Date().toISOString(),
-          lastActive: branchData.last_active || new Date().toISOString(),
-          preview: branchData.message_count > 0 ? `${branchData.message_count} messages` : 'Empty branch',
+          isActive: (branchData as any).is_active || false,
+          messageCount: (branchData as any).message_count || 0,
+          createdAt: (branchData as any).created_at || new Date().toISOString(),
+          lastActive: (branchData as any).last_active || new Date().toISOString(),
+          preview: (branchData as any).message_count > 0 ? `${(branchData as any).message_count} messages` : 'Empty branch',
           parentId: parentId,
         };
         
