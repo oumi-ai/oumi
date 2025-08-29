@@ -8,6 +8,7 @@ import React from 'react';
 import { useChatStore } from '@/lib/store';
 import { Message } from '@/lib/types';
 import apiClient from '@/lib/api';
+import { isValidCommand, parseCommand } from '@/lib/constants';
 import ChatHistory from './ChatHistory';
 import MessageInput from './MessageInput';
 
@@ -93,6 +94,18 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
   };
 
   const handleSendMessage = async (content: string) => {
+    // Check if it's a valid command and block it
+    if (isValidCommand(content)) {
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: `❌ Commands cannot be executed through the chat input. Please use the UI controls and buttons instead.`,
+        timestamp: Date.now(),
+      };
+      addMessage(errorMessage);
+      return;
+    }
+
     // Create user message
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -104,28 +117,22 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
     // Add user message to store
     addMessage(userMessage);
 
-    // Check if it's a command
-    if (content.startsWith('/')) {
-      await handleCommand(content);
-      return;
-    }
-
-    // Handle regular chat message
+    // Handle regular chat message (no command handling anymore)
     await handleChatMessage(content);
   };
 
-  const handleCommand = async (command: string) => {
+  // Internal method for UI elements to execute commands (bypasses user input blocking)
+  const executeCommand = async (command: string) => {
     setLoading(true);
     
     try {
-      // Parse command
-      const commandParts = command.slice(1).match(/^(\w+)(?:\(([^)]*)\))?$/);
-      if (!commandParts) {
+      // Parse command using shared utility
+      const parsed = parseCommand(command);
+      if (!parsed) {
         throw new Error('Invalid command format');
       }
 
-      const [, commandName, argsString] = commandParts;
-      const args = argsString ? argsString.split(',').map(arg => arg.trim().replace(/['"]/g, '')) : [];
+      const { name: commandName, args } = parsed;
 
       // Execute command via API
       const response = await apiClient.executeCommand(commandName, args);

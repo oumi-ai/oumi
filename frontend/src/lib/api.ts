@@ -195,7 +195,7 @@ class ApiClient {
     return this.fetchApi(`/v1/oumi/command`, {
       method: 'POST',
       body: JSON.stringify({ 
-        command: 'switch_branch',
+        command: 'switch',
         args: [branchId],
         session_id: sessionId
       }),
@@ -209,7 +209,7 @@ class ApiClient {
     return this.fetchApi(`/v1/oumi/command`, {
       method: 'POST',
       body: JSON.stringify({ 
-        command: 'delete_branch',
+        command: 'branch_delete',
         args: [branchId],
         session_id: sessionId
       }),

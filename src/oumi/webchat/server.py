@@ -200,6 +200,9 @@ class OumiWebServer(OpenAICompatibleServer):
         self.sessions: dict[str, WebChatSession] = {}
         self.session_cleanup_interval = 3600  # 1 hour
         self.max_idle_time = 1800  # 30 minutes
+        
+        # Debug logging throttling - track last log time per session
+        self._last_debug_log_time: dict[str, float] = {}
 
         # Enhanced components (optional)
         if ENHANCED_FEATURES_AVAILABLE:
@@ -1430,37 +1433,50 @@ class OumiWebServer(OpenAICompatibleServer):
             context_manager = session.command_context.context_window_manager
             total_tokens = 0
 
-            logger.info(
-                f"🔍 DEBUG: Updating context usage for session {session.session_id}"
+            # Check if we should log debug info (throttle to once per 60 seconds per session)
+            current_time = time.time()
+            session_id = session.session_id
+            should_log_debug = (
+                session_id not in self._last_debug_log_time or 
+                current_time - self._last_debug_log_time[session_id] >= 60.0
             )
-            logger.info(
-                f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}"
-            )
+            
+            if should_log_debug:
+                self._last_debug_log_time[session_id] = current_time
+                logger.info(
+                    f"🔍 DEBUG: Updating context usage for session {session.session_id}"
+                )
+                logger.info(
+                    f"🔍 DEBUG: Conversation history length: {len(session.conversation_history)}"
+                )
 
             for i, msg in enumerate(session.conversation_history):
                 content = msg.get("content", "")
                 if content:
                     msg_tokens = context_manager.estimate_tokens(content)
                     total_tokens += msg_tokens
-                    logger.info(
-                        f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}..."
-                    )
+                    if should_log_debug:
+                        logger.info(
+                            f"🔍 DEBUG: Message {i}: {msg_tokens} tokens, content preview: {content[:50]}..."
+                        )
 
-            logger.debug(f"🔍 DEBUG: Total tokens calculated: {total_tokens}")
-            logger.debug(
-                f"🔍 DEBUG: Max context tokens: {session.system_monitor.max_context_tokens}"
-            )
+            if should_log_debug:
+                logger.debug(f"🔍 DEBUG: Total tokens calculated: {total_tokens}")
+                logger.debug(
+                    f"🔍 DEBUG: Max context tokens: {session.system_monitor.max_context_tokens}"
+                )
 
             session.system_monitor.update_context_usage(total_tokens)
             session.system_monitor.update_conversation_turns(
                 len(session.conversation_history) // 2
             )
 
-            # Verify the update worked
-            stats = session.system_monitor.get_stats()
-            logger.info(
-                f"🔍 DEBUG: SystemMonitor stats after update - context_used: {stats.context_used_tokens}, context_max: {stats.context_max_tokens}, percent: {stats.context_percent}"
-            )
+            # Verify the update worked (only log if debug logging is enabled for this session)
+            if should_log_debug:
+                stats = session.system_monitor.get_stats()
+                logger.info(
+                    f"🔍 DEBUG: SystemMonitor stats after update - context_used: {stats.context_used_tokens}, context_max: {stats.context_max_tokens}, percent: {stats.context_percent}"
+                )
 
         except Exception as e:
             logger.warning(f"Failed to update context usage: {e}")

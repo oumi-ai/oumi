@@ -159,24 +159,15 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     try {
       const response = await apiClient.switchBranch('default', branchId);
       
-      if (response.success && response.data) {
+      if (response.success) {
         setCurrentBranch(branchId);
         
-        // Load branch conversation history from API response
-        if (response.data.conversation) {
-          const transformedMessages: Message[] = response.data.conversation.map((msg: any) => ({
-            id: msg.id || `${msg.role}-${Date.now()}-${Math.random()}`,
-            role: msg.role,
-            content: msg.content,
-            timestamp: new Date(msg.timestamp || Date.now()).getTime(),
-            attachments: msg.attachments,
-          }));
-          setMessages(transformedMessages);
-        } else {
-          setMessages([]);
-        }
-        
+        // The command response doesn't include conversation data, 
+        // so we clear messages and reload branches to get updated state
+        setMessages([]);
         await loadBranches();
+      } else {
+        console.error('Failed to switch branch:', response.message);
       }
     } catch (error) {
       console.error('Failed to switch branch:', error);
@@ -208,6 +199,8 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         }
         
         await loadBranches();
+      } else {
+        console.error('Failed to delete branch:', response.message);
       }
     } catch (error) {
       console.error('Failed to delete branch:', error);

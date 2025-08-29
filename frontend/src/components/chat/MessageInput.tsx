@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Send, Paperclip, Loader2 } from 'lucide-react';
+import { isValidCommand } from '@/lib/constants';
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void;
@@ -20,7 +21,7 @@ export default function MessageInput({
   onAttachFiles,
   disabled = false,
   isLoading = false,
-  placeholder = "Type your message or /command...",
+  placeholder = "Type your message...",
 }: MessageInputProps) {
   const [message, setMessage] = React.useState('');
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -63,7 +64,7 @@ export default function MessageInput({
     }
   };
 
-  const isCommand = message.trim().startsWith('/');
+  const isCommand = isValidCommand(message.trim());
 
   return (
     <div className="border-t border-border bg-card p-4">
@@ -103,7 +104,7 @@ export default function MessageInput({
             rows={1}
             className={`w-full resize-none border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-input bg-input placeholder:text-muted-foreground ${
               isCommand 
-                ? 'border-purple-500 bg-purple-900/20' 
+                ? 'border-red-500 bg-red-900/20' 
                 : 'border-border'
             }`}
             style={{ minHeight: '40px' }}
@@ -111,8 +112,8 @@ export default function MessageInput({
           
           {/* Command indicator */}
           {isCommand && (
-            <div className="absolute -top-6 left-0 text-xs text-purple-400 font-medium">
-              Command mode
+            <div className="absolute -top-6 left-0 text-xs text-red-400 font-medium">
+              Command blocked
             </div>
           )}
         </div>
@@ -137,8 +138,8 @@ export default function MessageInput({
           Press Enter to send, Shift+Enter for new line
         </span>
         {isCommand && (
-          <span className="text-purple-400">
-            Available commands: /clear, /delete, /regen, /help
+          <span className="text-red-400">
+            Commands cannot be executed here - use UI controls instead
           </span>
         )}
       </div>
