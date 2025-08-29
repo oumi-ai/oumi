@@ -142,7 +142,7 @@ class ApiClient {
 
   // Configuration management
   async getConfigs(): Promise<ApiResponse<{ configs: ConfigOption[] }>> {
-    return this.fetchApi('/api/configs');
+    return this.fetchApi('/v1/oumi/configs');
   }
 
   async getModels(): Promise<ApiResponse<{ data: Array<{ id: string; config_metadata?: any }> }>> {
@@ -154,7 +154,7 @@ class ApiClient {
     branches: ConversationBranch[];
     current_branch?: string;
   }>> {
-    return this.fetchApi(`/api/sessions/${sessionId}/branches`);
+    return this.fetchApi(`/v1/oumi/branches?session_id=${sessionId}`);
   }
 
   async createBranch(
@@ -162,9 +162,13 @@ class ApiClient {
     name: string,
     parentBranchId?: string
   ): Promise<ApiResponse<ConversationBranch>> {
-    return this.fetchApi(`/api/sessions/${sessionId}/branches`, {
+    return this.fetchApi(`/v1/oumi/branches`, {
       method: 'POST',
-      body: JSON.stringify({ name, parent_branch_id: parentBranchId }),
+      body: JSON.stringify({ 
+        session_id: sessionId,
+        name, 
+        parent_branch_id: parentBranchId 
+      }),
     });
   }
 
@@ -172,8 +176,13 @@ class ApiClient {
     sessionId: string = 'default',
     branchId: string
   ): Promise<ApiResponse> {
-    return this.fetchApi(`/api/sessions/${sessionId}/branches/${branchId}/switch`, {
+    return this.fetchApi(`/v1/oumi/command`, {
       method: 'POST',
+      body: JSON.stringify({ 
+        command: 'switch_branch',
+        args: [branchId],
+        session_id: sessionId
+      }),
     });
   }
 
@@ -181,8 +190,13 @@ class ApiClient {
     sessionId: string = 'default',
     branchId: string
   ): Promise<ApiResponse> {
-    return this.fetchApi(`/api/sessions/${sessionId}/branches/${branchId}`, {
-      method: 'DELETE',
+    return this.fetchApi(`/v1/oumi/command`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        command: 'delete_branch',
+        args: [branchId],
+        session_id: sessionId
+      }),
     });
   }
 
@@ -191,7 +205,7 @@ class ApiClient {
     sessionId: string = 'default',
     branchId: string = 'main'
   ): Promise<ApiResponse<{ conversation: Message[] }>> {
-    return this.fetchApi(`/api/sessions/${sessionId}/branches/${branchId}/conversation`);
+    return this.fetchApi(`/v1/oumi/conversation?session_id=${sessionId}&branch_id=${branchId}`);
   }
 
   async sendMessage(
@@ -210,7 +224,7 @@ class ApiClient {
     command: string,
     args: string[] = []
   ): Promise<ApiResponse> {
-    return this.fetchApi('/api/command', {
+    return this.fetchApi('/v1/oumi/command', {
       method: 'POST',
       body: JSON.stringify({ command, args }),
     });
@@ -218,11 +232,11 @@ class ApiClient {
 
   // System monitoring
   async getSystemStats(): Promise<ApiResponse> {
-    return this.fetchApi('/api/system/stats');
+    return this.fetchApi('/v1/oumi/system_stats');
   }
 
   async getModelStats(): Promise<ApiResponse> {
-    return this.fetchApi('/api/model/stats');
+    return this.fetchApi('/v1/models');
   }
 
   // File operations
