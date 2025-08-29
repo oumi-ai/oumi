@@ -32,6 +32,39 @@ class UnifiedApiClient {
     return this.isElectron() ? this.electronClient : this.webClient;
   }
 
+  // Server control (Electron only)
+  async startServer(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.startServer();
+    } else {
+      return { success: true, message: 'Server control not available in web version' };
+    }
+  }
+
+  async stopServer(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.stopServer();
+    } else {
+      return { success: true, message: 'Server control not available in web version' };
+    }
+  }
+
+  async restartServer(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.restartServer();
+    } else {
+      return { success: true, message: 'Server control not available in web version' };
+    }
+  }
+
+  async getServerStatus(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.getServerStatus();
+    } else {
+      return { success: true, data: { running: true, url: 'N/A', port: 'N/A' } };
+    }
+  }
+
   // Health check
   async health(): Promise<ApiResponse> {
     return this.getClient().health();

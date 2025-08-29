@@ -33,6 +33,14 @@ declare global {
         exists: (filePath: string) => Promise<boolean>;
       };
 
+      // Server control
+      server: {
+        start: () => Promise<any>;
+        stop: () => Promise<any>;
+        restart: () => Promise<any>;
+        status: () => Promise<any>;
+      };
+
       // Chat API operations
       chat: {
         health: () => Promise<any>;
@@ -125,6 +133,35 @@ class ElectronApiClient {
     if (this.isElectron) {
       window.electronAPI.app.zoom(direction);
     }
+  }
+
+  // Server control methods
+  public async startServer(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('Server control only available in Electron app');
+    }
+    return window.electronAPI.server.start();
+  }
+
+  public async stopServer(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('Server control only available in Electron app');
+    }
+    return window.electronAPI.server.stop();
+  }
+
+  public async restartServer(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('Server control only available in Electron app');
+    }
+    return window.electronAPI.server.restart();
+  }
+
+  public async getServerStatus(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('Server control only available in Electron app');
+    }
+    return window.electronAPI.server.status();
   }
 
   // File system methods

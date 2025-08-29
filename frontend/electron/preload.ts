@@ -25,6 +25,14 @@ export interface ElectronAPI {
     exists: (filePath: string) => Promise<boolean>;
   };
 
+  // Server control
+  server: {
+    start: () => Promise<any>;
+    stop: () => Promise<any>;
+    restart: () => Promise<any>;
+    status: () => Promise<any>;
+  };
+
   // Chat API operations (replacing HTTP calls)
   chat: {
     // Health and system info
@@ -100,6 +108,13 @@ const electronAPI: ElectronAPI = {
     writeFile: (filePath, content) => ipcRenderer.invoke('files:write-file', filePath, content),
     readFile: (filePath) => ipcRenderer.invoke('files:read-file', filePath),
     exists: (filePath) => ipcRenderer.invoke('files:exists', filePath)
+  },
+
+  server: {
+    start: () => ipcRenderer.invoke('server:start'),
+    stop: () => ipcRenderer.invoke('server:stop'),
+    restart: () => ipcRenderer.invoke('server:restart'),
+    status: () => ipcRenderer.invoke('server:status')
   },
 
   chat: {

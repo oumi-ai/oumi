@@ -137,11 +137,9 @@ export class PythonServerManager {
   }
 
   /**
-   * Start the Python server process
+   * Start the Python server process using oumi webchat command
    */
   private async startServerProcess(): Promise<void> {
-    const pythonCommand = await this.getPythonCommand();
-    
     // Try multiple ports if the preferred one is taken
     let attempts = 0;
     const maxAttempts = 10;
@@ -161,25 +159,29 @@ export class PythonServerManager {
       }
     }
 
-    const serverArgs = [
-      '-m', 'oumi.webchat.server',
+    // Build the oumi webchat command
+    const oumiArgs = [
+      'webchat',
       '--host', this.config.host,
       '--port', this.config.port.toString()
     ];
 
     // Add config path if specified
     if (this.config.config_path) {
-      serverArgs.push('--config', this.config.config_path);
+      oumiArgs.push('-c', this.config.config_path);
     }
 
-    log.info(`Starting Python server on port ${this.config.port}: ${pythonCommand} ${serverArgs.join(' ')}`);
+    // Build the full command with conda activation
+    const fullCommand = this.buildCondaCommand(oumiArgs);
+    
+    log.info(`Starting Python server on port ${this.config.port}: ${fullCommand}`);
 
     return new Promise((resolve, reject) => {
-      this.serverProcess = spawn(pythonCommand, serverArgs, {
+      // Use shell execution to handle conda activation
+      this.serverProcess = spawn('bash', ['-c', fullCommand], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
-          PYTHONPATH: this.getPythonPath(),
           OUMI_LOG_LEVEL: 'INFO'
         }
       });
@@ -210,7 +212,8 @@ export class PythonServerManager {
             if (!hasResolved && (
               output.includes('Uvicorn running on') || 
               output.includes('Server started') ||
-              output.includes('Application startup complete')
+              output.includes('Application startup complete') ||
+              output.includes('Webchat server is running')
             )) {
               hasResolved = true;
               resolve();
@@ -319,6 +322,21 @@ export class PythonServerManager {
     } catch (error) {
       log.warn('Could not find conda environment, falling back to system Python');
       return null;
+    }
+  }
+
+  /**
+   * Build full conda activation command for oumi webchat
+   */
+  private buildCondaCommand(oumiArgs: string[]): string {
+    const condaEnv = this.config.conda_env || 'oumi';
+    
+    if (process.platform === 'win32') {
+      // Windows command
+      return `conda activate ${condaEnv} && oumi ${oumiArgs.join(' ')}`;
+    } else {
+      // macOS/Linux command - use the pattern from CLAUDE.md
+      return `source ~/.zshrc && conda activate ${condaEnv} && oumi ${oumiArgs.join(' ')}`;
     }
   }
 

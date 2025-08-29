@@ -175,11 +175,63 @@ function setupStorageHandlers(): void {
  * Chat API handlers - proxy to Python backend
  */
 function setupChatHandlers(pythonManager: PythonServerManager): void {
-  const baseUrl = pythonManager.getServerUrl();
+  // Server control handlers
+  ipcMain.handle('server:start', async () => {
+    try {
+      if (pythonManager.isServerRunning()) {
+        return { success: true, url: pythonManager.getServerUrl() };
+      }
+      
+      const serverUrl = await pythonManager.start();
+      return { success: true, url: serverUrl };
+    } catch (error) {
+      log.error('Failed to start server:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to start server'
+      };
+    }
+  });
+
+  ipcMain.handle('server:stop', async () => {
+    try {
+      await pythonManager.stop();
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to stop server:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to stop server'
+      };
+    }
+  });
+
+  ipcMain.handle('server:restart', async () => {
+    try {
+      const serverUrl = await pythonManager.restart();
+      return { success: true, url: serverUrl };
+    } catch (error) {
+      log.error('Failed to restart server:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to restart server'
+      };
+    }
+  });
+
+  ipcMain.handle('server:status', () => {
+    return {
+      running: pythonManager.isServerRunning(),
+      url: pythonManager.getServerUrl(),
+      port: pythonManager.getPort()
+    };
+  });
+
+  const getBaseUrl = () => pythonManager.getServerUrl();
 
   // Helper function to make HTTP requests to Python backend
   async function proxyToPython(endpoint: string, options: RequestInit = {}): Promise<any> {
-    const url = `${baseUrl}${endpoint}`;
+    const url = `${getBaseUrl()}${endpoint}`;
     
     try {
       const response = await fetch(url, {
@@ -229,7 +281,7 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
 
   // Streaming chat completion
   ipcMain.handle('chat:stream-completion', async (event, request, streamId) => {
-    const url = `${baseUrl}/v1/chat/completions`;
+    const url = `${getBaseUrl()}/v1/chat/completions`;
     
     try {
       const response = await fetch(url, {

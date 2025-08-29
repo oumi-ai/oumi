@@ -31,7 +31,7 @@ class OumiChatApp {
   private isDevelopment: boolean;
 
   constructor() {
-    this.isDevelopment = process.env.NODE_ENV === 'development';
+    this.isDevelopment = process.env.NODE_ENV === 'development' || !app.isPackaged;
     this.setupEventHandlers();
   }
 
@@ -63,22 +63,11 @@ class OumiChatApp {
 
   private async onReady(): Promise<void> {
     try {
-      // Initialize Python server manager
-      const savedConfig = (store as any).get('selectedConfig');
+      // Initialize Python server manager (but don't start server yet)
       const pythonPort = (store as any).get('pythonPort') || 9000;
-      
       this.pythonManager = new PythonServerManager(pythonPort);
       
-      // Set config path if we have a saved configuration
-      if (savedConfig) {
-        // We'll need to resolve the config path from the config ID
-        log.info(`Using saved configuration: ${savedConfig}`);
-        // The config path resolution will happen when configs are loaded
-      }
-      
-      // Start Python backend
-      const serverUrl = await this.pythonManager.start();
-      log.info(`Python server started at: ${serverUrl}`);
+      log.info('Python server manager initialized - server will start when config is selected');
 
       // Create main window
       this.createMainWindow();
@@ -131,7 +120,7 @@ class OumiChatApp {
       startUrl = 'http://localhost:3000';
     } else {
       // In production, look for the Next.js static export
-      const indexPath = path.join(__dirname, '../out/index.html');
+      const indexPath = path.join(__dirname, '../../out/index.html');
       log.info(`Loading production app from: ${indexPath}`);
       startUrl = `file://${indexPath}`;
     }

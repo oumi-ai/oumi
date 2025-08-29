@@ -6,12 +6,13 @@
     "dev": "next dev --turbopack",
     "dev:backend": "cd .. && source ~/.zshrc && conda activate oumi && python -m oumi.webchat.server --port 9000",
     "dev:full": "concurrently \"npm run dev:backend\" \"NEXT_PUBLIC_BACKEND_URL=http://localhost:9000 npm run dev -- -p 7860\" --names \"backend,frontend\" --prefix-colors \"blue,green\"",
-    "build": "next build",
-    "build:electron": "ELECTRON_BUILD=true next build",
+    "build": "npm run generate-configs && next build",
+    "build:electron": "npm run generate-configs && ELECTRON_BUILD=true next build",
     "start": "next start",
     "lint": "next lint",
+    "generate-configs": "node scripts/generate-configs.js",
     "electron:compile": "tsc electron/*.ts --outDir dist/electron --target es2020 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
-    "electron:dev": "npm run electron:compile && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron dist/electron/main.js\"",
+    "electron:dev": "npm run generate-configs && npm run electron:compile && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron dist/electron/main.js\"",
     "electron:pack": "npm run build:electron && npm run electron:compile && electron-builder",
     "electron:dist": "npm run build:electron && npm run electron:compile && electron-builder --publish=never",
     "electron:publish": "npm run build:electron && npm run electron:compile && electron-builder --publish=always",
@@ -23,6 +24,7 @@
     "electron-log": "^5.4.3",
     "electron-store": "^10.1.0",
     "electron-updater": "^6.6.2",
+    "js-yaml": "^4.1.0",
     "lucide-react": "^0.344.0",
     "next": "15.5.2",
     "prismjs": "^1.30.0",
@@ -68,7 +70,12 @@
       {
         "from": "../src/oumi/",
         "to": "python/oumi/",
-        "filter": ["**/*.py", "**/*.yaml", "**/*.json", "**/*.txt"]
+        "filter": [
+          "**/*.py",
+          "**/*.yaml",
+          "**/*.json",
+          "**/*.txt"
+        ]
       }
     ],
     "mac": {
@@ -77,11 +84,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
@@ -90,11 +103,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -103,11 +120,15 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "snap",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "category": "Office"

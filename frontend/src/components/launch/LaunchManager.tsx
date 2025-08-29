@@ -41,8 +41,23 @@ export default function LaunchManager({}: LaunchManagerProps) {
       setInitProgress('Validating configuration...');
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Step 2: Wait for backend to be ready
-      setInitProgress('Starting backend server...');
+      // Step 2: Start backend server if in Electron
+      if (apiClient.isElectron && apiClient.isElectron()) {
+        setInitProgress('Starting backend server...');
+        
+        // Check if server is already running
+        const serverStatus = await apiClient.getServerStatus();
+        if (!serverStatus.success || !serverStatus.data?.running) {
+          // Start the server
+          const startResult = await apiClient.startServer();
+          if (!startResult.success) {
+            throw new Error(`Failed to start server: ${startResult.message}`);
+          }
+        }
+      }
+      
+      // Wait for backend to be ready
+      setInitProgress('Connecting to backend server...');
       let attempts = 0;
       const maxAttempts = 30; // 15 seconds max
       
@@ -60,12 +75,12 @@ export default function LaunchManager({}: LaunchManagerProps) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         if (attempts < maxAttempts) {
-          setInitProgress(`Starting backend server... (${attempts}/${maxAttempts})`);
+          setInitProgress(`Connecting to backend server... (${attempts}/${maxAttempts})`);
         }
       }
 
       if (attempts >= maxAttempts) {
-        throw new Error('Backend server failed to start within timeout period');
+        throw new Error('Backend server failed to respond within timeout period');
       }
 
       // Step 3: Load selected configuration
@@ -126,7 +141,9 @@ export default function LaunchManager({}: LaunchManagerProps) {
           if (hasCompleted && savedConfig) {
             // Skip welcome screen and go straight to initialization
             setSelectedConfig(savedConfig);
-            handleConfigSelected(savedConfig, savedPrompt);
+            setTimeout(() => {
+              handleConfigSelected(savedConfig, savedPrompt);
+            }, 100); // Small delay to ensure state is updated
             return;
           }
         }

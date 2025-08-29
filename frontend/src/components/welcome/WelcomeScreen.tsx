@@ -131,22 +131,20 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       setLoading(true);
       setError(null);
       
-      const response = await apiClient.getConfigs();
+      // Load static configs from pre-generated file
+      const response = await fetch('/static-configs.json');
       
-      if (response.success && response.data) {
-        const processedConfigs = response.data.configs.map((config: any) => ({
-          ...config,
-          // Extract model family from path
-          model_family: extractModelFamily(config.relative_path),
-          // Categorize model size
-          size_category: categorizeModelSize(config.display_name),
-          // Mark some as recommended
-          recommended: isRecommended(config)
-        }));
-        
-        setConfigs(processedConfigs);
+      if (!response.ok) {
+        throw new Error('Failed to load static configurations');
+      }
+      
+      const data = await response.json();
+      
+      if (data.configs && Array.isArray(data.configs)) {
+        // Configs are already processed with model families, etc.
+        setConfigs(data.configs);
       } else {
-        throw new Error(response.message || 'Failed to load configurations');
+        throw new Error('Invalid configuration format');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load configurations');
@@ -155,35 +153,6 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     }
   };
 
-  const extractModelFamily = (path: string): string => {
-    const match = path.match(/recipes\/([^/]+)/);
-    return match ? match[1] : 'unknown';
-  };
-
-  const categorizeModelSize = (displayName: string): string => {
-    const name = displayName.toLowerCase();
-    if (name.includes('135m') || name.includes('1b')) return 'small';
-    if (name.includes('3b') || name.includes('7b') || name.includes('8b')) return 'medium';
-    if (name.includes('20b') || name.includes('30b') || name.includes('70b')) return 'large';
-    if (name.includes('120b') || name.includes('405b')) return 'xl';
-    return 'medium';
-  };
-
-  const isRecommended = (config: any): boolean => {
-    const name = config.display_name.toLowerCase();
-    const engine = config.engine.toLowerCase();
-    
-    // Recommend GGUF configs for macOS (efficient)
-    if (name.includes('gguf') && name.includes('macos')) return true;
-    
-    // Recommend smaller models for general use
-    if ((name.includes('8b') || name.includes('7b')) && engine === 'native') return true;
-    
-    // Recommend instruct models over base models
-    if (name.includes('instruct') && !name.includes('120b') && !name.includes('405b')) return true;
-    
-    return false;
-  };
 
   const filterConfigs = () => {
     let filtered = [...configs];
