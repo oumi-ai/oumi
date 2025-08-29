@@ -14,8 +14,23 @@ import {
 class ApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:9001') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    // Use environment variable from Next.js build time, fallback to runtime check, then default
+    this.baseUrl = baseUrl || 
+                  process.env.NEXT_PUBLIC_BACKEND_URL || 
+                  (typeof window !== 'undefined' ? 
+                    (window as any).NEXT_PUBLIC_BACKEND_URL : undefined) ||
+                  'http://localhost:9000'; // Match backend default port
+  }
+
+  // Allow dynamic URL updates for debugging or runtime discovery
+  updateBaseUrl(newBaseUrl: string): void {
+    this.baseUrl = newBaseUrl;
+  }
+
+  // Get current base URL
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   private async fetchApi<T = any>(
