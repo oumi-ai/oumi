@@ -263,6 +263,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
         for i in range(index - 1, -1, -1):
             if self.conversation_history[i].get("role") == "user":
                 user_input = self.conversation_history[i].get("content")
+                logger.info(f"🔄 REGEN: Found user message at index {i} for regeneration")
+                logger.info(f"🔄 REGEN: User input content preview: {user_input[:100] if user_input else 'None'}...")
                 break
 
         if not user_input:
@@ -282,6 +284,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
         self._update_context_in_monitor()
 
         # Return with user input override to regenerate
+        logger.info(f"🔄 REGEN: Returning user_input_override for regeneration: {user_input[:100] if user_input else 'None'}...")
         return CommandResult(
             success=True,
             message=f"Regenerating response at position {index}...",

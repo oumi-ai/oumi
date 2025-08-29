@@ -167,6 +167,116 @@ class WebChatSession:
                 )
         return result
 
+    async def _perform_regeneration_inference(self, user_input_override: str):
+        """Perform inference for regeneration commands using the user_input_override.
+        
+        Args:
+            user_input_override: The edited user input to use for regeneration
+        """
+        logger.info(f"🔄 Starting regeneration inference with updated user input")
+        logger.info(f"🔄 User input override: {user_input_override[:100]}...")
+        
+        # Add the updated user message to conversation history (for regeneration after editing)
+        self.conversation_history.append({
+            "role": "user",
+            "content": user_input_override,
+            "timestamp": time.time()
+        })
+        
+        # Broadcast user message to WebSockets
+        await self.broadcast_to_websockets(
+            {"type": "user_message", "content": user_input_override, "timestamp": time.time()}
+        )
+        
+        # Build conversation using the existing conversation history
+        # The conversation was already truncated by the regen command
+        try:
+            from oumi.core.types.conversation import Conversation, Message, Role
+            
+            # Convert conversation history to Message objects
+            conversation_messages = []
+            
+            # Add system prompt if configured
+            if hasattr(self, 'system_prompt') and self.system_prompt:
+                conversation_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
+            
+            # Add existing conversation history
+            for msg in self.conversation_history:
+                if msg.get("role") == "user":
+                    conversation_messages.append(Message(role=Role.USER, content=msg.get("content", "")))
+                elif msg.get("role") == "assistant":
+                    conversation_messages.append(Message(role=Role.ASSISTANT, content=msg.get("content", "")))
+            
+            # Add the new user message (from user_input_override)
+            conversation_messages.append(Message(role=Role.USER, content=user_input_override))
+            
+            # Create conversation object
+            full_conversation = Conversation(messages=conversation_messages)
+            
+            logger.info(f"🔄 Built conversation with {len(conversation_messages)} messages for regeneration")
+            
+            # Perform inference using the same logic as OpenAI API handler
+            logger.info(f"🚀 Calling inference_engine.infer() for regeneration")
+            start_time = time.time()
+            
+            model_response = self.inference_engine.infer(
+                input=[full_conversation],
+                inference_config=self.config,
+            )
+            
+            elapsed = time.time() - start_time
+            logger.info(f"✅ Regeneration inference completed in {elapsed:.2f} seconds")
+            
+            # Extract response content
+            response_content = ""
+            if model_response:
+                last_conversation = model_response[-1] if isinstance(model_response, list) else model_response
+                for message in reversed(last_conversation.messages):
+                    if message.role == Role.ASSISTANT and isinstance(message.content, str):
+                        response_content = message.content
+                        break
+            
+            if not response_content:
+                response_content = "No response generated"
+            
+            # Add assistant response to conversation history
+            self.conversation_history.append({
+                "role": "assistant",
+                "content": response_content,
+                "timestamp": time.time()
+            })
+            
+            # Broadcast assistant response to WebSockets
+            await self.broadcast_to_websockets(
+                {
+                    "type": "assistant_message",
+                    "content": response_content,
+                    "timestamp": time.time()
+                }
+            )
+            
+            logger.info(f"🔄 Regeneration completed successfully - {len(response_content)} chars generated")
+            
+        except Exception as e:
+            logger.error(f"❌ Regeneration inference failed: {e}")
+            error_message = f"Regeneration failed: {str(e)}"
+            
+            # Add error message to conversation
+            self.conversation_history.append({
+                "role": "assistant", 
+                "content": error_message,
+                "timestamp": time.time()
+            })
+            
+            # Broadcast error
+            await self.broadcast_to_websockets(
+                {
+                    "type": "assistant_message",
+                    "content": error_message,
+                    "timestamp": time.time()
+                }
+            )
+
 
 class OumiWebServer(OpenAICompatibleServer):
     """Extended Oumi server with WebSocket and interactive command support."""
@@ -1093,6 +1203,23 @@ class OumiWebServer(OpenAICompatibleServer):
                 except Exception as e:
                     logger.error(f"❌ Error updating model_info after swap: {e}")
 
+            # Handle commands that require follow-up inference (e.g., regen)
+            if result.success and result.should_continue and hasattr(result, 'user_input_override') and result.user_input_override:
+                logger.info(f"🌐 API: Command '{command}' requires follow-up inference with user_input_override")
+                logger.info(f"🌐 API: User input override: {result.user_input_override[:100]}...")
+                
+                # For regeneration commands, perform inference directly
+                is_regeneration = getattr(result, 'is_regeneration', False)
+                if is_regeneration:
+                    try:
+                        # Perform inference using the user_input_override (edited content)
+                        await session._perform_regeneration_inference(result.user_input_override)
+                    except Exception as e:
+                        logger.error(f"❌ Error during regeneration inference: {e}")
+                        await session.broadcast_to_websockets(
+                            {"type": "error", "message": f"Regeneration failed: {str(e)}", "timestamp": time.time()}
+                        )
+            
             # Broadcast conversation updates for commands that modify state
             if command in ["clear", "delete", "regen", "edit"] and result.success:
                 logger.info(f"🌐 API: Broadcasting conversation update for command '{command}'")
