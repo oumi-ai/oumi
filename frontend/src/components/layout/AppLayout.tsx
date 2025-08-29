@@ -111,7 +111,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex min-h-screen bg-background">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-card border-b border-border shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
@@ -167,7 +167,7 @@ export default function AppLayout() {
           isControlPanelExpanded ? 'w-80' : 'w-16'
         }`}>
           <ControlPanel 
-            className="h-full" 
+            className="min-h-screen" 
             isCollapsed={!isControlPanelExpanded}
             onToggleCollapse={() => setIsControlPanelExpanded(!isControlPanelExpanded)}
           />
@@ -177,14 +177,14 @@ export default function AppLayout() {
         <div className={`flex-1 transition-all duration-200 ${
           isBranchTreeExpanded ? 'mr-80' : ''
         }`}>
-          <ChatInterface className="h-full" />
+          <ChatInterface className="min-h-screen" />
         </div>
 
         {/* Branch tree sidebar */}
-        <div className={`fixed right-0 top-16 bottom-0 w-80 transition-transform duration-200 ${
+        <div className={`fixed right-0 top-16 w-80 min-h-screen transition-transform duration-200 ${
           isBranchTreeExpanded ? 'translate-x-0' : 'translate-x-full'
         }`}>
-          <BranchTree className="h-full" />
+          <BranchTree className="min-h-screen" />
         </div>
       </div>
     </div>
