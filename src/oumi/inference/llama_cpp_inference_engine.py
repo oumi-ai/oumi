@@ -154,7 +154,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         # FIXME Handle multimodal e.g., raise an error.
         role_mapping = {
             Role.SYSTEM: "system",
-            Role.USER: "user", 
+            Role.USER: "user",
             Role.ASSISTANT: "assistant",
         }
         return [
