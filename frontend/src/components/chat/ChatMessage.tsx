@@ -51,8 +51,8 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
         console.error('Failed to delete message:', response.message);
         // If it's an index error, the conversation state is out of sync
         if (response.message && (response.message.includes('out of bounds') || response.message.includes('Invalid message index'))) {
-          console.warn('Message index out of sync with backend - refreshing page to sync state');
-          alert('The conversation has changed since this page was loaded. Refreshing to show current state...');
+          console.warn('❌ Message index out of sync with backend - refreshing page to sync state');
+          alert('The conversation state has changed. Refreshing to sync with the current state...');
           setTimeout(() => window.location.reload(), 1000);
         } else {
           alert('Failed to delete message: ' + (response.message || 'Unknown error'));
@@ -84,7 +84,14 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
         }, 3000); // Increased timeout for generation
       } else {
         console.error('Failed to regenerate message:', response.message);
-        alert('Failed to regenerate message: ' + (response.message || 'Unknown error'));
+        // If it's an index error, the conversation state is out of sync
+        if (response.message && (response.message.includes('out of range') || response.message.includes('Invalid message index'))) {
+          console.warn('❌ Message index out of sync with backend - refreshing page to sync state');
+          alert('The conversation state has changed. Refreshing to sync with the current state...');
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          alert('Failed to regenerate message: ' + (response.message || 'Unknown error'));
+        }
       }
     } catch (error) {
       console.error('Error regenerating message:', error);
@@ -109,24 +116,40 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     try {
       // Send edit command to backend with message index and new content
       if (messageIndex !== undefined) {
+        console.log(`✏️  Frontend: Sending edit command for index ${messageIndex} with new content:`, editContent.trim());
         const response = await apiClient.executeCommand('edit', [messageIndex.toString(), editContent.trim()]);
+        console.log(`✏️  Frontend: Edit response:`, response);
         if (response.success) {
-          // Update local state after successful backend update
+          // Update local state immediately for responsive UI
           updateMessage(message.id, { content: editContent });
           setIsEditing(false);
-          console.log('Message edited and persisted to backend');
+          console.log('✅ Message edited and persisted to backend - local state updated');
+          
+          // CRITICAL: Reload page to ensure indices stay synchronized after edits
+          // This prevents stale indices from causing issues with subsequent delete/regen operations
+          console.log('🔄 Reloading page to sync conversation indices after edit...');
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000); // Give time for WebSocket updates to complete
         } else {
-          console.error('Failed to save edit:', response.message);
-          alert('Failed to save edit: ' + (response.message || 'Unknown error'));
+          console.error('❌ Failed to save edit:', response.message);
+          // If it's an index error, the conversation state is out of sync
+          if (response.message && (response.message.includes('out of range') || response.message.includes('Invalid message index'))) {
+            console.warn('❌ Message index out of sync with backend - refreshing page to sync state');
+            alert('The conversation state has changed. Refreshing to sync with the current state...');
+            setTimeout(() => window.location.reload(), 1000);
+          } else {
+            alert('Failed to save edit: ' + (response.message || 'Unknown error'));
+          }
         }
       } else {
         // Fallback: update locally if no messageIndex
         updateMessage(message.id, { content: editContent });
         setIsEditing(false);
-        console.warn('Message edited locally only (no messageIndex provided)');
+        console.warn('⚠️  Message edited locally only (no messageIndex provided)');
       }
     } catch (error) {
-      console.error('Error saving edit:', error);
+      console.error('❌ Error saving edit:', error);
       alert('Error saving edit');
     } finally {
       setActionInProgress(null);

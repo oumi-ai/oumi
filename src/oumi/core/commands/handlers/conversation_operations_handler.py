@@ -732,6 +732,9 @@ class ConversationOperationsHandler(BaseCommandHandler):
                     - First arg: Message index (required)
                     - Second arg: New content (required)
         """
+        logger.info(f"✏️  EDIT: Starting edit operation with args: {command.args}")
+        logger.info(f"✏️  EDIT: Current conversation length: {len(self.conversation_history) if self.conversation_history else 0}")
+        
         try:
             if not self.conversation_history:
                 return CommandResult(
@@ -751,6 +754,8 @@ class ConversationOperationsHandler(BaseCommandHandler):
             try:
                 index = int(command.args[0])
                 new_content = command.args[1]
+                logger.info(f"✏️  EDIT: Editing message at index {index}")
+                logger.info(f"✏️  EDIT: New content preview: {new_content[:100]}...")
             except (ValueError, IndexError):
                 return CommandResult(
                     success=False,
@@ -760,6 +765,7 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             # Validate index
             if index < 0 or index >= len(self.conversation_history):
+                logger.error(f"✏️  EDIT: Index {index} out of bounds (conversation has {len(self.conversation_history)} messages)")
                 return CommandResult(
                     success=False,
                     message=f"Message index {index} out of range (0-{len(self.conversation_history)-1})",
@@ -768,14 +774,20 @@ class ConversationOperationsHandler(BaseCommandHandler):
 
             # Update the message content
             old_content = self.conversation_history[index].get("content", "")
+            old_role = self.conversation_history[index].get("role", "unknown")
+            logger.info(f"✏️  EDIT: Updating {old_role} message at index {index}")
+            logger.info(f"✏️  EDIT: Old content preview: {old_content[:100]}...")
+            
             self.conversation_history[index]["content"] = new_content
+            logger.info(f"✏️  EDIT: Successfully updated message content at index {index}")
 
             # Update context monitor
             self._update_context_in_monitor()
+            logger.info(f"✏️  EDIT: Context monitor updated")
 
             return CommandResult(
                 success=True,
-                message=f"Updated message at index {index}",
+                message=f"Updated {old_role} message at index {index}",
                 should_continue=False,
             )
 

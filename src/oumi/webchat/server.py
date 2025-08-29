@@ -1093,6 +1093,19 @@ class OumiWebServer(OpenAICompatibleServer):
                 except Exception as e:
                     logger.error(f"❌ Error updating model_info after swap: {e}")
 
+            # Broadcast conversation updates for commands that modify state
+            if command in ["clear", "delete", "regen", "edit"] and result.success:
+                logger.info(f"🌐 API: Broadcasting conversation update for command '{command}'")
+                await session.broadcast_to_websockets(
+                    {
+                        "type": "conversation_update",
+                        "conversation": session.serialize_conversation(),
+                        "branches": session.branch_manager.list_branches(),
+                        "current_branch": session.branch_manager.current_branch_id,
+                        "timestamp": time.time()
+                    }
+                )
+
             return web.json_response(response_data)
 
         except Exception as e:
