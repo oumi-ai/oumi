@@ -131,7 +131,7 @@ def _tail_logs(
                     file_handle.flush()
         else:
             for line in iter(log_stream.readline, ""):
-                cli_utils.CONSOLE.print(line, end="")
+                print(line, end="")
     except KeyboardInterrupt:
         logger.info(f"Stopped tailing logs for job {job_id}")
     except Exception as e:

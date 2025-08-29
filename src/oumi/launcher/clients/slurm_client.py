@@ -26,7 +26,6 @@ from typing import Callable, Optional, Union
 
 from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
-from oumi.utils.progress_bar_utils import ProgressBarHandler
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
@@ -182,7 +181,7 @@ def retry_auth(user_function: Callable) -> Callable:
     return wrapper
 
 
-class SlurmLogStream(io.TextIOBase, ProgressBarHandler):
+class SlurmLogStream(io.TextIOBase):
     """A stream that provides access to job logs.
 
     This class inherits from io.TextIOBase to provide a file-like interface
@@ -218,7 +217,6 @@ class SlurmLogStream(io.TextIOBase, ProgressBarHandler):
             stdout_filename: The name of the stdout file to tail.
             client: The SlurmClient instance.
         """
-        super().__init__()
         self.working_dir = working_dir
         self.job_id = job_id
         self.cluster_name = cluster_name
@@ -228,6 +226,13 @@ class SlurmLogStream(io.TextIOBase, ProgressBarHandler):
         self._proc = self._start_tail_process(
             working_dir, cluster_name, stdout_filename
         )
+
+        # Progress bar detection patterns
+        self._progress_patterns = [
+            r"\d+%",  # Percentage patterns like "50%"
+            r"\d+/\d+",  # Fraction patterns like "100/200"
+            r"\[.*\]",  # Bracket patterns like "[████████░░]"
+        ]
 
     def readline(self) -> str:
         """Read a line from the stream.
@@ -242,14 +247,38 @@ class SlurmLogStream(io.TextIOBase, ProgressBarHandler):
         if self._proc and self._proc.stdout:
             line = self._proc.stdout.readline()
             if line:
-                # Handle if there are progress bar updates
-                result = self._handle_progress_update(line)
-                if result is not None:
-                    return result
-                # If result is None, it means we're accumulating progress updates
-                # Try to read more lines to see if we get a non-progress line
-                return self.readline()
+                if not line.strip():
+                    return self.readline()
+                if "Starting training" in line:
+                    print("starting")
+                    return line
+                # Convert progress bar lines to use \r instead of \n for updates
+                if self._is_progress_line(line):
+                    # Remove \n and add \r for in-place progress bar updates
+                    return line.rstrip("\n") + "\r"
+                return line
         return ""
+
+    def _is_progress_line(self, line: str) -> bool:
+        """Check if a line looks like a progress bar update.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if the line appears to be a progress bar update.
+        """
+        # Look for multiple progress indicators in the same line
+        pattern_matches = 0
+        for pattern in self._progress_patterns:
+            if re.search(pattern, line):
+                pattern_matches += 1
+
+        # If we have multiple progress indicators, it's likely a progress bar
+        if pattern_matches >= 2:
+            return True
+
+        return False
 
     def close(self) -> None:
         """Close the stream and clean up resources."""
