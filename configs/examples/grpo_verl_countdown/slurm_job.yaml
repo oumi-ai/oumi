@@ -38,6 +38,7 @@ setup: |
   source ~/miniconda3/etc/profile.d/conda.sh # Required for conda.
   conda activate oumi
   pip install uv && uv pip install 'oumi[gpu]'
+  pip install -U flash-attn --no-build-isolation
 
   # Initialize Ray cluster on SLURM nodes.
   source ./configs/examples/misc/slurm_ray_init.sh

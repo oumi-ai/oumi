@@ -327,6 +327,7 @@ class SlurmClient:
         threads_per_core: Optional[int] = None,
         distribution: Optional[str] = None,
         partition: Optional[str] = None,
+        qos: Optional[str] = None,
         stdout_file: Optional[str] = None,
         stderr_file: Optional[str] = None,
     ) -> str:
@@ -347,6 +348,7 @@ class SlurmClient:
             distribution: Distribution method for processes to nodes
                 (type = block|cyclic|arbitrary)
             partition: Partition (aka queue) requested.
+            qos: QoS (aka the queue on Perlmutter) requested.
             stdout_file: File for batch script's standard output.
             stderr_file: File for batch script's standard error.
 
@@ -374,6 +376,8 @@ class SlurmClient:
             cmd_parts.append(f"--distribution={distribution}")
         if partition:
             cmd_parts.append(f"--partition={partition}")
+        if qos:
+            cmd_parts.append(f"--qos={qos}")
         if stdout_file:
             cmd_parts.append(f"--output={stdout_file}")
         if stderr_file:
@@ -394,11 +398,18 @@ class SlurmClient:
             A list of JobStatus.
         """
         response_format = "JobId%-30,JobName%30,User%30,State%30,Reason%30"
-        # Forcibly list all jobs since Jan 1, 2025.
+        # Get current date and subtract one month.
         # Otherwise completed jobs older than ~24 hours may not be listed.
+
+        from datetime import datetime, timedelta
+
+        current_date = datetime.now()
+        one_month_ago = current_date - timedelta(days=30)
+        start_date = one_month_ago.strftime("%Y-%m-%d")
+
         command = (
             f"sacct --user={self._user} --format='{response_format}' -X "
-            "--starttime 2025-01-01"
+            f"--starttime {start_date}"
         )
         result = self.run_commands([command])
         if result.exit_code != 0:

@@ -29,7 +29,7 @@ import yaml
 from requests.exceptions import RequestException
 from rich.console import Console
 
-from oumi.utils.logging import logger
+from oumi.utils.logging import logger, update_logger_level
 
 CONTEXT_ALLOW_EXTRA_ARGS = {"allow_extra_args": True, "ignore_unknown_options": True}
 CONFIG_FLAGS = ["--config", "-c"]
@@ -148,7 +148,7 @@ def set_log_level(level: Optional[LogLevel]):
     if not level:
         return
     uppercase_level = level.upper()
-    logger.setLevel(uppercase_level)
+    update_logger_level("oumi", level=uppercase_level)
     CONSOLE.print(f"Set log level to [yellow]{uppercase_level}[/yellow]")
 
 
