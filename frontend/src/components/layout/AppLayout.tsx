@@ -61,9 +61,40 @@ export default function AppLayout() {
     }
   }, [isInitialized, currentBranchId, setBranches, setCurrentBranch]);
 
-  const handleClearConversation = () => {
+  const handleClearConversation = async () => {
     if (confirm('Are you sure you want to clear this conversation? This action cannot be undone.')) {
-      clearMessages();
+      try {
+        // Clear messages in the UI immediately for responsiveness
+        clearMessages();
+        
+        // Execute clear command on backend to update conversation state
+        const response = await apiClient.executeCommand('clear', []);
+        
+        if (!response.success) {
+          console.error('Failed to clear conversation on backend:', response.message);
+        }
+        
+        // Refresh branch data to update message counts
+        const branchesResponse = await apiClient.getBranches('default');
+        if (branchesResponse.success && branchesResponse.data) {
+          const { branches, current_branch } = branchesResponse.data;
+          
+          const transformedBranches = branches.map((branch: any) => ({
+            id: branch.id,
+            name: branch.name,
+            isActive: branch.id === current_branch,
+            messageCount: branch.message_count || 0,
+            createdAt: branch.created_at,
+            lastActive: branch.last_active || branch.created_at,
+            preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
+          }));
+          
+          setBranches(transformedBranches);
+        }
+      } catch (error) {
+        console.error('Error clearing conversation:', error);
+        // Messages were already cleared in UI, so we don't revert that
+      }
     }
   };
 

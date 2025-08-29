@@ -71,20 +71,10 @@ export default function ChatHistory({
                 Start a conversation
               </h3>
               <p className="text-muted-foreground">
-                Ask a question, give a command, or just say hello!
+                Ask a question, share your thoughts, or just say hello!
               </p>
               <div className="text-sm text-muted-foreground space-y-1">
-                <p>You can use commands like:</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {['/help', '/clear', '/regen'].map((cmd) => (
-                    <code
-                      key={cmd}
-                      className="px-2 py-1 bg-gray-100 rounded text-purple-600"
-                    >
-                      {cmd}
-                    </code>
-                  ))}
-                </div>
+                <p>Use the buttons and controls above to manage your conversation.</p>
               </div>
             </div>
           </div>
