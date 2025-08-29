@@ -176,16 +176,12 @@ class WebChatSession:
         logger.info(f"🔄 Starting regeneration inference with updated user input")
         logger.info(f"🔄 User input override: {user_input_override[:100]}...")
         
-        # Add the updated user message to conversation history (for regeneration after editing)
-        self.conversation_history.append({
-            "role": "user",
-            "content": user_input_override,
-            "timestamp": time.time()
-        })
+        # Don't add user_input_override as new message - the edit command already updated the original message
+        # Just use the user_input_override for inference to ensure we use the edited content
         
-        # Broadcast user message to WebSockets
+        # Broadcast thinking indicator for regeneration
         await self.broadcast_to_websockets(
-            {"type": "user_message", "content": user_input_override, "timestamp": time.time()}
+            {"type": "assistant_thinking", "timestamp": time.time()}
         )
         
         # Build conversation using the existing conversation history
@@ -200,20 +196,22 @@ class WebChatSession:
             if hasattr(self, 'system_prompt') and self.system_prompt:
                 conversation_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
             
-            # Add existing conversation history
-            for msg in self.conversation_history:
+            # Add existing conversation history, but use user_input_override for the final user message
+            for i, msg in enumerate(self.conversation_history):
                 if msg.get("role") == "user":
-                    conversation_messages.append(Message(role=Role.USER, content=msg.get("content", "")))
+                    # For the last user message, use user_input_override to ensure we have the edited content
+                    if i == len(self.conversation_history) - 1 and msg.get("role") == "user":
+                        conversation_messages.append(Message(role=Role.USER, content=user_input_override))
+                    else:
+                        conversation_messages.append(Message(role=Role.USER, content=msg.get("content", "")))
                 elif msg.get("role") == "assistant":
                     conversation_messages.append(Message(role=Role.ASSISTANT, content=msg.get("content", "")))
-            
-            # Add the new user message (from user_input_override)
-            conversation_messages.append(Message(role=Role.USER, content=user_input_override))
             
             # Create conversation object
             full_conversation = Conversation(messages=conversation_messages)
             
             logger.info(f"🔄 Built conversation with {len(conversation_messages)} messages for regeneration")
+            logger.info(f"🔄 Final user message content: {conversation_messages[-1].content[:100] if conversation_messages and conversation_messages[-1].role == Role.USER else 'None'}...")
             
             # Perform inference using the same logic as OpenAI API handler
             logger.info(f"🚀 Calling inference_engine.infer() for regeneration")
@@ -239,12 +237,24 @@ class WebChatSession:
             if not response_content:
                 response_content = "No response generated"
             
-            # Add assistant response to conversation history
+            # Check if there's an unexpected assistant response at the end that regen should have removed
+            if self.conversation_history and self.conversation_history[-1].get("role") == "assistant":
+                logger.warning(f"🔄 Found unexpected assistant response at end - regen should have cleaned this up")
+                logger.warning(f"🔄 Removing 1 assistant message: {self.conversation_history[-1].get('content', '')[:50]}...")
+                self.conversation_history.pop()
+                # Only remove ONE message - if there are more, something else is wrong
+                if self.conversation_history and self.conversation_history[-1].get("role") == "assistant":
+                    logger.error(f"🔄 Multiple assistant messages found - this indicates a deeper issue!")
+                    # Don't remove more - let it be visible so we can debug
+            
+            # Add the new assistant response to conversation history
             self.conversation_history.append({
                 "role": "assistant",
                 "content": response_content,
                 "timestamp": time.time()
             })
+            
+            logger.info(f"🔄 Added regenerated response to conversation (total messages: {len(self.conversation_history)})")
             
             # Broadcast assistant response to WebSockets
             await self.broadcast_to_websockets(
