@@ -7,7 +7,7 @@
 import React from 'react';
 import { Bot, ChevronDown, RefreshCw, Check, AlertTriangle, Search, X, Zap, Brain, Cpu, Gem, Waves, FlaskConical, Building2 } from 'lucide-react';
 import { useChatStore } from '@/lib/store';
-import apiClient from '@/lib/api';
+import apiClient from '@/lib/unified-api';
 import { ModelConfigMetadata } from '@/lib/types';
 
 interface ConfigOption {

@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Activity, Cpu, HardDrive, Zap, MessageSquare } from 'lucide-react';
-import apiClient from '@/lib/api';
+import apiClient from '@/lib/unified-api';
 
 interface SystemStats {
   cpu_percent?: number;

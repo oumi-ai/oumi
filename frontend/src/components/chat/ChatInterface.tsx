@@ -7,7 +7,7 @@
 import React from 'react';
 import { useChatStore } from '@/lib/store';
 import { Message } from '@/lib/types';
-import apiClient from '@/lib/api';
+import apiClient from '@/lib/unified-api';
 import { isValidCommand, parseCommand } from '@/lib/constants';
 import ChatHistory from './ChatHistory';
 import MessageInput from './MessageInput';

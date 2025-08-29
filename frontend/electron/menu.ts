@@ -1,0 +1,393 @@
+/**
+ * Native application menu system
+ */
+
+import { Menu, MenuItemConstructorOptions, BrowserWindow, dialog, shell, app } from 'electron';
+import log from 'electron-log';
+
+export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
+  const isMac = process.platform === 'darwin';
+
+  const template: MenuItemConstructorOptions[] = [
+    // macOS App Menu
+    ...(isMac ? [{
+      label: app.getName(),
+      submenu: [
+        { label: 'About Oumi Chat', role: 'about' as const },
+        { type: 'separator' as const },
+        { label: 'Services', role: 'services' as const, submenu: [] },
+        { type: 'separator' as const },
+        { label: 'Hide Oumi Chat', accelerator: 'Command+H', role: 'hide' as const },
+        { label: 'Hide Others', accelerator: 'Command+Shift+H', role: 'hideOthers' as const },
+        { label: 'Show All', role: 'unhide' as const },
+        { type: 'separator' as const },
+        { label: 'Quit', accelerator: 'Command+Q', click: () => app.quit() }
+      ]
+    }] : []),
+
+    // File Menu
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Chat',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            mainWindow.webContents.send('menu:new-chat');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Save Conversation',
+          accelerator: 'CmdOrCtrl+S',
+          click: async () => {
+            try {
+              const result = await dialog.showSaveDialog(mainWindow, {
+                title: 'Save Conversation',
+                defaultPath: `conversation-${new Date().toISOString().slice(0, 10)}.json`,
+                filters: [
+                  { name: 'JSON Files', extensions: ['json'] },
+                  { name: 'All Files', extensions: ['*'] }
+                ]
+              });
+
+              if (!result.canceled && result.filePath) {
+                mainWindow.webContents.send('menu:save-conversation', result.filePath);
+              }
+            } catch (error) {
+              log.error('Error in save conversation dialog:', error);
+            }
+          }
+        },
+        {
+          label: 'Load Conversation',
+          accelerator: 'CmdOrCtrl+O',
+          click: async () => {
+            try {
+              const result = await dialog.showOpenDialog(mainWindow, {
+                title: 'Load Conversation',
+                filters: [
+                  { name: 'JSON Files', extensions: ['json'] },
+                  { name: 'All Files', extensions: ['*'] }
+                ],
+                properties: ['openFile']
+              });
+
+              if (!result.canceled && result.filePaths.length > 0) {
+                mainWindow.webContents.send('menu:load-conversation', result.filePaths[0]);
+              }
+            } catch (error) {
+              log.error('Error in load conversation dialog:', error);
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Export Chat',
+          submenu: [
+            {
+              label: 'Export as Text',
+              click: () => mainWindow.webContents.send('menu:export-text')
+            },
+            {
+              label: 'Export as Markdown',
+              click: () => mainWindow.webContents.send('menu:export-markdown')
+            },
+            {
+              label: 'Export as PDF',
+              click: () => mainWindow.webContents.send('menu:export-pdf')
+            }
+          ]
+        },
+        { type: 'separator' },
+        {
+          label: 'Preferences',
+          accelerator: isMac ? 'Cmd+,' : 'Ctrl+,',
+          click: () => {
+            mainWindow.webContents.send('menu:preferences');
+          }
+        },
+        ...(!isMac ? [
+          { type: 'separator' as const },
+          { label: 'Exit', accelerator: 'Ctrl+Q', click: () => app.quit() }
+        ] : [])
+      ]
+    },
+
+    // Edit Menu
+    {
+      label: 'Edit',
+      submenu: [
+        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
+        { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', role: 'redo' },
+        { type: 'separator' },
+        { label: 'Cut', accelerator: 'CmdOrCtrl+X', role: 'cut' },
+        { label: 'Copy', accelerator: 'CmdOrCtrl+C', role: 'copy' },
+        { label: 'Paste', accelerator: 'CmdOrCtrl+V', role: 'paste' },
+        { label: 'Select All', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
+        { type: 'separator' },
+        {
+          label: 'Find',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => {
+            mainWindow.webContents.send('menu:find');
+          }
+        },
+        {
+          label: 'Clear Conversation',
+          accelerator: 'CmdOrCtrl+Shift+Delete',
+          click: () => {
+            mainWindow.webContents.send('menu:clear-conversation');
+          }
+        }
+      ]
+    },
+
+    // View Menu
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => mainWindow.reload()
+        },
+        {
+          label: 'Force Reload',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => mainWindow.webContents.reloadIgnoringCache()
+        },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: process.platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I',
+          click: () => mainWindow.webContents.toggleDevTools()
+        },
+        { type: 'separator' },
+        {
+          label: 'Actual Size',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => mainWindow.webContents.setZoomLevel(0)
+        },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+Plus',
+          click: () => {
+            const currentZoom = mainWindow.webContents.getZoomLevel();
+            mainWindow.webContents.setZoomLevel(Math.min(currentZoom + 0.5, 3));
+          }
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+-',
+          click: () => {
+            const currentZoom = mainWindow.webContents.getZoomLevel();
+            mainWindow.webContents.setZoomLevel(Math.max(currentZoom - 0.5, -3));
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Branch Tree',
+          accelerator: 'CmdOrCtrl+B',
+          click: () => {
+            mainWindow.webContents.send('menu:toggle-branch-tree');
+          }
+        },
+        {
+          label: 'Toggle Control Panel',
+          accelerator: 'CmdOrCtrl+T',
+          click: () => {
+            mainWindow.webContents.send('menu:toggle-control-panel');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Fullscreen',
+          accelerator: isMac ? 'Ctrl+Cmd+F' : 'F11',
+          click: () => mainWindow.setFullScreen(!mainWindow.isFullScreen())
+        }
+      ]
+    },
+
+    // Chat Menu
+    {
+      label: 'Chat',
+      submenu: [
+        {
+          label: 'Send Message',
+          accelerator: 'Enter',
+          click: () => {
+            mainWindow.webContents.send('menu:send-message');
+          }
+        },
+        {
+          label: 'New Line in Message',
+          accelerator: 'Shift+Enter',
+          click: () => {
+            mainWindow.webContents.send('menu:new-line');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Regenerate Last Response',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => {
+            mainWindow.webContents.send('menu:regenerate');
+          }
+        },
+        {
+          label: 'Stop Generation',
+          accelerator: 'Escape',
+          click: () => {
+            mainWindow.webContents.send('menu:stop-generation');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Create Branch',
+          accelerator: 'CmdOrCtrl+Shift+B',
+          click: () => {
+            mainWindow.webContents.send('menu:create-branch');
+          }
+        },
+        {
+          label: 'Switch Branch',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => {
+            mainWindow.webContents.send('menu:switch-branch');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Model Settings',
+          accelerator: 'CmdOrCtrl+M',
+          click: () => {
+            mainWindow.webContents.send('menu:model-settings');
+          }
+        }
+      ]
+    },
+
+    // Window Menu
+    {
+      label: 'Window',
+      submenu: [
+        { label: 'Minimize', accelerator: 'CmdOrCtrl+M', role: 'minimize' },
+        { label: 'Close', accelerator: 'CmdOrCtrl+W', role: 'close' },
+        ...(isMac ? [
+          { type: 'separator' as const },
+          { label: 'Bring All to Front', role: 'front' as const }
+        ] : [])
+      ]
+    },
+
+    // Help Menu
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Documentation',
+          click: () => {
+            shell.openExternal('https://oumi.ai/docs');
+          }
+        },
+        {
+          label: 'GitHub Repository',
+          click: () => {
+            shell.openExternal('https://github.com/oumi-ai/oumi');
+          }
+        },
+        {
+          label: 'Report Issue',
+          click: () => {
+            shell.openExternal('https://github.com/oumi-ai/oumi/issues');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Keyboard Shortcuts',
+          accelerator: 'CmdOrCtrl+?',
+          click: () => {
+            mainWindow.webContents.send('menu:show-shortcuts');
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates',
+          click: () => {
+            mainWindow.webContents.send('menu:check-updates');
+          }
+        },
+        ...(!isMac ? [{
+          label: 'About Oumi Chat',
+          click: () => {
+            showAboutDialog(mainWindow);
+          }
+        }] : [])
+      ]
+    }
+  ];
+
+  return Menu.buildFromTemplate(template);
+}
+
+/**
+ * Show about dialog
+ */
+function showAboutDialog(mainWindow: BrowserWindow): void {
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'About Oumi Chat',
+    message: 'Oumi Chat',
+    detail: `Version: ${app.getVersion()}\n\nA cross-platform desktop application for conversing with AI models.\n\nBuilt with Electron and powered by the Oumi AI platform.`,
+    buttons: ['OK']
+  });
+}
+
+/**
+ * Create context menu for chat messages
+ */
+export function createChatContextMenu(mainWindow: BrowserWindow, messageData?: any): Menu {
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'Copy Message',
+      accelerator: 'CmdOrCtrl+C',
+      click: () => {
+        mainWindow.webContents.send('context-menu:copy-message', messageData);
+      }
+    },
+    {
+      label: 'Copy as Markdown',
+      click: () => {
+        mainWindow.webContents.send('context-menu:copy-markdown', messageData);
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Edit Message',
+      click: () => {
+        mainWindow.webContents.send('context-menu:edit-message', messageData);
+      }
+    },
+    {
+      label: 'Delete Message',
+      click: () => {
+        mainWindow.webContents.send('context-menu:delete-message', messageData);
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Regenerate Response',
+      click: () => {
+        mainWindow.webContents.send('context-menu:regenerate', messageData);
+      }
+    },
+    {
+      label: 'Branch from Here',
+      click: () => {
+        mainWindow.webContents.send('context-menu:branch-from-here', messageData);
+      }
+    }
+  ];
+
+  return Menu.buildFromTemplate(template);
+}

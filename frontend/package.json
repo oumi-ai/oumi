@@ -7,12 +7,22 @@
     "dev:backend": "cd .. && source ~/.zshrc && conda activate oumi && python -m oumi.webchat.server --port 9000",
     "dev:full": "concurrently \"npm run dev:backend\" \"NEXT_PUBLIC_BACKEND_URL=http://localhost:9000 npm run dev -- -p 7860\" --names \"backend,frontend\" --prefix-colors \"blue,green\"",
     "build": "next build",
+    "build:electron": "ELECTRON_BUILD=true next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "electron:compile": "tsc electron/*.ts --outDir dist/electron --target es2020 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
+    "electron:dev": "npm run electron:compile && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron dist/electron/main.js\"",
+    "electron:pack": "npm run build:electron && npm run electron:compile && electron-builder",
+    "electron:dist": "npm run build:electron && npm run electron:compile && electron-builder --publish=never",
+    "electron:publish": "npm run build:electron && npm run electron:compile && electron-builder --publish=always",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@types/d3": "^7.4.3",
     "d3": "^7.9.0",
+    "electron-log": "^5.4.3",
+    "electron-store": "^10.1.0",
+    "electron-updater": "^6.6.2",
     "lucide-react": "^0.344.0",
     "next": "15.5.2",
     "prismjs": "^1.30.0",
@@ -32,10 +42,86 @@
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.0",
     "concurrently": "^8.2.2",
+    "electron": "^37.4.0",
+    "electron-builder": "^26.0.12",
+    "electron-packager": "^17.1.2",
     "eslint": "^8",
     "eslint-config-next": "15.5.2",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^8.0.4"
+  },
+  "main": "dist/electron/main.js",
+  "build": {
+    "appId": "ai.oumi.chat",
+    "productName": "Oumi Chat",
+    "directories": {
+      "output": "dist/packages"
+    },
+    "files": [
+      "dist/electron/**/*",
+      "out/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../src/oumi/",
+        "to": "python/oumi/",
+        "filter": ["**/*.py", "**/*.yaml", "**/*.json", "**/*.txt"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ]
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "snap",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "oumi-ai",
+      "repo": "oumi-chat-desktop"
+    }
   }
 }

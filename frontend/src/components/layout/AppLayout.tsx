@@ -9,7 +9,7 @@ import ChatInterface from '@/components/chat/ChatInterface';
 import BranchTree from '@/components/branches/BranchTree';
 import ControlPanel from '@/components/layout/ControlPanel';
 import { useChatStore } from '@/lib/store';
-import apiClient from '@/lib/api';
+import apiClient from '@/lib/unified-api';
 import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose } from 'lucide-react';
 
 export default function AppLayout() {

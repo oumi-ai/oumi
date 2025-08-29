@@ -8,7 +8,7 @@ import React from 'react';
 import { useChatStore } from '@/lib/store';
 import { ConversationBranch, Message } from '@/lib/types';
 import { Plus, GitBranch, Trash2, TreePine, List, MoreVertical, Shuffle, GitMerge, Save, FileDown } from 'lucide-react';
-import apiClient from '@/lib/api';
+import apiClient from '@/lib/unified-api';
 import BranchTreeVisualization from './BranchTreeVisualization';
 import BranchInheritanceView from './BranchInheritanceView';
 import BranchContextMenu from './BranchContextMenu';

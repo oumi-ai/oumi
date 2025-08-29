@@ -9,7 +9,7 @@ import { Message } from '@/lib/types';
 import { User, Bot, Copy, Check, Trash2, RefreshCw, Edit3, Save } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 import { useChatStore } from '@/lib/store';
-import apiClient from '@/lib/api';
+import apiClient from '@/lib/unified-api';
 
 interface ChatMessageProps {
   message: Message;
