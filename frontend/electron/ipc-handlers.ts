@@ -169,6 +169,16 @@ function setupStorageHandlers(): void {
   ipcMain.handle('storage:clear', () => {
     (store as any).clear();
   });
+
+  // Reset welcome screen settings
+  ipcMain.handle('storage:reset-welcome-settings', () => {
+    const welcomeKeys = ['hasCompletedWelcome', 'selectedConfig', 'systemPrompt', 'enableWelcomeCaching'];
+    welcomeKeys.forEach(key => {
+      (store as any).delete(key);
+    });
+    log.info('Welcome screen settings reset');
+    return { success: true };
+  });
 }
 
 /**

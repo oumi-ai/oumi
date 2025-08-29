@@ -377,6 +377,15 @@ class ElectronApiClient {
     return window.electronAPI.storage.clear();
   }
 
+  public async resetWelcomeSettings(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      const welcomeKeys = ['hasCompletedWelcome', 'selectedConfig', 'systemPrompt', 'enableWelcomeCaching'];
+      welcomeKeys.forEach(key => localStorage.removeItem(key));
+      return { success: true, message: 'Welcome settings reset' };
+    }
+    return window.electronAPI.storage.resetWelcomeSettings();
+  }
+
   // Platform information
   public getPlatform(): { os: string; arch: string; version: string } {
     if (!this.isElectron) {

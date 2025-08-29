@@ -18,6 +18,49 @@ export default function AppLayout() {
   const [isInitialized, setIsInitialized] = React.useState(false);
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
 
+  // Handle menu messages from Electron
+  React.useEffect(() => {
+    if (!apiClient.isElectron || !apiClient.isElectron()) return;
+
+    const handleResetWelcomeMessage = async () => {
+      await handleResetWelcomeSettings();
+    };
+
+    // Listen for menu messages (Electron-specific)
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      window.electronAPI.onMenuMessage('menu:reset-welcome-settings', handleResetWelcomeMessage);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        window.electronAPI.removeMenuListener('menu:reset-welcome-settings', handleResetWelcomeMessage);
+      }
+    };
+  }, []);
+
+  // Handle welcome settings reset
+  const handleResetWelcomeSettings = async () => {
+    try {
+      const result = await apiClient.resetWelcomeSettings();
+      if (result.success) {
+        // Show success feedback - could use a toast or alert
+        if (window.confirm('Welcome settings have been reset! The app will reload to show the welcome screen.')) {
+          // Reload the app to show welcome screen
+          if (apiClient.isElectron && apiClient.isElectron()) {
+            apiClient.reload();
+          } else {
+            window.location.reload();
+          }
+        }
+      } else {
+        alert('Failed to reset welcome settings. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error resetting welcome settings:', error);
+      alert('Failed to reset welcome settings. Please try again.');
+    }
+  };
+
   // Initialize app state from backend on first load
   React.useEffect(() => {
     const initializeApp = async () => {

@@ -107,6 +107,13 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
             mainWindow.webContents.send('menu:preferences');
           }
         },
+        { type: 'separator' },
+        {
+          label: 'Reset Welcome Settings',
+          click: () => {
+            mainWindow.webContents.send('menu:reset-welcome-settings');
+          }
+        },
         ...(!isMac ? [
           { type: 'separator' as const },
           { label: 'Exit', accelerator: 'Ctrl+Q', click: () => app.quit() }

@@ -280,6 +280,17 @@ class UnifiedApiClient {
     }
   }
 
+  async resetWelcomeSettings(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.resetWelcomeSettings();
+    } else {
+      // Web fallback: clear welcome-related localStorage items
+      const welcomeKeys = ['hasCompletedWelcome', 'selectedConfig', 'systemPrompt', 'enableWelcomeCaching'];
+      welcomeKeys.forEach(key => localStorage.removeItem(key));
+      return { success: true, message: 'Welcome settings reset' };
+    }
+  }
+
   // App control methods (Electron-specific)
   async getVersion(): Promise<string> {
     if (this.isElectron()) {

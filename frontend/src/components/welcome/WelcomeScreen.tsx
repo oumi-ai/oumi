@@ -5,7 +5,7 @@
 "use client";
 
 import React from 'react';
-import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2 } from 'lucide-react';
+import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2, Save } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 
 interface ConfigOption {
@@ -49,6 +49,9 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   const [selectedConfig, setSelectedConfig] = React.useState<string | null>(null);
   const [systemPrompt, setSystemPrompt] = React.useState('');
   const [selectedPreset, setSelectedPreset] = React.useState<string>('default');
+  
+  // Welcome screen caching state
+  const [enableWelcomeCaching, setEnableWelcomeCaching] = React.useState(false);
 
   // System prompt presets
   const systemPromptPresets: SystemPromptPreset[] = [
@@ -112,7 +115,20 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
 
   React.useEffect(() => {
     loadConfigs();
+    loadWelcomeCachingPreference();
   }, []);
+
+  // Load current welcome caching preference
+  const loadWelcomeCachingPreference = async () => {
+    try {
+      if (apiClient.isElectron && apiClient.isElectron()) {
+        const cachingEnabled = await apiClient.getStorageItem('enableWelcomeCaching', false);
+        setEnableWelcomeCaching(cachingEnabled);
+      }
+    } catch (err) {
+      console.warn('Failed to load welcome caching preference:', err);
+    }
+  };
 
   React.useEffect(() => {
     filterConfigs();
@@ -203,6 +219,11 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     
     setStarting(true);
     try {
+      // Save welcome caching preference
+      if (apiClient.isElectron && apiClient.isElectron()) {
+        await apiClient.setStorageItem('enableWelcomeCaching', enableWelcomeCaching);
+      }
+      
       // Small delay for UI feedback
       await new Promise(resolve => setTimeout(resolve, 500));
       onConfigSelected(selectedConfig, systemPrompt.trim() || undefined);
@@ -343,6 +364,33 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                 </div>
               </div>
             </div>
+
+            {/* Welcome Screen Caching Option */}
+            {apiClient.isElectron && apiClient.isElectron() && (
+              <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
+                <div className="flex items-start space-x-3">
+                  <input 
+                    type="checkbox" 
+                    id="enableWelcomeCaching"
+                    checked={enableWelcomeCaching}
+                    onChange={(e) => setEnableWelcomeCaching(e.target.checked)}
+                    className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="enableWelcomeCaching" className="flex items-center cursor-pointer">
+                      <Save className="w-4 h-4 text-purple-600 mr-2" />
+                      <span className="font-medium text-gray-900">Remember my choices</span>
+                    </label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Skip the welcome screens and automatically use your saved configuration next time you open the app.
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      You can always change this setting in the File menu or by adding ?welcome=true to the URL.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="mt-8 flex justify-center space-x-4">

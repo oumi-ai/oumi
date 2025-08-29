@@ -250,6 +250,7 @@ class OumiChatApp {
         break;
     }
   }
+
 }
 
 // Global app instance

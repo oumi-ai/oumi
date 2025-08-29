@@ -199,13 +199,23 @@ const electronAPI: ElectronAPI = {
     get: (key, defaultValue) => ipcRenderer.invoke('storage:get', key, defaultValue),
     set: (key, value) => ipcRenderer.invoke('storage:set', key, value),
     delete: (key) => ipcRenderer.invoke('storage:delete', key),
-    clear: () => ipcRenderer.invoke('storage:clear')
+    clear: () => ipcRenderer.invoke('storage:clear'),
+    resetWelcomeSettings: () => ipcRenderer.invoke('storage:reset-welcome-settings')
   },
 
   platform: {
     os: process.platform,
     arch: process.arch,
     version: process.version
+  },
+
+  // Menu message handlers
+  onMenuMessage: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.on(channel, callback);
+  },
+
+  removeMenuListener: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.removeListener(channel, callback);
   }
 };
 

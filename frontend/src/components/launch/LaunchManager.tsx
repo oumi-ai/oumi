@@ -144,7 +144,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
     setLaunchState('welcome');
   };
 
-  // Check if user has already completed welcome (for subsequent app launches)
+  // Check if user has opted into welcome screen caching (default: always show welcome)
   React.useEffect(() => {
     const checkPreviousSetup = async () => {
       try {
@@ -152,21 +152,26 @@ export default function LaunchManager({}: LaunchManagerProps) {
         const forceWelcome = new URLSearchParams(window.location.search).get('welcome') === 'true';
         
         if (apiClient.isElectron && apiClient.isElectron() && !forceWelcome) {
-          const hasCompleted = await apiClient.getStorageItem('hasCompletedWelcome', false);
-          const savedConfig = await apiClient.getStorageItem('selectedConfig', null);
-          const savedPrompt = await apiClient.getStorageItem('systemPrompt', null);
+          // NEW: Check if user has explicitly enabled welcome screen caching (default: false)
+          const welcomeCachingEnabled = await apiClient.getStorageItem('enableWelcomeCaching', false);
           
-          if (hasCompleted && savedConfig) {
-            // Skip welcome screen and go straight to initialization
-            setSelectedConfig(savedConfig);
-            setTimeout(() => {
-              handleConfigSelected(savedConfig, savedPrompt);
-            }, 100); // Small delay to ensure state is updated
-            return;
+          if (welcomeCachingEnabled) {
+            const hasCompleted = await apiClient.getStorageItem('hasCompletedWelcome', false);
+            const savedConfig = await apiClient.getStorageItem('selectedConfig', null);
+            const savedPrompt = await apiClient.getStorageItem('systemPrompt', null);
+            
+            if (hasCompleted && savedConfig) {
+              // Skip welcome screen and go straight to initialization
+              setSelectedConfig(savedConfig);
+              setTimeout(() => {
+                handleConfigSelected(savedConfig, savedPrompt);
+              }, 100); // Small delay to ensure state is updated
+              return;
+            }
           }
         }
         
-        // For web version, first-time users, or forced welcome, show welcome screen
+        // DEFAULT: Always show welcome screen unless explicitly cached
         setLaunchState('welcome');
       } catch (err) {
         console.error('Error checking previous setup:', err);
