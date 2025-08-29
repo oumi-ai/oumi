@@ -148,7 +148,10 @@ export default function LaunchManager({}: LaunchManagerProps) {
   React.useEffect(() => {
     const checkPreviousSetup = async () => {
       try {
-        if (apiClient.isElectron && apiClient.isElectron()) {
+        // Check for debug flag to force welcome screen
+        const forceWelcome = new URLSearchParams(window.location.search).get('welcome') === 'true';
+        
+        if (apiClient.isElectron && apiClient.isElectron() && !forceWelcome) {
           const hasCompleted = await apiClient.getStorageItem('hasCompletedWelcome', false);
           const savedConfig = await apiClient.getStorageItem('selectedConfig', null);
           const savedPrompt = await apiClient.getStorageItem('systemPrompt', null);
@@ -163,7 +166,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
           }
         }
         
-        // For web version or first-time users, show welcome
+        // For web version, first-time users, or forced welcome, show welcome screen
         setLaunchState('welcome');
       } catch (err) {
         console.error('Error checking previous setup:', err);
