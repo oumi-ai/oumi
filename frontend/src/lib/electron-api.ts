@@ -35,7 +35,7 @@ declare global {
 
       // Server control
       server: {
-        start: () => Promise<any>;
+        start: (configPath?: string, systemPrompt?: string) => Promise<any>;
         stop: () => Promise<any>;
         restart: () => Promise<any>;
         status: () => Promise<any>;
@@ -136,11 +136,11 @@ class ElectronApiClient {
   }
 
   // Server control methods
-  public async startServer(): Promise<ApiResponse> {
+  public async startServer(configPath?: string, systemPrompt?: string): Promise<ApiResponse> {
     if (!this.isElectron) {
       throw new Error('Server control only available in Electron app');
     }
-    return window.electronAPI.server.start();
+    return window.electronAPI.server.start(configPath, systemPrompt);
   }
 
   public async stopServer(): Promise<ApiResponse> {

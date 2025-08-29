@@ -37,8 +37,23 @@ export default function LaunchManager({}: LaunchManagerProps) {
     }
 
     try {
-      // Step 1: Validate config selection
+      // Step 1: Validate config selection and get config path
       setInitProgress('Validating configuration...');
+      
+      // Load config path from static configs
+      let configPath: string | undefined;
+      try {
+        const response = await fetch('/static-configs.json');
+        if (response.ok) {
+          const data = await response.json();
+          const selectedConfigData = data.configs?.find((cfg: any) => cfg.id === configId);
+          configPath = selectedConfigData?.config_path;
+          console.log('📍 Config path:', configPath);
+        }
+      } catch (err) {
+        console.warn('Failed to load config path from static configs:', err);
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Step 2: Start backend server if in Electron
@@ -48,8 +63,8 @@ export default function LaunchManager({}: LaunchManagerProps) {
         // Check if server is already running
         const serverStatus = await apiClient.getServerStatus();
         if (!serverStatus.success || !serverStatus.data?.running) {
-          // Start the server
-          const startResult = await apiClient.startServer();
+          // Start the server with the selected config and system prompt
+          const startResult = await apiClient.startServer(configPath, systemPrompt);
           if (!startResult.success) {
             throw new Error(`Failed to start server: ${startResult.message}`);
           }

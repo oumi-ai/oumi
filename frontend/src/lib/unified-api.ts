@@ -33,9 +33,9 @@ class UnifiedApiClient {
   }
 
   // Server control (Electron only)
-  async startServer(): Promise<ApiResponse> {
+  async startServer(configPath?: string, systemPrompt?: string): Promise<ApiResponse> {
     if (this.isElectron()) {
-      return this.electronClient.startServer();
+      return this.electronClient.startServer(configPath, systemPrompt);
     } else {
       return { success: true, message: 'Server control not available in web version' };
     }

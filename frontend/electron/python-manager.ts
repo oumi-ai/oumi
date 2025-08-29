@@ -16,6 +16,7 @@ export interface PythonServerConfig {
   conda_env?: string;
   python_path?: string;
   config_path?: string; // Path to Oumi inference config
+  system_prompt?: string; // System prompt for the model
 }
 
 export class PythonServerManager {
@@ -168,7 +169,12 @@ export class PythonServerManager {
 
     // Add config path if specified
     if (this.config.config_path) {
-      oumiArgs.push('-c', this.config.config_path);
+      oumiArgs.push('-c', `"${this.config.config_path}"`);
+    }
+
+    // Add system prompt if specified
+    if (this.config.system_prompt) {
+      oumiArgs.push('--system-prompt', `"${this.config.system_prompt}"`);
     }
 
     // Build the full command with conda activation
@@ -413,6 +419,14 @@ export class PythonServerManager {
   public setConfigPath(configPath: string): void {
     this.config.config_path = configPath;
     log.info(`Python server config path set to: ${configPath}`);
+  }
+
+  /**
+   * Set system prompt
+   */
+  public setSystemPrompt(systemPrompt: string): void {
+    this.config.system_prompt = systemPrompt;
+    log.info(`Python server system prompt set to: ${systemPrompt.substring(0, 100)}...`);
   }
 
   /**

@@ -27,7 +27,7 @@ export interface ElectronAPI {
 
   // Server control
   server: {
-    start: () => Promise<any>;
+    start: (configPath?: string, systemPrompt?: string) => Promise<any>;
     stop: () => Promise<any>;
     restart: () => Promise<any>;
     status: () => Promise<any>;
@@ -111,7 +111,7 @@ const electronAPI: ElectronAPI = {
   },
 
   server: {
-    start: () => ipcRenderer.invoke('server:start'),
+    start: (configPath?: string, systemPrompt?: string) => ipcRenderer.invoke('server:start', configPath, systemPrompt),
     stop: () => ipcRenderer.invoke('server:stop'),
     restart: () => ipcRenderer.invoke('server:restart'),
     status: () => ipcRenderer.invoke('server:status')

@@ -176,10 +176,22 @@ function setupStorageHandlers(): void {
  */
 function setupChatHandlers(pythonManager: PythonServerManager): void {
   // Server control handlers
-  ipcMain.handle('server:start', async () => {
+  ipcMain.handle('server:start', async (_, configPath?: string, systemPrompt?: string) => {
     try {
       if (pythonManager.isServerRunning()) {
         return { success: true, url: pythonManager.getServerUrl() };
+      }
+      
+      // Set the config path if provided
+      if (configPath) {
+        pythonManager.setConfigPath(configPath);
+        log.info('Set server config path to:', configPath);
+      }
+      
+      // Set the system prompt if provided
+      if (systemPrompt) {
+        pythonManager.setSystemPrompt(systemPrompt);
+        log.info('Set server system prompt to:', systemPrompt.substring(0, 100) + '...');
       }
       
       const serverUrl = await pythonManager.start();
