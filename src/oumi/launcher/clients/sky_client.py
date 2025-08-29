@@ -24,6 +24,7 @@ from sky.schemas.api.responses import StatusResponse
 from oumi.core.configs import JobConfig
 from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
+from oumi.utils.progress_bar_utils import ProgressBarHandler
 from oumi.utils.str_utils import try_str_to_bool
 
 if TYPE_CHECKING:
@@ -63,33 +64,75 @@ def _get_sky_storage_mounts_from_job(job: JobConfig) -> dict[str, "sky.data.Stor
     return sky_mounts
 
 
-class SkyLogStream(io.TextIOBase):
+class SkyLogStream(io.TextIOBase, ProgressBarHandler):
     """Wraps a log iterator into a readline()-capable stream."""
 
     def __init__(self, iterator: Iterator[Optional[str]]):
         """Initializes a new instance of the SkyLogStream class."""
+        super().__init__()
         self.iterator = iterator
         # We want to remove ANSI escape codes from the log stream since
         # colors are returned such as `\x1b[32m` for green text.
         self.ansi_pattern = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
         self._buffer = ""
 
-    def readline(self) -> Optional[str]:
-        """Reads a line from the log stream."""
+    def _process_buffer(self) -> Optional[str]:
+        r"""Process the buffer for both \r and \n separators.
+
+        Returns:
+            A line to return, or None if we need to continue reading.
+        """
+        # First, try to find a complete line ending with \n
         if "\n" in self._buffer:
             line, self._buffer = self._buffer.split("\n", 1)
-            return line + "\n"
+            # Handle progress bar updates
+            result = self._handle_progress_update(line + "\n")
+            if result is not None:
+                return result
+            # If result is None, it means we're accumulating progress updates
+            # Try to get the next line
+            return self.readline()
 
+        # If no \n, look for \r separators (progress bar updates)
+        if "\r" in self._buffer:
+            # Split by \r and process each part
+            parts = self._buffer.split("\r")
+            self._buffer = parts[-1]  # Keep the last part in buffer
+
+            # Process all but the last part (which might be incomplete)
+            for part in parts[:-1]:
+                if part.strip():  # Skip empty parts
+                    # Handle progress bar updates
+                    result = self._handle_progress_update(part + "\n")
+                    if result is not None:
+                        return result
+                    # If result is None, continue processing other parts
+
+        return None
+
+    def readline(self) -> str:
+        """Reads a line from the log stream."""
+        # First check if we have a complete line in the buffer
+        result = self._process_buffer()
+        if result:
+            return result
+
+        # Read chunks from the iterator until we have a complete line
         for chunk in self.iterator:
             if chunk is None:
-                return ""
+                # Iterator is done, return any accumulated progress
+                return self._get_remaining_progress()
+
             chunk = self.ansi_pattern.sub("", chunk)
             self._buffer += chunk
-            if "\n" in self._buffer:
-                line, self._buffer = self._buffer.split("\n", 1)
-                return line + "\n"
 
-        return ""
+            # Process the buffer for both \r and \n separators
+            result = self._process_buffer()
+            if result:
+                return result
+
+        # Iterator is done, return any accumulated progress
+        return self._get_remaining_progress()
 
 
 def _get_use_spot_vm_override() -> Optional[bool]:

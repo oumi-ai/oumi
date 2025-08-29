@@ -26,6 +26,7 @@ from typing import Callable, Optional, Union
 
 from oumi.core.launcher import JobState, JobStatus
 from oumi.utils.logging import logger
+from oumi.utils.progress_bar_utils import ProgressBarHandler
 
 _CTRL_PATH = "-S ~/.ssh/control-%h-%p-%r"
 
@@ -181,7 +182,7 @@ def retry_auth(user_function: Callable) -> Callable:
     return wrapper
 
 
-class SlurmLogStream(io.TextIOBase):
+class SlurmLogStream(io.TextIOBase, ProgressBarHandler):
     """A stream that provides access to job logs.
 
     This class inherits from io.TextIOBase to provide a file-like interface
@@ -194,16 +195,10 @@ class SlurmLogStream(io.TextIOBase):
        tail process stdout in real-time.
     3. Job Completion: The background thread detects when the job is done and
        terminates the tail process.
-    4. Buffer Processing: After the process ends, reads any remaining data into
-       an internal buffer and serves lines from there.
-    5. Cleanup: When the buffer is empty or the stream is closed, resources are
-       cleaned up.
+    4. Cleanup: When the stream is closed, resources are cleaned up.
 
     State Transitions:
     - _proc: None → subprocess.Popen → None (after termination)
-    - _job_done: False → True (when job completes)
-    - _process_ended: False → True (after reading remaining data)
-    - _buffer: "" → accumulates remaining data → serves lines → ""
     """
 
     def __init__(
@@ -223,39 +218,37 @@ class SlurmLogStream(io.TextIOBase):
             stdout_filename: The name of the stdout file to tail.
             client: The SlurmClient instance.
         """
+        super().__init__()
         self.working_dir = working_dir
         self.job_id = job_id
         self.cluster_name = cluster_name
         self.stdout_filename = stdout_filename
         self._client = client
-        self._job_done = False
         self._job_check_thread = None
         self._proc = self._start_tail_process(
             working_dir, cluster_name, stdout_filename
         )
-        self._buffer = ""
-        self._process_ended = False
 
-    def readline(self) -> Optional[str]:
-        """Read available lines from the stream.
+    def readline(self) -> str:
+        """Read a line from the stream.
 
         Returns:
-            The line read from the stream.
+            The line read from the stream, or an empty string if the stream is closed.
         """
         if self._proc is None:
             return ""
 
-        if self._process_ended:
-            return self._read_from_buffer()
-
-        # Check if the job is done (using background flag)
-        if self._job_done:
-            self._handle_process_end()
-            return self._read_from_buffer()
-
         # Process is still running, try to read from stdout
         if self._proc and self._proc.stdout:
-            return self._proc.stdout.readline()
+            line = self._proc.stdout.readline()
+            if line:
+                # Handle if there are progress bar updates
+                result = self._handle_progress_update(line)
+                if result is not None:
+                    return result
+                # If result is None, it means we're accumulating progress updates
+                # Try to read more lines to see if we get a non-progress line
+                return self.readline()
         return ""
 
     def close(self) -> None:
@@ -276,35 +269,6 @@ class SlurmLogStream(io.TextIOBase):
         """Context manager exit."""
         self.close()
 
-    def _handle_process_end(self):
-        """Handle the end of the process by reading any remaining data."""
-        if self._process_ended:
-            return
-
-        # Check if data is ready before reading to avoid blocking
-        if self._proc and self._proc.stdout:
-            remaining = self._proc.stdout.read()
-            if remaining:
-                self._buffer += remaining
-        self._process_ended = True
-
-    def _read_from_buffer(self) -> str:
-        """Read the next line from the buffer.
-
-        Returns:
-            The next line from the buffer if available, otherwise an empty string.
-        """
-        if "\n" in self._buffer:
-            line, self._buffer = self._buffer.split("\n", 1)
-            return line + "\n"
-        elif self._buffer:
-            # Return remaining buffer content (no newline)
-            line = self._buffer
-            self._buffer = ""
-            return line
-
-        return ""
-
     def _start_tail_process(
         self, working_dir: str, cluster_name: str, stdout_filename: str
     ) -> subprocess.Popen:
@@ -321,7 +285,7 @@ class SlurmLogStream(io.TextIOBase):
         Returns:
             A subprocess.Popen object that can be read from.
         """
-        max_attempts = 4
+        max_attempts = 6
         base_delay = 5
         max_delay = 20
 
@@ -375,11 +339,10 @@ class SlurmLogStream(io.TextIOBase):
         """Start background thread to check job status."""
 
         def check_job_status():
-            while not self._job_done:
+            while True:
                 try:
                     job = self._client.get_job(self.job_id)
                     if job is None or job.done:
-                        self._job_done = True
                         proc.terminate()
                         proc.wait()
                         break
