@@ -10,6 +10,7 @@ import BranchTree from '@/components/branches/BranchTree';
 import ControlPanel from '@/components/layout/ControlPanel';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
+import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
 import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose } from 'lucide-react';
 
 export default function AppLayout() {
@@ -17,6 +18,7 @@ export default function AppLayout() {
   const [isControlPanelExpanded, setIsControlPanelExpanded] = React.useState(true);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
+  const { executeCommand, isExecuting } = useConversationCommand();
 
   // Handle menu messages from Electron
   React.useEffect(() => {
@@ -110,29 +112,11 @@ export default function AppLayout() {
         // Clear messages in the UI immediately for responsiveness
         clearMessages();
         
-        // Execute clear command on backend to update conversation state
-        const response = await apiClient.executeCommand('clear', []);
+        // Execute clear command which will refresh conversation and branches
+        const result = await executeCommand('clear', [], COMMAND_CONFIGS.clear);
         
-        if (!response.success) {
-          console.error('Failed to clear conversation on backend:', response.message);
-        }
-        
-        // Refresh branch data to update message counts
-        const branchesResponse = await apiClient.getBranches('default');
-        if (branchesResponse.success && branchesResponse.data) {
-          const { branches, current_branch } = branchesResponse.data;
-          
-          const transformedBranches = branches.map((branch: any) => ({
-            id: branch.id,
-            name: branch.name,
-            isActive: branch.id === current_branch,
-            messageCount: branch.message_count || 0,
-            createdAt: branch.created_at,
-            lastActive: branch.last_active || branch.created_at,
-            preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
-          }));
-          
-          setBranches(transformedBranches);
+        if (!result.success && result.message) {
+          console.error('Failed to clear conversation:', result.message);
         }
       } catch (error) {
         console.error('Error clearing conversation:', error);
@@ -173,10 +157,11 @@ export default function AppLayout() {
             {/* Clear conversation */}
             <button
               onClick={handleClearConversation}
-              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
               title="Clear conversation"
+              disabled={isExecuting}
             >
-              <RotateCcw size={18} />
+              <RotateCcw size={18} className={isExecuting ? 'animate-spin' : ''} />
             </button>
 
             {/* Control panel toggle */}

@@ -81,6 +81,7 @@ export interface ElectronAPI {
     set: (key: string, value: any) => Promise<void>;
     delete: (key: string) => Promise<void>;
     clear: () => Promise<void>;
+    resetWelcomeSettings: () => Promise<any>;
   };
 
   // Platform information
@@ -89,6 +90,10 @@ export interface ElectronAPI {
     arch: string;
     version: string;
   };
+
+  // Menu message handlers
+  onMenuMessage: (channel: string, callback: (...args: any[]) => void) => void;
+  removeMenuListener: (channel: string, callback: (...args: any[]) => void) => void;
 }
 
 // Create the API object

@@ -9,7 +9,7 @@ import { Message } from '@/lib/types';
 import { User, Bot, Copy, Check, Trash2, RefreshCw, Edit3, Save } from 'lucide-react';
 import MarkdownRenderer from '@/components/ui/MarkdownRenderer';
 import { useChatStore } from '@/lib/store';
-import apiClient from '@/lib/unified-api';
+import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
 
 interface ChatMessageProps {
   message: Message;
@@ -23,6 +23,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const [editContent, setEditContent] = React.useState(message.content);
   const [actionInProgress, setActionInProgress] = React.useState<string | null>(null);
   const { updateMessage, deleteMessage, addMessage } = useChatStore();
+  const { executeCommand, isExecuting } = useConversationCommand();
 
   const handleCopy = async () => {
     try {
@@ -39,24 +40,11 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
     
     setActionInProgress('delete');
     try {
-      // Use position-specific delete if messageIndex is available
       const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
-      console.log(`🗑️  Frontend: Sending delete command with args:`, args, `for messageIndex:`, messageIndex);
-      const response = await apiClient.executeCommand('delete', args);
-      console.log(`🗑️  Frontend: Delete response:`, response);
-      if (response.success) {
-        // Reload the page to sync with backend conversation state
-        setTimeout(() => window.location.reload(), 300);
-      } else {
-        console.error('Failed to delete message:', response.message);
-        // If it's an index error, the conversation state is out of sync
-        if (response.message && (response.message.includes('out of bounds') || response.message.includes('Invalid message index'))) {
-          console.warn('❌ Message index out of sync with backend - refreshing page to sync state');
-          alert('The conversation state has changed. Refreshing to sync with the current state...');
-          setTimeout(() => window.location.reload(), 1000);
-        } else {
-          alert('Failed to delete message: ' + (response.message || 'Unknown error'));
-        }
+      const result = await executeCommand('delete', args, COMMAND_CONFIGS.delete);
+      
+      if (!result.success && result.message) {
+        alert(result.message);
       }
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -69,29 +57,11 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
   const handleRegen = async () => {
     setActionInProgress('regen');
     try {
-      // Use position-specific regeneration if messageIndex is available
       const args = messageIndex !== undefined ? [messageIndex.toString()] : [];
-      console.log(`🔄 Frontend: Sending regen command with args:`, args, `for messageIndex:`, messageIndex);
-      const response = await apiClient.executeCommand('regen', args);
-      console.log(`🔄 Frontend: Regen response:`, response);
-      if (response.success) {
-        // The backend will handle regeneration and continue conversation
-        // Give it time to complete generation, then reload to show the new response
-        console.log(`🔄 Frontend: Regen initiated successfully, waiting for completion...`);
-        setTimeout(() => {
-          console.log(`🔄 Frontend: Reloading to show regenerated response`);
-          window.location.reload();
-        }, 3000); // Increased timeout for generation
-      } else {
-        console.error('Failed to regenerate message:', response.message);
-        // If it's an index error, the conversation state is out of sync
-        if (response.message && (response.message.includes('out of range') || response.message.includes('Invalid message index'))) {
-          console.warn('❌ Message index out of sync with backend - refreshing page to sync state');
-          alert('The conversation state has changed. Refreshing to sync with the current state...');
-          setTimeout(() => window.location.reload(), 1000);
-        } else {
-          alert('Failed to regenerate message: ' + (response.message || 'Unknown error'));
-        }
+      const result = await executeCommand('regen', args, COMMAND_CONFIGS.regen);
+      
+      if (!result.success && result.message) {
+        alert(result.message);
       }
     } catch (error) {
       console.error('Error regenerating message:', error);
@@ -114,33 +84,17 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
 
     setActionInProgress('save');
     try {
-      // Send edit command to backend with message index and new content
       if (messageIndex !== undefined) {
-        console.log(`✏️  Frontend: Sending edit command for index ${messageIndex} with new content:`, editContent.trim());
-        const response = await apiClient.executeCommand('edit', [messageIndex.toString(), editContent.trim()]);
-        console.log(`✏️  Frontend: Edit response:`, response);
-        if (response.success) {
+        const args = [messageIndex.toString(), editContent.trim()];
+        const result = await executeCommand('edit', args, COMMAND_CONFIGS.edit);
+        
+        if (result.success) {
           // Update local state immediately for responsive UI
           updateMessage(message.id, { content: editContent });
           setIsEditing(false);
-          console.log('✅ Message edited and persisted to backend - local state updated');
-          
-          // CRITICAL: Reload page to ensure indices stay synchronized after edits
-          // This prevents stale indices from causing issues with subsequent delete/regen operations
-          console.log('🔄 Reloading page to sync conversation indices after edit...');
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000); // Give time for WebSocket updates to complete
-        } else {
-          console.error('❌ Failed to save edit:', response.message);
-          // If it's an index error, the conversation state is out of sync
-          if (response.message && (response.message.includes('out of range') || response.message.includes('Invalid message index'))) {
-            console.warn('❌ Message index out of sync with backend - refreshing page to sync state');
-            alert('The conversation state has changed. Refreshing to sync with the current state...');
-            setTimeout(() => window.location.reload(), 1000);
-          } else {
-            alert('Failed to save edit: ' + (response.message || 'Unknown error'));
-          }
+          console.log('✅ Message edited and persisted to backend');
+        } else if (result.message) {
+          alert(result.message);
         }
       } else {
         // Fallback: update locally if no messageIndex
@@ -206,12 +160,12 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                 onChange={(e) => setEditContent(e.target.value)}
                 className="w-full h-32 p-3 border border-border bg-input text-foreground placeholder:text-muted-foreground rounded-md resize-vertical focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 placeholder={isUser ? "Edit your message..." : "Edit the assistant's response..."}
-                disabled={actionInProgress === 'save'}
+                disabled={actionInProgress === 'save' || isExecuting}
               />
               <div className="flex gap-2">
                 <button
                   onClick={handleSaveEdit}
-                  disabled={actionInProgress === 'save'}
+                  disabled={actionInProgress === 'save' || isExecuting}
                   className="px-3 py-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground rounded text-sm flex items-center gap-1 transition-colors"
                 >
                   <Save size={12} />
@@ -219,7 +173,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                 </button>
                 <button
                   onClick={handleCancelEdit}
-                  disabled={actionInProgress === 'save'}
+                  disabled={actionInProgress === 'save' || isExecuting}
                   className="px-3 py-1 bg-muted hover:bg-muted/80 disabled:opacity-50 text-muted-foreground rounded text-sm transition-colors"
                 >
                   Cancel
@@ -268,7 +222,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
               onClick={handleCopy}
               className="p-1 rounded hover:bg-gray-200"
               title="Copy message"
-              disabled={!!actionInProgress}
+              disabled={!!actionInProgress || isExecuting}
             >
               {copied ? (
                 <Check size={14} className="text-green-600" />
@@ -285,7 +239,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                   onClick={handleDelete}
                   className="p-1 rounded hover:bg-red-100"
                   title="Delete this message"
-                  disabled={actionInProgress === 'delete'}
+                  disabled={actionInProgress === 'delete' || isExecuting}
                 >
                   <Trash2 size={14} className={actionInProgress === 'delete' ? 'text-gray-400' : 'text-red-600'} />
                 </button>
@@ -295,7 +249,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                   onClick={handleEdit}
                   className="p-1 rounded hover:bg-yellow-100"
                   title="Edit this message"
-                  disabled={!!actionInProgress}
+                  disabled={!!actionInProgress || isExecuting}
                 >
                   <Edit3 size={14} className="text-yellow-600" />
                 </button>
@@ -308,7 +262,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
                       onClick={handleRegen}
                       className="p-1 rounded hover:bg-blue-100"
                       title="Regenerate response"
-                      disabled={actionInProgress === 'regen'}
+                      disabled={actionInProgress === 'regen' || isExecuting}
                     >
                       <RefreshCw size={14} className={actionInProgress === 'regen' ? 'text-gray-400 animate-spin' : 'text-blue-600'} />
                     </button>
