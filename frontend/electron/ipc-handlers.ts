@@ -691,6 +691,38 @@ function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): voi
     }
   });
 
+  // Rebuild environment
+  ipcMain.handle('python:rebuild-environment', async () => {
+    try {
+      log.info('Rebuilding Python environment');
+      const success = await pythonManager.rebuildEnvironment();
+      return { success, message: success ? 'Environment rebuilt successfully' : 'Failed to rebuild environment' };
+    } catch (error) {
+      log.error('Failed to rebuild Python environment:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
+
+  // Get system change information
+  ipcMain.handle('python:get-system-change-info', async () => {
+    try {
+      return pythonManager.getSystemChangeInfo();
+    } catch (error) {
+      log.error('Failed to get system change info:', error);
+      return null;
+    }
+  });
+
+  // Get environment system information
+  ipcMain.handle('python:get-environment-system-info', async () => {
+    try {
+      return pythonManager.getEnvironmentSystemInfo();
+    } catch (error) {
+      log.error('Failed to get environment system info:', error);
+      return null;
+    }
+  });
+
   // Set up progress forwarding
   pythonManager.setSetupProgressCallback((progress) => {
     broadcastToRenderer('python:setup-progress', progress);

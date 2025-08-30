@@ -5,12 +5,14 @@
 "use client";
 
 import React from 'react';
-import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2, Save } from 'lucide-react';
+import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2, Save, Star, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import DownloadProgressMonitor from '@/components/monitoring/DownloadProgressMonitor';
+import PythonSetupProgress from '@/components/monitoring/PythonSetupProgress';
 import ErrorDialog from '@/components/ui/ErrorDialog';
 import useErrorHandler from '@/hooks/useErrorHandler';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
+import { ConfigMatcher, SystemCapabilities } from '@/lib/config-matcher';
 
 interface ConfigOption {
   id: string;
@@ -23,6 +25,12 @@ interface ConfigOption {
   model_family: string;
   size_category: string;
   recommended?: boolean;
+  recommendation?: {
+    goodMatch: boolean;
+    reason: string;
+    score: number;
+    warnings?: string[];
+  };
 }
 
 interface SystemPromptPreset {
@@ -77,6 +85,13 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     completedFiles: 0,
     hasError: false
   });
+
+  // Python environment setup state
+  const [envSetupNeeded, setEnvSetupNeeded] = React.useState(false);
+  const [showEnvSetup, setShowEnvSetup] = React.useState(false);
+  
+  // System capabilities for smart recommendations
+  const [systemCapabilities, setSystemCapabilities] = React.useState<SystemCapabilities | null>(null);
 
   // System prompt presets
   const systemPromptPresets: SystemPromptPreset[] = [
@@ -256,16 +271,39 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       setLoading(true);
       setError(null);
       
+      // Load system capabilities for smart recommendations
+      if (apiClient.isElectronApp()) {
+        try {
+          const systemInfo = await apiClient.getEnvironmentSystemInfo();
+          if (systemInfo) {
+            setSystemCapabilities({
+              platform: systemInfo.platform,
+              architecture: systemInfo.architecture,
+              totalRAM: systemInfo.totalRAM,
+              cudaAvailable: systemInfo.cudaAvailable,
+              cudaDevices: systemInfo.cudaDevices || []
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to load system capabilities:', error);
+        }
+      }
+      
       // Try runtime config discovery first (Electron app)
       if (apiClient.isElectronApp()) {
         try {
           const response = await apiClient.discoverBundledConfigs();
           
           if (response.success && response.data?.configs) {
-            const transformedConfigs = response.data.configs.map((config: any, index: number) => ({
+            let transformedConfigs = response.data.configs.map((config: any, index: number) => ({
               ...config,
               recommended: config.recommended || false
             }));
+            
+            // Apply smart recommendations using ConfigMatcher if system capabilities are available
+            if (systemCapabilities) {
+              transformedConfigs = ConfigMatcher.sortConfigsByRecommendation(transformedConfigs, systemCapabilities);
+            }
             
             setConfigs(transformedConfigs);
             return;
@@ -287,8 +325,14 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       const data = await response.json();
       
       if (data.configs && Array.isArray(data.configs)) {
-        // Configs are already processed with model families, etc.
-        setConfigs(data.configs);
+        let configs = data.configs;
+        
+        // Apply smart recommendations using ConfigMatcher if system capabilities are available
+        if (systemCapabilities) {
+          configs = ConfigMatcher.sortConfigsByRecommendation(configs, systemCapabilities);
+        }
+        
+        setConfigs(configs);
       } else {
         throw new Error('Invalid configuration format');
       }
@@ -332,15 +376,28 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       filtered = filtered.filter(config => config.size_category === selectedSize);
     }
 
-    // Sort by recommended first, then by model family and size
+    // Sort by smart recommendations first, then by recommended flag, then by model family and size
     filtered.sort((a, b) => {
+      // Sort by recommendation score (highest first) if both have recommendations
+      if (a.recommendation && b.recommendation) {
+        const scoreDiff = b.recommendation.score - a.recommendation.score;
+        if (scoreDiff !== 0) return scoreDiff;
+      }
+      
+      // Sort by "good match" status
+      if (a.recommendation?.goodMatch && !b.recommendation?.goodMatch) return -1;
+      if (!a.recommendation?.goodMatch && b.recommendation?.goodMatch) return 1;
+      
+      // Sort by traditional recommended flag
       if (a.recommended && !b.recommended) return -1;
       if (!a.recommended && b.recommended) return 1;
       
+      // Sort by model family
       if (a.model_family !== b.model_family) {
         return a.model_family.localeCompare(b.model_family);
       }
       
+      // Finally sort by display name
       return a.display_name.localeCompare(b.display_name);
     });
 
@@ -406,6 +463,18 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     setTestProgress('Preparing model test...');
     
     try {
+      // Check if Python environment setup is needed (only in Electron)
+      if (apiClient.isElectronApp()) {
+        setTestProgress('Checking Python environment...');
+        const setupNeeded = await apiClient.isEnvironmentSetupNeeded();
+        
+        if (setupNeeded) {
+          setTesting(false);
+          setEnvSetupNeeded(true);
+          setShowEnvSetup(true);
+          return; // Environment setup will continue the flow
+        }
+      }
       // Save welcome caching preference
       if (apiClient.isElectron && apiClient.isElectron()) {
         await apiClient.setStorageItem('enableWelcomeCaching', enableWelcomeCaching);
@@ -474,6 +543,30 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   const handleBackToModels = () => {
     setShowSystemPrompt(false);
     setSelectedConfig(null);
+  };
+
+  // Environment setup handlers
+  const handleEnvSetupComplete = () => {
+    setShowEnvSetup(false);
+    setEnvSetupNeeded(false);
+    // Continue with model testing after environment is set up
+    if (selectedConfig) {
+      setTesting(true);
+      setTestProgress('Continuing model test...');
+    }
+  };
+
+  const handleEnvSetupCancel = () => {
+    setShowEnvSetup(false);
+    setTesting(false);
+    setTestProgress('');
+  };
+
+  const handleEnvSetupError = (error: string) => {
+    setShowEnvSetup(false);
+    setTesting(false);
+    setTestProgress('');
+    showModelTestError(`Environment setup failed: ${error}`);
   };
 
   const getEngineIcon = (engine: string) => {
@@ -782,8 +875,21 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
             </div>
           ) : (
             <>
-              {/* Filters */}
+              {/* System Capabilities & Filters */}
               <div className="bg-card rounded-lg shadow-lg p-6 mb-6">
+                {/* System Capabilities Banner */}
+                {systemCapabilities && (
+                  <div className="mb-4 p-3 bg-accent/50 rounded-lg border border-border/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-medium text-foreground">Smart Recommendations Enabled</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      System: {ConfigMatcher.getSystemSummary(systemCapabilities)}
+                    </p>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Search */}
                   <div className="relative">
@@ -851,13 +957,22 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                     className="bg-card rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer relative"
                     onClick={() => handleConfigSelect(config.id)}
                   >
-                    {config.recommended && (
-                      <div className="absolute top-2 right-2">
-                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      </div>
-                    )}
+                    {/* Recommendation badges */}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      {config.recommendation?.goodMatch && (
+                        <div className="flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
+                          <Star className="w-3 h-3 fill-current" />
+                          Good Match
+                        </div>
+                      )}
+                      {config.recommended && (
+                        <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
+                          Recommended
+                        </div>
+                      )}
+                    </div>
                     
-                    <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start justify-between mb-4 mt-6">
                       <div className="flex items-center">
                         {getEngineIcon(config.engine)}
                         <span className="ml-2 text-sm font-medium text-muted-foreground uppercase">
@@ -876,6 +991,19 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                     <p className="text-sm text-muted-foreground mb-3">
                       {config.model_name}
                     </p>
+
+                    {/* Recommendation reason */}
+                    {config.recommendation && systemCapabilities && (
+                      <div className="mb-3 p-2 bg-muted/50 rounded text-xs">
+                        <div className="text-foreground font-medium">{config.recommendation.reason}</div>
+                        {config.recommendation.warnings && config.recommendation.warnings.length > 0 && (
+                          <div className="mt-1 text-amber-600 dark:text-amber-400 flex items-start gap-1">
+                            <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                            <span>{config.recommendation.warnings[0]}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                       <span>Context: {config.context_length.toLocaleString()}</span>

@@ -350,6 +350,21 @@ class ElectronApiClient {
     return window.electronAPI.python.cancelSetup();
   }
 
+  public async rebuildPythonEnvironment(): Promise<{ success: boolean; message: string }> {
+    if (!this.isElectron) return { success: false, message: 'Rebuild not available in web version' };
+    return window.electronAPI.python.rebuildEnvironment();
+  }
+
+  public async getSystemChangeInfo(): Promise<{ hasChanged: boolean; changes: string[]; shouldRebuild: boolean } | null> {
+    if (!this.isElectron) return null;
+    return window.electronAPI.python.getSystemChangeInfo();
+  }
+
+  public async getEnvironmentSystemInfo(): Promise<any> {
+    if (!this.isElectron) return null;
+    return window.electronAPI.python.getEnvironmentSystemInfo();
+  }
+
   public onSetupProgress(callback: (progress: any) => void): void {
     if (this.isElectron) {
       window.electronAPI.python.onSetupProgress(callback);

@@ -436,6 +436,77 @@ class UnifiedApiClient {
       return { success: false, error: 'Config discovery not available in web version' };
     }
   }
+
+  // Python environment setup methods (Electron-specific)
+  async isEnvironmentSetupNeeded(): Promise<boolean> {
+    if (this.isElectron()) {
+      return this.electronClient.isEnvironmentSetupNeeded();
+    } else {
+      return false;
+    }
+  }
+
+  async getPythonUserDataPath(): Promise<string> {
+    if (this.isElectron()) {
+      return this.electronClient.getPythonUserDataPath();
+    } else {
+      return '';
+    }
+  }
+
+  async cancelPythonSetup(): Promise<void> {
+    if (this.isElectron()) {
+      return this.electronClient.cancelPythonSetup();
+    }
+  }
+
+  async rebuildPythonEnvironment(): Promise<{ success: boolean; message: string }> {
+    if (this.isElectron()) {
+      return this.electronClient.rebuildPythonEnvironment();
+    } else {
+      return { success: false, message: 'Rebuild not available in web version' };
+    }
+  }
+
+  async getSystemChangeInfo(): Promise<{ hasChanged: boolean; changes: string[]; shouldRebuild: boolean } | null> {
+    if (this.isElectron()) {
+      return this.electronClient.getSystemChangeInfo();
+    } else {
+      return null;
+    }
+  }
+
+  async getEnvironmentSystemInfo(): Promise<any> {
+    if (this.isElectron()) {
+      return this.electronClient.getEnvironmentSystemInfo();
+    } else {
+      return null;
+    }
+  }
+
+  onSetupProgress(callback: (progress: any) => void): void {
+    if (this.isElectron()) {
+      this.electronClient.onSetupProgress(callback);
+    }
+  }
+
+  offSetupProgress(callback: (progress: any) => void): void {
+    if (this.isElectron()) {
+      this.electronClient.offSetupProgress(callback);
+    }
+  }
+
+  onSetupError(callback: (error: string) => void): void {
+    if (this.isElectron()) {
+      this.electronClient.onSetupError(callback);
+    }
+  }
+
+  offSetupError(callback: (error: string) => void): void {
+    if (this.isElectron()) {
+      this.electronClient.offSetupError(callback);
+    }
+  }
 }
 
 // Create and export singleton instance

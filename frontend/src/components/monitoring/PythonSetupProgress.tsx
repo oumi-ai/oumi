@@ -43,7 +43,7 @@ export default function PythonSetupProgress({
   // Get user data path for display
   useEffect(() => {
     if (isVisible && typeof window !== 'undefined' && window.electronAPI) {
-      window.electronAPI.getPythonUserDataPath()
+      window.electronAPI.python.getUserDataPath()
         .then((path: string) => setUserDataPath(path))
         .catch(console.error);
     }
@@ -74,13 +74,13 @@ export default function PythonSetupProgress({
       setProgress(null);
       
       // Start monitoring setup progress
-      window.electronAPI.onSetupProgress(handleProgress);
-      window.electronAPI.onSetupError(handleError);
+      window.electronAPI.python.onSetupProgress(handleProgress);
+      window.electronAPI.python.onSetupError(handleError);
       
       return () => {
         // Cleanup listeners when component unmounts or becomes hidden
-        window.electronAPI.offSetupProgress(handleProgress);
-        window.electronAPI.offSetupError(handleError);
+        window.electronAPI.python.offSetupProgress(handleProgress);
+        window.electronAPI.python.offSetupError(handleError);
       };
     }
   }, [isVisible, handleProgress, handleError]);
@@ -111,7 +111,7 @@ export default function PythonSetupProgress({
   // Handle cancel
   const handleCancel = () => {
     if (window.electronAPI) {
-      window.electronAPI.cancelPythonSetup();
+      window.electronAPI.python.cancelSetup();
     }
     if (onCancel) {
       onCancel();
@@ -127,41 +127,41 @@ export default function PythonSetupProgress({
   const isError = !!error;
 
   return (
-    <div className=\"fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50\">
-      <div className=\"bg-card border rounded-lg shadow-lg p-8 w-full max-w-md mx-4 relative\">
+    <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-card border rounded-lg shadow-lg p-8 w-full max-w-md mx-4 relative">
         {/* Close button (only show if not in progress or if error) */}
         {(isError || currentProgress === 0 || currentProgress === 100) && onCancel && (
           <button 
             onClick={handleCancel}
-            className=\"absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors\"
-            aria-label=\"Close\"
+            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Close"
           >
-            <X className=\"w-5 h-5\" />
+            <X className="w-5 h-5" />
           </button>
         )}
 
         {/* Header */}
-        <div className=\"text-center mb-6\">
-          <div className=\"flex items-center justify-center mb-4\">
-            <Bot className=\"w-12 h-12 text-primary mr-3\" />
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center mb-4">
+            <Bot className="w-12 h-12 text-primary mr-3" />
             <div>
-              <h1 className=\"text-2xl font-bold text-foreground\">Setting up Chatterley</h1>
-              <p className=\"text-muted-foreground\">Preparing your AI environment...</p>
+              <h1 className="text-2xl font-bold text-foreground">Setting up Chatterley</h1>
+              <p className="text-muted-foreground">Preparing your AI environment...</p>
             </div>
           </div>
         </div>
 
         {/* Error State */}
         {isError && (
-          <div className=\"mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg\">
-            <div className=\"flex items-center mb-2\">
-              <AlertCircle className=\"w-5 h-5 text-destructive mr-2\" />
-              <span className=\"font-medium text-destructive\">Setup Failed</span>
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <div className="flex items-center mb-2">
+              <AlertCircle className="w-5 h-5 text-destructive mr-2" />
+              <span className="font-medium text-destructive">Setup Failed</span>
             </div>
-            <p className=\"text-sm text-muted-foreground mb-3\">{error}</p>
+            <p className="text-sm text-muted-foreground mb-3">{error}</p>
             <button 
               onClick={handleCancel}
-              className=\"px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors\"
+              className="px-4 py-2 bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors"
             >
               Close
             </button>
@@ -173,33 +173,33 @@ export default function PythonSetupProgress({
           <>
             {/* Current Step */}
             {currentStep && (
-              <div className=\"mb-6\">
-                <div className=\"flex items-center mb-3\">
-                  <currentStep.icon className=\"w-5 h-5 text-primary mr-3\" />
-                  <span className=\"font-medium text-foreground\">{currentStep.label}</span>
+              <div className="mb-6">
+                <div className="flex items-center mb-3">
+                  <currentStep.icon className="w-5 h-5 text-primary mr-3" />
+                  <span className="font-medium text-foreground">{currentStep.label}</span>
                 </div>
                 
-                <div className=\"text-sm text-muted-foreground mb-2\">
+                <div className="text-sm text-muted-foreground mb-2">
                   {progress?.message || 'Initializing...'}
                 </div>
 
                 {/* Progress Bar */}
-                <div className=\"w-full bg-muted rounded-full h-2 mb-2\">
+                <div className="w-full bg-muted rounded-full h-2 mb-2">
                   <div 
-                    className=\"bg-primary h-2 rounded-full transition-all duration-500 ease-out\"
+                    className="bg-primary h-2 rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${currentProgress}%` }}
                   />
                 </div>
 
                 {/* Progress Text */}
-                <div className=\"flex justify-between text-xs text-muted-foreground\">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{currentProgress}% complete</span>
                   <span>Elapsed: {getElapsedTime()}</span>
                 </div>
 
                 {/* Estimated Time */}
                 {progress?.estimatedTimeRemaining && (
-                  <div className=\"text-xs text-muted-foreground mt-1 text-center\">
+                  <div className="text-xs text-muted-foreground mt-1 text-center">
                     Est. remaining: {progress.estimatedTimeRemaining}
                   </div>
                 )}
@@ -207,9 +207,9 @@ export default function PythonSetupProgress({
             )}
 
             {/* Step List */}
-            <div className=\"mb-6\">
-              <h3 className=\"font-medium text-foreground mb-3\">Setup Progress</h3>
-              <div className=\"space-y-2\">
+            <div className="mb-6">
+              <h3 className="font-medium text-foreground mb-3">Setup Progress</h3>
+              <div className="space-y-2">
                 {SETUP_STEPS.map((step, index) => {
                   const isCurrentStep = currentStep?.id === step.id;
                   const isCompleted = progress && (
@@ -224,16 +224,16 @@ export default function PythonSetupProgress({
                         isCurrentStep ? 'bg-primary/10 border border-primary/20' : ''
                       }`}
                     >
-                      <div className=\"flex items-center flex-1\">
+                      <div className="flex items-center flex-1">
                         {isCompleted ? (
-                          <CheckCircle className=\"w-4 h-4 text-primary mr-3\" />
+                          <CheckCircle className="w-4 h-4 text-primary mr-3" />
                         ) : isCurrentStep ? (
-                          <div className=\"w-4 h-4 mr-3 flex items-center justify-center\">
-                            <div className=\"w-2 h-2 bg-primary rounded-full animate-pulse\" />
+                          <div className="w-4 h-4 mr-3 flex items-center justify-center">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                           </div>
                         ) : (
-                          <div className=\"w-4 h-4 mr-3 flex items-center justify-center\">
-                            <div className=\"w-2 h-2 bg-muted-foreground/30 rounded-full\" />
+                          <div className="w-4 h-4 mr-3 flex items-center justify-center">
+                            <div className="w-2 h-2 bg-muted-foreground/30 rounded-full" />
                           </div>
                         )}
                         <span className={`text-sm ${
@@ -252,12 +252,12 @@ export default function PythonSetupProgress({
 
             {/* Environment Info */}
             {userDataPath && (
-              <div className=\"p-4 bg-muted/50 rounded-lg mb-6\">
-                <h4 className=\"font-medium text-foreground mb-2\">Environment Location</h4>
-                <p className=\"text-xs text-muted-foreground font-mono break-all\">
+              <div className="p-4 bg-muted/50 rounded-lg mb-6">
+                <h4 className="font-medium text-foreground mb-2">Environment Location</h4>
+                <p className="text-xs text-muted-foreground font-mono break-all">
                   {userDataPath}
                 </p>
-                <p className=\"text-xs text-muted-foreground mt-1\">
+                <p className="text-xs text-muted-foreground mt-1">
                   Files will be installed here. You can remove them later if needed.
                 </p>
               </div>
@@ -265,10 +265,10 @@ export default function PythonSetupProgress({
 
             {/* Cancel Button (only during active setup) */}
             {currentProgress > 0 && currentProgress < 100 && onCancel && (
-              <div className=\"text-center\">
+              <div className="text-center">
                 <button 
                   onClick={handleCancel}
-                  className=\"px-4 py-2 text-muted-foreground hover:text-foreground border border-border hover:border-primary/50 rounded-md transition-colors\"
+                  className="px-4 py-2 text-muted-foreground hover:text-foreground border border-border hover:border-primary/50 rounded-md transition-colors"
                 >
                   Cancel Setup
                 </button>

@@ -8,6 +8,7 @@ import React from 'react';
 import ChatInterface from '@/components/chat/ChatInterface';
 import BranchTree from '@/components/branches/BranchTree';
 import ControlPanel from '@/components/layout/ControlPanel';
+import SystemChangeWarning from '@/components/monitoring/SystemChangeWarning';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
@@ -28,14 +29,20 @@ export default function AppLayout() {
       await handleResetWelcomeSettings();
     };
 
+    const handleRebuildEnvironmentMessage = async () => {
+      await handleRebuildPythonEnvironment();
+    };
+
     // Listen for menu messages (Electron-specific)
     if (typeof window !== 'undefined' && window.electronAPI) {
       window.electronAPI.onMenuMessage('menu:reset-welcome-settings', handleResetWelcomeMessage);
+      window.electronAPI.onMenuMessage('menu:rebuild-python-environment', handleRebuildEnvironmentMessage);
     }
 
     return () => {
       if (typeof window !== 'undefined' && window.electronAPI) {
         window.electronAPI.removeMenuListener('menu:reset-welcome-settings', handleResetWelcomeMessage);
+        window.electronAPI.removeMenuListener('menu:rebuild-python-environment', handleRebuildEnvironmentMessage);
       }
     };
   }, []);
@@ -60,6 +67,22 @@ export default function AppLayout() {
     } catch (error) {
       console.error('Error resetting welcome settings:', error);
       alert('Failed to reset welcome settings. Please try again.');
+    }
+  };
+
+  // Handle Python environment rebuild
+  const handleRebuildPythonEnvironment = async () => {
+    try {
+      // Show the Python setup progress UI during rebuild
+      const result = await apiClient.rebuildPythonEnvironment();
+      if (result.success) {
+        alert('Python environment has been rebuilt successfully! The application may work better now.');
+      } else {
+        alert(`Failed to rebuild Python environment: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error rebuilding Python environment:', error);
+      alert('Failed to rebuild Python environment. Please try again.');
     }
   };
 
@@ -224,6 +247,9 @@ export default function AppLayout() {
           <BranchTree className="min-h-screen" />
         </div>
       </div>
+
+      {/* System change warning */}
+      <SystemChangeWarning />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { app } from 'electron';
 import log from 'electron-log';
+import { SystemDetector, SystemInfo } from './system-detector';
 
 export interface SetupProgress {
   step: string;
@@ -24,6 +25,7 @@ export interface EnvironmentInfo {
   isValid: boolean;
   createdAt?: string;
   lastUsed?: string;
+  systemInfo?: SystemInfo;
 }
 
 export class PythonEnvironmentManager {
@@ -127,6 +129,7 @@ export class PythonEnvironmentManager {
         const info = JSON.parse(fs.readFileSync(infoPath, 'utf8'));
         result.createdAt = info.createdAt;
         result.lastUsed = info.lastUsed;
+        result.systemInfo = info.systemInfo;
       } catch (error) {
         log.warn('[PythonEnvManager] Failed to read environment info:', error);
       }
@@ -138,10 +141,11 @@ export class PythonEnvironmentManager {
       result.isValid = isValid;
       
       if (isValid) {
-        // Update last used timestamp
+        // Update last used timestamp, preserving system info
         await this.updateEnvironmentInfo({
           createdAt: result.createdAt || new Date().toISOString(),
-          lastUsed: new Date().toISOString()
+          lastUsed: new Date().toISOString(),
+          systemInfo: result.systemInfo
         });
       }
       
@@ -241,12 +245,41 @@ export class PythonEnvironmentManager {
         throw new Error('Environment test failed after installation');
       }
 
-      // Step 8: Save environment info
-      await this.reportProgress('finishing', 95, 'Finalizing setup...');
+      // Step 8: Detect system information and save environment info
+      await this.reportProgress('finishing', 95, 'Detecting system capabilities...');
+      
+      let systemInfo: SystemInfo;
+      try {
+        systemInfo = await SystemDetector.detectSystem();
+        log.info('[PythonEnvManager] System detection completed:', {
+          platform: systemInfo.platform,
+          architecture: systemInfo.architecture,
+          totalRAM: `${systemInfo.totalRAM}GB`,
+          cudaAvailable: systemInfo.cudaAvailable,
+          cudaDevices: systemInfo.cudaDevices.length
+        });
+      } catch (error) {
+        log.warn('[PythonEnvManager] System detection failed:', error);
+        // Create minimal system info if detection fails
+        systemInfo = {
+          architecture: process.arch,
+          platform: process.platform,
+          platformVersion: 'Unknown',
+          cpuModel: 'Unknown',
+          totalRAM: Math.round(os.totalmem() / (1024 * 1024 * 1024)),
+          availableRAM: Math.round(os.freemem() / (1024 * 1024 * 1024)),
+          cudaAvailable: false,
+          cudaDevices: [],
+          detectedAt: new Date().toISOString(),
+          fingerprint: 'unknown'
+        };
+      }
+      
       const now = new Date().toISOString();
       await this.updateEnvironmentInfo({
         createdAt: now,
-        lastUsed: now
+        lastUsed: now,
+        systemInfo
       });
 
       await this.reportProgress('complete', 100, 'Setup complete!', true);
@@ -258,7 +291,8 @@ export class PythonEnvironmentManager {
         pythonPath: envPython,
         isValid: true,
         createdAt: now,
-        lastUsed: now
+        lastUsed: now,
+        systemInfo
       };
 
     } catch (error) {
@@ -401,10 +435,10 @@ export class PythonEnvironmentManager {
   /**
    * Update environment info file
    */
-  private async updateEnvironmentInfo(info: { createdAt: string; lastUsed: string }): Promise<void> {
+  private async updateEnvironmentInfo(info: { createdAt: string; lastUsed: string; systemInfo?: SystemInfo }): Promise<void> {
     const infoPath = this.getEnvironmentInfoPath();
     const envInfo = {
-      version: '1.0',
+      version: '1.1', // Updated version to include system info
       platform: process.platform,
       arch: process.arch,
       ...info
@@ -476,6 +510,116 @@ export class PythonEnvironmentManager {
     if (fs.existsSync(envPath)) {
       log.info('[PythonEnvManager] Removing Python environment');
       fs.rmSync(envPath, { recursive: true, force: true });
+    }
+  }
+
+  /**
+   * Check if the system has changed significantly since environment creation
+   */
+  public async checkSystemChanges(environmentInfo: EnvironmentInfo): Promise<{ hasChanged: boolean; changes: string[]; shouldRebuild: boolean }> {
+    try {
+      if (!environmentInfo.systemInfo) {
+        return { 
+          hasChanged: true, 
+          changes: ['No system information available from previous setup'],
+          shouldRebuild: true 
+        };
+      }
+
+      const currentSystem = await SystemDetector.detectSystem();
+      const oldSystem = environmentInfo.systemInfo;
+      const changes: string[] = [];
+      
+      // Check for significant changes
+      if (oldSystem.platform !== currentSystem.platform) {
+        changes.push(`Platform changed from ${oldSystem.platform} to ${currentSystem.platform}`);
+      }
+      
+      if (oldSystem.architecture !== currentSystem.architecture) {
+        changes.push(`Architecture changed from ${oldSystem.architecture} to ${currentSystem.architecture}`);
+      }
+      
+      // Check CUDA availability changes
+      if (oldSystem.cudaAvailable !== currentSystem.cudaAvailable) {
+        const status = currentSystem.cudaAvailable ? 'available' : 'unavailable';
+        const oldStatus = oldSystem.cudaAvailable ? 'available' : 'unavailable';
+        changes.push(`CUDA changed from ${oldStatus} to ${status}`);
+      }
+      
+      // Check CUDA device changes (if CUDA is available)
+      if (currentSystem.cudaAvailable && oldSystem.cudaAvailable) {
+        const oldDeviceCount = oldSystem.cudaDevices.length;
+        const newDeviceCount = currentSystem.cudaDevices.length;
+        
+        if (oldDeviceCount !== newDeviceCount) {
+          changes.push(`CUDA device count changed from ${oldDeviceCount} to ${newDeviceCount}`);
+        }
+        
+        // Check total VRAM changes
+        const oldVRAM = oldSystem.cudaDevices.reduce((sum, device) => sum + device.vram, 0);
+        const newVRAM = currentSystem.cudaDevices.reduce((sum, device) => sum + device.vram, 0);
+        const vramDiff = Math.abs(oldVRAM - newVRAM);
+        
+        if (vramDiff > 1) { // More than 1GB difference
+          changes.push(`Total VRAM changed from ${oldVRAM.toFixed(1)}GB to ${newVRAM.toFixed(1)}GB`);
+        }
+      }
+      
+      // Check significant RAM changes (more than 25% difference)
+      const ramDiff = Math.abs(oldSystem.totalRAM - currentSystem.totalRAM);
+      if (ramDiff > oldSystem.totalRAM * 0.25) {
+        changes.push(`RAM changed from ${oldSystem.totalRAM}GB to ${currentSystem.totalRAM}GB`);
+      }
+      
+      // Determine if rebuild is recommended
+      const shouldRebuild = changes.some(change => 
+        change.includes('Platform changed') || 
+        change.includes('Architecture changed') ||
+        change.includes('CUDA changed') ||
+        change.includes('device count changed')
+      );
+      
+      return {
+        hasChanged: changes.length > 0,
+        changes,
+        shouldRebuild
+      };
+      
+    } catch (error) {
+      log.error('[PythonEnvManager] Error checking system changes:', error);
+      return { 
+        hasChanged: true, 
+        changes: ['Unable to detect system changes'],
+        shouldRebuild: false 
+      };
+    }
+  }
+
+  /**
+   * Force rebuild the Python environment
+   * This will delete the existing environment and recreate it from scratch
+   */
+  public async rebuildEnvironment(): Promise<EnvironmentInfo> {
+    try {
+      log.info('[PythonEnvManager] Starting environment rebuild');
+      
+      // Cancel any ongoing setup
+      if (this.setupProcess) {
+        this.setupProcess.kill();
+        this.setupProcess = null;
+      }
+      
+      // Remove the existing environment
+      await this.removeEnvironment();
+      
+      // Report that we're starting the rebuild
+      await this.reportProgress('checking', 0, 'Starting environment rebuild...');
+      
+      // Set up the environment from scratch
+      return await this.setupEnvironment();
+    } catch (error) {
+      log.error('[PythonEnvManager] Error during environment rebuild:', error);
+      throw error;
     }
   }
 }

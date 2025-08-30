@@ -95,6 +95,9 @@ export interface ElectronAPI {
     isSetupNeeded: () => Promise<boolean>;
     getUserDataPath: () => Promise<string>;
     cancelSetup: () => Promise<void>;
+    rebuildEnvironment: () => Promise<{ success: boolean; message: string }>;
+    getSystemChangeInfo: () => Promise<any>;
+    getEnvironmentSystemInfo: () => Promise<any>;
     onSetupProgress: (callback: (progress: any) => void) => void;
     offSetupProgress: (callback: (progress: any) => void) => void;
     onSetupError: (callback: (error: string) => void) => void;
@@ -242,17 +245,22 @@ const electronAPI: ElectronAPI = {
     isSetupNeeded: () => ipcRenderer.invoke('python:is-setup-needed'),
     getUserDataPath: () => ipcRenderer.invoke('python:get-user-data-path'),
     cancelSetup: () => ipcRenderer.invoke('python:cancel-setup'),
+    rebuildEnvironment: () => ipcRenderer.invoke('python:rebuild-environment'),
+    getSystemChangeInfo: () => ipcRenderer.invoke('python:get-system-change-info'),
+    getEnvironmentSystemInfo: () => ipcRenderer.invoke('python:get-environment-system-info'),
     onSetupProgress: (callback: (progress: any) => void) => {
-      ipcRenderer.on('python:setup-progress', (_, progress) => callback(progress));
+      const wrappedCallback = (_: IpcRendererEvent, progress: any) => callback(progress);
+      ipcRenderer.on('python:setup-progress', wrappedCallback);
     },
     offSetupProgress: (callback: (progress: any) => void) => {
-      ipcRenderer.removeListener('python:setup-progress', callback);
+      ipcRenderer.removeAllListeners('python:setup-progress');
     },
     onSetupError: (callback: (error: string) => void) => {
-      ipcRenderer.on('python:setup-error', (_, error) => callback(error));
+      const wrappedCallback = (_: IpcRendererEvent, error: string) => callback(error);
+      ipcRenderer.on('python:setup-error', wrappedCallback);
     },
     offSetupError: (callback: (error: string) => void) => {
-      ipcRenderer.removeListener('python:setup-error', callback);
+      ipcRenderer.removeAllListeners('python:setup-error');
     }
   },
 

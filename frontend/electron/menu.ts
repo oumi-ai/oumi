@@ -136,6 +136,24 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
             mainWindow.webContents.send('menu:reset-welcome-settings');
           }
         },
+        {
+          label: 'Rebuild Python Environment',
+          click: async () => {
+            const result = await dialog.showMessageBox(mainWindow, {
+              type: 'warning',
+              title: 'Rebuild Python Environment',
+              message: 'Are you sure you want to rebuild the Python environment?',
+              detail: 'This will delete the existing Python environment and recreate it from scratch. This may take a few minutes.',
+              buttons: ['Cancel', 'Rebuild'],
+              defaultId: 0,
+              cancelId: 0
+            });
+
+            if (result.response === 1) {
+              mainWindow.webContents.send('menu:rebuild-python-environment');
+            }
+          }
+        },
         ...(!isMac ? [
           { type: 'separator' as const },
           { label: 'Exit', accelerator: 'Ctrl+Q', click: () => app.quit() }

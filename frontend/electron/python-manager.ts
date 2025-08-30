@@ -9,6 +9,7 @@ import * as net from 'net';
 import { app } from 'electron';
 import log from 'electron-log';
 import { PythonEnvironmentManager, EnvironmentInfo, SetupProgress } from './python-env-manager';
+import { SystemInfo } from './system-detector';
 
 export interface DownloadProgress {
   filename: string;
@@ -48,6 +49,7 @@ export class PythonServerManager {
   private environmentInfo: EnvironmentInfo | null = null;
   private isDevelopment: boolean;
   private setupProgressCallback?: (progress: SetupProgress) => void;
+  private systemChangeInfo?: { hasChanged: boolean; changes: string[]; shouldRebuild: boolean };
 
   constructor(port: number = 9000, config: Partial<PythonServerConfig> = {}) {
     this.config = {
@@ -415,7 +417,21 @@ export class PythonServerManager {
       this.environmentInfo = await this.envManager.setupEnvironment();
       log.info('[PythonServerManager] Environment setup completed');
     } else {
-      log.info('[PythonServerManager] Using existing valid environment');
+      // Check if system has changed significantly
+      const changeCheck = await this.envManager.checkSystemChanges(this.environmentInfo);
+      
+      if (changeCheck.hasChanged) {
+        log.warn('[PythonServerManager] System changes detected:', changeCheck.changes);
+        
+        // Store change information for UI to display warning
+        this.systemChangeInfo = {
+          hasChanged: true,
+          changes: changeCheck.changes,
+          shouldRebuild: changeCheck.shouldRebuild
+        };
+      } else {
+        log.info('[PythonServerManager] Using existing valid environment - no system changes detected');
+      }
     }
   }
 
@@ -976,4 +992,63 @@ export class PythonServerManager {
       this.downloadErrorCallback(error);
     }
   }
+
+  /**
+   * Force rebuild the Python environment
+   * This will delete the existing environment and recreate it
+   */
+  async rebuildEnvironment(): Promise<boolean> {
+    try {
+      log.info('[PythonServerManager] Starting environment rebuild');
+      
+      // Stop the server if it's running
+      if (this.isServerRunning()) {
+        await this.stop();
+      }
+
+      if (this.isDevelopment) {
+        // In development mode, we don't manage the environment
+        log.info('[PythonServerManager] Development mode - environment rebuild not needed');
+        return true;
+      }
+
+      // Force rebuild the standalone environment
+      log.info('[PythonServerManager] Rebuilding standalone environment');
+      
+      // Set up progress forwarding if callback is available
+      if (this.setupProgressCallback) {
+        this.envManager.setProgressCallback(this.setupProgressCallback);
+      }
+      
+      // Force rebuild (delete existing environment and recreate)
+      this.environmentInfo = await this.envManager.rebuildEnvironment();
+      
+      if (this.environmentInfo.isValid) {
+        log.info('[PythonServerManager] Environment rebuild completed successfully');
+        return true;
+      } else {
+        log.error('[PythonServerManager] Environment rebuild failed');
+        return false;
+      }
+    } catch (error) {
+      log.error('[PythonServerManager] Error during environment rebuild:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get system change information if available
+   */
+  public getSystemChangeInfo(): { hasChanged: boolean; changes: string[]; shouldRebuild: boolean } | null {
+    return this.systemChangeInfo || null;
+  }
+
+  /**
+   * Get current environment system information
+   */
+  public getEnvironmentSystemInfo(): SystemInfo | null {
+    return this.environmentInfo?.systemInfo || null;
+  }
+
+
 }
