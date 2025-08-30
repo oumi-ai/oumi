@@ -484,6 +484,11 @@ export class PythonServerManager {
         ]
       });
       
+      // Network monitoring state
+      let networkMonitorInterval: NodeJS.Timeout | null = null;
+      let lastNetworkStats = { bytesReceived: 0, totalReceived: 0 };
+      let isDownloading = false;
+      
       try {
         // Write test input file
         require('fs').writeFileSync(tempInputPath, testInput);
@@ -505,10 +510,21 @@ export class PythonServerManager {
           }
         });
 
+        log.info(`Test process spawned with PID: ${testProcess.pid}`);
+
+        // Start network monitoring if we have a PID
+        if (testProcess.pid) {
+          startNetworkMonitoring(testProcess.pid);
+        }
+
         let hasCompleted = false;
         let outputBuffer = '';
 
         const cleanup = () => {
+          if (networkMonitorInterval) {
+            clearInterval(networkMonitorInterval);
+            networkMonitorInterval = null;
+          }
           if (testProcess && !testProcess.killed) {
             testProcess.kill('SIGTERM');
           }
@@ -519,6 +535,111 @@ export class PythonServerManager {
           } catch (e) {
             // Ignore cleanup errors
           }
+        };
+
+        // Network monitoring function for macOS
+        const getProcessNetworkStats = async (pid: number): Promise<{ bytesReceived: number } | null> => {
+          return new Promise((resolve) => {
+            const { exec } = require('child_process');
+            // Use netstat to get network stats for the specific process
+            exec(`netstat -p ${pid} 2>/dev/null | grep -E '(tcp|udp)' | awk '{sum+=$2} END {print sum+0}'`, (error, stdout) => {
+              if (error) {
+                // Fallback: try lsof approach
+                exec(`lsof -p ${pid} -a -i 2>/dev/null | wc -l`, (lsofError, lsofStdout) => {
+                  if (lsofError) {
+                    resolve(null);
+                  } else {
+                    const connections = parseInt(lsofStdout.trim()) || 0;
+                    resolve({ bytesReceived: connections > 0 ? 1 : 0 }); // Simple indicator
+                  }
+                });
+                return;
+              }
+              const bytes = parseInt(stdout.trim()) || 0;
+              resolve({ bytesReceived: bytes });
+            });
+          });
+        };
+
+        // Start network monitoring
+        const startNetworkMonitoring = (pid: number) => {
+          let downloadStartTime: number | null = null;
+          let stableCount = 0;
+          
+          networkMonitorInterval = setInterval(async () => {
+            const stats = await getProcessNetworkStats(pid);
+            if (!stats) return;
+
+            const currentBytes = stats.bytesReceived;
+            const bytesThisInterval = currentBytes - lastNetworkStats.bytesReceived;
+            
+            // Detect download activity (significant network activity)
+            if (bytesThisInterval > 1024) { // More than 1KB received
+              if (!isDownloading) {
+                isDownloading = true;
+                downloadStartTime = Date.now();
+                log.info('[Network Monitor] Download activity detected');
+                
+                // Emit download start event
+                if (this.downloadProgressCallback) {
+                  this.downloadProgressCallback({
+                    filename: 'Model files',
+                    progress: 0,
+                    downloaded: '0MB',
+                    total: 'Unknown',
+                    speed: 'Detecting...',
+                    isComplete: false
+                  });
+                }
+              }
+              
+              // Calculate download progress indicators
+              if (isDownloading && downloadStartTime) {
+                const elapsed = Date.now() - downloadStartTime;
+                const totalMB = Math.round(currentBytes / (1024 * 1024));
+                const speedMBs = totalMB / (elapsed / 1000);
+                
+                if (this.downloadProgressCallback) {
+                  this.downloadProgressCallback({
+                    filename: 'Model files',
+                    progress: Math.min(95, Math.floor(elapsed / 1000)), // Fake progress based on time
+                    downloaded: `${totalMB}MB`,
+                    total: 'Unknown',
+                    speed: `${speedMBs.toFixed(1)}MB/s`,
+                    isComplete: false
+                  });
+                }
+              }
+              
+              stableCount = 0;
+            } else if (isDownloading) {
+              stableCount++;
+              
+              // If network activity has been stable for 3 intervals (6 seconds), consider download complete
+              if (stableCount >= 3) {
+                log.info('[Network Monitor] Download appears complete (network activity stabilized)');
+                isDownloading = false;
+                
+                if (this.downloadProgressCallback) {
+                  this.downloadProgressCallback({
+                    filename: 'Model files',
+                    progress: 100,
+                    downloaded: `${Math.round(currentBytes / (1024 * 1024))}MB`,
+                    total: 'Complete',
+                    speed: 'Complete',
+                    isComplete: true
+                  });
+                }
+                
+                if (networkMonitorInterval) {
+                  clearInterval(networkMonitorInterval);
+                  networkMonitorInterval = null;
+                }
+              }
+            }
+            
+            lastNetworkStats.bytesReceived = currentBytes;
+          }, 2000); // Check every 2 seconds
         };
 
       // Track if model loading succeeded

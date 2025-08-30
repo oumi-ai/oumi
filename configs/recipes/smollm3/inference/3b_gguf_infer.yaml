@@ -21,6 +21,7 @@ model:
   attn_implementation: "sdpa"
   model_kwargs:
     filename: "HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf"
+    # Note: vLLM handles GGUF differently than LlamaCPP
 
 generation:
   max_new_tokens: 2048

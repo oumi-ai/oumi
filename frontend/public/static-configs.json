@@ -1,7 +1,7 @@
 {
-  "generated_at": "2025-08-30T02:43:30.310Z",
+  "generated_at": "2025-08-30T02:57:08.104Z",
   "version": "1.0",
-  "total_configs": 124,
+  "total_configs": 132,
   "configs": [
     {
       "id": "projects_coalm_8b_infer",
@@ -232,6 +232,18 @@
       "recommended": true
     },
     {
+      "id": "recipes_qwen3_inference_14b_abliterated_gguf_macos_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_gguf_macos_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/14b_abliterated_gguf_macos_infer.yaml",
+      "display_name": "qwen3 - 14b_abliterated_gguf_macos",
+      "model_name": "bartowski/mlabonne_Qwen3-14B-abliterated-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
       "id": "recipes_qwen3_inference_30b_a3b_instruct_gguf_infer",
       "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/30b_a3b_instruct_gguf_infer.yaml",
       "relative_path": "recipes/qwen3/inference/30b_a3b_instruct_gguf_infer.yaml",
@@ -360,6 +372,18 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "qwen3_coder",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_smollm3_inference_3b_gguf_macos_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_gguf_macos_infer.yaml",
+      "relative_path": "recipes/smollm3/inference/3b_gguf_macos_infer.yaml",
+      "display_name": "smollm3 - 3b_gguf_macos",
+      "model_name": "bartowski/HuggingFaceTB_SmolLM3-3B-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 8192,
+      "model_family": "smollm3",
       "size_category": "medium",
       "recommended": true
     },
@@ -1192,6 +1216,42 @@
       "recommended": false
     },
     {
+      "id": "recipes_qwen3_inference_14b_abliterated_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
+      "display_name": "qwen3 - 14b_abliterated",
+      "model_name": "mlabonne/Qwen3-14B-abliterated",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_qwen3_inference_14b_abliterated_gguf_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_gguf_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/14b_abliterated_gguf_infer.yaml",
+      "display_name": "qwen3 - 14b_abliterated_gguf",
+      "model_name": "bartowski/mlabonne_Qwen3-14B-abliterated-GGUF",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_qwen3_inference_14b_abliterated_vllm_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_vllm_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/14b_abliterated_vllm_infer.yaml",
+      "display_name": "qwen3 - 14b_abliterated_vllm",
+      "model_name": "mlabonne/Qwen3-14B-abliterated",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
       "id": "recipes_qwen3_inference_235b_a22b_together_infer",
       "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml",
       "relative_path": "recipes/qwen3/inference/235b_a22b_together_infer.yaml",
@@ -1261,6 +1321,42 @@
       "context_length": 2048,
       "model_family": "smollm",
       "size_category": "small",
+      "recommended": false
+    },
+    {
+      "id": "recipes_smollm3_inference_3b_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_infer.yaml",
+      "relative_path": "recipes/smollm3/inference/3b_infer.yaml",
+      "display_name": "smollm3 - 3b",
+      "model_name": "HuggingFaceTB/SmolLM3-3B",
+      "engine": "NATIVE",
+      "context_length": 8192,
+      "model_family": "smollm3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_smollm3_inference_3b_gguf_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_gguf_infer.yaml",
+      "relative_path": "recipes/smollm3/inference/3b_gguf_infer.yaml",
+      "display_name": "smollm3 - 3b_gguf",
+      "model_name": "bartowski/HuggingFaceTB_SmolLM3-3B-GGUF",
+      "engine": "VLLM",
+      "context_length": 8192,
+      "model_family": "smollm3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_smollm3_inference_3b_vllm_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_vllm_infer.yaml",
+      "relative_path": "recipes/smollm3/inference/3b_vllm_infer.yaml",
+      "display_name": "smollm3 - 3b_vllm",
+      "model_name": "HuggingFaceTB/SmolLM3-3B",
+      "engine": "VLLM",
+      "context_length": 8192,
+      "model_family": "smollm3",
+      "size_category": "medium",
       "recommended": false
     },
     {

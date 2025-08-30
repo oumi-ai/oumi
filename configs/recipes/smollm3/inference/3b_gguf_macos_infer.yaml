@@ -20,6 +20,8 @@ model:
   trust_remote_code: True
   model_kwargs:
     filename: "HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf"
+    # Disable chat template to avoid Jinja2 parsing errors
+    chat_format: null
 
 generation:
   max_new_tokens: 2048
