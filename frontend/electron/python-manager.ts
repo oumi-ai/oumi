@@ -6,7 +6,9 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as net from 'net';
+import { app } from 'electron';
 import log from 'electron-log';
+import { PythonEnvironmentManager, EnvironmentInfo, SetupProgress } from './python-env-manager';
 
 export interface DownloadProgress {
   filename: string;
@@ -42,6 +44,10 @@ export class PythonServerManager {
   private isRunning: boolean = false;
   private downloadProgressCallback?: (progress: DownloadProgress) => void;
   private downloadErrorCallback?: (error: DownloadErrorEvent) => void;
+  private envManager: PythonEnvironmentManager;
+  private environmentInfo: EnvironmentInfo | null = null;
+  private isDevelopment: boolean;
+  private setupProgressCallback?: (progress: SetupProgress) => void;
 
   constructor(port: number = 9000, config: Partial<PythonServerConfig> = {}) {
     this.config = {
@@ -52,6 +58,11 @@ export class PythonServerManager {
       conda_env: 'oumi',
       ...config
     };
+    
+    this.envManager = new PythonEnvironmentManager();
+    this.isDevelopment = process.env.NODE_ENV === 'development' || !app.isPackaged;
+    
+    log.info(`[PythonServerManager] Running in ${this.isDevelopment ? 'development' : 'production'} mode`);
   }
 
   /**
@@ -70,6 +81,9 @@ export class PythonServerManager {
     this.isStarting = true;
     
     try {
+      // Ensure Python environment is ready
+      await this.ensurePythonEnvironment();
+      
       // Find available port
       this.config.port = await this.findAvailablePort(this.config.port);
       
@@ -195,20 +209,32 @@ export class PythonServerManager {
       oumiArgs.push('--system-prompt', `"${this.config.system_prompt}"`);
     }
 
-    // Build the full command with conda activation
-    const fullCommand = this.buildCondaCommand(oumiArgs);
+    // Build the full command with appropriate Python environment
+    const fullCommand = await this.buildPythonCommand(oumiArgs);
     
     log.info(`Starting Python server on port ${this.config.port}: ${fullCommand}`);
 
     return new Promise((resolve, reject) => {
-      // Use shell execution to handle conda activation
-      this.serverProcess = spawn('bash', ['-c', fullCommand], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          OUMI_LOG_LEVEL: 'INFO'
-        }
-      });
+      // Use shell execution to handle environment activation
+      if (process.platform === 'win32' && !this.isDevelopment) {
+        // Windows production: direct execution
+        this.serverProcess = spawn('cmd', ['/c', fullCommand], {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            OUMI_LOG_LEVEL: 'INFO'
+          }
+        });
+      } else {
+        // Unix-like or development: bash execution
+        this.serverProcess = spawn('bash', ['-c', fullCommand], {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            OUMI_LOG_LEVEL: 'INFO'
+          }
+        });
+      }
 
       // Handle process events
       this.serverProcess.on('error', (error) => {
@@ -364,7 +390,50 @@ export class PythonServerManager {
   }
 
   /**
-   * Build full conda activation command for oumi webchat
+   * Ensure Python environment is ready (standalone or development)
+   */
+  private async ensurePythonEnvironment(): Promise<void> {
+    if (this.isDevelopment) {
+      // In development, assume conda environment is available
+      log.info('[PythonServerManager] Development mode - using conda environment');
+      return;
+    }
+
+    // In production, check/setup standalone environment
+    log.info('[PythonServerManager] Production mode - checking standalone environment');
+    
+    this.environmentInfo = await this.envManager.checkEnvironment();
+    
+    if (!this.environmentInfo.isValid) {
+      log.info('[PythonServerManager] Environment needs setup');
+      
+      // Set up progress forwarding if callback is available
+      if (this.setupProgressCallback) {
+        this.envManager.setProgressCallback(this.setupProgressCallback);
+      }
+      
+      this.environmentInfo = await this.envManager.setupEnvironment();
+      log.info('[PythonServerManager] Environment setup completed');
+    } else {
+      log.info('[PythonServerManager] Using existing valid environment');
+    }
+  }
+
+  /**
+   * Build appropriate Python command based on environment
+   */
+  private async buildPythonCommand(oumiArgs: string[]): Promise<string> {
+    if (this.isDevelopment) {
+      // Development mode: use conda
+      return this.buildCondaCommand(oumiArgs);
+    } else {
+      // Production mode: use standalone environment
+      return this.buildStandaloneCommand(oumiArgs);
+    }
+  }
+
+  /**
+   * Build conda activation command for development
    */
   private buildCondaCommand(oumiArgs: string[]): string {
     const condaEnv = this.config.conda_env || 'oumi';
@@ -376,6 +445,21 @@ export class PythonServerManager {
       // macOS/Linux command - use the pattern from CLAUDE.md
       return `source ~/.zshrc && conda activate ${condaEnv} && oumi ${oumiArgs.join(' ')}`;
     }
+  }
+
+  /**
+   * Build standalone Python command for production
+   */
+  private buildStandaloneCommand(oumiArgs: string[]): string {
+    if (!this.environmentInfo?.isValid) {
+      throw new Error('Python environment not ready');
+    }
+
+    const pythonPath = this.environmentInfo.pythonPath;
+    const oumiCommand = `"${pythonPath}" -m oumi ${oumiArgs.join(' ')}`;
+    
+    log.info(`[PythonServerManager] Using standalone Python: ${pythonPath}`);
+    return oumiCommand;
   }
 
   /**
@@ -758,6 +842,49 @@ export class PythonServerManager {
    */
   public setDownloadErrorCallback(callback: (error: DownloadErrorEvent) => void): void {
     this.downloadErrorCallback = callback;
+  }
+
+  /**
+   * Set setup progress callback for environment setup
+   */
+  public setSetupProgressCallback(callback: (progress: SetupProgress) => void): void {
+    this.setupProgressCallback = callback;
+  }
+
+  /**
+   * Check if environment setup is needed
+   */
+  public async isEnvironmentSetupNeeded(): Promise<boolean> {
+    if (this.isDevelopment) {
+      return false; // Development uses conda
+    }
+    
+    const info = await this.envManager.checkEnvironment();
+    return !info.isValid;
+  }
+
+  /**
+   * Get environment info for display
+   */
+  public getEnvironmentInfo(): EnvironmentInfo | null {
+    return this.environmentInfo;
+  }
+
+  /**
+   * Get user data directory path
+   */
+  public getUserDataPath(): string {
+    return this.envManager.getUserDataPath();
+  }
+
+  /**
+   * Remove the Python environment (cleanup)
+   */
+  public async removeEnvironment(): Promise<void> {
+    if (!this.isDevelopment) {
+      await this.envManager.removeEnvironment();
+      this.environmentInfo = null;
+    }
   }
 
   /**

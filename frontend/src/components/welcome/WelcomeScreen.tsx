@@ -521,6 +521,14 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                 </p>
               </div>
               <DownloadProgressMonitor downloadState={downloadState} />
+              
+              {/* Python Environment Setup Progress */}
+              <PythonSetupProgress
+                isVisible={showEnvSetup}
+                onComplete={handleEnvSetupComplete}
+                onCancel={handleEnvSetupCancel}
+                onError={handleEnvSetupError}
+              />
             </div>
           ) : (
             /* Standard testing UI */

@@ -27,6 +27,12 @@ if [[ ! -d "node_modules" ]]; then
     npm install
 fi
 
+# Clean existing build artifacts
+if [[ -d "dist" ]]; then
+    echo "🧹 Removing existing dist directory..."
+    rm -rf dist
+fi
+
 # Generate static configs
 echo "⚙️ Generating static configs..."
 npm run generate-configs

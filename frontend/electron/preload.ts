@@ -90,6 +90,17 @@ export interface ElectronAPI {
     discoverBundled: () => Promise<any>;
   };
 
+  // Python environment setup
+  python: {
+    isSetupNeeded: () => Promise<boolean>;
+    getUserDataPath: () => Promise<string>;
+    cancelSetup: () => Promise<void>;
+    onSetupProgress: (callback: (progress: any) => void) => void;
+    offSetupProgress: (callback: (progress: any) => void) => void;
+    onSetupError: (callback: (error: string) => void) => void;
+    offSetupError: (callback: (error: string) => void) => void;
+  };
+
   // Platform information
   platform: {
     os: string;
@@ -224,6 +235,25 @@ const electronAPI: ElectronAPI = {
   // Config discovery
   config: {
     discoverBundled: () => ipcRenderer.invoke('config:discover-bundled')
+  },
+
+  // Python environment setup
+  python: {
+    isSetupNeeded: () => ipcRenderer.invoke('python:is-setup-needed'),
+    getUserDataPath: () => ipcRenderer.invoke('python:get-user-data-path'),
+    cancelSetup: () => ipcRenderer.invoke('python:cancel-setup'),
+    onSetupProgress: (callback: (progress: any) => void) => {
+      ipcRenderer.on('python:setup-progress', (_, progress) => callback(progress));
+    },
+    offSetupProgress: (callback: (progress: any) => void) => {
+      ipcRenderer.removeListener('python:setup-progress', callback);
+    },
+    onSetupError: (callback: (error: string) => void) => {
+      ipcRenderer.on('python:setup-error', (_, error) => callback(error));
+    },
+    offSetupError: (callback: (error: string) => void) => {
+      ipcRenderer.removeListener('python:setup-error', callback);
+    }
   },
 
   platform: {

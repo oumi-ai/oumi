@@ -334,6 +334,46 @@ class ElectronApiClient {
     return window.electronAPI.config.discoverBundled();
   }
 
+  // Python environment setup methods
+  public async isEnvironmentSetupNeeded(): Promise<boolean> {
+    if (!this.isElectron) return false;
+    return window.electronAPI.python.isSetupNeeded();
+  }
+
+  public async getPythonUserDataPath(): Promise<string> {
+    if (!this.isElectron) return '';
+    return window.electronAPI.python.getUserDataPath();
+  }
+
+  public async cancelPythonSetup(): Promise<void> {
+    if (!this.isElectron) return;
+    return window.electronAPI.python.cancelSetup();
+  }
+
+  public onSetupProgress(callback: (progress: any) => void): void {
+    if (this.isElectron) {
+      window.electronAPI.python.onSetupProgress(callback);
+    }
+  }
+
+  public offSetupProgress(callback: (progress: any) => void): void {
+    if (this.isElectron) {
+      window.electronAPI.python.offSetupProgress(callback);
+    }
+  }
+
+  public onSetupError(callback: (error: string) => void): void {
+    if (this.isElectron) {
+      window.electronAPI.python.onSetupError(callback);
+    }
+  }
+
+  public offSetupError(callback: (error: string) => void): void {
+    if (this.isElectron) {
+      window.electronAPI.python.offSetupError(callback);
+    }
+  }
+
   // Platform information
   public getPlatform(): { os: string; arch: string; version: string } {
     if (!this.isElectron) {

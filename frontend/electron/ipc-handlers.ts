@@ -32,6 +32,9 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
   // Config discovery handlers
   setupConfigHandlers();
   
+  // Python environment setup handlers
+  setupPythonEnvironmentHandlers(pythonManager);
+  
   log.info('IPC handlers set up successfully');
 }
 
@@ -650,6 +653,53 @@ function isRecommended(displayName: string, engine: string): boolean {
   if (eng === 'vllm' && !name.includes('gguf')) return true;
   
   return false;
+}
+
+/**
+ * Python environment setup handlers
+ */
+function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): void {
+  // Check if environment setup is needed
+  ipcMain.handle('python:is-setup-needed', async () => {
+    try {
+      const isNeeded = await pythonManager.isEnvironmentSetupNeeded();
+      return isNeeded;
+    } catch (error) {
+      log.error('Failed to check if Python setup is needed:', error);
+      return false;
+    }
+  });
+
+  // Get user data path
+  ipcMain.handle('python:get-user-data-path', async () => {
+    try {
+      return pythonManager.getUserDataPath();
+    } catch (error) {
+      log.error('Failed to get Python user data path:', error);
+      return '';
+    }
+  });
+
+  // Cancel setup
+  ipcMain.handle('python:cancel-setup', async () => {
+    try {
+      // Cancel setup through environment manager if possible
+      // This would need to be implemented in python-manager
+      log.info('Cancelling Python environment setup');
+    } catch (error) {
+      log.error('Failed to cancel Python setup:', error);
+    }
+  });
+
+  // Set up progress forwarding
+  pythonManager.setSetupProgressCallback((progress) => {
+    broadcastToRenderer('python:setup-progress', progress);
+  });
+
+  // Error events would be handled similarly
+  // Note: This assumes python-manager will have error callbacks added
+  
+  log.info('Python environment IPC handlers set up');
 }
 
 /**

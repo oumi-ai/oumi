@@ -13,15 +13,17 @@
     "start": "next start",
     "lint": "next lint",
     "generate-configs": "node scripts/generate-configs.js",
+    "download-python": "node scripts/download-python.js",
+    "prepare-python": "npm run download-python",
     "electron:compile": "tsc electron/*.ts --outDir dist/electron --target es2020 --module commonjs --moduleResolution node --esModuleInterop --allowSyntheticDefaultImports --skipLibCheck",
     "electron:dev": "npm run generate-configs && npm run electron:compile && concurrently \"npm run dev\" \"node scripts/wait-for-next.js\"",
-    "electron:pack": "npm run build:electron && npm run electron:compile && electron-builder",
-    "electron:dist": "npm run build:electron && npm run electron:compile && electron-builder --publish=never",
-    "electron:publish": "npm run build:electron && npm run electron:compile && electron-builder --publish=always",
-    "electron:build:mac": "npm run build:electron && npm run electron:compile && electron-builder --mac",
-    "electron:build:win": "npm run build:electron && npm run electron:compile && electron-builder --win",
-    "electron:build:linux": "npm run build:electron && npm run electron:compile && electron-builder --linux",
-    "electron:build:all": "npm run build:electron && npm run electron:compile && electron-builder --mac --win --linux",
+    "electron:pack": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder",
+    "electron:dist": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --publish=never",
+    "electron:publish": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --publish=always",
+    "electron:build:mac": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --mac",
+    "electron:build:win": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --win",
+    "electron:build:linux": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --linux",
+    "electron:build:all": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --mac --win --linux",
     "dist:mac": "npm run electron:build:mac",
     "dist:win": "npm run electron:build:win",
     "dist:linux": "npm run electron:build:linux",
@@ -94,6 +96,15 @@
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraResources": [
+      {
+        "from": "python-dist/",
+        "to": "python-dist/",
+        "filter": [
+          "**/*",
+          "!**/*.tar.gz",
+          "!**/temp-*"
+        ]
+      },
       {
         "from": "../src/oumi/",
         "to": "python/oumi/",
@@ -215,18 +226,9 @@
     },
     "appImage": {},
     "deb": {
-      "depends": [
-        "python3",
-        "python3-pip"
-      ],
       "category": "office"
     },
-    "rpm": {
-      "depends": [
-        "python3",
-        "python3-pip"
-      ]
-    },
+    "rpm": {},
     "publish": [
       {
         "provider": "github",
