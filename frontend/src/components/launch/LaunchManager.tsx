@@ -122,48 +122,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
         }
       }
 
-      // Step 4: Wait for any model downloads to complete
-      setInitProgress('Checking for model downloads...');
-      
-      // Give the server a moment to start any downloads
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // If we're in Electron, monitor for downloads
-      if (apiClient.isElectron && apiClient.isElectron()) {
-        // Wait for downloads to complete or timeout after 10 seconds if no downloads detected
-        const maxWaitTime = 10000; // 10 seconds
-        const startTime = Date.now();
-        
-        while (Date.now() - startTime < maxWaitTime) {
-          // If downloads are actively happening, wait for them to complete
-          if (downloadState.isDownloading) {
-            setInitProgress(`Downloading model files... ${downloadState.overallProgress.toFixed(1)}% complete`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            continue;
-          }
-          
-          // If we have completed downloads, we're done
-          if (downloadState.downloads.size > 0 && !downloadState.isDownloading) {
-            setInitProgress('Model download complete. Initializing chat interface...');
-            break;
-          }
-          
-          // Check if server is ready to handle API requests
-          try {
-            const healthResponse = await apiClient.health();
-            if (healthResponse.success) {
-              // Server is responding, no downloads detected, we can proceed
-              break;
-            }
-          } catch (err) {
-            // Server might still be busy, wait a bit more
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-      
-      // Final initialization step
+      // Step 4: Initialize app state
       setInitProgress('Initializing chat interface...');
       await new Promise(resolve => setTimeout(resolve, 1000));
 

@@ -252,6 +252,21 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
     };
   });
 
+  ipcMain.handle('server:test-model', async (_, configPath: string) => {
+    try {
+      log.info('Starting model test for config:', configPath);
+      const result = await pythonManager.testModel(configPath);
+      log.info('Model test result:', result);
+      return result;
+    } catch (error) {
+      log.error('Model test error:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Unknown error during model test'
+      };
+    }
+  });
+
   const getBaseUrl = () => pythonManager.getServerUrl();
 
   // Helper function to make HTTP requests to Python backend

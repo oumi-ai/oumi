@@ -31,6 +31,7 @@ export interface ElectronAPI {
     stop: () => Promise<any>;
     restart: () => Promise<any>;
     status: () => Promise<any>;
+    testModel: (configPath: string) => Promise<{ success: boolean; message?: string }>;
   };
 
   // Chat API operations (replacing HTTP calls)
@@ -125,7 +126,8 @@ const electronAPI: ElectronAPI = {
     start: (configPath?: string, systemPrompt?: string) => ipcRenderer.invoke('server:start', configPath, systemPrompt),
     stop: () => ipcRenderer.invoke('server:stop'),
     restart: () => ipcRenderer.invoke('server:restart'),
-    status: () => ipcRenderer.invoke('server:status')
+    status: () => ipcRenderer.invoke('server:status'),
+    testModel: (configPath: string) => ipcRenderer.invoke('server:test-model', configPath)
   },
 
   chat: {

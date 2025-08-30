@@ -57,6 +57,14 @@ class UnifiedApiClient {
     }
   }
 
+  async testModel(configPath: string): Promise<ApiResponse<{ success: boolean; message?: string }>> {
+    if (this.isElectron()) {
+      return this.electronClient.testModel(configPath);
+    } else {
+      return { success: true, data: { success: true, message: 'Model testing not available in web version' } };
+    }
+  }
+
   async getServerStatus(): Promise<ApiResponse> {
     if (this.isElectron()) {
       return this.electronClient.getServerStatus();

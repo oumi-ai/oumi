@@ -7,6 +7,8 @@
 import React from 'react';
 import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2, Save } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
+import DownloadProgressMonitor from '@/components/monitoring/DownloadProgressMonitor';
+import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
 
 interface ConfigOption {
   id: string;
@@ -43,6 +45,8 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   const [selectedEngine, setSelectedEngine] = React.useState<string>('all');
   const [selectedSize, setSelectedSize] = React.useState<string>('all');
   const [starting, setStarting] = React.useState(false);
+  const [testing, setTesting] = React.useState(false);
+  const [testProgress, setTestProgress] = React.useState('');
   
   // System prompt state
   const [showSystemPrompt, setShowSystemPrompt] = React.useState(false);
@@ -52,6 +56,16 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   
   // Welcome screen caching state
   const [enableWelcomeCaching, setEnableWelcomeCaching] = React.useState(false);
+  
+  // Download monitoring state
+  const [downloadState, setDownloadState] = React.useState<DownloadState>({
+    isDownloading: false,
+    downloads: new Map(),
+    overallProgress: 0,
+    totalFiles: 0,
+    completedFiles: 0,
+    hasError: false
+  });
 
   // System prompt presets
   const systemPromptPresets: SystemPromptPreset[] = [
@@ -116,7 +130,55 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   React.useEffect(() => {
     loadConfigs();
     loadWelcomeCachingPreference();
+    setupDownloadMonitoring();
   }, []);
+
+  // Set up download progress monitoring
+  const setupDownloadMonitoring = () => {
+    if (!apiClient.isElectron || !apiClient.isElectron()) return;
+
+    const handleDownloadProgress = (progress: DownloadProgress) => {
+      setDownloadState(prev => {
+        const newDownloads = new Map(prev.downloads);
+        newDownloads.set(progress.filename, progress);
+        
+        const completed = Array.from(newDownloads.values()).filter(d => d.isComplete).length;
+        const total = newDownloads.size;
+        const overall = total > 0 ? (completed / total) * 100 : 0;
+        
+        return {
+          ...prev,
+          isDownloading: total > completed,
+          downloads: newDownloads,
+          overallProgress: overall,
+          totalFiles: total,
+          completedFiles: completed,
+          hasError: false
+        };
+      });
+    };
+
+    const handleDownloadError = (error: DownloadErrorEvent) => {
+      setDownloadState(prev => ({
+        ...prev,
+        hasError: true,
+        errorMessage: error.message,
+        isDownloading: false
+      }));
+    };
+
+    // Add event listeners if electronAPI is available
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      window.electronAPI.onDownloadProgress(handleDownloadProgress);
+      window.electronAPI.onDownloadError(handleDownloadError);
+      
+      // Cleanup function
+      return () => {
+        window.electronAPI.removeDownloadProgressListener(handleDownloadProgress);
+        window.electronAPI.removeDownloadErrorListener(handleDownloadError);
+      };
+    }
+  };
 
   // Load current welcome caching preference
   const loadWelcomeCachingPreference = async () => {
@@ -217,19 +279,61 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   const handleStartChat = async () => {
     if (!selectedConfig) return;
     
-    setStarting(true);
+    const config = configs.find(c => c.id === selectedConfig);
+    if (!config) {
+      setError('Selected configuration not found');
+      return;
+    }
+
+    setTesting(true);
+    setTestProgress('Preparing model test...');
+    
     try {
       // Save welcome caching preference
       if (apiClient.isElectron && apiClient.isElectron()) {
         await apiClient.setStorageItem('enableWelcomeCaching', enableWelcomeCaching);
       }
+
+      // Reset download state
+      setDownloadState(prev => ({
+        ...prev,
+        hasError: false,
+        errorMessage: undefined
+      }));
+
+      setTestProgress('Testing model configuration...');
       
-      // Small delay for UI feedback
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Run model test to trigger download if needed
+      const testResult = await apiClient.testModel(config.config_path);
+      
+      if (!testResult.success) {
+        throw new Error(testResult.message || 'Model test failed');
+      }
+
+      if (!testResult.data?.success) {
+        throw new Error(testResult.data?.message || 'Model test did not complete successfully');
+      }
+
+      setTestProgress('Model test successful! Starting application...');
+      
+      // Wait a moment for user to see success message
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Now proceed to main application
+      setTesting(false);
+      setStarting(true);
       onConfigSelected(selectedConfig, systemPrompt.trim() || undefined);
+      
     } catch (err) {
-      setError('Failed to start with selected configuration');
-      setStarting(false);
+      console.error('Model test failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to test model configuration');
+      setTesting(false);
+      
+      // Reset download state on error
+      setDownloadState(prev => ({
+        ...prev,
+        isDownloading: false
+      }));
     }
   };
 
@@ -264,6 +368,48 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-6"></div>
           <h2 className="text-xl font-semibold mb-2 text-foreground">Starting Oumi Chat</h2>
           <p className="text-muted-foreground">Loading your selected model configuration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (testing) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="bg-card rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4">
+          {/* Show download progress if downloading */}
+          {downloadState.isDownloading || downloadState.downloads.size > 0 ? (
+            <div className="space-y-4">
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-semibold mb-2 text-foreground">Preparing Your Model</h2>
+                <p className="text-muted-foreground">
+                  We're downloading and testing the model to ensure it's ready for you.
+                </p>
+              </div>
+              <DownloadProgressMonitor downloadState={downloadState} />
+            </div>
+          ) : (
+            /* Standard testing UI */
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin mx-auto mb-6 text-primary" />
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Testing Model</h2>
+              <p className="text-muted-foreground mb-4">{testProgress}</p>
+              
+              {/* Progress indicator */}
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full transition-all duration-300 ease-out animate-pulse"
+                  style={{ width: '60%' }}
+                ></div>
+              </div>
+              
+              <div className="mt-4">
+                <p className="text-xs text-muted-foreground">
+                  This may take a few minutes if the model needs to be downloaded...
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -402,10 +548,20 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               </button>
               <button 
                 onClick={handleStartChat}
-                className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium flex items-center"
+                disabled={testing}
+                className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Start Chat
-                <ArrowRight className="w-5 h-5 ml-2" />
+                {testing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Testing Model...
+                  </>
+                ) : (
+                  <>
+                    Start Chat
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -39,6 +39,7 @@ declare global {
         stop: () => Promise<any>;
         restart: () => Promise<any>;
         status: () => Promise<any>;
+        testModel: (configPath: string) => Promise<{ success: boolean; message?: string }>;
       };
 
       // Chat API operations
@@ -162,6 +163,13 @@ class ElectronApiClient {
       throw new Error('Server control only available in Electron app');
     }
     return window.electronAPI.server.status();
+  }
+
+  public async testModel(configPath: string): Promise<ApiResponse<{ success: boolean; message?: string }>> {
+    if (!this.isElectron) {
+      throw new Error('Model testing only available in Electron app');
+    }
+    return window.electronAPI.server.testModel(configPath);
   }
 
   // File system methods

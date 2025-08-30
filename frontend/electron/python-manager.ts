@@ -461,6 +461,108 @@ export class PythonServerManager {
   }
 
   /**
+   * Run test inference to check if model is ready and trigger download if needed
+   */
+  public async testModel(configPath: string): Promise<{ success: boolean; message?: string }> {
+    log.info(`Testing model with config: ${configPath}`);
+
+    return new Promise((resolve, reject) => {
+      const testCommand = this.buildCondaCommand([
+        'infer',
+        '-c', `"${configPath}"`,
+        '--message', '"Hello world"',
+        '--max-new-tokens', '10'
+      ]);
+
+      log.info(`Running test command: ${testCommand}`);
+
+      const testProcess = spawn('bash', ['-c', testCommand], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          OUMI_LOG_LEVEL: 'INFO'
+        }
+      });
+
+      let hasCompleted = false;
+      let outputBuffer = '';
+
+      const cleanup = () => {
+        if (testProcess && !testProcess.killed) {
+          testProcess.kill('SIGTERM');
+        }
+      };
+
+      // Handle process completion
+      testProcess.on('exit', (code, signal) => {
+        if (hasCompleted) return;
+        hasCompleted = true;
+
+        log.info(`Test inference exited with code ${code}, signal ${signal}`);
+        
+        if (code === 0) {
+          resolve({ success: true, message: 'Model test successful' });
+        } else {
+          resolve({ success: false, message: `Model test failed with exit code ${code}` });
+        }
+      });
+
+      testProcess.on('error', (error) => {
+        if (hasCompleted) return;
+        hasCompleted = true;
+
+        log.error('Test inference process error:', error);
+        resolve({ success: false, message: `Process error: ${error.message}` });
+      });
+
+      // Monitor stdout for download progress and completion
+      if (testProcess.stdout) {
+        testProcess.stdout.on('data', (data) => {
+          const output = data.toString().trim();
+          outputBuffer += output + '\n';
+          
+          if (output) {
+            log.info(`[Test Inference] ${output}`);
+            
+            // Handle download progress during test
+            this.handleDownloadProgress(output);
+          }
+        });
+      }
+
+      // Monitor stderr for errors and download progress
+      if (testProcess.stderr) {
+        testProcess.stderr.on('data', (data) => {
+          const error = data.toString().trim();
+          outputBuffer += error + '\n';
+          
+          if (error) {
+            log.info(`[Test Inference Error] ${error}`);
+            
+            // Handle download progress that might appear in stderr
+            this.handleDownloadProgress(error);
+          }
+        });
+      }
+
+      // Set timeout for test inference (5 minutes should be enough)
+      const timeout = setTimeout(() => {
+        if (hasCompleted) return;
+        hasCompleted = true;
+
+        log.warn('Test inference timeout reached');
+        cleanup();
+        resolve({ success: false, message: 'Model test timed out' });
+      }, 300000); // 5 minutes
+
+      // Clean up timeout when process completes
+      testProcess.on('exit', () => {
+        clearTimeout(timeout);
+      });
+    });
+  }
+
+  /**
    * Get server logs (if available)
    */
   public getLogs(): string[] {
