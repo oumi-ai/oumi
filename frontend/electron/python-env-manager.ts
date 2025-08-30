@@ -460,6 +460,7 @@ export class PythonEnvironmentManager {
     // Determine appropriate extras based on system capabilities
     const extras = await this.getRequiredExtras();
     log.info(`[PythonEnvManager] Selected extras: ${extras.join(', ')}`);
+    await this.reportProgress('oumi', 70, `Installing Oumi with extras: ${extras.join(', ')}...`);
 
     return new Promise((resolve, reject) => {
       
@@ -471,10 +472,13 @@ export class PythonEnvironmentManager {
       const packageSpec = extras.length > 0 
         ? `${oumiSourcePath}[${extras.join(',')}]`  // Install with extras
         : oumiSourcePath;                            // Install without extras
+      
+      log.info(`[PythonEnvManager] Installing: ${packageSpec}`);
         
       const installProcess = spawn(uvPath, [
         'pip', 'install', 
-        '-e', packageSpec
+        '-e', packageSpec,
+        '-v'  // Verbose output to get more progress info
       ], {
         stdio: 'pipe',
         env: {
@@ -487,15 +491,38 @@ export class PythonEnvironmentManager {
       this.setupProcess = installProcess;
       let stderr = '';
       let stdout = '';
+      let installedPackages = 0;
       
       installProcess.stdout?.on('data', (data) => {
         const output = data.toString();
         stdout += output;
-        log.info(`[PythonEnvManager] Install: ${output.trim()}`);
+        
+        // Log all output
+        const lines = output.trim().split('\n');
+        lines.forEach(async (line: string) => {
+          if (line.trim()) {
+            log.info(`[PythonEnvManager] Install: ${line.trim()}`);
+            
+            // Parse installation progress
+            await this.parseInstallationProgress(line, installedPackages);
+          }
+        });
       });
       
       installProcess.stderr?.on('data', (data) => {
-        stderr += data.toString();
+        const output = data.toString();
+        stderr += output;
+        
+        // Log stderr and look for progress info there too
+        const lines = output.trim().split('\n');
+        lines.forEach(async (line: string) => {
+          if (line.trim()) {
+            log.info(`[PythonEnvManager] Install stderr: ${line.trim()}`);
+            
+            // Parse installation progress from stderr too
+            await this.parseInstallationProgress(line, installedPackages);
+          }
+        });
       });
 
       installProcess.on('close', (code) => {
@@ -514,6 +541,49 @@ export class PythonEnvironmentManager {
         reject(error);
       });
     });
+  }
+
+  /**
+   * Parse installation progress from uv output and report to UI
+   */
+  private async parseInstallationProgress(line: string, installedPackages: number): Promise<void> {
+    try {
+      // Look for package download/install patterns
+      if (line.includes('Downloading') && line.includes('(')) {
+        const packageMatch = line.match(/Downloading\s+([^\s]+)/);
+        if (packageMatch) {
+          const packageName = packageMatch[1];
+          await this.reportProgress('oumi', 75 + (installedPackages * 2), `Downloading ${packageName}...`);
+        }
+      } else if (line.includes('Installing') && line.includes('(')) {
+        const packageMatch = line.match(/Installing\s+([^\s]+)/);
+        if (packageMatch) {
+          const packageName = packageMatch[1];
+          installedPackages++;
+          await this.reportProgress('oumi', 75 + (installedPackages * 2), `Installing ${packageName}...`);
+        }
+      } else if (line.includes('Collecting')) {
+        const packageMatch = line.match(/Collecting\s+([^\s]+)/);
+        if (packageMatch) {
+          const packageName = packageMatch[1];
+          await this.reportProgress('oumi', 70 + (installedPackages * 1), `Resolving dependencies for ${packageName}...`);
+        }
+      } else if (line.includes('Building wheel')) {
+        const packageMatch = line.match(/Building wheel.*?for\s+([^\s]+)/);
+        if (packageMatch) {
+          const packageName = packageMatch[1];
+          await this.reportProgress('oumi', 80 + (installedPackages * 1), `Building ${packageName}...`);
+        }
+      } else if (line.includes('Successfully installed')) {
+        await this.reportProgress('oumi', 85, 'Installation completed, verifying packages...');
+      } else if (line.toLowerCase().includes('resolving') || line.toLowerCase().includes('downloading')) {
+        // Generic progress for any resolving/downloading activity
+        await this.reportProgress('oumi', 72, 'Resolving package dependencies...');
+      }
+    } catch (error) {
+      // Don't let progress parsing errors fail the installation
+      log.warn('[PythonEnvManager] Error parsing installation progress:', error);
+    }
   }
 
   /**

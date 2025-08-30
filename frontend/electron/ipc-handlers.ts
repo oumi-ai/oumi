@@ -14,28 +14,42 @@ const store = new Store();
  * Set up all IPC handlers
  */
 export function setupIpcHandlers(pythonManager: PythonServerManager): void {
-  // App control handlers
-  setupAppHandlers();
+  log.info('Setting up IPC handlers - starting...');
   
-  // File system handlers
-  setupFileHandlers();
-  
-  // Storage handlers
-  setupStorageHandlers();
-  
-  // Chat API handlers (proxy to Python backend)
-  setupChatHandlers(pythonManager);
-  
-  // Download progress handlers
-  setupDownloadHandlers(pythonManager);
-  
-  // Config discovery handlers
-  setupConfigHandlers();
-  
-  // Python environment setup handlers
-  setupPythonEnvironmentHandlers(pythonManager);
-  
-  log.info('IPC handlers set up successfully');
+  try {
+    // App control handlers
+    log.info('Setting up app handlers...');
+    setupAppHandlers();
+    
+    // File system handlers
+    log.info('Setting up file handlers...');
+    setupFileHandlers();
+    
+    // Storage handlers
+    log.info('Setting up storage handlers...');
+    setupStorageHandlers();
+    
+    // Chat API handlers (proxy to Python backend)
+    log.info('Setting up chat handlers...');
+    setupChatHandlers(pythonManager);
+    
+    // Download progress handlers
+    log.info('Setting up download handlers...');
+    setupDownloadHandlers(pythonManager);
+    
+    // Config discovery handlers
+    log.info('Setting up config handlers...');
+    setupConfigHandlers();
+    
+    // Python environment setup handlers
+    log.info('Setting up Python environment handlers...');
+    setupPythonEnvironmentHandlers(pythonManager);
+    
+    log.info('IPC handlers set up successfully');
+  } catch (error) {
+    log.error('Error setting up IPC handlers:', error);
+    throw error;
+  }
 }
 
 /**

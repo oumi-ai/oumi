@@ -27,6 +27,7 @@ const store = new Store({
 
 class ChatterleyApp {
   private mainWindow: BrowserWindow | null = null;
+  private setupWindow: BrowserWindow | null = null;
   private pythonManager: PythonServerManager | null = null;
   private isDevelopment: boolean;
 
@@ -82,35 +83,36 @@ class ChatterleyApp {
       
       log.info('Python server manager initialized - checking environment setup');
       
-      // Ensure Python environment is set up on first launch
-      try {
-        const isSetupNeeded = await this.pythonManager.isEnvironmentSetupNeeded();
-        if (isSetupNeeded) {
-          log.info('Python environment setup needed - building environment on first launch');
-          // This will trigger the environment setup before the UI is fully ready
+      // Check if Python environment setup is needed
+      const isSetupNeeded = await this.pythonManager.isEnvironmentSetupNeeded();
+      
+      if (isSetupNeeded) {
+        log.info('Python environment setup needed - showing setup screen');
+        
+        // Show setup progress window BEFORE environment setup
+        this.createSetupWindow();
+        
+        // Set up IPC handlers for setup progress communication
+        this.setupSetupIpcHandlers();
+        
+        // Perform environment setup
+        try {
+          log.info('Starting Python environment setup...');
           await this.pythonManager.rebuildEnvironment();
-          log.info('Python environment setup completed on first launch');
-        } else {
-          log.info('Python environment already exists and is valid');
+          log.info('Python environment setup completed successfully');
+          
+          // Close setup window and proceed to main application
+          this.closeSetupWindow();
+          await this.initializeMainApplication();
+          
+        } catch (error) {
+          log.error('Failed to set up Python environment:', error);
+          this.showSetupError(error instanceof Error ? error.message : 'Unknown error occurred during setup');
+          return;
         }
-      } catch (error) {
-        log.error('Failed to set up Python environment on first launch:', error);
-        // Don't fail the app launch, but log the error
-      }
-
-      // Create main window
-      this.createMainWindow();
-
-      // Set up IPC handlers
-      setupIpcHandlers(this.pythonManager);
-
-      // Create application menu
-      const menu = createApplicationMenu(this.mainWindow!);
-      Menu.setApplicationMenu(menu);
-
-      // Check for updates in production
-      if (!this.isDevelopment) {
-        setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 2000);
+      } else {
+        log.info('Python environment already exists and is valid - proceeding to main app');
+        await this.initializeMainApplication();
       }
 
     } catch (error) {
@@ -120,6 +122,30 @@ class ChatterleyApp {
         'Failed to start Chatterley. Please check the logs and try again.'
       );
       app.quit();
+    }
+  }
+
+  private async initializeMainApplication(): Promise<void> {
+    // Create main window
+    this.createMainWindow();
+
+    // Set up IPC handlers
+    log.info('About to set up IPC handlers...');
+    try {
+      setupIpcHandlers(this.pythonManager!);
+      log.info('IPC handlers setup completed successfully');
+    } catch (error) {
+      log.error('Failed to set up IPC handlers:', error);
+      throw error;
+    }
+
+    // Create application menu
+    const menu = createApplicationMenu(this.mainWindow!);
+    Menu.setApplicationMenu(menu);
+
+    // Check for updates in production
+    if (!this.isDevelopment) {
+      setTimeout(() => autoUpdater.checkForUpdatesAndNotify(), 2000);
     }
   }
 
@@ -299,6 +325,126 @@ class ChatterleyApp {
       case 'reset':
         webContents.setZoomLevel(0);
         break;
+    }
+  }
+
+  private createSetupWindow(): void {
+    this.setupWindow = new BrowserWindow({
+      width: 600,
+      height: 400,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'preload.js'),
+        webSecurity: !this.isDevelopment
+      },
+      titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+      icon: this.getAppIcon()
+    });
+
+    // Create a simple setup page
+    const setupHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Setting up Chatterley</title>
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+          }
+          .setup-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+          }
+          h1 { color: #333; margin-bottom: 20px; }
+          .progress { color: #666; margin-bottom: 30px; }
+          .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007AFF;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+          }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          .error { color: #d32f2f; margin-top: 20px; display: none; }
+          .details { font-size: 14px; color: #888; margin-top: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="setup-container">
+          <h1>Setting up Chatterley</h1>
+          <div class="spinner"></div>
+          <div class="progress" id="progress">Preparing Python environment...</div>
+          <div class="details" id="details">This may take a few minutes on first launch.</div>
+          <div class="error" id="error"></div>
+        </div>
+        <script>
+          window.electronAPI.python.onSetupProgress((progress) => {
+            document.getElementById('progress').textContent = progress.message;
+          });
+          
+          window.electronAPI.python.onSetupError((error) => {
+            document.querySelector('.spinner').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = 'Setup failed: ' + error;
+          });
+        </script>
+      </body>
+      </html>
+    `;
+
+    this.setupWindow.loadURL(`data:text/html;charset=UTF-8,${encodeURIComponent(setupHtml)}`);
+    
+    this.setupWindow.once('ready-to-show', () => {
+      this.setupWindow?.show();
+    });
+
+    this.setupWindow.on('closed', () => {
+      this.setupWindow = null;
+    });
+  }
+
+  private closeSetupWindow(): void {
+    if (this.setupWindow) {
+      this.setupWindow.close();
+      this.setupWindow = null;
+    }
+  }
+
+  private showSetupError(message: string): void {
+    if (this.setupWindow) {
+      this.setupWindow.webContents.send('python:setup-error', message);
+    }
+  }
+
+  private setupSetupIpcHandlers(): void {
+    // Set up progress forwarding for the setup window
+    if (this.pythonManager) {
+      this.pythonManager.setSetupProgressCallback((progress) => {
+        if (this.setupWindow) {
+          this.setupWindow.webContents.send('python:setup-progress', progress);
+        }
+      });
     }
   }
 
