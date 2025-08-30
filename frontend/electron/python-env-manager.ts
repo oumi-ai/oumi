@@ -67,12 +67,24 @@ export class PythonEnvironmentManager {
       
     const pythonDist = path.join(resourcesPath, 'python-dist');
     
-    // Find the Python executable
+    // Platform-specific directory structure
     const platform = process.platform;
-    if (platform === 'win32') {
-      return path.join(pythonDist, 'python.exe');
+    const arch = process.arch;
+    
+    let platformDir: string;
+    if (platform === 'darwin') {
+      platformDir = `darwin-${arch}`; // darwin-arm64, darwin-x64
+    } else if (platform === 'win32') {
+      platformDir = `win32-${arch}`;  // win32-x64
     } else {
-      return path.join(pythonDist, 'bin', 'python3');
+      platformDir = `linux-${arch}`;  // linux-x64
+    }
+    
+    // Find the Python executable in the platform-specific directory
+    if (platform === 'win32') {
+      return path.join(pythonDist, platformDir, 'python.exe');
+    } else {
+      return path.join(pythonDist, platformDir, 'bin', 'python');
     }
   }
 
@@ -372,25 +384,97 @@ export class PythonEnvironmentManager {
   }
 
   /**
+   * Determine required extras based on system capabilities
+   */
+  private async getRequiredExtras(): Promise<string[]> {
+    const extras: string[] = [];
+    
+    // Always include llama_cpp
+    extras.push('llama_cpp');
+    
+    try {
+      // Detect system capabilities
+      const systemInfo = await SystemDetector.detectSystem();
+      
+      if (systemInfo.cudaAvailable && systemInfo.cudaDevices.length > 0) {
+        // CUDA is available - include GPU and quantization extras
+        extras.push('gpu', 'quantization');
+        log.info(`[PythonEnvManager] CUDA detected: ${systemInfo.cudaDevices.length} device(s) - including GPU extras`);
+      } else {
+        // No CUDA available
+        log.info('[PythonEnvManager] No CUDA detected - CPU-only installation');
+        
+        // For Windows and Linux without CUDA, include ci_cpu
+        if (systemInfo.platform === 'win32' || systemInfo.platform === 'linux') {
+          extras.push('ci_cpu');
+          log.info('[PythonEnvManager] Including ci_cpu extras for Windows/Linux CPU-only installation');
+        }
+      }
+      
+    } catch (error) {
+      log.warn('[PythonEnvManager] System detection failed, using safe defaults:', error);
+      // If system detection fails, use conservative approach
+      // (llama_cpp already added above)
+      
+      // Add ci_cpu for Windows/Linux as a safe fallback
+      if (process.platform === 'win32' || process.platform === 'linux') {
+        extras.push('ci_cpu');
+      }
+    }
+    
+    return extras;
+  }
+
+  /**
    * Install Oumi and dependencies using uv
    */
   private async installOumiDependencies(pythonPath: string, envPath: string): Promise<void> {
+    // Get path to bundled oumi source
+    const resourcesPath = app.isPackaged 
+      ? process.resourcesPath 
+      : path.join(__dirname, '../..');  // In development, use project root
+    const oumiSourcePath = app.isPackaged
+      ? path.join(resourcesPath, 'python', 'oumi')  // In packaged app: resources/python/oumi/
+      : path.join(__dirname, '../../..');           // In development: project root (has pyproject.toml)
+    
+    log.info(`[PythonEnvManager] Resource path: ${resourcesPath}`);
+    log.info(`[PythonEnvManager] Oumi source path: ${oumiSourcePath}`);
+    
+    // Verify the path exists
+    if (!fs.existsSync(oumiSourcePath)) {
+      const errorMsg = `Oumi source path does not exist: ${oumiSourcePath}`;
+      log.error(`[PythonEnvManager] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    
+    // Verify pyproject.toml exists
+    const pyprojectPath = path.join(oumiSourcePath, 'pyproject.toml');
+    if (!fs.existsSync(pyprojectPath)) {
+      const errorMsg = `pyproject.toml not found at: ${pyprojectPath}`;
+      log.error(`[PythonEnvManager] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    
+    log.info(`[PythonEnvManager] Found pyproject.toml at: ${pyprojectPath}`);
+    
+    // Determine appropriate extras based on system capabilities
+    const extras = await this.getRequiredExtras();
+    log.info(`[PythonEnvManager] Selected extras: ${extras.join(', ')}`);
+
     return new Promise((resolve, reject) => {
-      // Get path to bundled oumi source
-      const resourcesPath = app.isPackaged 
-        ? process.resourcesPath 
-        : path.join(__dirname, '../..');
-      const oumiSourcePath = path.join(resourcesPath, 'python', 'oumi');
       
-      // Use uv to install oumi in development mode with all dependencies
+      // Use uv to install oumi in development mode with appropriate extras
       const uvPath = process.platform === 'win32' 
         ? path.join(envPath, 'Scripts', 'uv.exe')
         : path.join(envPath, 'bin', 'uv');
         
+      const packageSpec = extras.length > 0 
+        ? `${oumiSourcePath}[${extras.join(',')}]`  // Install with extras
+        : oumiSourcePath;                            // Install without extras
+        
       const installProcess = spawn(uvPath, [
         'pip', 'install', 
-        '-e', oumiSourcePath,  // Install in development mode from bundled source
-        '--extra', 'gpu'       // Install GPU dependencies
+        '-e', packageSpec
       ], {
         stdio: 'pipe',
         env: {

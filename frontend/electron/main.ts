@@ -80,7 +80,23 @@ class ChatterleyApp {
       const pythonPort = (store as any).get('pythonPort') || 9000;
       this.pythonManager = new PythonServerManager(pythonPort);
       
-      log.info('Python server manager initialized - server will start when config is selected');
+      log.info('Python server manager initialized - checking environment setup');
+      
+      // Ensure Python environment is set up on first launch
+      try {
+        const isSetupNeeded = await this.pythonManager.isEnvironmentSetupNeeded();
+        if (isSetupNeeded) {
+          log.info('Python environment setup needed - building environment on first launch');
+          // This will trigger the environment setup before the UI is fully ready
+          await this.pythonManager.rebuildEnvironment();
+          log.info('Python environment setup completed on first launch');
+        } else {
+          log.info('Python environment already exists and is valid');
+        }
+      } catch (error) {
+        log.error('Failed to set up Python environment on first launch:', error);
+        // Don't fail the app launch, but log the error
+      }
 
       // Create main window
       this.createMainWindow();

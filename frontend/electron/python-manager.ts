@@ -392,22 +392,16 @@ export class PythonServerManager {
   }
 
   /**
-   * Ensure Python environment is ready (standalone or development)
+   * Ensure Python environment is ready (always use bundled Python + venv)
    */
   private async ensurePythonEnvironment(): Promise<void> {
-    if (this.isDevelopment) {
-      // In development, assume conda environment is available
-      log.info('[PythonServerManager] Development mode - using conda environment');
-      return;
-    }
-
-    // In production, check/setup standalone environment
-    log.info('[PythonServerManager] Production mode - checking standalone environment');
+    // Always use the bundled Python environment, regardless of development/production mode
+    log.info('[PythonServerManager] Checking standalone environment with bundled Python');
     
     this.environmentInfo = await this.envManager.checkEnvironment();
     
     if (!this.environmentInfo.isValid) {
-      log.info('[PythonServerManager] Environment needs setup');
+      log.info('[PythonServerManager] Environment needs setup - will use bundled Python');
       
       // Set up progress forwarding if callback is available
       if (this.setupProgressCallback) {
@@ -436,16 +430,11 @@ export class PythonServerManager {
   }
 
   /**
-   * Build appropriate Python command based on environment
+   * Build appropriate Python command using the standalone environment
    */
   private async buildPythonCommand(oumiArgs: string[]): Promise<string> {
-    if (this.isDevelopment) {
-      // Development mode: use conda
-      return this.buildCondaCommand(oumiArgs);
-    } else {
-      // Production mode: use standalone environment
-      return this.buildStandaloneCommand(oumiArgs);
-    }
+    // Always use standalone environment (bundled Python + venv)
+    return this.buildStandaloneCommand(oumiArgs);
   }
 
   /**
@@ -574,33 +563,37 @@ export class PythonServerManager {
   public async testModel(configPath: string): Promise<{ success: boolean; message?: string }> {
     log.info(`Testing model with config: ${configPath}`);
 
-    return new Promise((resolve, reject) => {
-      // Create temporary input and output files for non-interactive mode
-      const tempInputPath = path.join(__dirname, 'temp_test_input.jsonl');
-      const tempOutputPath = path.join(__dirname, 'temp_test_output.jsonl');
-      const testInput = JSON.stringify({
-        messages: [
-          { role: "user", content: "Hello world" }
-        ]
-      });
+    // Create temporary input and output files for non-interactive mode
+    const tempInputPath = path.join(__dirname, 'temp_test_input.jsonl');
+    const tempOutputPath = path.join(__dirname, 'temp_test_output.jsonl');
+    const testInput = JSON.stringify({
+      messages: [
+        { role: "user", content: "Hello world" }
+      ]
+    });
+    
+    // Network monitoring state
+    let networkMonitorInterval: NodeJS.Timeout | null = null;
+    let lastNetworkStats = { bytesReceived: 0, totalReceived: 0 };
+    let isDownloading = false;
+    
+    try {
+      // Ensure Python environment is ready before testing
+      await this.ensurePythonEnvironment();
       
-      // Network monitoring state
-      let networkMonitorInterval: NodeJS.Timeout | null = null;
-      let lastNetworkStats = { bytesReceived: 0, totalReceived: 0 };
-      let isDownloading = false;
+      // Write test input file
+      require('fs').writeFileSync(tempInputPath, testInput);
       
-      try {
-        // Write test input file
-        require('fs').writeFileSync(tempInputPath, testInput);
-        
-        const testCommand = this.buildCondaCommand([
-          'infer',
-          '-c', `"${configPath}"`,
-          '--input_path', `"${tempInputPath}"`,
-          '--output_path', `"${tempOutputPath}"`
-        ]);
+      const testCommand = await this.buildPythonCommand([
+        'infer',
+        '-c', `"${configPath}"`,
+        '--input_path', `"${tempInputPath}"`,
+        '--output_path', `"${tempOutputPath}"`
+      ]);
 
-        log.info(`Running test command: ${testCommand}`);
+      log.info(`Running test command: ${testCommand}`);
+
+      return new Promise((resolve, reject) => {
 
         const testProcess = spawn('bash', ['-c', testCommand], {
           stdio: ['pipe', 'pipe', 'pipe'],
@@ -830,12 +823,13 @@ export class PythonServerManager {
         clearTimeout(timeout);
       });
       
-      } catch (error) {
-        log.error('Error setting up test inference:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        resolve({ success: false, message: `Setup error: ${errorMessage}` });
-      }
-    });
+      });
+      
+    } catch (error) {
+      log.error('Error setting up test inference:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, message: `Setup error: ${errorMessage}` };
+    }
   }
 
   /**
@@ -871,10 +865,7 @@ export class PythonServerManager {
    * Check if environment setup is needed
    */
   public async isEnvironmentSetupNeeded(): Promise<boolean> {
-    if (this.isDevelopment) {
-      return false; // Development uses conda
-    }
-    
+    // Always check the bundled Python environment
     const info = await this.envManager.checkEnvironment();
     return !info.isValid;
   }
@@ -897,10 +888,9 @@ export class PythonServerManager {
    * Remove the Python environment (cleanup)
    */
   public async removeEnvironment(): Promise<void> {
-    if (!this.isDevelopment) {
-      await this.envManager.removeEnvironment();
-      this.environmentInfo = null;
-    }
+    // Always manage the bundled Python environment
+    await this.envManager.removeEnvironment();
+    this.environmentInfo = null;
   }
 
   /**
@@ -1006,11 +996,7 @@ export class PythonServerManager {
         await this.stop();
       }
 
-      if (this.isDevelopment) {
-        // In development mode, we don't manage the environment
-        log.info('[PythonServerManager] Development mode - environment rebuild not needed');
-        return true;
-      }
+      // Always manage the bundled Python environment
 
       // Force rebuild the standalone environment
       log.info('[PythonServerManager] Rebuilding standalone environment');
