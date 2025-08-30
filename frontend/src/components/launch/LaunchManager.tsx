@@ -122,7 +122,48 @@ export default function LaunchManager({}: LaunchManagerProps) {
         }
       }
 
-      // Step 4: Initialize app state
+      // Step 4: Wait for any model downloads to complete
+      setInitProgress('Checking for model downloads...');
+      
+      // Give the server a moment to start any downloads
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // If we're in Electron, monitor for downloads
+      if (apiClient.isElectron && apiClient.isElectron()) {
+        // Wait for downloads to complete or timeout after 10 seconds if no downloads detected
+        const maxWaitTime = 10000; // 10 seconds
+        const startTime = Date.now();
+        
+        while (Date.now() - startTime < maxWaitTime) {
+          // If downloads are actively happening, wait for them to complete
+          if (downloadState.isDownloading) {
+            setInitProgress(`Downloading model files... ${downloadState.overallProgress.toFixed(1)}% complete`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          
+          // If we have completed downloads, we're done
+          if (downloadState.downloads.size > 0 && !downloadState.isDownloading) {
+            setInitProgress('Model download complete. Initializing chat interface...');
+            break;
+          }
+          
+          // Check if server is ready to handle API requests
+          try {
+            const healthResponse = await apiClient.health();
+            if (healthResponse.success) {
+              // Server is responding, no downloads detected, we can proceed
+              break;
+            }
+          } catch (err) {
+            // Server might still be busy, wait a bit more
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+      
+      // Final initialization step
       setInitProgress('Initializing chat interface...');
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -247,22 +288,22 @@ export default function LaunchManager({}: LaunchManagerProps) {
     
     case 'initializing':
       return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4">
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4">
             {/* Show download progress if downloading */}
             {downloadState.isDownloading || downloadState.downloads.size > 0 ? (
               <DownloadProgressMonitor downloadState={downloadState} />
             ) : (
               /* Standard initialization UI */
               <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-6 text-blue-600" />
-                <h2 className="text-xl font-semibold mb-2">Initializing Oumi Chat</h2>
-                <p className="text-gray-600 mb-4">{initProgress}</p>
+                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-6 text-primary" />
+                <h2 className="text-xl font-semibold mb-2 text-foreground">Initializing Oumi Chat</h2>
+                <p className="text-muted-foreground mb-4">{initProgress}</p>
                 
                 {/* Progress indicator */}
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                    className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
                     style={{ 
                       width: launchState === 'initializing' ? '60%' : '0%'
                     }}
@@ -276,13 +317,13 @@ export default function LaunchManager({}: LaunchManagerProps) {
 
     case 'error':
       return (
-        <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-100 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
             <AlertTriangle className="w-12 h-12 mx-auto mb-6 text-red-500" />
             <h2 className="text-xl font-semibold mb-2 text-red-700">Initialization Failed</h2>
-            <p className="text-gray-600 mb-2">{error?.message}</p>
+            <p className="text-muted-foreground mb-2">{error?.message}</p>
             {error?.details && (
-              <p className="text-sm text-gray-500 mb-6 bg-gray-50 p-3 rounded">
+              <p className="text-sm text-muted-foreground mb-6 bg-muted p-3 rounded">
                 {error.details}
               </p>
             )}
@@ -291,14 +332,14 @@ export default function LaunchManager({}: LaunchManagerProps) {
               {error?.canRetry && (
                 <button 
                   onClick={handleRetryLaunch}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
                 >
                   Retry
                 </button>
               )}
               <button 
                 onClick={handleBackToWelcome}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1 px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-accent transition-colors"
               >
                 Back to Welcome
               </button>
@@ -312,10 +353,10 @@ export default function LaunchManager({}: LaunchManagerProps) {
 
     default:
       return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-            <p className="text-gray-600">Loading...</p>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="bg-card rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading...</p>
           </div>
         </div>
       );

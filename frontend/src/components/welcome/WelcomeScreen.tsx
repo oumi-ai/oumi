@@ -249,21 +249,21 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
 
   const getSizeColor = (size: string) => {
     switch (size) {
-      case 'small': return 'text-green-600 bg-green-100';
-      case 'medium': return 'text-blue-600 bg-blue-100';
-      case 'large': return 'text-orange-600 bg-orange-100';
-      case 'xl': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'small': return 'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20';
+      case 'medium': return 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20';
+      case 'large': return 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20';
+      case 'xl': return 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
   if (starting) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
-          <h2 className="text-xl font-semibold mb-2">Starting Oumi Chat</h2>
-          <p className="text-gray-600">Loading your selected model configuration...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="bg-card rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-6"></div>
+          <h2 className="text-xl font-semibold mb-2 text-foreground">Starting Oumi Chat</h2>
+          <p className="text-muted-foreground">Loading your selected model configuration...</p>
         </div>
       </div>
     );
@@ -274,31 +274,31 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     const config = configs.find(c => c.id === selectedConfig);
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
+      <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <MessageSquare className="w-12 h-12 text-purple-600 mr-3" />
-              <h1 className="text-4xl font-bold text-gray-900">Customize Your AI</h1>
+              <MessageSquare className="w-12 h-12 text-primary mr-3" />
+              <h1 className="text-4xl font-bold text-foreground">Customize Your AI</h1>
             </div>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Choose how your AI assistant should behave. You can use a preset or create your own system prompt.
             </p>
           </div>
 
           <div className="max-w-4xl mx-auto">
             {/* Selected Config Summary */}
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-xl font-semibold mb-2">Selected Model</h2>
+            <div className="bg-card rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-2 text-foreground">Selected Model</h2>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-medium text-gray-900">{config?.display_name}</h3>
-                  <p className="text-sm text-gray-600">{config?.model_name}</p>
+                  <h3 className="font-medium text-foreground">{config?.display_name}</h3>
+                  <p className="text-sm text-muted-foreground">{config?.model_name}</p>
                 </div>
                 <button 
                   onClick={handleBackToModels}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  className="text-primary hover:opacity-80 text-sm font-medium"
                 >
                   Change Model
                 </button>
@@ -307,26 +307,26 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Preset Selection */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-semibold mb-4">Choose a Preset</h2>
+              <div className="bg-card rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-semibold mb-4 text-foreground">Choose a Preset</h2>
                 <div className="space-y-3">
                   {systemPromptPresets.map((preset) => (
                     <div 
                       key={preset.id}
                       className={`p-4 border rounded-lg cursor-pointer transition-all ${
                         selectedPreset === preset.id 
-                          ? 'border-purple-500 bg-purple-50' 
-                          : 'border-gray-200 hover:border-purple-300'
+                          ? 'border-primary bg-accent' 
+                          : 'border-border hover:border-primary'
                       }`}
                       onClick={() => setSelectedPreset(preset.id)}
                     >
                       <div className="flex items-start space-x-3">
-                        <div className="flex-shrink-0 text-purple-600">
+                        <div className="flex-shrink-0 text-primary">
                           {preset.icon}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-gray-900">{preset.name}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{preset.description}</p>
+                          <h3 className="font-medium text-foreground">{preset.name}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">{preset.description}</p>
                         </div>
                       </div>
                     </div>
@@ -335,10 +335,10 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               </div>
 
               {/* Custom System Prompt */}
-              <div className="bg-white rounded-lg shadow-lg p-6">
+              <div className="bg-card rounded-lg shadow-lg p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">System Prompt</h2>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <h2 className="text-xl font-semibold text-foreground">System Prompt</h2>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                     {systemPrompt.length} characters
                   </span>
                 </div>
@@ -350,12 +350,12 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                     setSelectedPreset('custom');
                   }}
                   placeholder="Enter a custom system prompt to define how your AI assistant should behave..."
-                  className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
+                  className="w-full h-64 p-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none text-input-foreground placeholder:text-muted-foreground"
                 />
                 
                 <div className="mt-4 space-y-2">
-                  <h4 className="font-medium text-gray-900">Tips:</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
+                  <h4 className="font-medium text-foreground">Tips:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• Be specific about the AI's role and expertise</li>
                     <li>• Include desired tone (formal, casual, friendly, etc.)</li>
                     <li>• Mention any constraints or guidelines</li>
@@ -367,24 +367,24 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
 
             {/* Welcome Screen Caching Option */}
             {apiClient.isElectron && apiClient.isElectron() && (
-              <div className="mt-6 bg-white rounded-lg shadow-lg p-6">
+              <div className="mt-6 bg-card rounded-lg shadow-lg p-6">
                 <div className="flex items-start space-x-3">
                   <input 
                     type="checkbox" 
                     id="enableWelcomeCaching"
                     checked={enableWelcomeCaching}
                     onChange={(e) => setEnableWelcomeCaching(e.target.checked)}
-                    className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    className="mt-1 h-4 w-4 text-primary focus:ring-primary border-border rounded"
                   />
                   <div className="flex-1">
                     <label htmlFor="enableWelcomeCaching" className="flex items-center cursor-pointer">
-                      <Save className="w-4 h-4 text-purple-600 mr-2" />
-                      <span className="font-medium text-gray-900">Remember my choices</span>
+                      <Save className="w-4 h-4 text-primary mr-2" />
+                      <span className="font-medium text-foreground">Remember my choices</span>
                     </label>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Skip the welcome screens and automatically use your saved configuration next time you open the app.
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       You can always change this setting in the File menu or by adding ?welcome=true to the URL.
                     </p>
                   </div>
@@ -396,13 +396,13 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
             <div className="mt-8 flex justify-center space-x-4">
               <button 
                 onClick={handleBackToModels}
-                className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                className="px-6 py-3 bg-muted text-foreground rounded-lg hover:bg-accent transition-colors font-medium"
               >
                 ← Back to Models
               </button>
               <button 
                 onClick={handleStartChat}
-                className="px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center"
+                className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium flex items-center"
               >
                 Start Chat
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -415,15 +415,15 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Bot className="w-12 h-12 text-blue-600 mr-3" />
-            <h1 className="text-4xl font-bold text-gray-900">Oumi Chat</h1>
+            <Bot className="w-12 h-12 text-primary mr-3" />
+            <h1 className="text-4xl font-bold text-foreground">Oumi Chat</h1>
           </div>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Welcome to Oumi Chat Desktop. Select a model configuration to get started with your AI conversations.
           </p>
         </div>
@@ -431,18 +431,18 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         {/* Content */}
         <div className="max-w-6xl mx-auto">
           {loading ? (
-            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-              <p className="text-gray-600">Loading available configurations...</p>
+            <div className="bg-card rounded-lg shadow-lg p-8 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Loading available configurations...</p>
             </div>
           ) : error ? (
-            <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="bg-card rounded-lg shadow-lg p-8 text-center">
               <AlertCircle className="w-8 h-8 mx-auto mb-4 text-red-500" />
               <h3 className="text-lg font-semibold mb-2 text-red-700">Error Loading Configurations</h3>
-              <p className="text-gray-600 mb-4">{error}</p>
+              <p className="text-muted-foreground mb-4">{error}</p>
               <button 
                 onClick={loadConfigs}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
               >
                 Retry
               </button>
@@ -450,17 +450,17 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
           ) : (
             <>
               {/* Filters */}
-              <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <div className="bg-card rounded-lg shadow-lg p-6 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Search */}
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="text"
                       placeholder="Search models..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full pl-10 pr-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-input-foreground placeholder:text-muted-foreground"
                     />
                   </div>
 
@@ -468,7 +468,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                   <select
                     value={selectedEngine}
                     onChange={(e) => setSelectedEngine(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-input-foreground"
                   >
                     <option value="all">All Engines</option>
                     <option value="native">Native (CPU/GPU)</option>
@@ -480,7 +480,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                   <select
                     value={selectedSize}
                     onChange={(e) => setSelectedSize(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-input-foreground"
                   >
                     <option value="all">All Sizes</option>
                     <option value="small">Small (1-3B)</option>
@@ -496,7 +496,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                 {filteredConfigs.map((config) => (
                   <div 
                     key={config.id}
-                    className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer relative"
+                    className="bg-card rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer relative"
                     onClick={() => handleConfigSelect(config.id)}
                   >
                     {config.recommended && (
@@ -508,7 +508,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center">
                         {getEngineIcon(config.engine)}
-                        <span className="ml-2 text-sm font-medium text-gray-600 uppercase">
+                        <span className="ml-2 text-sm font-medium text-muted-foreground uppercase">
                           {config.engine}
                         </span>
                       </div>
@@ -517,20 +517,20 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                    <h3 className="text-lg font-semibold mb-2 text-foreground">
                       {config.display_name}
                     </h3>
                     
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       {config.model_name}
                     </p>
 
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                       <span>Context: {config.context_length.toLocaleString()}</span>
                       <span className="capitalize">{config.model_family}</span>
                     </div>
 
-                    <div className="flex items-center text-blue-600 hover:text-blue-700">
+                    <div className="flex items-center text-primary hover:opacity-80">
                       <span className="text-sm font-medium">Select this model</span>
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </div>
@@ -539,8 +539,8 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               </div>
 
               {filteredConfigs.length === 0 && (
-                <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-                  <p className="text-gray-600">No configurations match your filters. Try adjusting your search criteria.</p>
+                <div className="bg-card rounded-lg shadow-lg p-8 text-center">
+                  <p className="text-muted-foreground">No configurations match your filters. Try adjusting your search criteria.</p>
                 </div>
               )}
             </>

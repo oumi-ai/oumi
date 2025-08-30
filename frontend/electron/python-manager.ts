@@ -232,7 +232,7 @@ export class PythonServerManager {
           if (output) {
             log.info(`[Python Server] ${output}`);
             
-            // Handle download progress if present
+            // Handle download progress if present (both during startup and after)
             this.handleDownloadProgress(output);
             
             // Check for startup success indicators
@@ -255,7 +255,7 @@ export class PythonServerManager {
           if (error) {
             log.error(`[Python Server Error] ${error}`);
             
-            // Handle download progress/errors that might appear in stderr
+            // Handle download progress/errors that might appear in stderr (both during startup and after)
             this.handleDownloadProgress(error);
           }
         });
