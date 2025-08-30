@@ -1,7 +1,7 @@
 {
-  "generated_at": "2025-08-30T01:19:20.017Z",
+  "generated_at": "2025-08-30T02:39:14.724Z",
   "version": "1.0",
-  "total_configs": 108,
+  "total_configs": 124,
   "configs": [
     {
       "id": "projects_coalm_8b_infer",
@@ -52,6 +52,18 @@
       "recommended": true
     },
     {
+      "id": "recipes_gemma3_inference_270m_it_gguf_macos_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_gguf_macos_infer.yaml",
+      "relative_path": "recipes/gemma3/inference/270m_it_gguf_macos_infer.yaml",
+      "display_name": "gemma3 - 270m_it_gguf_macos",
+      "model_name": "bartowski/google_gemma-3-270m-it-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 8192,
+      "model_family": "gemma3",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
       "id": "recipes_gemma3_inference_3n_e4b_it_gguf_macos_infer",
       "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/3n_e4b_it_gguf_macos_infer.yaml",
       "relative_path": "recipes/gemma3/inference/3n_e4b_it_gguf_macos_infer.yaml",
@@ -73,6 +85,18 @@
       "context_length": 8192,
       "model_family": "glm4",
       "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_gguf_macos_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
+      "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
+      "display_name": "gpt_oss - 20b_huihui_abliterated_gguf_macos",
+      "model_name": "bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 131072,
+      "model_family": "gpt_oss",
+      "size_category": "large",
       "recommended": true
     },
     {
@@ -168,6 +192,30 @@
       "engine": "VLLM",
       "context_length": 2048,
       "model_family": "llama4",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_mistral_magistral_inference_small_2507_gguf_macos_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_gguf_macos_infer.yaml",
+      "relative_path": "recipes/mistral_magistral/inference/small_2507_gguf_macos_infer.yaml",
+      "display_name": "mistral_magistral - small_2507_gguf_macos",
+      "model_name": "bartowski/mistralai_Magistral-Small-2507-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 32768,
+      "model_family": "mistral_magistral",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_nemotron_nano_inference_9b_gguf_macos_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_gguf_macos_infer.yaml",
+      "relative_path": "recipes/nemotron_nano/inference/9b_gguf_macos_infer.yaml",
+      "display_name": "nemotron_nano - 9b_gguf_macos",
+      "model_name": "bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 4096,
+      "model_family": "nemotron_nano",
       "size_category": "medium",
       "recommended": true
     },
@@ -520,6 +568,42 @@
       "recommended": false
     },
     {
+      "id": "recipes_gemma3_inference_270m_it_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_infer.yaml",
+      "relative_path": "recipes/gemma3/inference/270m_it_infer.yaml",
+      "display_name": "gemma3 - 270m_it",
+      "model_name": "google/gemma-3-270m-it",
+      "engine": "NATIVE",
+      "context_length": 8192,
+      "model_family": "gemma3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_gemma3_inference_270m_it_gguf_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_gguf_infer.yaml",
+      "relative_path": "recipes/gemma3/inference/270m_it_gguf_infer.yaml",
+      "display_name": "gemma3 - 270m_it_gguf",
+      "model_name": "bartowski/google_gemma-3-270m-it-GGUF",
+      "engine": "VLLM",
+      "context_length": 8192,
+      "model_family": "gemma3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_gemma3_inference_270m_it_vllm_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_vllm_infer.yaml",
+      "relative_path": "recipes/gemma3/inference/270m_it_vllm_infer.yaml",
+      "display_name": "gemma3 - 270m_it_vllm",
+      "model_name": "google/gemma-3-270m-it",
+      "engine": "VLLM",
+      "context_length": 8192,
+      "model_family": "gemma3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
       "id": "recipes_gemma3_inference_3n_e4b_it_infer",
       "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/3n_e4b_it_infer.yaml",
       "relative_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
@@ -622,6 +706,42 @@
       "display_name": "gpt_oss - 20b",
       "model_name": "openai/gpt-oss-20b",
       "engine": "NATIVE",
+      "context_length": 131072,
+      "model_family": "gpt_oss",
+      "size_category": "large",
+      "recommended": false
+    },
+    {
+      "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_infer.yaml",
+      "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_infer.yaml",
+      "display_name": "gpt_oss - 20b_huihui_abliterated",
+      "model_name": "huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated",
+      "engine": "NATIVE",
+      "context_length": 131072,
+      "model_family": "gpt_oss",
+      "size_category": "large",
+      "recommended": false
+    },
+    {
+      "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_gguf_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_infer.yaml",
+      "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_infer.yaml",
+      "display_name": "gpt_oss - 20b_huihui_abliterated_gguf",
+      "model_name": "bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF",
+      "engine": "VLLM",
+      "context_length": 131072,
+      "model_family": "gpt_oss",
+      "size_category": "large",
+      "recommended": false
+    },
+    {
+      "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_vllm_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_vllm_infer.yaml",
+      "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_vllm_infer.yaml",
+      "display_name": "gpt_oss - 20b_huihui_abliterated_vllm",
+      "model_name": "huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated",
+      "engine": "VLLM",
       "context_length": 131072,
       "model_family": "gpt_oss",
       "size_category": "large",
@@ -804,6 +924,78 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "llama3_3",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_mistral_magistral_inference_small_2507_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_infer.yaml",
+      "relative_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
+      "display_name": "mistral_magistral - small_2507",
+      "model_name": "mistralai/Magistral-Small-2507",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "mistral_magistral",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_mistral_magistral_inference_small_2507_gguf_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_gguf_infer.yaml",
+      "relative_path": "recipes/mistral_magistral/inference/small_2507_gguf_infer.yaml",
+      "display_name": "mistral_magistral - small_2507_gguf",
+      "model_name": "bartowski/mistralai_Magistral-Small-2507-GGUF",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "mistral_magistral",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_mistral_magistral_inference_small_2507_vllm_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_vllm_infer.yaml",
+      "relative_path": "recipes/mistral_magistral/inference/small_2507_vllm_infer.yaml",
+      "display_name": "mistral_magistral - small_2507_vllm",
+      "model_name": "mistralai/Magistral-Small-2507",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "mistral_magistral",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_nemotron_nano_inference_9b_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_infer.yaml",
+      "relative_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
+      "display_name": "nemotron_nano - 9b",
+      "model_name": "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+      "engine": "NATIVE",
+      "context_length": 4096,
+      "model_family": "nemotron_nano",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_nemotron_nano_inference_9b_gguf_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_gguf_infer.yaml",
+      "relative_path": "recipes/nemotron_nano/inference/9b_gguf_infer.yaml",
+      "display_name": "nemotron_nano - 9b_gguf",
+      "model_name": "bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF",
+      "engine": "VLLM",
+      "context_length": 4096,
+      "model_family": "nemotron_nano",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_nemotron_nano_inference_9b_vllm_infer",
+      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_vllm_infer.yaml",
+      "relative_path": "recipes/nemotron_nano/inference/9b_vllm_infer.yaml",
+      "display_name": "nemotron_nano - 9b_vllm",
+      "model_name": "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+      "engine": "VLLM",
+      "context_length": 4096,
+      "model_family": "nemotron_nano",
       "size_category": "medium",
       "recommended": false
     },
