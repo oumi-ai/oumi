@@ -8,6 +8,8 @@ import React from 'react';
 import WelcomeScreen from '@/components/welcome/WelcomeScreen';
 import AppLayout from '@/components/layout/AppLayout';
 import DownloadProgressMonitor from '@/components/monitoring/DownloadProgressMonitor';
+import ErrorDialog from '@/components/ui/ErrorDialog';
+import useErrorHandler from '@/hooks/useErrorHandler';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
@@ -27,6 +29,14 @@ export default function LaunchManager({}: LaunchManagerProps) {
   const [selectedConfig, setSelectedConfig] = React.useState<string | null>(null);
   const [error, setError] = React.useState<LaunchError | null>(null);
   const [initProgress, setInitProgress] = React.useState<string>('Preparing...');
+  
+  // Error handling
+  const { 
+    currentError, 
+    showServerError, 
+    showNetworkError,
+    clearError 
+  } = useErrorHandler();
   const [downloadState, setDownloadState] = React.useState<DownloadState>({
     isDownloading: false,
     downloads: new Map(),
@@ -81,12 +91,15 @@ export default function LaunchManager({}: LaunchManagerProps) {
         }
       }
       
-      // Wait for backend to be ready
+      // Wait for backend to be ready with exponential backoff
       setInitProgress('Connecting to backend server...');
-      let attempts = 0;
-      const maxAttempts = 30; // 15 seconds max
+      const startTime = Date.now();
+      const maxWaitTime = 60000; // 60 seconds total
+      let attempt = 0;
+      let delay = 200; // Start with 200ms delay
+      const maxDelay = 2000; // Cap at 2 seconds
       
-      while (attempts < maxAttempts) {
+      while (Date.now() - startTime < maxWaitTime) {
         try {
           const healthResponse = await apiClient.health();
           if (healthResponse.success) {
@@ -96,15 +109,20 @@ export default function LaunchManager({}: LaunchManagerProps) {
           // Continue trying
         }
         
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (attempts < maxAttempts) {
-          setInitProgress(`Connecting to backend server... (${attempts}/${maxAttempts})`);
+        // Update progress every few attempts
+        if (attempt % 5 === 0) {
+          const elapsed = Math.floor((Date.now() - startTime) / 1000);
+          setInitProgress(`Connecting to backend server... (${elapsed}s elapsed)`);
         }
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        attempt++;
+        
+        // Exponential backoff with jitter
+        delay = Math.min(maxDelay, delay * 1.3 + Math.random() * 100);
       }
 
-      if (attempts >= maxAttempts) {
+      if (Date.now() - startTime >= maxWaitTime) {
         throw new Error('Backend server failed to respond within timeout period');
       }
 
@@ -131,12 +149,38 @@ export default function LaunchManager({}: LaunchManagerProps) {
       
     } catch (err) {
       console.error('Launch initialization error:', err);
-      setError({
-        message: 'Failed to initialize Oumi Chat',
-        details: err instanceof Error ? err.message : 'Unknown error occurred',
-        canRetry: true
-      });
-      setLaunchState('error');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      
+      // Determine the type of error and show appropriate dialog
+      if (errorMessage.includes('Failed to start server')) {
+        showServerError(
+          errorMessage,
+          () => {
+            clearError();
+            handleRetryLaunch();
+          },
+          () => {
+            clearError();
+            setLaunchState('welcome');
+          }
+        );
+      } else if (errorMessage.includes('Backend server failed to respond')) {
+        showNetworkError(
+          errorMessage,
+          () => {
+            clearError();
+            handleRetryLaunch();
+          }
+        );
+      } else {
+        // Generic error
+        setError({
+          message: 'Failed to initialize Oumi Chat',
+          details: errorMessage,
+          canRetry: true
+        });
+        setLaunchState('error');
+      }
     }
   };
 
@@ -243,12 +287,18 @@ export default function LaunchManager({}: LaunchManagerProps) {
   // Render based on launch state
   switch (launchState) {
     case 'welcome':
-      return <WelcomeScreen onConfigSelected={handleConfigSelected} />;
+      return (
+        <>
+          <WelcomeScreen onConfigSelected={handleConfigSelected} />
+          <ErrorDialog error={currentError} onClose={clearError} />
+        </>
+      );
     
     case 'initializing':
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="bg-card rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4">
+        <>
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="bg-card rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4">
             {/* Show download progress if downloading */}
             {downloadState.isDownloading || downloadState.downloads.size > 0 ? (
               <DownloadProgressMonitor downloadState={downloadState} />
@@ -270,8 +320,10 @@ export default function LaunchManager({}: LaunchManagerProps) {
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </div>
+          <ErrorDialog error={currentError} onClose={clearError} />
+        </>
       );
 
     case 'error':
@@ -308,7 +360,12 @@ export default function LaunchManager({}: LaunchManagerProps) {
       );
 
     case 'ready':
-      return <AppLayout />;
+      return (
+        <>
+          <AppLayout />
+          <ErrorDialog error={currentError} onClose={clearError} />
+        </>
+      );
 
     default:
       return (

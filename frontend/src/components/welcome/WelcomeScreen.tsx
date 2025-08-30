@@ -8,6 +8,8 @@ import React from 'react';
 import { Bot, Search, Zap, Settings, ArrowRight, Loader2, AlertCircle, CheckCircle2, MessageSquare, Wand2, BookOpen, Heart, Briefcase, Code, Gamepad2, Save } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import DownloadProgressMonitor from '@/components/monitoring/DownloadProgressMonitor';
+import ErrorDialog from '@/components/ui/ErrorDialog';
+import useErrorHandler from '@/hooks/useErrorHandler';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
 
 interface ConfigOption {
@@ -56,6 +58,15 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   
   // Welcome screen caching state
   const [enableWelcomeCaching, setEnableWelcomeCaching] = React.useState(false);
+  
+  // Error handling
+  const { 
+    currentError, 
+    showModelTestError, 
+    showConfigError, 
+    showDownloadError,
+    clearError 
+  } = useErrorHandler();
   
   // Download monitoring state
   const [downloadState, setDownloadState] = React.useState<DownloadState>({
@@ -225,7 +236,15 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         throw new Error('Invalid configuration format');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load configurations');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load configurations';
+      
+      showConfigError(
+        errorMessage,
+        () => {
+          clearError();
+          loadConfigs();
+        }
+      );
     } finally {
       setLoading(false);
     }
@@ -326,7 +345,8 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       
     } catch (err) {
       console.error('Model test failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to test model configuration');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to test model configuration';
+      
       setTesting(false);
       
       // Reset download state on error
@@ -334,6 +354,22 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         ...prev,
         isDownloading: false
       }));
+
+      // Show informative error dialog with retry options
+      showModelTestError(
+        errorMessage,
+        () => {
+          // Retry the test
+          clearError();
+          handleStartChat();
+        },
+        () => {
+          // Go back to model selection
+          clearError();
+          setShowSystemPrompt(false);
+          setSelectedConfig(null);
+        }
+      );
     }
   };
 
@@ -703,6 +739,9 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
           )}
         </div>
       </div>
+      
+      {/* Error Dialog */}
+      <ErrorDialog error={currentError} onClose={clearError} />
     </div>
   );
 }

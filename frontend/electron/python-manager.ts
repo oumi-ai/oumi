@@ -261,46 +261,54 @@ export class PythonServerManager {
         });
       }
 
-      // Timeout for server startup - try health check as fallback
+      // Shorter timeout for process startup - let waitForServer handle health checking
       setTimeout(async () => {
         if (!hasResolved) {
-          log.info('Server startup timeout reached, checking health endpoint...');
-          
-          // Try health check as fallback
-          const isHealthy = await this.healthCheck();
-          if (isHealthy) {
-            log.info('Server is responding to health check, considering it started');
-            hasResolved = true;
-            resolve();
-          } else {
-            reject(new Error('Python server startup timeout - not responding to health checks'));
-          }
+          log.info('Process startup timeout reached, proceeding to health checks...');
+          hasResolved = true;
+          resolve(); // Let waitForServer handle the health checking with proper backoff
         }
-      }, this.config.timeout);
+      }, 5000); // Reduced to 5 seconds
     });
   }
 
   /**
-   * Wait for server to be ready by checking health endpoint
+   * Wait for server to be ready by checking health endpoint with exponential backoff
    */
   private async waitForServer(): Promise<string> {
-    const maxAttempts = 60; // 30 seconds with 500ms intervals
-    let attempts = 0;
-
-    while (attempts < maxAttempts) {
+    const startTime = Date.now();
+    const maxWaitTime = 60000; // Maximum 60 seconds total
+    let attempt = 0;
+    let delay = 100; // Start with 100ms delay
+    const maxDelay = 2000; // Cap delay at 2 seconds
+    
+    log.info('Starting health checks for server readiness...');
+    
+    while (Date.now() - startTime < maxWaitTime) {
       try {
         const isHealthy = await this.healthCheck();
         if (isHealthy) {
+          const totalTime = Date.now() - startTime;
+          log.info(`Server ready in ${totalTime}ms after ${attempt + 1} health check attempts`);
           return this.getServerUrl();
         }
       } catch (error) {
         // Continue trying
       }
-
-      await this.sleep(500);
-      attempts++;
+      
+      // Log progress every 5 seconds
+      if (attempt % Math.max(1, Math.floor(5000 / delay)) === 0 && attempt > 0) {
+        const elapsed = Date.now() - startTime;
+        log.info(`Still waiting for server (${elapsed}ms elapsed, attempt ${attempt + 1})`);
+      }
+      
+      await this.sleep(delay);
+      attempt++;
+      
+      // Exponential backoff with jitter
+      delay = Math.min(maxDelay, delay * 1.5 + Math.random() * 100);
     }
-
+    
     throw new Error('Server health check failed - server may not have started properly');
   }
 
