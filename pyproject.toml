@@ -178,8 +178,6 @@ file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
 
 llama_cpp = ["llama-cpp-python>=0.3.5,<0.4"]
 
-file_formats = ["pdf2image>=1.17,<1.18", "python-poppler>=0.4,<0.5"]
-
 interactive = [
     "prompt_toolkit>=3.0.51",
     "asciinema>=2.4.0",    # Terminal recording for /render() command
