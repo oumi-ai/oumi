@@ -26,6 +26,13 @@ class UnifiedApiClient {
   }
 
   /**
+   * Alias for isElectron() to match component expectations
+   */
+  public isElectronApp(): boolean {
+    return this.electronClient.isElectronApp();
+  }
+
+  /**
    * Get the appropriate client based on environment
    */
   private getClient() {
@@ -418,6 +425,15 @@ class UnifiedApiClient {
   updateBaseUrl(newBaseUrl: string): void {
     if (!this.isElectron()) {
       this.webClient.updateBaseUrl(newBaseUrl);
+    }
+  }
+
+  // Config discovery methods (Electron-specific)
+  async discoverBundledConfigs(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.discoverBundledConfigs();
+    } else {
+      return { success: false, error: 'Config discovery not available in web version' };
     }
   }
 }
