@@ -1,9 +1,8 @@
-import type { NextConfig } from "next";
-
 const isDev = process.env.NODE_ENV === 'development';
 const isElectron = process.env.ELECTRON_BUILD === 'true';
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Enable static export for Electron builds
   output: isElectron ? 'export' : undefined,
   
@@ -17,15 +16,31 @@ const nextConfig: NextConfig = {
   // Asset prefix for Electron
   assetPrefix: isElectron && !isDev ? './' : undefined,
   
-  // Webpack configuration
-  webpack: (config, { isServer }) => {
-    // Handle Electron-specific modules
-    if (!isServer && isElectron) {
+  // Webpack configuration for Electron compatibility
+  webpack: (config, { isServer, webpack }) => {
+    // Electron-specific webpack configuration
+    if (isElectron && !isServer) {
+      // Set the correct target for Electron renderer process
       config.target = 'electron-renderer';
-    }
-    
-    // Fix global is not defined error
-    if (!isServer) {
+      
+      // Fix global is not defined error for Electron
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          global: 'globalThis',
+          'process.env.ELECTRON': JSON.stringify(true),
+          'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+        })
+      );
+
+      // Add Node.js polyfills for Electron renderer
+      config.plugins.push(
+        new webpack.ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
+        })
+      );
+    } else if (!isServer) {
+      // Web-specific configuration (when not Electron)
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
@@ -38,15 +53,14 @@ const nextConfig: NextConfig = {
         https: false,
         url: false,
         zlib: false,
+        buffer: false,
+        util: false,
       };
       
-      // Fix global is not defined error
-      const webpack = require('webpack');
-      
-      // Use webpack's DefinePlugin to replace all instances of 'global' with 'globalThis'
       config.plugins.push(
         new webpack.DefinePlugin({
           global: 'globalThis',
+          'process.env.ELECTRON': JSON.stringify(false),
         })
       );
     }
@@ -88,4 +102,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;

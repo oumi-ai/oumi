@@ -14,6 +14,7 @@ export interface ElectronAPI {
     toggleDevTools: () => void;
     toggleFullScreen: () => void;
     zoom: (direction: 'in' | 'out' | 'reset') => void;
+    hideLoadingScreen: () => Promise<{ success: boolean; message: string }>;
   };
 
   // File system operations
@@ -96,6 +97,7 @@ export interface ElectronAPI {
     getUserDataPath: () => Promise<string>;
     cancelSetup: () => Promise<void>;
     rebuildEnvironment: () => Promise<{ success: boolean; message: string }>;
+    removeEnvironment: () => Promise<{ success: boolean; message: string }>;
     getSystemChangeInfo: () => Promise<any>;
     getEnvironmentSystemInfo: () => Promise<any>;
     onSetupProgress: (callback: (progress: any) => void) => void;
@@ -130,7 +132,8 @@ const electronAPI: ElectronAPI = {
     reload: () => ipcRenderer.send('app:reload'),
     toggleDevTools: () => ipcRenderer.send('app:toggle-dev-tools'),
     toggleFullScreen: () => ipcRenderer.send('app:toggle-full-screen'),
-    zoom: (direction) => ipcRenderer.send('app:zoom', direction)
+    zoom: (direction) => ipcRenderer.send('app:zoom', direction),
+    hideLoadingScreen: () => ipcRenderer.invoke('app:hide-loading-screen')
   },
 
   files: {
@@ -246,6 +249,7 @@ const electronAPI: ElectronAPI = {
     getUserDataPath: () => ipcRenderer.invoke('python:get-user-data-path'),
     cancelSetup: () => ipcRenderer.invoke('python:cancel-setup'),
     rebuildEnvironment: () => ipcRenderer.invoke('python:rebuild-environment'),
+    removeEnvironment: () => ipcRenderer.invoke('python:remove-environment'),
     getSystemChangeInfo: () => ipcRenderer.invoke('python:get-system-change-info'),
     getEnvironmentSystemInfo: () => ipcRenderer.invoke('python:get-environment-system-info'),
     onSetupProgress: (callback: (progress: any) => void) => {
@@ -272,7 +276,8 @@ const electronAPI: ElectronAPI = {
 
   // Menu message handlers
   onMenuMessage: (channel: string, callback: (...args: any[]) => void) => {
-    ipcRenderer.on(channel, callback);
+    const wrappedCallback = (_: IpcRendererEvent, ...args: any[]) => callback(...args);
+    ipcRenderer.on(channel, wrappedCallback);
   },
 
   removeMenuListener: (channel: string, callback: (...args: any[]) => void) => {

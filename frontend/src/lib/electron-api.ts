@@ -355,6 +355,11 @@ class ElectronApiClient {
     return window.electronAPI.python.rebuildEnvironment();
   }
 
+  public async removeEnvironment(): Promise<{ success: boolean; message: string }> {
+    if (!this.isElectron) return { success: false, message: 'Remove environment not available in web version' };
+    return window.electronAPI.python.removeEnvironment();
+  }
+
   public async getSystemChangeInfo(): Promise<{ hasChanged: boolean; changes: string[]; shouldRebuild: boolean } | null> {
     if (!this.isElectron) return null;
     return window.electronAPI.python.getSystemChangeInfo();

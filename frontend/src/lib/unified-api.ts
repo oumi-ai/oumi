@@ -468,6 +468,14 @@ class UnifiedApiClient {
     }
   }
 
+  async removeEnvironment(): Promise<{ success: boolean; message: string }> {
+    if (this.isElectron()) {
+      return this.electronClient.removeEnvironment();
+    } else {
+      return { success: false, message: 'Remove environment not available in web version' };
+    }
+  }
+
   async getSystemChangeInfo(): Promise<{ hasChanged: boolean; changes: string[]; shouldRebuild: boolean } | null> {
     if (this.isElectron()) {
       return this.electronClient.getSystemChangeInfo();

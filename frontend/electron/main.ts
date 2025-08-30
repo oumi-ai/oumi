@@ -78,7 +78,7 @@ class ChatterleyApp {
   private async onReady(): Promise<void> {
     try {
       // Initialize Python server manager (but don't start server yet)
-      const pythonPort = (store as any).get('pythonPort') || 9000;
+      const pythonPort = store.get('pythonPort') || 9000;
       this.pythonManager = new PythonServerManager(pythonPort);
       
       log.info('Python server manager initialized - checking environment setup');
@@ -150,7 +150,7 @@ class ChatterleyApp {
   }
 
   private createMainWindow(): void {
-    const bounds = (store as any).get('windowBounds') as { width: number; height: number };
+    const bounds = store.get('windowBounds') as { width: number; height: number };
 
     this.mainWindow = new BrowserWindow({
       width: bounds.width,
@@ -160,8 +160,11 @@ class ChatterleyApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        sandbox: false,
         preload: path.join(__dirname, 'preload.js'),
-        webSecurity: !this.isDevelopment
+        webSecurity: !this.isDevelopment,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: false
       },
       titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
       show: false, // Don't show until ready
@@ -218,7 +221,7 @@ class ChatterleyApp {
     // Save window bounds on resize
     this.mainWindow.on('resize', () => {
       if (this.mainWindow) {
-        (store as any).set('windowBounds', this.mainWindow.getBounds());
+        store.set('windowBounds', this.mainWindow.getBounds());
       }
     });
 

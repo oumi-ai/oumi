@@ -21,6 +21,29 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
     log.info('Setting up app handlers...');
     setupAppHandlers();
     
+    // Loading screen control
+    ipcMain.handle('app:hide-loading-screen', async () => {
+      log.info('Hiding loading screen - React is ready');
+      // Find the main window and execute JavaScript to hide loading screen
+      const { BrowserWindow } = require('electron');
+      const windows = BrowserWindow.getAllWindows();
+      const mainWindow = windows.find((win: any) => !win.isDestroyed());
+      if (mainWindow) {
+        await mainWindow.webContents.executeJavaScript(`
+          const loadingScreen = document.getElementById('electron-loading-screen');
+          if (loadingScreen) {
+            loadingScreen.style.transition = 'opacity 0.3s ease-out';
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 300);
+          }
+        `);
+        return { success: true, message: 'Loading screen hidden' };
+      }
+      return { success: false, message: 'Main window not found' };
+    });
+    
     // File system handlers
     log.info('Setting up file handlers...');
     setupFileHandlers();
@@ -734,6 +757,18 @@ function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): voi
     } catch (error) {
       log.error('Failed to get environment system info:', error);
       return null;
+    }
+  });
+
+  // Remove environment
+  ipcMain.handle('python:remove-environment', async () => {
+    try {
+      log.info('Removing Python environment');
+      await pythonManager.removeEnvironment();
+      return { success: true, message: 'Environment removed successfully' };
+    } catch (error) {
+      log.error('Failed to remove Python environment:', error);
+      return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };
     }
   });
 

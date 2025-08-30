@@ -21,70 +21,22 @@ export default function AppLayout() {
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
   const { executeCommand, isExecuting } = useConversationCommand();
 
-  // Handle menu messages from Electron
+  // Handle React ready state and menu messages from Electron
   React.useEffect(() => {
-    if (!apiClient.isElectron || !apiClient.isElectron()) return;
-
-    const handleResetWelcomeMessage = async () => {
-      await handleResetWelcomeSettings();
-    };
-
-    const handleRebuildEnvironmentMessage = async () => {
-      await handleRebuildPythonEnvironment();
-    };
-
-    // Listen for menu messages (Electron-specific)
-    if (typeof window !== 'undefined' && window.electronAPI) {
-      window.electronAPI.onMenuMessage('menu:reset-welcome-settings', handleResetWelcomeMessage);
-      window.electronAPI.onMenuMessage('menu:rebuild-python-environment', handleRebuildEnvironmentMessage);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        window.electronAPI.removeMenuListener('menu:reset-welcome-settings', handleResetWelcomeMessage);
-        window.electronAPI.removeMenuListener('menu:rebuild-python-environment', handleRebuildEnvironmentMessage);
+    console.log('🔧 [AppLayout] React component mounted, setting up...');
+    
+    const setupElectronIntegration = async () => {
+      if (!apiClient.isElectron || !apiClient.isElectron()) {
+        console.log('🔧 [AppLayout] Not in Electron environment');
+        return;
       }
+
+      console.log('🔧 [AppLayout] Electron integration set up (menu handlers managed by LaunchManager)');
     };
+
+    setupElectronIntegration();
   }, []);
 
-  // Handle welcome settings reset
-  const handleResetWelcomeSettings = async () => {
-    try {
-      const result = await apiClient.resetWelcomeSettings();
-      if (result.success) {
-        // Show success feedback - could use a toast or alert
-        if (window.confirm('Welcome settings have been reset! The app will reload to show the welcome screen.')) {
-          // Reload the app to show welcome screen
-          if (apiClient.isElectron && apiClient.isElectron()) {
-            apiClient.reload();
-          } else {
-            window.location.reload();
-          }
-        }
-      } else {
-        alert('Failed to reset welcome settings. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error resetting welcome settings:', error);
-      alert('Failed to reset welcome settings. Please try again.');
-    }
-  };
-
-  // Handle Python environment rebuild
-  const handleRebuildPythonEnvironment = async () => {
-    try {
-      // Show the Python setup progress UI during rebuild
-      const result = await apiClient.rebuildPythonEnvironment();
-      if (result.success) {
-        alert('Python environment has been rebuilt successfully! The application may work better now.');
-      } else {
-        alert(`Failed to rebuild Python environment: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Error rebuilding Python environment:', error);
-      alert('Failed to rebuild Python environment. Please try again.');
-    }
-  };
 
   // Initialize app state from backend on first load
   React.useEffect(() => {

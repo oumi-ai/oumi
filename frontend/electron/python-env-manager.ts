@@ -389,8 +389,8 @@ export class PythonEnvironmentManager {
   private async getRequiredExtras(): Promise<string[]> {
     const extras: string[] = [];
     
-    // Always include llama_cpp
-    extras.push('llama_cpp');
+    // Always include interactive (for prompt_toolkit, etc.)
+    extras.push('interactive');
     
     try {
       // Detect system capabilities
@@ -401,10 +401,11 @@ export class PythonEnvironmentManager {
         extras.push('gpu', 'quantization');
         log.info(`[PythonEnvManager] CUDA detected: ${systemInfo.cudaDevices.length} device(s) - including GPU extras`);
       } else {
-        // No CUDA available
-        log.info('[PythonEnvManager] No CUDA detected - CPU-only installation');
+        // No CUDA available - include llama_cpp for CPU inference
+        extras.push('llama_cpp');
+        log.info('[PythonEnvManager] No CUDA detected - including llama_cpp for CPU-only installation');
         
-        // For Windows and Linux without CUDA, include ci_cpu
+        // For Windows and Linux without CUDA, also include ci_cpu
         if (systemInfo.platform === 'win32' || systemInfo.platform === 'linux') {
           extras.push('ci_cpu');
           log.info('[PythonEnvManager] Including ci_cpu extras for Windows/Linux CPU-only installation');
@@ -414,7 +415,9 @@ export class PythonEnvironmentManager {
     } catch (error) {
       log.warn('[PythonEnvManager] System detection failed, using safe defaults:', error);
       // If system detection fails, use conservative approach
-      // (llama_cpp already added above)
+      
+      // Add llama_cpp for CPU inference as fallback
+      extras.push('llama_cpp');
       
       // Add ci_cpu for Windows/Linux as a safe fallback
       if (process.platform === 'win32' || process.platform === 'linux') {

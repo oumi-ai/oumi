@@ -139,6 +139,7 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
         {
           label: 'Rebuild Python Environment',
           click: async () => {
+            log.info('🔧 Menu: Rebuild Python Environment clicked');
             const result = await dialog.showMessageBox(mainWindow, {
               type: 'warning',
               title: 'Rebuild Python Environment',
@@ -149,8 +150,13 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
               cancelId: 0
             });
 
+            log.info(`🔧 Menu: Dialog result - response: ${result.response}`);
             if (result.response === 1) {
+              log.info('🔧 Menu: Sending menu:rebuild-python-environment message to renderer');
               mainWindow.webContents.send('menu:rebuild-python-environment');
+              log.info('🔧 Menu: Message sent successfully');
+            } else {
+              log.info('🔧 Menu: User cancelled rebuild');
             }
           }
         },

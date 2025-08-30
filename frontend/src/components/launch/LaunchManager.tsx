@@ -198,6 +198,63 @@ export default function LaunchManager({}: LaunchManagerProps) {
     setLaunchState('welcome');
   };
 
+  // Handle welcome settings reset from menu
+  const handleResetWelcomeSettings = async () => {
+    try {
+      const result = await apiClient.resetWelcomeSettings();
+      if (result.success) {
+        // Show success feedback - could use a toast or alert
+        if (window.confirm('Welcome settings have been reset! The app will reload to show the welcome screen.')) {
+          // Reload the app to show welcome screen
+          if (apiClient.isElectron && apiClient.isElectron()) {
+            apiClient.reload();
+          } else {
+            window.location.reload();
+          }
+        }
+      } else {
+        alert('Failed to reset welcome settings. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error resetting welcome settings:', error);
+      alert('Failed to reset welcome settings. Please try again.');
+    }
+  };
+
+  // Handle Python environment rebuild from menu
+  const handleRebuildPythonEnvironment = async () => {
+    console.log('🔧 [LaunchManager] Starting Python environment rebuild...');
+    try {
+      console.log('🔧 [LaunchManager] Removing existing Python environment...');
+      
+      // First, remove the existing environment
+      const removeResult = await apiClient.removeEnvironment();
+      console.log('🔧 [LaunchManager] Remove result:', removeResult);
+      
+      if (!removeResult.success) {
+        alert(`Failed to remove existing Python environment: ${removeResult.message}`);
+        console.error('❌ [LaunchManager] Environment removal failed:', removeResult.message);
+        return;
+      }
+      
+      console.log('✅ [LaunchManager] Existing environment removed successfully');
+      
+      // Show success message and restart instruction
+      alert('Python environment has been cleared successfully!\n\nPlease restart the application to set up the environment again with the latest dependencies.');
+      
+      // Reset to welcome state to allow user to reconfigure
+      setLaunchState('welcome');
+      setSelectedConfig(null);
+      setError(null);
+      
+      console.log('✅ [LaunchManager] Environment rebuild initiated - user should restart the app');
+      
+    } catch (error) {
+      console.error('❌ [LaunchManager] Error rebuilding Python environment:', error);
+      alert('Failed to rebuild Python environment. Please try again.');
+    }
+  };
+
   // Add download progress monitoring
   React.useEffect(() => {
     if (!apiClient.isElectron || !apiClient.isElectron()) return;
@@ -244,6 +301,50 @@ export default function LaunchManager({}: LaunchManagerProps) {
         window.electronAPI.removeDownloadErrorListener(handleDownloadError);
       }
     };
+  }, []);
+
+  // Hide loading screen when React is ready (LaunchManager mounted)
+  React.useEffect(() => {
+    const hideLoadingScreen = async () => {
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        console.log('🔧 [LaunchManager] React mounted, hiding loading screen');
+        try {
+          await window.electronAPI.app.hideLoadingScreen();
+          console.log('🔧 [LaunchManager] Loading screen hidden successfully');
+        } catch (error) {
+          console.error('🔧 [LaunchManager] Failed to hide loading screen:', error);
+        }
+      }
+    };
+
+    hideLoadingScreen();
+
+    // Set up menu message handlers (available in all states)
+    const setupMenuHandlers = () => {
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        const handleResetWelcomeMessage = async () => {
+          console.log('🔧 [LaunchManager] Received menu:reset-welcome-settings message');
+          await handleResetWelcomeSettings();
+        };
+
+        const handleRebuildEnvironmentMessage = async () => {
+          console.log('🔧 [LaunchManager] Received menu:rebuild-python-environment message');
+          await handleRebuildPythonEnvironment();
+        };
+
+        console.log('🔧 [LaunchManager] Registering menu listeners');
+        window.electronAPI.onMenuMessage('menu:reset-welcome-settings', handleResetWelcomeMessage);
+        window.electronAPI.onMenuMessage('menu:rebuild-python-environment', handleRebuildEnvironmentMessage);
+
+        return () => {
+          console.log('🔧 [LaunchManager] Cleaning up menu listeners');
+          window.electronAPI.removeMenuListener('menu:reset-welcome-settings', handleResetWelcomeMessage);
+          window.electronAPI.removeMenuListener('menu:rebuild-python-environment', handleRebuildEnvironmentMessage);
+        };
+      }
+    };
+
+    setupMenuHandlers();
   }, []);
 
   // Check if user has opted into welcome screen caching (default: always show welcome)
