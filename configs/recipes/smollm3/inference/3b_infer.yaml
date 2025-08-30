@@ -1,0 +1,27 @@
+# NATIVE Inference config for SmolLM3-3B.
+#
+# Requirements:
+#   - Run `pip install oumi`
+#
+# Usage:
+#   oumi infer -i -c configs/recipes/smollm3/inference/3b_infer.yaml
+#
+# See Also:
+#   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
+#   - Config class: oumi.core.configs.InferenceConfig
+#   - Config source: https://github.com/oumi-ai/oumi/blob/main/src/oumi/core/configs/inference_config.py
+#   - Other inference configs: configs/**/inference/
+
+model:
+  model_name: "HuggingFaceTB/SmolLM3-3B"
+  model_max_length: 8192
+  torch_dtype_str: "bfloat16"
+  attn_implementation: "sdpa"
+  trust_remote_code: True
+
+generation:
+  max_new_tokens: 2048
+  temperature: 0.6
+  top_p: 0.95
+
+engine: NATIVE
