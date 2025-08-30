@@ -201,9 +201,10 @@ export class PythonServerManager {
       '--backend-port', this.config.port.toString()
     ];
 
-    // Add config path if specified
+    // Add config path if specified (resolve to absolute path)
     if (this.config.config_path) {
-      oumiArgs.push('-c', `"${this.config.config_path}"`);
+      const resolvedConfigPath = this.resolveConfigPath(this.config.config_path);
+      oumiArgs.push('-c', `"${resolvedConfigPath}"`);
     }
 
     // Add system prompt if specified
@@ -219,22 +220,18 @@ export class PythonServerManager {
     return new Promise((resolve, reject) => {
       // Use shell execution to handle environment activation
       if (process.platform === 'win32' && !this.isDevelopment) {
-        // Windows production: direct execution
+        // Windows production: direct execution with clean environment
         this.serverProcess = spawn('cmd', ['/c', fullCommand], {
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            OUMI_LOG_LEVEL: 'INFO'
-          }
+          env: this.getCleanEnvironment(),
+          cwd: this.getOumiRootPath()  // Set working directory to oumi root
         });
       } else {
-        // Unix-like or development: bash execution
+        // Unix-like or development: bash execution with clean environment
         this.serverProcess = spawn('bash', ['-c', fullCommand], {
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            OUMI_LOG_LEVEL: 'INFO'
-          }
+          env: this.getCleanEnvironment(),
+          cwd: this.getOumiRootPath()  // Set working directory to oumi root
         });
       }
 
@@ -468,14 +465,60 @@ export class PythonServerManager {
   }
 
   /**
-   * Get Python path for PYTHONPATH environment variable
+   * Get the oumi package root directory
    */
-  private getPythonPath(): string {
-    // Path to the Oumi package (parent directory of frontend)
-    const oumiPath = path.resolve(__dirname, '../../src');
-    const existingPath = process.env.PYTHONPATH || '';
+  private getOumiRootPath(): string {
+    // Check if we're running from dist/electron (compiled) or electron/ (development)
+    // In both cases for the debug build, we're running from dist/electron/
+    if (__dirname.includes('/dist/electron')) {
+      // Running from frontend/dist/electron/, go up 3 levels to oumi root
+      return path.resolve(__dirname, '../../../');  
+    } else {
+      // Running from frontend/electron/, go up 2 levels to oumi root
+      return path.resolve(__dirname, '../../');  
+    }
+  }
+
+  /**
+   * Resolve config path to absolute path if it's relative
+   */
+  private resolveConfigPath(configPath: string): string {
+    if (path.isAbsolute(configPath)) {
+      return configPath;
+    }
     
-    return existingPath ? `${oumiPath}:${existingPath}` : oumiPath;
+    // For relative paths, resolve from oumi root directory
+    const oumiRoot = this.getOumiRootPath();
+    const absolutePath = path.resolve(oumiRoot, 'configs', configPath);
+    
+    log.info(`[PythonServerManager] Resolved config path: ${configPath} -> ${absolutePath}`);
+    return absolutePath;
+  }
+
+  /**
+   * Get clean environment for Python process (without dev environment variables)
+   */
+  private getCleanEnvironment(): NodeJS.ProcessEnv {
+    // Start with minimal environment
+    const cleanEnv: NodeJS.ProcessEnv = {
+      OUMI_LOG_LEVEL: 'INFO',
+      NODE_ENV: 'production',  // Required by TypeScript definition
+      HOME: process.env.HOME || '',
+      USER: process.env.USER || '',
+      PATH: process.env.PATH || '',
+      SHELL: process.env.SHELL || '/bin/bash',
+    };
+
+    // Add necessary system variables for macOS
+    if (process.platform === 'darwin') {
+      if (process.env.LC_ALL) cleanEnv.LC_ALL = process.env.LC_ALL;
+      if (process.env.LANG) cleanEnv.LANG = process.env.LANG;
+    }
+
+    // Explicitly exclude dev environment variables that could interfere
+    // DO NOT include: PYTHONPATH, CONDA_DEFAULT_ENV, CONDA_PREFIX, etc.
+    
+    return cleanEnv;
   }
 
   /**
@@ -584,9 +627,12 @@ export class PythonServerManager {
       // Write test input file
       require('fs').writeFileSync(tempInputPath, testInput);
       
+      // Resolve config path to absolute path
+      const resolvedConfigPath = this.resolveConfigPath(configPath);
+      
       const testCommand = await this.buildPythonCommand([
         'infer',
-        '-c', `"${configPath}"`,
+        '-c', `"${resolvedConfigPath}"`,
         '--input_path', `"${tempInputPath}"`,
         '--output_path', `"${tempOutputPath}"`
       ]);
@@ -597,10 +643,8 @@ export class PythonServerManager {
 
         const testProcess = spawn('bash', ['-c', testCommand], {
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            OUMI_LOG_LEVEL: 'INFO'
-          }
+          env: this.getCleanEnvironment(),
+          cwd: this.getOumiRootPath()  // Set working directory to oumi root
         });
 
         log.info(`Test process spawned with PID: ${testProcess.pid}`);
