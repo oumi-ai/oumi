@@ -13,6 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script src="./global-polyfill.js" />
+      </head>
       <body className="antialiased">
         {children}
       </body>

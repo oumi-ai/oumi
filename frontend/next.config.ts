@@ -40,9 +40,12 @@ const nextConfig: NextConfig = {
         zlib: false,
       };
       
-      // Define global for browser environment
+      // Fix global is not defined error
+      const webpack = require('webpack');
+      
+      // Use webpack's DefinePlugin to replace all instances of 'global' with 'globalThis'
       config.plugins.push(
-        new (require('webpack').DefinePlugin)({
+        new webpack.DefinePlugin({
           global: 'globalThis',
         })
       );

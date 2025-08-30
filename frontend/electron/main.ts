@@ -31,7 +31,20 @@ class ChatterleyApp {
   private isDevelopment: boolean;
 
   constructor() {
-    this.isDevelopment = process.env.NODE_ENV === 'development' || !app.isPackaged;
+    // Force production mode when debugging production build
+    this.isDevelopment = process.env.ELECTRON_DEBUG_PRODUCTION !== '1' && 
+                         (process.env.NODE_ENV === 'development' || !app.isPackaged);
+    
+    // Enhanced debugging for production builds
+    if (process.env.ELECTRON_DEBUG_PRODUCTION === '1') {
+      log.info('🐛 Production Debug Mode Enabled');
+      log.info(`App packaged: ${app.isPackaged}`);
+      log.info(`Node ENV: ${process.env.NODE_ENV}`);
+      log.info(`App path: ${app.getAppPath()}`);
+      log.info(`User data: ${app.getPath('userData')}`);
+      log.info(`Development mode: ${this.isDevelopment}`);
+    }
+    
     this.setupEventHandlers();
   }
 
@@ -123,17 +136,39 @@ class ChatterleyApp {
       // In production, look for the Next.js static export
       const indexPath = path.join(__dirname, '../../out/index.html');
       log.info(`Loading production app from: ${indexPath}`);
+      
+      // Enhanced debugging for production builds
+      if (process.env.ELECTRON_DEBUG_PRODUCTION === '1') {
+        const fs = require('fs');
+        log.info(`Index file exists: ${fs.existsSync(indexPath)}`);
+        log.info(`Out directory contents:`, fs.readdirSync(path.dirname(indexPath)).slice(0, 10));
+      }
+      
       startUrl = `file://${indexPath}`;
     }
 
     log.info(`Loading app from: ${startUrl}`);
     this.mainWindow.loadURL(startUrl);
 
+    // Enhanced error handling for production debugging
+    this.mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      log.error(`Failed to load ${validatedURL}: ${errorCode} - ${errorDescription}`);
+      if (process.env.ELECTRON_DEBUG_PRODUCTION === '1') {
+        this.mainWindow?.webContents.openDevTools();
+      }
+    });
+
+    this.mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      if (process.env.ELECTRON_DEBUG_PRODUCTION === '1' || this.isDevelopment) {
+        log.info(`Renderer Console [${level}]: ${message}`);
+      }
+    });
+
     // Show window when ready
     this.mainWindow.once('ready-to-show', () => {
       this.mainWindow?.show();
       
-      if (this.isDevelopment) {
+      if (this.isDevelopment || process.env.ELECTRON_DEBUG_PRODUCTION === '1') {
         this.mainWindow?.webContents.openDevTools();
       }
     });
