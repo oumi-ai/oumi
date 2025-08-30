@@ -1,11 +1,10 @@
-# Inference config for Llama 3B Instruct.
+# NATIVE Inference config for PocketDoc Dan's PersonalityEngine V1.2.0 24B.
 #
 # Requirements:
-#   - Log into HF: `hf auth login`
-#   - Request access to Llama 3.2: https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+#   - Run `pip install oumi`
 #
 # Usage:
-#   oumi infer -i -c configs/recipes/llama3_2/inference/3b_infer.yaml
+#   oumi infer -i -c configs/recipes/pocketdoc/inference/personalityengine_24b_infer.yaml
 #
 # See Also:
 #   - Documentation: https://oumi.ai/docs/en/latest/user_guides/infer/infer.html
@@ -14,15 +13,15 @@
 #   - Other inference configs: configs/**/inference/
 
 model:
-  model_name: "meta-llama/Llama-3.2-3B-Instruct"
-  model_max_length: 2048
+  model_name: "PocketDoc/Dans-PersonalityEngine-V1.2.0-24b"
+  model_max_length: 32768
   torch_dtype_str: "bfloat16"
   attn_implementation: "sdpa"
-  load_pretrained_weights: True
   trust_remote_code: True
 
 generation:
-  max_new_tokens: 2048
-  batch_size: 4
+  max_new_tokens: 8192
+  temperature: 0.7
+  top_p: 0.9
 
 engine: NATIVE

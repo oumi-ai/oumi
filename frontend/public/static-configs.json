@@ -1,11 +1,11 @@
 {
-  "generated_at": "2025-08-30T10:42:51.139Z",
+  "generated_at": "2025-08-30T11:02:59.743Z",
   "version": "1.0",
-  "total_configs": 132,
+  "total_configs": 138,
   "configs": [
     {
       "id": "projects_coalm_8b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/projects/coalm/8b_infer.yaml",
+      "config_path": "projects/coalm/8b_infer.yaml",
       "relative_path": "projects/coalm/8b_infer.yaml",
       "display_name": "coalm - 8b",
       "model_name": "uiuc-convai/CoALM-8B",
@@ -17,7 +17,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_llama_8b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_llama_8b_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_llama_8b_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_llama_8b_infer.yaml",
       "display_name": "deepseek_r1 - distill_llama_8b",
       "model_name": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
@@ -29,7 +29,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_qwen_32b_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
       "display_name": "deepseek_r1 - distill_qwen_32b_gguf_macos",
       "model_name": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
@@ -41,7 +41,7 @@
     },
     {
       "id": "recipes_falcon_h1_inference_7b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/falcon_h1/inference/7b_infer.yaml",
+      "config_path": "recipes/falcon_h1/inference/7b_infer.yaml",
       "relative_path": "recipes/falcon_h1/inference/7b_infer.yaml",
       "display_name": "falcon_h1 - 7b",
       "model_name": "tiiuae/Falcon-H1-7B-Instruct",
@@ -53,7 +53,7 @@
     },
     {
       "id": "recipes_gemma3_inference_270m_it_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_gguf_macos_infer.yaml",
+      "config_path": "recipes/gemma3/inference/270m_it_gguf_macos_infer.yaml",
       "relative_path": "recipes/gemma3/inference/270m_it_gguf_macos_infer.yaml",
       "display_name": "gemma3 - 270m_it_gguf_macos",
       "model_name": "bartowski/google_gemma-3-270m-it-GGUF",
@@ -65,7 +65,7 @@
     },
     {
       "id": "recipes_gemma3_inference_3n_e4b_it_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/3n_e4b_it_gguf_macos_infer.yaml",
+      "config_path": "recipes/gemma3/inference/3n_e4b_it_gguf_macos_infer.yaml",
       "relative_path": "recipes/gemma3/inference/3n_e4b_it_gguf_macos_infer.yaml",
       "display_name": "gemma3 - 3n_e4b_it_gguf_macos",
       "model_name": "unsloth/gemma-3n-E4B-it-GGUF",
@@ -77,7 +77,7 @@
     },
     {
       "id": "recipes_glm4_inference_air_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/glm4/inference/air_gguf_macos_infer.yaml",
+      "config_path": "recipes/glm4/inference/air_gguf_macos_infer.yaml",
       "relative_path": "recipes/glm4/inference/air_gguf_macos_infer.yaml",
       "display_name": "glm4 - air_gguf_macos",
       "model_name": "unsloth/GLM-4.5-Air-GGUF",
@@ -89,7 +89,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
       "display_name": "gpt_oss - 20b_huihui_abliterated_gguf_macos",
       "model_name": "bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF",
@@ -101,7 +101,7 @@
     },
     {
       "id": "recipes_llama3_1_inference_8b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_1/inference/8b_infer.yaml",
+      "config_path": "recipes/llama3_1/inference/8b_infer.yaml",
       "relative_path": "recipes/llama3_1/inference/8b_infer.yaml",
       "display_name": "llama3_1 - 8b",
       "model_name": "meta-llama/Llama-3.1-8B-Instruct",
@@ -112,8 +112,56 @@
       "recommended": true
     },
     {
+      "id": "recipes_llama3_2_inference_3b_instruct_infer",
+      "config_path": "recipes/llama3_2/inference/3b_instruct_infer.yaml",
+      "relative_path": "recipes/llama3_2/inference/3b_instruct_infer.yaml",
+      "display_name": "llama3_2 - 3b_instruct",
+      "model_name": "meta-llama/Llama-3.2-3B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "llama3_2",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_llama3_2_inference_3b_instruct_gguf_infer",
+      "config_path": "recipes/llama3_2/inference/3b_instruct_gguf_infer.yaml",
+      "relative_path": "recipes/llama3_2/inference/3b_instruct_gguf_infer.yaml",
+      "display_name": "llama3_2 - 3b_instruct_gguf",
+      "model_name": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+      "engine": "VLLM",
+      "context_length": 2048,
+      "model_family": "llama3_2",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_llama3_2_inference_3b_instruct_gguf_macos_infer",
+      "config_path": "recipes/llama3_2/inference/3b_instruct_gguf_macos_infer.yaml",
+      "relative_path": "recipes/llama3_2/inference/3b_instruct_gguf_macos_infer.yaml",
+      "display_name": "llama3_2 - 3b_instruct_gguf_macos",
+      "model_name": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 2048,
+      "model_family": "llama3_2",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_llama3_2_inference_3b_instruct_vllm_infer",
+      "config_path": "recipes/llama3_2/inference/3b_instruct_vllm_infer.yaml",
+      "relative_path": "recipes/llama3_2/inference/3b_instruct_vllm_infer.yaml",
+      "display_name": "llama3_2 - 3b_instruct_vllm",
+      "model_name": "meta-llama/Llama-3.2-3B-Instruct",
+      "engine": "VLLM",
+      "context_length": 2048,
+      "model_family": "llama3_2",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
       "id": "recipes_llama3_3_inference_nemotron_super_49b_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_3/inference/nemotron_super_49b_gguf_macos_infer.yaml",
+      "config_path": "recipes/llama3_3/inference/nemotron_super_49b_gguf_macos_infer.yaml",
       "relative_path": "recipes/llama3_3/inference/nemotron_super_49b_gguf_macos_infer.yaml",
       "display_name": "llama3_3 - nemotron_super_49b_gguf_macos",
       "model_name": "bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF",
@@ -125,7 +173,7 @@
     },
     {
       "id": "recipes_llama4_inference_maverick_instruct_together_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama4/inference/maverick_instruct_together_infer.yaml",
+      "config_path": "recipes/llama4/inference/maverick_instruct_together_infer.yaml",
       "relative_path": "recipes/llama4/inference/maverick_instruct_together_infer.yaml",
       "display_name": "llama4 - maverick_instruct_together",
       "model_name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
@@ -137,7 +185,7 @@
     },
     {
       "id": "recipes_llama4_inference_scout_instruct_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama4/inference/scout_instruct_infer.yaml",
+      "config_path": "recipes/llama4/inference/scout_instruct_infer.yaml",
       "relative_path": "recipes/llama4/inference/scout_instruct_infer.yaml",
       "display_name": "llama4 - scout_instruct",
       "model_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
@@ -149,7 +197,7 @@
     },
     {
       "id": "recipes_llama4_inference_scout_instruct_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama4/inference/scout_instruct_gguf_infer.yaml",
+      "config_path": "recipes/llama4/inference/scout_instruct_gguf_infer.yaml",
       "relative_path": "recipes/llama4/inference/scout_instruct_gguf_infer.yaml",
       "display_name": "llama4 - scout_instruct_gguf",
       "model_name": "unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF",
@@ -161,7 +209,7 @@
     },
     {
       "id": "recipes_llama4_inference_scout_instruct_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama4/inference/scout_instruct_gguf_macos_infer.yaml",
+      "config_path": "recipes/llama4/inference/scout_instruct_gguf_macos_infer.yaml",
       "relative_path": "recipes/llama4/inference/scout_instruct_gguf_macos_infer.yaml",
       "display_name": "llama4 - scout_instruct_gguf_macos",
       "model_name": "unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF",
@@ -173,7 +221,7 @@
     },
     {
       "id": "recipes_llama4_inference_scout_instruct_together_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama4/inference/scout_instruct_together_infer.yaml",
+      "config_path": "recipes/llama4/inference/scout_instruct_together_infer.yaml",
       "relative_path": "recipes/llama4/inference/scout_instruct_together_infer.yaml",
       "display_name": "llama4 - scout_instruct_together",
       "model_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
@@ -185,7 +233,7 @@
     },
     {
       "id": "recipes_llama4_inference_scout_instruct_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama4/inference/scout_instruct_vllm_infer.yaml",
+      "config_path": "recipes/llama4/inference/scout_instruct_vllm_infer.yaml",
       "relative_path": "recipes/llama4/inference/scout_instruct_vllm_infer.yaml",
       "display_name": "llama4 - scout_instruct_vllm",
       "model_name": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
@@ -197,7 +245,7 @@
     },
     {
       "id": "recipes_mistral_magistral_inference_small_2507_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_gguf_macos_infer.yaml",
+      "config_path": "recipes/mistral_magistral/inference/small_2507_gguf_macos_infer.yaml",
       "relative_path": "recipes/mistral_magistral/inference/small_2507_gguf_macos_infer.yaml",
       "display_name": "mistral_magistral - small_2507_gguf_macos",
       "model_name": "bartowski/mistralai_Magistral-Small-2507-GGUF",
@@ -209,7 +257,7 @@
     },
     {
       "id": "recipes_nemotron_nano_inference_9b_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_gguf_macos_infer.yaml",
+      "config_path": "recipes/nemotron_nano/inference/9b_gguf_macos_infer.yaml",
       "relative_path": "recipes/nemotron_nano/inference/9b_gguf_macos_infer.yaml",
       "display_name": "nemotron_nano - 9b_gguf_macos",
       "model_name": "bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF",
@@ -220,8 +268,20 @@
       "recommended": true
     },
     {
+      "id": "recipes_pocketdoc_inference_personalityengine_24b_gguf_macos_infer",
+      "config_path": "recipes/pocketdoc/inference/personalityengine_24b_gguf_macos_infer.yaml",
+      "relative_path": "recipes/pocketdoc/inference/personalityengine_24b_gguf_macos_infer.yaml",
+      "display_name": "pocketdoc - personalityengine_24b_gguf_macos",
+      "model_name": "bartowski/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 32768,
+      "model_family": "pocketdoc",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
       "id": "recipes_qwen3_inference_1.7b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/1.7b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/1.7b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/1.7b_infer.yaml",
       "display_name": "qwen3 - 1.7b",
       "model_name": "Qwen/Qwen3-1.7B",
@@ -233,7 +293,7 @@
     },
     {
       "id": "recipes_qwen3_inference_14b_abliterated_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_gguf_macos_infer.yaml",
+      "config_path": "recipes/qwen3/inference/14b_abliterated_gguf_macos_infer.yaml",
       "relative_path": "recipes/qwen3/inference/14b_abliterated_gguf_macos_infer.yaml",
       "display_name": "qwen3 - 14b_abliterated_gguf_macos",
       "model_name": "bartowski/mlabonne_Qwen3-14B-abliterated-GGUF",
@@ -245,7 +305,7 @@
     },
     {
       "id": "recipes_qwen3_inference_30b_a3b_instruct_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/30b_a3b_instruct_gguf_infer.yaml",
+      "config_path": "recipes/qwen3/inference/30b_a3b_instruct_gguf_infer.yaml",
       "relative_path": "recipes/qwen3/inference/30b_a3b_instruct_gguf_infer.yaml",
       "display_name": "qwen3 - 30b_a3b_instruct_gguf",
       "model_name": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
@@ -257,7 +317,7 @@
     },
     {
       "id": "recipes_qwen3_inference_30b_a3b_instruct_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/30b_a3b_instruct_gguf_macos_infer.yaml",
+      "config_path": "recipes/qwen3/inference/30b_a3b_instruct_gguf_macos_infer.yaml",
       "relative_path": "recipes/qwen3/inference/30b_a3b_instruct_gguf_macos_infer.yaml",
       "display_name": "qwen3 - 30b_a3b_instruct_gguf_macos",
       "model_name": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
@@ -269,7 +329,7 @@
     },
     {
       "id": "recipes_qwen3_inference_30b_a3b_instruct_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/30b_a3b_instruct_vllm_infer.yaml",
+      "config_path": "recipes/qwen3/inference/30b_a3b_instruct_vllm_infer.yaml",
       "relative_path": "recipes/qwen3/inference/30b_a3b_instruct_vllm_infer.yaml",
       "display_name": "qwen3 - 30b_a3b_instruct_vllm",
       "model_name": "Qwen/Qwen3-30B-A3B-Instruct",
@@ -281,7 +341,7 @@
     },
     {
       "id": "recipes_qwen3_inference_4b_instruct_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/4b_instruct_infer.yaml",
+      "config_path": "recipes/qwen3/inference/4b_instruct_infer.yaml",
       "relative_path": "recipes/qwen3/inference/4b_instruct_infer.yaml",
       "display_name": "qwen3 - 4b_instruct",
       "model_name": "Qwen/Qwen3-4B-Instruct-2507",
@@ -293,7 +353,7 @@
     },
     {
       "id": "recipes_qwen3_inference_4b_instruct_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/4b_instruct_gguf_infer.yaml",
+      "config_path": "recipes/qwen3/inference/4b_instruct_gguf_infer.yaml",
       "relative_path": "recipes/qwen3/inference/4b_instruct_gguf_infer.yaml",
       "display_name": "qwen3 - 4b_instruct_gguf",
       "model_name": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
@@ -305,7 +365,7 @@
     },
     {
       "id": "recipes_qwen3_inference_4b_instruct_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/4b_instruct_gguf_macos_infer.yaml",
+      "config_path": "recipes/qwen3/inference/4b_instruct_gguf_macos_infer.yaml",
       "relative_path": "recipes/qwen3/inference/4b_instruct_gguf_macos_infer.yaml",
       "display_name": "qwen3 - 4b_instruct_gguf_macos",
       "model_name": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
@@ -317,7 +377,7 @@
     },
     {
       "id": "recipes_qwen3_inference_4b_instruct_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/4b_instruct_vllm_infer.yaml",
+      "config_path": "recipes/qwen3/inference/4b_instruct_vllm_infer.yaml",
       "relative_path": "recipes/qwen3/inference/4b_instruct_vllm_infer.yaml",
       "display_name": "qwen3 - 4b_instruct_vllm",
       "model_name": "Qwen/Qwen3-4B-Instruct-2507",
@@ -329,7 +389,7 @@
     },
     {
       "id": "recipes_qwen3_inference_8b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/8b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/8b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/8b_infer.yaml",
       "display_name": "qwen3 - 8b",
       "model_name": "Qwen/Qwen3-8B",
@@ -341,7 +401,7 @@
     },
     {
       "id": "recipes_qwen3_coder_inference_30b_a3b_instruct_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_infer.yaml",
+      "config_path": "recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_infer.yaml",
       "relative_path": "recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_infer.yaml",
       "display_name": "qwen3_coder - 30b_a3b_instruct_gguf",
       "model_name": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
@@ -353,7 +413,7 @@
     },
     {
       "id": "recipes_qwen3_coder_inference_30b_a3b_instruct_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_macos_infer.yaml",
+      "config_path": "recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_macos_infer.yaml",
       "relative_path": "recipes/qwen3_coder/inference/30b_a3b_instruct_gguf_macos_infer.yaml",
       "display_name": "qwen3_coder - 30b_a3b_instruct_gguf_macos",
       "model_name": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
@@ -365,7 +425,7 @@
     },
     {
       "id": "recipes_qwen3_coder_inference_30b_a3b_instruct_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_infer.yaml",
+      "config_path": "recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_infer.yaml",
       "relative_path": "recipes/qwen3_coder/inference/30b_a3b_instruct_vllm_infer.yaml",
       "display_name": "qwen3_coder - 30b_a3b_instruct_vllm",
       "model_name": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
@@ -377,7 +437,7 @@
     },
     {
       "id": "recipes_smollm3_inference_3b_gguf_macos_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_gguf_macos_infer.yaml",
+      "config_path": "recipes/smollm3/inference/3b_gguf_macos_infer.yaml",
       "relative_path": "recipes/smollm3/inference/3b_gguf_macos_infer.yaml",
       "display_name": "smollm3 - 3b_gguf_macos",
       "model_name": "bartowski/HuggingFaceTB_SmolLM3-3B-GGUF",
@@ -389,7 +449,7 @@
     },
     {
       "id": "apis_anthropic_infer_claude_3_5_sonnet",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/anthropic/infer_claude_3_5_sonnet.yaml",
+      "config_path": "apis/anthropic/infer_claude_3_5_sonnet.yaml",
       "relative_path": "apis/anthropic/infer_claude_3_5_sonnet.yaml",
       "display_name": "ANTHROPIC - infer_claude_3_5_sonnet",
       "model_name": "claude-3-5-sonnet-latest",
@@ -401,7 +461,7 @@
     },
     {
       "id": "apis_anthropic_infer_claude_3_7_sonnet",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/anthropic/infer_claude_3_7_sonnet.yaml",
+      "config_path": "apis/anthropic/infer_claude_3_7_sonnet.yaml",
       "relative_path": "apis/anthropic/infer_claude_3_7_sonnet.yaml",
       "display_name": "ANTHROPIC - infer_claude_3_7_sonnet",
       "model_name": "claude-3-7-sonnet-latest",
@@ -413,7 +473,7 @@
     },
     {
       "id": "apis_anthropic_infer_claude_opus_4_1",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/anthropic/infer_claude_opus_4_1.yaml",
+      "config_path": "apis/anthropic/infer_claude_opus_4_1.yaml",
       "relative_path": "apis/anthropic/infer_claude_opus_4_1.yaml",
       "display_name": "ANTHROPIC - infer_claude_opus_4_1",
       "model_name": "claude-opus-4-1-20250805",
@@ -425,7 +485,7 @@
     },
     {
       "id": "projects_coalm_70b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/projects/coalm/70b_infer.yaml",
+      "config_path": "projects/coalm/70b_infer.yaml",
       "relative_path": "projects/coalm/70b_infer.yaml",
       "display_name": "coalm - 70b",
       "model_name": "uiuc-convai/CoALM-70B",
@@ -437,7 +497,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_671b_together_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/671b_together_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/671b_together_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/671b_together_infer.yaml",
       "display_name": "deepseek_r1 - 671b_together",
       "model_name": "deepseek-ai/DeepSeek-R1",
@@ -449,7 +509,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_llama_70b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_llama_70b_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_llama_70b_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_llama_70b_infer.yaml",
       "display_name": "deepseek_r1 - distill_llama_70b",
       "model_name": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
@@ -461,7 +521,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_qwen_1_5b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
       "display_name": "deepseek_r1 - distill_qwen_1_5b",
       "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
@@ -473,7 +533,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_qwen_32b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_qwen_32b_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_32b_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_qwen_32b_infer.yaml",
       "display_name": "deepseek_r1 - distill_qwen_32b",
       "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
@@ -485,7 +545,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_qwen_32b_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_qwen_32b_gguf_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_infer.yaml",
       "display_name": "deepseek_r1 - distill_qwen_32b_gguf",
       "model_name": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
@@ -497,7 +557,7 @@
     },
     {
       "id": "recipes_deepseek_r1_inference_distill_qwen_32b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/deepseek_r1/inference/distill_qwen_32b_vllm_infer.yaml",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_32b_vllm_infer.yaml",
       "relative_path": "recipes/deepseek_r1/inference/distill_qwen_32b_vllm_infer.yaml",
       "display_name": "deepseek_r1 - distill_qwen_32b_vllm",
       "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
@@ -509,7 +569,7 @@
     },
     {
       "id": "recipes_falcon_h1_inference_0_5b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/falcon_h1/inference/0_5b_infer.yaml",
+      "config_path": "recipes/falcon_h1/inference/0_5b_infer.yaml",
       "relative_path": "recipes/falcon_h1/inference/0_5b_infer.yaml",
       "display_name": "falcon_h1 - 0_5b",
       "model_name": "tiiuae/Falcon-H1-0.5B-Instruct",
@@ -521,7 +581,7 @@
     },
     {
       "id": "recipes_falcon_h1_inference_1_5b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/falcon_h1/inference/1_5b_infer.yaml",
+      "config_path": "recipes/falcon_h1/inference/1_5b_infer.yaml",
       "relative_path": "recipes/falcon_h1/inference/1_5b_infer.yaml",
       "display_name": "falcon_h1 - 1_5b",
       "model_name": "tiiuae/Falcon-H1-1.5B-Instruct",
@@ -533,7 +593,7 @@
     },
     {
       "id": "recipes_falcon_h1_inference_1_5b_deep_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
+      "config_path": "recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
       "relative_path": "recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
       "display_name": "falcon_h1 - 1_5b_deep",
       "model_name": "tiiuae/Falcon-H1-1.5B-Deep-Instruct",
@@ -545,7 +605,7 @@
     },
     {
       "id": "recipes_falcon_h1_inference_34b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/falcon_h1/inference/34b_infer.yaml",
+      "config_path": "recipes/falcon_h1/inference/34b_infer.yaml",
       "relative_path": "recipes/falcon_h1/inference/34b_infer.yaml",
       "display_name": "falcon_h1 - 34b",
       "model_name": "tiiuae/Falcon-H1-34B-Instruct",
@@ -557,7 +617,7 @@
     },
     {
       "id": "recipes_falcon_h1_inference_3b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/falcon_h1/inference/3b_infer.yaml",
+      "config_path": "recipes/falcon_h1/inference/3b_infer.yaml",
       "relative_path": "recipes/falcon_h1/inference/3b_infer.yaml",
       "display_name": "falcon_h1 - 3b",
       "model_name": "tiiuae/Falcon-H1-3B-Instruct",
@@ -569,7 +629,7 @@
     },
     {
       "id": "apis_gemini_infer_gemini_1_5_pro",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/gemini/infer_gemini_1_5_pro.yaml",
+      "config_path": "apis/gemini/infer_gemini_1_5_pro.yaml",
       "relative_path": "apis/gemini/infer_gemini_1_5_pro.yaml",
       "display_name": "GEMINI - infer_gemini_1_5_pro",
       "model_name": "gemini-1.5-pro",
@@ -581,7 +641,7 @@
     },
     {
       "id": "apis_gemini_infer_gemini_2_5_pro",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/gemini/infer_gemini_2_5_pro.yaml",
+      "config_path": "apis/gemini/infer_gemini_2_5_pro.yaml",
       "relative_path": "apis/gemini/infer_gemini_2_5_pro.yaml",
       "display_name": "GEMINI - infer_gemini_2_5_pro",
       "model_name": "gemini-2.5-pro",
@@ -593,7 +653,7 @@
     },
     {
       "id": "recipes_gemma3_inference_270m_it_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_infer.yaml",
+      "config_path": "recipes/gemma3/inference/270m_it_infer.yaml",
       "relative_path": "recipes/gemma3/inference/270m_it_infer.yaml",
       "display_name": "gemma3 - 270m_it",
       "model_name": "google/gemma-3-270m-it",
@@ -605,7 +665,7 @@
     },
     {
       "id": "recipes_gemma3_inference_270m_it_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_gguf_infer.yaml",
+      "config_path": "recipes/gemma3/inference/270m_it_gguf_infer.yaml",
       "relative_path": "recipes/gemma3/inference/270m_it_gguf_infer.yaml",
       "display_name": "gemma3 - 270m_it_gguf",
       "model_name": "bartowski/google_gemma-3-270m-it-GGUF",
@@ -617,7 +677,7 @@
     },
     {
       "id": "recipes_gemma3_inference_270m_it_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/270m_it_vllm_infer.yaml",
+      "config_path": "recipes/gemma3/inference/270m_it_vllm_infer.yaml",
       "relative_path": "recipes/gemma3/inference/270m_it_vllm_infer.yaml",
       "display_name": "gemma3 - 270m_it_vllm",
       "model_name": "google/gemma-3-270m-it",
@@ -629,7 +689,7 @@
     },
     {
       "id": "recipes_gemma3_inference_3n_e4b_it_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/3n_e4b_it_infer.yaml",
+      "config_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
       "relative_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
       "display_name": "gemma3 - 3n_e4b_it",
       "model_name": "google/gemma-3n-E4B-it",
@@ -641,7 +701,7 @@
     },
     {
       "id": "recipes_gemma3_inference_3n_e4b_it_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/3n_e4b_it_gguf_infer.yaml",
+      "config_path": "recipes/gemma3/inference/3n_e4b_it_gguf_infer.yaml",
       "relative_path": "recipes/gemma3/inference/3n_e4b_it_gguf_infer.yaml",
       "display_name": "gemma3 - 3n_e4b_it_gguf",
       "model_name": "unsloth/gemma-3n-E4B-it-GGUF",
@@ -653,7 +713,7 @@
     },
     {
       "id": "recipes_gemma3_inference_3n_e4b_it_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gemma3/inference/3n_e4b_it_vllm_infer.yaml",
+      "config_path": "recipes/gemma3/inference/3n_e4b_it_vllm_infer.yaml",
       "relative_path": "recipes/gemma3/inference/3n_e4b_it_vllm_infer.yaml",
       "display_name": "gemma3 - 3n_e4b_it_vllm",
       "model_name": "google/gemma-3n-E4B-it",
@@ -665,7 +725,7 @@
     },
     {
       "id": "recipes_glm4_inference_air_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/glm4/inference/air_gguf_infer.yaml",
+      "config_path": "recipes/glm4/inference/air_gguf_infer.yaml",
       "relative_path": "recipes/glm4/inference/air_gguf_infer.yaml",
       "display_name": "glm4 - air_gguf",
       "model_name": "unsloth/GLM-4.5-Air-GGUF",
@@ -677,7 +737,7 @@
     },
     {
       "id": "recipes_glm4_inference_air_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/glm4/inference/air_vllm_infer.yaml",
+      "config_path": "recipes/glm4/inference/air_vllm_infer.yaml",
       "relative_path": "recipes/glm4/inference/air_vllm_infer.yaml",
       "display_name": "glm4 - air_vllm",
       "model_name": "THUDM/glm-4-9b-chat",
@@ -689,7 +749,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_120b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/120b_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/120b_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/120b_infer.yaml",
       "display_name": "gpt_oss - 120b",
       "model_name": "openai/gpt-oss-120b",
@@ -701,7 +761,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_120b_together_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/120b_together_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/120b_together_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/120b_together_infer.yaml",
       "display_name": "gpt_oss - 120b_together",
       "model_name": "openai/gpt-oss-120b",
@@ -713,7 +773,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_120b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/120b_vllm_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/120b_vllm_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/120b_vllm_infer.yaml",
       "display_name": "gpt_oss - 120b_vllm",
       "model_name": "openai/gpt-oss-120b",
@@ -725,7 +785,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_20b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/20b_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/20b_infer.yaml",
       "display_name": "gpt_oss - 20b",
       "model_name": "openai/gpt-oss-20b",
@@ -737,7 +797,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_infer.yaml",
       "display_name": "gpt_oss - 20b_huihui_abliterated",
       "model_name": "huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated",
@@ -749,7 +809,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_infer.yaml",
       "display_name": "gpt_oss - 20b_huihui_abliterated_gguf",
       "model_name": "bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF",
@@ -761,7 +821,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_huihui_abliterated_vllm_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_vllm_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_vllm_infer.yaml",
       "display_name": "gpt_oss - 20b_huihui_abliterated_vllm",
       "model_name": "huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated",
@@ -773,7 +833,7 @@
     },
     {
       "id": "recipes_gpt_oss_inference_20b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt_oss/inference/20b_vllm_infer.yaml",
+      "config_path": "recipes/gpt_oss/inference/20b_vllm_infer.yaml",
       "relative_path": "recipes/gpt_oss/inference/20b_vllm_infer.yaml",
       "display_name": "gpt_oss - 20b_vllm",
       "model_name": "openai/gpt-oss-20b",
@@ -785,7 +845,7 @@
     },
     {
       "id": "recipes_gpt2_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/gpt2/inference/infer.yaml",
+      "config_path": "recipes/gpt2/inference/infer.yaml",
       "relative_path": "recipes/gpt2/inference/infer.yaml",
       "display_name": "gpt2 - infer",
       "model_name": "openai-community/gpt2",
@@ -797,7 +857,7 @@
     },
     {
       "id": "recipes_llama3_1_inference_70b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_1/inference/70b_infer.yaml",
+      "config_path": "recipes/llama3_1/inference/70b_infer.yaml",
       "relative_path": "recipes/llama3_1/inference/70b_infer.yaml",
       "display_name": "llama3_1 - 70b",
       "model_name": "meta-llama/Llama-3.1-70B-Instruct",
@@ -809,7 +869,7 @@
     },
     {
       "id": "recipes_llama3_1_inference_8b_rvllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_1/inference/8b_rvllm_infer.yaml",
+      "config_path": "recipes/llama3_1/inference/8b_rvllm_infer.yaml",
       "relative_path": "recipes/llama3_1/inference/8b_rvllm_infer.yaml",
       "display_name": "llama3_1 - 8b_rvllm",
       "model_name": "meta-llama/Llama-3.1-8B-Instruct",
@@ -821,7 +881,7 @@
     },
     {
       "id": "recipes_llama3_1_inference_8b_sglang_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_1/inference/8b_sglang_infer.yaml",
+      "config_path": "recipes/llama3_1/inference/8b_sglang_infer.yaml",
       "relative_path": "recipes/llama3_1/inference/8b_sglang_infer.yaml",
       "display_name": "llama3_1 - 8b_sglang",
       "model_name": "meta-llama/Llama-3.1-8B-Instruct",
@@ -833,7 +893,7 @@
     },
     {
       "id": "recipes_llama3_2_inference_1b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_2/inference/1b_infer.yaml",
+      "config_path": "recipes/llama3_2/inference/1b_infer.yaml",
       "relative_path": "recipes/llama3_2/inference/1b_infer.yaml",
       "display_name": "llama3_2 - 1b",
       "model_name": "meta-llama/Llama-3.2-1B-Instruct",
@@ -845,7 +905,7 @@
     },
     {
       "id": "recipes_llama3_2_inference_1b_sglang_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_2/inference/1b_sglang_infer.yaml",
+      "config_path": "recipes/llama3_2/inference/1b_sglang_infer.yaml",
       "relative_path": "recipes/llama3_2/inference/1b_sglang_infer.yaml",
       "display_name": "llama3_2 - 1b_sglang",
       "model_name": "meta-llama/Llama-3.2-1B-Instruct",
@@ -857,7 +917,7 @@
     },
     {
       "id": "recipes_llama3_2_inference_1b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_2/inference/1b_vllm_infer.yaml",
+      "config_path": "recipes/llama3_2/inference/1b_vllm_infer.yaml",
       "relative_path": "recipes/llama3_2/inference/1b_vllm_infer.yaml",
       "display_name": "llama3_2 - 1b_vllm",
       "model_name": "meta-llama/Llama-3.2-1B-Instruct",
@@ -868,20 +928,8 @@
       "recommended": false
     },
     {
-      "id": "recipes_llama3_2_inference_3b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_2/inference/3b_infer.yaml",
-      "relative_path": "recipes/llama3_2/inference/3b_infer.yaml",
-      "display_name": "llama3_2 - 3b",
-      "model_name": "meta-llama/Llama-3.2-3B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "llama3_2",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
       "id": "recipes_llama3_2_inference_3b_sglang_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_2/inference/3b_sglang_infer.yaml",
+      "config_path": "recipes/llama3_2/inference/3b_sglang_infer.yaml",
       "relative_path": "recipes/llama3_2/inference/3b_sglang_infer.yaml",
       "display_name": "llama3_2 - 3b_sglang",
       "model_name": "meta-llama/Llama-3.2-3B-Instruct",
@@ -892,20 +940,8 @@
       "recommended": false
     },
     {
-      "id": "recipes_llama3_2_inference_3b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_2/inference/3b_vllm_infer.yaml",
-      "relative_path": "recipes/llama3_2/inference/3b_vllm_infer.yaml",
-      "display_name": "llama3_2 - 3b_vllm",
-      "model_name": "meta-llama/Llama-3.2-3B-Instruct",
-      "engine": "VLLM",
-      "context_length": 2048,
-      "model_family": "llama3_2",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
       "id": "recipes_llama3_3_inference_70b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_3/inference/70b_infer.yaml",
+      "config_path": "recipes/llama3_3/inference/70b_infer.yaml",
       "relative_path": "recipes/llama3_3/inference/70b_infer.yaml",
       "display_name": "llama3_3 - 70b",
       "model_name": "meta-llama/Llama-3.3-70B-Instruct",
@@ -917,7 +953,7 @@
     },
     {
       "id": "recipes_llama3_3_inference_70b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_3/inference/70b_vllm_infer.yaml",
+      "config_path": "recipes/llama3_3/inference/70b_vllm_infer.yaml",
       "relative_path": "recipes/llama3_3/inference/70b_vllm_infer.yaml",
       "display_name": "llama3_3 - 70b_vllm",
       "model_name": "meta-llama/Llama-3.3-70B-Instruct",
@@ -929,7 +965,7 @@
     },
     {
       "id": "recipes_llama3_3_inference_nemotron_super_49b_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_3/inference/nemotron_super_49b_gguf_infer.yaml",
+      "config_path": "recipes/llama3_3/inference/nemotron_super_49b_gguf_infer.yaml",
       "relative_path": "recipes/llama3_3/inference/nemotron_super_49b_gguf_infer.yaml",
       "display_name": "llama3_3 - nemotron_super_49b_gguf",
       "model_name": "bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF",
@@ -941,7 +977,7 @@
     },
     {
       "id": "recipes_llama3_3_inference_nemotron_super_49b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/llama3_3/inference/nemotron_super_49b_vllm_infer.yaml",
+      "config_path": "recipes/llama3_3/inference/nemotron_super_49b_vllm_infer.yaml",
       "relative_path": "recipes/llama3_3/inference/nemotron_super_49b_vllm_infer.yaml",
       "display_name": "llama3_3 - nemotron_super_49b_vllm",
       "model_name": "nvidia/Llama-3.3-Nemotron-Super-49B-v1",
@@ -953,7 +989,7 @@
     },
     {
       "id": "recipes_mistral_magistral_inference_small_2507_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_infer.yaml",
+      "config_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
       "relative_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
       "display_name": "mistral_magistral - small_2507",
       "model_name": "mistralai/Magistral-Small-2507",
@@ -965,7 +1001,7 @@
     },
     {
       "id": "recipes_mistral_magistral_inference_small_2507_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_gguf_infer.yaml",
+      "config_path": "recipes/mistral_magistral/inference/small_2507_gguf_infer.yaml",
       "relative_path": "recipes/mistral_magistral/inference/small_2507_gguf_infer.yaml",
       "display_name": "mistral_magistral - small_2507_gguf",
       "model_name": "bartowski/mistralai_Magistral-Small-2507-GGUF",
@@ -977,7 +1013,7 @@
     },
     {
       "id": "recipes_mistral_magistral_inference_small_2507_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/mistral_magistral/inference/small_2507_vllm_infer.yaml",
+      "config_path": "recipes/mistral_magistral/inference/small_2507_vllm_infer.yaml",
       "relative_path": "recipes/mistral_magistral/inference/small_2507_vllm_infer.yaml",
       "display_name": "mistral_magistral - small_2507_vllm",
       "model_name": "mistralai/Magistral-Small-2507",
@@ -989,7 +1025,7 @@
     },
     {
       "id": "recipes_nemotron_nano_inference_9b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_infer.yaml",
+      "config_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
       "relative_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
       "display_name": "nemotron_nano - 9b",
       "model_name": "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
@@ -1001,7 +1037,7 @@
     },
     {
       "id": "recipes_nemotron_nano_inference_9b_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_gguf_infer.yaml",
+      "config_path": "recipes/nemotron_nano/inference/9b_gguf_infer.yaml",
       "relative_path": "recipes/nemotron_nano/inference/9b_gguf_infer.yaml",
       "display_name": "nemotron_nano - 9b_gguf",
       "model_name": "bartowski/nvidia_NVIDIA-Nemotron-Nano-9B-v2-GGUF",
@@ -1013,7 +1049,7 @@
     },
     {
       "id": "recipes_nemotron_nano_inference_9b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/nemotron_nano/inference/9b_vllm_infer.yaml",
+      "config_path": "recipes/nemotron_nano/inference/9b_vllm_infer.yaml",
       "relative_path": "recipes/nemotron_nano/inference/9b_vllm_infer.yaml",
       "display_name": "nemotron_nano - 9b_vllm",
       "model_name": "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
@@ -1025,7 +1061,7 @@
     },
     {
       "id": "apis_openai_infer_chatgpt_4o_latest",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_chatgpt_4o_latest.yaml",
+      "config_path": "apis/openai/infer_chatgpt_4o_latest.yaml",
       "relative_path": "apis/openai/infer_chatgpt_4o_latest.yaml",
       "display_name": "OPENAI - infer_chatgpt_4o_latest",
       "model_name": "chatgpt-4o-latest",
@@ -1037,7 +1073,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_4_1",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_4_1.yaml",
+      "config_path": "apis/openai/infer_gpt_4_1.yaml",
       "relative_path": "apis/openai/infer_gpt_4_1.yaml",
       "display_name": "OPENAI - infer_gpt_4_1",
       "model_name": "gpt-4.1",
@@ -1049,7 +1085,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_4_1_mini",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_4_1_mini.yaml",
+      "config_path": "apis/openai/infer_gpt_4_1_mini.yaml",
       "relative_path": "apis/openai/infer_gpt_4_1_mini.yaml",
       "display_name": "OPENAI - infer_gpt_4_1_mini",
       "model_name": "gpt-4.1-mini",
@@ -1061,7 +1097,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_4o",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_4o.yaml",
+      "config_path": "apis/openai/infer_gpt_4o.yaml",
       "relative_path": "apis/openai/infer_gpt_4o.yaml",
       "display_name": "OPENAI - infer_gpt_4o",
       "model_name": "gpt-4o",
@@ -1073,7 +1109,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_4o_mini",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_4o_mini.yaml",
+      "config_path": "apis/openai/infer_gpt_4o_mini.yaml",
       "relative_path": "apis/openai/infer_gpt_4o_mini.yaml",
       "display_name": "OPENAI - infer_gpt_4o_mini",
       "model_name": "gpt-4o-mini",
@@ -1085,7 +1121,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_5",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_5.yaml",
+      "config_path": "apis/openai/infer_gpt_5.yaml",
       "relative_path": "apis/openai/infer_gpt_5.yaml",
       "display_name": "OPENAI - infer_gpt_5",
       "model_name": "gpt-5",
@@ -1097,7 +1133,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_5_chat_latest",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_5_chat_latest.yaml",
+      "config_path": "apis/openai/infer_gpt_5_chat_latest.yaml",
       "relative_path": "apis/openai/infer_gpt_5_chat_latest.yaml",
       "display_name": "OPENAI - infer_gpt_5_chat_latest",
       "model_name": "gpt-5-chat-latest",
@@ -1109,7 +1145,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_5_mini",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_5_mini.yaml",
+      "config_path": "apis/openai/infer_gpt_5_mini.yaml",
       "relative_path": "apis/openai/infer_gpt_5_mini.yaml",
       "display_name": "OPENAI - infer_gpt_5_mini",
       "model_name": "gpt-5-mini",
@@ -1121,7 +1157,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_5_nano",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_5_nano.yaml",
+      "config_path": "apis/openai/infer_gpt_5_nano.yaml",
       "relative_path": "apis/openai/infer_gpt_5_nano.yaml",
       "display_name": "OPENAI - infer_gpt_5_nano",
       "model_name": "gpt-5-nano",
@@ -1133,7 +1169,7 @@
     },
     {
       "id": "apis_openai_infer_gpt_o1_preview",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_gpt_o1_preview.yaml",
+      "config_path": "apis/openai/infer_gpt_o1_preview.yaml",
       "relative_path": "apis/openai/infer_gpt_o1_preview.yaml",
       "display_name": "OPENAI - infer_gpt_o1_preview",
       "model_name": "o1-preview",
@@ -1145,7 +1181,7 @@
     },
     {
       "id": "apis_openai_infer_o1",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_o1.yaml",
+      "config_path": "apis/openai/infer_o1.yaml",
       "relative_path": "apis/openai/infer_o1.yaml",
       "display_name": "OPENAI - infer_o1",
       "model_name": "o1",
@@ -1157,7 +1193,7 @@
     },
     {
       "id": "apis_openai_infer_o1_mini",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_o1_mini.yaml",
+      "config_path": "apis/openai/infer_o1_mini.yaml",
       "relative_path": "apis/openai/infer_o1_mini.yaml",
       "display_name": "OPENAI - infer_o1_mini",
       "model_name": "o1-mini",
@@ -1169,7 +1205,7 @@
     },
     {
       "id": "apis_openai_infer_o3_mini",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/openai/infer_o3_mini.yaml",
+      "config_path": "apis/openai/infer_o3_mini.yaml",
       "relative_path": "apis/openai/infer_o3_mini.yaml",
       "display_name": "OPENAI - infer_o3_mini",
       "model_name": "o3-mini",
@@ -1181,7 +1217,7 @@
     },
     {
       "id": "recipes_phi4_inference_reasoning_plus_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/phi4/inference/reasoning_plus_infer.yaml",
+      "config_path": "recipes/phi4/inference/reasoning_plus_infer.yaml",
       "relative_path": "recipes/phi4/inference/reasoning_plus_infer.yaml",
       "display_name": "phi4 - reasoning_plus",
       "model_name": "microsoft/Phi-4-reasoning-plus",
@@ -1192,8 +1228,44 @@
       "recommended": false
     },
     {
+      "id": "recipes_pocketdoc_inference_personalityengine_24b_infer",
+      "config_path": "recipes/pocketdoc/inference/personalityengine_24b_infer.yaml",
+      "relative_path": "recipes/pocketdoc/inference/personalityengine_24b_infer.yaml",
+      "display_name": "pocketdoc - personalityengine_24b",
+      "model_name": "PocketDoc/Dans-PersonalityEngine-V1.2.0-24b",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "pocketdoc",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_pocketdoc_inference_personalityengine_24b_gguf_infer",
+      "config_path": "recipes/pocketdoc/inference/personalityengine_24b_gguf_infer.yaml",
+      "relative_path": "recipes/pocketdoc/inference/personalityengine_24b_gguf_infer.yaml",
+      "display_name": "pocketdoc - personalityengine_24b_gguf",
+      "model_name": "bartowski/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-GGUF",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "pocketdoc",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_pocketdoc_inference_personalityengine_24b_vllm_infer",
+      "config_path": "recipes/pocketdoc/inference/personalityengine_24b_vllm_infer.yaml",
+      "relative_path": "recipes/pocketdoc/inference/personalityengine_24b_vllm_infer.yaml",
+      "display_name": "pocketdoc - personalityengine_24b_vllm",
+      "model_name": "PocketDoc/Dans-PersonalityEngine-V1.2.0-24b",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "pocketdoc",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
       "id": "recipes_qwen3_inference_0.6b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/0.6b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/0.6b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/0.6b_infer.yaml",
       "display_name": "qwen3 - 0.6b",
       "model_name": "Qwen/Qwen3-0.6B",
@@ -1205,7 +1277,7 @@
     },
     {
       "id": "recipes_qwen3_inference_14b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/14b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/14b_infer.yaml",
       "display_name": "qwen3 - 14b",
       "model_name": "Qwen/Qwen3-14B",
@@ -1217,7 +1289,7 @@
     },
     {
       "id": "recipes_qwen3_inference_14b_abliterated_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_infer.yaml",
+      "config_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
       "relative_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
       "display_name": "qwen3 - 14b_abliterated",
       "model_name": "mlabonne/Qwen3-14B-abliterated",
@@ -1229,7 +1301,7 @@
     },
     {
       "id": "recipes_qwen3_inference_14b_abliterated_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_gguf_infer.yaml",
+      "config_path": "recipes/qwen3/inference/14b_abliterated_gguf_infer.yaml",
       "relative_path": "recipes/qwen3/inference/14b_abliterated_gguf_infer.yaml",
       "display_name": "qwen3 - 14b_abliterated_gguf",
       "model_name": "bartowski/mlabonne_Qwen3-14B-abliterated-GGUF",
@@ -1241,7 +1313,7 @@
     },
     {
       "id": "recipes_qwen3_inference_14b_abliterated_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/14b_abliterated_vllm_infer.yaml",
+      "config_path": "recipes/qwen3/inference/14b_abliterated_vllm_infer.yaml",
       "relative_path": "recipes/qwen3/inference/14b_abliterated_vllm_infer.yaml",
       "display_name": "qwen3 - 14b_abliterated_vllm",
       "model_name": "mlabonne/Qwen3-14B-abliterated",
@@ -1253,7 +1325,7 @@
     },
     {
       "id": "recipes_qwen3_inference_235b_a22b_together_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/235b_a22b_together_infer.yaml",
+      "config_path": "recipes/qwen3/inference/235b_a22b_together_infer.yaml",
       "relative_path": "recipes/qwen3/inference/235b_a22b_together_infer.yaml",
       "display_name": "qwen3 - 235b_a22b_together",
       "model_name": "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
@@ -1265,7 +1337,7 @@
     },
     {
       "id": "recipes_qwen3_inference_30b_a3b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/30b_a3b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/30b_a3b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/30b_a3b_infer.yaml",
       "display_name": "qwen3 - 30b_a3b",
       "model_name": "Qwen/Qwen3-30B-A3B",
@@ -1277,7 +1349,7 @@
     },
     {
       "id": "recipes_qwen3_inference_32b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/32b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/32b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/32b_infer.yaml",
       "display_name": "qwen3 - 32b",
       "model_name": "Qwen/Qwen3-32B",
@@ -1289,7 +1361,7 @@
     },
     {
       "id": "recipes_qwen3_inference_4b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwen3/inference/4b_infer.yaml",
+      "config_path": "recipes/qwen3/inference/4b_infer.yaml",
       "relative_path": "recipes/qwen3/inference/4b_infer.yaml",
       "display_name": "qwen3 - 4b",
       "model_name": "Qwen/Qwen3-4B",
@@ -1301,7 +1373,7 @@
     },
     {
       "id": "recipes_qwq_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/qwq/inference/infer.yaml",
+      "config_path": "recipes/qwq/inference/infer.yaml",
       "relative_path": "recipes/qwq/inference/infer.yaml",
       "display_name": "qwq - infer",
       "model_name": "Qwen/QwQ-32B",
@@ -1313,7 +1385,7 @@
     },
     {
       "id": "recipes_smollm_inference_135m_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm/inference/135m_infer.yaml",
+      "config_path": "recipes/smollm/inference/135m_infer.yaml",
       "relative_path": "recipes/smollm/inference/135m_infer.yaml",
       "display_name": "smollm - 135m",
       "model_name": "HuggingFaceTB/SmolLM2-135M-Instruct",
@@ -1325,7 +1397,7 @@
     },
     {
       "id": "recipes_smollm3_inference_3b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_infer.yaml",
+      "config_path": "recipes/smollm3/inference/3b_infer.yaml",
       "relative_path": "recipes/smollm3/inference/3b_infer.yaml",
       "display_name": "smollm3 - 3b",
       "model_name": "HuggingFaceTB/SmolLM3-3B",
@@ -1337,7 +1409,7 @@
     },
     {
       "id": "recipes_smollm3_inference_3b_gguf_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_gguf_infer.yaml",
+      "config_path": "recipes/smollm3/inference/3b_gguf_infer.yaml",
       "relative_path": "recipes/smollm3/inference/3b_gguf_infer.yaml",
       "display_name": "smollm3 - 3b_gguf",
       "model_name": "bartowski/HuggingFaceTB_SmolLM3-3B-GGUF",
@@ -1349,7 +1421,7 @@
     },
     {
       "id": "recipes_smollm3_inference_3b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/smollm3/inference/3b_vllm_infer.yaml",
+      "config_path": "recipes/smollm3/inference/3b_vllm_infer.yaml",
       "relative_path": "recipes/smollm3/inference/3b_vllm_infer.yaml",
       "display_name": "smollm3 - 3b_vllm",
       "model_name": "HuggingFaceTB/SmolLM3-3B",
@@ -1361,7 +1433,7 @@
     },
     {
       "id": "examples_bulk_inference_gcp_job",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/examples/bulk_inference/gcp_job.yaml",
+      "config_path": "examples/bulk_inference/gcp_job.yaml",
       "relative_path": "examples/bulk_inference/gcp_job.yaml",
       "display_name": "unknown - gcp_job",
       "model_name": "Unknown Model",
@@ -1373,7 +1445,7 @@
     },
     {
       "id": "apis_vertex_infer_llama_3_1_405b",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/vertex/infer_llama_3_1_405b.yaml",
+      "config_path": "apis/vertex/infer_llama_3_1_405b.yaml",
       "relative_path": "apis/vertex/infer_llama_3_1_405b.yaml",
       "display_name": "VERTEX - infer_llama_3_1_405b",
       "model_name": "meta/llama-3.1-405b-instruct-maas",
@@ -1385,7 +1457,7 @@
     },
     {
       "id": "apis_vertex_infer_llama_3_3_70b",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/apis/vertex/infer_llama_3_3_70b.yaml",
+      "config_path": "apis/vertex/infer_llama_3_3_70b.yaml",
       "relative_path": "apis/vertex/infer_llama_3_3_70b.yaml",
       "display_name": "VERTEX - infer_llama_3_3_70b",
       "model_name": "meta/llama-3.3-70b-instruct-maas",
@@ -1397,7 +1469,7 @@
     },
     {
       "id": "recipes_vision_llama3_2_vision_inference_11b_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
+      "config_path": "recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
       "relative_path": "recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
       "display_name": "vision - 11b",
       "model_name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
@@ -1409,7 +1481,7 @@
     },
     {
       "id": "recipes_vision_llama3_2_vision_inference_11b_rvllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml",
+      "config_path": "recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml",
       "relative_path": "recipes/vision/llama3_2_vision/inference/11b_rvllm_infer.yaml",
       "display_name": "vision - 11b_rvllm",
       "model_name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
@@ -1421,7 +1493,7 @@
     },
     {
       "id": "recipes_vision_llama3_2_vision_inference_11b_sglang_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml",
+      "config_path": "recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml",
       "relative_path": "recipes/vision/llama3_2_vision/inference/11b_sglang_infer.yaml",
       "display_name": "vision - 11b_sglang",
       "model_name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
@@ -1433,7 +1505,7 @@
     },
     {
       "id": "recipes_vision_llama3_2_vision_inference_11b_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml",
+      "config_path": "recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml",
       "relative_path": "recipes/vision/llama3_2_vision/inference/11b_vllm_infer.yaml",
       "display_name": "vision - 11b_vllm",
       "model_name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
@@ -1445,7 +1517,7 @@
     },
     {
       "id": "recipes_vision_llava_7b_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/llava_7b/inference/infer.yaml",
+      "config_path": "recipes/vision/llava_7b/inference/infer.yaml",
       "relative_path": "recipes/vision/llava_7b/inference/infer.yaml",
       "display_name": "vision - infer",
       "model_name": "llava-hf/llava-1.5-7b-hf",
@@ -1457,7 +1529,7 @@
     },
     {
       "id": "recipes_vision_phi4_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/phi4/inference/infer.yaml",
+      "config_path": "recipes/vision/phi4/inference/infer.yaml",
       "relative_path": "recipes/vision/phi4/inference/infer.yaml",
       "display_name": "vision - infer",
       "model_name": "microsoft/Phi-4-multimodal-instruct",
@@ -1469,7 +1541,7 @@
     },
     {
       "id": "recipes_vision_qwen2_5_vl_3b_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
+      "config_path": "recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
       "relative_path": "recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
       "display_name": "vision - infer",
       "model_name": "Qwen/Qwen2.5-VL-3B-Instruct",
@@ -1481,7 +1553,7 @@
     },
     {
       "id": "recipes_vision_qwen2_vl_2b_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/qwen2_vl_2b/inference/infer.yaml",
+      "config_path": "recipes/vision/qwen2_vl_2b/inference/infer.yaml",
       "relative_path": "recipes/vision/qwen2_vl_2b/inference/infer.yaml",
       "display_name": "vision - infer",
       "model_name": "Qwen/Qwen2-VL-2B-Instruct",
@@ -1493,7 +1565,7 @@
     },
     {
       "id": "recipes_vision_smolvlm_inference_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/smolvlm/inference/infer.yaml",
+      "config_path": "recipes/vision/smolvlm/inference/infer.yaml",
       "relative_path": "recipes/vision/smolvlm/inference/infer.yaml",
       "display_name": "vision - infer",
       "model_name": "HuggingFaceTB/SmolVLM-Instruct",
@@ -1505,7 +1577,7 @@
     },
     {
       "id": "recipes_vision_qwen2_vl_2b_inference_sglang_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml",
+      "config_path": "recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml",
       "relative_path": "recipes/vision/qwen2_vl_2b/inference/sglang_infer.yaml",
       "display_name": "vision - sglang",
       "model_name": "Qwen/Qwen2-VL-2B-Instruct",
@@ -1517,7 +1589,7 @@
     },
     {
       "id": "recipes_vision_llava_7b_inference_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/llava_7b/inference/vllm_infer.yaml",
+      "config_path": "recipes/vision/llava_7b/inference/vllm_infer.yaml",
       "relative_path": "recipes/vision/llava_7b/inference/vllm_infer.yaml",
       "display_name": "vision - vllm",
       "model_name": "llava-hf/llava-1.5-7b-hf",
@@ -1529,7 +1601,7 @@
     },
     {
       "id": "recipes_vision_phi3_inference_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/phi3/inference/vllm_infer.yaml",
+      "config_path": "recipes/vision/phi3/inference/vllm_infer.yaml",
       "relative_path": "recipes/vision/phi3/inference/vllm_infer.yaml",
       "display_name": "vision - vllm",
       "model_name": "microsoft/Phi-3-vision-128k-instruct",
@@ -1541,7 +1613,7 @@
     },
     {
       "id": "recipes_vision_phi4_inference_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/phi4/inference/vllm_infer.yaml",
+      "config_path": "recipes/vision/phi4/inference/vllm_infer.yaml",
       "relative_path": "recipes/vision/phi4/inference/vllm_infer.yaml",
       "display_name": "vision - vllm",
       "model_name": "microsoft/Phi-4-multimodal-instruct",
@@ -1553,7 +1625,7 @@
     },
     {
       "id": "recipes_vision_qwen2_5_vl_3b_inference_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml",
+      "config_path": "recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml",
       "relative_path": "recipes/vision/qwen2_5_vl_3b/inference/vllm_infer.yaml",
       "display_name": "vision - vllm",
       "model_name": "Qwen/Qwen2.5-VL-3B-Instruct",
@@ -1565,7 +1637,7 @@
     },
     {
       "id": "recipes_vision_qwen2_vl_2b_inference_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml",
+      "config_path": "recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml",
       "relative_path": "recipes/vision/qwen2_vl_2b/inference/vllm_infer.yaml",
       "display_name": "vision - vllm",
       "model_name": "Qwen/Qwen2-VL-2B-Instruct",
@@ -1577,7 +1649,7 @@
     },
     {
       "id": "recipes_vision_smolvlm_inference_vllm_infer",
-      "config_path": "/Users/benjaminfeuer/Library/CloudStorage/GoogleDrive-penfever@gmail.com/My Drive/Current Projects/oumi/oumi/configs/recipes/vision/smolvlm/inference/vllm_infer.yaml",
+      "config_path": "recipes/vision/smolvlm/inference/vllm_infer.yaml",
       "relative_path": "recipes/vision/smolvlm/inference/vllm_infer.yaml",
       "display_name": "vision - vllm",
       "model_name": "HuggingFaceTB/SmolVLM-Instruct",

@@ -89,7 +89,7 @@ function parseYamlConfig(filePath, relativePath) {
     
     return {
       id: relativePath.replace(/[/\\]/g, '_').replace(/\.(yaml|yml)$/, ''),
-      config_path: filePath,
+      config_path: relativePath, // Use relative path for built app compatibility
       relative_path: relativePath,
       display_name: displayName,
       model_name: modelName,
