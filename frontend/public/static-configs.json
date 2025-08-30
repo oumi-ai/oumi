@@ -1,7 +1,7 @@
 {
-  "generated_at": "2025-08-30T11:02:59.743Z",
+  "generated_at": "2025-08-30T11:20:25.315Z",
   "version": "1.0",
-  "total_configs": 138,
+  "total_configs": 142,
   "configs": [
     {
       "id": "projects_coalm_8b_infer",
@@ -36,6 +36,18 @@
       "engine": "LLAMACPP",
       "context_length": 8192,
       "model_family": "deepseek_r1",
+      "size_category": "medium",
+      "recommended": true
+    },
+    {
+      "id": "recipes_exaone_inference_4_0_32b_gguf_macos_infer",
+      "config_path": "recipes/exaone/inference/4_0_32b_gguf_macos_infer.yaml",
+      "relative_path": "recipes/exaone/inference/4_0_32b_gguf_macos_infer.yaml",
+      "display_name": "exaone - 4_0_32b_gguf_macos",
+      "model_name": "bartowski/LGAI-EXAONE_EXAONE-4.0-32B-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 32768,
+      "model_family": "exaone",
       "size_category": "medium",
       "recommended": true
     },
@@ -564,6 +576,42 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "deepseek_r1",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_exaone_inference_4_0_32b_infer",
+      "config_path": "recipes/exaone/inference/4_0_32b_infer.yaml",
+      "relative_path": "recipes/exaone/inference/4_0_32b_infer.yaml",
+      "display_name": "exaone - 4_0_32b",
+      "model_name": "LGAI-EXAONE/EXAONE-4.0-32B",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "exaone",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_exaone_inference_4_0_32b_gguf_infer",
+      "config_path": "recipes/exaone/inference/4_0_32b_gguf_infer.yaml",
+      "relative_path": "recipes/exaone/inference/4_0_32b_gguf_infer.yaml",
+      "display_name": "exaone - 4_0_32b_gguf",
+      "model_name": "bartowski/LGAI-EXAONE_EXAONE-4.0-32B-GGUF",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "exaone",
+      "size_category": "medium",
+      "recommended": false
+    },
+    {
+      "id": "recipes_exaone_inference_4_0_32b_vllm_infer",
+      "config_path": "recipes/exaone/inference/4_0_32b_vllm_infer.yaml",
+      "relative_path": "recipes/exaone/inference/4_0_32b_vllm_infer.yaml",
+      "display_name": "exaone - 4_0_32b_vllm",
+      "model_name": "LGAI-EXAONE/EXAONE-4.0-32B",
+      "engine": "VLLM",
+      "context_length": 32768,
+      "model_family": "exaone",
       "size_category": "medium",
       "recommended": false
     },

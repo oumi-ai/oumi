@@ -256,7 +256,28 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       setLoading(true);
       setError(null);
       
-      // Load static configs from pre-generated file
+      // Try runtime config discovery first (Electron app)
+      if (apiClient.isElectronApp()) {
+        try {
+          const response = await apiClient.discoverBundledConfigs();
+          
+          if (response.success && response.data?.configs) {
+            const transformedConfigs = response.data.configs.map((config: any, index: number) => ({
+              ...config,
+              recommended: config.recommended || false
+            }));
+            
+            setConfigs(transformedConfigs);
+            return;
+          } else {
+            throw new Error(response.error || 'Config discovery failed');
+          }
+        } catch (electronError) {
+          console.warn('Electron config discovery failed, falling back to static file:', electronError);
+        }
+      }
+      
+      // Fallback to static configs file (dev mode or if Electron discovery fails)
       const response = await fetch('./static-configs.json');
       
       if (!response.ok) {
@@ -688,6 +709,21 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               </button>
             </div>
           </div>
+
+          {/* Footer */}
+          <div className="text-center mt-8 pt-6 border-t border-border">
+            <p className="text-sm text-muted-foreground">
+              Powered by{' '}
+              <a 
+                href="https://github.com/oumi-ai/oumi" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium"
+              >
+                Oumi.AI
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -853,6 +889,21 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               )}
             </>
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="text-center mt-8 pt-6 border-t border-border">
+          <p className="text-sm text-muted-foreground">
+            Powered by{' '}
+            <a 
+              href="https://github.com/oumi-ai/oumi" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-medium"
+            >
+              Oumi.AI
+            </a>
+          </p>
         </div>
       </div>
       

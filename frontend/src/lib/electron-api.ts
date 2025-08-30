@@ -326,6 +326,14 @@ class ElectronApiClient {
     return window.electronAPI.storage.resetWelcomeSettings();
   }
 
+  // Config discovery methods
+  public async discoverBundledConfigs(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('Config discovery only available in Electron app');
+    }
+    return window.electronAPI.config.discoverBundled();
+  }
+
   // Platform information
   public getPlatform(): { os: string; arch: string; version: string } {
     if (!this.isElectron) {

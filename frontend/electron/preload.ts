@@ -85,6 +85,11 @@ export interface ElectronAPI {
     resetWelcomeSettings: () => Promise<any>;
   };
 
+  // Config discovery
+  config: {
+    discoverBundled: () => Promise<any>;
+  };
+
   // Platform information
   platform: {
     os: string;
@@ -214,6 +219,11 @@ const electronAPI: ElectronAPI = {
     delete: (key) => ipcRenderer.invoke('storage:delete', key),
     clear: () => ipcRenderer.invoke('storage:clear'),
     resetWelcomeSettings: () => ipcRenderer.invoke('storage:reset-welcome-settings')
+  },
+
+  // Config discovery
+  config: {
+    discoverBundled: () => ipcRenderer.invoke('config:discover-bundled')
   },
 
   platform: {
