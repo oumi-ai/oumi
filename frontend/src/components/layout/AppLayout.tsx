@@ -144,8 +144,17 @@ export default function AppLayout() {
         <div className="flex items-center justify-between px-4 py-3">
           {/* Left section */}
           <div className="flex items-center gap-3">
+            <img 
+              src="./images/chatterley-logo.png" 
+              alt="Chatterley Logo"
+              className="w-8 h-8"
+              onError={(e) => {
+                // Hide if logo not found
+                e.currentTarget.style.display = 'none';
+              }}
+            />
             <h1 className="text-xl font-semibold text-foreground">
-              Oumi WebChat
+              Chatterley: Powered by Oumi
             </h1>
             <div className="text-sm text-muted-foreground">
               Branch: {currentBranchId}

@@ -512,40 +512,15 @@ export class PythonServerManager {
 
         log.info(`Test process spawned with PID: ${testProcess.pid}`);
 
-        // Start network monitoring if we have a PID
-        if (testProcess.pid) {
-          startNetworkMonitoring(testProcess.pid);
-        }
-
-        let hasCompleted = false;
-        let outputBuffer = '';
-
-        const cleanup = () => {
-          if (networkMonitorInterval) {
-            clearInterval(networkMonitorInterval);
-            networkMonitorInterval = null;
-          }
-          if (testProcess && !testProcess.killed) {
-            testProcess.kill('SIGTERM');
-          }
-          // Clean up temp files
-          try {
-            require('fs').unlinkSync(tempInputPath);
-            require('fs').unlinkSync(tempOutputPath);
-          } catch (e) {
-            // Ignore cleanup errors
-          }
-        };
-
         // Network monitoring function for macOS
         const getProcessNetworkStats = async (pid: number): Promise<{ bytesReceived: number } | null> => {
           return new Promise((resolve) => {
             const { exec } = require('child_process');
             // Use netstat to get network stats for the specific process
-            exec(`netstat -p ${pid} 2>/dev/null | grep -E '(tcp|udp)' | awk '{sum+=$2} END {print sum+0}'`, (error, stdout) => {
+            exec(`netstat -p ${pid} 2>/dev/null | grep -E '(tcp|udp)' | awk '{sum+=$2} END {print sum+0}'`, (error: any, stdout: string) => {
               if (error) {
                 // Fallback: try lsof approach
-                exec(`lsof -p ${pid} -a -i 2>/dev/null | wc -l`, (lsofError, lsofStdout) => {
+                exec(`lsof -p ${pid} -a -i 2>/dev/null | wc -l`, (lsofError: any, lsofStdout: string) => {
                   if (lsofError) {
                     resolve(null);
                   } else {
@@ -561,7 +536,7 @@ export class PythonServerManager {
           });
         };
 
-        // Start network monitoring
+        // Start network monitoring function
         const startNetworkMonitoring = (pid: number) => {
           let downloadStartTime: number | null = null;
           let stableCount = 0;
@@ -641,6 +616,33 @@ export class PythonServerManager {
             lastNetworkStats.bytesReceived = currentBytes;
           }, 2000); // Check every 2 seconds
         };
+
+        // Start network monitoring if we have a PID
+        if (testProcess.pid) {
+          startNetworkMonitoring(testProcess.pid);
+        }
+
+        let hasCompleted = false;
+        let outputBuffer = '';
+
+        const cleanup = () => {
+          if (networkMonitorInterval) {
+            clearInterval(networkMonitorInterval);
+            networkMonitorInterval = null;
+          }
+          if (testProcess && !testProcess.killed) {
+            testProcess.kill('SIGTERM');
+          }
+          // Clean up temp files
+          try {
+            require('fs').unlinkSync(tempInputPath);
+            require('fs').unlinkSync(tempOutputPath);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        };
+
+
 
       // Track if model loading succeeded
       let modelLoaded = false;
@@ -730,7 +732,8 @@ export class PythonServerManager {
       
       } catch (error) {
         log.error('Error setting up test inference:', error);
-        resolve({ success: false, message: `Setup error: ${error.message}` });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        resolve({ success: false, message: `Setup error: ${errorMessage}` });
       }
     });
   }

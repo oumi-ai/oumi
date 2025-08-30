@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Oumi WebChat",
+  title: "Chatterley: Powered by Oumi",
   description: "Advanced AI chat interface with conversation branching",
 };
 

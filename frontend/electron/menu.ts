@@ -13,11 +13,11 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
     ...(isMac ? [{
       label: app.getName(),
       submenu: [
-        { label: 'About Oumi Chat', role: 'about' as const },
+        { label: 'About Chatterley', role: 'about' as const },
         { type: 'separator' as const },
         { label: 'Services', role: 'services' as const, submenu: [] },
         { type: 'separator' as const },
-        { label: 'Hide Oumi Chat', accelerator: 'Command+H', role: 'hide' as const },
+        { label: 'Hide Chatterley', accelerator: 'Command+H', role: 'hide' as const },
         { label: 'Hide Others', accelerator: 'Command+Shift+H', role: 'hideOthers' as const },
         { label: 'Show All', role: 'unhide' as const },
         { type: 'separator' as const },
@@ -78,6 +78,28 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
               }
             } catch (error) {
               log.error('Error in load conversation dialog:', error);
+            }
+          }
+        },
+        {
+          label: 'Browse for Config...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: async () => {
+            try {
+              const result = await dialog.showOpenDialog(mainWindow, {
+                title: 'Select Configuration File',
+                filters: [
+                  { name: 'YAML Config Files', extensions: ['yaml', 'yml'] },
+                  { name: 'All Files', extensions: ['*'] }
+                ],
+                properties: ['openFile']
+              });
+
+              if (!result.canceled && result.filePaths.length > 0) {
+                mainWindow.webContents.send('menu:browse-config', result.filePaths[0]);
+              }
+            } catch (error) {
+              log.error('Error in browse config dialog:', error);
             }
           }
         },
@@ -325,7 +347,7 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
           }
         },
         ...(!isMac ? [{
-          label: 'About Oumi Chat',
+          label: 'About Chatterley',
           click: () => {
             showAboutDialog(mainWindow);
           }
@@ -343,8 +365,8 @@ export function createApplicationMenu(mainWindow: BrowserWindow): Menu {
 function showAboutDialog(mainWindow: BrowserWindow): void {
   dialog.showMessageBox(mainWindow, {
     type: 'info',
-    title: 'About Oumi Chat',
-    message: 'Oumi Chat',
+    title: 'About Chatterley',
+    message: 'Chatterley',
     detail: `Version: ${app.getVersion()}\n\nA cross-platform desktop application for conversing with AI models.\n\nBuilt with Electron and powered by the Oumi AI platform.`,
     buttons: ['OK']
   });

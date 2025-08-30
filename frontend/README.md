@@ -1,4 +1,4 @@
-# Oumi Chat Desktop Application
+# Chatterley - Desktop Application
 
 A cross-platform desktop application for conversing with AI models, built with Electron and powered by the Oumi AI platform.
 

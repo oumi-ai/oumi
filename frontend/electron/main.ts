@@ -1,5 +1,5 @@
 /**
- * Electron main process for Oumi Chat Desktop Application
+ * Electron main process for Chatterley Desktop Application
  */
 
 import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
@@ -17,7 +17,7 @@ log.transports.console.level = 'debug';
 
 // Initialize persistent storage
 const store = new Store({
-  name: 'oumi-chat-config',
+  name: 'chatterley-config',
   defaults: {
     windowBounds: { width: 1400, height: 900 },
     pythonPort: 9000,
@@ -25,7 +25,7 @@ const store = new Store({
   }
 });
 
-class OumiChatApp {
+class ChatterleyApp {
   private mainWindow: BrowserWindow | null = null;
   private pythonManager: PythonServerManager | null = null;
   private isDevelopment: boolean;
@@ -88,7 +88,7 @@ class OumiChatApp {
       log.error('Failed to initialize application:', error);
       dialog.showErrorBox(
         'Initialization Error',
-        'Failed to start Oumi Chat. Please check the logs and try again.'
+        'Failed to start Chatterley. Please check the logs and try again.'
       );
       app.quit();
     }
@@ -203,7 +203,7 @@ class OumiChatApp {
     dialog.showMessageBox(this.mainWindow, {
       type: 'info',
       title: 'Update Available',
-      message: 'A new version of Oumi Chat is available.',
+      message: 'A new version of Chatterley is available.',
       detail: 'The update will be downloaded and installed automatically when you restart the application.',
       buttons: ['OK']
     });
@@ -254,14 +254,14 @@ class OumiChatApp {
 }
 
 // Global app instance
-let appInstance: OumiChatApp;
+let appInstance: ChatterleyApp;
 
 // Initialize the application
 if (!app.requestSingleInstanceLock()) {
   // Another instance is already running
   app.quit();
 } else {
-  appInstance = new OumiChatApp();
+  appInstance = new ChatterleyApp();
 
   // Handle second instance
   app.on('second-instance', () => {

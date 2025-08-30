@@ -63,7 +63,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
       // Load config path from static configs
       let configPath: string | undefined;
       try {
-        const response = await fetch('/static-configs.json');
+        const response = await fetch('./static-configs.json');
         if (response.ok) {
           const data = await response.json();
           const selectedConfigData = data.configs?.find((cfg: any) => cfg.id === configId);
@@ -175,7 +175,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
       } else {
         // Generic error
         setError({
-          message: 'Failed to initialize Oumi Chat',
+          message: 'Failed to initialize Chatterley',
           details: errorMessage,
           canRetry: true
         });
@@ -306,7 +306,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
               /* Standard initialization UI */
               <div className="text-center">
                 <Loader2 className="w-12 h-12 animate-spin mx-auto mb-6 text-primary" />
-                <h2 className="text-xl font-semibold mb-2 text-foreground">Initializing Oumi Chat</h2>
+                <h2 className="text-xl font-semibold mb-2 text-foreground">Initializing Chatterley</h2>
                 <p className="text-muted-foreground mb-4">{initProgress}</p>
                 
                 {/* Progress indicator */}

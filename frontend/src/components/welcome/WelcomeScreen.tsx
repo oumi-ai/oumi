@@ -1,5 +1,5 @@
 /**
- * Welcome screen for Oumi Chat Desktop - Model configuration selection
+ * Welcome screen for Chatterley - Model configuration selection
  */
 
 "use client";
@@ -215,13 +215,49 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     }
   }, [selectedPreset, systemPromptPresets]);
 
+  // Handle menu messages (Electron-specific)
+  React.useEffect(() => {
+    const handleBrowseConfigFromMenu = (configPath: string) => {
+      const customConfig: ConfigOption = {
+        id: `custom-${Date.now()}`,
+        config_path: configPath,
+        relative_path: configPath,
+        display_name: `Custom: ${configPath.split('/').pop() || 'Unknown'}`,
+        model_name: 'Custom Model',
+        engine: 'native',
+        context_length: 8192,
+        model_family: 'custom',
+        size_category: 'unknown',
+        recommended: false
+      };
+
+      // Add to configs list
+      setConfigs(prev => [customConfig, ...prev]);
+      
+      // Auto-select the custom config
+      setSelectedConfig(customConfig.id);
+      setShowSystemPrompt(true);
+    };
+
+    // Listen for menu messages (Electron-specific)
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      window.electronAPI.onMenuMessage('menu:browse-config', handleBrowseConfigFromMenu);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        window.electronAPI.removeMenuListener('menu:browse-config', handleBrowseConfigFromMenu);
+      }
+    };
+  }, []);
+
   const loadConfigs = async () => {
     try {
       setLoading(true);
       setError(null);
       
       // Load static configs from pre-generated file
-      const response = await fetch('/static-configs.json');
+      const response = await fetch('./static-configs.json');
       
       if (!response.ok) {
         throw new Error('Failed to load static configurations');
@@ -293,6 +329,47 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   const handleConfigSelect = (configId: string) => {
     setSelectedConfig(configId);
     setShowSystemPrompt(true);
+  };
+
+  const handleBrowseConfig = async () => {
+    try {
+      const filePaths = await apiClient.showOpenDialog({
+        title: 'Select Configuration File',
+        filters: [
+          { name: 'YAML Config Files', extensions: ['yaml', 'yml'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+      });
+
+      if (filePaths && filePaths.length > 0) {
+        const configPath = filePaths[0];
+        
+        // Create a custom config entry
+        const customConfig: ConfigOption = {
+          id: `custom-${Date.now()}`,
+          config_path: configPath,
+          relative_path: configPath,
+          display_name: `Custom: ${configPath.split('/').pop() || 'Unknown'}`,
+          model_name: 'Custom Model',
+          engine: 'native',
+          context_length: 8192,
+          model_family: 'custom',
+          size_category: 'unknown',
+          recommended: false
+        };
+
+        // Add to configs list
+        setConfigs(prev => [customConfig, ...prev]);
+        
+        // Auto-select the custom config
+        setSelectedConfig(customConfig.id);
+        setShowSystemPrompt(true);
+      }
+    } catch (error) {
+      console.error('Error browsing for config:', error);
+      setError('Failed to browse for configuration file');
+    }
   };
 
   const handleStartChat = async () => {
@@ -402,7 +479,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="bg-card rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-6"></div>
-          <h2 className="text-xl font-semibold mb-2 text-foreground">Starting Oumi Chat</h2>
+          <h2 className="text-xl font-semibold mb-2 text-foreground">Starting Chatterley</h2>
           <p className="text-muted-foreground">Loading your selected model configuration...</p>
         </div>
       </div>
@@ -461,7 +538,17 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <MessageSquare className="w-12 h-12 text-primary mr-3" />
+              <img 
+                src="./images/chatterley-logo.png" 
+                alt="Chatterley Logo"
+                className="w-12 h-12 mr-3"
+                onError={(e) => {
+                  // Fallback to MessageSquare icon if logo is not found
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <MessageSquare className="w-12 h-12 text-primary mr-3 hidden" />
               <h1 className="text-4xl font-bold text-foreground">Customize Your AI</h1>
             </div>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -612,11 +699,21 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <Bot className="w-12 h-12 text-primary mr-3" />
-            <h1 className="text-4xl font-bold text-foreground">Oumi Chat</h1>
+            <img 
+              src="./images/chatterley-logo.png" 
+              alt="Chatterley Logo"
+              className="w-12 h-12 mr-3"
+              onError={(e) => {
+                // Fallback to Bot icon if logo is not found
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <Bot className="w-12 h-12 text-primary mr-3 hidden" />
+            <h1 className="text-4xl font-bold text-foreground">Chatterley</h1>
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Welcome to Oumi Chat Desktop. Select a model configuration to get started with your AI conversations.
+            Welcome to Chatterley. Select a model configuration to get started with your AI conversations.
           </p>
         </div>
 
@@ -680,6 +777,25 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                     <option value="large">Large (20-70B)</option>
                     <option value="xl">Extra Large (100B+)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Browse Section */}
+              <div className="bg-card rounded-lg shadow-lg p-6 mb-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Custom Configuration</h3>
+                    <p className="text-muted-foreground">
+                      Have your own configuration file? Browse and select a custom YAML config.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleBrowseConfig}
+                    className="flex items-center gap-2 px-6 py-3 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
+                  >
+                    <Search className="w-4 h-4" />
+                    Browse for Config...
+                  </button>
                 </div>
               </div>
 

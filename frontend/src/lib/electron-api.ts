@@ -10,79 +10,11 @@ import {
   ConversationBranch, 
   Message 
 } from './types';
+import { ElectronAPI } from '../../electron/preload';
 
 declare global {
   interface Window {
-    electronAPI: {
-      // Application control
-      app: {
-        getVersion: () => Promise<string>;
-        quit: () => void;
-        reload: () => void;
-        toggleDevTools: () => void;
-        toggleFullScreen: () => void;
-        zoom: (direction: 'in' | 'out' | 'reset') => void;
-      };
-
-      // File system operations
-      files: {
-        showSaveDialog: (options: any) => Promise<string | null>;
-        showOpenDialog: (options: any) => Promise<string[] | null>;
-        writeFile: (filePath: string, content: string) => Promise<boolean>;
-        readFile: (filePath: string) => Promise<string | null>;
-        exists: (filePath: string) => Promise<boolean>;
-      };
-
-      // Server control
-      server: {
-        start: (configPath?: string, systemPrompt?: string) => Promise<any>;
-        stop: () => Promise<any>;
-        restart: () => Promise<any>;
-        status: () => Promise<any>;
-        testModel: (configPath: string) => Promise<{ success: boolean; message?: string }>;
-      };
-
-      // Chat API operations
-      chat: {
-        health: () => Promise<any>;
-        getSystemStats: () => Promise<any>;
-        getModelStats: () => Promise<any>;
-        chatCompletion: (request: any) => Promise<any>;
-        streamChatCompletion: (request: any, onChunk: (chunk: string) => void) => Promise<any>;
-        getConfigs: () => Promise<any>;
-        getModels: () => Promise<any>;
-        getBranches: (sessionId?: string) => Promise<any>;
-        createBranch: (sessionId: string, name: string, parentBranchId?: string) => Promise<any>;
-        switchBranch: (sessionId: string, branchId: string) => Promise<any>;
-        deleteBranch: (sessionId: string, branchId: string) => Promise<any>;
-        getConversation: (sessionId?: string, branchId?: string) => Promise<any>;
-        sendMessage: (content: string, sessionId?: string, branchId?: string) => Promise<any>;
-        executeCommand: (command: string, args?: string[]) => Promise<any>;
-      };
-
-      // Real-time events
-      events: {
-        on: (channel: string, listener: (...args: any[]) => void) => void;
-        off: (channel: string, listener: (...args: any[]) => void) => void;
-        send: (channel: string, ...args: any[]) => void;
-        invoke: (channel: string, ...args: any[]) => Promise<any>;
-      };
-
-      // Storage operations
-      storage: {
-        get: (key: string, defaultValue?: any) => Promise<any>;
-        set: (key: string, value: any) => Promise<void>;
-        delete: (key: string) => Promise<void>;
-        clear: () => Promise<void>;
-      };
-
-      // Platform information
-      platform: {
-        os: string;
-        arch: string;
-        version: string;
-      };
-    };
+    electronAPI: ElectronAPI;
   }
 }
 
