@@ -8,6 +8,22 @@ import * as fs from 'fs';
 import * as net from 'net';
 import log from 'electron-log';
 
+export interface DownloadProgress {
+  filename: string;
+  progress: number;       // 0-100
+  downloaded: string;     // "1.2GB" 
+  total: string;          // "1.8GB"
+  speed: string;          // "15.2MB/s"
+  isComplete: boolean;
+  estimatedTimeRemaining?: string; // "00:37"
+}
+
+export interface DownloadErrorEvent {
+  message: string;
+  timestamp: string;
+  filename?: string;
+}
+
 export interface PythonServerConfig {
   port: number;
   host: string;
@@ -24,6 +40,8 @@ export class PythonServerManager {
   private config: PythonServerConfig;
   private isStarting: boolean = false;
   private isRunning: boolean = false;
+  private downloadProgressCallback?: (progress: DownloadProgress) => void;
+  private downloadErrorCallback?: (error: DownloadErrorEvent) => void;
 
   constructor(port: number = 9000, config: Partial<PythonServerConfig> = {}) {
     this.config = {
@@ -214,6 +232,9 @@ export class PythonServerManager {
           if (output) {
             log.info(`[Python Server] ${output}`);
             
+            // Handle download progress if present
+            this.handleDownloadProgress(output);
+            
             // Check for startup success indicators
             if (!hasResolved && (
               output.includes('Uvicorn running on') || 
@@ -233,6 +254,9 @@ export class PythonServerManager {
           const error = data.toString().trim();
           if (error) {
             log.error(`[Python Server Error] ${error}`);
+            
+            // Handle download progress/errors that might appear in stderr
+            this.handleDownloadProgress(error);
           }
         });
       }
@@ -442,5 +466,109 @@ export class PythonServerManager {
   public getLogs(): string[] {
     // This could be enhanced to store and return recent log entries
     return [];
+  }
+
+  /**
+   * Set download progress callback
+   */
+  public setDownloadProgressCallback(callback: (progress: DownloadProgress) => void): void {
+    this.downloadProgressCallback = callback;
+  }
+
+  /**
+   * Set download error callback
+   */
+  public setDownloadErrorCallback(callback: (error: DownloadErrorEvent) => void): void {
+    this.downloadErrorCallback = callback;
+  }
+
+  /**
+   * Parse download progress from output line
+   */
+  private parseDownloadProgress(output: string): DownloadProgress | null {
+    // HuggingFace download patterns:
+    // "Downloading pytorch_model.bin: 67%|██████▋ | 1.2G/1.8G [01:23<00:37, 15.2MB/s]"
+    // "Downloading tokenizer.json: 100%|██████████| 2.11M/2.11M [00:01<00:00, 1.85MB/s]"
+    
+    const downloadMatch = output.match(/Downloading\s+([^:]+):\s+(\d+)%.*?(\d+\.?\d*[KMGT]?)B\/(\d+\.?\d*[KMGT]?)B.*?\[(\d{2}:\d{2})<(\d{2}:\d{2}),\s*(\d+\.?\d*[KMGT]?B\/s)\]/);
+    
+    if (downloadMatch) {
+      const filename = downloadMatch[1].trim();
+      const progress = parseInt(downloadMatch[2]);
+      const downloaded = downloadMatch[3] + 'B';
+      const total = downloadMatch[4] + 'B';
+      const elapsed = downloadMatch[5];
+      const remaining = downloadMatch[6];
+      const speed = downloadMatch[7];
+
+      return {
+        filename,
+        progress,
+        downloaded,
+        total,
+        speed,
+        isComplete: progress === 100,
+        estimatedTimeRemaining: remaining !== '00:00' ? remaining : undefined
+      };
+    }
+
+    // Alternative pattern for different download formats
+    const altMatch = output.match(/Downloading.*?(\S+).*?(\d+)%.*?(\d+\.?\d*[KMGT]?)B.*?(\d+\.?\d*[KMGT]?B\/s)/);
+    if (altMatch) {
+      const filename = altMatch[1];
+      const progress = parseInt(altMatch[2]);
+      const downloaded = altMatch[3] + 'B';
+      const speed = altMatch[4];
+
+      return {
+        filename,
+        progress,
+        downloaded,
+        total: 'Unknown',
+        speed,
+        isComplete: progress === 100
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse download errors from output
+   */
+  private parseDownloadError(output: string): DownloadErrorEvent | null {
+    // Common error patterns
+    if (output.includes('Failed to download') || 
+        output.includes('Connection error') ||
+        output.includes('timeout') ||
+        output.includes('HTTP error')) {
+      
+      const filenameMatch = output.match(/(?:downloading|download)\s+([^\s:]+)/i);
+      
+      return {
+        message: output.trim(),
+        timestamp: new Date().toISOString(),
+        filename: filenameMatch ? filenameMatch[1] : undefined
+      };
+    }
+    
+    return null;
+  }
+
+  /**
+   * Handle download progress events
+   */
+  private handleDownloadProgress(output: string): void {
+    const progress = this.parseDownloadProgress(output);
+    if (progress && this.downloadProgressCallback) {
+      log.info(`[Download Progress] ${progress.filename}: ${progress.progress}% (${progress.speed})`);
+      this.downloadProgressCallback(progress);
+    }
+
+    const error = this.parseDownloadError(output);
+    if (error && this.downloadErrorCallback) {
+      log.error(`[Download Error] ${error.message}`);
+      this.downloadErrorCallback(error);
+    }
   }
 }

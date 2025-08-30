@@ -94,6 +94,12 @@ export interface ElectronAPI {
   // Menu message handlers
   onMenuMessage: (channel: string, callback: (...args: any[]) => void) => void;
   removeMenuListener: (channel: string, callback: (...args: any[]) => void) => void;
+
+  // Download progress handlers
+  onDownloadProgress: (callback: (progress: any) => void) => void;
+  onDownloadError: (callback: (error: any) => void) => void;
+  removeDownloadProgressListener: (callback: (progress: any) => void) => void;
+  removeDownloadErrorListener: (callback: (error: any) => void) => void;
 }
 
 // Create the API object
@@ -221,6 +227,23 @@ const electronAPI: ElectronAPI = {
 
   removeMenuListener: (channel: string, callback: (...args: any[]) => void) => {
     ipcRenderer.removeListener(channel, callback);
+  },
+
+  // Download progress handlers
+  onDownloadProgress: (callback: (progress: any) => void) => {
+    ipcRenderer.on('server:download-progress', (_, progress) => callback(progress));
+  },
+
+  onDownloadError: (callback: (error: any) => void) => {
+    ipcRenderer.on('server:download-error', (_, error) => callback(error));
+  },
+
+  removeDownloadProgressListener: (callback: (progress: any) => void) => {
+    ipcRenderer.removeListener('server:download-progress', callback);
+  },
+
+  removeDownloadErrorListener: (callback: (error: any) => void) => {
+    ipcRenderer.removeListener('server:download-error', callback);
   }
 };
 

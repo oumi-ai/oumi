@@ -48,6 +48,32 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
+export interface DownloadProgress {
+  filename: string;
+  progress: number;       // 0-100
+  downloaded: string;     // "1.2GB" 
+  total: string;          // "1.8GB"
+  speed: string;          // "15.2MB/s"
+  isComplete: boolean;
+  estimatedTimeRemaining?: string; // "00:37"
+}
+
+export interface DownloadState {
+  isDownloading: boolean;
+  downloads: Map<string, DownloadProgress>;
+  overallProgress: number;
+  totalFiles: number;
+  completedFiles: number;
+  hasError: boolean;
+  errorMessage?: string;
+}
+
+export interface DownloadErrorEvent {
+  message: string;
+  timestamp: string;
+  filename?: string;
+}
+
 export interface ConfigOption {
   id: string;
   config_path: string;

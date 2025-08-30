@@ -6,7 +6,7 @@ import { ipcMain, dialog, app, BrowserWindow } from 'electron';
 import { promises as fs } from 'fs';
 import Store from 'electron-store';
 import log from 'electron-log';
-import { PythonServerManager } from './python-manager';
+import { PythonServerManager, DownloadProgress, DownloadErrorEvent } from './python-manager';
 
 const store = new Store();
 
@@ -25,6 +25,9 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
   
   // Chat API handlers (proxy to Python backend)
   setupChatHandlers(pythonManager);
+  
+  // Download progress handlers
+  setupDownloadHandlers(pythonManager);
   
   log.info('IPC handlers set up successfully');
 }
@@ -424,6 +427,22 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
       method: 'POST',
       body: JSON.stringify({ command, args }),
     });
+  });
+}
+
+/**
+ * Download progress handlers
+ */
+function setupDownloadHandlers(pythonManager: PythonServerManager): void {
+  // Set up progress monitoring callbacks
+  pythonManager.setDownloadProgressCallback((progress: DownloadProgress) => {
+    // Broadcast to all renderer processes
+    broadcastToRenderer('server:download-progress', progress);
+  });
+
+  pythonManager.setDownloadErrorCallback((error: DownloadErrorEvent) => {
+    // Broadcast download errors to all renderer processes
+    broadcastToRenderer('server:download-error', error);
   });
 }
 

@@ -7,8 +7,10 @@
 import React from 'react';
 import WelcomeScreen from '@/components/welcome/WelcomeScreen';
 import AppLayout from '@/components/layout/AppLayout';
+import DownloadProgressMonitor from '@/components/monitoring/DownloadProgressMonitor';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
+import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
 
 interface LaunchManagerProps {}
 
@@ -25,6 +27,14 @@ export default function LaunchManager({}: LaunchManagerProps) {
   const [selectedConfig, setSelectedConfig] = React.useState<string | null>(null);
   const [error, setError] = React.useState<LaunchError | null>(null);
   const [initProgress, setInitProgress] = React.useState<string>('Preparing...');
+  const [downloadState, setDownloadState] = React.useState<DownloadState>({
+    isDownloading: false,
+    downloads: new Map(),
+    overallProgress: 0,
+    totalFiles: 0,
+    completedFiles: 0,
+    hasError: false
+  });
 
   const handleConfigSelected = async (configId: string, systemPrompt?: string) => {
     setSelectedConfig(configId);
@@ -144,6 +154,54 @@ export default function LaunchManager({}: LaunchManagerProps) {
     setLaunchState('welcome');
   };
 
+  // Add download progress monitoring
+  React.useEffect(() => {
+    if (!apiClient.isElectron || !apiClient.isElectron()) return;
+
+    const handleDownloadProgress = (progress: DownloadProgress) => {
+      setDownloadState(prev => {
+        const newDownloads = new Map(prev.downloads);
+        newDownloads.set(progress.filename, progress);
+        
+        const completed = Array.from(newDownloads.values()).filter(d => d.isComplete).length;
+        const total = newDownloads.size;
+        const overall = total > 0 ? (completed / total) * 100 : 0;
+        
+        return {
+          ...prev,
+          isDownloading: total > completed,
+          downloads: newDownloads,
+          overallProgress: overall,
+          totalFiles: total,
+          completedFiles: completed,
+          hasError: false // Clear error when progress continues
+        };
+      });
+    };
+
+    const handleDownloadError = (error: DownloadErrorEvent) => {
+      setDownloadState(prev => ({
+        ...prev,
+        hasError: true,
+        errorMessage: error.message,
+        isDownloading: false
+      }));
+    };
+
+    // Add event listeners if electronAPI is available
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      window.electronAPI.onDownloadProgress(handleDownloadProgress);
+      window.electronAPI.onDownloadError(handleDownloadError);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        window.electronAPI.removeDownloadProgressListener(handleDownloadProgress);
+        window.electronAPI.removeDownloadErrorListener(handleDownloadError);
+      }
+    };
+  }, []);
+
   // Check if user has opted into welcome screen caching (default: always show welcome)
   React.useEffect(() => {
     const checkPreviousSetup = async () => {
@@ -190,20 +248,28 @@ export default function LaunchManager({}: LaunchManagerProps) {
     case 'initializing':
       return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-6 text-blue-600" />
-            <h2 className="text-xl font-semibold mb-2">Initializing Oumi Chat</h2>
-            <p className="text-gray-600 mb-4">{initProgress}</p>
-            
-            {/* Progress indicator */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                style={{ 
-                  width: launchState === 'initializing' ? '60%' : '0%'
-                }}
-              ></div>
-            </div>
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4">
+            {/* Show download progress if downloading */}
+            {downloadState.isDownloading || downloadState.downloads.size > 0 ? (
+              <DownloadProgressMonitor downloadState={downloadState} />
+            ) : (
+              /* Standard initialization UI */
+              <div className="text-center">
+                <Loader2 className="w-12 h-12 animate-spin mx-auto mb-6 text-blue-600" />
+                <h2 className="text-xl font-semibold mb-2">Initializing Oumi Chat</h2>
+                <p className="text-gray-600 mb-4">{initProgress}</p>
+                
+                {/* Progress indicator */}
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                    style={{ 
+                      width: launchState === 'initializing' ? '60%' : '0%'
+                    }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
