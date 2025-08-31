@@ -519,12 +519,12 @@ function setupConfigHandlers(): void {
       const fs = require('fs').promises;
       const yaml = require('js-yaml');
 
-      // Configs are always one level above OUMI_ROOT, regardless of environment
+      // Configs are inside OUMI_ROOT, regardless of environment  
       const oumiRoot = app.isPackaged
         ? path.join(process.resourcesPath, 'python')  // In packaged app, python dir IS the oumi root
         : path.join(__dirname, '../../../');          // In dev, go up to oumi root
         
-      const configsPath = path.resolve(oumiRoot, '../configs');
+      const configsPath = path.resolve(oumiRoot, 'configs');
 
       log.info(`[ConfigDiscovery] OUMI_ROOT: ${oumiRoot}`);
       log.info(`[ConfigDiscovery] Discovering configs in: ${configsPath}`);

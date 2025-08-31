@@ -599,16 +599,52 @@ export class PythonEnvironmentManager {
    */
   private async updateEnvironmentInfo(info: { createdAt: string; lastUsed: string; systemInfo?: SystemInfo }): Promise<void> {
     const infoPath = this.getEnvironmentInfoPath();
+    const os = require('os');
+    
+    // Debug architecture detection
+    log.info('[PythonEnvManager] Architecture Detection Debug:');
+    log.info(`  process.arch: ${process.arch}`);
+    log.info(`  os.arch(): ${os.arch()}`);
+    log.info(`  process.platform: ${process.platform}`);
+    
+    // If systemInfo is not provided, detect it now
+    let systemInfo = info.systemInfo;
+    if (!systemInfo) {
+      log.info('[PythonEnvManager] SystemInfo not provided, detecting now...');
+      try {
+        const { SystemDetector } = await import('./system-detector');
+        systemInfo = await SystemDetector.detectSystem();
+        log.info('[PythonEnvManager] SystemInfo detected:', systemInfo);
+      } catch (error) {
+        log.error('[PythonEnvManager] Failed to detect system info:', error);
+        // Create minimal system info as fallback
+        systemInfo = {
+          platform: process.platform,
+          architecture: process.arch,
+          cpuModel: 'Unknown',
+          totalRAM: 0,
+          availableRAM: 0,
+          platformVersion: 'Unknown',
+          cudaAvailable: false,
+          cudaDevices: [],
+          detectedAt: new Date().toISOString(),
+          fingerprint: 'unknown'
+        };
+      }
+    }
+    
     const envInfo = {
       version: '1.1', // Updated version to include system info
       platform: process.platform,
-      arch: process.arch,
-      ...info
+      arch: process.arch, // Use process.arch consistently everywhere
+      ...info,
+      systemInfo // Ensure systemInfo is always included
     };
     
     try {
       fs.writeFileSync(infoPath, JSON.stringify(envInfo, null, 2));
-      log.info('[PythonEnvManager] Environment info updated');
+      log.info('[PythonEnvManager] Environment info updated with arch:', envInfo.arch);
+      log.info('[PythonEnvManager] Environment info updated with systemInfo:', !!envInfo.systemInfo);
     } catch (error) {
       log.warn('[PythonEnvManager] Failed to update environment info:', error);
     }

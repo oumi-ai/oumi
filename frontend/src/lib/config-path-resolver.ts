@@ -17,7 +17,10 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
    * Load static configs with consistent error handling
    */
   public async loadStaticConfigs(): Promise<any> {
+    console.log(`[ConfigPathResolver] loadStaticConfigs called, cached: ${!!this.staticConfigs}`);
+    
     if (this.staticConfigs) {
+      console.log(`[ConfigPathResolver] Returning cached configs (${this.staticConfigs.configs?.length || 0} configs)`);
       return this.staticConfigs;
     }
 
@@ -29,13 +32,18 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
         'static-configs.json'
       ];
 
+      console.log(`[ConfigPathResolver] Attempting to load from ${locations.length} locations`);
+
       for (const location of locations) {
         try {
           console.log(`[ConfigPathResolver] Trying to load static configs from: ${location}`);
           const response = await fetch(location);
+          console.log(`[ConfigPathResolver] Response status for ${location}: ${response.status} ${response.statusText}`);
+          
           if (response.ok) {
             this.staticConfigs = await response.json();
             console.log(`[ConfigPathResolver] Successfully loaded ${this.staticConfigs.configs?.length || 0} configs from: ${location}`);
+            console.log(`[ConfigPathResolver] First config ID: ${this.staticConfigs.configs?.[0]?.id || 'none'}`);
             return this.staticConfigs;
           }
         } catch (err) {

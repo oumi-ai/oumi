@@ -86,9 +86,19 @@ export default function LaunchManager({}: LaunchManagerProps) {
         const serverStatus = await apiClient.getServerStatus();
         if (!serverStatus.success || !serverStatus.data?.running) {
           // Start the server with the selected config and system prompt
+          console.log('🚀 Starting server with config:', configPath);
           const startResult = await apiClient.startServer(configPath, systemPrompt);
+          console.log('🚀 Server start result:', startResult);
+          
           if (!startResult.success) {
-            throw new Error(`Failed to start server: ${startResult.message}`);
+            console.error('❌ Server start failed:', {
+              success: startResult.success,
+              message: startResult.message,
+              error: startResult.error,
+              configPath,
+              stack: new Error().stack
+            });
+            throw new Error(`Failed to start server: ${startResult.message || startResult.error || 'Unknown error'}`);
           }
         }
       }
@@ -104,10 +114,16 @@ export default function LaunchManager({}: LaunchManagerProps) {
       while (Date.now() - startTime < maxWaitTime) {
         try {
           const healthResponse = await apiClient.health();
+          console.log(`🏥 Health check attempt ${attempt + 1}:`, healthResponse);
+          
           if (healthResponse.success) {
+            console.log('✅ Health check passed, server is ready');
             break;
+          } else {
+            console.warn(`⚠️ Health check failed (attempt ${attempt + 1}):`, healthResponse);
           }
         } catch (err) {
+          console.warn(`❌ Health check error (attempt ${attempt + 1}):`, err);
           // Continue trying
         }
         
@@ -115,6 +131,7 @@ export default function LaunchManager({}: LaunchManagerProps) {
         if (attempt % 5 === 0) {
           const elapsed = Math.floor((Date.now() - startTime) / 1000);
           setInitProgress(`Connecting to backend server... (${elapsed}s elapsed)`);
+          console.log(`🕐 Health check progress: ${elapsed}s elapsed, ${attempt + 1} attempts`);
         }
         
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -125,7 +142,15 @@ export default function LaunchManager({}: LaunchManagerProps) {
       }
 
       if (Date.now() - startTime >= maxWaitTime) {
-        throw new Error('Backend server failed to respond within timeout period');
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        console.error('🚨 Server health check timeout:', {
+          elapsed: `${elapsed}s`,
+          attempts: attempt + 1,
+          maxWaitTime: `${maxWaitTime / 1000}s`,
+          configPath,
+          stack: new Error().stack
+        });
+        throw new Error(`Server health check failed - server may not have started properly (${attempt + 1} attempts over ${elapsed}s)`);
       }
 
       // Step 3: Load selected configuration

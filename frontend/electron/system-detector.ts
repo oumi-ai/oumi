@@ -68,7 +68,7 @@ export class SystemDetector {
    */
   private static getBasicSystemInfo() {
     const platform = os.platform();
-    const architecture = os.arch();
+    const architecture = process.arch; // Use process.arch for consistency with env manager
     const cpuModel = os.cpus()[0]?.model || 'Unknown CPU';
     const totalRAM = Math.round(os.totalmem() / (1024 * 1024 * 1024) * 100) / 100; // GB
     const availableRAM = Math.round(os.freemem() / (1024 * 1024 * 1024) * 100) / 100; // GB

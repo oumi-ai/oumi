@@ -22,6 +22,17 @@ interface ConfigOption {
   filename: string;
 }
 
+const getEngineAbbreviation = (engine: string) => {
+  switch (engine.toUpperCase()) {
+    case 'LLAMACPP': return 'LLAMA';
+    case 'NATIVE': return 'NATVE';
+    case 'VLLM': return 'VLLM';
+    case 'OPENAI': return 'OPENAI';
+    case 'ANTHROPIC': return 'ANTHRO';
+    default: return engine.slice(0, 5).toUpperCase();
+  }
+};
+
 const getEngineColor = (engine: string) => {
   switch (engine.toUpperCase()) {
     case 'NATIVE': return 'bg-blue-100 text-blue-800';
@@ -352,21 +363,21 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
               disabled={isLoading}
               className="w-full flex items-center justify-between p-3 bg-muted hover:bg-muted/80 rounded-lg transition-colors disabled:opacity-50"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   {getFamilyIcon(currentModelInfo.modelFamily)}
-                  <div className="text-left">
-                    <div className="font-medium text-sm text-foreground">
+                  <div className="text-left min-w-0 flex-1">
+                    <div className="font-medium text-sm text-foreground truncate">
                       {isLoading ? 'Switching Model...' : currentModelInfo.displayName}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground truncate">
                       {isLoading ? loadingMessage : currentModelInfo.description}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`px-2 py-1 rounded text-xs font-medium ${getEngineColor(currentModelInfo.engine)}`}>
-                    {currentModelInfo.engine}
+                    {getEngineAbbreviation(currentModelInfo.engine)}
                   </span>
                 </div>
               </div>
@@ -479,7 +490,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className={`px-2 py-1 rounded text-xs font-medium ${getEngineColor(config.engine)}`}>
-                                {config.engine}
+                                {getEngineAbbreviation(config.engine)}
                               </span>
                               {config.config_path === currentModel && (
                                 <Check size={14} className="text-green-600" />
@@ -508,7 +519,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
           <div className="text-center p-2 bg-muted rounded">
             <div className="text-xs text-muted-foreground">Engine</div>
             <div className="font-mono text-sm text-foreground">
-              {currentModelInfo.engine}
+              {getEngineAbbreviation(currentModelInfo.engine)}
             </div>
           </div>
         </div>

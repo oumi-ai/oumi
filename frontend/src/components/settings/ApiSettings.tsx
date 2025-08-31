@@ -279,7 +279,7 @@ function ProviderCard({
             <div key={model.id} className="flex items-center justify-between text-xs p-2 bg-muted/50 rounded">
               <div>
                 <span className="font-medium">{model.displayName}</span>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {model.tags?.slice(0, 3).map((tag) => (
                     <span key={tag} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded-full text-[10px]">
                       {tag}

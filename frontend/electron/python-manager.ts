@@ -82,28 +82,41 @@ export class PythonServerManager {
 
     this.isStarting = true;
     
+    log.info('[start] === PYTHON SERVER START SEQUENCE BEGIN ===');
+    log.info(`[start] Config path: ${this.config.config_path || 'none'}`);
+    log.info(`[start] System prompt: ${this.config.system_prompt ? this.config.system_prompt.substring(0, 50) + '...' : 'none'}`);
+    
     try {
       // Ensure Python environment is ready
+      log.info('[start] Step 1: Ensuring Python environment...');
       await this.ensurePythonEnvironment();
+      log.info('[start] ✅ Python environment ready');
       
       // Find available port
+      log.info('[start] Step 2: Finding available port...');
       this.config.port = await this.findAvailablePort(this.config.port);
+      log.info(`[start] ✅ Port selected: ${this.config.port}`);
       
       // Start the server process
+      log.info('[start] Step 3: Starting server process...');
       await this.startServerProcess();
+      log.info('[start] ✅ Server process started, waiting for readiness...');
       
       // Wait for server to be ready
+      log.info('[start] Step 4: Waiting for server to be ready...');
       await this.waitForServer();
+      log.info('[start] ✅ Server is ready and healthy');
       
       this.isRunning = true;
       this.isStarting = false;
       
-      log.info(`Python server started successfully on port ${this.config.port}`);
+      log.info(`[start] === PYTHON SERVER START SUCCESS: ${this.getServerUrl()} ===`);
       return this.getServerUrl();
       
     } catch (error) {
       this.isStarting = false;
       this.isRunning = false;
+      log.error(`[start] ❌ PYTHON SERVER START FAILED:`, error);
       throw error;
     }
   }
@@ -163,18 +176,36 @@ export class PythonServerManager {
    * Make HTTP request to server for health check
    */
   public async healthCheck(): Promise<boolean> {
+    const healthUrl = `${this.getServerUrl()}/health`;
     try {
-      const response = await fetch(`${this.getServerUrl()}/health`);
-      return response.ok;
-    } catch {
+      log.info(`[healthCheck] Checking: ${healthUrl}`);
+      const response = await fetch(healthUrl);
+      const isOk = response.ok;
+      log.info(`[healthCheck] Response: status=${response.status}, ok=${isOk}, statusText=${response.statusText}`);
+      
+      if (isOk) {
+        // Try to read the response body for additional info
+        try {
+          const body = await response.text();
+          log.info(`[healthCheck] Response body: ${body.substring(0, 200)}`);
+        } catch (bodyError) {
+          log.warn(`[healthCheck] Could not read response body: ${bodyError}`);
+        }
+      }
+      
+      return isOk;
+    } catch (error) {
+      log.error(`[healthCheck] Request failed: ${error}`);
       return false;
     }
   }
 
   /**
-   * Start the Python server process using oumi webchat command
+   * Start the Python server process using oumi webchat serve command (backend-only)
    */
   private async startServerProcess(): Promise<void> {
+    log.info('[startServerProcess] BEGIN - Starting Python server process');
+    
     // Try multiple ports if the preferred one is taken
     let attempts = 0;
     const maxAttempts = 10;
@@ -185,37 +216,48 @@ export class PythonServerManager {
       
       if (isAvailable) {
         this.config.port = testPort;
+        log.info(`[startServerProcess] Found available port: ${testPort}`);
         break;
       }
       
       attempts++;
       if (attempts >= maxAttempts) {
-        throw new Error(`No available ports found in range ${this.config.port}-${this.config.port + maxAttempts}`);
+        const error = `No available ports found in range ${this.config.port}-${this.config.port + maxAttempts}`;
+        log.error(`[startServerProcess] ${error}`);
+        throw new Error(error);
       }
     }
 
-    // Build the oumi webchat command
+    // Build the oumi webchat serve command (backend-only mode)
     const oumiArgs = [
       'webchat',
+      'serve',  // Use the new serve subcommand for backend-only
       '--host', this.config.host,
-      '--backend-port', this.config.port.toString()
+      '--port', this.config.port.toString()  // Note: serve uses --port, not --backend-port
     ];
 
     // Add config path if specified (resolve to absolute path)
     if (this.config.config_path) {
+      log.info(`[startServerProcess] Raw config path from frontend: ${this.config.config_path}`);
       const resolvedConfigPath = this.resolveConfigPath(this.config.config_path);
+      log.info(`[startServerProcess] Resolved config path: ${resolvedConfigPath}`);
       oumiArgs.push('-c', `"${resolvedConfigPath}"`);
+    } else {
+      log.warn('[startServerProcess] No config path provided');
     }
 
     // Add system prompt if specified
     if (this.config.system_prompt) {
+      log.info(`[startServerProcess] Adding system prompt: ${this.config.system_prompt.substring(0, 100)}...`);
       oumiArgs.push('--system-prompt', `"${this.config.system_prompt}"`);
     }
 
     // Build the full command with appropriate Python environment
+    log.info('[startServerProcess] Building Python command...');
     const fullCommand = await this.buildPythonCommand(oumiArgs);
     
-    log.info(`Starting Python server on port ${this.config.port}: ${fullCommand}`);
+    log.info(`[startServerProcess] Full command: ${fullCommand}`);
+    log.info(`[startServerProcess] Starting Python server on port ${this.config.port}`);
 
     return new Promise((resolve, reject) => {
       // Use shell execution to handle environment activation
@@ -237,14 +279,25 @@ export class PythonServerManager {
 
       // Handle process events
       this.serverProcess.on('error', (error) => {
-        log.error('Python server process error:', error);
-        reject(new Error(`Failed to start Python server: ${error.message}`));
+        log.error('[startServerProcess] Python server process error:', error);
+        log.error('[startServerProcess] Process error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        reject(new Error(`Failed to start Python server process: ${error.message}`));
       });
 
       this.serverProcess.on('exit', (code, signal) => {
-        log.info(`Python server exited with code ${code}, signal ${signal}`);
+        log.error(`[startServerProcess] Python server exited with code ${code}, signal ${signal}`);
         this.isRunning = false;
         this.serverProcess = null;
+        
+        // If process exits during startup, this is a failure
+        if (!hasResolved) {
+          hasResolved = true;
+          reject(new Error(`Python server process exited during startup (code: ${code}, signal: ${signal})`));
+        }
       });
 
       // Track if we've resolved startup
@@ -255,7 +308,7 @@ export class PythonServerManager {
         this.serverProcess.stdout.on('data', (data) => {
           const output = data.toString().trim();
           if (output) {
-            log.info(`[Python Server] ${output}`);
+            log.info(`[Python Server STDOUT] ${output}`);
             
             // Handle download progress if present (both during startup and after)
             this.handleDownloadProgress(output);
@@ -267,33 +320,54 @@ export class PythonServerManager {
               output.includes('Application startup complete') ||
               output.includes('Webchat server is running')
             )) {
+              log.info('[startServerProcess] SUCCESS: Found server startup indicator in output');
               hasResolved = true;
               resolve();
             }
           }
         });
+      } else {
+        log.warn('[startServerProcess] No stdout pipe available from server process');
       }
 
       if (this.serverProcess.stderr) {
         this.serverProcess.stderr.on('data', (data) => {
           const error = data.toString().trim();
           if (error) {
-            log.error(`[Python Server Error] ${error}`);
+            log.error(`[Python Server STDERR] ${error}`);
             
             // Handle download progress/errors that might appear in stderr (both during startup and after)
             this.handleDownloadProgress(error);
+            
+            // Check for critical startup errors
+            if (!hasResolved && (
+              error.includes('FileNotFoundError') ||
+              error.includes('No such file') ||
+              error.includes('Config file not found') ||
+              error.includes('Failed to load config') ||
+              error.includes('ImportError') ||
+              error.includes('ModuleNotFoundError')
+            )) {
+              log.error('[startServerProcess] CRITICAL ERROR detected in stderr, failing startup');
+              hasResolved = true;
+              reject(new Error(`Python server startup failed: ${error}`));
+            }
           }
         });
+      } else {
+        log.warn('[startServerProcess] No stderr pipe available from server process');
       }
 
       // Shorter timeout for process startup - let waitForServer handle health checking
       setTimeout(async () => {
         if (!hasResolved) {
-          log.info('Process startup timeout reached, proceeding to health checks...');
+          log.warn('[startServerProcess] Process startup timeout reached (5s), proceeding to health checks...');
           hasResolved = true;
           resolve(); // Let waitForServer handle the health checking with proper backoff
         }
       }, 5000); // Reduced to 5 seconds
+      
+      log.info('[startServerProcess] Waiting for server process to start...');
     });
   }
 
@@ -307,24 +381,33 @@ export class PythonServerManager {
     let delay = 100; // Start with 100ms delay
     const maxDelay = 2000; // Cap delay at 2 seconds
     
-    log.info('Starting health checks for server readiness...');
+    log.info('[waitForServer] === HEALTH CHECK START ===');
+    log.info(`[waitForServer] Target URL: ${this.getServerUrl()}/health`);
+    log.info(`[waitForServer] Max wait time: ${maxWaitTime}ms`);
+    
+    // Give the server a moment to fully initialize before starting health checks
+    log.info('[waitForServer] Waiting 1 second for server to fully initialize...');
+    await this.sleep(1000);
     
     while (Date.now() - startTime < maxWaitTime) {
       try {
+        log.info(`[waitForServer] Health check attempt ${attempt + 1}...`);
         const isHealthy = await this.healthCheck();
         if (isHealthy) {
           const totalTime = Date.now() - startTime;
-          log.info(`Server ready in ${totalTime}ms after ${attempt + 1} health check attempts`);
+          log.info(`[waitForServer] ✅ SERVER READY in ${totalTime}ms after ${attempt + 1} health check attempts`);
           return this.getServerUrl();
+        } else {
+          log.warn(`[waitForServer] Health check ${attempt + 1} failed - server not ready yet`);
         }
       } catch (error) {
-        // Continue trying
+        log.warn(`[waitForServer] Health check ${attempt + 1} error:`, error);
       }
       
       // Log progress every 5 seconds
       if (attempt % Math.max(1, Math.floor(5000 / delay)) === 0 && attempt > 0) {
         const elapsed = Date.now() - startTime;
-        log.info(`Still waiting for server (${elapsed}ms elapsed, attempt ${attempt + 1})`);
+        log.info(`[waitForServer] Still waiting for server (${elapsed}ms elapsed, attempt ${attempt + 1})`);
       }
       
       await this.sleep(delay);
@@ -334,7 +417,10 @@ export class PythonServerManager {
       delay = Math.min(maxDelay, delay * 1.5 + Math.random() * 100);
     }
     
-    throw new Error('Server health check failed - server may not have started properly');
+    const elapsed = Date.now() - startTime;
+    const error = `Server health check failed after ${attempt} attempts over ${elapsed}ms - server may not have started properly`;
+    log.error(`[waitForServer] ❌ HEALTH CHECK TIMEOUT: ${error}`);
+    throw new Error(error);
   }
 
   /**
@@ -510,9 +596,9 @@ export class PythonServerManager {
       return configPath;
     }
     
-    // Configs are always one level above OUMI_ROOT: ../configs/
+    // Configs are inside OUMI_ROOT: ${OUMI_ROOT}/configs/
     const oumiRoot = this.getOumiRootPath();
-    const configsBasePath = path.resolve(oumiRoot, '../configs');
+    const configsBasePath = path.resolve(oumiRoot, 'configs');
     
     log.info(`[resolveConfigPath] OUMI_ROOT: ${oumiRoot}`);
     log.info(`[resolveConfigPath] Config base path: ${configsBasePath}`);
