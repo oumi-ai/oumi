@@ -15,7 +15,9 @@ import {
   Database,
   Download,
   Palette,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import ApiSettings from './ApiSettings';
 import ModelSettings from './ModelSettings';
@@ -73,6 +75,16 @@ function TabButton({ id, icon, label, description, isActive, onClick, badge }: T
 
 function SystemSettings() {
   const { settings, updateSettings } = useChatStore();
+  const [showHfToken, setShowHfToken] = useState(false);
+
+  const handleHuggingFaceUpdate = (field: 'username' | 'token', value: string) => {
+    updateSettings({
+      huggingFace: {
+        ...settings.huggingFace,
+        [field]: value || undefined,
+      },
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -84,6 +96,67 @@ function SystemSettings() {
         <p className="text-sm text-muted-foreground mt-1">
           Configure application behavior and performance
         </p>
+      </div>
+
+      {/* HuggingFace Integration */}
+      <div className="bg-card border rounded-lg p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold">HuggingFace Integration</h3>
+          <div className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+            Optional
+          </div>
+        </div>
+        
+        <p className="text-xs text-muted-foreground">
+          ⚠️ Model recommendations work better with HuggingFace authentication. This allows access to more model metadata and improved size detection.
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block font-medium text-sm mb-2">
+              HuggingFace Username <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={settings.huggingFace.username || ''}
+              onChange={(e) => handleHuggingFaceUpdate('username', e.target.value)}
+              placeholder="your-username"
+              className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-sm mb-2">
+              Personal Access Token <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showHfToken ? 'text' : 'password'}
+                value={settings.huggingFace.token || ''}
+                onChange={(e) => handleHuggingFaceUpdate('token', e.target.value)}
+                placeholder="hf_..."
+                className="w-full px-3 py-2 pr-10 bg-background border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={() => setShowHfToken(!showHfToken)}
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-muted-foreground hover:text-foreground"
+              >
+                {showHfToken ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Create a <a 
+                href="https://huggingface.co/settings/tokens" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-primary hover:underline"
+              >
+                personal access token
+              </a> for enhanced model metadata access
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="bg-card border rounded-lg p-4 space-y-4">

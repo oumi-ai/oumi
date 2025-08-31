@@ -34,6 +34,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
+    "@huggingface/hub": "^2.5.2",
     "@types/d3": "^7.4.3",
     "d3": "^7.9.0",
     "electron-log": "^5.4.3",

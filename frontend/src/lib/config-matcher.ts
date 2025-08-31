@@ -23,6 +23,9 @@ export interface ConfigOption {
   model_family: string;
   size_category: string;
   recommended?: boolean;
+  parameter_count?: number | null; // Actual parameter count from HF API
+  is_specialist?: boolean;         // Whether it's a specialist model
+  hf_tags?: string[];             // Tags from HuggingFace
 }
 
 export interface ConfigRecommendation {
@@ -43,6 +46,12 @@ export class ConfigMatcher {
     let score = 50; // Base score
     let warnings: string[] = [];
     let reason = '';
+
+    // Penalize specialist models for general recommendations
+    if (config.is_specialist) {
+      score -= 25;
+      warnings.push('Specialized model - may not be ideal for general chat');
+    }
 
     // Platform-specific engine preferences
     const engineScore = this.evaluateEngine(config.engine, system, config);
@@ -314,13 +323,26 @@ export class ConfigMatcher {
    * Determine if a model is small (≤3B parameters)
    */
   private static isSmallModel(config: ConfigOption): boolean {
-    const parameterCount = this.extractParameterCount(config);
+    const parameterCount = this.getParameterCount(config);
     if (parameterCount > 0) {
       return parameterCount <= 3;
     }
     
     // Check size_category as fallback
     return config.size_category === 'small';
+  }
+
+  /**
+   * Get parameter count - prefers HF API data over string parsing
+   */
+  private static getParameterCount(config: ConfigOption): number {
+    // First, try the actual parameter count from HF API
+    if (config.parameter_count && config.parameter_count > 0) {
+      return config.parameter_count;
+    }
+    
+    // Fallback to string parsing
+    return this.extractParameterCount(config);
   }
 
   /**
@@ -359,7 +381,7 @@ export class ConfigMatcher {
    * ≤3B = small, ≤30B = medium, >30B = large
    */
   public static getModelSizeCategory(config: ConfigOption): string {
-    const parameterCount = this.extractParameterCount(config);
+    const parameterCount = this.getParameterCount(config);
     
     if (parameterCount > 0) {
       if (parameterCount <= 3) return 'small';

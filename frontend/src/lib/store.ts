@@ -111,6 +111,10 @@ export const useChatStore = create<ChatStore>()(
           highUsage: true,
           keyExpiry: true,
         },
+        huggingFace: {
+          username: undefined,
+          token: undefined,
+        },
       },
 
       // Message actions
@@ -308,6 +312,10 @@ export const useChatStore = create<ChatStore>()(
               lowBalance: true,
               highUsage: true,
               keyExpiry: true,
+            },
+            huggingFace: {
+              username: undefined,
+              token: undefined,
             },
           },
         }),

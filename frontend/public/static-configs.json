@@ -1,6 +1,6 @@
 {
-  "generated_at": "2025-08-31T14:32:52.315Z",
-  "version": "1.0",
+  "generated_at": "2025-08-31T14:52:11.828Z",
+  "version": "2.0",
   "total_configs": 186,
   "configs": [
     {
@@ -13,6 +13,9 @@
       "context_length": 2048,
       "model_family": "coalm",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -25,18 +28,24 @@
       "context_length": 2048,
       "model_family": "deepseek_r1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
-      "id": "recipes_deepseek_r1_inference_distill_qwen_32b_gguf_macos_infer",
-      "config_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
-      "relative_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
-      "display_name": "deepseek_r1 - distill_qwen_32b_gguf_macos",
-      "model_name": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
-      "engine": "LLAMACPP",
-      "context_length": 8192,
+      "id": "recipes_deepseek_r1_inference_distill_qwen_1_5b_infer",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
+      "relative_path": "recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
+      "display_name": "deepseek_r1 - distill_qwen_1_5b",
+      "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+      "engine": "NATIVE",
+      "context_length": 2048,
       "model_family": "deepseek_r1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -49,6 +58,9 @@
       "context_length": 131072,
       "model_family": "deepseek_r1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -61,18 +73,84 @@
       "context_length": 131072,
       "model_family": "deepseek_r1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
-      "id": "recipes_exaone_inference_4_0_32b_gguf_macos_infer",
-      "config_path": "recipes/exaone/inference/4_0_32b_gguf_macos_infer.yaml",
-      "relative_path": "recipes/exaone/inference/4_0_32b_gguf_macos_infer.yaml",
-      "display_name": "exaone - 4_0_32b_gguf_macos",
-      "model_name": "bartowski/LGAI-EXAONE_EXAONE-4.0-32B-GGUF",
-      "engine": "LLAMACPP",
-      "context_length": 32768,
-      "model_family": "exaone",
+      "id": "recipes_falcon_h1_inference_0_5b_infer",
+      "config_path": "recipes/falcon_h1/inference/0_5b_infer.yaml",
+      "relative_path": "recipes/falcon_h1/inference/0_5b_infer.yaml",
+      "display_name": "falcon_h1 - 0_5b",
+      "model_name": "tiiuae/Falcon-H1-0.5B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "falcon_h1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_falcon_h1_inference_1_5b_infer",
+      "config_path": "recipes/falcon_h1/inference/1_5b_infer.yaml",
+      "relative_path": "recipes/falcon_h1/inference/1_5b_infer.yaml",
+      "display_name": "falcon_h1 - 1_5b",
+      "model_name": "tiiuae/Falcon-H1-1.5B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "falcon_h1",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_falcon_h1_inference_1_5b_deep_infer",
+      "config_path": "recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
+      "relative_path": "recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
+      "display_name": "falcon_h1 - 1_5b_deep",
+      "model_name": "tiiuae/Falcon-H1-1.5B-Deep-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "falcon_h1",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_falcon_h1_inference_34b_infer",
+      "config_path": "recipes/falcon_h1/inference/34b_infer.yaml",
+      "relative_path": "recipes/falcon_h1/inference/34b_infer.yaml",
+      "display_name": "falcon_h1 - 34b",
+      "model_name": "tiiuae/Falcon-H1-34B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "falcon_h1",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_falcon_h1_inference_3b_infer",
+      "config_path": "recipes/falcon_h1/inference/3b_infer.yaml",
+      "relative_path": "recipes/falcon_h1/inference/3b_infer.yaml",
+      "display_name": "falcon_h1 - 3b",
+      "model_name": "tiiuae/Falcon-H1-3B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "falcon_h1",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -85,6 +163,24 @@
       "context_length": 2048,
       "model_family": "falcon_h1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_gemma3_inference_270m_it_infer",
+      "config_path": "recipes/gemma3/inference/270m_it_infer.yaml",
+      "relative_path": "recipes/gemma3/inference/270m_it_infer.yaml",
+      "display_name": "gemma3 - 270m_it",
+      "model_name": "google/gemma-3-270m-it",
+      "engine": "NATIVE",
+      "context_length": 8192,
+      "model_family": "gemma3",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -97,6 +193,24 @@
       "context_length": 8192,
       "model_family": "gemma3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_gemma3_inference_3n_e4b_it_infer",
+      "config_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
+      "relative_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
+      "display_name": "gemma3 - 3n_e4b_it",
+      "model_name": "google/gemma-3n-E4B-it",
+      "engine": "NATIVE",
+      "context_length": 16384,
+      "model_family": "gemma3",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -109,6 +223,9 @@
       "context_length": 16384,
       "model_family": "gemma3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -121,18 +238,24 @@
       "context_length": 8192,
       "model_family": "glm4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
-      "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_gguf_macos_infer",
-      "config_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
-      "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
-      "display_name": "gpt_oss - 20b_huihui_abliterated_gguf_macos",
-      "model_name": "bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF",
-      "engine": "LLAMACPP",
-      "context_length": 131072,
-      "model_family": "gpt_oss",
-      "size_category": "large",
+      "id": "recipes_gpt2_inference_infer",
+      "config_path": "recipes/gpt2/inference/infer.yaml",
+      "relative_path": "recipes/gpt2/inference/infer.yaml",
+      "display_name": "gpt2 - infer",
+      "model_name": "openai-community/gpt2",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "gpt2",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -145,6 +268,9 @@
       "context_length": 8192,
       "model_family": "llama3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -157,6 +283,9 @@
       "context_length": 8192,
       "model_family": "llama3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -169,6 +298,9 @@
       "context_length": 8192,
       "model_family": "llama3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -181,6 +313,9 @@
       "context_length": 8192,
       "model_family": "llama3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -193,6 +328,24 @@
       "context_length": 2048,
       "model_family": "llama3_1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_llama3_2_inference_1b_infer",
+      "config_path": "recipes/llama3_2/inference/1b_infer.yaml",
+      "relative_path": "recipes/llama3_2/inference/1b_infer.yaml",
+      "display_name": "llama3_2 - 1b",
+      "model_name": "meta-llama/Llama-3.2-1B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "llama3_2",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -204,7 +357,10 @@
       "engine": "NATIVE",
       "context_length": 2048,
       "model_family": "llama3_2",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -216,7 +372,10 @@
       "engine": "VLLM",
       "context_length": 2048,
       "model_family": "llama3_2",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -228,7 +387,10 @@
       "engine": "LLAMACPP",
       "context_length": 2048,
       "model_family": "llama3_2",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -240,7 +402,10 @@
       "engine": "VLLM",
       "context_length": 2048,
       "model_family": "llama3_2",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -253,6 +418,9 @@
       "context_length": 8192,
       "model_family": "llama3_3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -265,6 +433,9 @@
       "context_length": 2048,
       "model_family": "llama4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -277,6 +448,9 @@
       "context_length": 2048,
       "model_family": "llama4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -289,6 +463,9 @@
       "context_length": 8192,
       "model_family": "llama4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -301,6 +478,9 @@
       "context_length": 8192,
       "model_family": "llama4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -313,6 +493,9 @@
       "context_length": 2048,
       "model_family": "llama4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -325,6 +508,24 @@
       "context_length": 2048,
       "model_family": "llama4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_magnum_inference_v4_12b_infer",
+      "config_path": "recipes/magnum/inference/v4_12b_infer.yaml",
+      "relative_path": "recipes/magnum/inference/v4_12b_infer.yaml",
+      "display_name": "magnum - v4_12b",
+      "model_name": "anthracite-org/magnum-v4-12b",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "magnum",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -337,6 +538,9 @@
       "context_length": 32768,
       "model_family": "magnum",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -349,6 +553,9 @@
       "context_length": 131072,
       "model_family": "ministral",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -361,6 +568,9 @@
       "context_length": 131072,
       "model_family": "ministral",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -373,6 +583,9 @@
       "context_length": 131072,
       "model_family": "ministral",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -385,6 +598,24 @@
       "context_length": 131072,
       "model_family": "ministral",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_mistral_magistral_inference_small_2507_infer",
+      "config_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
+      "relative_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
+      "display_name": "mistral_magistral - small_2507",
+      "model_name": "mistralai/Magistral-Small-2507",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "mistral_magistral",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -397,6 +628,9 @@
       "context_length": 32768,
       "model_family": "mistral_magistral",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -409,6 +643,9 @@
       "context_length": 131072,
       "model_family": "mistral_nemo",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -421,6 +658,9 @@
       "context_length": 131072,
       "model_family": "mistral_nemo",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -433,6 +673,9 @@
       "context_length": 131072,
       "model_family": "mistral_nemo",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -445,6 +688,24 @@
       "context_length": 131072,
       "model_family": "mistral_nemo",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_nemotron_nano_inference_9b_infer",
+      "config_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
+      "relative_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
+      "display_name": "nemotron_nano - 9b",
+      "model_name": "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+      "engine": "NATIVE",
+      "context_length": 4096,
+      "model_family": "nemotron_nano",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -457,6 +718,9 @@
       "context_length": 4096,
       "model_family": "nemotron_nano",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -469,6 +733,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -481,6 +748,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -493,6 +763,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -505,6 +778,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -517,6 +793,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -529,6 +808,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -541,6 +823,9 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -553,6 +838,24 @@
       "context_length": 131072,
       "model_family": "phi3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_phi4_inference_14b_infer",
+      "config_path": "recipes/phi4/inference/14b_infer.yaml",
+      "relative_path": "recipes/phi4/inference/14b_infer.yaml",
+      "display_name": "phi4 - 14b",
+      "model_name": "microsoft/phi-4",
+      "engine": "NATIVE",
+      "context_length": 16384,
+      "model_family": "phi4",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -565,6 +868,9 @@
       "context_length": 16384,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -577,6 +883,9 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -589,6 +898,9 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -601,6 +913,9 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -613,6 +928,24 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_phi4_inference_mini_reasoning_infer",
+      "config_path": "recipes/phi4/inference/mini_reasoning_infer.yaml",
+      "relative_path": "recipes/phi4/inference/mini_reasoning_infer.yaml",
+      "display_name": "phi4 - mini_reasoning",
+      "model_name": "microsoft/Phi-4-mini-reasoning",
+      "engine": "NATIVE",
+      "context_length": 4096,
+      "model_family": "phi4",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -625,6 +958,39 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_phi4_inference_reasoning_plus_infer",
+      "config_path": "recipes/phi4/inference/reasoning_plus_infer.yaml",
+      "relative_path": "recipes/phi4/inference/reasoning_plus_infer.yaml",
+      "display_name": "phi4 - reasoning_plus",
+      "model_name": "microsoft/Phi-4-reasoning-plus",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "phi4",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_pocketdoc_inference_personalityengine_24b_infer",
+      "config_path": "recipes/pocketdoc/inference/personalityengine_24b_infer.yaml",
+      "relative_path": "recipes/pocketdoc/inference/personalityengine_24b_infer.yaml",
+      "display_name": "pocketdoc - personalityengine_24b",
+      "model_name": "PocketDoc/Dans-PersonalityEngine-V1.2.0-24b",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "pocketdoc",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -637,6 +1003,9 @@
       "context_length": 32768,
       "model_family": "pocketdoc",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -649,6 +1018,9 @@
       "context_length": 131072,
       "model_family": "qwen2_5",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -661,6 +1033,9 @@
       "context_length": 131072,
       "model_family": "qwen2_5",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -673,6 +1048,9 @@
       "context_length": 131072,
       "model_family": "qwen2_5",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -685,6 +1063,24 @@
       "context_length": 131072,
       "model_family": "qwen2_5",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_qwen3_inference_0.6b_infer",
+      "config_path": "recipes/qwen3/inference/0.6b_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/0.6b_infer.yaml",
+      "display_name": "qwen3 - 0.6b",
+      "model_name": "Qwen/Qwen3-0.6B",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -697,6 +1093,39 @@
       "context_length": 32768,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_qwen3_inference_14b_infer",
+      "config_path": "recipes/qwen3/inference/14b_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/14b_infer.yaml",
+      "display_name": "qwen3 - 14b",
+      "model_name": "Qwen/Qwen3-14B",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_qwen3_inference_14b_abliterated_infer",
+      "config_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
+      "display_name": "qwen3 - 14b_abliterated",
+      "model_name": "mlabonne/Qwen3-14B-abliterated",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -709,6 +1138,24 @@
       "context_length": 32768,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_qwen3_inference_30b_a3b_infer",
+      "config_path": "recipes/qwen3/inference/30b_a3b_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/30b_a3b_infer.yaml",
+      "display_name": "qwen3 - 30b_a3b",
+      "model_name": "Qwen/Qwen3-30B-A3B",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "qwen3",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -720,7 +1167,10 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "qwen3",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -732,7 +1182,10 @@
       "engine": "LLAMACPP",
       "context_length": 8192,
       "model_family": "qwen3",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -744,7 +1197,25 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "qwen3",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_qwen3_inference_4b_infer",
+      "config_path": "recipes/qwen3/inference/4b_infer.yaml",
+      "relative_path": "recipes/qwen3/inference/4b_infer.yaml",
+      "display_name": "qwen3 - 4b",
+      "model_name": "Qwen/Qwen3-4B",
+      "engine": "NATIVE",
+      "context_length": 32768,
+      "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -757,6 +1228,9 @@
       "context_length": 16384,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -769,6 +1243,9 @@
       "context_length": 16384,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -781,6 +1258,9 @@
       "context_length": 16384,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -793,6 +1273,9 @@
       "context_length": 16384,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -805,6 +1288,9 @@
       "context_length": 32768,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -816,7 +1302,10 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "qwen3_coder",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -828,7 +1317,10 @@
       "engine": "LLAMACPP",
       "context_length": 8192,
       "model_family": "qwen3_coder",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -840,7 +1332,55 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "qwen3_coder",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_qwq_inference_infer",
+      "config_path": "recipes/qwq/inference/infer.yaml",
+      "relative_path": "recipes/qwq/inference/infer.yaml",
+      "display_name": "qwq - infer",
+      "model_name": "Qwen/QwQ-32B",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "qwq",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_smollm_inference_135m_infer",
+      "config_path": "recipes/smollm/inference/135m_infer.yaml",
+      "relative_path": "recipes/smollm/inference/135m_infer.yaml",
+      "display_name": "smollm - 135m",
+      "model_name": "HuggingFaceTB/SmolLM2-135M-Instruct",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "smollm",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_smollm3_inference_3b_infer",
+      "config_path": "recipes/smollm3/inference/3b_infer.yaml",
+      "relative_path": "recipes/smollm3/inference/3b_infer.yaml",
+      "display_name": "smollm3 - 3b",
+      "model_name": "HuggingFaceTB/SmolLM3-3B",
+      "engine": "NATIVE",
+      "context_length": 8192,
+      "model_family": "smollm3",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -852,7 +1392,115 @@
       "engine": "LLAMACPP",
       "context_length": 8192,
       "model_family": "smollm3",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "examples_bulk_inference_gcp_job",
+      "config_path": "examples/bulk_inference/gcp_job.yaml",
+      "relative_path": "examples/bulk_inference/gcp_job.yaml",
+      "display_name": "unknown - gcp_job",
+      "model_name": "Unknown Model",
+      "engine": "NATIVE",
+      "context_length": 2048,
+      "model_family": "unknown",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_vision_llama3_2_vision_inference_11b_infer",
+      "config_path": "recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
+      "relative_path": "recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
+      "display_name": "vision - 11b",
+      "model_name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
+      "engine": "NATIVE",
+      "context_length": 1024,
+      "model_family": "vision",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_vision_llava_7b_inference_infer",
+      "config_path": "recipes/vision/llava_7b/inference/infer.yaml",
+      "relative_path": "recipes/vision/llava_7b/inference/infer.yaml",
+      "display_name": "vision - infer",
+      "model_name": "llava-hf/llava-1.5-7b-hf",
+      "engine": "NATIVE",
+      "context_length": 1024,
+      "model_family": "vision",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_vision_phi4_inference_infer",
+      "config_path": "recipes/vision/phi4/inference/infer.yaml",
+      "relative_path": "recipes/vision/phi4/inference/infer.yaml",
+      "display_name": "vision - infer",
+      "model_name": "microsoft/Phi-4-multimodal-instruct",
+      "engine": "NATIVE",
+      "context_length": 4096,
+      "model_family": "vision",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_vision_qwen2_5_vl_3b_inference_infer",
+      "config_path": "recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
+      "relative_path": "recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
+      "display_name": "vision - infer",
+      "model_name": "Qwen/Qwen2.5-VL-3B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 4096,
+      "model_family": "vision",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_vision_qwen2_vl_2b_inference_infer",
+      "config_path": "recipes/vision/qwen2_vl_2b/inference/infer.yaml",
+      "relative_path": "recipes/vision/qwen2_vl_2b/inference/infer.yaml",
+      "display_name": "vision - infer",
+      "model_name": "Qwen/Qwen2-VL-2B-Instruct",
+      "engine": "NATIVE",
+      "context_length": 4096,
+      "model_family": "vision",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": true
+    },
+    {
+      "id": "recipes_vision_smolvlm_inference_infer",
+      "config_path": "recipes/vision/smolvlm/inference/infer.yaml",
+      "relative_path": "recipes/vision/smolvlm/inference/infer.yaml",
+      "display_name": "vision - infer",
+      "model_name": "HuggingFaceTB/SmolVLM-Instruct",
+      "engine": "NATIVE",
+      "context_length": 3072,
+      "model_family": "vision",
+      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": true
     },
     {
@@ -865,6 +1513,9 @@
       "context_length": 2048,
       "model_family": "anthropic",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -877,6 +1528,9 @@
       "context_length": 2048,
       "model_family": "anthropic",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -889,6 +1543,9 @@
       "context_length": 2048,
       "model_family": "anthropic",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -901,6 +1558,9 @@
       "context_length": 2048,
       "model_family": "coalm",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -913,6 +1573,9 @@
       "context_length": 2048,
       "model_family": "deepseek_r1",
       "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -925,18 +1588,9 @@
       "context_length": 2048,
       "model_family": "deepseek_r1",
       "size_category": "large",
-      "recommended": false
-    },
-    {
-      "id": "recipes_deepseek_r1_inference_distill_qwen_1_5b_infer",
-      "config_path": "recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
-      "relative_path": "recipes/deepseek_r1/inference/distill_qwen_1_5b_infer.yaml",
-      "display_name": "deepseek_r1 - distill_qwen_1_5b",
-      "model_name": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "deepseek_r1",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -948,7 +1602,10 @@
       "engine": "NATIVE",
       "context_length": 2048,
       "model_family": "deepseek_r1",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -960,7 +1617,25 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "deepseek_r1",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": false
+    },
+    {
+      "id": "recipes_deepseek_r1_inference_distill_qwen_32b_gguf_macos_infer",
+      "config_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
+      "relative_path": "recipes/deepseek_r1/inference/distill_qwen_32b_gguf_macos_infer.yaml",
+      "display_name": "deepseek_r1 - distill_qwen_32b_gguf_macos",
+      "model_name": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 8192,
+      "model_family": "deepseek_r1",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -972,7 +1647,10 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "deepseek_r1",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -985,6 +1663,9 @@
       "context_length": 131072,
       "model_family": "deepseek_r1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -997,6 +1678,9 @@
       "context_length": 131072,
       "model_family": "deepseek_r1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1008,7 +1692,10 @@
       "engine": "NATIVE",
       "context_length": 32768,
       "model_family": "exaone",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1020,7 +1707,25 @@
       "engine": "VLLM",
       "context_length": 32768,
       "model_family": "exaone",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": false
+    },
+    {
+      "id": "recipes_exaone_inference_4_0_32b_gguf_macos_infer",
+      "config_path": "recipes/exaone/inference/4_0_32b_gguf_macos_infer.yaml",
+      "relative_path": "recipes/exaone/inference/4_0_32b_gguf_macos_infer.yaml",
+      "display_name": "exaone - 4_0_32b_gguf_macos",
+      "model_name": "bartowski/LGAI-EXAONE_EXAONE-4.0-32B-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 32768,
+      "model_family": "exaone",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1032,67 +1737,10 @@
       "engine": "VLLM",
       "context_length": 32768,
       "model_family": "exaone",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_falcon_h1_inference_0_5b_infer",
-      "config_path": "recipes/falcon_h1/inference/0_5b_infer.yaml",
-      "relative_path": "recipes/falcon_h1/inference/0_5b_infer.yaml",
-      "display_name": "falcon_h1 - 0_5b",
-      "model_name": "tiiuae/Falcon-H1-0.5B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "falcon_h1",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_falcon_h1_inference_1_5b_infer",
-      "config_path": "recipes/falcon_h1/inference/1_5b_infer.yaml",
-      "relative_path": "recipes/falcon_h1/inference/1_5b_infer.yaml",
-      "display_name": "falcon_h1 - 1_5b",
-      "model_name": "tiiuae/Falcon-H1-1.5B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "falcon_h1",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_falcon_h1_inference_1_5b_deep_infer",
-      "config_path": "recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
-      "relative_path": "recipes/falcon_h1/inference/1_5b_deep_infer.yaml",
-      "display_name": "falcon_h1 - 1_5b_deep",
-      "model_name": "tiiuae/Falcon-H1-1.5B-Deep-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "falcon_h1",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_falcon_h1_inference_34b_infer",
-      "config_path": "recipes/falcon_h1/inference/34b_infer.yaml",
-      "relative_path": "recipes/falcon_h1/inference/34b_infer.yaml",
-      "display_name": "falcon_h1 - 34b",
-      "model_name": "tiiuae/Falcon-H1-34B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "falcon_h1",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_falcon_h1_inference_3b_infer",
-      "config_path": "recipes/falcon_h1/inference/3b_infer.yaml",
-      "relative_path": "recipes/falcon_h1/inference/3b_infer.yaml",
-      "display_name": "falcon_h1 - 3b",
-      "model_name": "tiiuae/Falcon-H1-3B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "falcon_h1",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1105,6 +1753,9 @@
       "context_length": 2048,
       "model_family": "gemini",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1117,18 +1768,9 @@
       "context_length": 2048,
       "model_family": "gemini",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_gemma3_inference_270m_it_infer",
-      "config_path": "recipes/gemma3/inference/270m_it_infer.yaml",
-      "relative_path": "recipes/gemma3/inference/270m_it_infer.yaml",
-      "display_name": "gemma3 - 270m_it",
-      "model_name": "google/gemma-3-270m-it",
-      "engine": "NATIVE",
-      "context_length": 8192,
-      "model_family": "gemma3",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1141,6 +1783,9 @@
       "context_length": 8192,
       "model_family": "gemma3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1153,18 +1798,9 @@
       "context_length": 8192,
       "model_family": "gemma3",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_gemma3_inference_3n_e4b_it_infer",
-      "config_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
-      "relative_path": "recipes/gemma3/inference/3n_e4b_it_infer.yaml",
-      "display_name": "gemma3 - 3n_e4b_it",
-      "model_name": "google/gemma-3n-E4B-it",
-      "engine": "NATIVE",
-      "context_length": 16384,
-      "model_family": "gemma3",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1177,6 +1813,9 @@
       "context_length": 16384,
       "model_family": "gemma3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1189,6 +1828,9 @@
       "context_length": 16384,
       "model_family": "gemma3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1201,6 +1843,9 @@
       "context_length": 8192,
       "model_family": "glm4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1213,6 +1858,9 @@
       "context_length": 8192,
       "model_family": "glm4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1225,6 +1873,9 @@
       "context_length": 131072,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1237,6 +1888,9 @@
       "context_length": 2048,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1249,6 +1903,9 @@
       "context_length": 2048,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1261,6 +1918,9 @@
       "context_length": 131072,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1273,6 +1933,9 @@
       "context_length": 131072,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1285,6 +1948,24 @@
       "context_length": 131072,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
+      "recommended": false
+    },
+    {
+      "id": "recipes_gpt_oss_inference_20b_huihui_abliterated_gguf_macos_infer",
+      "config_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
+      "relative_path": "recipes/gpt_oss/inference/20b_huihui_abliterated_gguf_macos_infer.yaml",
+      "display_name": "gpt_oss - 20b_huihui_abliterated_gguf_macos",
+      "model_name": "bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF",
+      "engine": "LLAMACPP",
+      "context_length": 131072,
+      "model_family": "gpt_oss",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1297,6 +1978,9 @@
       "context_length": 131072,
       "model_family": "gpt_oss",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1309,18 +1993,9 @@
       "context_length": 2048,
       "model_family": "gpt_oss",
       "size_category": "large",
-      "recommended": false
-    },
-    {
-      "id": "recipes_gpt2_inference_infer",
-      "config_path": "recipes/gpt2/inference/infer.yaml",
-      "relative_path": "recipes/gpt2/inference/infer.yaml",
-      "display_name": "gpt2 - infer",
-      "model_name": "openai-community/gpt2",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "gpt2",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1333,6 +2008,9 @@
       "context_length": 2048,
       "model_family": "llama3_1",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1345,6 +2023,9 @@
       "context_length": 2048,
       "model_family": "llama3_1",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1357,18 +2038,9 @@
       "context_length": 2048,
       "model_family": "llama3_1",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_llama3_2_inference_1b_infer",
-      "config_path": "recipes/llama3_2/inference/1b_infer.yaml",
-      "relative_path": "recipes/llama3_2/inference/1b_infer.yaml",
-      "display_name": "llama3_2 - 1b",
-      "model_name": "meta-llama/Llama-3.2-1B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "llama3_2",
-      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1381,6 +2053,9 @@
       "context_length": 2048,
       "model_family": "llama3_2",
       "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1393,6 +2068,9 @@
       "context_length": 2048,
       "model_family": "llama3_2",
       "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1404,7 +2082,10 @@
       "engine": "SGLANG",
       "context_length": 2048,
       "model_family": "llama3_2",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1417,6 +2098,9 @@
       "context_length": 2048,
       "model_family": "llama3_3",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1429,6 +2113,9 @@
       "context_length": 2048,
       "model_family": "llama3_3",
       "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1441,6 +2128,9 @@
       "context_length": 8192,
       "model_family": "llama3_3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1453,18 +2143,9 @@
       "context_length": 8192,
       "model_family": "llama3_3",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_magnum_inference_v4_12b_infer",
-      "config_path": "recipes/magnum/inference/v4_12b_infer.yaml",
-      "relative_path": "recipes/magnum/inference/v4_12b_infer.yaml",
-      "display_name": "magnum - v4_12b",
-      "model_name": "anthracite-org/magnum-v4-12b",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "magnum",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1477,6 +2158,9 @@
       "context_length": 32768,
       "model_family": "magnum",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1489,18 +2173,9 @@
       "context_length": 32768,
       "model_family": "magnum",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_mistral_magistral_inference_small_2507_infer",
-      "config_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
-      "relative_path": "recipes/mistral_magistral/inference/small_2507_infer.yaml",
-      "display_name": "mistral_magistral - small_2507",
-      "model_name": "mistralai/Magistral-Small-2507",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "mistral_magistral",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1513,6 +2188,9 @@
       "context_length": 32768,
       "model_family": "mistral_magistral",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1525,18 +2203,9 @@
       "context_length": 32768,
       "model_family": "mistral_magistral",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_nemotron_nano_inference_9b_infer",
-      "config_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
-      "relative_path": "recipes/nemotron_nano/inference/9b_infer.yaml",
-      "display_name": "nemotron_nano - 9b",
-      "model_name": "nvidia/NVIDIA-Nemotron-Nano-9B-v2",
-      "engine": "NATIVE",
-      "context_length": 4096,
-      "model_family": "nemotron_nano",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1549,6 +2218,9 @@
       "context_length": 4096,
       "model_family": "nemotron_nano",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1561,6 +2233,9 @@
       "context_length": 4096,
       "model_family": "nemotron_nano",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1573,6 +2248,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1585,6 +2263,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1597,6 +2278,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1609,6 +2293,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1621,6 +2308,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1633,6 +2323,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1645,6 +2338,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1657,6 +2353,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1669,6 +2368,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1681,6 +2383,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1693,6 +2398,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1705,6 +2413,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1717,18 +2428,9 @@
       "context_length": 2048,
       "model_family": "openai",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_phi4_inference_14b_infer",
-      "config_path": "recipes/phi4/inference/14b_infer.yaml",
-      "relative_path": "recipes/phi4/inference/14b_infer.yaml",
-      "display_name": "phi4 - 14b",
-      "model_name": "microsoft/phi-4",
-      "engine": "NATIVE",
-      "context_length": 16384,
-      "model_family": "phi4",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1741,6 +2443,9 @@
       "context_length": 16384,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1753,18 +2458,9 @@
       "context_length": 16384,
       "model_family": "phi4",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_phi4_inference_mini_reasoning_infer",
-      "config_path": "recipes/phi4/inference/mini_reasoning_infer.yaml",
-      "relative_path": "recipes/phi4/inference/mini_reasoning_infer.yaml",
-      "display_name": "phi4 - mini_reasoning",
-      "model_name": "microsoft/Phi-4-mini-reasoning",
-      "engine": "NATIVE",
-      "context_length": 4096,
-      "model_family": "phi4",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1777,6 +2473,9 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1789,30 +2488,9 @@
       "context_length": 4096,
       "model_family": "phi4",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_phi4_inference_reasoning_plus_infer",
-      "config_path": "recipes/phi4/inference/reasoning_plus_infer.yaml",
-      "relative_path": "recipes/phi4/inference/reasoning_plus_infer.yaml",
-      "display_name": "phi4 - reasoning_plus",
-      "model_name": "microsoft/Phi-4-reasoning-plus",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "phi4",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_pocketdoc_inference_personalityengine_24b_infer",
-      "config_path": "recipes/pocketdoc/inference/personalityengine_24b_infer.yaml",
-      "relative_path": "recipes/pocketdoc/inference/personalityengine_24b_infer.yaml",
-      "display_name": "pocketdoc - personalityengine_24b",
-      "model_name": "PocketDoc/Dans-PersonalityEngine-V1.2.0-24b",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "pocketdoc",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1825,6 +2503,9 @@
       "context_length": 32768,
       "model_family": "pocketdoc",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1837,42 +2518,9 @@
       "context_length": 32768,
       "model_family": "pocketdoc",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_qwen3_inference_0.6b_infer",
-      "config_path": "recipes/qwen3/inference/0.6b_infer.yaml",
-      "relative_path": "recipes/qwen3/inference/0.6b_infer.yaml",
-      "display_name": "qwen3 - 0.6b",
-      "model_name": "Qwen/Qwen3-0.6B",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "qwen3",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_qwen3_inference_14b_infer",
-      "config_path": "recipes/qwen3/inference/14b_infer.yaml",
-      "relative_path": "recipes/qwen3/inference/14b_infer.yaml",
-      "display_name": "qwen3 - 14b",
-      "model_name": "Qwen/Qwen3-14B",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "qwen3",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_qwen3_inference_14b_abliterated_infer",
-      "config_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
-      "relative_path": "recipes/qwen3/inference/14b_abliterated_infer.yaml",
-      "display_name": "qwen3 - 14b_abliterated",
-      "model_name": "mlabonne/Qwen3-14B-abliterated",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "qwen3",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1885,6 +2533,9 @@
       "context_length": 32768,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1897,6 +2548,9 @@
       "context_length": 32768,
       "model_family": "qwen3",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1909,18 +2563,9 @@
       "context_length": 2048,
       "model_family": "qwen3",
       "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_qwen3_inference_30b_a3b_infer",
-      "config_path": "recipes/qwen3/inference/30b_a3b_infer.yaml",
-      "relative_path": "recipes/qwen3/inference/30b_a3b_infer.yaml",
-      "display_name": "qwen3 - 30b_a3b",
-      "model_name": "Qwen/Qwen3-30B-A3B",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "qwen3",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1932,55 +2577,10 @@
       "engine": "NATIVE",
       "context_length": 32768,
       "model_family": "qwen3",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_qwen3_inference_4b_infer",
-      "config_path": "recipes/qwen3/inference/4b_infer.yaml",
-      "relative_path": "recipes/qwen3/inference/4b_infer.yaml",
-      "display_name": "qwen3 - 4b",
-      "model_name": "Qwen/Qwen3-4B",
-      "engine": "NATIVE",
-      "context_length": 32768,
-      "model_family": "qwen3",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_qwq_inference_infer",
-      "config_path": "recipes/qwq/inference/infer.yaml",
-      "relative_path": "recipes/qwq/inference/infer.yaml",
-      "display_name": "qwq - infer",
-      "model_name": "Qwen/QwQ-32B",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "qwq",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_smollm_inference_135m_infer",
-      "config_path": "recipes/smollm/inference/135m_infer.yaml",
-      "relative_path": "recipes/smollm/inference/135m_infer.yaml",
-      "display_name": "smollm - 135m",
-      "model_name": "HuggingFaceTB/SmolLM2-135M-Instruct",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "smollm",
-      "size_category": "small",
-      "recommended": false
-    },
-    {
-      "id": "recipes_smollm3_inference_3b_infer",
-      "config_path": "recipes/smollm3/inference/3b_infer.yaml",
-      "relative_path": "recipes/smollm3/inference/3b_infer.yaml",
-      "display_name": "smollm3 - 3b",
-      "model_name": "HuggingFaceTB/SmolLM3-3B",
-      "engine": "NATIVE",
-      "context_length": 8192,
-      "model_family": "smollm3",
-      "size_category": "medium",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -1992,7 +2592,10 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "smollm3",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2004,19 +2607,10 @@
       "engine": "VLLM",
       "context_length": 8192,
       "model_family": "smollm3",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "examples_bulk_inference_gcp_job",
-      "config_path": "examples/bulk_inference/gcp_job.yaml",
-      "relative_path": "examples/bulk_inference/gcp_job.yaml",
-      "display_name": "unknown - gcp_job",
-      "model_name": "Unknown Model",
-      "engine": "NATIVE",
-      "context_length": 2048,
-      "model_family": "unknown",
-      "size_category": "medium",
+      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2028,7 +2622,10 @@
       "engine": "GOOGLE_VERTEX",
       "context_length": 2048,
       "model_family": "vertex",
-      "size_category": "xl",
+      "size_category": "large",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2041,18 +2638,9 @@
       "context_length": 2048,
       "model_family": "vertex",
       "size_category": "large",
-      "recommended": false
-    },
-    {
-      "id": "recipes_vision_llama3_2_vision_inference_11b_infer",
-      "config_path": "recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
-      "relative_path": "recipes/vision/llama3_2_vision/inference/11b_infer.yaml",
-      "display_name": "vision - 11b",
-      "model_name": "meta-llama/Llama-3.2-11B-Vision-Instruct",
-      "engine": "NATIVE",
-      "context_length": 1024,
-      "model_family": "vision",
-      "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2065,6 +2653,9 @@
       "context_length": 1024,
       "model_family": "vision",
       "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2077,6 +2668,9 @@
       "context_length": 1024,
       "model_family": "vision",
       "size_category": "small",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2089,66 +2683,9 @@
       "context_length": 1024,
       "model_family": "vision",
       "size_category": "small",
-      "recommended": false
-    },
-    {
-      "id": "recipes_vision_llava_7b_inference_infer",
-      "config_path": "recipes/vision/llava_7b/inference/infer.yaml",
-      "relative_path": "recipes/vision/llava_7b/inference/infer.yaml",
-      "display_name": "vision - infer",
-      "model_name": "llava-hf/llava-1.5-7b-hf",
-      "engine": "NATIVE",
-      "context_length": 1024,
-      "model_family": "vision",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_vision_phi4_inference_infer",
-      "config_path": "recipes/vision/phi4/inference/infer.yaml",
-      "relative_path": "recipes/vision/phi4/inference/infer.yaml",
-      "display_name": "vision - infer",
-      "model_name": "microsoft/Phi-4-multimodal-instruct",
-      "engine": "NATIVE",
-      "context_length": 4096,
-      "model_family": "vision",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_vision_qwen2_5_vl_3b_inference_infer",
-      "config_path": "recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
-      "relative_path": "recipes/vision/qwen2_5_vl_3b/inference/infer.yaml",
-      "display_name": "vision - infer",
-      "model_name": "Qwen/Qwen2.5-VL-3B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 4096,
-      "model_family": "vision",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_vision_qwen2_vl_2b_inference_infer",
-      "config_path": "recipes/vision/qwen2_vl_2b/inference/infer.yaml",
-      "relative_path": "recipes/vision/qwen2_vl_2b/inference/infer.yaml",
-      "display_name": "vision - infer",
-      "model_name": "Qwen/Qwen2-VL-2B-Instruct",
-      "engine": "NATIVE",
-      "context_length": 4096,
-      "model_family": "vision",
-      "size_category": "medium",
-      "recommended": false
-    },
-    {
-      "id": "recipes_vision_smolvlm_inference_infer",
-      "config_path": "recipes/vision/smolvlm/inference/infer.yaml",
-      "relative_path": "recipes/vision/smolvlm/inference/infer.yaml",
-      "display_name": "vision - infer",
-      "model_name": "HuggingFaceTB/SmolVLM-Instruct",
-      "engine": "NATIVE",
-      "context_length": 3072,
-      "model_family": "vision",
-      "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2161,6 +2698,9 @@
       "context_length": 4096,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2173,6 +2713,9 @@
       "context_length": 1024,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2185,6 +2728,9 @@
       "context_length": 4096,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2197,6 +2743,9 @@
       "context_length": 4096,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2209,6 +2758,9 @@
       "context_length": 4096,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2221,6 +2773,9 @@
       "context_length": 4096,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     },
     {
@@ -2233,6 +2788,9 @@
       "context_length": 3072,
       "model_family": "vision",
       "size_category": "medium",
+      "parameter_count": null,
+      "is_specialist": false,
+      "hf_tags": [],
       "recommended": false
     }
   ]

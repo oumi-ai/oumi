@@ -14,6 +14,8 @@ import useErrorHandler from '@/hooks/useErrorHandler';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
 import { ConfigMatcher, SystemCapabilities } from '@/lib/config-matcher';
 import { configPathResolver } from '@/lib/config-path-resolver';
+import { HuggingFaceService } from '@/lib/huggingface-service';
+import { useChatStore } from '@/lib/store';
 
 interface ConfigOption {
   id: string;
@@ -48,6 +50,7 @@ interface WelcomeScreenProps {
 }
 
 export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) {
+  const { settings } = useChatStore();
   const [configs, setConfigs] = React.useState<ConfigOption[]>([]);
   const [filteredConfigs, setFilteredConfigs] = React.useState<ConfigOption[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -301,6 +304,16 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               recommended: config.recommended || false
             }));
             
+            // Enhance with fresh HuggingFace metadata if credentials are available
+            const hasHfCredentials = settings.huggingFace.username && settings.huggingFace.token;
+            if (hasHfCredentials) {
+              console.log('Enhancing configs with authenticated HuggingFace metadata...');
+              transformedConfigs = await HuggingFaceService.enhanceConfigsWithMetadata(
+                transformedConfigs,
+                settings.huggingFace
+              );
+            }
+            
             // Apply smart recommendations using ConfigMatcher if system capabilities are available
             if (systemCapabilities) {
               transformedConfigs = ConfigMatcher.sortConfigsByRecommendation(transformedConfigs, systemCapabilities);
@@ -321,6 +334,16 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       
       if (data.configs && Array.isArray(data.configs)) {
         let configs = data.configs;
+        
+        // Enhance with fresh HuggingFace metadata if credentials are available
+        const hasHfCredentials = settings.huggingFace.username && settings.huggingFace.token;
+        if (hasHfCredentials) {
+          console.log('Enhancing configs with authenticated HuggingFace metadata...');
+          configs = await HuggingFaceService.enhanceConfigsWithMetadata(
+            configs,
+            settings.huggingFace
+          );
+        }
         
         // Apply smart recommendations using ConfigMatcher if system capabilities are available
         if (systemCapabilities) {

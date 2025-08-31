@@ -198,4 +198,9 @@ export interface AppSettings {
     highUsage: boolean;
     keyExpiry: boolean;
   };
+  // HuggingFace credentials for improved model recommendations
+  huggingFace: {
+    username?: string;
+    token?: string; // Personal Access Token
+  };
 }
