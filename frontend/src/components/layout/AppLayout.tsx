@@ -12,14 +12,30 @@ import SystemChangeWarning from '@/components/monitoring/SystemChangeWarning';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
-import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X } from 'lucide-react';
+import SettingsScreen from '@/components/settings/SettingsScreen';
 
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
   const [isControlPanelExpanded, setIsControlPanelExpanded] = React.useState(true);
   const [isInitialized, setIsInitialized] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
   const { executeCommand, isExecuting } = useConversationCommand();
+
+  // Handle ESC key for settings modal
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showSettings) {
+        setShowSettings(false);
+      }
+    };
+
+    if (showSettings) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showSettings]);
 
   // Handle React ready state and menu messages from Electron
   React.useEffect(() => {
@@ -138,6 +154,15 @@ export default function AppLayout() {
 
           {/* Right section */}
           <div className="flex items-center gap-2">
+            {/* Settings */}
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+
             {/* Clear conversation */}
             <button
               onClick={handleClearConversation}
@@ -199,6 +224,27 @@ export default function AppLayout() {
           <BranchTree className="min-h-screen" />
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full h-full max-w-7xl max-h-[90vh] bg-background border border-border rounded-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold">Settings</h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                title="Close settings"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="h-full overflow-hidden">
+              <SettingsScreen />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* System change warning */}
       <SystemChangeWarning />

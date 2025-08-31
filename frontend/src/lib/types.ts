@@ -118,3 +118,84 @@ export interface ChatCompletionResponse {
     total_tokens: number;
   };
 }
+
+// API Provider types
+export interface ApiProvider {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  website: string;
+  keyName: string; // e.g., "OPENAI_API_KEY"
+  keyPlaceholder: string; // e.g., "sk-..."
+  baseUrl?: string;
+  icon?: string;
+  models: ApiModel[];
+  pricing?: ApiPricing;
+  requiresKey: boolean;
+  testEndpoint?: string;
+}
+
+export interface ApiModel {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  contextLength: number;
+  inputCost?: number; // per 1M tokens
+  outputCost?: number; // per 1M tokens
+  isMultimodal?: boolean;
+  tags?: string[];
+}
+
+export interface ApiPricing {
+  currency: string;
+  unit: string; // "1M tokens", "1K tokens", etc.
+  inputCostPer1M?: number;
+  outputCostPer1M?: number;
+}
+
+export interface ApiKeyConfig {
+  providerId: string;
+  keyValue: string;
+  isActive: boolean;
+  createdAt: string;
+  lastValidated?: string;
+  isValid?: boolean;
+  validationError?: string;
+  usage?: ApiUsageStats;
+}
+
+export interface ApiUsageStats {
+  totalRequests: number;
+  totalTokens: number;
+  totalCost: number;
+  lastReset: string;
+  monthlyLimit?: number;
+  monthlyUsed: number;
+}
+
+export interface ApiValidationResult {
+  isValid: boolean;
+  error?: string;
+  details?: {
+    model?: string;
+    organization?: string;
+    rateLimit?: number;
+  };
+}
+
+// Settings types
+export interface AppSettings {
+  apiKeys: Record<string, ApiKeyConfig>;
+  selectedProvider: string;
+  selectedModel: string;
+  usageMonitoring: boolean;
+  autoValidateKeys: boolean;
+  maxMonthlyCost?: number;
+  notifications: {
+    lowBalance: boolean;
+    highUsage: boolean;
+    keyExpiry: boolean;
+  };
+}

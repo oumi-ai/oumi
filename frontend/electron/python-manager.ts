@@ -607,8 +607,11 @@ export class PythonServerManager {
     log.info(`Testing model with config: ${configPath}`);
 
     // Create temporary input and output files for non-interactive mode
-    const tempInputPath = path.join(__dirname, 'temp_test_input.jsonl');
-    const tempOutputPath = path.join(__dirname, 'temp_test_output.jsonl');
+    // Use app temp directory instead of __dirname to avoid writing to read-only .asar
+    const { app } = require('electron');
+    const tempDir = app.getPath('temp');
+    const tempInputPath = path.join(tempDir, 'chatterley_test_input.jsonl');
+    const tempOutputPath = path.join(tempDir, 'chatterley_test_output.jsonl');
     const testInput = JSON.stringify({
       messages: [
         { role: "user", content: "Hello world" }
@@ -873,6 +876,25 @@ export class PythonServerManager {
       log.error('Error setting up test inference:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       return { success: false, message: `Setup error: ${errorMessage}` };
+    } finally {
+      // Clean up temporary files
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(tempInputPath)) {
+          fs.unlinkSync(tempInputPath);
+        }
+        if (fs.existsSync(tempOutputPath)) {
+          fs.unlinkSync(tempOutputPath);
+        }
+      } catch (cleanupError) {
+        log.warn('Failed to clean up temporary test files:', cleanupError);
+      }
+      
+      // Clear network monitoring if still running
+      if (networkMonitorInterval) {
+        clearInterval(networkMonitorInterval);
+        networkMonitorInterval = null;
+      }
     }
   }
 
