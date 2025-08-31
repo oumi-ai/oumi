@@ -510,12 +510,15 @@ export class PythonServerManager {
       return configPath;
     }
     
-    // For relative paths, resolve from oumi root directory
-    const oumiRoot = this.getOumiRootPath();
-    log.info(`[resolveConfigPath] Oumi root: ${oumiRoot}`);
+    // For relative paths, resolve using the same logic as config discovery
+    const configsBasePath = app.isPackaged
+      ? path.join(process.resourcesPath, 'python', 'configs')
+      : path.join(__dirname, '../../../configs');
+    
+    log.info(`[resolveConfigPath] Config base path: ${configsBasePath} (isPackaged: ${app.isPackaged})`);
     log.info(`[resolveConfigPath] __dirname: ${__dirname}`);
     
-    const absolutePath = path.resolve(oumiRoot, 'configs', configPath);
+    const absolutePath = path.resolve(configsBasePath, configPath);
     
     log.info(`[resolveConfigPath] Resolved config path: ${configPath} -> ${absolutePath}`);
     return absolutePath;

@@ -13,6 +13,7 @@ import useErrorHandler from '@/hooks/useErrorHandler';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
+import { configPathResolver } from '@/lib/config-path-resolver';
 
 interface LaunchManagerProps {}
 
@@ -60,18 +61,19 @@ export default function LaunchManager({}: LaunchManagerProps) {
       // Step 1: Validate config selection and get config path
       setInitProgress('Validating configuration...');
       
-      // Load config path from static configs
+      // Load config using unified path resolver
       let configPath: string | undefined;
       try {
-        const response = await fetch('./static-configs.json');
-        if (response.ok) {
-          const data = await response.json();
-          const selectedConfigData = data.configs?.find((cfg: any) => cfg.id === configId);
-          configPath = selectedConfigData?.config_path;
+        const configResult = await configPathResolver.getConfigById(configId);
+        if (configResult) {
+          configPath = configResult.resolvedPath;
           console.log('📍 Config path:', configPath);
+          console.log('📍 Config details:', configResult.config.display_name);
+        } else {
+          console.warn('Config not found:', configId);
         }
       } catch (err) {
-        console.warn('Failed to load config path from static configs:', err);
+        console.warn('Failed to load config path from unified resolver:', err);
       }
       
       await new Promise(resolve => setTimeout(resolve, 500));

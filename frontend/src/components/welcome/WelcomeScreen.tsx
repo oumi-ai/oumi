@@ -13,6 +13,7 @@ import ErrorDialog from '@/components/ui/ErrorDialog';
 import useErrorHandler from '@/hooks/useErrorHandler';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
 import { ConfigMatcher, SystemCapabilities } from '@/lib/config-matcher';
+import { configPathResolver } from '@/lib/config-path-resolver';
 
 interface ConfigOption {
   id: string;
@@ -315,14 +316,8 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         }
       }
       
-      // Fallback to static configs file (dev mode or if Electron discovery fails)
-      const response = await fetch('./static-configs.json');
-      
-      if (!response.ok) {
-        throw new Error('Failed to load static configurations');
-      }
-      
-      const data = await response.json();
+      // Fallback to unified config resolver (handles static configs and multiple locations)
+      const data = await configPathResolver.loadStaticConfigs();
       
       if (data.configs && Array.isArray(data.configs)) {
         let configs = data.configs;

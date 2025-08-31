@@ -519,12 +519,12 @@ function setupConfigHandlers(): void {
       const fs = require('fs').promises;
       const yaml = require('js-yaml');
 
-      // Get the path to bundled configs
+      // Get the path to bundled configs - must match frontend resolver logic
       const configsPath = app.isPackaged
         ? path.join(process.resourcesPath, 'python/configs')
         : path.join(__dirname, '../../../configs');
 
-      log.info(`Discovering configs in: ${configsPath}`);
+      log.info(`[ConfigDiscovery] Discovering configs in: ${configsPath} (isPackaged: ${app.isPackaged})`);
 
       const configs = await discoverConfigsRecursive(configsPath, configsPath);
       
