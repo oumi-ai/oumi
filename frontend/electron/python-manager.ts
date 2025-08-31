@@ -454,13 +454,24 @@ export class PythonServerManager {
    */
   private buildStandaloneCommand(oumiArgs: string[]): string {
     if (!this.environmentInfo?.isValid) {
-      throw new Error('Python environment not ready');
+      const errorMsg = `Python environment not ready. Environment info: ${JSON.stringify(this.environmentInfo)}`;
+      log.error(`[PythonServerManager] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
     const pythonPath = this.environmentInfo.pythonPath;
+    
+    // Verify Python executable exists
+    if (!require('fs').existsSync(pythonPath)) {
+      const errorMsg = `Python executable not found at: ${pythonPath}`;
+      log.error(`[PythonServerManager] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    
     const oumiCommand = `"${pythonPath}" -m oumi ${oumiArgs.join(' ')}`;
     
     log.info(`[PythonServerManager] Using standalone Python: ${pythonPath}`);
+    log.info(`[PythonServerManager] Full command: ${oumiCommand}`);
     return oumiCommand;
   }
 
@@ -468,8 +479,17 @@ export class PythonServerManager {
    * Get the oumi package root directory
    */
   private getOumiRootPath(): string {
-    // Check if we're running from dist/electron (compiled) or electron/ (development)
-    // In both cases for the debug build, we're running from dist/electron/
+    // Check if we're running in a production packaged app
+    if (app.isPackaged) {
+      // In production, configs are bundled in Resources/python/
+      const resourcesPath = process.resourcesPath;
+      const pythonPath = path.join(resourcesPath, 'python');
+      log.info(`[getOumiRootPath] Production mode - resources path: ${resourcesPath}`);
+      log.info(`[getOumiRootPath] Python path: ${pythonPath}`);
+      return pythonPath;
+    }
+    
+    // Development/debug mode
     if (__dirname.includes('/dist/electron')) {
       // Running from frontend/dist/electron/, go up 3 levels to oumi root
       return path.resolve(__dirname, '../../../');  
@@ -483,15 +503,21 @@ export class PythonServerManager {
    * Resolve config path to absolute path if it's relative
    */
   private resolveConfigPath(configPath: string): string {
+    log.info(`[resolveConfigPath] Input path: ${configPath}`);
+    
     if (path.isAbsolute(configPath)) {
+      log.info(`[resolveConfigPath] Path is already absolute: ${configPath}`);
       return configPath;
     }
     
     // For relative paths, resolve from oumi root directory
     const oumiRoot = this.getOumiRootPath();
+    log.info(`[resolveConfigPath] Oumi root: ${oumiRoot}`);
+    log.info(`[resolveConfigPath] __dirname: ${__dirname}`);
+    
     const absolutePath = path.resolve(oumiRoot, 'configs', configPath);
     
-    log.info(`[PythonServerManager] Resolved config path: ${configPath} -> ${absolutePath}`);
+    log.info(`[resolveConfigPath] Resolved config path: ${configPath} -> ${absolutePath}`);
     return absolutePath;
   }
 
@@ -625,13 +651,25 @@ export class PythonServerManager {
     
     try {
       // Ensure Python environment is ready before testing
+      log.info(`[testModel] Ensuring Python environment is ready...`);
       await this.ensurePythonEnvironment();
+      log.info(`[testModel] Python environment check completed. Environment info:`, {
+        isValid: this.environmentInfo?.isValid,
+        pythonPath: this.environmentInfo?.pythonPath,
+        path: this.environmentInfo?.path
+      });
       
       // Write test input file
       require('fs').writeFileSync(tempInputPath, testInput);
       
       // Resolve config path to absolute path
       const resolvedConfigPath = this.resolveConfigPath(configPath);
+      
+      // Verify config file exists
+      if (!require('fs').existsSync(resolvedConfigPath)) {
+        log.error(`Config file does not exist: ${resolvedConfigPath}`);
+        return { success: false, message: `Config file not found: ${resolvedConfigPath}` };
+      }
       
       const testCommand = await this.buildPythonCommand([
         'infer',
@@ -641,14 +679,27 @@ export class PythonServerManager {
       ]);
 
       log.info(`Running test command: ${testCommand}`);
+      log.info(`Resolved config path: ${resolvedConfigPath}`);
+      log.info(`Temp input path: ${tempInputPath}`);
+      log.info(`Temp output path: ${tempOutputPath}`);
 
       return new Promise((resolve, reject) => {
 
-        const testProcess = spawn('bash', ['-c', testCommand], {
-          stdio: ['pipe', 'pipe', 'pipe'],
-          env: this.getCleanEnvironment(),
-          cwd: this.getOumiRootPath()  // Set working directory to oumi root
-        });
+        // Use appropriate shell for the platform
+        let testProcess: ChildProcess;
+        if (process.platform === 'win32') {
+          testProcess = spawn('cmd', ['/c', testCommand], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: this.getCleanEnvironment(),
+            cwd: this.getOumiRootPath()
+          });
+        } else {
+          testProcess = spawn('bash', ['-c', testCommand], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: this.getCleanEnvironment(),
+            cwd: this.getOumiRootPath()
+          });
+        }
 
         log.info(`Test process spawned with PID: ${testProcess.pid}`);
 
@@ -793,6 +844,7 @@ export class PythonServerManager {
         hasCompleted = true;
 
         log.info(`Test inference exited with code ${code}, signal ${signal}`);
+        log.info(`Output buffer: ${outputBuffer.slice(-1000)}`); // Log last 1000 chars for debugging
         
         // In non-interactive mode, successful completion means the model loaded and ran inference
         if (code === 0) {
@@ -801,7 +853,12 @@ export class PythonServerManager {
           // Even if exit code is not 0, if we detected model loading, consider it a success
           resolve({ success: true, message: 'Model test successful - model loaded (process terminated early)' });
         } else {
-          resolve({ success: false, message: `Model test failed - process exited with code ${code}` });
+          // Include output buffer in error message for better debugging
+          const errorDetails = outputBuffer.slice(-500); // Last 500 chars of output
+          const errorMessage = errorDetails 
+            ? `Model test failed - process exited with code ${code}. Details: ${errorDetails}`
+            : `Model test failed - process exited with code ${code}`;
+          resolve({ success: false, message: errorMessage });
         }
       });
 
