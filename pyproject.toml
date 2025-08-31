@@ -183,6 +183,7 @@ interactive = [
     "asciinema>=2.4.0",    # Terminal recording for /render() command
     "requests>=2.31.0",    # Web requests for /fetch() command
     "beautifulsoup4>=4.12.0", # HTML parsing for /fetch() command
+    "tiktoken>=0.9.0",
 ]
 
 # CI targets

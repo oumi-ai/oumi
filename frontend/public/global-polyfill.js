@@ -1,41 +1,36 @@
-// Global polyfills for browser compatibility
-// This fixes "global is not defined" and "require is not defined" errors in production builds
+// Enhanced polyfill for Electron renderer process
+// Provides minimal require() support for remaining dependencies
 
-// Fix global reference
+console.log('🔧 Loading enhanced polyfills for Electron renderer');
+
+// Ensure global exists for compatibility
 if (typeof global === 'undefined') {
-  var global = globalThis;
+  var global = (typeof globalThis !== 'undefined') ? globalThis : window;
 }
 
-// Fix require reference for client-side with common Node.js modules
+// Minimal require polyfill for remaining dependencies
 if (typeof require === 'undefined') {
-  var require = function(module) {
-    // Handle common Node.js modules that might be referenced
-    switch (module) {
-      case 'process':
-        return process;
-      case 'buffer':
-        return { Buffer: globalThis.Buffer || {} };
-      case 'util':
-        return { 
-          inherits: function(ctor, superCtor) {
-            ctor.super_ = superCtor;
-            ctor.prototype = Object.create(superCtor.prototype);
-          }
-        };
-      default:
-        console.warn('Module not available in browser:', module);
-        return {};
+  var require = function(id) {
+    console.log('📦 Polyfill require() called for:', id);
+    
+    // Return empty objects for Node.js modules
+    if (id === 'buffer' || id === 'process' || id === 'util' || id === 'crypto' || 
+        id === 'fs' || id === 'path' || id === 'os' || id === 'stream' || 
+        id === 'events' || id === 'url' || id === 'querystring') {
+      return {};
     }
+    
+    // For unknown modules, return empty object
+    return {};
   };
+  
+  // Make require available globally
+  if (typeof window !== 'undefined') {
+    window.require = require;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.require = require;
+  }
 }
 
-// Fix process reference 
-if (typeof process === 'undefined') {
-  var process = {
-    env: {},
-    browser: true,
-    version: '',
-    versions: {},
-    nextTick: function(fn) { setTimeout(fn, 0); }
-  };
-}
+console.log('✅ Enhanced polyfills loaded successfully');

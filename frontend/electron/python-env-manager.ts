@@ -247,7 +247,12 @@ export class PythonEnvironmentManager {
 
       // Step 6: Install oumi dependencies
       await this.reportProgress('oumi', 65, 'Installing Oumi dependencies...');
-      await this.installOumiDependencies(envPython, envPath);
+      try {
+        await this.installOumiDependencies(envPython, envPath);
+      } catch (error) {
+        log.error('[PythonEnvManager] Environment setup failed during Oumi installation:', error);
+        throw error; // Re-throw to be caught by outer catch block
+      }
 
       // Step 7: Test installation
       await this.reportProgress('testing', 90, 'Testing installation...');

@@ -1031,7 +1031,7 @@ export class PythonServerManager {
    * Force rebuild the Python environment
    * This will delete the existing environment and recreate it
    */
-  async rebuildEnvironment(): Promise<boolean> {
+  async rebuildEnvironment(): Promise<void> {
     try {
       log.info('[PythonServerManager] Starting environment rebuild');
       
@@ -1055,14 +1055,16 @@ export class PythonServerManager {
       
       if (this.environmentInfo.isValid) {
         log.info('[PythonServerManager] Environment rebuild completed successfully');
-        return true;
       } else {
-        log.error('[PythonServerManager] Environment rebuild failed');
-        return false;
+        const errorMsg = 'Environment rebuild failed - environment is not valid after setup';
+        log.error(`[PythonServerManager] ${errorMsg}`);
+        throw new Error(errorMsg);
       }
     } catch (error) {
       log.error('[PythonServerManager] Error during environment rebuild:', error);
-      return false;
+      // Re-throw the error instead of swallowing it and returning false
+      // This ensures proper error propagation and debugging
+      throw error;
     }
   }
 

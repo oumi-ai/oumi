@@ -115,6 +115,7 @@ class LlamaCppInferenceEngine(BaseInferenceEngine):
         kwargs = {
             # llama-cpp logs a lot of useful information,
             # but it's too verbose by default for bulk inference.
+            # Can be overridden in YAML config via model_kwargs.verbose
             "verbose": False,
             # Put all layers on GPU / MPS if available. Otherwise, will use CPU.
             "n_gpu_layers": -1,

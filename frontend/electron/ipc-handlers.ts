@@ -732,8 +732,8 @@ function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): voi
   ipcMain.handle('python:rebuild-environment', async () => {
     try {
       log.info('Rebuilding Python environment');
-      const success = await pythonManager.rebuildEnvironment();
-      return { success, message: success ? 'Environment rebuilt successfully' : 'Failed to rebuild environment' };
+      await pythonManager.rebuildEnvironment();
+      return { success: true, message: 'Environment rebuilt successfully' };
     } catch (error) {
       log.error('Failed to rebuild Python environment:', error);
       return { success: false, message: error instanceof Error ? error.message : 'Unknown error' };

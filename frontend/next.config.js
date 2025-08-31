@@ -18,49 +18,19 @@ const nextConfig = {
   
   // Webpack configuration for Electron compatibility
   webpack: (config, { isServer, webpack }) => {
-    // Electron-specific webpack configuration
-    if (isElectron && !isServer) {
-      // Set the correct target for Electron renderer process
-      config.target = 'electron-renderer';
+    // Apply configuration for client-side builds only
+    if (!isServer) {
+      // Set target for Electron renderer process
+      if (isElectron) {
+        config.target = 'electron-renderer';
+      }
       
-      // Fix global is not defined error for Electron
+      // Define environment variables
       config.plugins.push(
         new webpack.DefinePlugin({
           global: 'globalThis',
-          'process.env.ELECTRON': JSON.stringify(true),
+          'process.env.ELECTRON': JSON.stringify(isElectron),
           'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
-        })
-      );
-
-      // Add Node.js polyfills for Electron renderer
-      config.plugins.push(
-        new webpack.ProvidePlugin({
-          Buffer: ['buffer', 'Buffer'],
-          process: 'process/browser',
-        })
-      );
-    } else if (!isServer) {
-      // Web-specific configuration (when not Electron)
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        os: false,
-        crypto: false,
-        stream: false,
-        assert: false,
-        http: false,
-        https: false,
-        url: false,
-        zlib: false,
-        buffer: false,
-        util: false,
-      };
-      
-      config.plugins.push(
-        new webpack.DefinePlugin({
-          global: 'globalThis',
-          'process.env.ELECTRON': JSON.stringify(false),
         })
       );
     }
@@ -98,7 +68,7 @@ const nextConfig = {
   // Experimental features
   experimental: {
     // Enable modern bundling optimizations
-    optimizePackageImports: ['lucide-react', 'react-markdown'],
+    optimizePackageImports: ['lucide-react', 'markdown-to-jsx'],
   },
 };
 

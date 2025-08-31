@@ -14,7 +14,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script src="./global-polyfill.js" />
+        {/* CRITICAL: This script MUST load synchronously before webpack chunks */}
+        <script src="./global-polyfill.js"></script>
         <style dangerouslySetInnerHTML={{
           __html: `
             #electron-loading-screen {

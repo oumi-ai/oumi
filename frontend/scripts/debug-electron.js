@@ -43,9 +43,9 @@ console.log('  • File access attempts logged');
 console.log('  • IPC messages logged\n');
 
 // Set debugging environment variables
+// Note: We don't set NODE_ENV here to avoid conflicts with Next.js dev server
 const env = {
   ...process.env,
-  NODE_ENV: 'production',
   DEBUG: '*',
   ELECTRON_IS_DEV: '1', // This enables DevTools while using production build
   ELECTRON_DEBUG_PRODUCTION: '1',

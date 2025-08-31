@@ -25,6 +25,7 @@ model:
   trust_remote_code: True
   model_kwargs:
     filename: "Qwen3-4B-Instruct-2507-UD-Q5_K_XL.gguf"
+    verbose: True  # Enable detailed logging for download progress
 
 generation:
   max_new_tokens: 2048
