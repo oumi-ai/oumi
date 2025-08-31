@@ -6,91 +6,12 @@
  */
 
 export interface ConfigPathResolver {
-  resolveConfigPath(relativePath: string): string;
-  getConfigsBasePath(): string;
-  isProduction(): boolean;
   loadStaticConfigs(): Promise<any>;
+  getConfigById(configId: string): Promise<{ config: any; configPath: string } | null>;
 }
 
 class UnifiedConfigPathResolver implements ConfigPathResolver {
-  private cachedBasePath?: string;
-  private cachedIsProduction?: boolean;
   private staticConfigs?: any;
-
-  /**
-   * Determine if we're running in production mode
-   */
-  public isProduction(): boolean {
-    if (this.cachedIsProduction === undefined) {
-      // Check multiple indicators for production mode
-      const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
-      
-      if (isElectron) {
-        // In Electron, use multiple indicators for production mode
-        // Check if running from a packaged app by examining the process
-        try {
-          this.cachedIsProduction = window.location.protocol === 'file:' ||
-            process.env.NODE_ENV === 'production' ||
-            !window.location.hostname.includes('localhost');
-        } catch {
-          // Fallback if process is not available
-          this.cachedIsProduction = window.location.protocol === 'file:';
-        }
-      } else {
-        // In web mode, check environment and URL patterns
-        this.cachedIsProduction = process.env.NODE_ENV === 'production' || 
-          window.location.protocol === 'file:' ||
-          !window.location.hostname.includes('localhost');
-      }
-    }
-    return this.cachedIsProduction;
-  }
-
-  /**
-   * Get the base path for config files based on environment
-   */
-  public getConfigsBasePath(): string {
-    if (this.cachedBasePath) {
-      return this.cachedBasePath;
-    }
-
-    const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
-    
-    if (isElectron) {
-      if (this.isProduction()) {
-        // Production Electron: configs are bundled in Resources/python/configs/
-        this.cachedBasePath = 'python/configs';
-      } else {
-        // Development Electron: configs are in oumi/configs/ relative to frontend
-        this.cachedBasePath = '../../../configs';
-      }
-    } else {
-      // Web mode: configs should be served from public directory
-      this.cachedBasePath = './configs';
-    }
-
-    console.log(`[ConfigPathResolver] Base path: ${this.cachedBasePath} (production: ${this.isProduction()})`);
-    return this.cachedBasePath;
-  }
-
-  /**
-   * Resolve a relative config path to the appropriate absolute or resolvable path
-   */
-  public resolveConfigPath(relativePath: string): string {
-    // If already absolute, return as-is
-    if (this.isAbsolutePath(relativePath)) {
-      return relativePath;
-    }
-
-    // Remove leading slash if present
-    const cleanPath = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
-    
-    const basePath = this.getConfigsBasePath();
-    const resolvedPath = `${basePath}/${cleanPath}`;
-    
-    console.log(`[ConfigPathResolver] Resolved: ${relativePath} -> ${resolvedPath}`);
-    return resolvedPath;
-  }
 
   /**
    * Load static configs with consistent error handling
@@ -146,9 +67,9 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
   }
 
   /**
-   * Get a specific config by ID with proper path resolution
+   * Get a specific config by ID - returns original path for backend resolution
    */
-  public async getConfigById(configId: string): Promise<{ config: any; resolvedPath: string } | null> {
+  public async getConfigById(configId: string): Promise<{ config: any; configPath: string } | null> {
     try {
       const staticConfigs = await this.loadStaticConfigs();
       const config = staticConfigs.configs?.find((cfg: any) => cfg.id === configId);
@@ -158,15 +79,14 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
         return null;
       }
 
-      const resolvedPath = this.resolveConfigPath(config.config_path || config.relative_path);
+      const originalPath = config.config_path || config.relative_path;
       
       console.log(`[ConfigPathResolver] Found config ${configId}:`);
-      console.log(`[ConfigPathResolver]   Original path: ${config.config_path || config.relative_path}`);
-      console.log(`[ConfigPathResolver]   Resolved path: ${resolvedPath}`);
+      console.log(`[ConfigPathResolver]   Config path (for backend): ${originalPath}`);
       
       return {
         config,
-        resolvedPath
+        configPath: originalPath
       };
     } catch (error) {
       console.error(`[ConfigPathResolver] Error getting config ${configId}:`, error);
@@ -178,25 +98,7 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
    * Clear cached values (useful for testing or environment changes)
    */
   public clearCache(): void {
-    this.cachedBasePath = undefined;
-    this.cachedIsProduction = undefined;
     this.staticConfigs = undefined;
-  }
-
-  /**
-   * Check if a path is absolute
-   */
-  private isAbsolutePath(path: string): boolean {
-    // Unix absolute path
-    if (path.startsWith('/')) return true;
-    
-    // Windows absolute path  
-    if (/^[A-Za-z]:\\/.test(path)) return true;
-    
-    // URL
-    if (path.includes('://')) return true;
-    
-    return false;
   }
 }
 

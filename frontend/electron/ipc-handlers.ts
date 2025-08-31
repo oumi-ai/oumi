@@ -519,12 +519,15 @@ function setupConfigHandlers(): void {
       const fs = require('fs').promises;
       const yaml = require('js-yaml');
 
-      // Get the path to bundled configs - must match frontend resolver logic
-      const configsPath = app.isPackaged
-        ? path.join(process.resourcesPath, 'python/configs')
-        : path.join(__dirname, '../../../configs');
+      // Configs are always one level above OUMI_ROOT, regardless of environment
+      const oumiRoot = app.isPackaged
+        ? path.join(process.resourcesPath, 'python')  // In packaged app, python dir IS the oumi root
+        : path.join(__dirname, '../../../');          // In dev, go up to oumi root
+        
+      const configsPath = path.resolve(oumiRoot, '../configs');
 
-      log.info(`[ConfigDiscovery] Discovering configs in: ${configsPath} (isPackaged: ${app.isPackaged})`);
+      log.info(`[ConfigDiscovery] OUMI_ROOT: ${oumiRoot}`);
+      log.info(`[ConfigDiscovery] Discovering configs in: ${configsPath}`);
 
       const configs = await discoverConfigsRecursive(configsPath, configsPath);
       

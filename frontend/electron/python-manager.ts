@@ -510,15 +510,23 @@ export class PythonServerManager {
       return configPath;
     }
     
-    // For relative paths, resolve using the same logic as config discovery
-    const configsBasePath = app.isPackaged
-      ? path.join(process.resourcesPath, 'python', 'configs')
-      : path.join(__dirname, '../../../configs');
+    // Configs are always one level above OUMI_ROOT: ../configs/
+    const oumiRoot = this.getOumiRootPath();
+    const configsBasePath = path.resolve(oumiRoot, '../configs');
     
-    log.info(`[resolveConfigPath] Config base path: ${configsBasePath} (isPackaged: ${app.isPackaged})`);
-    log.info(`[resolveConfigPath] __dirname: ${__dirname}`);
+    log.info(`[resolveConfigPath] OUMI_ROOT: ${oumiRoot}`);
+    log.info(`[resolveConfigPath] Config base path: ${configsBasePath}`);
     
-    const absolutePath = path.resolve(configsBasePath, configPath);
+    // Clean path - remove any leading slashes
+    const cleanPath = configPath.startsWith('/') ? configPath.slice(1) : configPath;
+    const absolutePath = path.resolve(configsBasePath, cleanPath);
+    
+    // Validate the path exists, throw early error if OUMI_ROOT is wrong
+    if (!require('fs').existsSync(absolutePath)) {
+      const error = `Config file not found: ${absolutePath}. This suggests OUMI_ROOT is incorrect (${oumiRoot})`;
+      log.error(`[resolveConfigPath] ${error}`);
+      throw new Error(error);
+    }
     
     log.info(`[resolveConfigPath] Resolved config path: ${configPath} -> ${absolutePath}`);
     return absolutePath;

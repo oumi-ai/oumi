@@ -61,13 +61,13 @@ export default function LaunchManager({}: LaunchManagerProps) {
       // Step 1: Validate config selection and get config path
       setInitProgress('Validating configuration...');
       
-      // Load config using unified path resolver
+      // Load config using unified path resolver (no frontend resolution)
       let configPath: string | undefined;
       try {
         const configResult = await configPathResolver.getConfigById(configId);
         if (configResult) {
-          configPath = configResult.resolvedPath;
-          console.log('📍 Config path:', configPath);
+          configPath = configResult.configPath;
+          console.log('📍 Config path (raw, for backend):', configPath);
           console.log('📍 Config details:', configResult.config.display_name);
         } else {
           console.warn('Config not found:', configId);
