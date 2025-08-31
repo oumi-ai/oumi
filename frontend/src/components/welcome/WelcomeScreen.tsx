@@ -368,7 +368,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
 
     // Size filter
     if (selectedSize !== 'all') {
-      filtered = filtered.filter(config => config.size_category === selectedSize);
+      filtered = filtered.filter(config => ConfigMatcher.getModelSizeCategory(config) === selectedSize);
     }
 
     // Sort by smart recommendations first, then by recommended flag, then by model family and size
@@ -578,7 +578,6 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       case 'small': return 'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20';
       case 'medium': return 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20';
       case 'large': return 'text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/20';
-      case 'xl': return 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -917,10 +916,9 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                     className="px-4 py-2 bg-input border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-input-foreground"
                   >
                     <option value="all">All Sizes</option>
-                    <option value="small">Small (1-3B)</option>
-                    <option value="medium">Medium (7-8B)</option>
-                    <option value="large">Large (20-70B)</option>
-                    <option value="xl">Extra Large (100B+)</option>
+                    <option value="small">Small (≤3B)</option>
+                    <option value="medium">Medium (≤30B)</option>
+                    <option value="large">Large (&gt;30B)</option>
                   </select>
                 </div>
               </div>
@@ -946,10 +944,16 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
 
               {/* Model Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredConfigs.map((config) => (
+                {filteredConfigs.map((config) => {
+                  const isRecommended = config.recommendation?.goodMatch || config.recommended;
+                  return (
                   <div 
                     key={config.id}
-                    className="bg-card rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer relative"
+                    className={`rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer relative ${
+                      isRecommended 
+                        ? 'bg-blue-900/20 dark:bg-blue-900/30 border border-blue-500/30' 
+                        : 'bg-card'
+                    }`}
                     onClick={() => handleConfigSelect(config.id)}
                   >
                     {/* Recommendation badges */}
@@ -974,8 +978,8 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                           {config.engine}
                         </span>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSizeColor(config.size_category)}`}>
-                        {config.size_category}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSizeColor(ConfigMatcher.getModelSizeCategory(config))}`}>
+                        {ConfigMatcher.getModelSizeCategory(config)}
                       </span>
                     </div>
 
@@ -1010,7 +1014,8 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {filteredConfigs.length === 0 && (

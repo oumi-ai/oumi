@@ -14,10 +14,14 @@ export interface SystemCapabilities {
 
 export interface ConfigOption {
   id: string;
+  config_path: string;
+  relative_path: string;
+  display_name: string;
+  model_name: string;
   engine: string;
+  context_length: number;
   model_family: string;
   size_category: string;
-  display_name: string;
   recommended?: boolean;
 }
 
@@ -41,7 +45,7 @@ export class ConfigMatcher {
     let reason = '';
 
     // Platform-specific engine preferences
-    const engineScore = this.evaluateEngine(config.engine, system);
+    const engineScore = this.evaluateEngine(config.engine, system, config);
     score += engineScore.score;
     if (engineScore.reason) {
       reason += engineScore.reason;
@@ -80,31 +84,41 @@ export class ConfigMatcher {
    */
   private static evaluateEngine(
     engine: string,
-    system: SystemCapabilities
+    system: SystemCapabilities,
+    config: ConfigOption
   ): { score: number; reason: string; warnings: string[] } {
     const engineLower = engine.toLowerCase();
     const warnings: string[] = [];
 
-    // macOS preferences
+    // macOS preferences - only recommend LlamaCPP and small native configs
     if (system.platform === 'darwin') {
       if (engineLower === 'llamacpp') {
         return {
-          score: 25,
+          score: 30,
           reason: 'LlamaCPP optimized for macOS',
           warnings
         };
       }
       if (engineLower === 'native') {
-        return {
-          score: 15,
-          reason: 'Native engine works well on macOS',
-          warnings
-        };
+        // Only recommend native for very small models (≤3B) on macOS
+        if (this.isSmallModel(config)) {
+          return {
+            score: 15,
+            reason: 'Small native model works well on macOS',
+            warnings
+          };
+        } else {
+          return {
+            score: -5,
+            reason: 'Native engine less optimal on macOS for larger models',
+            warnings
+          };
+        }
       }
-      if (engineLower === 'vllm' && system.cudaDevices.length === 0) {
-        warnings.push('VLLM may not perform optimally without CUDA on macOS');
+      if (engineLower === 'vllm') {
+        warnings.push('VLLM not recommended for macOS - consider LlamaCPP instead');
         return {
-          score: -10,
+          score: -20,
           reason: '',
           warnings
         };
@@ -294,6 +308,67 @@ export class ConfigMatcher {
     }
     
     return 'Compatible configuration';
+  }
+
+  /**
+   * Determine if a model is small (≤3B parameters)
+   */
+  private static isSmallModel(config: ConfigOption): boolean {
+    const parameterCount = this.extractParameterCount(config);
+    if (parameterCount > 0) {
+      return parameterCount <= 3;
+    }
+    
+    // Check size_category as fallback
+    return config.size_category === 'small';
+  }
+
+  /**
+   * Extract parameter count from model name/display name in billions
+   */
+  private static extractParameterCount(config: ConfigOption): number {
+    // Check display name and model name for parameter indicators
+    const text = `${config.display_name} ${config.model_name}`.toLowerCase();
+    
+    // Look for parameter count indicators
+    const paramMatches = text.match(/(\d+(?:\.\d+)?)\s*([bmk])/g);
+    if (paramMatches) {
+      for (const match of paramMatches) {
+        const numMatch = match.match(/(\d+(?:\.\d+)?)\s*([bmk])/);
+        if (numMatch) {
+          const num = parseFloat(numMatch[1]);
+          const unit = numMatch[2];
+          
+          let params = 0;
+          if (unit === 'b') params = num;
+          else if (unit === 'm') params = num / 1000;
+          else if (unit === 'k') params = num / 1000000;
+          
+          if (params > 0) {
+            return params;
+          }
+        }
+      }
+    }
+    
+    return 0; // Unknown parameter count
+  }
+
+  /**
+   * Get the correct size category based on parameter count
+   * ≤3B = small, ≤30B = medium, >30B = large
+   */
+  public static getModelSizeCategory(config: ConfigOption): string {
+    const parameterCount = this.extractParameterCount(config);
+    
+    if (parameterCount > 0) {
+      if (parameterCount <= 3) return 'small';
+      if (parameterCount <= 30) return 'medium';
+      return 'large';
+    }
+    
+    // Fallback to existing size_category if parameter count can't be determined
+    return config.size_category || 'unknown';
   }
 
   /**
