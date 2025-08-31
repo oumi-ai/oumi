@@ -305,7 +305,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
             }));
             
             // Enhance with fresh HuggingFace metadata if credentials are available
-            const hasHfCredentials = settings.huggingFace.username && settings.huggingFace.token;
+            const hasHfCredentials = settings.huggingFace?.username && settings.huggingFace?.token;
             if (hasHfCredentials) {
               console.log('Enhancing configs with authenticated HuggingFace metadata...');
               transformedConfigs = await HuggingFaceService.enhanceConfigsWithMetadata(
@@ -336,12 +336,12 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         let configs = data.configs;
         
         // Enhance with fresh HuggingFace metadata if credentials are available
-        const hasHfCredentials = settings.huggingFace.username && settings.huggingFace.token;
+        const hasHfCredentials = settings.huggingFace?.username && settings.huggingFace?.token;
         if (hasHfCredentials) {
           console.log('Enhancing configs with authenticated HuggingFace metadata...');
           configs = await HuggingFaceService.enhanceConfigsWithMetadata(
             configs,
-            settings.huggingFace
+            settings.huggingFace!
           );
         }
         

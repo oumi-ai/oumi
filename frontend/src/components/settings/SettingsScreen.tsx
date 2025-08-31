@@ -80,7 +80,7 @@ function SystemSettings() {
   const handleHuggingFaceUpdate = (field: 'username' | 'token', value: string) => {
     updateSettings({
       huggingFace: {
-        ...settings.huggingFace,
+        ...(settings.huggingFace || {}),
         [field]: value || undefined,
       },
     });
@@ -118,7 +118,7 @@ function SystemSettings() {
             </label>
             <input
               type="text"
-              value={settings.huggingFace.username || ''}
+              value={settings.huggingFace?.username || ''}
               onChange={(e) => handleHuggingFaceUpdate('username', e.target.value)}
               placeholder="your-username"
               className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
@@ -132,7 +132,7 @@ function SystemSettings() {
             <div className="relative">
               <input
                 type={showHfToken ? 'text' : 'password'}
-                value={settings.huggingFace.token || ''}
+                value={settings.huggingFace?.token || ''}
                 onChange={(e) => handleHuggingFaceUpdate('token', e.target.value)}
                 placeholder="hf_..."
                 className="w-full px-3 py-2 pr-10 bg-background border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"

@@ -339,19 +339,49 @@ export const useChatStore = create<ChatStore>()(
         generationParams: state.generationParams,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state?.settings?.apiKeys) {
+        if (state?.settings) {
           // Decrypt API keys after loading from storage
-          const decryptedApiKeys = Object.fromEntries(
-            Object.entries(state.settings.apiKeys).map(([providerId, config]) => [
-              providerId,
-              {
-                ...config,
-                keyValue: decryptApiKey(config.keyValue),
-              },
-            ])
-          );
-          
-          state.settings.apiKeys = decryptedApiKeys;
+          if (state.settings.apiKeys) {
+            const decryptedApiKeys = Object.fromEntries(
+              Object.entries(state.settings.apiKeys).map(([providerId, config]) => [
+                providerId,
+                {
+                  ...config,
+                  keyValue: decryptApiKey(config.keyValue),
+                },
+              ])
+            );
+            
+            state.settings.apiKeys = decryptedApiKeys;
+          }
+
+          // Migrate missing HuggingFace settings for existing users
+          if (!state.settings.huggingFace) {
+            state.settings.huggingFace = {
+              username: undefined,
+              token: undefined,
+            };
+          }
+
+          // Ensure all required notification settings exist
+          if (!state.settings.notifications) {
+            state.settings.notifications = {
+              lowBalance: true,
+              highUsage: true,
+              keyExpiry: true,
+            };
+          } else {
+            // Fill in any missing notification settings
+            const defaultNotifications = {
+              lowBalance: true,
+              highUsage: true,
+              keyExpiry: true,
+            };
+            state.settings.notifications = {
+              ...defaultNotifications,
+              ...state.settings.notifications,
+            };
+          }
         }
       },
     }
