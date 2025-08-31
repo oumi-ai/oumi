@@ -243,5 +243,14 @@ export const COMMAND_CONFIGS = {
     refreshBranches: true,
     successMessage: 'Model switched successfully',
     errorPrefix: 'Failed to switch model'
+  },
+
+  // Branch operations
+  branch_from: {
+    waitMs: 1500, // Wait for branch creation to complete
+    refreshConversation: false, // Don't refresh current conversation
+    refreshBranches: true, // Update branch list
+    successMessage: 'New branch created successfully',
+    errorPrefix: 'Failed to create branch from this point'
   }
 } as const;

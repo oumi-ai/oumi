@@ -111,6 +111,10 @@ export const useChatStore = create<ChatStore>()(
           highUsage: true,
           keyExpiry: true,
         },
+        autoSave: {
+          enabled: true,
+          intervalMinutes: 5,
+        },
         huggingFace: {
           username: undefined,
           token: undefined,
@@ -313,6 +317,10 @@ export const useChatStore = create<ChatStore>()(
               highUsage: true,
               keyExpiry: true,
             },
+            autoSave: {
+              enabled: true,
+              intervalMinutes: 5,
+            },
             huggingFace: {
               username: undefined,
               token: undefined,
@@ -355,11 +363,18 @@ export const useChatStore = create<ChatStore>()(
             state.settings.apiKeys = decryptedApiKeys;
           }
 
-          // Migrate missing HuggingFace settings for existing users
+          // Migrate missing settings for existing users
           if (!state.settings.huggingFace) {
             state.settings.huggingFace = {
               username: undefined,
               token: undefined,
+            };
+          }
+
+          if (!state.settings.autoSave) {
+            state.settings.autoSave = {
+              enabled: true,
+              intervalMinutes: 5,
             };
           }
 

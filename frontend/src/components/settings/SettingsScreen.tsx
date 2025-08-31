@@ -17,11 +17,14 @@ import {
   Palette,
   HelpCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Clock,
+  Save
 } from 'lucide-react';
 import ApiSettings from './ApiSettings';
 import ModelSettings from './ModelSettings';
 import { useChatStore } from '@/lib/store';
+import { useAutoSave } from '@/hooks/useAutoSave';
 
 type SettingsTab = 'api' | 'model' | 'system' | 'notifications' | 'about';
 
@@ -76,6 +79,7 @@ function TabButton({ id, icon, label, description, isActive, onClick, badge }: T
 function SystemSettings() {
   const { settings, updateSettings } = useChatStore();
   const [showHfToken, setShowHfToken] = useState(false);
+  const { isAutoSaveEnabled, autoSaveInterval, lastSaved, isSaving } = useAutoSave();
 
   const handleHuggingFaceUpdate = (field: 'username' | 'token', value: string) => {
     updateSettings({
@@ -159,70 +163,66 @@ function SystemSettings() {
         </div>
       </div>
 
-      <div className="bg-card border rounded-lg p-4 space-y-4">
-        <h3 className="font-semibold">Performance</h3>
-        
-        <label className="flex items-center justify-between">
-          <div>
-            <div className="font-medium text-sm">Enable Hardware Acceleration</div>
-            <div className="text-xs text-muted-foreground">
-              Use GPU acceleration when available
-            </div>
-          </div>
-          <input type="checkbox" defaultChecked className="rounded" />
-        </label>
-
-        <label className="flex items-center justify-between">
-          <div>
-            <div className="font-medium text-sm">Stream Responses</div>
-            <div className="text-xs text-muted-foreground">
-              Show responses as they're generated
-            </div>
-          </div>
-          <input type="checkbox" defaultChecked className="rounded" />
-        </label>
-
-        <div>
-          <label className="block font-medium text-sm mb-2">Response Buffer Size</label>
-          <select className="w-full px-3 py-2 bg-background border rounded-lg text-sm">
-            <option>Small (1KB)</option>
-            <option>Medium (4KB)</option>
-            <option selected>Large (8KB)</option>
-          </select>
-        </div>
-      </div>
 
       <div className="bg-card border rounded-lg p-4 space-y-4">
         <h3 className="font-semibold">Storage</h3>
         
-        <div>
-          <label className="block font-medium text-sm mb-2">Chat History Retention</label>
-          <select className="w-full px-3 py-2 bg-background border rounded-lg text-sm">
-            <option>1 week</option>
-            <option>1 month</option>
-            <option selected>3 months</option>
-            <option>1 year</option>
-            <option>Forever</option>
-          </select>
-        </div>
 
         <label className="flex items-center justify-between">
           <div>
-            <div className="font-medium text-sm">Auto-save Conversations</div>
+            <div className="font-medium text-sm flex items-center gap-2">
+              <Save className="w-4 h-4" />
+              Auto-save Conversations
+              {isSaving && <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full animate-pulse">Saving...</span>}
+            </div>
             <div className="text-xs text-muted-foreground">
-              Automatically save conversations locally
+              Every {autoSaveInterval} minutes • {lastSaved ? `Last saved ${lastSaved.toLocaleTimeString()}` : 'Not saved yet'}
             </div>
           </div>
-          <input type="checkbox" defaultChecked className="rounded" />
+          <input 
+            type="checkbox" 
+            checked={settings.autoSave?.enabled || false}
+            onChange={(e) => updateSettings({
+              autoSave: {
+                ...(settings.autoSave || {}),
+                enabled: e.target.checked,
+              },
+            })}
+            className="rounded" 
+          />
         </label>
+
+        {/* Auto-save interval setting */}
+        {settings.autoSave?.enabled && (
+          <div className="pl-6 space-y-2">
+            <label className="block text-sm font-medium">Save Interval</label>
+            <select
+              value={settings.autoSave?.intervalMinutes || 5}
+              onChange={(e) => updateSettings({
+                autoSave: {
+                  ...(settings.autoSave || {}),
+                  intervalMinutes: parseInt(e.target.value),
+                },
+              })}
+              className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              <option value={1}>1 minute</option>
+              <option value={2}>2 minutes</option>
+              <option value={5}>5 minutes</option>
+              <option value={10}>10 minutes</option>
+              <option value={15}>15 minutes</option>
+              <option value={30}>30 minutes</option>
+            </select>
+          </div>
+        )}
 
         <div className="pt-3 border-t">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Cache Size</span>
-            <span>247 MB</span>
+            <span className="text-muted-foreground">Cache Size <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium">PLACEHOLDER</span></span>
+            <span className="text-muted-foreground">247 MB</span>
           </div>
-          <button className="mt-2 text-sm text-primary hover:underline">
-            Clear Cache
+          <button className="mt-2 text-sm text-muted-foreground cursor-not-allowed" disabled>
+            Clear Cache <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1 py-0.5 rounded-full font-medium">PLACEHOLDER</span>
           </button>
         </div>
       </div>
@@ -303,34 +303,34 @@ function NotificationSettings() {
       <div className="bg-card border rounded-lg p-4 space-y-4">
         <h3 className="font-semibold">System Notifications</h3>
         
-        <label className="flex items-center justify-between">
+        <label className="flex items-center justify-between opacity-50">
           <div>
-            <div className="font-medium text-sm">Model Download Complete</div>
+            <div className="font-medium text-sm">Model Download Complete <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium">PLACEHOLDER</span></div>
             <div className="text-xs text-muted-foreground">
               Notify when model downloads finish
             </div>
           </div>
-          <input type="checkbox" defaultChecked className="rounded" />
+          <input type="checkbox" defaultChecked className="rounded" disabled />
         </label>
 
-        <label className="flex items-center justify-between">
+        <label className="flex items-center justify-between opacity-50">
           <div>
-            <div className="font-medium text-sm">Update Available</div>
+            <div className="font-medium text-sm">Update Available <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium">PLACEHOLDER</span></div>
             <div className="text-xs text-muted-foreground">
               Notify when app updates are available
             </div>
           </div>
-          <input type="checkbox" defaultChecked className="rounded" />
+          <input type="checkbox" defaultChecked className="rounded" disabled />
         </label>
 
-        <label className="flex items-center justify-between">
+        <label className="flex items-center justify-between opacity-50">
           <div>
-            <div className="font-medium text-sm">System Errors</div>
+            <div className="font-medium text-sm">System Errors <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium">PLACEHOLDER</span></div>
             <div className="text-xs text-muted-foreground">
               Show notifications for system errors
             </div>
           </div>
-          <input type="checkbox" defaultChecked className="rounded" />
+          <input type="checkbox" defaultChecked className="rounded" disabled />
         </label>
       </div>
     </div>
@@ -382,15 +382,15 @@ function AboutSettings() {
         </div>
 
         <div className="mt-6 pt-4 border-t space-y-2">
-          <button className="w-full py-2 px-4 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors">
-            Check for Updates
+          <button className="w-full py-2 px-4 bg-muted text-muted-foreground cursor-not-allowed rounded-lg text-sm opacity-50" disabled>
+            Check for Updates <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-2">PLACEHOLDER</span>
           </button>
           <div className="flex gap-2">
-            <button className="flex-1 py-2 px-4 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors">
-              View Logs
+            <button className="flex-1 py-2 px-4 bg-muted text-muted-foreground cursor-not-allowed rounded-lg text-sm opacity-50" disabled>
+              View Logs <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-1">PLACEHOLDER</span>
             </button>
-            <button className="flex-1 py-2 px-4 bg-muted hover:bg-muted/80 rounded-lg text-sm transition-colors">
-              Report Issue
+            <button className="flex-1 py-2 px-4 bg-muted text-muted-foreground cursor-not-allowed rounded-lg text-sm opacity-50" disabled>
+              Report Issue <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-1">PLACEHOLDER</span>
             </button>
           </div>
         </div>
@@ -398,18 +398,18 @@ function AboutSettings() {
 
       <div className="bg-card border rounded-lg p-4">
         <h3 className="font-semibold mb-4">Resources</h3>
-        <div className="space-y-2">
-          <a href="#" className="block text-sm text-primary hover:underline">
-            📖 Documentation
+        <div className="space-y-2 opacity-50">
+          <a href="#" className="block text-sm text-muted-foreground cursor-not-allowed" onClick={(e) => e.preventDefault()}>
+            📖 Documentation <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-2">PLACEHOLDER</span>
           </a>
-          <a href="#" className="block text-sm text-primary hover:underline">
-            💬 Community Support
+          <a href="#" className="block text-sm text-muted-foreground cursor-not-allowed" onClick={(e) => e.preventDefault()}>
+            💬 Community Support <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-2">PLACEHOLDER</span>
           </a>
-          <a href="#" className="block text-sm text-primary hover:underline">
-            🐛 Bug Reports
+          <a href="#" className="block text-sm text-muted-foreground cursor-not-allowed" onClick={(e) => e.preventDefault()}>
+            🐛 Bug Reports <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-2">PLACEHOLDER</span>
           </a>
-          <a href="#" className="block text-sm text-primary hover:underline">
-            💡 Feature Requests
+          <a href="#" className="block text-sm text-muted-foreground cursor-not-allowed" onClick={(e) => e.preventDefault()}>
+            💡 Feature Requests <span className="text-xs text-orange-600 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full font-medium ml-2">PLACEHOLDER</span>
           </a>
         </div>
       </div>

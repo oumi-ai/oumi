@@ -192,11 +192,14 @@ export interface AppSettings {
   selectedModel: string;
   usageMonitoring: boolean;
   autoValidateKeys: boolean;
-  maxMonthlyCost?: number;
   notifications: {
     lowBalance: boolean;
     highUsage: boolean;
     keyExpiry: boolean;
+  };
+  autoSave: {
+    enabled: boolean;
+    intervalMinutes: number;
   };
   // HuggingFace credentials for improved model recommendations
   huggingFace: {

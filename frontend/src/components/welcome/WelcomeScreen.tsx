@@ -16,6 +16,7 @@ import { ConfigMatcher, SystemCapabilities } from '@/lib/config-matcher';
 import { configPathResolver } from '@/lib/config-path-resolver';
 import { HuggingFaceService } from '@/lib/huggingface-service';
 import { useChatStore } from '@/lib/store';
+import SettingsScreen from '@/components/settings/SettingsScreen';
 
 interface ConfigOption {
   id: string;
@@ -70,6 +71,9 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   
   // Welcome screen caching state
   const [enableWelcomeCaching, setEnableWelcomeCaching] = React.useState(false);
+  
+  // Settings modal state
+  const [showSettings, setShowSettings] = React.useState(false);
   
   // Error handling
   const { 
@@ -225,6 +229,20 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   React.useEffect(() => {
     filterConfigs();
   }, [configs, searchTerm, selectedEngine, selectedSize]);
+
+  // Handle ESC key to close settings modal
+  React.useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showSettings) {
+        setShowSettings(false);
+      }
+    };
+
+    if (showSettings) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [showSettings]);
 
   // Update system prompt when preset changes
   React.useEffect(() => {
@@ -851,7 +869,17 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="relative text-center mb-8">
+          {/* Settings button - positioned in top-right */}
+          <button
+            onClick={() => setShowSettings(true)}
+            className="absolute top-0 right-0 p-2 rounded-lg hover:bg-muted transition-colors flex items-center gap-2 text-muted-foreground hover:text-foreground"
+            title="Open Settings"
+          >
+            <Settings size={20} />
+            <span className="hidden sm:inline text-sm">Settings</span>
+          </button>
+
           <div className="flex items-center justify-center mb-4">
             <img 
               src="./images/chatterley-logo.png" 
@@ -1065,6 +1093,38 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
           </p>
         </div>
       </div>
+      
+      {/* Settings Modal */}
+      {showSettings && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            // Close modal when clicking on backdrop
+            if (e.target === e.currentTarget) {
+              setShowSettings(false);
+            }
+          }}
+        >
+          <div className="bg-background rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-xl font-semibold text-foreground">Settings</h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-1 rounded hover:bg-muted transition-colors"
+                title="Close Settings"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+              <SettingsScreen />
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Error Dialog */}
       <ErrorDialog error={currentError} onClose={clearError} />

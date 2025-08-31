@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { useChatStore } from '@/lib/store';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import { Message } from '@/lib/types';
 import apiClient from '@/lib/unified-api';
 import { isValidCommand, parseCommand } from '@/lib/constants';
@@ -29,6 +30,9 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
     setBranches,
     generationParams,
   } = useChatStore();
+  
+  // Initialize auto-save functionality
+  useAutoSave();
 
   // Load conversation history on mount and branch changes
   React.useEffect(() => {
@@ -222,14 +226,14 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
   };
 
   const handleAttachFiles = async (files: FileList) => {
-    // TODO: Implement file attachment
-    console.log('Files to attach:', Array.from(files).map(f => f.name));
+    // PLACEHOLDER: File attachment not fully implemented
+    console.log('PLACEHOLDER: Files to attach:', Array.from(files).map(f => f.name));
     
     // For now, just show a placeholder message
     const attachmentMessage: Message = {
       id: `attachment-${Date.now()}`,
       role: 'system',
-      content: `📎 File attachment feature coming soon. Selected files: ${Array.from(files).map(f => f.name).join(', ')}`,
+      content: `📎 PLACEHOLDER: File attachment feature coming soon. Selected files: ${Array.from(files).map(f => f.name).join(', ')}`,
       timestamp: Date.now(),
     };
     addMessage(attachmentMessage);

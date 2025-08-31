@@ -145,6 +145,169 @@ class UnifiedApiClient {
     return this.getClient().getConversation(sessionId, branchId);
   }
 
+  async listConversations(sessionId: string = 'default'): Promise<ApiResponse<{ conversations: any[] }>> {
+    if (this.isElectron()) {
+      // For Electron, use localStorage fallback for now until backend method is implemented
+      try {
+        const storedConversations = await this.getStorageItem(`conversations_${sessionId}`, []);
+        return {
+          success: true,
+          data: { conversations: storedConversations }
+        };
+      } catch (error) {
+        console.error('Error listing conversations:', error);
+        return {
+          success: false,
+          error: 'Failed to list conversations',
+          data: { conversations: [] }
+        };
+      }
+    } else {
+      // Web fallback - use localStorage to simulate conversation storage
+      try {
+        const storedConversations = localStorage.getItem(`conversations_${sessionId}`);
+        const conversations = storedConversations ? JSON.parse(storedConversations) : [];
+        
+        return {
+          success: true,
+          data: { conversations }
+        };
+      } catch (error) {
+        console.error('Error listing conversations:', error);
+        return {
+          success: false,
+          error: 'Failed to list conversations',
+          data: { conversations: [] }
+        };
+      }
+    }
+  }
+
+  async loadConversation(
+    sessionId: string = 'default', 
+    conversationId: string,
+    targetBranchId?: string
+  ): Promise<ApiResponse<{ messages: Message[] }>> {
+    if (this.isElectron()) {
+      // For Electron, use storage fallback for now until backend method is implemented
+      try {
+        const conversationKey = `conversation_${sessionId}_${conversationId}`;
+        const conversationData = await this.getStorageItem(conversationKey);
+        
+        if (!conversationData) {
+          return {
+            success: false,
+            error: 'Conversation not found'
+          };
+        }
+
+        const messages = conversationData.messages || conversationData.conversation || [];
+
+        // If targetBranchId is provided, we would normally load into that branch
+        // For now, just return the messages
+        return {
+          success: true,
+          data: { messages }
+        };
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+        return {
+          success: false,
+          error: 'Failed to load conversation'
+        };
+      }
+    } else {
+      // Web fallback - load from localStorage
+      try {
+        const conversationKey = `conversation_${sessionId}_${conversationId}`;
+        const storedConversation = localStorage.getItem(conversationKey);
+        
+        if (!storedConversation) {
+          return {
+            success: false,
+            error: 'Conversation not found'
+          };
+        }
+
+        const conversationData = JSON.parse(storedConversation);
+        const messages = conversationData.messages || conversationData.conversation || [];
+
+        // If targetBranchId is provided, we would normally load into that branch
+        // For now, just return the messages
+        return {
+          success: true,
+          data: { messages }
+        };
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+        return {
+          success: false,
+          error: 'Failed to load conversation'
+        };
+      }
+    }
+  }
+
+  async deleteConversation(
+    sessionId: string = 'default',
+    conversationId: string
+  ): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      // For Electron, use storage fallback for now until backend method is implemented
+      try {
+        const conversationKey = `conversation_${sessionId}_${conversationId}`;
+        const conversationsKey = `conversations_${sessionId}`;
+        
+        // Remove the conversation data
+        await this.deleteStorageItem(conversationKey);
+        
+        // Update the conversations list
+        const storedConversations = await this.getStorageItem(conversationsKey, []);
+        const updatedConversations = storedConversations.filter((conv: any) => conv.id !== conversationId);
+        await this.setStorageItem(conversationsKey, updatedConversations);
+        
+        return {
+          success: true,
+          message: 'Conversation deleted successfully'
+        };
+      } catch (error) {
+        console.error('Error deleting conversation:', error);
+        return {
+          success: false,
+          error: 'Failed to delete conversation'
+        };
+      }
+    } else {
+      // Web fallback - remove from localStorage
+      try {
+        const conversationKey = `conversation_${sessionId}_${conversationId}`;
+        const conversationsKey = `conversations_${sessionId}`;
+        
+        // Remove the conversation data
+        localStorage.removeItem(conversationKey);
+        
+        // Update the conversations list
+        const storedConversations = localStorage.getItem(conversationsKey);
+        if (storedConversations) {
+          const conversations = JSON.parse(storedConversations);
+          const updatedConversations = conversations.filter((conv: any) => conv.id !== conversationId);
+          localStorage.setItem(conversationsKey, JSON.stringify(updatedConversations));
+        }
+        
+        return {
+          success: true,
+          message: 'Conversation deleted successfully'
+        };
+      } catch (error) {
+        console.error('Error deleting conversation:', error);
+        return {
+          success: false,
+          error: 'Failed to delete conversation'
+        };
+      }
+    }
+  }
+
   async sendMessage(
     content: string,
     sessionId: string = 'default',

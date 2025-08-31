@@ -433,12 +433,6 @@ export default function ApiSettings() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setShowQuickSetup(true)}
-            className="text-sm text-primary hover:underline"
-          >
-            View setup guide →
-          </button>
         </div>
       )}
 
@@ -505,26 +499,6 @@ export default function ApiSettings() {
             />
           </label>
 
-          <div>
-            <label className="block font-medium text-sm mb-2">Monthly Cost Limit</label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">$</span>
-              <input
-                type="number"
-                min="0"
-                step="10"
-                placeholder="50"
-                value={settings.maxMonthlyCost || ''}
-                onChange={(e) => updateSettings({ 
-                  maxMonthlyCost: e.target.value ? parseFloat(e.target.value) : undefined 
-                })}
-                className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Get notified when approaching this limit
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -117,6 +117,17 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   };
 
   const handleCreateBranch = async (branchName?: string, fromBranchId?: string) => {
+    // Check branch limit (currently limited to 5 branches total)
+    if (branches.length >= 5) {
+      alert(
+        '🌳 Branch Limit Reached\n\n' +
+        'You can only have up to 5 active branches at a time for now. ' +
+        'This limit may be increased in future versions after further development.\n\n' +
+        'Please delete an existing branch before creating a new one.'
+      );
+      return;
+    }
+
     const name = branchName || newBranchName.trim() || `branch_${Date.now()}`;
     const parentId = fromBranchId || currentBranchId;
 
@@ -145,9 +156,13 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
         // Reload branches to get accurate data
         await loadBranches();
       } else {
-        console.error('Failed to create branch:', response.message || 'Unknown error');
+        const errorMessage = response.message || 'Unknown error occurred';
+        alert(`❌ Failed to create branch: ${errorMessage}`);
+        console.error('Failed to create branch:', errorMessage);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`❌ Failed to create branch: ${errorMessage}`);
       console.error('Failed to create branch:', error);
     } finally {
       setIsCreating(false);
@@ -208,7 +223,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     }
   };
 
-  // Handle branch renaming
+  // Handle branch renaming - PLACEHOLDER: Not fully implemented
   const handleRenameBranch = async (branchId: string, newName: string) => {
     try {
       // For now, simulate rename - in real implementation this would call API
@@ -217,16 +232,18 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
       );
       setBranches(updatedBranches);
       
-      console.log(`Rename branch ${branchId} to ${newName}`); // TODO: Implement API call
+      console.log(`PLACEHOLDER: Rename branch ${branchId} to ${newName}`); // TODO: Implement API call
+      alert('⚠️ Branch rename is not fully implemented yet. This is a placeholder feature.');
     } catch (error) {
       console.error('Failed to rename branch:', error);
     }
   };
 
-  // Handle branch merging
+  // Handle branch merging - PLACEHOLDER: Not fully implemented
   const handleMergeBranch = async (sourceBranchId: string, targetBranchId: string, strategy: 'append' | 'interleave' | 'replace') => {
     try {
-      console.log(`Merge ${sourceBranchId} into ${targetBranchId} using ${strategy}`); // TODO: Implement API call
+      console.log(`PLACEHOLDER: Merge ${sourceBranchId} into ${targetBranchId} using ${strategy}`); // TODO: Implement API call
+      alert('⚠️ Branch merge is not fully implemented yet. This is a placeholder feature.');
       
       // For now, just archive the source branch (remove it)
       deleteBranch(sourceBranchId);
