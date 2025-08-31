@@ -14,14 +14,18 @@ import apiClient from '@/lib/unified-api';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
 import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X } from 'lucide-react';
 import SettingsScreen from '@/components/settings/SettingsScreen';
+import ChatHistorySidebar from '@/components/history/ChatHistorySidebar';
+import { ChatInterfaceRef } from '@/components/chat/ChatInterface';
 
 export default function AppLayout() {
   const [isBranchTreeExpanded, setIsBranchTreeExpanded] = React.useState(true);
   const [isControlPanelExpanded, setIsControlPanelExpanded] = React.useState(true);
+  const [showChatHistory, setShowChatHistory] = React.useState(false);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
   const { executeCommand, isExecuting } = useConversationCommand();
+  const chatInterfaceRef = React.useRef<ChatInterfaceRef | null>(null);
 
   // Handle ESC key for settings modal
   React.useEffect(() => {
@@ -41,17 +45,119 @@ export default function AppLayout() {
   React.useEffect(() => {
     console.log('🔧 [AppLayout] React component mounted, setting up...');
     
-    const setupElectronIntegration = async () => {
+    const setupElectronIntegration = () => {
       if (!apiClient.isElectron || !apiClient.isElectron()) {
         console.log('🔧 [AppLayout] Not in Electron environment');
-        return;
+        return undefined;
       }
 
-      console.log('🔧 [AppLayout] Electron integration set up (menu handlers managed by LaunchManager)');
+      // Setup menu message handlers
+      const handleModelSettings = () => {
+        console.log('🔧 [AppLayout] Opening Model Settings from menu');
+        setShowSettings(true);
+      };
+
+      const handleToggleBranchTree = () => {
+        console.log('🔧 [AppLayout] Toggling Branch Tree from menu');
+        setIsBranchTreeExpanded(!isBranchTreeExpanded);
+      };
+
+      const handleToggleControlPanel = () => {
+        console.log('🔧 [AppLayout] Toggling Control Panel from menu');
+        setIsControlPanelExpanded(!isControlPanelExpanded);
+      };
+
+      const handleClearConversationMenu = () => {
+        console.log('🔧 [AppLayout] Clear Conversation from menu');
+        handleClearConversation();
+      };
+
+      const handleNewChat = async () => {
+        console.log('🔧 [AppLayout] New Chat from menu');
+        try {
+          // Clear the current conversation and start fresh
+          clearMessages();
+          const result = await executeCommand('clear', [], COMMAND_CONFIGS.clear);
+          if (!result.success && result.message) {
+            console.error('Failed to start new chat:', result.message);
+          }
+        } catch (error) {
+          console.error('Error starting new chat:', error);
+        }
+      };
+
+      const handlePreferences = () => {
+        console.log('🔧 [AppLayout] Opening Preferences from menu');
+        setShowSettings(true);
+      };
+
+      const handleSaveConversation = async (filePath: string) => {
+        console.log('🔧 [AppLayout] Save Conversation from menu:', filePath);
+        try {
+          const response = await apiClient.executeCommand('save', [filePath]);
+          if (response.success) {
+            console.log('Conversation saved successfully');
+            // Could show a toast notification here instead of alert
+            alert('Conversation saved successfully!');
+          } else {
+            console.error('Failed to save conversation:', response.message);
+            alert('Failed to save conversation: ' + (response.message || 'Unknown error'));
+          }
+        } catch (error) {
+          console.error('Error saving conversation:', error);
+          alert('Error saving conversation');
+        }
+      };
+
+      const handleRegenerateLastResponse = () => {
+        console.log('🔧 [AppLayout] Regenerate Last Response from menu');
+        if (chatInterfaceRef.current) {
+          chatInterfaceRef.current.regenerateLastResponse();
+        }
+      };
+
+      const handleStopGeneration = () => {
+        console.log('🔧 [AppLayout] Stop Generation from menu');
+        if (chatInterfaceRef.current) {
+          chatInterfaceRef.current.stopGeneration();
+        }
+      };
+
+      // Register menu handlers
+      if (window.electronAPI) {
+        window.electronAPI.onMenuMessage('menu:model-settings', handleModelSettings);
+        window.electronAPI.onMenuMessage('menu:toggle-branch-tree', handleToggleBranchTree);
+        window.electronAPI.onMenuMessage('menu:toggle-control-panel', handleToggleControlPanel);
+        window.electronAPI.onMenuMessage('menu:clear-conversation', handleClearConversationMenu);
+        window.electronAPI.onMenuMessage('menu:new-chat', handleNewChat);
+        window.electronAPI.onMenuMessage('menu:preferences', handlePreferences);
+        window.electronAPI.onMenuMessage('menu:save-conversation', handleSaveConversation);
+        window.electronAPI.onMenuMessage('menu:regenerate', handleRegenerateLastResponse);
+        window.electronAPI.onMenuMessage('menu:stop-generation', handleStopGeneration);
+      }
+
+      console.log('🔧 [AppLayout] Electron menu handlers registered');
+
+      // Cleanup function
+      return () => {
+        if (window.electronAPI) {
+          window.electronAPI.removeMenuListener('menu:model-settings', handleModelSettings);
+          window.electronAPI.removeMenuListener('menu:toggle-branch-tree', handleToggleBranchTree);
+          window.electronAPI.removeMenuListener('menu:toggle-control-panel', handleToggleControlPanel);
+          window.electronAPI.removeMenuListener('menu:clear-conversation', handleClearConversationMenu);
+          window.electronAPI.removeMenuListener('menu:new-chat', handleNewChat);
+          window.electronAPI.removeMenuListener('menu:preferences', handlePreferences);
+          window.electronAPI.removeMenuListener('menu:save-conversation', handleSaveConversation);
+          window.electronAPI.removeMenuListener('menu:regenerate', handleRegenerateLastResponse);
+          window.electronAPI.removeMenuListener('menu:stop-generation', handleStopGeneration);
+        }
+      };
     };
 
-    setupElectronIntegration();
-  }, []);
+    const cleanup = setupElectronIntegration();
+
+    return cleanup;
+  }, [isBranchTreeExpanded, isControlPanelExpanded, clearMessages, executeCommand]);
 
 
   // Initialize app state from backend on first load
@@ -207,21 +313,40 @@ export default function AppLayout() {
             className="min-h-screen" 
             isCollapsed={!isControlPanelExpanded}
             onToggleCollapse={() => setIsControlPanelExpanded(!isControlPanelExpanded)}
+            onToggleChatHistory={() => setShowChatHistory(!showChatHistory)}
+            showChatHistory={showChatHistory}
           />
         </div>
 
         {/* Chat interface */}
         <div className={`flex-1 transition-all duration-200 ${
-          isBranchTreeExpanded ? 'mr-80' : ''
+          (isBranchTreeExpanded || showChatHistory) ? 'mr-80' : ''
         }`}>
-          <ChatInterface className="min-h-screen" />
+          <ChatInterface 
+            className="min-h-screen" 
+            onRef={(ref) => { chatInterfaceRef.current = ref; }}
+          />
         </div>
 
-        {/* Branch tree sidebar */}
+        {/* Right sidebar with Branch tree and Chat history */}
         <div className={`fixed right-0 top-16 w-80 min-h-screen transition-transform duration-200 ${
-          isBranchTreeExpanded ? 'translate-x-0' : 'translate-x-full'
+          (isBranchTreeExpanded || showChatHistory) ? 'translate-x-0' : 'translate-x-full'
         }`}>
-          <BranchTree className="min-h-screen" />
+          <div className="h-full flex flex-col">
+            {/* Branch Tree - shows when branch tree is expanded */}
+            {isBranchTreeExpanded && (
+              <div className={`${showChatHistory ? 'flex-1' : 'h-full'} min-h-0`}>
+                <BranchTree className="h-full" />
+              </div>
+            )}
+            
+            {/* Chat History - shows when chat history is enabled */}
+            {showChatHistory && (
+              <div className={`${isBranchTreeExpanded ? 'flex-1' : 'h-full'} min-h-0 ${isBranchTreeExpanded ? 'border-t' : ''}`}>
+                <ChatHistorySidebar className="h-full" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

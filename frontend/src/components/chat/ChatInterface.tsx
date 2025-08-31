@@ -15,9 +15,16 @@ import MessageInput from './MessageInput';
 
 interface ChatInterfaceProps {
   className?: string;
+  onRef?: (ref: ChatInterfaceRef) => void;
 }
 
-export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
+export interface ChatInterfaceRef {
+  regenerateLastResponse: () => void;
+  stopGeneration: () => void;
+  sendMessage: (message: string) => void;
+}
+
+export default function ChatInterface({ className = '', onRef }: ChatInterfaceProps) {
   const {
     messages,
     isLoading,
@@ -33,6 +40,20 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
   
   // Initialize auto-save functionality
   useAutoSave();
+
+  // State for stopping generation
+  const [shouldStop, setShouldStop] = React.useState(false);
+
+  // Expose methods to parent via onRef callback
+  React.useEffect(() => {
+    if (onRef) {
+      onRef({
+        regenerateLastResponse: handleRegenerateLastResponse,
+        stopGeneration: handleStopGeneration,
+        sendMessage: handleSendMessage,
+      });
+    }
+  }, [onRef]);
 
   // Load conversation history on mount and branch changes
   React.useEffect(() => {
@@ -97,7 +118,30 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  // Handler for regenerating the last response
+  const handleRegenerateLastResponse = async () => {
+    const lastUserMessage = messages.slice().reverse().find(msg => msg.role === 'user');
+    if (lastUserMessage && !isLoading && !isTyping) {
+      // Remove the last assistant message if it exists
+      const lastMessageIndex = messages.length - 1;
+      if (lastMessageIndex >= 0 && messages[lastMessageIndex].role === 'assistant') {
+        const updatedMessages = messages.slice(0, -1);
+        setMessages(updatedMessages);
+      }
+      
+      // Regenerate response for the last user message
+      await handleChatMessage(lastUserMessage.content);
+    }
+  };
+
+  // Handler for stopping generation
+  const handleStopGeneration = () => {
+    setShouldStop(true);
+    setLoading(false);
+    setTyping(false);
+  };
+
+  const handleSendMessage = async (content: string, attachments?: any[]) => {
     // Check if it's a valid command and block it
     if (isValidCommand(content)) {
       const errorMessage: Message = {
@@ -116,6 +160,7 @@ export default function ChatInterface({ className = '' }: ChatInterfaceProps) {
       role: 'user',
       content,
       timestamp: Date.now(),
+      attachments,
     };
 
     // Add user message to store

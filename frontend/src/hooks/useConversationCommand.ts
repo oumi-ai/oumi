@@ -70,6 +70,7 @@ export function useConversationCommand() {
           preview: branch.message_count > 0 ? `${branch.message_count} messages` : 'Empty branch'
         }));
         
+        console.log(`🌿 Setting branches in store:`, transformedBranches);
         setBranches(transformedBranches);
         if (current_branch) {
           setCurrentBranch(current_branch);

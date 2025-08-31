@@ -15,8 +15,18 @@ interface AttachmentResult {
   error?: string;
 }
 
+interface StagedAttachment {
+  id: string;
+  file?: File;
+  type: 'image' | 'document' | 'fetch';
+  name: string;
+  size?: number;
+  fetchUrl?: string;
+  fetchContent?: string;
+}
+
 interface MessageInputProps {
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, attachments?: StagedAttachment[]) => void;
   onAttachFiles?: (files: FileList) => void;
   disabled?: boolean;
   isLoading?: boolean;
@@ -31,6 +41,7 @@ export default function MessageInput({
   placeholder = "Type your message...",
 }: MessageInputProps) {
   const [message, setMessage] = React.useState('');
+  const [stagedAttachments, setStagedAttachments] = React.useState<StagedAttachment[]>([]);
   const [showFetchDialog, setShowFetchDialog] = React.useState(false);
   const [fetchUrl, setFetchUrl] = React.useState('');
   const [isFetching, setIsFetching] = React.useState(false);
@@ -45,9 +56,10 @@ export default function MessageInput({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() && !disabled && !isLoading) {
-      onSendMessage(message.trim());
+    if ((message.trim() || stagedAttachments.length > 0) && !disabled && !isLoading) {
+      onSendMessage(message.trim(), stagedAttachments.length > 0 ? stagedAttachments : undefined);
       setMessage('');
+      setStagedAttachments([]);
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -162,23 +174,32 @@ export default function MessageInput({
     const modelInfo = await getCurrentModelInfo();
 
     // For single-image models, warn about chat reset
-    if (!modelInfo.supportsMultipleImages && e.target.files.length > 0) {
+    if (!modelInfo.supportsMultipleImages && (stagedAttachments.some(a => a.type === 'image') || e.target.files.length > 1)) {
       const shouldReset = confirm(
         '⚠️ Single Image Model Warning\n\n' +
-        'This model only supports one image at a time. Adding images will reset the current conversation.\n\n' +
-        'Do you want to continue and reset the chat?'
+        'This model only supports one image at a time. Adding images will replace existing images.\n\n' +
+        'Do you want to continue?'
       );
       
       if (!shouldReset) {
         e.target.value = '';
         return;
       }
+      
+      // Clear existing images for single-image models
+      setStagedAttachments(prev => prev.filter(a => a.type !== 'image'));
     }
 
-    if (onAttachFiles) {
-      onAttachFiles(e.target.files);
-    }
-    
+    // Stage the images instead of immediately attaching
+    const newAttachments: StagedAttachment[] = Array.from(e.target.files).map(file => ({
+      id: `image-${Date.now()}-${Math.random()}`,
+      file,
+      type: 'image' as const,
+      name: file.name,
+      size: file.size
+    }));
+
+    setStagedAttachments(prev => [...prev, ...newAttachments]);
     e.target.value = '';
   };
 
@@ -210,10 +231,16 @@ export default function MessageInput({
       }
     }
 
-    if (onAttachFiles) {
-      onAttachFiles(e.target.files);
-    }
-    
+    // Stage the documents instead of immediately attaching
+    const newAttachments: StagedAttachment[] = Array.from(e.target.files).map(file => ({
+      id: `document-${Date.now()}-${Math.random()}`,
+      file,
+      type: 'document' as const,
+      name: file.name,
+      size: file.size
+    }));
+
+    setStagedAttachments(prev => [...prev, ...newAttachments]);
     e.target.value = '';
   };
 
@@ -249,9 +276,16 @@ export default function MessageInput({
       const response = await apiClient.executeCommand('fetch', [fetchUrl.trim()]);
       
       if (response.success) {
-        // Add the fetched content as a system message
-        const fetchMessage = `🌐 Fetched content from: ${fetchUrl}\n\n${response.data || 'Content retrieved successfully.'}`;
-        onSendMessage(fetchMessage);
+        // Stage the fetched content instead of immediately sending
+        const fetchAttachment: StagedAttachment = {
+          id: `fetch-${Date.now()}`,
+          type: 'fetch',
+          name: `Website: ${fetchUrl}`,
+          fetchUrl: fetchUrl.trim(),
+          fetchContent: response.data || 'Content retrieved successfully.'
+        };
+
+        setStagedAttachments(prev => [...prev, fetchAttachment]);
         setShowFetchDialog(false);
         setFetchUrl('');
       } else {
@@ -263,6 +297,11 @@ export default function MessageInput({
     } finally {
       setIsFetching(false);
     }
+  };
+
+  // Function to remove staged attachment
+  const removeStagedAttachment = (id: string) => {
+    setStagedAttachments(prev => prev.filter(a => a.id !== id));
   };
 
   const isCommand = isValidCommand(message.trim());
@@ -335,12 +374,45 @@ export default function MessageInput({
 
         {/* Message input */}
         <div className="flex-1 relative">
+          {/* Staged attachments display */}
+          {stagedAttachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {stagedAttachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  className="flex items-center gap-2 px-3 py-2 bg-muted border border-border rounded-md text-sm"
+                >
+                  <div className="flex items-center gap-1">
+                    {attachment.type === 'image' && <Image size={14} className="text-blue-600" />}
+                    {attachment.type === 'document' && <Paperclip size={14} className="text-green-600" />}
+                    {attachment.type === 'fetch' && <Globe size={14} className="text-purple-600" />}
+                    <span className="font-medium truncate max-w-32">
+                      {attachment.name}
+                    </span>
+                    {attachment.size && (
+                      <span className="text-muted-foreground text-xs">
+                        ({(attachment.size / 1024).toFixed(1)}KB)
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeStagedAttachment(attachment.id)}
+                    className="text-muted-foreground hover:text-red-600 transition-colors"
+                    title="Remove attachment"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <textarea
             ref={textareaRef}
             value={message}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={stagedAttachments.length > 0 ? "Add a message (optional)..." : placeholder}
             disabled={disabled || isLoading}
             rows={1}
             className={`w-full resize-none border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all text-input bg-input placeholder:text-muted-foreground ${
@@ -362,7 +434,7 @@ export default function MessageInput({
         {/* Send button */}
         <button
           type="submit"
-          disabled={!message.trim() || disabled || isLoading}
+          disabled={(!message.trim() && stagedAttachments.length === 0) || disabled || isLoading}
           className="flex-shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground p-2 rounded-md transition-colors flex items-center justify-center min-w-[40px] min-h-[40px]"
         >
           {isLoading ? (

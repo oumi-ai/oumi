@@ -19,14 +19,116 @@ import {
   Eye,
   EyeOff,
   Clock,
-  Save
+  Save,
+  Cpu,
+  HardDrive,
+  Zap
 } from 'lucide-react';
 import ApiSettings from './ApiSettings';
 import ModelSettings from './ModelSettings';
 import { useChatStore } from '@/lib/store';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import apiClient from '@/lib/unified-api';
+import { SystemCapabilities } from '@/lib/config-matcher';
 
 type SettingsTab = 'api' | 'model' | 'system' | 'notifications' | 'about';
+
+interface ExtendedSystemInfo extends SystemCapabilities {
+  // Additional browser/frontend detected information
+  nodeVersion: string;
+  electronVersion?: string;
+  userAgent: string;
+  language: string;
+  timezone: string;
+  screenResolution: string;
+  browserCores: number;
+  estimatedMemoryGB?: number;
+}
+
+// Function to get additional browser/frontend system information
+function getBrowserSystemInfo() {
+  const getNodeVersion = (): string => {
+    // Try to get from process if available (Electron context)
+    if (typeof process !== 'undefined' && process.versions) {
+      return process.versions.node || 'Unknown';
+    }
+    return 'Unknown';
+  };
+
+  const getElectronVersion = (): string | undefined => {
+    // Try to get from process if available (Electron context)
+    if (typeof process !== 'undefined' && process.versions) {
+      return process.versions.electron;
+    }
+    return undefined;
+  };
+
+  const getScreenResolution = (): string => {
+    const width = window.screen.width;
+    const height = window.screen.height;
+    const pixelRatio = window.devicePixelRatio || 1;
+    
+    if (pixelRatio > 1) {
+      return `${width}×${height} (${pixelRatio}x scaling)`;
+    }
+    
+    return `${width}×${height}`;
+  };
+
+  const getEstimatedMemoryGB = (): number | undefined => {
+    // @ts-ignore - navigator.deviceMemory is experimental
+    const deviceMemory = navigator.deviceMemory;
+    return deviceMemory;
+  };
+
+  return {
+    nodeVersion: getNodeVersion(),
+    electronVersion: getElectronVersion(),
+    userAgent: navigator.userAgent,
+    language: navigator.language || 'Unknown',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown',
+    screenResolution: getScreenResolution(),
+    browserCores: navigator.hardwareConcurrency || 0,
+    estimatedMemoryGB: getEstimatedMemoryGB(),
+  };
+}
+
+// Function to combine backend and frontend system information
+async function getCombinedSystemInfo(): Promise<ExtendedSystemInfo | null> {
+  try {
+    // Get browser-detected information
+    const browserInfo = getBrowserSystemInfo();
+    
+    // Get backend system information if in Electron environment
+    if (apiClient.isElectronApp()) {
+      const backendSystemInfo = await apiClient.getEnvironmentSystemInfo();
+      
+      if (backendSystemInfo) {
+        // Combine backend and frontend information
+        return {
+          ...backendSystemInfo,
+          ...browserInfo,
+        };
+      }
+    }
+    
+    // Fallback: create system info from browser detection only
+    return {
+      // SystemCapabilities fields (fallback values)
+      platform: 'Unknown',
+      architecture: 'Unknown', 
+      totalRAM: browserInfo.estimatedMemoryGB || 0,
+      cudaAvailable: false,
+      cudaDevices: [],
+      
+      // Browser-detected fields
+      ...browserInfo,
+    };
+  } catch (error) {
+    console.error('Failed to get system information:', error);
+    return null;
+  }
+}
 
 interface TabButtonProps {
   id: SettingsTab;
@@ -338,6 +440,25 @@ function NotificationSettings() {
 }
 
 function AboutSettings() {
+  const [systemSpecs, setSystemSpecs] = React.useState<ExtendedSystemInfo | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    // Get combined system specs on component mount
+    const loadSystemSpecs = async () => {
+      try {
+        const specs = await getCombinedSystemInfo();
+        setSystemSpecs(specs);
+      } catch (error) {
+        console.error('Failed to detect system specs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSystemSpecs();
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -394,6 +515,139 @@ function AboutSettings() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* System Specifications */}
+      <div className="bg-card border rounded-lg p-4">
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <Monitor size={16} />
+          System Specifications
+        </h3>
+        
+        {loading ? (
+          <div className="text-sm text-muted-foreground">
+            <div className="animate-pulse">Loading system specifications...</div>
+          </div>
+        ) : systemSpecs ? (
+          <div className="space-y-4 text-sm">
+            {/* System Hardware */}
+            <div>
+              <h4 className="font-medium mb-3 text-foreground">Hardware & Platform</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Monitor size={14} />
+                    Platform
+                  </span>
+                  <span className="text-right">
+                    {systemSpecs.platform === 'darwin' ? 'macOS' : 
+                     systemSpecs.platform === 'win32' ? 'Windows' :
+                     systemSpecs.platform || 'Unknown'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Cpu size={14} />
+                    Architecture
+                  </span>
+                  <span className="text-right">{systemSpecs.architecture || 'Unknown'}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <Zap size={14} />
+                    CPU Cores
+                  </span>
+                  <span className="text-right">
+                    {systemSpecs.browserCores > 0 ? `${systemSpecs.browserCores} cores` : 'Unknown'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <HardDrive size={14} />
+                    System RAM
+                  </span>
+                  <span className="text-right">
+                    {systemSpecs.totalRAM > 0 ? `${systemSpecs.totalRAM} GB` : 
+                     systemSpecs.estimatedMemoryGB ? `~${systemSpecs.estimatedMemoryGB} GB` : 'Unknown'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* GPU Information */}
+            {systemSpecs.cudaDevices && systemSpecs.cudaDevices.length > 0 && (
+              <div>
+                <h4 className="font-medium mb-3 text-foreground">Graphics & Compute</h4>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <span className="text-muted-foreground">CUDA Available</span>
+                    <span className="text-right">
+                      {systemSpecs.cudaAvailable ? (
+                        <span className="text-green-600 dark:text-green-400">✓ Yes</span>
+                      ) : (
+                        <span className="text-red-600 dark:text-red-400">✗ No</span>
+                      )}
+                    </span>
+                  </div>
+                  {systemSpecs.cudaDevices.map((device, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 border-b">
+                      <span className="text-muted-foreground">GPU {index + 1} VRAM</span>
+                      <span className="text-right">{device.vram} GB</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Runtime Information */}
+            <div>
+              <h4 className="font-medium mb-3 text-foreground">Runtime Environment</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {systemSpecs.electronVersion && (
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Electron</span>
+                    <span className="text-right">v{systemSpecs.electronVersion}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Node.js</span>
+                  <span className="text-right">
+                    {systemSpecs.nodeVersion !== 'Unknown' ? `v${systemSpecs.nodeVersion}` : systemSpecs.nodeVersion}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Language</span>
+                  <span className="text-right">{systemSpecs.language}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Timezone</span>
+                  <span className="text-right">{systemSpecs.timezone}</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-muted-foreground">Display</span>
+                  <span className="text-right text-xs">{systemSpecs.screenResolution}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* User Agent (collapsible) */}
+            <details className="pt-3 border-t">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground text-xs">
+                Show User Agent String
+              </summary>
+              <div className="mt-2 p-2 bg-muted rounded text-xs font-mono break-all">
+                {systemSpecs.userAgent}
+              </div>
+            </details>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-600 dark:text-yellow-400">⚠</span>
+              Failed to detect system specifications
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-card border rounded-lg p-4">

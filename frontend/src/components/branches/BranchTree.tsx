@@ -29,6 +29,11 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
     deleteBranch,
     setMessages,
   } = useChatStore();
+
+  // Debug: Log branches changes
+  React.useEffect(() => {
+    console.log('🌿 BranchTree: branches updated:', branches.length, branches.map(b => b.name));
+  }, [branches]);
   
   const [isCreating, setIsCreating] = React.useState(false);
   const [newBranchName, setNewBranchName] = React.useState('');
@@ -70,7 +75,7 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
 
   const loadBranches = async () => {
     try {
-      const response = await apiClient.getBranches();
+      const response = await apiClient.getBranches('default');
       if (response.success && response.data) {
         const formattedBranches: ConversationBranch[] = response.data.branches.map((branch: any) => ({
           id: branch.id,
@@ -279,15 +284,30 @@ export default function BranchTree({ className = '' }: BranchTreeProps) {
   const handleSaveConversation = async () => {
     setActionInProgress('save');
     try {
-      const timestamp = new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-');
-      const filename = `conversation_${currentBranchId || 'main'}_${timestamp}.json`;
-      const response = await apiClient.executeCommand('save', [filename]);
-      if (response.success) {
-        alert(`Conversation saved as: ${filename}`);
-      } else {
-        console.error('Failed to save conversation:', response.message);
-        alert('Failed to save conversation: ' + (response.message || 'Unknown error'));
+      // Show save dialog to let user choose location and filename
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const defaultFilename = `conversation-${currentBranchId || 'main'}-${timestamp}.json`;
+      
+      const filePath = await apiClient.showSaveDialog({
+        title: 'Save Conversation',
+        defaultPath: defaultFilename,
+        filters: [
+          { name: 'JSON Files', extensions: ['json'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      });
+
+      if (filePath) {
+        // User selected a file path, now save the conversation
+        const response = await apiClient.executeCommand('save', [filePath]);
+        if (response.success) {
+          alert(`Conversation saved successfully!`);
+        } else {
+          console.error('Failed to save conversation:', response.message);
+          alert('Failed to save conversation: ' + (response.message || 'Unknown error'));
+        }
       }
+      // If filePath is null, user cancelled the dialog - no action needed
     } catch (error) {
       console.error('Error saving conversation:', error);
       alert('Error saving conversation');

@@ -5,8 +5,9 @@
 "use client";
 
 import React from 'react';
-import { Settings, Thermometer, Hash, Target, RotateCcw } from 'lucide-react';
+import { Settings, Thermometer, Hash, Target, RotateCcw, FileText } from 'lucide-react';
 import { useChatStore } from '@/lib/store';
+import apiClient from '@/lib/unified-api';
 
 interface SliderProps {
   label: string;
@@ -90,7 +91,9 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
     temperature: 0.7,
     maxTokens: 2048,
     topP: 0.9,
+    contextLength: 8192,
   };
+
 
   const handleReset = () => {
     Object.entries(defaultParams).forEach(([key, value]) => {
@@ -155,6 +158,19 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
           formatValue={(v) => v.toFixed(2)}
         />
 
+        {/* Context Length Slider */}
+        <Slider
+          label="Max Context Length"
+          value={generationParams.contextLength ?? 8192}
+          min={512}
+          max={131072}
+          step={512}
+          onChange={(value) => updateGenerationParam('contextLength', Math.round(value))}
+          description="Maximum tokens the model can process (input + output)"
+          icon={<FileText size={14} />}
+          formatValue={(v) => Math.round(v).toLocaleString() + ' tokens'}
+        />
+
         {/* Settings Info */}
         <div className="pt-4 border-t space-y-2">
           <h4 className="text-xs font-medium text-foreground">Quick Presets</h4>
@@ -201,18 +217,22 @@ export default function ModelSettings({ className = '' }: ModelSettingsProps) {
         {/* Current Settings Summary */}
         <div className="pt-4 border-t">
           <h4 className="text-xs font-medium text-foreground mb-2">Current Settings</h4>
-          <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="text-center p-2 bg-muted rounded">
               <div className="font-mono text-foreground">{(generationParams.temperature ?? 0.7).toFixed(1)}</div>
               <div className="text-muted-foreground">Temp</div>
             </div>
             <div className="text-center p-2 bg-muted rounded">
               <div className="font-mono text-foreground">{(generationParams.maxTokens ?? 2048).toLocaleString()}</div>
-              <div className="text-muted-foreground">Tokens</div>
+              <div className="text-muted-foreground">Max Tokens</div>
             </div>
             <div className="text-center p-2 bg-muted rounded">
               <div className="font-mono text-foreground">{(generationParams.topP ?? 0.9).toFixed(2)}</div>
               <div className="text-muted-foreground">Top-p</div>
+            </div>
+            <div className="text-center p-2 bg-muted rounded">
+              <div className="font-mono text-foreground">{(generationParams.contextLength ?? 8192).toLocaleString()}</div>
+              <div className="text-muted-foreground">Context</div>
             </div>
           </div>
         </div>

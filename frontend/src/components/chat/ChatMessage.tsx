@@ -132,6 +132,7 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
       return;
     }
     
+    console.log(`🌿 ChatMessage: Creating branch from message index ${messageIndex}`);
     setActionInProgress('branch');
     try {
       const result = await executeCommand(
@@ -139,6 +140,8 @@ export default function ChatMessage({ message, isLatest = false, messageIndex }:
         [messageIndex.toString()], 
         COMMAND_CONFIGS.branch_from
       );
+      
+      console.log(`🌿 ChatMessage: Branch creation result:`, result);
       
       if (!result.success && result.message) {
         alert(`❌ ${result.message}`);

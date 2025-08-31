@@ -38,6 +38,7 @@ export interface GenerationParams {
   maxTokens?: number;
   topP?: number;
   topK?: number;
+  contextLength?: number;
   stream?: boolean;
 }
 
