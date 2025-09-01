@@ -169,6 +169,21 @@ class ElectronApiClient {
     return window.electronAPI.chat.getModels();
   }
 
+  // System detection methods
+  public async getSystemCapabilities(): Promise<any> {
+    if (!this.isElectron) {
+      throw new Error('System detection only available in Electron app');
+    }
+    return window.electronAPI.system.getCapabilities();
+  }
+
+  public async getSystemInfo(): Promise<any> {
+    if (!this.isElectron) {
+      throw new Error('System detection only available in Electron app');
+    }
+    return window.electronAPI.system.getInfo();
+  }
+
   public async getBranches(sessionId: string = 'default'): Promise<ApiResponse<{ 
     branches: ConversationBranch[];
     current_branch?: string;

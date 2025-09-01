@@ -92,9 +92,6 @@
       "output": "dist/packages",
       "buildResources": "build"
     },
-    "nodeIntegration": true,
-    "nodeIntegrationInWorker": true,
-    "nodeIntegrationInSubFrames": true,
     "files": [
       "dist/electron/**/*",
       "out/**/*",

@@ -72,6 +72,10 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
     log.info('Setting up logger handlers...');
     setupLoggerHandlers();
     
+    // System detection handlers
+    log.info('Setting up system detection handlers...');
+    setupSystemDetectionHandlers();
+    
     log.info('IPC handlers set up successfully');
   } catch (error) {
     log.error('Error setting up IPC handlers:', error);
@@ -919,6 +923,51 @@ function setupLoggerHandlers(): void {
         success: false, 
         error: error instanceof Error ? error.message : String(error) 
       };
+    }
+  });
+}
+
+/**
+ * System detection handlers
+ */
+function setupSystemDetectionHandlers(): void {
+  // Get system capabilities for hardware detection
+  ipcMain.handle('system:get-capabilities', async () => {
+    try {
+      const { SystemDetector } = await import('./system-detector');
+      const systemInfo = await SystemDetector.detectSystem();
+      
+      // Convert SystemInfo to SystemCapabilities format expected by renderer
+      return {
+        platform: systemInfo.platform,
+        architecture: systemInfo.architecture,
+        totalRAM: systemInfo.totalRAM,
+        cudaAvailable: systemInfo.cudaAvailable,
+        cudaDevices: systemInfo.cudaDevices.map(device => ({
+          vram: device.vram
+        }))
+      };
+    } catch (error) {
+      log.error('Failed to detect system capabilities:', error);
+      // Return basic fallback info
+      return {
+        platform: process.platform,
+        architecture: process.arch,
+        totalRAM: 8, // Fallback to 8GB
+        cudaAvailable: false,
+        cudaDevices: []
+      };
+    }
+  });
+
+  // Get detailed system information
+  ipcMain.handle('system:get-info', async () => {
+    try {
+      const { SystemDetector } = await import('./system-detector');
+      return await SystemDetector.detectSystem();
+    } catch (error) {
+      log.error('Failed to detect system info:', error);
+      throw error;
     }
   });
 }

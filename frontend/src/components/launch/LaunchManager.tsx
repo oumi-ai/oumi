@@ -342,15 +342,8 @@ export default function LaunchManager({}: LaunchManagerProps) {
         
         // Step 1: Load system capabilities
         try {
-          const systemInfo = await apiClient.getEnvironmentSystemInfo();
-          if (systemInfo) {
-            const capabilities: SystemCapabilities = {
-              platform: systemInfo.platform,
-              architecture: systemInfo.architecture,
-              totalRAM: systemInfo.totalRAM,
-              cudaAvailable: systemInfo.cudaAvailable,
-              cudaDevices: systemInfo.cudaDevices || []
-            };
+          const capabilities = await apiClient.getSystemCapabilities();
+          if (capabilities) {
             setSystemCapabilities(capabilities);
             logger.info('LaunchManager', 'System capabilities loaded successfully', {
               platform: capabilities.platform,

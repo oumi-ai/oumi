@@ -86,6 +86,12 @@ export interface ElectronAPI {
     resetWelcomeSettings: () => Promise<any>;
   };
 
+  // System detection
+  system: {
+    getCapabilities: () => Promise<any>;
+    getInfo: () => Promise<any>;
+  };
+
   // Config discovery
   config: {
     discoverBundled: () => Promise<any>;
@@ -242,6 +248,12 @@ const electronAPI: ElectronAPI = {
     delete: (key) => ipcRenderer.invoke('storage:delete', key),
     clear: () => ipcRenderer.invoke('storage:clear'),
     resetWelcomeSettings: () => ipcRenderer.invoke('storage:reset-welcome-settings')
+  },
+
+  // System detection
+  system: {
+    getCapabilities: () => ipcRenderer.invoke('system:get-capabilities'),
+    getInfo: () => ipcRenderer.invoke('system:get-info')
   },
 
   // Config discovery
