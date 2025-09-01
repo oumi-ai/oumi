@@ -2,6 +2,8 @@
  * Configuration Matcher - Analyzes system capabilities and recommends the best configurations
  */
 
+import { logger } from './logger';
+
 export interface SystemCapabilities {
   platform: string;         // darwin, win32, linux
   architecture: string;     // x64, arm64
@@ -80,12 +82,24 @@ export class ConfigMatcher {
     // Clamp score between 0-100
     score = Math.max(0, Math.min(100, score));
 
-    return {
+    const recommendation = {
       goodMatch: score >= 70,
       reason: reason || this.getDefaultReason(config, system),
       score,
       warnings: warnings.filter(Boolean)
     };
+
+    // Debug logging for troubleshooting
+    logger.debug('ConfigMatcher', `${config.display_name} (${config.engine}) scored`, {
+      score: recommendation.score,
+      isSpecialist: config.is_specialist,
+      sizeCategory: config.size_category,
+      engine: config.engine,
+      reason: recommendation.reason,
+      warnings: recommendation.warnings
+    });
+
+    return recommendation;
   }
 
   /**
@@ -425,11 +439,24 @@ export class ConfigMatcher {
     configs: ConfigOption[],
     system: SystemCapabilities
   ): Array<ConfigOption & { recommendation?: ConfigRecommendation }> {
-    return configs
+    const sortedConfigs = configs
       .map(config => ({
         ...config,
         recommendation: this.evaluateConfig(config, system)
       }))
       .sort((a, b) => (b.recommendation?.score || 0) - (a.recommendation?.score || 0));
+
+    // Debug logging for final sorted order
+    logger.info('ConfigMatcher', 'Final sorted recommendations (top 10)', 
+      sortedConfigs.slice(0, 10).map((config, index) => ({
+        rank: index + 1,
+        name: config.display_name,
+        engine: config.engine,
+        score: config.recommendation?.score,
+        isSpecialist: config.is_specialist
+      }))
+    );
+
+    return sortedConfigs;
   }
 }

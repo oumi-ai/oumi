@@ -68,6 +68,10 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
     log.info('Setting up Python environment handlers...');
     setupPythonEnvironmentHandlers(pythonManager);
     
+    // Logger handlers
+    log.info('Setting up logger handlers...');
+    setupLoggerHandlers();
+    
     log.info('IPC handlers set up successfully');
   } catch (error) {
     log.error('Error setting up IPC handlers:', error);
@@ -639,8 +643,7 @@ async function parseConfigFile(filePath: string, relativePath: string): Promise<
       engine: engine,
       context_length: contextLength,
       model_family: family,
-      size_category: categorizeModelSize(displayName),
-      recommended: isRecommended(displayName, engine)
+      size_category: categorizeModelSize(displayName)
     };
   } catch (error) {
     log.warn(`Failed to parse config ${filePath}:`, error);
@@ -674,25 +677,6 @@ function categorizeModelSize(displayName: string): string {
   if (name.includes('20b') || name.includes('24b') || name.includes('30b') || name.includes('32b') || name.includes('70b')) return 'large';
   if (name.includes('120b') || name.includes('405b')) return 'xl';
   return 'medium';
-}
-
-/**
- * Determine if a config should be recommended
- */
-function isRecommended(displayName: string, engine: string): boolean {
-  const name = displayName.toLowerCase();
-  const eng = engine.toLowerCase();
-  
-  // Recommend GGUF configs for macOS (efficient)
-  if (name.includes('gguf') && name.includes('macos')) return true;
-  
-  // Recommend smaller models
-  if (name.includes('3b') || name.includes('7b') || name.includes('8b')) return true;
-  
-  // Recommend VLLM for performance
-  if (eng === 'vllm' && !name.includes('gguf')) return true;
-  
-  return false;
 }
 
 /**
@@ -763,6 +747,121 @@ function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): voi
     }
   });
 
+  // Get basic system information using lightweight script (fallback)
+  ipcMain.handle('python:get-basic-system-info', async () => {
+    const { spawn } = require('child_process');
+    const path = require('path');
+    
+    return new Promise((resolve) => {
+      try {
+        // Path to our lightweight system info script
+        // In development: __dirname = dist/electron, so go up to project root
+        // In production: __dirname = resources/app.asar/dist/electron, so go up to app.asar then to scripts
+        let scriptPath;
+        if (process.env.NODE_ENV === 'development' || __dirname.includes('dist/electron')) {
+          // Development or compiled to dist/electron
+          scriptPath = path.join(__dirname, '../../scripts/system-info.py');
+        } else {
+          // Production build (likely in app.asar)
+          scriptPath = path.join(__dirname, '../../../scripts/system-info.py');
+        }
+        
+        log.info('Looking for system info script at:', scriptPath);
+        
+        // Check if script exists
+        const fs = require('fs');
+        if (!fs.existsSync(scriptPath)) {
+          log.error('System info script not found at:', scriptPath);
+          resolve({
+            platform: 'unknown',
+            architecture: 'unknown',
+            totalRAM: 8,
+            cudaAvailable: false,
+            cudaDevices: []
+          });
+          return;
+        }
+        
+        // Try python3 first, then python as fallback
+        const pythonCommands = ['python3', 'python'];
+        let processIndex = 0;
+        
+        const tryNextPython = () => {
+          if (processIndex >= pythonCommands.length) {
+            log.error('No suitable Python executable found for system info detection');
+            resolve({
+              platform: 'unknown',
+              architecture: 'unknown',
+              totalRAM: 8,
+              cudaAvailable: false,
+              cudaDevices: []
+            });
+            return;
+          }
+          
+          const pythonCmd = pythonCommands[processIndex];
+          log.info(`Trying to run system info script with: ${pythonCmd} ${scriptPath}`);
+          const process = spawn(pythonCmd, [scriptPath]);
+          
+          let stdout = '';
+          let stderr = '';
+          
+          process.stdout.on('data', (data: Buffer) => {
+            stdout += data.toString();
+          });
+          
+          process.stderr.on('data', (data: Buffer) => {
+            stderr += data.toString();
+          });
+          
+          process.on('close', (code: number) => {
+            if (code === 0 && stdout.trim()) {
+              try {
+                const systemInfo = JSON.parse(stdout.trim());
+                log.info('Successfully detected system info using lightweight script:', systemInfo);
+                resolve(systemInfo);
+              } catch (parseError) {
+                log.error('Failed to parse system info JSON:', parseError);
+                processIndex++;
+                tryNextPython();
+              }
+            } else {
+              log.warn(`System info script failed with ${pythonCmd} (code ${code}):`, stderr);
+              processIndex++;
+              tryNextPython();
+            }
+          });
+          
+          process.on('error', (error: Error) => {
+            log.warn(`Failed to execute system info script with ${pythonCmd}:`, error);
+            processIndex++;
+            tryNextPython();
+          });
+          
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            process.kill();
+            log.warn(`System info script timed out with ${pythonCmd}`);
+            processIndex++;
+            tryNextPython();
+          }, 5000);
+        };
+        
+        tryNextPython();
+        
+      } catch (error) {
+        log.error('Exception in basic system info detection:', error);
+        resolve({
+          platform: 'unknown',
+          architecture: 'unknown',
+          totalRAM: 8,
+          cudaAvailable: false,
+          cudaDevices: []
+        });
+      }
+    });
+  });
+
   // Remove environment
   ipcMain.handle('python:remove-environment', async () => {
     try {
@@ -784,6 +883,44 @@ function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): voi
   // Note: This assumes python-manager will have error callbacks added
   
   log.info('Python environment IPC handlers set up');
+}
+
+/**
+ * Logger handlers - for file-based logging
+ */
+function setupLoggerHandlers(): void {
+  ipcMain.handle('logger:write', async (_, entry: any) => {
+    try {
+      // Use electron-log for file logging (it handles file rotation and formatting)
+      const logMessage = `[${entry.timestamp}] ${entry.level} [${entry.component}] ${entry.message}`;
+      
+      switch (entry.level) {
+        case 'DEBUG':
+          log.debug(logMessage, entry.data || '');
+          break;
+        case 'INFO':
+          log.info(logMessage, entry.data || '');
+          break;
+        case 'WARN':
+          log.warn(logMessage, entry.data || '');
+          break;
+        case 'ERROR':
+          log.error(logMessage, entry.data || '');
+          break;
+        default:
+          log.info(logMessage, entry.data || '');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      // Fallback to console if logging fails
+      console.error('Failed to write log entry:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      };
+    }
+  });
 }
 
 /**

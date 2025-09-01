@@ -16,6 +16,7 @@ import { ConfigMatcher, SystemCapabilities } from '@/lib/config-matcher';
 import { configPathResolver } from '@/lib/config-path-resolver';
 import { HuggingFaceService } from '@/lib/huggingface-service';
 import { useChatStore } from '@/lib/store';
+import { logger } from '@/lib/logger';
 import SettingsScreen from '@/components/settings/SettingsScreen';
 
 interface ConfigOption {
@@ -28,7 +29,6 @@ interface ConfigOption {
   context_length: number;
   model_family: string;
   size_category: string;
-  recommended?: boolean;
   recommendation?: {
     goodMatch: boolean;
     reason: string;
@@ -48,9 +48,10 @@ interface SystemPromptPreset {
 
 interface WelcomeScreenProps {
   onConfigSelected: (configId: string, systemPrompt?: string) => void;
+  systemCapabilities?: SystemCapabilities | null;
 }
 
-export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) {
+export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: WelcomeScreenProps) {
   const { settings } = useChatStore();
   const [configs, setConfigs] = React.useState<ConfigOption[]>([]);
   const [filteredConfigs, setFilteredConfigs] = React.useState<ConfigOption[]>([]);
@@ -98,8 +99,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
   const [envSetupNeeded, setEnvSetupNeeded] = React.useState(false);
   const [showEnvSetup, setShowEnvSetup] = React.useState(false);
   
-  // System capabilities for smart recommendations
-  const [systemCapabilities, setSystemCapabilities] = React.useState<SystemCapabilities | null>(null);
+  // System capabilities are now passed as a prop from LaunchManager
 
   // System prompt presets
   const systemPromptPresets: SystemPromptPreset[] = [
@@ -293,23 +293,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
       setLoading(true);
       setError(null);
       
-      // Load system capabilities for smart recommendations
-      if (apiClient.isElectronApp()) {
-        try {
-          const systemInfo = await apiClient.getEnvironmentSystemInfo();
-          if (systemInfo) {
-            setSystemCapabilities({
-              platform: systemInfo.platform,
-              architecture: systemInfo.architecture,
-              totalRAM: systemInfo.totalRAM,
-              cudaAvailable: systemInfo.cudaAvailable,
-              cudaDevices: systemInfo.cudaDevices || []
-            });
-          }
-        } catch (error) {
-          console.warn('Failed to load system capabilities:', error);
-        }
-      }
+      // System capabilities are now passed as a prop and loaded by LaunchManager
       
       // Try runtime config discovery first (Electron app)
       if (apiClient.isElectronApp()) {
@@ -317,10 +301,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
           const response = await apiClient.discoverBundledConfigs();
           
           if (response.success && response.data?.configs) {
-            let transformedConfigs = response.data.configs.map((config: any, index: number) => ({
-              ...config,
-              recommended: config.recommended || false
-            }));
+            let transformedConfigs = response.data.configs;
             
             // Enhance with fresh HuggingFace metadata if credentials are available
             const hasHfCredentials = settings.huggingFace?.username && settings.huggingFace?.token;
@@ -333,8 +314,12 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
             }
             
             // Apply smart recommendations using ConfigMatcher if system capabilities are available
+            logger.debug('WelcomeScreen', 'System capabilities detected', systemCapabilities);
             if (systemCapabilities) {
+              logger.info('WelcomeScreen', 'Applying ConfigMatcher recommendations to Electron configs');
               transformedConfigs = ConfigMatcher.sortConfigsByRecommendation(transformedConfigs, systemCapabilities);
+            } else {
+              logger.warn('WelcomeScreen', 'No system capabilities available - skipping recommendations');
             }
             
             setConfigs(transformedConfigs);
@@ -364,8 +349,12 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
         }
         
         // Apply smart recommendations using ConfigMatcher if system capabilities are available
+        logger.debug('WelcomeScreen', 'System capabilities for static configs', systemCapabilities);
         if (systemCapabilities) {
+          logger.info('WelcomeScreen', 'Applying ConfigMatcher recommendations to static configs');
           configs = ConfigMatcher.sortConfigsByRecommendation(configs, systemCapabilities);
+        } else {
+          logger.warn('WelcomeScreen', 'No system capabilities available for static configs - skipping recommendations');
         }
         
         setConfigs(configs);
@@ -996,7 +985,7 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
               {/* Model Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredConfigs.map((config) => {
-                  const isRecommended = config.recommendation?.goodMatch || config.recommended;
+                  const isRecommended = config.recommendation?.goodMatch;
                   return (
                   <div 
                     key={config.id}
@@ -1013,11 +1002,6 @@ export default function WelcomeScreen({ onConfigSelected }: WelcomeScreenProps) 
                         <div className="flex items-center gap-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full text-xs font-medium">
                           <Star className="w-3 h-3 fill-current" />
                           Good Match
-                        </div>
-                      )}
-                      {config.recommended && (
-                        <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
-                          Recommended
                         </div>
                       )}
                     </div>

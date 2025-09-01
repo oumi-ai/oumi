@@ -649,7 +649,27 @@ class UnifiedApiClient {
 
   async getEnvironmentSystemInfo(): Promise<any> {
     if (this.isElectron()) {
-      return this.electronClient.getEnvironmentSystemInfo();
+      // First try the full environment system info (requires Oumi backend)
+      try {
+        const fullInfo = await this.electronClient.getEnvironmentSystemInfo();
+        if (fullInfo && fullInfo.platform && fullInfo.platform !== 'unknown') {
+          return fullInfo;
+        }
+      } catch (error) {
+        console.debug('Full system info not available, trying basic fallback...');
+      }
+      
+      // Fallback to basic system info (uses lightweight Python script)
+      try {
+        const basicInfo = await this.electronClient.getBasicSystemInfo();
+        if (basicInfo && basicInfo.platform && basicInfo.platform !== 'unknown') {
+          return basicInfo;
+        }
+      } catch (error) {
+        console.warn('Basic system info detection also failed:', error);
+      }
+      
+      return null;
     } else {
       return null;
     }

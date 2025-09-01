@@ -370,6 +370,12 @@ class ElectronApiClient {
     return window.electronAPI.python.getEnvironmentSystemInfo();
   }
 
+  // Get basic system information using lightweight Python script (fallback when main backend isn't ready)
+  public async getBasicSystemInfo(): Promise<any> {
+    if (!this.isElectron) return null;
+    return window.electronAPI.python.getBasicSystemInfo();
+  }
+
   public onSetupProgress(callback: (progress: any) => void): void {
     if (this.isElectron) {
       window.electronAPI.python.onSetupProgress(callback);

@@ -22,11 +22,31 @@ export class HuggingFaceService {
   /**
    * Fetch model metadata with optional authentication
    */
+  /**
+   * Check if a model is a HuggingFace model (not an API-only model)
+   */
+  private static isHuggingFaceModel(modelName: string): boolean {
+    // Skip API-only models that don't exist on HuggingFace
+    const apiOnlyPrefixes = [
+      'claude-', 'gpt-', 'chatgpt-', 'o1-', 'o3-',
+      'gemini-', 'vertex-', 'meta/llama-', 'Unknown Model'
+    ];
+    
+    return !apiOnlyPrefixes.some(prefix => 
+      modelName.toLowerCase().startsWith(prefix.toLowerCase())
+    );
+  }
+
   static async fetchModelMetadata(
     modelName: string,
     credentials?: HuggingFaceCredentials
   ): Promise<ModelMetadata | null> {
     if (!modelName) return null;
+    
+    // Skip API-only models
+    if (!this.isHuggingFaceModel(modelName)) {
+      return null;
+    }
 
     // Check cache first
     const cached = this.cache.get(modelName);
@@ -70,6 +90,11 @@ export class HuggingFaceService {
 
       return metadata;
     } catch (error) {
+      // Only log actual network/API errors, not expected failures for API-only models
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        // Likely network issue or model doesn't exist - don't spam console
+        return null;
+      }
       console.warn(`Failed to fetch HF metadata for ${modelName}:`, error);
       return null;
     }
@@ -82,10 +107,10 @@ export class HuggingFaceService {
     configs: any[],
     credentials?: HuggingFaceCredentials
   ): Promise<any[]> {
-    // Get unique model names to minimize API calls
+    // Get unique model names to minimize API calls, filtering out API-only models
     const uniqueModels = new Set<string>();
     configs.forEach(config => {
-      if (config.model_name) {
+      if (config.model_name && this.isHuggingFaceModel(config.model_name)) {
         uniqueModels.add(config.model_name);
       }
     });

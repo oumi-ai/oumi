@@ -5,6 +5,8 @@
  * Handles development vs production environments consistently.
  */
 
+import { logger } from './logger';
+
 export interface ConfigPathResolver {
   loadStaticConfigs(): Promise<any>;
   getConfigById(configId: string): Promise<{ config: any; configPath: string } | null>;
@@ -12,17 +14,27 @@ export interface ConfigPathResolver {
 
 class UnifiedConfigPathResolver implements ConfigPathResolver {
   private staticConfigs?: any;
+  private lastLoadAttempt: number = 0;
+  private loadAttemptInterval: number = 5000; // Don't retry failed loads more than once per 5 seconds
 
   /**
    * Load static configs with consistent error handling
    */
   public async loadStaticConfigs(): Promise<any> {
-    console.log(`[ConfigPathResolver] loadStaticConfigs called, cached: ${!!this.staticConfigs}`);
+    logger.debug('ConfigPathResolver', `loadStaticConfigs called, cached: ${!!this.staticConfigs}`);
     
     if (this.staticConfigs) {
-      console.log(`[ConfigPathResolver] Returning cached configs (${this.staticConfigs.configs?.length || 0} configs)`);
+      logger.debug('ConfigPathResolver', `Returning cached configs (${this.staticConfigs.configs?.length || 0} configs)`);
       return this.staticConfigs;
     }
+
+    // Rate limit failed attempts to prevent spam
+    const now = Date.now();
+    if (now - this.lastLoadAttempt < this.loadAttemptInterval) {
+      logger.debug('ConfigPathResolver', 'Skipping load attempt due to rate limiting');
+      throw new Error('Config loading rate limited - waiting between attempts');
+    }
+    this.lastLoadAttempt = now;
 
     try {
       // Try multiple potential locations for static configs
@@ -32,44 +44,49 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
         'static-configs.json'
       ];
 
-      console.log(`[ConfigPathResolver] Attempting to load from ${locations.length} locations`);
+      logger.debug('ConfigPathResolver', `Attempting to load from ${locations.length} locations`);
+      const errors: string[] = [];
 
       for (const location of locations) {
         try {
-          console.log(`[ConfigPathResolver] Trying to load static configs from: ${location}`);
+          logger.debug('ConfigPathResolver', `Trying location: ${location}`);
           const response = await fetch(location);
-          console.log(`[ConfigPathResolver] Response status for ${location}: ${response.status} ${response.statusText}`);
           
           if (response.ok) {
             this.staticConfigs = await response.json();
-            console.log(`[ConfigPathResolver] Successfully loaded ${this.staticConfigs.configs?.length || 0} configs from: ${location}`);
-            console.log(`[ConfigPathResolver] First config ID: ${this.staticConfigs.configs?.[0]?.id || 'none'}`);
+            logger.info('ConfigPathResolver', `Successfully loaded ${this.staticConfigs.configs?.length || 0} configs from: ${location}`);
             return this.staticConfigs;
+          } else {
+            errors.push(`${location}: ${response.status} ${response.statusText}`);
           }
         } catch (err) {
-          console.warn(`[ConfigPathResolver] Failed to load from ${location}:`, err);
+          errors.push(`${location}: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       }
 
       // If all locations fail, try Electron's bundled config discovery
       const isElectron = typeof window !== 'undefined' && 'electronAPI' in window;
       if (isElectron && window.electronAPI?.config?.discoverBundled) {
-        console.log('[ConfigPathResolver] Falling back to Electron bundled config discovery');
+        logger.debug('ConfigPathResolver', 'Falling back to Electron bundled config discovery');
         try {
           const result = await window.electronAPI.config.discoverBundled();
           if (result.success && result.data) {
             this.staticConfigs = result.data;
-            console.log(`[ConfigPathResolver] Successfully discovered ${this.staticConfigs.configs?.length || 0} bundled configs`);
+            logger.info('ConfigPathResolver', `Successfully discovered ${this.staticConfigs.configs?.length || 0} bundled configs`);
             return this.staticConfigs;
+          } else {
+            errors.push(`Electron discovery: ${result.error || 'Unknown error'}`);
           }
         } catch (err) {
-          console.warn('[ConfigPathResolver] Electron config discovery failed:', err);
+          errors.push(`Electron discovery: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       }
 
-      throw new Error('Failed to load configs from all attempted locations');
+      const errorMessage = 'Failed to load configs from all attempted locations';
+      logger.warn('ConfigPathResolver', errorMessage, { attempts: errors });
+      throw new Error(errorMessage);
     } catch (error) {
-      console.error('[ConfigPathResolver] Error loading static configs:', error);
+      logger.error('ConfigPathResolver', 'Error loading static configs', error);
       throw error;
     }
   }
@@ -83,21 +100,23 @@ class UnifiedConfigPathResolver implements ConfigPathResolver {
       const config = staticConfigs.configs?.find((cfg: any) => cfg.id === configId);
       
       if (!config) {
-        console.warn(`[ConfigPathResolver] Config not found: ${configId}`);
+        logger.warn('ConfigPathResolver', `Config not found: ${configId}`);
         return null;
       }
 
       const originalPath = config.config_path || config.relative_path;
       
-      console.log(`[ConfigPathResolver] Found config ${configId}:`);
-      console.log(`[ConfigPathResolver]   Config path (for backend): ${originalPath}`);
+      logger.debug('ConfigPathResolver', `Found config ${configId}`, {
+        configPath: originalPath,
+        displayName: config.display_name
+      });
       
       return {
         config,
         configPath: originalPath
       };
     } catch (error) {
-      console.error(`[ConfigPathResolver] Error getting config ${configId}:`, error);
+      logger.error('ConfigPathResolver', `Error getting config ${configId}`, error);
       return null;
     }
   }

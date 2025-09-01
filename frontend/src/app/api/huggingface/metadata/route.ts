@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Check if it's a specialist model based on tags and model card
-      const specialistKeywords = ['tool', 'function-calling', 'reasoning', 'code-only', 'math-only', 'tool-use'];
+      const specialistKeywords = ['tool', 'function-calling', 'reasoning', 'code-only', 'math-only', 'tool-use', 'code', 'coding', 'coalm', 'coder', 'starcoder', 'codellama'];
       isSpecialist = tags.some((tag: string) => 
         specialistKeywords.some(keyword => tag.toLowerCase().includes(keyword))
       ) || specialistKeywords.some(keyword => 

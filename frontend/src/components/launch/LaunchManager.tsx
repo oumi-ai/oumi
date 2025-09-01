@@ -14,6 +14,8 @@ import { Loader2, AlertTriangle } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
 import { DownloadState, DownloadProgress, DownloadErrorEvent } from '@/lib/types';
 import { configPathResolver } from '@/lib/config-path-resolver';
+import { SystemCapabilities } from '@/lib/config-matcher';
+import { logger } from '@/lib/logger';
 
 interface LaunchManagerProps {}
 
@@ -30,6 +32,8 @@ export default function LaunchManager({}: LaunchManagerProps) {
   const [selectedConfig, setSelectedConfig] = React.useState<string | null>(null);
   const [error, setError] = React.useState<LaunchError | null>(null);
   const [initProgress, setInitProgress] = React.useState<string>('Preparing...');
+  const [systemCapabilities, setSystemCapabilities] = React.useState<SystemCapabilities | null>(null);
+  const [isLoadingSystemInfo, setIsLoadingSystemInfo] = React.useState(true);
   
   // Error handling
   const { 
@@ -330,21 +334,55 @@ export default function LaunchManager({}: LaunchManagerProps) {
     };
   }, []);
 
-  // Hide loading screen when React is ready (LaunchManager mounted)
+  // Load system capabilities first, then hide loading screen when React is ready
   React.useEffect(() => {
-    const hideLoadingScreen = async () => {
+    const initializeApp = async () => {
       if (typeof window !== 'undefined' && window.electronAPI) {
-        console.log('🔧 [LaunchManager] React mounted, hiding loading screen');
+        logger.debug('LaunchManager', 'React mounted, loading system capabilities');
+        
+        // Step 1: Load system capabilities
+        try {
+          const systemInfo = await apiClient.getEnvironmentSystemInfo();
+          if (systemInfo) {
+            const capabilities: SystemCapabilities = {
+              platform: systemInfo.platform,
+              architecture: systemInfo.architecture,
+              totalRAM: systemInfo.totalRAM,
+              cudaAvailable: systemInfo.cudaAvailable,
+              cudaDevices: systemInfo.cudaDevices || []
+            };
+            setSystemCapabilities(capabilities);
+            logger.info('LaunchManager', 'System capabilities loaded successfully', {
+              platform: capabilities.platform,
+              arch: capabilities.architecture,
+              ram: `${capabilities.totalRAM}GB`,
+              cuda: capabilities.cudaAvailable,
+              gpus: capabilities.cudaDevices.length
+            });
+          } else {
+            logger.warn('LaunchManager', 'No system capabilities available - smart recommendations disabled');
+          }
+        } catch (error) {
+          logger.error('LaunchManager', 'Failed to load system capabilities', error);
+        } finally {
+          setIsLoadingSystemInfo(false);
+        }
+        
+        // Step 2: Hide the loading screen
+        console.log('🔧 [LaunchManager] Hiding loading screen...');
         try {
           await window.electronAPI.app.hideLoadingScreen();
           console.log('🔧 [LaunchManager] Loading screen hidden successfully');
         } catch (error) {
           console.error('🔧 [LaunchManager] Failed to hide loading screen:', error);
         }
+      } else {
+        // Web version - no system capabilities, just mark as loaded
+        setIsLoadingSystemInfo(false);
       }
     };
 
-    hideLoadingScreen();
+    initializeApp();
 
     // Set up menu message handlers (available in all states)
     const setupMenuHandlers = () => {
@@ -415,9 +453,24 @@ export default function LaunchManager({}: LaunchManagerProps) {
   // Render based on launch state
   switch (launchState) {
     case 'welcome':
+      // Show loading spinner while system info is being detected
+      if (isLoadingSystemInfo) {
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="bg-card rounded-lg shadow-lg p-8 max-w-md w-full mx-4 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Detecting system capabilities...</p>
+            </div>
+          </div>
+        );
+      }
+      
       return (
         <>
-          <WelcomeScreen onConfigSelected={handleConfigSelected} />
+          <WelcomeScreen 
+            onConfigSelected={handleConfigSelected} 
+            systemCapabilities={systemCapabilities}
+          />
           <ErrorDialog error={currentError} onClose={clearError} />
         </>
       );

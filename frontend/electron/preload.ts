@@ -100,6 +100,7 @@ export interface ElectronAPI {
     removeEnvironment: () => Promise<{ success: boolean; message: string }>;
     getSystemChangeInfo: () => Promise<any>;
     getEnvironmentSystemInfo: () => Promise<any>;
+    getBasicSystemInfo: () => Promise<any>;
     onSetupProgress: (callback: (progress: any) => void) => void;
     offSetupProgress: (callback: (progress: any) => void) => void;
     onSetupError: (callback: (error: string) => void) => void;
@@ -122,6 +123,11 @@ export interface ElectronAPI {
   onDownloadError: (callback: (error: any) => void) => void;
   removeDownloadProgressListener: (callback: (progress: any) => void) => void;
   removeDownloadErrorListener: (callback: (error: any) => void) => void;
+
+  // Logging system
+  logger?: {
+    writeLog: (entry: any) => Promise<void>;
+  };
 }
 
 // Create the API object
@@ -252,6 +258,7 @@ const electronAPI: ElectronAPI = {
     removeEnvironment: () => ipcRenderer.invoke('python:remove-environment'),
     getSystemChangeInfo: () => ipcRenderer.invoke('python:get-system-change-info'),
     getEnvironmentSystemInfo: () => ipcRenderer.invoke('python:get-environment-system-info'),
+    getBasicSystemInfo: () => ipcRenderer.invoke('python:get-basic-system-info'),
     onSetupProgress: (callback: (progress: any) => void) => {
       const wrappedCallback = (_: IpcRendererEvent, progress: any) => callback(progress);
       ipcRenderer.on('python:setup-progress', wrappedCallback);
@@ -299,6 +306,17 @@ const electronAPI: ElectronAPI = {
 
   removeDownloadErrorListener: (callback: (error: any) => void) => {
     ipcRenderer.removeListener('server:download-error', callback);
+  },
+
+  // Logging system (optional - may not be implemented in main process yet)
+  logger: {
+    writeLog: async (entry: any) => {
+      try {
+        return await ipcRenderer.invoke('logger:write', entry);
+      } catch (error) {
+        console.warn('[Logger] Failed to write log to file:', error);
+      }
+    }
   }
 };
 
