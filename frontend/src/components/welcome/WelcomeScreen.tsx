@@ -28,6 +28,7 @@ interface ConfigOption {
   engine: string;
   context_length: number;
   model_family: string;
+  filename: string;
   size_category: string;
   recommendation?: {
     goodMatch: boolean;
@@ -264,8 +265,8 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
         engine: 'native',
         context_length: 8192,
         model_family: 'custom',
-        size_category: 'unknown',
-        recommended: false
+        filename: configPath.split('/').pop() || 'Unknown',
+        size_category: 'unknown'
       };
 
       // Add to configs list
@@ -413,9 +414,10 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
       if (a.recommendation?.goodMatch && !b.recommendation?.goodMatch) return -1;
       if (!a.recommendation?.goodMatch && b.recommendation?.goodMatch) return 1;
       
-      // Sort by traditional recommended flag
-      if (a.recommended && !b.recommended) return -1;
-      if (!a.recommended && b.recommended) return 1;
+      // Sort by recommendation score if available
+      const aScore = a.recommendation?.score || 0;
+      const bScore = b.recommendation?.score || 0;
+      if (aScore !== bScore) return bScore - aScore;
       
       // Sort by model family
       if (a.model_family !== b.model_family) {
@@ -458,8 +460,8 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
           engine: 'native',
           context_length: 8192,
           model_family: 'custom',
-          size_category: 'unknown',
-          recommended: false
+          filename: configPath.split('/').pop() || 'Unknown',
+          size_category: 'unknown'
         };
 
         // Add to configs list

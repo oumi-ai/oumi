@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Message, ConversationBranch, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats } from './types';
+import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats } from './types';
 
 interface ChatStore {
   // Current state
@@ -14,6 +14,10 @@ interface ChatStore {
   isLoading: boolean;
   isTyping: boolean;
   generationParams: GenerationParams;
+  
+  // Conversation management
+  conversations: Conversation[];
+  currentConversationId: string | null;
   
   // Settings and API management
   settings: AppSettings;
@@ -28,6 +32,13 @@ interface ChatStore {
   addBranch: (branch: ConversationBranch) => void;
   deleteBranch: (branchId: string) => void;
   setCurrentBranch: (branchId: string) => void;
+  
+  // Conversation actions
+  addConversation: (conversation: Conversation) => void;
+  updateConversation: (conversationId: string, updates: Partial<Conversation>) => void;
+  deleteConversation: (conversationId: string) => void;
+  setCurrentConversationId: (conversationId: string | null) => void;
+  loadConversation: (conversationId: string) => Promise<Conversation | null>;
   
   setLoading: (loading: boolean) => void;
   setTyping: (typing: boolean) => void;
@@ -78,7 +89,7 @@ export const useChatStore = create<ChatStore>()(
     (set, get) => ({
       // Initial state
       messages: [],
-          branches: [
+      branches: [
         {
           id: 'main',
           name: 'Main',
@@ -92,6 +103,10 @@ export const useChatStore = create<ChatStore>()(
       currentBranchId: 'main',
       isLoading: false,
       isTyping: false,
+      
+      // Conversation state
+      conversations: [],
+      currentConversationId: null,
       generationParams: {
         temperature: 0.7,
         maxTokens: 2048,
@@ -124,19 +139,71 @@ export const useChatStore = create<ChatStore>()(
 
       // Message actions
       addMessage: (message: Message) =>
-        set((state) => ({
-          messages: [...state.messages, message],
-        })),
+        set((state) => {
+          const newMessages = [...state.messages, message];
+          const updatedState = { messages: newMessages };
+          
+          // Auto-save: Update current conversation or create new one
+          if (state.settings.autoSave?.enabled !== false) {
+            const currentTime = new Date().toISOString();
+            
+            if (state.currentConversationId) {
+              // Update existing conversation
+              const updatedConversations = state.conversations.map((conv) =>
+                conv.id === state.currentConversationId
+                  ? { ...conv, messages: newMessages, updatedAt: currentTime }
+                  : conv
+              );
+              return { ...updatedState, conversations: updatedConversations };
+            } else {
+              // Create new conversation
+              const firstMessage = newMessages[0];
+              const title = firstMessage 
+                ? firstMessage.content.slice(0, 50) + (firstMessage.content.length > 50 ? '...' : '')
+                : 'New Conversation';
+              
+              const newConversation: Conversation = {
+                id: `conv-${Date.now()}`,
+                title,
+                messages: newMessages,
+                createdAt: currentTime,
+                updatedAt: currentTime,
+              };
+              
+              return {
+                ...updatedState,
+                conversations: [...state.conversations, newConversation],
+                currentConversationId: newConversation.id,
+              };
+            }
+          }
+          
+          return updatedState;
+        }),
 
       setMessages: (messages: Message[]) =>
         set({ messages }),
 
       updateMessage: (messageId: string, updates: Partial<Message>) =>
-        set((state) => ({
-          messages: state.messages.map((msg) =>
+        set((state) => {
+          const newMessages = state.messages.map((msg) =>
             msg.id === messageId ? { ...msg, ...updates } : msg
-          ),
-        })),
+          );
+          const updatedState = { messages: newMessages };
+          
+          // Auto-save: Update current conversation
+          if (state.settings.autoSave?.enabled !== false && state.currentConversationId) {
+            const currentTime = new Date().toISOString();
+            const updatedConversations = state.conversations.map((conv) =>
+              conv.id === state.currentConversationId
+                ? { ...conv, messages: newMessages, updatedAt: currentTime }
+                : conv
+            );
+            return { ...updatedState, conversations: updatedConversations };
+          }
+          
+          return updatedState;
+        }),
 
       deleteMessage: (messageId: string) =>
         set((state) => ({
@@ -165,6 +232,42 @@ export const useChatStore = create<ChatStore>()(
             isActive: branch.id === branchId,
           })),
         })),
+
+      // Conversation actions
+      addConversation: (conversation: Conversation) =>
+        set((state) => ({
+          conversations: [...state.conversations, conversation],
+        })),
+
+      updateConversation: (conversationId: string, updates: Partial<Conversation>) =>
+        set((state) => ({
+          conversations: state.conversations.map((conv) =>
+            conv.id === conversationId ? { ...conv, ...updates } : conv
+          ),
+        })),
+
+      deleteConversation: (conversationId: string) =>
+        set((state) => ({
+          conversations: state.conversations.filter((conv) => conv.id !== conversationId),
+          currentConversationId: state.currentConversationId === conversationId ? null : state.currentConversationId,
+        })),
+
+      setCurrentConversationId: (conversationId: string | null) =>
+        set({ currentConversationId: conversationId }),
+
+      loadConversation: async (conversationId: string) => {
+        const state = get();
+        const conversation = state.conversations.find((conv) => conv.id === conversationId);
+        if (conversation) {
+          // Load the conversation data into current state
+          set({
+            messages: conversation.messages,
+            currentConversationId: conversationId,
+          });
+          return conversation;
+        }
+        return null;
+      },
 
       // UI state actions
       setLoading: (loading: boolean) =>
@@ -347,6 +450,12 @@ export const useChatStore = create<ChatStore>()(
           ),
         },
         generationParams: state.generationParams,
+        // Persist conversation history
+        conversations: state.conversations,
+        currentConversationId: state.currentConversationId,
+        messages: state.messages,
+        branches: state.branches,
+        currentBranchId: state.currentBranchId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.settings) {

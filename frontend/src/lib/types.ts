@@ -22,6 +22,15 @@ export interface ConversationBranch {
   parentId?: string;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: Message[];
+  branches?: { [branchId: string]: { messages: Message[] } };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ModelConfigMetadata {
   display_name: string;
   description: string;

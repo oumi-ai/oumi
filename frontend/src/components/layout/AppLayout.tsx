@@ -12,9 +12,10 @@ import SystemChangeWarning from '@/components/monitoring/SystemChangeWarning';
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 import { useConversationCommand, COMMAND_CONFIGS } from '@/hooks/useConversationCommand';
-import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X } from 'lucide-react';
+import { Maximize2, Minimize2, Settings, RotateCcw, PanelLeft, PanelLeftClose, X, Search } from 'lucide-react';
 import SettingsScreen from '@/components/settings/SettingsScreen';
 import ChatHistorySidebar from '@/components/history/ChatHistorySidebar';
+import SearchHistoryWindow from '@/components/search/SearchHistoryWindow';
 import { ChatInterfaceRef } from '@/components/chat/ChatInterface';
 
 export default function AppLayout() {
@@ -23,23 +24,35 @@ export default function AppLayout() {
   const [showChatHistory, setShowChatHistory] = React.useState(false);
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showSearchHistory, setShowSearchHistory] = React.useState(false);
   const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
   const { executeCommand, isExecuting } = useConversationCommand();
   const chatInterfaceRef = React.useRef<ChatInterfaceRef | null>(null);
 
-  // Handle ESC key for settings modal
+  // Handle keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showSettings) {
-        setShowSettings(false);
+      // ESC key to close modals
+      if (event.key === 'Escape') {
+        if (showSearchHistory) {
+          setShowSearchHistory(false);
+        } else if (showSettings) {
+          setShowSettings(false);
+        }
+        return;
+      }
+      
+      // Ctrl+F to open search
+      if (event.ctrlKey && event.key === 'f') {
+        event.preventDefault(); // Prevent browser find
+        setShowSearchHistory(true);
+        return;
       }
     };
 
-    if (showSettings) {
-      document.addEventListener('keydown', handleKeyDown);
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [showSettings]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showSettings, showSearchHistory]);
 
   // Handle React ready state and menu messages from Electron
   React.useEffect(() => {
@@ -91,6 +104,11 @@ export default function AppLayout() {
         setShowSettings(true);
       };
 
+      const handleFind = () => {
+        console.log('🔧 [AppLayout] Opening Find/Search from menu');
+        setShowSearchHistory(true);
+      };
+
       const handleSaveConversation = async (filePath: string) => {
         console.log('🔧 [AppLayout] Save Conversation from menu:', filePath);
         try {
@@ -131,6 +149,7 @@ export default function AppLayout() {
         window.electronAPI.onMenuMessage('menu:clear-conversation', handleClearConversationMenu);
         window.electronAPI.onMenuMessage('menu:new-chat', handleNewChat);
         window.electronAPI.onMenuMessage('menu:preferences', handlePreferences);
+        window.electronAPI.onMenuMessage('menu:find', handleFind);
         window.electronAPI.onMenuMessage('menu:save-conversation', handleSaveConversation);
         window.electronAPI.onMenuMessage('menu:regenerate', handleRegenerateLastResponse);
         window.electronAPI.onMenuMessage('menu:stop-generation', handleStopGeneration);
@@ -147,6 +166,7 @@ export default function AppLayout() {
           window.electronAPI.removeMenuListener('menu:clear-conversation', handleClearConversationMenu);
           window.electronAPI.removeMenuListener('menu:new-chat', handleNewChat);
           window.electronAPI.removeMenuListener('menu:preferences', handlePreferences);
+          window.electronAPI.removeMenuListener('menu:find', handleFind);
           window.electronAPI.removeMenuListener('menu:save-conversation', handleSaveConversation);
           window.electronAPI.removeMenuListener('menu:regenerate', handleRegenerateLastResponse);
           window.electronAPI.removeMenuListener('menu:stop-generation', handleStopGeneration);
@@ -260,6 +280,15 @@ export default function AppLayout() {
 
           {/* Right section */}
           <div className="flex items-center gap-2">
+            {/* Search & History */}
+            <button
+              onClick={() => setShowSearchHistory(true)}
+              className="p-2 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+              title="Search & History (Ctrl+F)"
+            >
+              <Search size={18} />
+            </button>
+
             {/* Settings */}
             <button
               onClick={() => setShowSettings(true)}
@@ -349,6 +378,16 @@ export default function AppLayout() {
           </div>
         </div>
       </div>
+
+      {/* Search & History Window */}
+      <SearchHistoryWindow
+        isOpen={showSearchHistory}
+        onClose={() => setShowSearchHistory(false)}
+        onNavigateToMessage={(conversationId, messageId, branchId) => {
+          // TODO: Implement navigation to specific message
+          console.log('Navigate to message:', { conversationId, messageId, branchId });
+        }}
+      />
 
       {/* Settings Modal */}
       {showSettings && (
