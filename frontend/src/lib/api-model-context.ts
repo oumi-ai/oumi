@@ -78,7 +78,42 @@ export function getApiModelContextLength(modelName: string, engine: string): Api
     return { contextLength: 128000, isDynamic: true, notes: 'Cohere API (estimated)' };
   }
 
-  // Mistral AI Models
+  // Together API Models
+  if (engineLower === 'together' || engineLower.includes('together')) {
+    // Together hosts various models with different context lengths
+    if (modelLower.includes('llama-3') || modelLower.includes('llama3')) {
+      return { contextLength: 8192, notes: 'Llama 3 via Together' };
+    }
+    if (modelLower.includes('mixtral')) {
+      return { contextLength: 32768, notes: 'Mixtral via Together' };
+    }
+    return { contextLength: 32768, isDynamic: true, notes: 'Together API (estimated)' };
+  }
+
+  // DeepSeek Models  
+  if (engineLower === 'deepseek' || engineLower.includes('deepseek')) {
+    if (modelLower.includes('v3')) {
+      return { contextLength: 128000, notes: 'DeepSeek V3' };
+    }
+    return { contextLength: 64000, isDynamic: true, notes: 'DeepSeek API (estimated)' };
+  }
+
+  // SambaNova Models
+  if (engineLower === 'sambanova' || engineLower.includes('sambanova')) {
+    return { contextLength: 128000, isDynamic: true, notes: 'SambaNova API (estimated)' };
+  }
+
+  // Parasail Models  
+  if (engineLower === 'parasail' || engineLower.includes('parasail')) {
+    return { contextLength: 32768, isDynamic: true, notes: 'Parasail API (estimated)' };
+  }
+
+  // Lambda AI Models
+  if (engineLower === 'lambda' || engineLower.includes('lambda')) {
+    return { contextLength: 32768, isDynamic: true, notes: 'Lambda AI API (estimated)' };
+  }
+
+  // Mistral AI Models (if supported via API)
   if (engineLower.includes('mistral')) {
     if (modelLower.includes('large')) {
       return { contextLength: 128000, notes: 'Mistral Large' };
@@ -95,16 +130,30 @@ export function getApiModelContextLength(modelName: string, engine: string): Api
 
 /**
  * Check if a model is an API-based model (doesn't use local resources)
+ * Based on Oumi's InferenceEngineType definitions
  */
 export function isApiBasedModel(engine: string): boolean {
   const engineLower = engine.toLowerCase();
   
-  return engineLower.includes('openai') ||
+  // Oumi's API-based inference engines that don't require local resources
+  return engineLower === 'openai' ||
+         engineLower === 'anthropic' ||
+         engineLower === 'together' ||
+         engineLower === 'deepseek' ||
+         engineLower === 'sambanova' ||
+         engineLower === 'parasail' ||
+         engineLower === 'lambda' ||
+         engineLower === 'google_gemini' ||
+         engineLower === 'gemini' ||
+         engineLower === 'google_vertex' ||
+         engineLower === 'vertex' ||
+         // Legacy/partial matches for backward compatibility
+         engineLower.includes('openai') ||
          engineLower.includes('anthropic') ||
          engineLower.includes('google') ||
          engineLower.includes('gemini') ||
-         engineLower.includes('cohere') ||
-         engineLower.includes('mistral') ||
+         engineLower.includes('together') ||
+         engineLower.includes('deepseek') ||
          engineLower === 'api'; // Generic API engine
 }
 

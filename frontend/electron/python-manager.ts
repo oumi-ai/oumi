@@ -259,20 +259,27 @@ export class PythonServerManager {
     log.info(`[startServerProcess] Full command: ${fullCommand}`);
     log.info(`[startServerProcess] Starting Python server on port ${this.config.port}`);
 
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+      // Get environment with API keys
+      const cleanEnvironment = await this.getCleanEnvironment();
+      
+      // Log environment variables for debugging (but not the values for security)
+      const apiKeyEnvVars = Object.keys(cleanEnvironment).filter(key => key.includes('API_KEY'));
+      log.info(`[startServerProcess] Environment contains API key vars: ${apiKeyEnvVars.join(', ')}`);
+
       // Use shell execution to handle environment activation
       if (process.platform === 'win32' && !this.isDevelopment) {
         // Windows production: direct execution with clean environment
         this.serverProcess = spawn('cmd', ['/c', fullCommand], {
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: this.getCleanEnvironment(),
+          env: cleanEnvironment,
           cwd: this.getOumiRootPath()  // Set working directory to oumi root
         });
       } else {
         // Unix-like or development: bash execution with clean environment
         this.serverProcess = spawn('bash', ['-c', fullCommand], {
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: this.getCleanEnvironment(),
+          env: cleanEnvironment,
           cwd: this.getOumiRootPath()  // Set working directory to oumi root
         });
       }
@@ -517,7 +524,45 @@ export class PythonServerManager {
    */
   private async buildPythonCommand(oumiArgs: string[]): Promise<string> {
     // Always use standalone environment (bundled Python + venv)
-    return this.buildStandaloneCommand(oumiArgs);
+    const baseCommand = this.buildStandaloneCommand(oumiArgs);
+    
+    // Add API key environment variables directly to the command
+    const envVarsCommand = await this.buildEnvironmentExportsFromCleanEnv();
+    
+    if (envVarsCommand) {
+      return `${envVarsCommand} && ${baseCommand}`;
+    }
+    
+    return baseCommand;
+  }
+
+  /**
+   * Build environment variables export command using the existing getCleanEnvironment function
+   */
+  private async buildEnvironmentExportsFromCleanEnv(): Promise<string> {
+    try {
+      const cleanEnv = await this.getCleanEnvironment();
+      const exports: string[] = [];
+      
+      // Find all API key environment variables and export them
+      for (const [key, value] of Object.entries(cleanEnv)) {
+        if (key.includes('API_KEY') && value) {
+          // Escape the value to handle special characters in shell
+          const escapedValue = value.replace(/'/g, "'\"'\"'");
+          exports.push(`export ${key}='${escapedValue}'`);
+        }
+      }
+      
+      if (exports.length > 0) {
+        log.info(`[buildEnvironmentExportsFromCleanEnv] Built export command with ${exports.length} API keys`);
+        return exports.join(' && ');
+      }
+      
+      return '';
+    } catch (error) {
+      log.error('[buildEnvironmentExportsFromCleanEnv] Failed to build environment exports:', error);
+      return '';
+    }
   }
 
   /**
@@ -621,7 +666,7 @@ export class PythonServerManager {
   /**
    * Get clean environment for Python process (without dev environment variables)
    */
-  private getCleanEnvironment(): NodeJS.ProcessEnv {
+  private async getCleanEnvironment(): Promise<NodeJS.ProcessEnv> {
     // Start with minimal environment
     const cleanEnv: NodeJS.ProcessEnv = {
       OUMI_LOG_LEVEL: 'INFO',
@@ -636,6 +681,57 @@ export class PythonServerManager {
     if (process.platform === 'darwin') {
       if (process.env.LC_ALL) cleanEnv.LC_ALL = process.env.LC_ALL;
       if (process.env.LANG) cleanEnv.LANG = process.env.LANG;
+    }
+
+    // Add API keys from secure storage for inference engines
+    try {
+      // Import the api key manager here to avoid circular dependencies
+      const { apiKeyManager } = await import('./api-key-manager');
+      
+      // Get all stored API keys with their values and add them to environment
+      const apiKeys = apiKeyManager.getAllKeysWithValues();
+      
+      // Map provider names to environment variable names
+      const envVarMap: Record<string, string> = {
+        'openai': 'OPENAI_API_KEY',
+        'anthropic': 'ANTHROPIC_API_KEY',
+        'google': 'GOOGLE_API_KEY',
+        'gemini': 'GOOGLE_API_KEY',
+        'together': 'TOGETHER_API_KEY',
+        'deepseek': 'DEEPSEEK_API_KEY',
+        'sambanova': 'SAMBANOVA_API_KEY',
+        'parasail': 'PARASAIL_API_KEY',
+        'lambda': 'LAMBDA_API_KEY',
+        'perplexity': 'PERPLEXITY_API_KEY',
+        'fireworks': 'FIREWORKS_API_KEY',
+        'groq': 'GROQ_API_KEY',
+        'azure': 'AZURE_OPENAI_KEY',
+        'cohere': 'COHERE_API_KEY',
+        'mistral': 'MISTRAL_API_KEY'
+      };
+
+      // Add API keys to environment if they exist
+      for (const [provider, key] of Object.entries(apiKeys)) {
+        const envVar = envVarMap[provider.toLowerCase()];
+        if (envVar && key) {
+          cleanEnv[envVar] = key;
+          // Only log first few characters for security
+          const maskedKey = key.substring(0, 6) + '***';
+          log.info(`[getCleanEnvironment] Added ${envVar}=${maskedKey} for provider: ${provider}`);
+        }
+      }
+      
+      if (Object.keys(apiKeys).length > 0) {
+        log.info(`[getCleanEnvironment] Successfully loaded ${Object.keys(apiKeys).length} API keys for Python backend`);
+        // Log which environment variables were set
+        const envVarsSet = Object.keys(apiKeys).map(p => envVarMap[p.toLowerCase()]).filter(Boolean);
+        log.info(`[getCleanEnvironment] Environment variables set: ${envVarsSet.join(', ')}`);
+      } else {
+        log.warn('[getCleanEnvironment] No API keys found in secure storage - API-based inference will not work');
+      }
+    } catch (error) {
+      log.error('[getCleanEnvironment] Failed to load API keys from secure storage:', error);
+      // Continue without API keys - some inference engines don't need them
     }
 
     // Explicitly exclude dev environment variables that could interfere
@@ -780,20 +876,22 @@ export class PythonServerManager {
       log.info(`Temp input path: ${tempInputPath}`);
       log.info(`Temp output path: ${tempOutputPath}`);
 
-      return new Promise((resolve, reject) => {
+      return new Promise(async (resolve, reject) => {
+        // Get environment with API keys for testing
+        const cleanEnvironment = await this.getCleanEnvironment();
 
         // Use appropriate shell for the platform
         let testProcess: ChildProcess;
         if (process.platform === 'win32') {
           testProcess = spawn('cmd', ['/c', testCommand], {
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: this.getCleanEnvironment(),
+            env: cleanEnvironment,
             cwd: this.getOumiRootPath()
           });
         } else {
           testProcess = spawn('bash', ['-c', testCommand], {
             stdio: ['pipe', 'pipe', 'pipe'],
-            env: this.getCleanEnvironment(),
+            env: cleanEnvironment,
             cwd: this.getOumiRootPath()
           });
         }

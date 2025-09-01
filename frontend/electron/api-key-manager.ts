@@ -249,7 +249,13 @@ class ApiKeyManager {
       const envVarMap: Record<string, string> = {
         'openai': 'OPENAI_API_KEY',
         'anthropic': 'ANTHROPIC_API_KEY', 
-        'google': 'GOOGLE_API_KEY'
+        'google': 'GOOGLE_API_KEY',
+        'gemini': 'GOOGLE_API_KEY',
+        'together': 'TOGETHER_API_KEY',
+        'deepseek': 'DEEPSEEK_API_KEY',
+        'sambanova': 'SAMBANOVA_API_KEY',
+        'parasail': 'PARASAIL_API_KEY',
+        'lambda': 'LAMBDA_API_KEY'
       };
 
       const envVar = envVarMap[providerId];
@@ -323,6 +329,71 @@ except Exception as e:
     // This would check if there are keys stored in the old format
     // Implementation would depend on how keys were previously stored
     return false; // Placeholder
+  }
+
+  /**
+   * Get all stored API keys with their values (for backend environment setup)
+   * WARNING: This exposes key values - use only for secure backend communication
+   */
+  public getAllKeysWithValues(): Record<string, string> {
+    try {
+      const keys: Record<string, string> = {};
+      
+      log.info('[ApiKeyManager] getAllKeysWithValues - checking stored data...');
+      
+      // Try both approaches: direct store access and using the existing getApiKey method
+      const storeData = this.encryptedStore.store;
+      log.info(`[ApiKeyManager] Store data keys:`, Object.keys(storeData));
+      
+      // Approach 1: Direct store iteration (current approach)
+      for (const [key, value] of Object.entries(storeData)) {
+        log.info(`[ApiKeyManager] Checking store key: ${key}`);
+        if (key.startsWith('keys.')) {
+          const providerId = key.replace('keys.', '');
+          const stored = value as any;
+          
+          log.info(`[ApiKeyManager] Found key for provider ${providerId}:`, {
+            hasKeyValue: !!stored?.keyValue,
+            isActive: stored?.isActive,
+            isValid: stored?.isValid,
+            keyLength: stored?.keyValue ? stored.keyValue.length : 0
+          });
+          
+          if (stored && stored.keyValue) {
+            // Include key even if isActive is not set (might be undefined/false)
+            // We'll make isActive optional for now to debug the issue
+            if (stored.isActive !== false) { // Include if isActive is true or undefined
+              keys[providerId] = stored.keyValue;
+              log.info(`[ApiKeyManager] Including key for provider: ${providerId}`);
+            } else {
+              log.warn(`[ApiKeyManager] Excluding inactive key for provider: ${providerId}`);
+            }
+          } else {
+            log.warn(`[ApiKeyManager] Invalid key data for provider ${providerId}`);
+          }
+        }
+      }
+      
+      // Approach 2: Try using the existing getApiKey method for known providers
+      const knownProviders = ['openai', 'anthropic', 'google', 'gemini', 'together', 'deepseek'];
+      log.info(`[ApiKeyManager] Trying getApiKey method for known providers...`);
+      
+      for (const providerId of knownProviders) {
+        if (!keys[providerId]) { // Only if not already found
+          const keyConfig = this.getApiKey(providerId);
+          if (keyConfig && keyConfig.keyValue) {
+            keys[providerId] = keyConfig.keyValue;
+            log.info(`[ApiKeyManager] Found key via getApiKey for provider: ${providerId}`);
+          }
+        }
+      }
+      
+      log.info(`[ApiKeyManager] getAllKeysWithValues returning ${Object.keys(keys).length} keys: ${Object.keys(keys).join(', ')}`);
+      return keys;
+    } catch (error) {
+      log.error('[ApiKeyManager] Failed to retrieve all API keys:', error);
+      return {};
+    }
   }
 
   /**

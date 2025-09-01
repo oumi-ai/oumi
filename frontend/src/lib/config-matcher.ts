@@ -346,15 +346,21 @@ export class ConfigMatcher {
 
   /**
    * Check if an engine is API-based (doesn't use local resources)
+   * Based on Oumi's InferenceEngineType definitions
    */
   private static isApiBasedEngine(engineLower: string): boolean {
-    return engineLower.includes('openai') ||
-           engineLower.includes('anthropic') ||
-           engineLower.includes('google') ||
-           engineLower.includes('gemini') ||
-           engineLower.includes('cohere') ||
-           engineLower.includes('mistral') ||
-           engineLower === 'api';
+    // Oumi's API-based inference engines that don't require local resources
+    return engineLower === 'openai' ||
+           engineLower === 'anthropic' ||
+           engineLower === 'together' ||
+           engineLower === 'deepseek' ||
+           engineLower === 'sambanova' ||
+           engineLower === 'parasail' ||
+           engineLower === 'lambda' ||
+           engineLower === 'google_gemini' ||
+           engineLower === 'gemini' ||
+           engineLower === 'google_vertex' ||
+           engineLower === 'vertex'
   }
 
   /**
