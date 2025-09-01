@@ -17,8 +17,9 @@ const GITHUB_API_URL = 'https://api.github.com/repos/astral-sh/python-build-stan
 const DISTRIBUTIONS = {
   'darwin-x64': `cpython-${PYTHON_VERSION}.*-x86_64-apple-darwin-install_only.tar.gz`,
   'darwin-arm64': `cpython-${PYTHON_VERSION}.*-aarch64-apple-darwin-install_only.tar.gz`,  
-  'win32-x64': `cpython-${PYTHON_VERSION}.*-x86_64-pc-windows-msvc-shared-install_only.tar.gz`,
-  'linux-x64': `cpython-${PYTHON_VERSION}.*-x86_64-unknown-linux-gnu-install_only.tar.gz`
+  'win32-x64': `cpython-${PYTHON_VERSION}.*-x86_64-pc-windows-msvc-install_only.tar.gz`,
+  'linux-x64': `cpython-${PYTHON_VERSION}.*-x86_64-unknown-linux-gnu-install_only.tar.gz`,
+  'linux-arm64': `cpython-${PYTHON_VERSION}.*-aarch64-unknown-linux-gnu-install_only.tar.gz`
 };
 
 const FRONTEND_DIR = path.resolve(__dirname, '..');
@@ -164,7 +165,7 @@ function getCurrentPlatform() {
   } else if (platform === 'win32') {
     return 'win32-x64';
   } else if (platform === 'linux') {
-    return 'linux-x64';
+    return arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
   } else {
     throw new Error(`Unsupported platform: ${platform}-${arch}`);
   }
@@ -228,6 +229,29 @@ function findMatchingAsset(assets, platform) {
 }
 
 /**
+ * Check if platform distribution already exists and is valid
+ */
+function isPlatformDistributionValid(platform) {
+  const platformDir = path.join(PYTHON_DIST_DIR, platform);
+  
+  if (!fs.existsSync(platformDir)) {
+    return false;
+  }
+  
+  // Check if the platform directory has the expected Python structure
+  let pythonPath;
+  if (platform.startsWith('win32')) {
+    pythonPath = path.join(platformDir, 'python.exe');
+  } else {
+    pythonPath = path.join(platformDir, 'bin', 'python3');
+  }
+  
+  const isValid = fs.existsSync(pythonPath);
+  console.log(`📋 ${platform} distribution: ${isValid ? '✅ Valid' : '❌ Invalid'}`);
+  return isValid;
+}
+
+/**
  * Download and setup Python distribution for a platform
  */
 async function setupPlatformDistribution(platform, asset, targetOnly = false) {
@@ -237,7 +261,13 @@ async function setupPlatformDistribution(platform, asset, targetOnly = false) {
   const downloadPath = path.join(PYTHON_DIST_DIR, filename);
   const platformDir = path.join(PYTHON_DIST_DIR, platform);
   
-  // Clean existing platform directory
+  // Check if already exists and is valid
+  if (isPlatformDistributionValid(platform)) {
+    console.log(`⏭️  Skipping ${platform} - distribution already exists and is valid`);
+    return;
+  }
+  
+  // Clean existing platform directory if invalid
   if (fs.existsSync(platformDir)) {
     console.log(`🧹 Cleaning existing ${platform} distribution...`);
     fs.rmSync(platformDir, { recursive: true, force: true });
@@ -286,11 +316,18 @@ async function setupPlatformDistribution(platform, asset, targetOnly = false) {
 async function main() {
   try {
     // Create python-dist directory
-    if (fs.existsSync(PYTHON_DIST_DIR)) {
+    fs.mkdirSync(PYTHON_DIST_DIR, { recursive: true });
+    
+    // Only clean if explicitly requested or if directory seems corrupted
+    const shouldClean = process.argv.includes('--clean') || 
+                       (fs.existsSync(PYTHON_DIST_DIR) && 
+                        !fs.existsSync(path.join(PYTHON_DIST_DIR, 'distribution-info.json')));
+    
+    if (shouldClean && fs.existsSync(PYTHON_DIST_DIR)) {
       console.log('🧹 Cleaning existing python-dist directory...');
       fs.rmSync(PYTHON_DIST_DIR, { recursive: true, force: true });
+      fs.mkdirSync(PYTHON_DIST_DIR, { recursive: true });
     }
-    fs.mkdirSync(PYTHON_DIST_DIR, { recursive: true });
     
     // Get latest release
     console.log('🔍 Fetching latest python-build-standalone release...');
@@ -310,7 +347,13 @@ async function main() {
       platforms.push(...Object.keys(DISTRIBUTIONS).filter(p => p !== currentPlatform));
     }
     
-    console.log(`📦 Will download distributions for: ${platforms.join(', ')}`);
+    console.log(`📦 Will check/download distributions for: ${platforms.join(', ')}`);
+    
+    // Check existing distributions first
+    console.log('\n🔍 Checking existing distributions...');
+    for (const platform of platforms) {
+      isPlatformDistributionValid(platform);
+    }
     
     // Download and setup each platform
     for (const platform of platforms) {

@@ -2,7 +2,11 @@
   "name": "chatterley",
   "version": "0.1.0",
   "description": "Chatterley - A cross-platform desktop application for conversing with AI models, powered by the Oumi AI platform",
-  "author": "Benjamin Feuer",
+  "author": {
+    "name": "Benjamin Feuer",
+    "email": "penfever@gmail.com"
+  },
+  "homepage": "https://oumi.ai",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -23,7 +27,7 @@
     "electron:pack": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder",
     "electron:dist": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --publish=never",
     "electron:publish": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --publish=always",
-    "electron:build:mac": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --mac",
+    "electron:build:mac": "npm run prepare-python && npm run build:electron && npm run electron:compile && node scripts/cleanup-dmg.js && electron-builder --mac",
     "electron:build:win": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --win",
     "electron:build:linux": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --linux",
     "electron:build:all": "npm run prepare-python && npm run build:electron && npm run electron:compile && electron-builder --mac --win --linux",
@@ -88,6 +92,9 @@
       "output": "dist/packages",
       "buildResources": "build"
     },
+    "nodeIntegration": true,
+    "nodeIntegrationInWorker": true,
+    "nodeIntegrationInSubFrames": true,
     "files": [
       "dist/electron/**/*",
       "out/**/*",
@@ -108,15 +115,6 @@
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraResources": [
-      {
-        "from": "python-dist/",
-        "to": "python-dist/",
-        "filter": [
-          "**/*",
-          "!**/*.tar.gz",
-          "!**/temp-*"
-        ]
-      },
       {
         "from": "../src/oumi/",
         "to": "python/oumi/",
@@ -149,13 +147,21 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
+      "extraResources": [
+        {
+          "from": "python-dist/darwin-${arch}/",
+          "to": "python-dist/",
+          "filter": ["**/*"]
+        }
+      ],
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": "x64"
+        },
+        {
+          "target": "dmg", 
+          "arch": "arm64"
         },
         {
           "target": "zip",
@@ -180,10 +186,20 @@
         }
       ],
       "title": "Chatterley ${version}",
-      "format": "ULFO"
+      "format": "ULFO",
+      "window": {
+        "width": 540,
+        "height": 380
+      }
     },
     "win": {
-      "icon": "assets/icon.ico",
+      "extraResources": [
+        {
+          "from": "python-dist/win32-x64/",
+          "to": "python-dist/",
+          "filter": ["**/*"]
+        }
+      ],
       "target": [
         {
           "target": "nsis",
@@ -198,28 +214,45 @@
           ]
         }
       ],
-      "verifyUpdateCodeSignature": false
+      "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "Chatterley-${version}-win-${arch}.${ext}",
+      "signAndEditExecutable": false
     },
     "linux": {
       "icon": "assets/icon.png",
+      "maintainer": "Benjamin Feuer <penfever@gmail.com>",
+      "extraResources": [
+        {
+          "from": "python-dist/linux-${arch}/",
+          "to": "python-dist/",
+          "filter": ["**/*"]
+        }
+      ],
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
+          "arch": "x64"
+        },
+        {
+          "target": "AppImage",
+          "arch": "arm64"
         },
         {
           "target": "deb",
-          "arch": [
-            "x64"
-          ]
+          "arch": "x64"
+        },
+        {
+          "target": "deb",
+          "arch": "arm64"
         },
         {
           "target": "rpm",
-          "arch": [
-            "x64"
-          ]
+          "arch": "x64"
+        },
+        {
+          "target": "rpm",
+          "arch": "arm64"
         }
       ],
       "category": "Office"
@@ -229,9 +262,6 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico",
       "deleteAppDataOnUninstall": true,
       "runAfterFinish": true,
       "shortcutName": "Chatterley"

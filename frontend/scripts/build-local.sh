@@ -37,7 +37,7 @@ fi
 echo "⚙️ Generating static configs..."
 npm run generate-configs
 
-# Build based on platform
+# Download Python distributions based on platform
 case "$PLATFORM" in
     "mac" | "darwin")
         echo "🍎 Building for macOS..."
@@ -53,7 +53,14 @@ case "$PLATFORM" in
         ;;
     "all")
         echo "🌍 Building for all platforms..."
-        npm run dist:all
+        echo "📦 Downloading Python distributions for all platforms..."
+        npm run download-python -- --all-platforms
+        echo "🍎 Building macOS packages..."
+        npm run dist:mac
+        echo "🪟 Building Windows packages..."
+        npm run dist:win
+        echo "🐧 Building Linux packages..."
+        npm run dist:linux
         ;;
     *)
         echo "❌ Unknown platform: $PLATFORM"
