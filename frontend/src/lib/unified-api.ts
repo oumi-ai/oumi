@@ -647,6 +647,73 @@ class UnifiedApiClient {
     }
   }
 
+  // System detection methods
+  async getSystemCapabilities(): Promise<any> {
+    if (this.isElectron()) {
+      return this.electronClient.getSystemCapabilities();
+    } else {
+      // Return null for web version - capabilities detection requires system access
+      return null;
+    }
+  }
+
+  async getSystemInfo(): Promise<any> {
+    if (this.isElectron()) {
+      return this.electronClient.getSystemInfo();
+    } else {
+      return null;
+    }
+  }
+
+  // Secure API Key management (Electron only)
+  async storeApiKey(providerId: string, keyValue: string, isActive: boolean = true): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.storeApiKey(providerId, keyValue, isActive);
+    } else {
+      return { success: false, message: 'API key storage only available in Electron version' };
+    }
+  }
+
+  async getApiKey(providerId: string): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.getApiKey(providerId);
+    } else {
+      return { success: false, message: 'API key access only available in Electron version' };
+    }
+  }
+
+  async getAllApiKeys(): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.getAllApiKeys();
+    } else {
+      return { success: false, message: 'API key access only available in Electron version' };
+    }
+  }
+
+  async removeApiKey(providerId: string): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.removeApiKey(providerId);
+    } else {
+      return { success: false, message: 'API key removal only available in Electron version' };
+    }
+  }
+
+  async updateApiKeyStatus(providerId: string, updates: any): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.updateApiKeyStatus(providerId, updates);
+    } else {
+      return { success: false, message: 'API key updates only available in Electron version' };
+    }
+  }
+
+  async validateApiKeyWithOumi(providerId: string): Promise<ApiResponse> {
+    if (this.isElectron()) {
+      return this.electronClient.validateApiKeyWithOumi(providerId);
+    } else {
+      return { success: false, message: 'API key validation only available in Electron version' };
+    }
+  }
+
   async getEnvironmentSystemInfo(): Promise<any> {
     if (this.isElectron()) {
       // First try the full environment system info (requires Oumi backend)

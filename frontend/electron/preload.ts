@@ -92,6 +92,19 @@ export interface ElectronAPI {
     getInfo: () => Promise<any>;
   };
 
+  // API Key management
+  apiKeys: {
+    store: (config: any) => Promise<any>;
+    get: (providerId: string) => Promise<any>;
+    getAll: () => Promise<any>;
+    remove: (providerId: string) => Promise<any>;
+    updateStatus: (providerId: string, updates: any) => Promise<any>;
+    validateWithOumi: (providerId: string) => Promise<any>;
+    testWithConfig: (providerId: string, configPath: string) => Promise<any>;
+    checkMigrationNeeded: () => Promise<any>;
+    clearAll: () => Promise<any>;
+  };
+
   // Config discovery
   config: {
     discoverBundled: () => Promise<any>;
@@ -254,6 +267,19 @@ const electronAPI: ElectronAPI = {
   system: {
     getCapabilities: () => ipcRenderer.invoke('system:get-capabilities'),
     getInfo: () => ipcRenderer.invoke('system:get-info')
+  },
+
+  // API Key management
+  apiKeys: {
+    store: (config) => ipcRenderer.invoke('apikey:store', config),
+    get: (providerId) => ipcRenderer.invoke('apikey:get', providerId),
+    getAll: () => ipcRenderer.invoke('apikey:get-all'),
+    remove: (providerId) => ipcRenderer.invoke('apikey:remove', providerId),
+    updateStatus: (providerId, updates) => ipcRenderer.invoke('apikey:update-status', providerId, updates),
+    validateWithOumi: (providerId) => ipcRenderer.invoke('apikey:validate-with-oumi', providerId),
+    testWithConfig: (providerId, configPath) => ipcRenderer.invoke('apikey:test-with-config', providerId, configPath),
+    checkMigrationNeeded: () => ipcRenderer.invoke('apikey:check-migration-needed'),
+    clearAll: () => ipcRenderer.invoke('apikey:clear-all')
   },
 
   // Config discovery

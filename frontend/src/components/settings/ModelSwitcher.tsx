@@ -9,6 +9,7 @@ import { Bot, ChevronDown, RefreshCw, Check, AlertTriangle, Search, X, Zap, Brai
 import { useChatStore } from '@/lib/store';
 import apiClient from '@/lib/unified-api';
 import { ModelConfigMetadata } from '@/lib/types';
+import { formatContextLength } from '@/lib/api-model-context';
 
 interface ConfigOption {
   id: string;
@@ -484,7 +485,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
                                   {config.model_name}
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  Context: {config.context_length.toLocaleString()} tokens • {config.filename}
+                                  Context: {formatContextLength(config.context_length, config.engine)} tokens • {config.filename}
                                 </div>
                               </div>
                             </div>
@@ -513,7 +514,7 @@ export default function ModelSwitcher({ className = '' }: ModelSwitcherProps) {
           <div className="text-center p-2 bg-muted rounded">
             <div className="text-xs text-muted-foreground">Context Length</div>
             <div className="font-mono text-sm text-foreground">
-              {currentModelInfo.contextLength.toLocaleString()}
+              {formatContextLength(currentModelInfo.contextLength, currentModelInfo.engine)}
             </div>
           </div>
           <div className="text-center p-2 bg-muted rounded">

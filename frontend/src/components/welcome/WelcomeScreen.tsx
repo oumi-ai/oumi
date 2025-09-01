@@ -18,6 +18,7 @@ import { HuggingFaceService } from '@/lib/huggingface-service';
 import { useChatStore } from '@/lib/store';
 import { logger } from '@/lib/logger';
 import SettingsScreen from '@/components/settings/SettingsScreen';
+import { formatContextLength } from '@/lib/api-model-context';
 
 interface ConfigOption {
   id: string;
@@ -1042,7 +1043,7 @@ export default function WelcomeScreen({ onConfigSelected, systemCapabilities }: 
                     )}
 
                     <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                      <span>Context: {config.context_length.toLocaleString()}</span>
+                      <span>Context: {formatContextLength(config.context_length, config.engine)}</span>
                       <span className="capitalize">{config.model_family}</span>
                     </div>
 

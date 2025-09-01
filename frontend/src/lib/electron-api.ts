@@ -159,7 +159,19 @@ class ElectronApiClient {
     if (!this.isElectron) {
       throw new Error('Config access only available in Electron app');
     }
-    return window.electronAPI.chat.getConfigs();
+    
+    // First try to get configs from Python backend if server is running
+    try {
+      const response = await window.electronAPI.chat.getConfigs();
+      if (response.success && response.data?.configs?.length > 0) {
+        return response;
+      }
+    } catch (error) {
+      console.debug('Python backend config access failed, falling back to bundled discovery');
+    }
+    
+    // Fallback to bundled config discovery (direct filesystem access)
+    return window.electronAPI.config.discoverBundled();
   }
 
   public async getModels(): Promise<ApiResponse<{ data: Array<{ id: string; config_metadata?: any }> }>> {
@@ -182,6 +194,74 @@ class ElectronApiClient {
       throw new Error('System detection only available in Electron app');
     }
     return window.electronAPI.system.getInfo();
+  }
+
+  // Secure API Key management methods
+  public async storeApiKey(providerId: string, keyValue: string, isActive: boolean = true): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key storage only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.store({
+      providerId,
+      keyValue,
+      isActive
+    });
+  }
+
+  public async getApiKey(providerId: string): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key access only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.get(providerId);
+  }
+
+  public async getAllApiKeys(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key access only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.getAll();
+  }
+
+  public async removeApiKey(providerId: string): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key removal only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.remove(providerId);
+  }
+
+  public async updateApiKeyStatus(providerId: string, updates: any): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key updates only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.updateStatus(providerId, updates);
+  }
+
+  public async validateApiKeyWithOumi(providerId: string): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key validation only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.validateWithOumi(providerId);
+  }
+
+  public async testApiKeyWithConfig(providerId: string, configPath: string): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key testing only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.testWithConfig(providerId, configPath);
+  }
+
+  public async checkApiKeyMigrationNeeded(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key migration check only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.checkMigrationNeeded();
+  }
+
+  public async clearAllApiKeys(): Promise<ApiResponse> {
+    if (!this.isElectron) {
+      throw new Error('API key clearing only available in Electron app');
+    }
+    return window.electronAPI.apiKeys.clearAll();
   }
 
   public async getBranches(sessionId: string = 'default'): Promise<ApiResponse<{ 

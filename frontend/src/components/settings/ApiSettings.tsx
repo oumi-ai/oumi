@@ -4,7 +4,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   Key, 
   Eye, 
@@ -25,6 +25,7 @@ import { useChatStore } from '@/lib/store';
 import { API_PROVIDERS, getAllProviders, formatCost, calculateCost } from '@/lib/api-providers';
 import { apiValidationService } from '@/lib/api-validation';
 import { ApiProvider, ApiKeyConfig, ApiValidationResult } from '@/lib/types';
+import apiClient from '@/lib/unified-api';
 
 interface ApiKeyInputProps {
   provider: ApiProvider;
@@ -44,8 +45,34 @@ function ApiKeyInput({ provider, existingKey, onSave, onCancel, onRemove }: ApiK
     setIsValidating(true);
     
     try {
-      const result = await apiValidationService.validateKey(provider.id, key);
-      return result;
+      // First, perform standard format validation
+      const basicResult = await apiValidationService.validateKey(provider.id, key);
+      
+      // If running in Electron, also try Oumi validation for supported providers
+      if (apiClient.isElectron() && basicResult.isValid) {
+        try {
+          // Store the key temporarily for Oumi validation
+          await apiClient.storeApiKey(provider.id, key, false); // Store as inactive initially
+          
+          // Validate with Oumi
+          const oumiResult = await apiClient.validateApiKeyWithOumi(provider.id);
+          if (oumiResult.success && oumiResult.data) {
+            return {
+              isValid: oumiResult.data.isValid,
+              error: oumiResult.data.error,
+              details: {
+                ...basicResult.details,
+                ...oumiResult.data.details,
+                validatedWith: 'Oumi + Direct API'
+              }
+            };
+          }
+        } catch (oumiError) {
+          console.debug('Oumi validation failed, using basic validation:', oumiError);
+        }
+      }
+      
+      return basicResult;
     } catch (error) {
       return {
         isValid: false,
@@ -63,7 +90,19 @@ function ApiKeyInput({ provider, existingKey, onSave, onCancel, onRemove }: ApiK
     setValidationResult(result);
     
     if (result.isValid) {
-      onSave(keyValue);
+      // If in Electron, use secure storage; otherwise fall back to old method
+      if (apiClient.isElectron()) {
+        try {
+          await apiClient.storeApiKey(provider.id, keyValue, true); // Store as active
+          onSave(keyValue); // Still call onSave for UI updates
+        } catch (error) {
+          console.error('Failed to store API key securely:', error);
+          // Fall back to old storage method
+          onSave(keyValue);
+        }
+      } else {
+        onSave(keyValue);
+      }
     }
   };
 
@@ -357,10 +396,16 @@ function ProviderCard({
   );
 }
 
-export default function ApiSettings() {
+interface ApiSettingsProps {
+  onClose?: () => void;
+}
+
+export default function ApiSettings({ onClose }: ApiSettingsProps) {
   const { settings, addApiKey, updateApiKey, removeApiKey, setActiveApiKey, updateSettings } = useChatStore();
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [showQuickSetup, setShowQuickSetup] = useState(false);
+  const [isValidatingOnClose, setIsValidatingOnClose] = useState(false);
+  const [validationResults, setValidationResults] = useState<{ [providerId: string]: { isValid: boolean; error?: string } }>({});
 
   const providers = getAllProviders();
   const hasAnyKeys = Object.keys(settings.apiKeys).length > 0;
@@ -386,6 +431,115 @@ export default function ApiSettings() {
 
   const popularProviders = providers.filter(p => ['openai', 'anthropic', 'google'].includes(p.id));
 
+  // Auto-validation when settings close
+  const validateAllActiveKeys = useCallback(async () => {
+    const activeProviders = Object.entries(settings.apiKeys)
+      .filter(([_, key]) => key.isActive)
+      .map(([providerId, _]) => providerId);
+
+    if (activeProviders.length === 0) {
+      return;
+    }
+
+    setIsValidatingOnClose(true);
+    const results: { [providerId: string]: { isValid: boolean; error?: string } } = {};
+
+    try {
+      // Validate each active provider
+      for (const providerId of activeProviders) {
+        const provider = providers.find(p => p.id === providerId);
+        if (!provider) continue;
+
+        try {
+          // First perform basic validation
+          const basicResult = await apiValidationService.validateKey(providerId, settings.apiKeys[providerId].keyValue);
+          
+          // If in Electron, also try Oumi validation
+          if (apiClient.isElectron() && basicResult.isValid) {
+            try {
+              const oumiResult = await apiClient.validateApiKeyWithOumi(providerId);
+              if (oumiResult.success && oumiResult.data) {
+                results[providerId] = {
+                  isValid: oumiResult.data.isValid,
+                  error: oumiResult.data.error
+                };
+              } else {
+                results[providerId] = basicResult;
+              }
+            } catch (oumiError) {
+              console.debug(`Oumi validation failed for ${providerId}, using basic result:`, oumiError);
+              results[providerId] = basicResult;
+            }
+          } else {
+            results[providerId] = basicResult;
+          }
+
+          // Update the key status in store
+          updateApiKey(providerId, {
+            isValid: results[providerId].isValid,
+            lastValidated: new Date().toISOString(),
+            validationError: results[providerId].error
+          });
+
+        } catch (error) {
+          results[providerId] = {
+            isValid: false,
+            error: error instanceof Error ? error.message : 'Validation failed'
+          };
+        }
+      }
+
+      setValidationResults(results);
+      
+      // Show notification to user about validation results
+      const validCount = Object.values(results).filter(r => r.isValid).length;
+      const invalidCount = Object.values(results).length - validCount;
+      
+      if (invalidCount === 0) {
+        console.log(`✅ All ${validCount} API keys validated successfully`);
+      } else {
+        console.warn(`⚠️ Validation completed: ${validCount} valid, ${invalidCount} invalid API keys`);
+        // In a real app, you'd show a toast notification here
+      }
+
+    } catch (error) {
+      console.error('Error during API key validation:', error);
+    } finally {
+      setIsValidatingOnClose(false);
+    }
+  }, [settings.apiKeys, providers, updateApiKey]);
+
+  // Effect to handle auto-validation when component unmounts (settings close)
+  useEffect(() => {
+    return () => {
+      // Run validation when component unmounts if auto-validate is enabled
+      if (settings.autoValidateKeys && Object.keys(settings.apiKeys).length > 0) {
+        // Use setTimeout to ensure this runs after the component unmounts
+        setTimeout(async () => {
+          try {
+            await validateAllActiveKeys();
+          } catch (error) {
+            console.error('Auto-validation on close failed:', error);
+          }
+        }, 0);
+      }
+    };
+  }, []);
+
+  // Manual trigger for parent components that want to validate before closing
+  useEffect(() => {
+    if (onClose) {
+      const handleValidationRequest = async () => {
+        if (settings.autoValidateKeys && Object.keys(settings.apiKeys).length > 0) {
+          await validateAllActiveKeys();
+        }
+      };
+      
+      // Expose validation function to parent
+      (onClose as any).validateKeys = handleValidationRequest;
+    }
+  }, [onClose, validateAllActiveKeys, settings.autoValidateKeys, settings.apiKeys]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -402,6 +556,12 @@ export default function ApiSettings() {
         <div className="text-right text-xs text-muted-foreground">
           <div>{activeKeys} active keys</div>
           <div>{Object.keys(settings.apiKeys).length} total providers</div>
+          {isValidatingOnClose && (
+            <div className="flex items-center gap-1 text-primary">
+              <RefreshCw size={12} className="animate-spin" />
+              <span>Validating keys...</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -488,7 +648,7 @@ export default function ApiSettings() {
             <div>
               <div className="font-medium text-sm">Auto-validate Keys</div>
               <div className="text-xs text-muted-foreground">
-                Automatically validate API keys when added
+                Automatically validate API keys when settings close
               </div>
             </div>
             <input
@@ -498,6 +658,28 @@ export default function ApiSettings() {
               className="rounded"
             />
           </label>
+
+          {hasAnyKeys && (
+            <div className="pt-4 border-t">
+              <button
+                onClick={validateAllActiveKeys}
+                disabled={isValidatingOnClose}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {isValidatingOnClose ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Shield size={14} />
+                )}
+                Validate All Keys
+              </button>
+              {Object.keys(validationResults).length > 0 && (
+                <div className="mt-3 text-xs text-muted-foreground">
+                  Last validation: {Object.values(validationResults).filter(r => r.isValid).length} valid, {Object.values(validationResults).filter(r => !r.isValid).length} invalid
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

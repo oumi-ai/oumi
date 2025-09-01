@@ -203,6 +203,17 @@ export class ConfigMatcher {
     system: SystemCapabilities
   ): { score: number; reason: string; warnings: string[] } {
     const warnings: string[] = [];
+    
+    // API-based models don't consume local resources, so skip memory evaluation
+    const engineLower = config.engine.toLowerCase();
+    if (this.isApiBasedEngine(engineLower)) {
+      return {
+        score: 0, // Neutral score since memory isn't a factor
+        reason: 'API model - no local memory usage',
+        warnings
+      };
+    }
+    
     const totalVRAM = system.cudaDevices.reduce((sum, device) => sum + device.vram, 0);
     const effectiveMemory = Math.max(totalVRAM, system.totalRAM * 0.4); // Use 40% of RAM if no GPU
 
@@ -331,6 +342,19 @@ export class ConfigMatcher {
     }
     
     return 'Compatible configuration';
+  }
+
+  /**
+   * Check if an engine is API-based (doesn't use local resources)
+   */
+  private static isApiBasedEngine(engineLower: string): boolean {
+    return engineLower.includes('openai') ||
+           engineLower.includes('anthropic') ||
+           engineLower.includes('google') ||
+           engineLower.includes('gemini') ||
+           engineLower.includes('cohere') ||
+           engineLower.includes('mistral') ||
+           engineLower === 'api';
   }
 
   /**

@@ -10,6 +10,7 @@ import * as os from 'os';
 import { app } from 'electron';
 import log from 'electron-log';
 import { SystemDetector, SystemInfo } from './system-detector';
+import { executePythonCode, checkPythonPackage } from './python-utils';
 
 export interface SetupProgress {
   step: string;

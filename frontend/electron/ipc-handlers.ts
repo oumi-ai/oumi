@@ -7,6 +7,7 @@ import { promises as fs } from 'fs';
 import Store from 'electron-store';
 import log from 'electron-log';
 import { PythonServerManager, DownloadProgress, DownloadErrorEvent } from './python-manager';
+import { apiKeyManager, ApiKeyConfig } from './api-key-manager';
 
 const store = new Store();
 
@@ -75,6 +76,10 @@ export function setupIpcHandlers(pythonManager: PythonServerManager): void {
     // System detection handlers
     log.info('Setting up system detection handlers...');
     setupSystemDetectionHandlers();
+    
+    // API key management handlers
+    log.info('Setting up API key management handlers...');
+    setupApiKeyHandlers();
     
     log.info('IPC handlers set up successfully');
   } catch (error) {
@@ -753,117 +758,77 @@ function setupPythonEnvironmentHandlers(pythonManager: PythonServerManager): voi
 
   // Get basic system information using lightweight script (fallback)
   ipcMain.handle('python:get-basic-system-info', async () => {
-    const { spawn } = require('child_process');
+    const { executePythonScript } = require('./python-utils');
     const path = require('path');
     
-    return new Promise((resolve) => {
-      try {
-        // Path to our lightweight system info script
-        // In development: __dirname = dist/electron, so go up to project root
-        // In production: __dirname = resources/app.asar/dist/electron, so go up to app.asar then to scripts
-        let scriptPath;
-        if (process.env.NODE_ENV === 'development' || __dirname.includes('dist/electron')) {
-          // Development or compiled to dist/electron
-          scriptPath = path.join(__dirname, '../../scripts/system-info.py');
-        } else {
-          // Production build (likely in app.asar)
-          scriptPath = path.join(__dirname, '../../../scripts/system-info.py');
-        }
-        
-        log.info('Looking for system info script at:', scriptPath);
-        
-        // Check if script exists
-        const fs = require('fs');
-        if (!fs.existsSync(scriptPath)) {
-          log.error('System info script not found at:', scriptPath);
-          resolve({
-            platform: 'unknown',
-            architecture: 'unknown',
-            totalRAM: 8,
-            cudaAvailable: false,
-            cudaDevices: []
-          });
-          return;
-        }
-        
-        // Try python3 first, then python as fallback
-        const pythonCommands = ['python3', 'python'];
-        let processIndex = 0;
-        
-        const tryNextPython = () => {
-          if (processIndex >= pythonCommands.length) {
-            log.error('No suitable Python executable found for system info detection');
-            resolve({
-              platform: 'unknown',
-              architecture: 'unknown',
-              totalRAM: 8,
-              cudaAvailable: false,
-              cudaDevices: []
-            });
-            return;
-          }
-          
-          const pythonCmd = pythonCommands[processIndex];
-          log.info(`Trying to run system info script with: ${pythonCmd} ${scriptPath}`);
-          const process = spawn(pythonCmd, [scriptPath]);
-          
-          let stdout = '';
-          let stderr = '';
-          
-          process.stdout.on('data', (data: Buffer) => {
-            stdout += data.toString();
-          });
-          
-          process.stderr.on('data', (data: Buffer) => {
-            stderr += data.toString();
-          });
-          
-          process.on('close', (code: number) => {
-            if (code === 0 && stdout.trim()) {
-              try {
-                const systemInfo = JSON.parse(stdout.trim());
-                log.info('Successfully detected system info using lightweight script:', systemInfo);
-                resolve(systemInfo);
-              } catch (parseError) {
-                log.error('Failed to parse system info JSON:', parseError);
-                processIndex++;
-                tryNextPython();
-              }
-            } else {
-              log.warn(`System info script failed with ${pythonCmd} (code ${code}):`, stderr);
-              processIndex++;
-              tryNextPython();
-            }
-          });
-          
-          process.on('error', (error: Error) => {
-            log.warn(`Failed to execute system info script with ${pythonCmd}:`, error);
-            processIndex++;
-            tryNextPython();
-          });
-          
-          // Timeout after 5 seconds
-          setTimeout(() => {
-            process.kill();
-            log.warn(`System info script timed out with ${pythonCmd}`);
-            processIndex++;
-            tryNextPython();
-          }, 5000);
-        };
-        
-        tryNextPython();
-        
-      } catch (error) {
-        log.error('Exception in basic system info detection:', error);
-        resolve({
+    try {
+      // Path to our lightweight system info script
+      // In development: __dirname = dist/electron, so go up to project root
+      // In production: __dirname = resources/app.asar/dist/electron, so go up to app.asar then to scripts
+      let scriptPath;
+      if (process.env.NODE_ENV === 'development' || __dirname.includes('dist/electron')) {
+        // Development or compiled to dist/electron
+        scriptPath = path.join(__dirname, '../../scripts/system-info.py');
+      } else {
+        // Production build (likely in app.asar)
+        scriptPath = path.join(__dirname, '../../../scripts/system-info.py');
+      }
+      
+      log.info('Looking for system info script at:', scriptPath);
+      
+      // Check if script exists
+      const fs = require('fs');
+      if (!fs.existsSync(scriptPath)) {
+        log.error('System info script not found at:', scriptPath);
+        return {
           platform: 'unknown',
           architecture: 'unknown',
           totalRAM: 8,
           cudaAvailable: false,
           cudaDevices: []
-        });
+        };
       }
-    });
+      
+      log.info(`Running system info script: ${scriptPath}`);
+      const result = await executePythonScript(scriptPath, [], {
+        timeout: 5000
+      });
+      
+      if (result.success && result.stdout) {
+        try {
+          const systemInfo = JSON.parse(result.stdout);
+          log.info('Successfully detected system info using lightweight script:', systemInfo);
+          return systemInfo;
+        } catch (parseError) {
+          log.error('Failed to parse system info JSON:', parseError);
+          return {
+            platform: 'unknown',
+            architecture: 'unknown',
+            totalRAM: 8,
+            cudaAvailable: false,
+            cudaDevices: []
+          };
+        }
+      } else {
+        log.warn('System info script failed:', result.error || result.stderr);
+        return {
+          platform: 'unknown',
+          architecture: 'unknown',
+          totalRAM: 8,
+          cudaAvailable: false,
+          cudaDevices: []
+        };
+      }
+    } catch (error) {
+      log.error('Exception in basic system info detection:', error);
+      return {
+        platform: 'unknown',
+        architecture: 'unknown',
+        totalRAM: 8,
+        cudaAvailable: false,
+        cudaDevices: []
+      };
+    }
   });
 
   // Remove environment
@@ -968,6 +933,158 @@ function setupSystemDetectionHandlers(): void {
     } catch (error) {
       log.error('Failed to detect system info:', error);
       throw error;
+    }
+  });
+}
+
+/**
+ * API Key Management handlers
+ */
+function setupApiKeyHandlers(): void {
+  // Store API key securely
+  ipcMain.handle('apikey:store', async (_, config: ApiKeyConfig) => {
+    try {
+      apiKeyManager.storeApiKey(config);
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to store API key:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to store API key' 
+      };
+    }
+  });
+
+  // Get API key (without exposing the actual key value to renderer)
+  ipcMain.handle('apikey:get', async (_, providerId: string) => {
+    try {
+      const keyConfig = apiKeyManager.getApiKey(providerId);
+      if (!keyConfig) {
+        return { success: false, error: 'API key not found' };
+      }
+
+      // Return config without the actual key value for security
+      return {
+        success: true,
+        data: {
+          providerId: keyConfig.providerId,
+          isActive: keyConfig.isActive,
+          isValid: keyConfig.isValid,
+          lastValidated: keyConfig.lastValidated,
+          details: keyConfig.details
+        }
+      };
+    } catch (error) {
+      log.error('Failed to get API key:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to retrieve API key' 
+      };
+    }
+  });
+
+  // Get all API keys (without key values)
+  ipcMain.handle('apikey:get-all', async () => {
+    try {
+      const keys = apiKeyManager.getAllApiKeys();
+      return { success: true, data: keys };
+    } catch (error) {
+      log.error('Failed to get API keys:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to retrieve API keys' 
+      };
+    }
+  });
+
+  // Remove API key
+  ipcMain.handle('apikey:remove', async (_, providerId: string) => {
+    try {
+      const success = apiKeyManager.removeApiKey(providerId);
+      return { success };
+    } catch (error) {
+      log.error('Failed to remove API key:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to remove API key' 
+      };
+    }
+  });
+
+  // Update API key status
+  ipcMain.handle('apikey:update-status', async (_, providerId: string, updates: any) => {
+    try {
+      const success = apiKeyManager.updateApiKeyStatus(providerId, updates);
+      return { success };
+    } catch (error) {
+      log.error('Failed to update API key status:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to update API key status' 
+      };
+    }
+  });
+
+  // Validate API key using Oumi
+  ipcMain.handle('apikey:validate-with-oumi', async (_, providerId: string) => {
+    try {
+      const result = await apiKeyManager.validateApiKeyWithOumi(providerId);
+      return { success: true, data: result };
+    } catch (error) {
+      log.error('Failed to validate API key:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to validate API key' 
+      };
+    }
+  });
+
+  // Test API key with specific config
+  ipcMain.handle('apikey:test-with-config', async (_, providerId: string, configPath: string) => {
+    try {
+      const apiKey = apiKeyManager.getApiKey(providerId);
+      if (!apiKey) {
+        return { success: false, error: 'API key not found' };
+      }
+
+      // This would extend the existing testModel logic for API keys
+      // For now, delegate to the existing validation method
+      const result = await apiKeyManager.validateApiKeyWithOumi(providerId);
+      return { success: true, data: result };
+    } catch (error) {
+      log.error('Failed to test API key with config:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to test API key' 
+      };
+    }
+  });
+
+  // Check for legacy keys that need migration
+  ipcMain.handle('apikey:check-migration-needed', async () => {
+    try {
+      const needsMigration = apiKeyManager.hasLegacyKeys();
+      return { success: true, data: { needsMigration } };
+    } catch (error) {
+      log.error('Failed to check migration status:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to check migration status' 
+      };
+    }
+  });
+
+  // Clear all API keys (security reset)
+  ipcMain.handle('apikey:clear-all', async () => {
+    try {
+      apiKeyManager.clearAllKeys();
+      return { success: true };
+    } catch (error) {
+      log.error('Failed to clear API keys:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to clear API keys' 
+      };
     }
   });
 }

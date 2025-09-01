@@ -16,6 +16,7 @@
     "build:electron": "npm run generate-configs && ELECTRON_BUILD=true next build",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
     "generate-configs": "node scripts/generate-configs.js",
     "download-python": "node scripts/download-python.js",
     "prepare-python": "npm run download-python",
@@ -242,14 +243,6 @@
         {
           "target": "deb",
           "arch": "arm64"
-        },
-        {
-          "target": "rpm",
-          "arch": "x64"
-        },
-        {
-          "target": "rpm",
-          "arch": "arm64"
         }
       ],
       "category": "Office"
@@ -267,7 +260,6 @@
     "deb": {
       "category": "office"
     },
-    "rpm": {},
     "publish": [
       {
         "provider": "github",
