@@ -164,15 +164,15 @@ class ApiClient {
   }
 
   // Branch management
-  async getBranches(sessionId: string = 'default'): Promise<ApiResponse<{ 
+  async getBranches(sessionId: string): Promise<ApiResponse<{ 
     branches: ConversationBranch[];
     current_branch?: string;
   }>> {
-    return this.fetchApi(`/v1/oumi/branches?session_id=${sessionId}`);
+    return this.fetchApi(`/v1/oumi/branches?session_id=${encodeURIComponent(sessionId)}`);
   }
 
   async createBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     name: string,
     parentBranchId?: string
   ): Promise<ApiResponse<{ branch: ConversationBranch }>> {
@@ -188,7 +188,7 @@ class ApiClient {
   }
 
   async switchBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string
   ): Promise<ApiResponse> {
     return this.fetchApi(`/v1/oumi/command`, {
@@ -202,7 +202,7 @@ class ApiClient {
   }
 
   async deleteBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string
   ): Promise<ApiResponse> {
     return this.fetchApi(`/v1/oumi/command`, {
@@ -217,15 +217,15 @@ class ApiClient {
 
   // Conversation management
   async getConversation(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string = 'main'
   ): Promise<ApiResponse<{ conversation: Message[] }>> {
-    return this.fetchApi(`/v1/oumi/conversation?session_id=${sessionId}&branch_id=${branchId}`);
+    return this.fetchApi(`/v1/oumi/conversation?session_id=${encodeURIComponent(sessionId)}&branch_id=${encodeURIComponent(branchId)}`);
   }
 
   async sendMessage(
     content: string,
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string = 'main'
   ): Promise<ApiResponse<Message>> {
     return this.fetchApi(`/api/sessions/${sessionId}/branches/${branchId}/messages`, {
@@ -249,8 +249,9 @@ class ApiClient {
   }
 
   // System monitoring
-  async getSystemStats(): Promise<ApiResponse> {
-    return this.fetchApi('/v1/oumi/system_stats');
+  async getSystemStats(sessionId?: string): Promise<ApiResponse> {
+    const url = sessionId ? `/v1/oumi/system_stats?session_id=${encodeURIComponent(sessionId)}` : '/v1/oumi/system_stats';
+    return this.fetchApi(url);
   }
 
   async getModelStats(): Promise<ApiResponse> {

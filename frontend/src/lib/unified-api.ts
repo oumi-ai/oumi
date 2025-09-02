@@ -108,7 +108,7 @@ class UnifiedApiClient {
   }
 
   // Branch management
-  async getBranches(sessionId: string = 'default'): Promise<ApiResponse<{ 
+  async getBranches(sessionId: string): Promise<ApiResponse<{ 
     branches: ConversationBranch[];
     current_branch?: string;
   }>> {
@@ -116,7 +116,7 @@ class UnifiedApiClient {
   }
 
   async createBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     name: string,
     parentBranchId?: string
   ): Promise<ApiResponse<{ branch: ConversationBranch }>> {
@@ -124,14 +124,14 @@ class UnifiedApiClient {
   }
 
   async switchBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string
   ): Promise<ApiResponse> {
     return this.getClient().switchBranch(sessionId, branchId);
   }
 
   async deleteBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string
   ): Promise<ApiResponse> {
     return this.getClient().deleteBranch(sessionId, branchId);
@@ -139,13 +139,13 @@ class UnifiedApiClient {
 
   // Conversation management
   async getConversation(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string = 'main'
   ): Promise<ApiResponse<{ conversation: Message[] }>> {
     return this.getClient().getConversation(sessionId, branchId);
   }
 
-  async listConversations(sessionId: string = 'default'): Promise<ApiResponse<{ conversations: any[] }>> {
+  async listConversations(sessionId: string): Promise<ApiResponse<{ conversations: any[] }>> {
     if (this.isElectron()) {
       // For Electron, use localStorage fallback for now until backend method is implemented
       try {
@@ -184,7 +184,7 @@ class UnifiedApiClient {
   }
 
   async loadConversation(
-    sessionId: string = 'default', 
+    sessionId: string, 
     conversationId: string,
     targetBranchId?: string
   ): Promise<ApiResponse<{ messages: Message[] }>> {
@@ -249,7 +249,7 @@ class UnifiedApiClient {
   }
 
   async deleteConversation(
-    sessionId: string = 'default',
+    sessionId: string,
     conversationId: string
   ): Promise<ApiResponse> {
     if (this.isElectron()) {
@@ -310,7 +310,7 @@ class UnifiedApiClient {
 
   async sendMessage(
     content: string,
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string = 'main'
   ): Promise<ApiResponse<Message>> {
     return this.getClient().sendMessage(content, sessionId, branchId);
@@ -325,8 +325,8 @@ class UnifiedApiClient {
   }
 
   // System monitoring
-  async getSystemStats(): Promise<ApiResponse> {
-    return this.getClient().getSystemStats();
+  async getSystemStats(sessionId?: string): Promise<ApiResponse> {
+    return this.getClient().getSystemStats(sessionId);
   }
 
   async getModelStats(): Promise<ApiResponse> {
@@ -456,7 +456,7 @@ class UnifiedApiClient {
 
   // Enhanced conversation management with automatic persistence
   async saveConversation(
-    sessionId: string = 'default',
+    sessionId: string,
     conversationId: string,
     conversationData: any
   ): Promise<ApiResponse> {

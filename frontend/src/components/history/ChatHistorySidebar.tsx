@@ -42,7 +42,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
     loadConversation: loadStoreConversation,
     setCurrentConversationId,
     setMessages,
-    deleteConversation: deleteStoreConversation
+    deleteConversation: deleteStoreConversation,
+    getCurrentSessionId
   } = useChatStore();
   const [conversations, setConversations] = React.useState<ConversationEntry[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<string | null>(null);
@@ -86,7 +87,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       setLoading(true);
       setError(null);
       
-      const response = await apiClient.listConversations();
+      const sessionId = getCurrentSessionId();
+      const response = await apiClient.listConversations(sessionId);
       
       if (response.success && response.data?.conversations) {
         const conversations = response.data.conversations.map((conv: any) => ({
@@ -137,7 +139,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         });
       } else {
         // Fallback to API if not in store
-        const response = await apiClient.loadConversation('default', conversationId);
+        const sessionId = getCurrentSessionId();
+        const response = await apiClient.loadConversation(sessionId, conversationId);
         
         if (response.success && response.data) {
           const messages = response.data.messages || [];
@@ -186,7 +189,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
         setConversationPreview(null);
       } else {
         // Fallback to API if not in store
-        const response = await apiClient.loadConversation('default', conversationId, currentBranchId);
+        const sessionId = getCurrentSessionId();
+        const response = await apiClient.loadConversation(sessionId, conversationId, currentBranchId);
         
         if (response.success) {
           // Update store with loaded messages
@@ -234,7 +238,8 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
       
       // Also delete from backend/API for persistence
       try {
-        await apiClient.deleteConversation('default', conversationId);
+        const sessionId = getCurrentSessionId();
+        await apiClient.deleteConversation(sessionId, conversationId);
       } catch (apiError) {
         console.warn('Failed to delete from backend, but deleted locally:', apiError);
       }

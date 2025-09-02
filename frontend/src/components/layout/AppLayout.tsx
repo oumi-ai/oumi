@@ -25,7 +25,7 @@ export default function AppLayout() {
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [showSearchHistory, setShowSearchHistory] = React.useState(false);
-  const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages } = useChatStore();
+  const { clearMessages, currentBranchId, generationParams, setBranches, setCurrentBranch, setMessages, getCurrentSessionId } = useChatStore();
   const { executeCommand, isExecuting } = useConversationCommand();
   const chatInterfaceRef = React.useRef<ChatInterfaceRef | null>(null);
 
@@ -187,7 +187,8 @@ export default function AppLayout() {
         console.log('🔄 Initializing app state from backend...');
         
         // Load branches to get the current branch
-        const branchesResponse = await apiClient.getBranches('default');
+        const sessionId = getCurrentSessionId();
+        const branchesResponse = await apiClient.getBranches(sessionId);
         if (branchesResponse.success && branchesResponse.data) {
           const { branches, current_branch } = branchesResponse.data;
           

@@ -264,7 +264,7 @@ class ElectronApiClient {
     return window.electronAPI.apiKeys.clearAll();
   }
 
-  public async getBranches(sessionId: string = 'default'): Promise<ApiResponse<{ 
+  public async getBranches(sessionId: string): Promise<ApiResponse<{ 
     branches: ConversationBranch[];
     current_branch?: string;
   }>> {
@@ -275,7 +275,7 @@ class ElectronApiClient {
   }
 
   public async createBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     name: string,
     parentBranchId?: string
   ): Promise<ApiResponse<{ branch: ConversationBranch }>> {
@@ -286,7 +286,7 @@ class ElectronApiClient {
   }
 
   public async switchBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string
   ): Promise<ApiResponse> {
     if (!this.isElectron) {
@@ -296,7 +296,7 @@ class ElectronApiClient {
   }
 
   public async deleteBranch(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string
   ): Promise<ApiResponse> {
     if (!this.isElectron) {
@@ -306,7 +306,7 @@ class ElectronApiClient {
   }
 
   public async getConversation(
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string = 'main'
   ): Promise<ApiResponse<{ conversation: Message[] }>> {
     if (!this.isElectron) {
@@ -317,7 +317,7 @@ class ElectronApiClient {
 
   public async sendMessage(
     content: string,
-    sessionId: string = 'default',
+    sessionId: string,
     branchId: string = 'main'
   ): Promise<ApiResponse<Message>> {
     if (!this.isElectron) {
@@ -339,11 +339,11 @@ class ElectronApiClient {
     return response;
   }
 
-  public async getSystemStats(): Promise<ApiResponse> {
+  public async getSystemStats(sessionId?: string): Promise<ApiResponse> {
     if (!this.isElectron) {
       throw new Error('System stats only available in Electron app');
     }
-    return window.electronAPI.chat.getSystemStats();
+    return window.electronAPI.chat.getSystemStats(sessionId);
   }
 
   public async getModelStats(): Promise<ApiResponse> {

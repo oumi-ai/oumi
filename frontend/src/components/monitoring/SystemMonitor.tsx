@@ -7,6 +7,7 @@
 import React from 'react';
 import { Activity, Cpu, HardDrive, Zap, MessageSquare, Wifi, WifiOff, Clock, Bot, Play, Square, RefreshCw } from 'lucide-react';
 import apiClient from '@/lib/unified-api';
+import { useChatStore } from '@/lib/store';
 
 interface SystemStats {
   cpu_percent?: number;
@@ -103,6 +104,7 @@ export default function SystemMonitor({
   className = '',
   updateInterval = 2000 // 2 seconds
 }: SystemMonitorProps) {
+  const { getCurrentSessionId } = useChatStore();
   const [stats, setStats] = React.useState<SystemStats | null>(null);
   const [networkActivity, setNetworkActivity] = React.useState<NetworkActivity>({
     activeRequests: 0,
@@ -122,6 +124,13 @@ export default function SystemMonitor({
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
   const requestTimesRef = React.useRef<number[]>([]);
   const requestCountRef = React.useRef({ total: 0, successful: 0, failed: 0 });
+  // Keep latest model status and last auto-tested model name to avoid stale closures and repeated tests
+  const modelStatusRef = React.useRef<ModelStatus>(modelStatus);
+  const lastAutoTestedModelRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    modelStatusRef.current = modelStatus;
+  }, [modelStatus]);
 
   const trackNetworkRequest = (success: boolean, responseTime: number) => {
     requestCountRef.current.total++;
@@ -167,41 +176,55 @@ export default function SystemMonitor({
         const model = modelResponse.data.data[0];
         setModelStatus(prev => ({
           ...prev,
-          // Preserve the loaded status - only change it through explicit test/unload actions
-          // Don't override the loaded status based on model availability
+          // Only update the model name - preserve loaded status and test results
           modelName: model.id,
         }));
+        // If we have a model name but no test result yet, kick off a one-time background test
+        if (
+          model.id &&
+          (!modelStatusRef.current.testResult || modelStatusRef.current.testResult === 'unknown') &&
+          lastAutoTestedModelRef.current !== model.id &&
+          !isModelActionLoading
+        ) {
+          lastAutoTestedModelRef.current = model.id;
+          // Fire and forget; do not block UI
+          void testModel(model.id);
+        }
       } else {
-        setModelStatus(prev => ({
-          ...prev,
-          loaded: false, // If no model available, definitely not loaded
-          modelName: undefined,
-          testResult: 'unknown',
-        }));
+        // Only reset if we currently have a model name but API says no model
+        setModelStatus(prev => {
+          if (prev.modelName) {
+            return {
+              ...prev,
+              loaded: false, // If no model available, definitely not loaded
+              modelName: undefined,
+              testResult: 'unknown',
+            };
+          }
+          return prev; // Don't change anything if we already know there's no model
+        });
       }
     } catch (error) {
       console.error('Failed to check model status:', error);
-      setModelStatus(prev => ({
-        ...prev,
-        loaded: false, // On error, assume not loaded
-        modelName: undefined,
-        testResult: 'unknown',
-      }));
+      // Don't reset status on API errors - could be temporary network issues
+      // Only log the error, preserve current status
     }
   };
 
-  const testModel = async () => {
-    if (!modelStatus.modelName) return;
+  // Allow explicit model name for fresh reads after status checks
+  const testModel = async (explicitModelName?: string) => {
+    const name = explicitModelName ?? modelStatusRef.current.modelName;
+    if (!name) return;
     
     setIsModelActionLoading(true);
     try {
       // Use the current model's config path for testing
-      const response = await apiClient.testModel(modelStatus.modelName);
+      const response = await apiClient.testModel(name);
       const success = response.success && response.data?.success;
       
       setModelStatus(prev => ({
         loaded: Boolean(success), // Only set loaded to true if test succeeds
-        modelName: prev.modelName,
+        modelName: name,
         lastTested: Date.now(),
         testResult: success ? 'success' : 'failure',
       }));
@@ -211,7 +234,7 @@ export default function SystemMonitor({
       console.error('Model test error:', error);
       setModelStatus(prev => ({
         loaded: false, // Test failed, so not loaded
-        modelName: prev.modelName,
+        modelName: name,
         lastTested: Date.now(),
         testResult: 'failure',
       }));
@@ -251,10 +274,16 @@ export default function SystemMonitor({
       // Wait a bit then check if model is available (but not loaded until tested)
       setTimeout(async () => {
         await checkModelStatus();
-        // After reload, we need to test to confirm it's actually loaded
-        if (modelStatus.modelName) {
-          // Test the newly available model
-          await testModel();
+        // Fetch latest model name fresh to avoid stale state, then test it
+        try {
+          const mr = await apiClient.getModels();
+          const name = mr.success ? mr.data?.data?.[0]?.id : undefined;
+          if (name) {
+            setModelStatus(prev => ({ ...prev, modelName: name }));
+            await testModel(name);
+          }
+        } catch (e) {
+          console.warn('Reload: failed to re-fetch models before test', e);
         }
         setIsModelActionLoading(false);
       }, 1000);
@@ -269,7 +298,8 @@ export default function SystemMonitor({
     setNetworkActivity(prev => ({ ...prev, activeRequests: prev.activeRequests + 1 }));
     
     try {
-      const response = await apiClient.getSystemStats();
+      const sessionId = getCurrentSessionId();
+      const response = await apiClient.getSystemStats(sessionId);
       const responseTime = Date.now() - startTime;
       
       if (response.success && response.data) {
@@ -512,7 +542,7 @@ export default function SystemMonitor({
           {/* Model Control Buttons */}
           <div className="flex gap-1 pt-1">
             <button
-              onClick={testModel}
+              onClick={() => testModel()}
               disabled={!modelStatus.modelName || isModelActionLoading}
               className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Test model functionality"

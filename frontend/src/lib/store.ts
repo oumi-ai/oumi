@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Message, ConversationBranch, Conversation, GenerationParams, AppSettings, ApiKeyConfig, ApiProvider, ApiUsageStats } from './types';
 import apiClient from './unified-api';
+import { SessionManager } from './session-manager';
 
 interface ChatStore {
   // Current state
@@ -58,6 +59,11 @@ interface ChatStore {
   updateSettings: (updates: Partial<AppSettings>) => void;
   updateUsageStats: (providerId: string, stats: Partial<ApiUsageStats>) => void;
   
+  // Session management actions
+  getCurrentSessionId: () => string;
+  startNewSession: () => string;
+  resetToFreshSession: () => string;
+  
   // Utility actions
   clearMessages: () => void;
   resetStore: () => void;
@@ -66,7 +72,8 @@ interface ChatStore {
 // Auto-save helper function
 const autoSaveConversation = async (conversation: Conversation) => {
   try {
-    await apiClient.saveConversation('default', conversation.id, conversation);
+    const sessionId = SessionManager.getCurrentSessionId();
+    await apiClient.saveConversation(sessionId, conversation.id, conversation);
   } catch (error) {
     console.warn('Failed to auto-save conversation to backend:', error);
     // Don't block the UI - this is just a backup save
@@ -551,6 +558,33 @@ export const useChatStore = create<ChatStore>()(
           return { conversations: updatedConversations };
         }),
 
+      // Session management actions
+      getCurrentSessionId: () => SessionManager.getCurrentSessionId(),
+      
+      startNewSession: () => SessionManager.startNewSession(),
+      
+      resetToFreshSession: () => {
+        const newSessionId = SessionManager.resetToFreshSession();
+        // Also clear the current conversation state when starting fresh
+        set({
+          messages: [],
+          currentConversationId: null,
+          branches: [
+            {
+              id: 'main',
+              name: 'Main',
+              isActive: true,
+              messageCount: 0,
+              createdAt: new Date().toISOString(),
+              lastActive: new Date().toISOString(),
+              preview: 'New conversation',
+            },
+          ],
+          currentBranchId: 'main',
+        });
+        return newSessionId;
+      },
+
       // Utility actions
       clearMessages: () =>
         set({ messages: [] }),
@@ -675,8 +709,11 @@ export const useChatStore = create<ChatStore>()(
         }
 
         // Always start with a fresh chat on app load: clear any rehydrated
-        // conversation state, messages, and branches.
+        // conversation state, messages, branches, and start a new session.
         if (state) {
+          // Start fresh session for the new app instance
+          SessionManager.resetToFreshSession();
+          
           state.messages = [];
           state.conversations = [];
           state.currentConversationId = null;

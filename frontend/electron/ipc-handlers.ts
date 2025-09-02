@@ -396,7 +396,13 @@ function setupChatHandlers(pythonManager: PythonServerManager): void {
 
   // Health and system info
   ipcMain.handle('chat:health', () => proxyToPython('/health'));
-  ipcMain.handle('chat:get-system-stats', () => proxyToPython('/v1/oumi/system_stats'));
+  ipcMain.handle('chat:get-system-stats', (_, sessionId?: string) => {
+    if (!sessionId) {
+      return Promise.resolve({ success: false, error: 'session_id is required for system stats' });
+    }
+    const url = `/v1/oumi/system_stats?session_id=${encodeURIComponent(sessionId)}`;
+    return proxyToPython(url);
+  });
   ipcMain.handle('chat:get-model-stats', () => proxyToPython('/v1/models'));
   ipcMain.handle('chat:clear-model', () => proxyToPython('/v1/oumi/clear_model', { method: 'POST' }));
 

@@ -38,6 +38,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
     setBranches,
     generationParams,
     updateMessage,
+    getCurrentSessionId,
   } = useChatStore();
   
   // Initialize auto-save functionality
@@ -72,7 +73,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
 
   const refreshBranches = async () => {
     try {
-      const response = await apiClient.getBranches('default');
+      const response = await apiClient.getBranches(getCurrentSessionId());
       if (response.success && response.data) {
         const { branches } = response.data;
         
@@ -97,7 +98,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
   const loadConversation = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.getConversation('default', currentBranchId);
+      const response = await apiClient.getConversation(getCurrentSessionId(), currentBranchId);
       
       if (response.success && response.data) {
         // Transform backend messages to frontend format
@@ -327,7 +328,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         // Use streaming API
         const response = await apiClient.streamChatCompletion({
           messages: apiMessages,
-          session_id: 'default',
+          session_id: getCurrentSessionId(),
           branch_id: currentBranchId,
           temperature: generationParams.temperature,
           max_tokens: generationParams.maxTokens,
@@ -357,7 +358,7 @@ export default function ChatInterface({ className = '', onRef }: ChatInterfacePr
         // Use non-streaming API (original behavior)
         const response = await apiClient.chatCompletion({
           messages: apiMessages,
-          session_id: 'default',
+          session_id: getCurrentSessionId(),
           branch_id: currentBranchId,
           temperature: generationParams.temperature,
           max_tokens: generationParams.maxTokens,

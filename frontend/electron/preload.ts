@@ -39,7 +39,7 @@ export interface ElectronAPI {
   chat: {
     // Health and system info
     health: () => Promise<any>;
-    getSystemStats: () => Promise<any>;
+    getSystemStats: (sessionId?: string) => Promise<any>;
     getModelStats: () => Promise<any>;
     clearModel: () => Promise<any>;
 
@@ -180,7 +180,7 @@ const electronAPI: ElectronAPI = {
 
   chat: {
     health: () => ipcRenderer.invoke('chat:health'),
-    getSystemStats: () => ipcRenderer.invoke('chat:get-system-stats'),
+    getSystemStats: (sessionId?: string) => ipcRenderer.invoke('chat:get-system-stats', sessionId),
     getModelStats: () => ipcRenderer.invoke('chat:get-model-stats'),
     clearModel: () => ipcRenderer.invoke('chat:clear-model'),
 

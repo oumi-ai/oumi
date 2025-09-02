@@ -1479,7 +1479,12 @@ class OumiWebServer(OpenAICompatibleServer):
 
     async def handle_system_stats_api(self, request: web.Request) -> web.Response:
         """Handle getting system stats from backend session."""
-        session_id = request.query.get("session_id", "default")
+        session_id = request.query.get("session_id")
+        if not session_id:
+            return web.json_response(
+                {"error": "session_id is required"}, 
+                status=400
+            )
         session = await self.get_or_create_session(session_id)
 
         # Update context usage based on current conversation
