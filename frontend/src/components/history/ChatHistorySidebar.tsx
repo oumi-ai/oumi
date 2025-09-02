@@ -130,7 +130,7 @@ export default function ChatHistorySidebar({ className = '' }: ChatHistorySideba
           messages: messages.slice(0, 6).map(msg => ({
             role: msg.role,
             content: msg.content,
-            timestamp: typeof msg.timestamp === 'number' ? new Date(msg.timestamp).toISOString() : msg.timestamp.toString()
+            timestamp: msg.timestamp ? new Date(msg.timestamp).toISOString() : new Date().toISOString()
           })), // Show first 6 messages as preview
           messageCount: messages.length,
           lastModified: storeConversation.updatedAt || storeConversation.createdAt
