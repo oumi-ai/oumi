@@ -581,9 +581,12 @@ class OumiWebServer(OpenAICompatibleServer):
             if session_id:
                 async def handle_branch_aware_chat(session):
                     """Handle branch-aware chat completion within session lock."""
+                    # Use local variable to avoid UnboundLocalError
+                    effective_branch_id = branch_id
+                    
                     # Handle branch switching if branch_id provided
-                    if branch_id and branch_id != session.branch_manager.current_branch_id:
-                        logger.debug(f"🌿 Chat request targeting branch '{branch_id}', current: '{session.branch_manager.current_branch_id}'")
+                    if effective_branch_id and effective_branch_id != session.branch_manager.current_branch_id:
+                        logger.debug(f"🌿 Chat request targeting branch '{effective_branch_id}', current: '{session.branch_manager.current_branch_id}'")
                         
                         # Save current conversation to current branch
                         current_branch = session.branch_manager.get_current_branch()
@@ -592,29 +595,32 @@ class OumiWebServer(OpenAICompatibleServer):
                         logger.debug(f"🔄 Saved {len(session.conversation_history)} messages to branch '{session.branch_manager.current_branch_id}'")
                         
                         # Switch to target branch and load its conversation
-                        if branch_id in session.branch_manager.branches:
-                            target_branch = session.branch_manager.branches[branch_id]
-                            session.branch_manager.current_branch_id = branch_id
+                        if effective_branch_id in session.branch_manager.branches:
+                            target_branch = session.branch_manager.branches[effective_branch_id]
+                            session.branch_manager.current_branch_id = effective_branch_id
                             
                             # Load target branch conversation into session
                             session.conversation_history.clear()
                             session.conversation_history.extend(target_branch.conversation_history)
                             target_branch.last_active = datetime.now()
-                            logger.debug(f"🔄 Loaded {len(session.conversation_history)} messages from branch '{branch_id}'")
+                            logger.debug(f"🔄 Loaded {len(session.conversation_history)} messages from branch '{effective_branch_id}'")
                         else:
-                            logger.error(f"🚨 Target branch '{branch_id}' not found, staying on current branch")
-                            branch_id = session.branch_manager.current_branch_id  # Reset to current
-                    elif branch_id:
-                        logger.debug(f"🌿 Chat request already on target branch '{branch_id}'")
+                            logger.error(f"🚨 Target branch '{effective_branch_id}' not found, staying on current branch")
+                            effective_branch_id = session.branch_manager.current_branch_id  # Reset to current
+                    elif effective_branch_id:
+                        logger.debug(f"🌿 Chat request already on target branch '{effective_branch_id}'")
                     else:
                         # Use current branch if no branch_id specified
-                        branch_id = session.branch_manager.current_branch_id
-                        logger.debug(f"🌿 Chat request using current branch '{branch_id}' (no branch_id specified)")
+                        effective_branch_id = session.branch_manager.current_branch_id
+                        logger.debug(f"🌿 Chat request using current branch '{effective_branch_id}' (no branch_id specified)")
                     
-                    return session, branch_id
+                    # Create a snapshot of conversation history for consistency
+                    conversation_snapshot = copy.deepcopy(session.conversation_history)
+                    
+                    return session, effective_branch_id, conversation_snapshot
                 
                 # Use atomic operation for branch switching
-                session, effective_branch_id = await self.execute_session_operation(session_id, handle_branch_aware_chat)
+                session, effective_branch_id, conversation_snapshot = await self.execute_session_operation(session_id, handle_branch_aware_chat)
                 branch_id = effective_branch_id  # Update branch_id to actual used branch
                 if (hasattr(session.command_context, 'config') and 
                     session.command_context.config is not None):
@@ -639,9 +645,9 @@ class OumiWebServer(OpenAICompatibleServer):
                 if self.system_prompt:
                     conversation_messages.append(Message(role=Role.SYSTEM, content=self.system_prompt))
                 
-                # Add conversation history
-                if session.conversation_history:
-                    for msg in session.conversation_history:
+                # Add conversation history from snapshot for consistency
+                if conversation_snapshot:
+                    for msg in conversation_snapshot:
                         role_mapping = {
                             "system": Role.SYSTEM,
                             "user": Role.USER, 
@@ -649,7 +655,7 @@ class OumiWebServer(OpenAICompatibleServer):
                         }
                         role = role_mapping.get(msg.get("role"), Role.USER)
                         conversation_messages.append(Message(role=role, content=msg.get("content", "")))
-                    logger.debug(f"🧠 Added {len(session.conversation_history)} messages from conversation history")
+                    logger.debug(f"🧠 Added {len(conversation_snapshot)} messages from conversation snapshot")
                 
                 # Add the new user message
                 conversation_messages.append(Message(role=Role.USER, content=latest_user_content))
@@ -822,7 +828,9 @@ class OumiWebServer(OpenAICompatibleServer):
             # Handle streaming vs non-streaming
             if stream:
                 # For now, just return non-streaming response
-                # TODO: Implement proper streaming
+                # TODO: Implement proper streaming with branch support
+                # Note: Streaming requests currently ignore branch_id and use session's current branch
+                logger.warning(f"⚠️ Streaming mode doesn't support branch_id parameter yet, using current branch")
                 return web.json_response(response_data)
             else:
                 return web.json_response(response_data)
@@ -1656,11 +1664,18 @@ class OumiWebServer(OpenAICompatibleServer):
 
                 elif action == "delete":
                     branch_id = data.get("branch_id")
-                    logger.debug(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
-                    logger.debug(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
-                    success, message = session.branch_manager.delete_branch(branch_id)
-                    logger.debug(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
-                    logger.debug(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                    
+                    async def delete_branch_atomically(session):
+                        """Delete branch atomically within session lock."""
+                        logger.debug(f"🗑️  DEBUG: Branch delete requested - branch_id: '{branch_id}'")
+                        logger.debug(f"🗑️  DEBUG: Available branches before delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                        success, message = session.branch_manager.delete_branch(branch_id)
+                        logger.debug(f"🗑️  DEBUG: Branch delete result - success: {success}, message: '{message}'")
+                        logger.debug(f"🗑️  DEBUG: Available branches after delete: {[b['id'] for b in session.branch_manager.list_branches()]}")
+                        return success, message, session
+                    
+                    # Execute branch deletion atomically
+                    success, message, session = await self.execute_session_operation(session_id, delete_branch_atomically)
 
                     return web.json_response(
                         {
@@ -1681,13 +1696,31 @@ class OumiWebServer(OpenAICompatibleServer):
                 return web.json_response({"error": str(e)}, status=500)
 
     async def handle_sync_conversation_api(self, request: web.Request) -> web.Response:
-        """Handle syncing conversation from frontend to backend session and branch."""
+        """Sync conversation from the frontend to a specific session/branch.
+
+        Requires a valid `session_id` in the POST body. Previously this endpoint
+        implicitly defaulted to the "default" session when `session_id` was
+        omitted; that behavior is no longer supported to avoid cross-session
+        state leaks. If you intend to target a specific session, pass it
+        explicitly (e.g., {"session_id": "session_..."}).
+        """
         try:
             data = await request.json()
         except Exception:
             return web.json_response({"error": "Invalid JSON"}, status=400)
 
-        session_id = data.get("session_id", "default")
+        session_id = data.get("session_id")
+        if not session_id:
+            logger.warning(
+                "sync_conversation called without session_id; rejecting with 400 (legacy implicit 'default' removed)"
+            )
+            return web.json_response(
+                {
+                    "error": "session_id is required",
+                    "hint": "Pass the intended session_id explicitly. Previous implicit 'default' fallback has been removed.",
+                },
+                status=400,
+            )
         conversation = data.get("conversation", [])
         branch_id = data.get("branch_id")  # Optional target branch ID
 
